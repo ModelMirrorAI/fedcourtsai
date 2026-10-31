@@ -863,7 +863,13 @@ petitions from the federal courts of appeals, withheld from cells
 ([document-provisioning.md](document-provisioning.md)). Those two steps alone in
 the live job hold the CourtListener token, and both are `continue-on-error`: a
 failed or slow enrichment never fails the live pull, whose facts the push and
-commit carry either way. run-seed also runs eleven
+commit carry either way. The **pull** job runs one more CourtListener step after
+`pull-all`, `watchlist-refresh --once-a-day`: the AI watchlist's lower-court
+dockets, facts only, on their own share, taken by the day's first pull window
+that runs (later windows and same-day dispatches skip it). It is
+`continue-on-error` with a step timeout, so a failed or slow refresh never costs
+the window what `pull-all` wrote, and the window's summary carries the step's
+outcome and the dockets refreshed, failed and deferred. run-seed also runs eleven
 maintenance sweeps, each gated to one window a day and each converging rather
 than one-shot — a re-run over an unchanged corpus does nothing. In order: the
 **live-duplicate dedupe** (`fedcourts dedupe-live-rows`), which merges and drops

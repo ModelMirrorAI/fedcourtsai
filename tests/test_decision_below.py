@@ -747,7 +747,7 @@ def test_command_matches_a_named_scotus_number(monkeypatch: pytest.MonkeyPatch) 
     upstream = _matched_upstream()
     monkeypatch.setenv("FEDCOURTS_COURTLISTENER_API_TOKEN", "test-token")
     monkeypatch.setattr(cli_module, "SupremeCourtClient", _Court)
-    monkeypatch.setattr(cli_module, "_client", lambda: _client(upstream))
+    monkeypatch.setattr(cli_module, "_client", lambda _lane: _client(upstream))
     result = CliRunner().invoke(cli_module.app, ["decision-below", "--docket", "25-100"])
     assert result.exit_code == 0, result.output
     assert "1 of 1 matched" in result.output
@@ -978,7 +978,7 @@ def test_the_fill_command_stores_a_named_case(
     monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(root))
     monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(tmp_path / "data"))
     monkeypatch.setenv("FEDCOURTS_COURTLISTENER_API_TOKEN", "test-token")
-    monkeypatch.setattr(cli_module, "_client", lambda: _client(_matched_upstream()))
+    monkeypatch.setattr(cli_module, "_client", lambda _lane: _client(_matched_upstream()))
     result = CliRunner().invoke(
         cli_module.app, ["enrich-decision-below", "--apply", "--case", "scotus/1"]
     )

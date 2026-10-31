@@ -236,12 +236,18 @@ class CourtListenerClient:
         return self._get("dockets/", {"court": court, key: docket_number})
 
     def list_docket_entries(
-        self, docket_id: int, *, date_filed_gte: date | None = None
+        self,
+        docket_id: int,
+        *,
+        date_filed_gte: date | None = None,
+        date_modified_gte: date | None = None,
     ) -> JsonDict:
         """The first page of a docket's entries (the timeline of filings and orders).
 
         ``date_filed_gte`` narrows it to entries filed on or after a date, so a
         caller reading only what followed a judgment pays for nothing before it.
+        ``date_modified_gte`` narrows it to entries added or changed on or after a
+        date, so a caller holding an earlier read pays only for what moved since.
         The endpoint is cursor-paginated: a ``page`` number is ignored upstream,
         and only the ``next`` link reaches the following page
         (:meth:`docket_entries` follows it).
@@ -249,6 +255,8 @@ class CourtListenerClient:
         params: JsonDict = {"docket": docket_id}
         if date_filed_gte is not None:
             params["date_filed__gte"] = date_filed_gte.isoformat()
+        if date_modified_gte is not None:
+            params["date_modified__gte"] = date_modified_gte.isoformat()
         return self._get("docket-entries/", params)
 
     def docket_entries(
@@ -257,6 +265,7 @@ class CourtListenerClient:
         *,
         max_pages: int,
         date_filed_gte: date | None = None,
+        date_modified_gte: date | None = None,
         on_request: Callable[[], None] | None = None,
     ) -> EntryPages:
         """Read up to ``max_pages`` pages of a docket's entries, following the cursor.
@@ -274,9 +283,13 @@ class CourtListenerClient:
         asked = {"docket": str(docket_id)}
         if date_filed_gte is not None:
             asked["date_filed__gte"] = date_filed_gte.isoformat()
+        if date_modified_gte is not None:
+            asked["date_modified__gte"] = date_modified_gte.isoformat()
         if on_request is not None:
             on_request()
-        payload = self.list_docket_entries(docket_id, date_filed_gte=date_filed_gte)
+        payload = self.list_docket_entries(
+            docket_id, date_filed_gte=date_filed_gte, date_modified_gte=date_modified_gte
+        )
         entries: list[JsonDict] = list(payload.get("results", []))
         pages = 1
         while (next_url := payload.get("next")) and pages < max_pages:

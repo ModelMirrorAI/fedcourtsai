@@ -329,6 +329,110 @@ def load_pull_config(config_root: Path) -> PullConfig:
     return PullConfig.model_validate((data or {}).get("pull", {}))
 
 
+class WatchlistRefreshConfig(BaseModel):
+    """The ``watchlist_refresh`` section of ``tracking.yaml``: the AI watchlist's own pass.
+
+    ``watchlist-refresh`` keeps the dockets ``config/ai-watchlist.yaml`` names
+    current, apart from the SCOTUS rotation and on its own CourtListener lane.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    # Most pages of entries (twenty a page) one full read of a docket may take.
+    # Sized above the longest listed docket, so a full read of each completes.
+    max_entry_pages: int = Field(default=150, ge=1)
+    # Days before the last refresh an incremental read reaches back. At least
+    # one: ``last_pulled`` is a UTC date, while upstream reads a bare date as
+    # midnight in its own (Pacific) zone, so a zero overlap would skip what
+    # changed between the last refresh and that midnight.
+    overlap_days: int = Field(default=2, ge=1)
+    # Each docket is read whole once in this many days, on a day its id picks,
+    # which catches what an incremental read cannot: a deleted entry, or a
+    # document attached without moving its entry's modification time.
+    full_read_every_days: int = Field(default=7, ge=1)
+    # Wall-clock budget for one run, in minutes, checked between dockets. The
+    # step runs in the pull job after pull-all, so this and
+    # `pull.max_run_minutes` together stay under the job's timeout.
+    max_run_minutes: float = Field(default=10.0, gt=0)
+    # Stop after this many transient upstream failures (timeouts, 5xx, 429) in a
+    # row, deferring the rest: the upstream is degraded.
+    max_consecutive_transient_failures: int = Field(default=3, ge=1)
+
+
+def load_watchlist_refresh_config(config_root: Path) -> WatchlistRefreshConfig:
+    """Read ``watchlist_refresh`` from ``config_root/tracking.yaml``; absent, the defaults."""
+    path = config_root / TRACKING_FILENAME
+    data = yaml.safe_load(path.read_text()) if path.exists() else {}
+    return WatchlistRefreshConfig.model_validate((data or {}).get("watchlist_refresh", {}))
+
+
+class CourtListenerLane(BaseModel):
+    """One lane's fixed share of the CourtListener account's daily requests."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    # Most requests one run of the lane may send. An enforced lane's client
+    # stops at it (`RateBudgetExceeded`), whatever the tier's own ceilings.
+    per_run: int = Field(gt=0)
+    # How many scheduled runs a day the share is sized for.
+    runs_per_day: int = Field(default=1, gt=0)
+    # A maintainer's dispatch rather than a schedule. Dispatched lanes share
+    # one slot: at most one of them runs on a day, so the day reserves the
+    # largest dispatched run rather than every one.
+    dispatched: bool = False
+    # False for a spender this package's client does not carry (the agent cells'
+    # MCP server, interactive sessions): its share is reserved, not enforced.
+    enforced: bool = True
+
+    @property
+    def per_day(self) -> int:
+        """The lane's daily share: its run cap times its runs a day."""
+        return self.per_run * self.runs_per_day
+
+
+class CourtListenerBudget(BaseModel):
+    """The ``courtlistener_budget`` section of ``tracking.yaml``: each lane's share.
+
+    The account's ceilings are per token, and each process's limiter counts only
+    its own requests, so the lanes share the account by a fixed split: the
+    scheduled lanes' run caps times their runs a day, plus the largest
+    dispatched run, stay under the account's daily ceiling.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    account_per_day: int = Field(gt=0)
+    lanes: dict[str, CourtListenerLane] = Field(min_length=1)
+
+    @property
+    def reserved_per_day(self) -> int:
+        """What one day can spend: every scheduled share plus the largest dispatched run."""
+        scheduled = sum(lane.per_day for lane in self.lanes.values() if not lane.dispatched)
+        dispatched = [lane.per_run for lane in self.lanes.values() if lane.dispatched]
+        return scheduled + max(dispatched, default=0)
+
+    @model_validator(mode="after")
+    def _fits_the_account(self) -> Self:
+        if self.reserved_per_day > self.account_per_day:
+            raise ValueError(
+                f"lane shares reserve {self.reserved_per_day} a day, "
+                f"over the account's {self.account_per_day}"
+            )
+        return self
+
+    def lane(self, name: str) -> CourtListenerLane:
+        """The named lane's share; an unknown lane is an error, never an unbounded client."""
+        if name not in self.lanes:
+            raise KeyError(f"no CourtListener lane {name!r} in {TRACKING_FILENAME}")
+        return self.lanes[name]
+
+
+def load_courtlistener_budget(config_root: Path) -> CourtListenerBudget:
+    """Read ``courtlistener_budget`` from ``config_root/tracking.yaml``; it must be present."""
+    data = yaml.safe_load((config_root / TRACKING_FILENAME).read_text()) or {}
+    return CourtListenerBudget.model_validate(data["courtlistener_budget"])
+
+
 class LiveConfig(BaseModel):
     """The ``live:`` section of ``tracking.yaml`` — the SCOTUS live channel.
 

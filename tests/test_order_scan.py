@@ -400,7 +400,7 @@ def test_entries_with_no_ids_are_each_kept() -> None:
 def test_cli_exits_one_on_a_refused_credential(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("FEDCOURTS_COURTLISTENER_API_TOKEN", "test-token")
     monkeypatch.setattr(
-        "fedcourtsai.cli._client", lambda: _client(lambda request: httpx.Response(401))
+        "fedcourtsai.cli._client", lambda _lane: _client(lambda request: httpx.Response(401))
     )
     result = CliRunner().invoke(app, ["order-scan", "--max-requests", "5"])
     assert result.exit_code == 1
@@ -511,7 +511,7 @@ def test_cli_resumes_from_a_report_file(monkeypatch: pytest.MonkeyPatch, tmp_pat
     )
     path = tmp_path / "prior.json"
     path.write_text(prior.model_dump_json())
-    monkeypatch.setattr("fedcourtsai.cli._client", lambda: _client(_paged(1)))
+    monkeypatch.setattr("fedcourtsai.cli._client", lambda _lane: _client(_paged(1)))
     result = CliRunner().invoke(app, ["order-scan", "--max-requests", "1", "--resume", str(path)])
     assert result.exit_code == 0, result.output
     assert '"run": 5' in result.output

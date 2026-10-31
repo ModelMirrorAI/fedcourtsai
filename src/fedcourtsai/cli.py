@@ -89,6 +89,7 @@ from . import (
 from .agent_feedback import issue_bodies, open_issue_once, post_agent_feedback, post_once
 from .agent_flags import CellCoordinates, coordinates_from_path, normalise_flags
 from .agent_tooling import normalise_tooling
+from .ai_watchlist import AI_WATCHLIST_FILENAME, load_ai_watchlist, tagged_case_ids
 from .application_migration import (
     MOTION_BASELINE_EVENT_ID,
     relabel_application_baseline_events,
@@ -158,6 +159,7 @@ from .config import (
     PredictScope,
     Settings,
     get_settings,
+    load_courtlistener_budget,
     load_courts,
     load_evaluate_config,
     load_historical_config,
@@ -168,8 +170,14 @@ from .config import (
     load_spend_config,
     load_statpack_config,
     load_summaries_config,
+    load_watchlist_refresh_config,
 )
-from .courtlistener import CourtListenerClient, default_rate_limiter
+from .courtlistener import (
+    CourtListenerClient,
+    EntryPageCapExceeded,
+    RateBudgetExceeded,
+    default_rate_limiter,
+)
 from .dataset_export import (
     BuildContext,
     ExportError,
@@ -291,6 +299,7 @@ from .pipeline import (
     semantic,
     vide_links,
     vote_sources,
+    watchlist_refresh,
 )
 from .pipeline.amicus_rederive import AmicusRederiveResult, rederive_amicus_briefs
 from .pipeline.application_topics import (
@@ -655,8 +664,15 @@ def _main(
     """Predict events in US federal courts."""
 
 
-def _client() -> CourtListenerClient:
+def _client(lane: str) -> CourtListenerClient:
+    """A CourtListener client held to the tier's ceilings and to ``lane``'s run cap.
+
+    The lane's share (``courtlistener_budget`` in ``tracking.yaml``) narrows the
+    daily window to one run's cap: a process counts only its own requests, so the
+    cap is what keeps the lanes' runs together under the account's ceiling.
+    """
     s = get_settings()
+    share = load_courtlistener_budget(s.config_root).lane(lane)
     return CourtListenerClient(
         base_url=s.courtlistener_base_url,
         api_token=s.courtlistener_api_token,
@@ -664,7 +680,7 @@ def _client() -> CourtListenerClient:
         rate_limiter=default_rate_limiter(
             s.courtlistener_rpm,
             s.courtlistener_rph,
-            s.courtlistener_rpd,
+            min(s.courtlistener_rpd, share.per_run),
             max_wait=s.courtlistener_max_wait,
         ),
     )
@@ -749,6 +765,7 @@ def validate_corpus_cmd(
         today=as_of,
         baseline_count=baseline_count,
         tracked_courts=load_courts(settings.config_root),
+        admitted_case_ids=_watchlist_case_ids(settings),
     )
     destination = out if out is not None else settings.metrics_root / "corpus-validation.json"
     write_json(destination, verdict)
@@ -4174,7 +4191,10 @@ def enrich_opinions_cmd(
             err=True,
         )
         raise typer.Exit(code=1)
-    with corpus.connect_maintenance(db_path, apply=apply) as conn, _client() as client:
+    with (
+        corpus.connect_maintenance(db_path, apply=apply) as conn,
+        _client("opinion-hold" if awaiting_grading else "opinion-walk") as client,
+    ):
         result = enrich_opinions(
             conn,
             client,
@@ -15192,8 +15212,13 @@ def _fetch_one_docket(court: str, docket: int) -> None:
     """Fetch one docket via REST and ingest it into the corpus (onboard/refresh)."""
     settings = get_settings()
     db = corpus.corpus_db_path(settings.corpus_root)
-    with _client() as client:
-        result = pull_case(client, db, settings.data_root, court, docket)
+    try:
+        with _client("fetch") as client:
+            result = pull_case(client, db, settings.data_root, court, docket)
+    except (RateBudgetExceeded, EntryPageCapExceeded) as exc:
+        # Nothing is written when the read stops short: report and fail cleanly.
+        typer.echo(f"{court}/{docket}: not fetched: {exc}", err=True)
+        raise typer.Exit(1) from exc
     _ensure_corpus_layout(db)
     typer.echo(
         f"{result.case_id} changed={result.changed} snapshot={result.snapshot} "
@@ -15214,6 +15239,99 @@ def pull(
     should run). The first pull of a docket onboards it.
     """
     _fetch_one_docket(court, docket)
+
+
+def _watchlist_case_ids(settings: Settings) -> frozenset[str]:
+    """The AI watchlist's dockets, which ``watchlist-refresh`` owns; none without the file."""
+    path = settings.config_root / AI_WATCHLIST_FILENAME
+    return tagged_case_ids(load_ai_watchlist(path)) if path.exists() else frozenset()
+
+
+@app.command("watchlist-refresh")
+def watchlist_refresh_cmd(
+    dry_run: Annotated[
+        bool,
+        typer.Option(
+            "--dry-run",
+            help="Print the plan (each docket's read mode and date) and stop: no "
+            "CourtListener request, no corpus write. Reads the corpus only.",
+        ),
+    ] = False,
+    report: Annotated[
+        Path | None,
+        typer.Option(help="Also write the run's report (refreshed, failed, deferred) as JSON."),
+    ] = None,
+    once_a_day: Annotated[
+        bool,
+        typer.Option(
+            "--once-a-day",
+            help="Do nothing when a listed docket was already refreshed today (UTC): the "
+            "lane's share is sized for one run a day, so the scheduled windows after the "
+            "first, and a dispatch the same day, spend nothing.",
+        ),
+    ] = False,
+) -> None:
+    """Keep the AI watchlist's dockets current in the corpus, facts only.
+
+    Refreshes every docket ``config/ai-watchlist.yaml`` names on the
+    ``watchlist`` lane's share: a snapshot when the docket changed and a
+    ``cases`` row stamped ``last_pulled``, and no events, outcomes or queues.
+    Incremental reads (entries changed since the last refresh) go first, then
+    whole reads: onboarding a docket, which spreads the list over several runs,
+    and a weekly re-read where the share left covers it. Stops at a wall-clock
+    budget or a run of transient failures, deferring the rest. Exits 1 when any
+    docket failed, so a docket past the page cap is seen.
+    """
+    settings = get_settings()
+    cfg = load_watchlist_refresh_config(settings.config_root)
+    watchlist = load_ai_watchlist(settings.config_root / AI_WATCHLIST_FILENAME)
+    dockets = [pair for case in watchlist.cases for pair in case.dockets()]
+    today = datetime.now(UTC).date()
+    db = corpus.corpus_db_path(settings.corpus_root)
+    with corpus.connect_readonly(db, backend=settings.corpus_backend) as conn:
+        plan = watchlist_refresh.plan_refresh(
+            conn,
+            dockets,
+            today=today,
+            overlap_days=cfg.overlap_days,
+            full_read_every_days=cfg.full_read_every_days,
+        )
+    for p in plan:
+        since = f" since {p.since}" if p.since else ""
+        typer.echo(f"{p.case_id}\t{p.mode.value}{since}\tlast_pulled={p.last_pulled or '-'}")
+    if once_a_day and watchlist_refresh.refreshed_on(plan, today):
+        typer.echo(f"watchlist-refresh: already ran on {today}; the share is one run a day")
+        return
+    if dry_run:
+        typer.echo(f"watchlist-refresh: dry run, {len(plan)} docket(s) planned, nothing read")
+        return
+    share = load_courtlistener_budget(settings.config_root).lane("watchlist").per_run
+    deadline = time.monotonic() + cfg.max_run_minutes * 60
+    with _client("watchlist") as client:
+        result = watchlist_refresh.refresh_watchlist(
+            client,
+            db,
+            plan,
+            max_entry_pages=cfg.max_entry_pages,
+            today=today,
+            share=share,
+            deadline=deadline,
+            max_consecutive_transient_failures=cfg.max_consecutive_transient_failures,
+        )
+    _ensure_corpus_layout(db)
+    if report is not None:
+        write_raw_json(report, result.as_json())
+    changed = sum(1 for r in result.refreshed if r.changed)
+    stopped = f"; stopped: {result.stop_reason}" if result.stop_reason else ""
+    typer.echo(
+        f"watchlist-refresh: refreshed {len(result.refreshed)}/{len(plan)} "
+        f"({changed} changed), failed {len(result.failed)}, "
+        f"deferred {len(result.deferred)}{stopped}"
+    )
+    for case_id, reason in sorted(result.failed.items()):
+        typer.echo(f"  failed {case_id}: {reason}", err=True)
+    if result.failed:
+        raise typer.Exit(1)
 
 
 @app.command("probe-live-terms")
@@ -15478,7 +15596,7 @@ def decision_below_command(
         raise typer.Exit(code=2)
     inputs = _decision_below_corpus_inputs(case_ids, sample)
     inputs.extend(_decision_below_docket_inputs(serials))
-    with _client() as client:
+    with _client("decision-below") as client:
         report = decision_below.match_cases(client, inputs)
     typer.echo(report.model_dump_json(indent=2))
     counts = ", ".join(f"{n} {status}" for status, n in sorted(report.counts.items()))
@@ -15558,7 +15676,10 @@ def enrich_decision_below_command(
         raise typer.Exit(code=1)
     today = datetime.now(UTC).date()
     char_cap = load_live_config(settings.config_root).document_text_cap
-    with corpus.connect_maintenance(db_path, apply=apply) as conn, _client() as client:
+    with (
+        corpus.connect_maintenance(db_path, apply=apply) as conn,
+        _client("decision-below-fill" if apply else "decision-below") as client,
+    ):
         settled: list[str] = []
         if case_ids:
             rows: list[corpus.CorpusRow] = []
@@ -15685,7 +15806,7 @@ def order_scan_command(
         except (OSError, ValueError) as exc:
             typer.echo(f"order-scan: cannot read --resume {resume}: {exc}", err=True)
             raise typer.Exit(code=2) from exc
-    with _client() as client:
+    with _client("order-scan") as client:
         report = order_scan.scan(client, scan_config, max_requests=cap, prior=prior)
     typer.echo(report.model_dump_json(indent=2))
     for line in order_scan.summary_lines(report):
@@ -20405,7 +20526,7 @@ def pull_all(
     cap = pull_cfg.max_cases_per_run if limit is None else min(limit, pull_cfg.max_cases_per_run)
     deadline = time.monotonic() + pull_cfg.max_run_minutes * 60
     db = corpus.corpus_db_path(settings.corpus_root)
-    with _client() as client:
+    with _client("pull") as client:
         if pull_cfg.discover_new_filings:
             disc = discover_cases(
                 client,
@@ -20426,6 +20547,7 @@ def pull_all(
             limit=cap,
             skip_closed=pull_cfg.skip_closed,
             eligible_reserve=pull_cfg.eligible_refresh_reserve,
+            exclude=_watchlist_case_ids(settings),
         )
         queues = pull_cases(
             client,
@@ -20903,7 +21025,7 @@ def discover(
     )
     start = date.fromisoformat(since) if since else date.today()
     db = corpus.corpus_db_path(settings.corpus_root)
-    with _client() as client:
+    with _client("pull") as client:
         result = discover_cases(client, db, courts, max_new=cap, default_since=start)
     for cd in result.courts:
         typer.echo(f"{cd.court}\tonboarded={cd.onboarded}\twatermark={cd.watermark}")

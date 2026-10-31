@@ -1,10 +1,10 @@
 {
-  "cases": 339,
+  "cases": 342,
   "cases_out_of_scope": 0,
   "cases_without_score": 1,
   "coverage": [
     {
-      "cases": 306,
+      "cases": 309,
       "n": 3
     },
     {
@@ -16,7 +16,7 @@
       "n": 1
     }
   ],
-  "current_reads": 1015,
+  "current_reads": 1024,
   "declared_no_view": 22,
   "frozen_process": {
     "digests": [
@@ -24886,6 +24886,173 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Thomas Douglas Arthur",
+      "caption": "Thomas Douglas Arthur v. Alabama",
+      "caption_event_id": "evt-brief-response-disposition",
+      "case_id": "scotus/72406996",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Single capital execution, but the linked petition (16-595) raises a Hurst-based challenge to Alabama's judicial-override sentencing that reaches other Alabama death sentences.",
+          "big_case_score": 0.3,
+          "event_id": "evt-brief-response-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261030T230229Z"
+        },
+        {
+          "big_case_rationale": "An execution stay has irreversible individual stakes, but the docket alone establishes no broader doctrinal question.",
+          "big_case_score": 0.55,
+          "event_id": "evt-brief-response-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261030T230229Z"
+        },
+        {
+          "big_case_rationale": "Capital execution-eve stay application challenging Alabama's judicial-override death-sentencing scheme under Hurst v. Florida on an eighth successive state postconviction petition, paired with a parallel method-of-execution stay request.",
+          "big_case_score": 0.55,
+          "event_id": "evt-brief-response-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261030T230229Z"
+        }
+      ],
+      "docket_id": 72406996,
+      "docket_number": null,
+      "docket_number_source": null,
+      "docket_url": null,
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-brief-response-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Single capital execution, but the linked petition (16-595) raises a Hurst-based challenge to Alabama's judicial-override sentencing that reaches other Alabama death sentences.",
+              "big_case_score": 0.3,
+              "cell_path": "data/cases/scotus/72406996/events/evt-brief-response-disposition/predictions/claude-baseline/20261030T230229Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/72406996/events/evt-brief-response-disposition/predictions/claude-baseline/20261030T230229Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.25,
+              "run_id": "20261030T230229Z"
+            },
+            {
+              "big_case_rationale": "An execution stay has irreversible individual stakes, but the docket alone establishes no broader doctrinal question.",
+              "big_case_score": 0.55,
+              "cell_path": "data/cases/scotus/72406996/events/evt-brief-response-disposition/predictions/codex-baseline/20261030T230229Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/72406996/events/evt-brief-response-disposition/predictions/codex-baseline/20261030T230229Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.16,
+              "run_id": "20261030T230229Z"
+            },
+            {
+              "big_case_rationale": "Capital execution-eve stay application challenging Alabama's judicial-override death-sentencing scheme under Hurst v. Florida on an eighth successive state postconviction petition, paired with a parallel method-of-execution stay request.",
+              "big_case_score": 0.55,
+              "cell_path": "data/cases/scotus/72406996/events/evt-brief-response-disposition/predictions/gemini-baseline/20261030T230229Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/72406996/events/evt-brief-response-disposition/predictions/gemini-baseline/20261030T230229Z",
+              "confidence": 0.65,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.28,
+              "run_id": "20261030T230229Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Thomas Douglas Arthur v. Alabama"
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-motion-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A single capital execution-day stay, but tied to a live post-Hurst challenge to Alabama's judicial-override sentencing scheme (linked cert petition 16-595), which reaches many Alabama death sentences.",
+              "big_case_score": 0.35,
+              "cell_path": "data/cases/scotus/72406996/events/evt-motion-disposition/predictions/claude-baseline/20261030T230229Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/72406996/events/evt-motion-disposition/predictions/claude-baseline/20261030T230229Z",
+              "confidence": 0.6,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.2,
+              "run_id": "20261030T230229Z"
+            },
+            {
+              "big_case_rationale": "A requested stay of execution has irreversible individual stakes, but the application and linked petition are unavailable, so a broader doctrinal or national consequence cannot be established.",
+              "big_case_score": 0.55,
+              "cell_path": "data/cases/scotus/72406996/events/evt-motion-disposition/predictions/codex-baseline/20261030T230229Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/72406996/events/evt-motion-disposition/predictions/codex-baseline/20261030T230229Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.2,
+              "run_id": "20261030T230229Z"
+            },
+            {
+              "big_case_rationale": "Capital stay application arising from long-running Alabama execution litigation (Thomas Douglas Arthur), though overshadowed by the companion federal method-of-execution stay application (16A451/16-602).",
+              "big_case_score": 0.35,
+              "cell_path": "data/cases/scotus/72406996/events/evt-motion-disposition/predictions/gemini-baseline/20261030T230229Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/72406996/events/evt-motion-disposition/predictions/gemini-baseline/20261030T230229Z",
+              "confidence": 0.78,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.14,
+              "run_id": "20261030T230229Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Thomas Douglas Arthur v. Alabama"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.4667,
+      "moment": "evt-brief-response-disposition",
+      "moment_opened_at": "2016-11-03",
+      "n": 3,
+      "other_party": "Alabama",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "Thomas Douglas Arthur gets the relief requested for now, while the case continues in the lower courts.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Thomas Douglas Arthur does not get the relief requested for now, and things stay as the lower courts left them while the case continues.",
+          "side": "not-granted"
+        }
+      ],
+      "scheduled": null,
+      "score_max": 0.55,
+      "score_min": 0.3,
+      "score_range": 0.25,
+      "short_caption": "Thomas Douglas Arthur v. Alabama",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Ramesh Sunny Balwani",
       "caption": "Ramesh Sunny Balwani v. United States",
       "caption_event_id": "evt-petition-disposition",
@@ -35516,6 +35683,159 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Steven Lynn Long",
+      "caption": "Steven Lynn Long v. Lorie Davis, Director, Texas Department of Criminal Justice, Correctional Institutions Division",
+      "caption_event_id": "evt-brief-response-disposition",
+      "case_id": "scotus/72408073",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Routine Texas capital stay application tied to a pending IFP cert petition from CA5 federal habeas; grave for the applicant but no sign of broad legal significance in the record provided.",
+          "big_case_score": 0.1,
+          "event_id": "evt-brief-response-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261030T230229Z"
+        },
+        {
+          "big_case_rationale": "A request to prevent an execution has exceptionally high personal stakes, but the available record identifies no question with demonstrated broader doctrinal or institutional reach.",
+          "big_case_score": 0.45,
+          "event_id": "evt-brief-response-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261030T230229Z"
+        },
+        {
+          "big_case_rationale": "Capital stay application tied to a Fifth Circuit Atkins intellectual-disability COA denial and an intervening decision (Moore v. Texas), but resting primarily on case-specific malingering findings under AEDPA.",
+          "big_case_score": 0.25,
+          "event_id": "evt-brief-response-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261030T230229Z"
+        }
+      ],
+      "docket_id": 72408073,
+      "docket_number": null,
+      "docket_number_source": null,
+      "docket_url": null,
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-brief-response-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Routine Texas capital stay application tied to a pending IFP cert petition from CA5 federal habeas; grave for the applicant but no sign of broad legal significance in the record provided.",
+              "big_case_score": 0.1,
+              "cell_path": "data/cases/scotus/72408073/events/evt-brief-response-disposition/predictions/claude-baseline/20261030T230229Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/72408073/events/evt-brief-response-disposition/predictions/claude-baseline/20261030T230229Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.04,
+              "run_id": "20261030T230229Z"
+            },
+            {
+              "big_case_rationale": "A request to prevent an execution has exceptionally high personal stakes, but the available record identifies no question with demonstrated broader doctrinal or institutional reach.",
+              "big_case_score": 0.45,
+              "cell_path": "data/cases/scotus/72408073/events/evt-brief-response-disposition/predictions/codex-baseline/20261030T230229Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/72408073/events/evt-brief-response-disposition/predictions/codex-baseline/20261030T230229Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.08,
+              "run_id": "20261030T230229Z"
+            },
+            {
+              "big_case_rationale": "Capital stay application tied to a Fifth Circuit Atkins intellectual-disability COA denial and an intervening decision (Moore v. Texas), but resting primarily on case-specific malingering findings under AEDPA.",
+              "big_case_score": 0.25,
+              "cell_path": "data/cases/scotus/72408073/events/evt-brief-response-disposition/predictions/gemini-baseline/20261030T230229Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/72408073/events/evt-brief-response-disposition/predictions/gemini-baseline/20261030T230229Z",
+              "confidence": 0.72,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.12,
+              "run_id": "20261030T230229Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Steven Lynn Long v. Lorie Davis, Director, Texas Department of Criminal Justice, Correctional Institutions Division"
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-motion-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Individual capital federal-habeas stay out of the Fifth Circuit. The stakes are grave for the applicant, but there is no sign of a broad doctrinal question or national attention.",
+              "big_case_score": 0.12,
+              "cell_path": "data/cases/scotus/72408073/events/evt-motion-disposition/predictions/claude-baseline/20261030T230229Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/72408073/events/evt-motion-disposition/predictions/claude-baseline/20261030T230229Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.03,
+              "run_id": "20261030T230229Z"
+            },
+            {
+              "big_case_rationale": "An execution stay has irreversible individual stakes, but the provisioned record identifies no legal issue with demonstrated systemic reach.",
+              "big_case_score": 0.45,
+              "cell_path": "data/cases/scotus/72408073/events/evt-motion-disposition/predictions/codex-baseline/20261030T230229Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/72408073/events/evt-motion-disposition/predictions/codex-baseline/20261030T230229Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.08,
+              "run_id": "20261030T230229Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Steven Lynn Long v. Lorie Davis, Director, Texas Department of Criminal Justice, Correctional Institutions Division"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.2667,
+      "moment": "evt-brief-response-disposition",
+      "moment_opened_at": "2017-08-10",
+      "n": 3,
+      "other_party": "Davis",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "Steven Lynn Long gets the relief requested for now, while the case continues in the lower courts.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Steven Lynn Long does not get the relief requested for now, and things stay as the lower courts left them while the case continues.",
+          "side": "not-granted"
+        }
+      ],
+      "scheduled": null,
+      "score_max": 0.45,
+      "score_min": 0.1,
+      "score_range": 0.35,
+      "short_caption": "Steven Lynn Long v. Davis",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Casarez",
       "caption": "Christina Casarez v. Irigoyen Farms, Inc., et al.",
       "caption_event_id": "evt-order-call-for-response-disposition",
@@ -41864,6 +42184,112 @@
       "status": "pending"
     },
     {
+      "asking_declined": "short_form",
+      "asking_party": null,
+      "caption": "James C. \"Chris\" McNeil, et al. v. Court of Common Pleas of South Carolina, Ninth Judicial Circuit, Charleston County",
+      "caption_event_id": "evt-petition-arrival-disposition",
+      "case_id": "scotus/9026000562",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Pro se challenge to one county's attorney-only e-filing access, arising from a state supreme court's refusal to entertain mandamus; narrow, local, interlocutory.",
+          "big_case_score": 0.03,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261030T230229Z"
+        },
+        {
+          "big_case_rationale": "A constitutional decision on unequal electronic filing and preservation of self-represented litigants' evidence could affect many state courts, although this petition arises from a narrow mandamus proceeding in a private civil dispute.",
+          "big_case_score": 0.35,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261030T230229Z"
+        },
+        {
+          "big_case_rationale": "Routine pro se state-court procedural dispute arising out of a residential security-deposit and landlord-tenant lawsuit dismissed under state Rule 11; minimal broader legal or public significance even if reached.",
+          "big_case_score": 0.02,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261030T230229Z"
+        }
+      ],
+      "docket_id": 9026000562,
+      "docket_number": "26-562",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-562.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-arrival-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Pro se challenge to one county's attorney-only e-filing access, arising from a state supreme court's refusal to entertain mandamus; narrow, local, interlocutory.",
+              "big_case_score": 0.03,
+              "cell_path": "data/cases/scotus/9026000562/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261030T230229Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000562/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261030T230229Z",
+              "confidence": 0.97,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.003,
+              "run_id": "20261030T230229Z"
+            },
+            {
+              "big_case_rationale": "A constitutional decision on unequal electronic filing and preservation of self-represented litigants' evidence could affect many state courts, although this petition arises from a narrow mandamus proceeding in a private civil dispute.",
+              "big_case_score": 0.35,
+              "cell_path": "data/cases/scotus/9026000562/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261030T230229Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000562/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261030T230229Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.003,
+              "run_id": "20261030T230229Z"
+            },
+            {
+              "big_case_rationale": "Routine pro se state-court procedural dispute arising out of a residential security-deposit and landlord-tenant lawsuit dismissed under state Rule 11; minimal broader legal or public significance even if reached.",
+              "big_case_score": 0.02,
+              "cell_path": "data/cases/scotus/9026000562/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261030T230229Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000562/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261030T230229Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.002,
+              "run_id": "20261030T230229Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "James C. \"Chris\" McNeil, et al. v. Court of Common Pleas of South Carolina, Ninth Judicial Circuit, Charleston County"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.1333,
+      "moment": "evt-petition-arrival-disposition",
+      "moment_opened_at": "2026-10-28",
+      "n": 3,
+      "other_party": null,
+      "outcome_lines": null,
+      "scheduled": null,
+      "score_max": 0.35,
+      "score_min": 0.02,
+      "score_range": 0.33,
+      "short_caption": null,
+      "status": "pending"
+    },
+    {
       "asking_declined": null,
       "asking_party": "White",
       "caption": "Alvin B. White, Individually and as Trustee for the White Revocable Living \r\nTrust dated January 6, 2010 v. U.S. Bank National Association, as Legal Title Trustee for Truman 2016 SC6 Title Trust",
@@ -47639,5 +48065,5 @@
   ],
   "rows_with_leakage_flag": 4,
   "schema_version": "1.3",
-  "scored_reads": 982
+  "scored_reads": 991
 }

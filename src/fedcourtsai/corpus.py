@@ -5183,27 +5183,33 @@ def _rotation_rows(
     limit: int,
     skip_closed: bool,
     only_scotus: bool = False,
+    exclude: frozenset[str] = frozenset(),
 ) -> list[CorpusRow]:
     """Stalest-first active cases: never-pulled first, then oldest ``last_pulled``.
 
     The shared query behind :func:`rotation_for_pull`. ``skip_closed`` drops cases
     carrying a realized ``disposition`` / ``date_decided`` (their outcome is known);
-    ``only_scotus`` further restricts to SCOTUS dockets (the prediction scope).
-    ``case_id`` breaks ties so the order is deterministic.
+    ``only_scotus`` further restricts to SCOTUS dockets (the prediction scope);
+    ``exclude`` drops the named case ids. ``case_id`` breaks ties so the order is
+    deterministic.
     """
     if limit <= 0:
         return []
     clauses: list[str] = []
+    params: list[object] = []
     if skip_closed:
         clauses.append("disposition IS NULL AND date_decided IS NULL")
     if only_scotus:
         clauses.append("court = 'scotus'")
+    if exclude:
+        clauses.append(f"case_id NOT IN ({', '.join('?' for _ in exclude)})")
+        params.extend(sorted(exclude))
     where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
     cur = conn.execute(
         f"SELECT * FROM cases{where} "
         "ORDER BY last_pulled IS NOT NULL, last_pulled ASC, case_id ASC "
         "LIMIT ?",
-        (limit,),
+        (*params, limit),
     )
     return [_from_record(record) for record in cur]
 
@@ -5214,6 +5220,7 @@ def rotation_for_pull(
     limit: int,
     skip_closed: bool = True,
     eligible_reserve: int = 0,
+    exclude: frozenset[str] = frozenset(),
 ) -> list[CorpusRow]:
     """The next ``limit`` cases ``pull`` should refresh, stalest first.
 
@@ -5235,6 +5242,10 @@ def rotation_for_pull(
     behind the much larger active set. Reserve slots the SCOTUS pool cannot fill
     fall through to the general rotation, so the reserve never wastes budget; a
     case picked by the reserve is not picked again by the general fill.
+
+    ``exclude`` names cases another pass owns, so this rotation never reads them:
+    the AI watchlist's dockets, which ``watchlist-refresh`` keeps current on its
+    own share and without event extraction.
     """
     if limit <= 0:
         return []
@@ -5242,14 +5253,18 @@ def rotation_for_pull(
     picked: list[CorpusRow] = []
     seen: set[str] = set()
     if reserve > 0:
-        for row in _rotation_rows(conn, limit=reserve, skip_closed=skip_closed, only_scotus=True):
+        for row in _rotation_rows(
+            conn, limit=reserve, skip_closed=skip_closed, only_scotus=True, exclude=exclude
+        ):
             picked.append(row)
             seen.add(row.case_id)
     remaining = limit - len(picked)
     if remaining > 0:
         # Over-fetch by the reserved count so dropping cases already taken by the
         # eligible reserve still leaves ``remaining`` distinct general cases.
-        for row in _rotation_rows(conn, limit=remaining + len(seen), skip_closed=skip_closed):
+        for row in _rotation_rows(
+            conn, limit=remaining + len(seen), skip_closed=skip_closed, exclude=exclude
+        ):
             if row.case_id in seen:
                 continue
             picked.append(row)

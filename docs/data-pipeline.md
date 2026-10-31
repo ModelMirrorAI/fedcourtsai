@@ -67,6 +67,39 @@ environment sets (`FEDCOURTS_COURTLISTENER_RPM` / `_RPH` / `_RPD`). At roughly
 **3 requests per docket** the budget is a few hundred dockets a day at most — and the
 supremecourt.gov live channel spends none of it.
 
+Each process's governor counts only its own requests, so the lanes that spend
+the account share it by a **fixed split** (`courtlistener_budget` in
+`config/tracking.yaml`): every lane has a per-run request cap. A scheduled lane
+also names the runs a day it is sized for; the dispatched lanes (a maintainer's
+one-off runs) share a single slot, so at most one of them runs on a day. The
+scheduled caps times their runs, plus the largest dispatched run, stay under
+the account's daily ceiling, which the config refuses to load without. Each CLI
+command that builds a client names its lane, and the client stops at that
+lane's run cap (`RateBudgetExceeded`). The split holds only while those
+assumptions do: a second dispatched run on the same day, or an extra run of a
+scheduled lane (a dispatched `run-pull` live run runs both full-window
+steps), spends past it. The agent cells' MCP server and interactive
+sessions hold shares too, set aside rather than enforced, since their requests
+do not pass through this client.
+
+The dockets `config/ai-watchlist.yaml` names are lower-court cases outside
+prediction scope, most of them in courts the corpus does not track, so the
+rotation leaves them out by name and `watchlist-refresh` keeps them current on
+its own `watchlist` share, sized for one run a day (the day's first run-pull
+pull window). It stores **facts only**: a dated snapshot when the docket changed and
+the `cases` row stamped `last_pulled`, with no event extraction, outcome
+detection or queue, since no moment is registered for a lower-court docket.
+Each run reads incrementally first, every docket refreshed before: the entries
+modified since its last refresh, less an overlap, merged by id into the stored
+docket, about two requests for a quiet one. Whole reads take what is left:
+onboarding a docket the corpus holds no snapshot of (each read whole or not at
+all, so onboarding the list spreads over several runs), and a weekly re-read on
+a day the docket id picks, which catches deletions and documents that did not
+move an entry's modification time, taken only where the share left covers the
+docket's stored length. Like pull, a run stops at a wall-clock budget or a run
+of transient failures and defers the rest. Corpus validation accepts these rows
+outside the tracked courts by name, and no other row of those courts.
+
 Because pull runs headless inside a CI job, budget pressure and a degraded
 upstream must **degrade a run, never hang it**. Three guards enforce that, all
 tuned in `config/tracking.yaml`: the throttle raises rather than sleep out an

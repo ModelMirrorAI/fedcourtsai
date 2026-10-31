@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000352",
+  "run_id": "20261031T010306Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "record/documents",
+    "record/same-question.json"
+  ],
+  "helpful": [
+    "record/documents/appendix.txt",
+    "record/documents/petition.txt",
+    "record/context.json",
+    "metrics/statpack.md"
+  ],
+  "gaps": [],
+  "notes": "Provisioned petition and appendix texts contained the complete W.D.N.C. Rule 12(b)(6) dismissal order and Fourth Circuit per curiam affirmance, providing all needed context alongside the frozen cert_anchor in context.json."
+}

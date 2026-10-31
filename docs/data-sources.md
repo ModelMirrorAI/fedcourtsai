@@ -733,7 +733,10 @@ The automated consumer stays within CourtListener's published API limits by desi
   (`FEDCOURTS_COURTLISTENER_RPM` / `_RPH` / `_RPD`, wired from repo variables
   to the held Free Law Project tier described below), with
   per-run caps in [`config/tracking.yaml`](../config/tracking.yaml) well under
-  them.
+  them. Every lane below spends the same account under its own fixed share
+  (`courtlistener_budget` there), its client stopping at the lane's run cap,
+  and the shares are sized to stay under the daily ceiling while the dispatched
+  lanes run at most one a day ([data-pipeline.md](data-pipeline.md)).
 - **Opinion enrichment shares that budget**, through the same client and the
   same configured ceilings; the `enrich-opinions` scope, its per-case request
   count, and the headroom arithmetic are owned by

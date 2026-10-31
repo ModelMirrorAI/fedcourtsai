@@ -794,7 +794,11 @@ def check_case_dates(conn: sqlite3.Connection, today: date) -> CorpusCheck:
     )
 
 
-def check_domain_values(conn: sqlite3.Connection, tracked_courts: list[str] | None) -> CorpusCheck:
+def check_domain_values(
+    conn: sqlite3.Connection,
+    tracked_courts: list[str] | None,
+    admitted_case_ids: frozenset[str] = frozenset(),
+) -> CorpusCheck:
     """Coded columns must hold values from their declared vocabulary.
 
     A case ``disposition`` (when set) must be a :class:`~fedcourtsai.schemas.Disposition`,
@@ -809,6 +813,9 @@ def check_domain_values(conn: sqlite3.Connection, tracked_courts: list[str] | No
     off-vocabulary value would latch as if it were a real reading. The
     tracked-court half is skipped
     when no court set is supplied, keeping the verdict a pure function of its inputs.
+    ``admitted_case_ids`` are cases admitted by name rather than by court (the AI
+    watchlist's dockets): their rows may sit in an untracked court, and no other
+    row of that court may.
     """
     checked = corpus.count(conn) + corpus.event_count(conn)
     problems: list[str] = []
@@ -843,10 +850,14 @@ def check_domain_values(conn: sqlite3.Connection, tracked_courts: list[str] | No
     if tracked_courts:
         courts = sorted(set(tracked_courts))
         court_ph = ", ".join("?" for _ in courts)
+        admitted = sorted(admitted_case_ids)
+        admitted_clause = (
+            f"AND case_id NOT IN ({', '.join('?' for _ in admitted)}) " if admitted else ""
+        )
         for r in conn.execute(
             f"SELECT case_id, court FROM cases WHERE court NOT IN ({court_ph}) "
-            f"ORDER BY case_id LIMIT ?",
-            (*courts, _MAX_PROBLEMS),
+            f"{admitted_clause}ORDER BY case_id LIMIT ?",
+            (*courts, *admitted, _MAX_PROBLEMS),
         ):
             problems.append(f"case {r['case_id']!r} is in untracked court {r['court']!r}")
         for r in conn.execute(
@@ -2061,6 +2072,7 @@ def _run_checks(
     today: date,
     baseline_count: int | None,
     tracked_courts: list[str] | None,
+    admitted_case_ids: frozenset[str],
 ) -> CorpusValidation:
     """Run every check against an open corpus and roll the results into a verdict."""
     checks = [
@@ -2071,7 +2083,7 @@ def _run_checks(
         check_snapshot_not_future(conn, today),
         check_stale_unparsed_grants(conn, today),
         check_case_dates(conn, today),
-        check_domain_values(conn, tracked_courts),
+        check_domain_values(conn, tracked_courts, admitted_case_ids),
         check_no_duplicates(conn),
         check_ledger_references(conn, data_root),
         # Corpus-dependent, so it stays off `run_ledger_referential_checks` —
@@ -2107,6 +2119,7 @@ def run_corpus_validation(
     today: date,
     baseline_count: int | None = None,
     tracked_courts: list[str] | None = None,
+    admitted_case_ids: frozenset[str] = frozenset(),
 ) -> CorpusValidation:
     """Validate the corpus + ledger and return the verdict (the CLI is a thin wrapper).
 
@@ -2114,7 +2127,8 @@ def run_corpus_validation(
     checks), so the command is safe to call before a corpus pull. If the file
     exists but does not open as a database, that is itself a failed integrity check
     rather than a crash. ``tracked_courts`` scopes the domain check; absent it, the
-    court-membership half is skipped.
+    court-membership half is skipped. ``admitted_case_ids`` are the cases admitted
+    by name outside those courts.
     """
     if not corpus_db_path.exists():
         return CorpusValidation(ok=True, skipped=True)
@@ -2126,6 +2140,7 @@ def run_corpus_validation(
                 today=today,
                 baseline_count=baseline_count,
                 tracked_courts=tracked_courts,
+                admitted_case_ids=admitted_case_ids,
             )
     except sqlite3.Error as exc:
         opens = _check(
