@@ -17,9 +17,11 @@ the same decisions. A **calibrated** variant applies a monotone transform of
 ``s`` (:func:`fit_calibration`, isotonic by pool-adjacent-violators, each
 block's rate Laplace-smoothed so no score maps to certainty).
 
-**Baseline 4, score votes.** Each Justice carries a fixed position ``x`` from
-a published ideal-point ordering (:class:`JusticePositions`, larger is more
-conservative), standardized over the participating bench (:func:`standardize`).
+**Baseline 4, score votes.** Each Justice carries a fixed position ``x`` on
+one ideological line (:class:`JusticePositions`, larger is more
+conservative; estimated from the merits lineups by
+:mod:`.alignment_positions`, or read from a file), standardized over the
+participating bench (:func:`standardize`).
 One spread parameter ``k`` maps ``s`` to each Justice's vote:
 
     P(Justice j votes for the conservative side) = sigmoid(logit(s) + k * z_j)
@@ -236,7 +238,7 @@ def brier(pairs: Iterable[tuple[float, bool]]) -> float | None:
 
 
 class PositionsRelease(BaseModel):
-    """One dated release of a published ideal-point ordering."""
+    """One dated release of a set of Justice positions."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -248,7 +250,7 @@ class PositionsRelease(BaseModel):
 
 
 class JusticePositions(BaseModel):
-    """A published ideal-point ordering, release by release.
+    """Justice positions on one ideological line, release by release.
 
     Releases are kept apart because a dynamic estimate is revised as later
     Terms are added: a release published after Term ``T`` opened may already
@@ -259,7 +261,7 @@ class JusticePositions(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    source: str = Field(min_length=1, description="The published ordering")
+    source: str = Field(min_length=1, description="Where the positions come from")
     releases: list[PositionsRelease] = Field(min_length=1)
 
     def prior_bench(self, term: int) -> dict[str, float] | None:
@@ -662,7 +664,7 @@ def score_readout(
     Out-of-sample fits read every earlier decided code and every earlier
     lineup handed in, not only those in the range, so the range chooses what
     is scored and never what is fitted on; the caller hands in every lineup
-    from the first coded decision Term.
+    from the first coded decision Term, and none earlier.
     """
     dropped = consolidated_duplicates(lineups, codes, judgments)
     outcomes = [c for c in outcome_cases(codes, judgments) if c.case_id not in dropped]

@@ -292,11 +292,22 @@ def test_the_cli_scores_baseline_three_without_positions(
     db.parent.mkdir(parents=True)
     with corpus.connect(db):
         pass
-    result = runner.invoke(app, ["alignment-score-baseline", "--first-term", "2023"])
+    result = runner.invoke(
+        app, ["alignment-score-baseline", "--first-term", "2023", "--outcome-only"]
+    )
     assert result.exit_code == 0, result.output
     readout = json.loads(result.stdout.strip().splitlines()[-1])
     assert readout["codes"] == 1
     assert readout["positions_source"] is None
+    estimated = runner.invoke(app, ["alignment-score-baseline", "--first-term", "2023"])
+    assert estimated.exit_code == 0, estimated.output
+    assert json.loads(estimated.stdout.strip().splitlines()[-1])["positions_source"].startswith(
+        "estimated"
+    )
+    both = runner.invoke(
+        app, ["alignment-score-baseline", "--outcome-only", "--positions", str(tmp_path)]
+    )
+    assert both.exit_code == 2
 
 
 def test_the_cli_refuses_a_missing_codes_file(
@@ -447,10 +458,24 @@ def test_the_cli_reads_lineups_from_the_first_coded_decision_term(
 
     monkeypatch.setattr(merits_lineups, "merits_lineups", fake_lineups)
     result = runner.invoke(
-        app, ["alignment-score-baseline", "--first-term", "2024", "--last-term", "2025"]
+        app,
+        [
+            "alignment-score-baseline",
+            "--first-term",
+            "2024",
+            "--last-term",
+            "2025",
+            "--outcome-only",
+        ],
     )
     assert result.exit_code == 0, result.output
     # Scored from OT2024, fitted from OT2021, the Term the coded case was decided in.
     assert seen == {"first_term": 2021, "last_term": 2025}
+    estimated = runner.invoke(
+        app, ["alignment-score-baseline", "--first-term", "2024", "--last-term", "2025"]
+    )
+    assert estimated.exit_code == 0, estimated.output
+    # Estimated positions reach a window further back, for OT2020's positions.
+    assert seen == {"first_term": 2021 - 3, "last_term": 2025}
     # A judgment outside the vocabulary is counted and left out, not fatal.
     assert "1 with a judgment outside the vocabulary" in result.output

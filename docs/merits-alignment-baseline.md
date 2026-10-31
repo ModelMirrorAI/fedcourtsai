@@ -30,13 +30,14 @@ owes, is at the end.
    alignment score `s`, and `s > 0.5` is the implied call. It is Brier-scored.
    A calibrated variant applies a monotone transform of `s` fitted on past
    Terms.
-4. **Score votes.** Each Justice carries a fixed position from a published
-   ideal-point ordering, and one spread parameter `k` maps `s` to each
+4. **Score votes.** Each Justice carries a fixed position on one ideological
+   line, estimated from the corpus's own merits lineups (*The positions*,
+   below), and one spread parameter `k` maps `s` to each
    Justice's vote: a small `k` gives 9–0, a large `k` gives the ideological
    6–3, and the splits fall in between. It is reported twice: out of sample,
-   with `k` and the outcome transform fitted on past Terms only; and in sample,
-   fitted on the scored Term itself, as a labeled ceiling that no forecast
-   could have used.
+   with `k`, the outcome transform and the positions fitted on past Terms
+   only; and in sample, all three fitted on the scored Term itself, as a
+   labeled ceiling that no forecast could have used.
 
 No baseline predicts unanimity of reasoning or the grounds of decision, and
 each is scored only on the claims it makes.
@@ -201,8 +202,7 @@ corpus's merits judgments and the merits lineups, writes nothing, and no
 cell, score or board reads it.
 
 ```bash
-uv run fedcourts alignment-score-baseline --first-term 2022 --last-term 2025 \
-  --positions <positions.json>
+uv run fedcourts alignment-score-baseline --first-term 2022 --last-term 2025
 ```
 
 - **Terms.** A case belongs to the October Term its merits judgment was
@@ -238,14 +238,15 @@ uv run fedcourts alignment-score-baseline --first-term 2022 --last-term 2025 \
   fit reads each case at the transform fitted on the same cases, so its
   scores are sharper than the ones it is then applied to, which can pull `k`
   down.
-- **Positions.** Read from a positions file (`JusticePositions`): the source
-  and its releases, each with its publication date and each sitting
+- **Positions.** Estimated from the lineups (*The positions*, below), or read
+  from a file of the same shape (`--positions`, a `JusticePositions`): the
+  source and its releases, each with its publication date and each sitting
   Justice's position by October Term, larger more conservative. Out of
   sample, a decision of Term `T` reads the positions of Term `T - 1` from the
   latest release published before Term `T` opened (taken as 1 October),
-  since a dynamic estimate revised after Term `T` began may already carry
-  Term `T`'s votes in its earlier Terms. In sample reads Term `T`'s positions
-  in the latest release. A decision with any participant the positions do
+  since an estimate revised after Term `T` began may already carry Term
+  `T`'s votes in its earlier Terms. In sample reads Term `T`'s positions in
+  the latest release. A decision with any participant the positions do
   not place is not read, so a Justice's first Term, with no Term `T - 1`
   position, leaves out of sample every decision that Justice sat on, while in
   sample reads them: the two readings can cover different decisions, and each
@@ -262,6 +263,59 @@ uv run fedcourts alignment-score-baseline --first-term 2022 --last-term 2025 \
   the case's judgment Term is left out.
 - **What travels with each fit.** The codes it read, counted by the
   contamination-risk flag and by valence.
+
+## The positions
+
+Baseline 4's positions are estimated from the corpus's complete merits lineups
+(`pipeline.alignment_positions`), not read from a published ordering, so they
+are reproducible from the corpus and carry no third-party terms.
+
+- **Agreement.** Over a window of decisions, each keyed to the Term it was
+  decided in, two Justices agree on a decision when both took part and both
+  sat with the judgment or both in dissent. A vote in part on each side, or a
+  Justice who did not take part, leaves the decision out of that pair's
+  count. Two dissents count as agreement even when they dissent from opposite
+  directions, which pulls the ends of the line together.
+- **Scaling.** The disagreement rate is the distance between two Justices,
+  and the positions are its one-dimensional classical scaling. Only order and
+  spacing matter, since baseline 4 standardizes over each bench. The
+  positions carry no uncertainty, and on a thin window the order within a
+  bloc is noise: three Justices within a hundredth of each other are not
+  ranked.
+- **Orientation.** The line is turned so the conservative bloc's mean sits
+  above the other bloc's. That names which end is conservative; where each
+  Justice sits is the votes' own.
+- **Window and bench.** Term `t`'s positions read the decisions of Terms
+  `t - 2` through `t`. The window of three, and the floors below, are chosen
+  rather than tuned; no sensitivity run backs them. A Justice is placed when they took part in at least 20
+  of those decisions and in some decision of Term `t`, and every pair on the
+  bench shares at least 10; a thinly shared Justice is dropped until every
+  pair clears.
+- **Release dating.** Term `t`'s positions are released on 30 September of
+  `t + 1`, before the next Term opens, since they read nothing decided later.
+  So out of sample Term `T` reads Term `T - 1`'s positions, fitted on nothing
+  decided in Term `T`, and the in-sample ceiling Term `T`'s own, which for a
+  Term still sitting rest on its decisions so far.
+
+`fedcourts alignment-positions` prints each Term's estimated bench, read-only:
+
+```bash
+uv run fedcourts alignment-positions --first-term 2018 --last-term 2025
+```
+
+On the production corpus whose newest pull is 2026-10-31 (the newest stored
+snapshot row is 2026-07-13), that command orders the OT2025 bench Alito, Thomas,
+Gorsuch, Barrett, Kavanaugh, Roberts, Kagan, Sotomayor, Jackson, with the
+widest gap between Roberts and Kagan. Every bench from OT2020 to OT2025
+splits between the six Justices appointed by Republican presidents and the
+three others. OT2019 and earlier place no bench, since the corpus holds no
+merits lineups before OT2020, so OT2020's positions rest on its own 40
+complete lineups and OT2021's on two Terms rather than a full window. What
+that costs the out-of-sample reading is concrete: OT2021 reads OT2020's thin
+positions, and Justice Jackson, with no OT2021 position, leaves nearly every
+OT2022 decision out of OT2022's reading and out of the fits later Terms read,
+so each Term's `decisions` count beside its coded `lineups` is the figure to
+read first. Re-run the command for current figures.
 
 ## The record, on the corpus's merits lineups
 
@@ -302,7 +356,8 @@ committed artifact and its append-only publish step (`fedcourts
 alignment-side-codes`), and the run mode that executes them; and, for
 baselines 3 and 4, the outcome transform, the vote model, the fit of `k` and
 their read-only readout (`fedcourts alignment-score-baseline`, *The fits*,
-above), which reads positions from a file no source fills yet.
+above), with positions estimated from the lineups (`fedcourts
+alignment-positions`, *The positions*, above).
 
 The run mode is `run-analytics` `alignment-side-code`, the topic-labeling
 lane's third frame ([pipeline.md](pipeline.md)), dispatched or on a weekly
@@ -324,10 +379,8 @@ Owed, in order:
 - **The first run.** A rehearsal from `staging`, which publishes nothing,
   then the production run on `main`; its spend record re-anchors the
   provisional rate.
-- **Baselines 3 and 4: the source and the first fits.** The ideal-point
-  source and its terms of use (`docs/data-sources.md`), committed as the
-  positions file the command reads, release by release; the fits split by
-  valence, of which the readout carries only the counts; the clean check, a
+- **Baselines 3 and 4: the first fits.** The fits split by valence, of which
+  the readout carries only the counts; the clean check, a
   fit on clean codes only; and the first readout, once the first production
   run's codes are on `main`, each with a `stats-reviewer` pass.
 - **Scoring beside the models.** Baseline records at the same merits moments

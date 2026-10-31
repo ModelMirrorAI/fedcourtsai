@@ -281,6 +281,7 @@ from .ops import (
 from .paths import CasePaths, EventPaths
 from .pipeline import (
     alignment_baseline,
+    alignment_positions,
     alignment_score,
     alignment_side,
     application_backfill,
@@ -6604,8 +6605,56 @@ def merits_alignment_baseline_cmd(
     typer.echo(readout.model_dump_json())
 
 
+@app.command("alignment-positions")
+def alignment_positions_cmd(
+    first_term: Annotated[
+        int, typer.Option("--first-term", help="First October Term to place.")
+    ] = 2021,
+    last_term: Annotated[
+        int, typer.Option("--last-term", help="Last October Term to place.")
+    ] = 2025,
+) -> None:
+    """Estimate each Term's Justice positions from the corpus's merits lineups, read-only.
+
+    The positions baseline 4 reads (`pipeline/alignment_positions.py`): the
+    one-dimensional classical scaling of vote disagreement over each Term's
+    trailing window of complete lineups, turned so the conservative bloc sits
+    at the higher end, one dated release per Term. Writes nothing. Prints each
+    Term's bench from most to least conservative to stderr and the positions
+    JSON (the `--positions` shape `alignment-score-baseline` reads) to stdout;
+    a reversed range exits 2, a missing corpus 1.
+    """
+    if first_term > last_term:
+        typer.echo("alignment-positions: --first-term must not exceed --last-term.", err=True)
+        raise typer.Exit(code=2)
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if settings.corpus_backend != "ranged" and not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before estimating positions.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
+        lineups = merits_lineups.merits_lineups(
+            conn,
+            first_term=first_term - alignment_positions.WINDOW_TERMS + 1,
+            last_term=last_term,
+        )
+    table = alignment_positions.estimated_positions(
+        lineups, first_term=first_term, last_term=last_term
+    )
+    latest = table.releases[-1].terms
+    for term in range(last_term, first_term - 1, -1):
+        bench = latest.get(term, {})
+        order = ", ".join(f"{j} {bench[j]:+.3f}" for j in alignment_positions.bench_order(bench))
+        typer.echo(f"OT{term}: {order or 'no bench placed'}", err=True)
+    typer.echo(table.model_dump_json())
+
+
 @app.command("alignment-score-baseline")
-def alignment_score_baseline_cmd(
+def alignment_score_baseline_cmd(  # noqa: PLR0912 - a CLI entrypoint; each exit is one documented refusal
     first_term: Annotated[
         int, typer.Option("--first-term", help="First decision Term to score.")
     ] = 2022,
@@ -6616,18 +6665,24 @@ def alignment_score_baseline_cmd(
         Path | None,
         typer.Option(
             "--positions",
-            help="Justice positions (JSON: source, dated releases of positions by Term); "
-            "omit to score baseline 3 only.",
+            help="Justice positions (JSON: source, dated releases of positions by Term), in "
+            "place of the positions estimated from the corpus's lineups.",
         ),
     ] = None,
+    baseline_three_only: Annotated[
+        bool,
+        typer.Option("--outcome-only", help="Score baseline 3 only, with no positions."),
+    ] = False,
 ) -> None:
     """Score the coded merits alignment baselines over the committed side codes, read-only.
 
     Baseline 3 (score outcome: P(the conservative side prevails) is the code's
     score, Brier-scored raw and after a monotone transform fitted on earlier
-    Terms and on the Term itself) and, given `--positions`, baseline 4 (score
-    votes: one spread `k` maps the score and each Justice's published position
-    to a vote), per decision Term (`pipeline/alignment_score.py`). Reads the
+    Terms and on the Term itself) and baseline 4 (score votes: one spread `k`
+    maps the score and each Justice's position to a vote), per decision Term
+    (`pipeline/alignment_score.py`). The positions are estimated from the
+    corpus's merits lineups (`pipeline/alignment_positions.py`), or read from
+    `--positions`; `--outcome-only` scores baseline 3 alone. Reads the
     committed side codes, the corpus's merits judgments and its merits lineups.
     Writes nothing. Prints a line per Term to stderr and the readout JSON to
     stdout; a reversed range or an unreadable positions file exits 2, a missing
@@ -6635,6 +6690,9 @@ def alignment_score_baseline_cmd(
     """
     if first_term > last_term:
         typer.echo("alignment-score-baseline: --first-term must not exceed --last-term.", err=True)
+        raise typer.Exit(code=2)
+    if baseline_three_only and positions is not None:
+        typer.echo("alignment-score-baseline: --outcome-only takes no --positions.", err=True)
         raise typer.Exit(code=2)
     table = None
     if positions is not None:
@@ -6676,14 +6734,29 @@ def alignment_score_baseline_cmd(
                 continue
             judgments[row.case_id] = (judgment, row.merits_decided)
         # From the first coded decision Term, not `--first-term`: out-of-sample
-        # fits read every earlier Term's lineups whatever range is scored.
+        # fits read every earlier Term's lineups whatever range is scored. The
+        # estimated positions reach a window further back, for the prior Term's
+        # positions the first coded Term reads.
+        fit_from = min([first_term, *(october_term_year(on) for _, on in judgments.values())])
+        estimate = table is None and not baseline_three_only
         lineups = merits_lineups.merits_lineups(
             conn,
-            first_term=min([first_term, *(october_term_year(on) for _, on in judgments.values())]),
+            first_term=fit_from - alignment_positions.WINDOW_TERMS if estimate else fit_from,
             last_term=last_term,
         )
+    if estimate:
+        table = alignment_positions.estimated_positions(
+            lineups, first_term=fit_from - 1, last_term=last_term
+        )
+    # The window before the first coded Term serves the positions alone, so
+    # the readout reads the same lineups whichever positions it is given.
     readout = alignment_score.score_readout(
-        codes, judgments, lineups, first_term=first_term, last_term=last_term, positions=table
+        codes,
+        judgments,
+        [lu for lu in lineups if lu.term >= fit_from],
+        first_term=first_term,
+        last_term=last_term,
+        positions=table,
     )
 
     def _num(value: float | None, spec: str) -> str:
