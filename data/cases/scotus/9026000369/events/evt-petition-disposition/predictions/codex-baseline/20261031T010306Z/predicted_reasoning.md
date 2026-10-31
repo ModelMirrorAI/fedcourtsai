@@ -1,0 +1,7 @@
+# Forecast of the Court's action
+
+The Court will deny the petition, most likely in the ordinary orders following the November 13, 2026 conference, without an explanatory opinion or a separate writing. The docket currently records **one distribution and zero relists**. My modal forecast is **zero further distributions**; the probability of at least one additional distribution is 18%. The Court will not call for the Solicitor General's views (0.2% probability of a new CVSG).
+
+If the Court grants review, it will most likely take a narrowed version of **QP1**: whether this particular federal complaint alleges injuries independent of the state judgment or instead seeks federal district-court review and rejection of that judgment. It will leave **QP2**, the broader constitutional challenge to private arbitration of parental-rights restrictions, for proceedings after the jurisdictional issue rather than decide it directly in this posture.
+
+Conditional on any grant, plenary briefing and argument are likelier than a disposition riding the cert order: **75% plenary, 25% summary**. A summary jurisdictional correction is possible, but *T. M.* supplies no obvious favorable intervening change requiring a GVR. If the Court denies review, I expect no dissent or statement respecting denial from any Justice; the probability of at least one such writing, conditional on denial, is **2.5%**. Denial will leave the judgment below standing without adjudicating the parental-rights merits.

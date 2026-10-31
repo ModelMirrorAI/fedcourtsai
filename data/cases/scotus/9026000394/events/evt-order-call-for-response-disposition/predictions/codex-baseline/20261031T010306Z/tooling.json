@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000394",
+  "run_id": "20261031T010306Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["shell", "fedcourts paths", "fedcourts query", "committed statpack", "web search"],
+  "helpful": ["Frozen cert_anchor and explicit moment", "Complete petition and lower-court appendix", "Exact-docket prior lookup with transfer statistics"],
+  "gaps": ["No published response-requested conditional base rate", "Sparse reporter-citation coverage in corpus", "Several web attempts returned no usable visible result"],
+  "notes": "The default uv cache was read-only; setting UV_CACHE_DIR to /tmp/uv-cache and UV_NO_SYNC=1 restored the provisioned CLI without installing packages. The response deadline following an already scheduled conference materially affects the distribution-increment forecast."
+}

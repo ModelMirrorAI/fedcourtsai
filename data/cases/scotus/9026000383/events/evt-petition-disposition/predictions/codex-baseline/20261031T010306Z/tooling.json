@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000383",
+  "run_id": "20261031T010306Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts paths", "fedcourts query", "committed statpack", "CourtListener MCP search", "CourtListener MCP search_document", "web search/open attempted", "fedcourts validate"],
+  "helpful": ["Complete petition and separate lower-court appendix", "Frozen reached-band cert anchor", "CourtListener citation lookup and targeted opinion snippets"],
+  "gaps": ["Default uv cache directory is read-only; needed UV_CACHE_DIR=/tmp/uv-cache and --no-sync", "Sparse corpus citation coverage", "General denied-case query ranked substantive interim applications ahead of cert petitions", "Web calls returned no usable content"],
+  "notes": "Forecast completed from staged pre-decision material and historical context. No own-case disposition lookup, installation, or credential access. The corpus application's inclusion is documented and those rows were not used as cert priors."
+}

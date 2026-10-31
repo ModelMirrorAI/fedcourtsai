@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000369",
+  "run_id": "20261031T010306Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_read_document"
+  ],
+  "helpful": [
+    "provisioned petition.txt and appendix.txt",
+    "record/context.json cert_anchor",
+    "metrics/statpack.md",
+    "mcp_courtlistener_read_document for T. M. v. University of Md. Medical System Corp.",
+    "fedcourts query"
+  ],
+  "gaps": [],
+  "notes": "Provisioned petition and appendix contained the complete Ninth Circuit memorandum and Western District of Washington dismissal order, and CourtListener MCP provided the full syllabus of the Supreme Court's June 2026 Rooker-Feldman opinion in T. M. v. University of Md. Medical System Corp."
+}

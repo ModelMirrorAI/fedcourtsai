@@ -1,0 +1,13 @@
+case_id: scotus/60034112
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: null
+opened_at: '2021-02-09'
+resolved: true
+schema_version: '1.0'
+stage: null
+title: Jefferson S. Dunn, Commissioner, Alabama Department of Corrections v. Matthew
+  Reeves

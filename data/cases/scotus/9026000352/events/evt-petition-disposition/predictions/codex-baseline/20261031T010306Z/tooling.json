@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000352",
+  "run_id": "20261031T010306Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts paths", "fedcourts query", "committed statpack", "CourtListener MCP search", "CourtListener MCP search_document", "web search", "fedcourts validate"],
+  "helpful": ["Complete staged petition and lower-court appendix", "Frozen reached-rate cert anchor", "Paid-segment terminal signal cuts"],
+  "gaps": ["CourtListener opinion-text lookup returned HTTP 502", "Web searches returned no usable content"],
+  "notes": "The default uv cache was read-only; setting UV_CACHE_DIR=/tmp/uv-cache allowed the provisioned CLI to run. Corrected a rejected era filter to 2020s. No installations or direct CourtListener REST calls. Corpus examples were disposition-selected illustrations, not subject-matched priors."
+}
