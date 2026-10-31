@@ -193,6 +193,76 @@ the vote value exactly, so a concurrence in the judgment predicted as
 figure against has to be computed under its own rule, on its own scored cells
 (*What remains owed*).
 
+## The fits, for baselines 3 and 4
+
+`fedcourts alignment-score-baseline` scores baselines 3 and 4 per decision
+Term (`pipeline.alignment_score`). It reads the committed side codes, the
+corpus's merits judgments and the merits lineups, writes nothing, and no
+cell, score or board reads it.
+
+```bash
+uv run fedcourts alignment-score-baseline --first-term 2022 --last-term 2025 \
+  --positions <positions.json>
+```
+
+- **Terms.** A case belongs to the October Term its merits judgment was
+  entered in. Out of sample, for a scored Term `T`, every fit reads only
+  cases decided before `T`: every such decided code, and every lineup from
+  the first coded decision Term on, whatever range the command is given. So
+  the range chooses what is scored and never what is fitted on. In sample,
+  both fits read Term `T` itself. "Out of sample" governs the fits only: a
+  replay code's `s` was made after its case was decided, which the
+  contamination-risk counts beside every fit disclose.
+- **The outcome transform.** An isotonic regression of the outcome on `s`, by
+  pool-adjacent-violators, on Laplace-smoothed block rates (one success and
+  one failure added to each block, and blocks pooled until the smoothed rates
+  are non-decreasing), so no score maps to certainty. A certain transform
+  would make every vote probability in baseline 4 certain whatever `k`, and
+  reward a step that happened to be pure on a small fit.
+- **The vote model.** Each participating Justice's position is standardized
+  over the participating bench: centered on its median Justice and scaled by
+  its standard deviation, so at `s = 0.5` the cut falls at the median
+  whatever the ordering's origin. P(Justice `j` votes for the conservative
+  side) is `sigmoid(logit(s) + k * z_j)`, read at the transformed `s`. A
+  Justice is called for the conservative side when that probability exceeds
+  one half, so a score of exactly one half, like baseline 3's call, goes to
+  the other side. The predicted winner is the side most calls take, and on an
+  even bench's tie the respondent, since an equally divided Court leaves the
+  judgment below standing. A Justice is predicted with the judgment exactly
+  when called for the winner's side, so baseline 4 is read on the same three
+  readings as baselines 1 and 2, on the decisions it reads.
+- **The spread.** `k` is chosen from a grid, 0 to 8 in steps of 0.25, to
+  maximize the log-likelihood of the fit's realized party-side votes (a vote
+  in part is left out of the fit). Ties go to the smaller `k`, and a `k` at
+  the grid's top is flagged, since the likelihood may peak beyond it. The
+  fit reads each case at the transform fitted on the same cases, so its
+  scores are sharper than the ones it is then applied to, which can pull `k`
+  down.
+- **Positions.** Read from a positions file (`JusticePositions`): the source
+  and its releases, each with its publication date and each sitting
+  Justice's position by October Term, larger more conservative. Out of
+  sample, a decision of Term `T` reads the positions of Term `T - 1` from the
+  latest release published before Term `T` opened (taken as 1 October),
+  since a dynamic estimate revised after Term `T` began may already carry
+  Term `T`'s votes in its earlier Terms. In sample reads Term `T`'s positions
+  in the latest release. A decision with any participant the positions do
+  not place is not read, so a Justice's first Term, with no Term `T - 1`
+  position, leaves out of sample every decision that Justice sat on, while in
+  sample reads them: the two readings can cover different decisions, and each
+  carries its own `decisions` count beside the Term's coded `lineups`.
+- **Floors.** A fit on fewer than 30 decisions is not made, and its reading
+  is null rather than a fit on noise, so the first coded decision Term has no
+  out-of-sample reading unless an earlier one holds 30 decided codes.
+- **Joins.** A consolidated decision is one decision, so both baselines read
+  it once: under its case link's code where that case is coded, else under
+  the code of the first docket the listing prints, a decided case before an
+  undecided one. The other dockets' codes
+  are left out and counted, whatever side they call. A complete lineup joins
+  its coded case the same way, and a lineup whose decision Term differs from
+  the case's judgment Term is left out.
+- **What travels with each fit.** The codes it read, counted by the
+  contamination-risk flag and by valence.
+
 ## The record, on the corpus's merits lineups
 
 `fedcourts merits-alignment-baseline` scores baselines 1 and 2 over every
@@ -229,7 +299,10 @@ Built: baselines 1 and 2, the bloc rule, the three vote readings, and the
 read-only readout over the corpus's merits lineups; and, for the side coding,
 the coder's prompt, the extract (`fedcourts alignment-side-extract`), the
 committed artifact and its append-only publish step (`fedcourts
-alignment-side-codes`), and the run mode that executes them.
+alignment-side-codes`), and the run mode that executes them; and, for
+baselines 3 and 4, the outcome transform, the vote model, the fit of `k` and
+their read-only readout (`fedcourts alignment-score-baseline`, *The fits*,
+above), which reads positions from a file no source fills yet.
 
 The run mode is `run-analytics` `alignment-side-code`, the topic-labeling
 lane's third frame ([pipeline.md](pipeline.md)), dispatched or on a weekly
@@ -251,9 +324,12 @@ Owed, in order:
 - **The first run.** A rehearsal from `staging`, which publishes nothing,
   then the production run on `main`; its spend record re-anchors the
   provisional rate.
-- **Baselines 3 and 4.** The ideal-point source and its terms of use
-  (`docs/data-sources.md`), the outcome transform and the fit of `k`, each with
-  a `stats-reviewer` pass on the fit and the reading rule.
+- **Baselines 3 and 4: the source and the first fits.** The ideal-point
+  source and its terms of use (`docs/data-sources.md`), committed as the
+  positions file the command reads, release by release; the fits split by
+  valence, of which the readout carries only the counts; the clean check, a
+  fit on clean codes only; and the first readout, once the first production
+  run's codes are on `main`, each with a `stats-reviewer` pass.
 - **Scoring beside the models.** Baseline records at the same merits moments
   as the models, scored in the leaderboard's merits blocks under the
   leaderboard's own vote rule and labeled as baselines, which also discharges
