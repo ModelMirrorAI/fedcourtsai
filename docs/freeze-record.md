@@ -15531,10 +15531,15 @@ freeze commit is recorded here.
 
   **The pilot evidence.** Two merits calibration rounds,
   `20261026T100615Z` and `20261028T144848Z`, graded the replay merits
-  calibration cells against the maintainer's 10 hand labels (label sheet
-  sha256 `d51670c53fbf79300f8e0335129ca17f32637110dc7e8032df1a0c9deac9ddd0`,
-  sample sha256 `62eb08a3…`); the second graded under the section at sha256
-  `3f03b9f2…` registered here. The maintainer read the second round's regrade
+  calibration cells against the maintainer's hand labels on all 15 sampled
+  documents (label sheet sha256
+  `d51670c53fbf79300f8e0335129ca17f32637110dc7e8032df1a0c9deac9ddd0`, sample
+  sha256 `62eb08a3299ebaf9511344c3d581a9592e982d08d5ac5fd7fbb1c6c1b0e477af`);
+  the first graded under the section at sha256
+  `8ce6bbdea09771a503734847326163e2a5bbe5712977f53df12fbae81be3236d`, the
+  second under the section at sha256
+  `3f03b9f2cf067d1bbb07fd681dcdacf47a649a4364cace605130eb73c1b31ce1`, whose
+  rubric is the one registered here. The maintainer read the second round's regrade
   on 2026-10-28 and accepted it as reasonable. The reading is the one *The
   pilot, and what it reports* fixes: the labels are a reference, not ground
   truth, and the judges are not required to match the maintainer exactly.
