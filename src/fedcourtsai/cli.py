@@ -9556,6 +9556,7 @@ def topic_cut_cmd(
     settings = get_settings()
     scope: Literal["frozen", "all"] = "all" if all_versions else "frozen"
     run = stratify(settings.data_root, frozen_only=not all_versions)
+    _report_exclusions(run)
     cells = list(run.cells)
     statpack = _read_best_effort(settings.metrics_root / "statpack.json", StatPack)
     cut = build_topic_cut(
@@ -9570,6 +9571,12 @@ def topic_cut_cmd(
         write_json(out, cut)
     for frame in cut.frames:
         typer.echo(f"{frame.frame} ({frame.vocabulary}): {frame.scope}")
+    typer.echo("")
+    for moment in cut.moments:
+        typer.echo(
+            f"{moment.moment}: {moment.labeled_events}/{moment.forecast_events} "
+            "forecast events labeled"
+        )
     typer.echo("")
     typer.echo(f"{'moment':24s} {'topic':40s} {'events':>7s} {'cells':>6s} {'scored':>7s}")
     for cell in cut.cells:

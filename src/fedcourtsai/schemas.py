@@ -9905,7 +9905,7 @@ class TopicCutRecord(_Strict):
 class TopicCutCell(_Strict):
     """Every forecast of one moment on cases of one topic (or unlabeled)."""
 
-    moment: str = Field(min_length=1, description="The stage/moment key the boards aggregate on")
+    moment: str = Field(min_length=1, description="The stage@moment key the boards aggregate on")
     frame: Literal["petitions", "applications"] | None = Field(
         description="The labels frame the moment joins; null for a stage-less forecast"
     )
@@ -9919,11 +9919,30 @@ class TopicCutCell(_Strict):
         ge=0, description="Committed (predictor, event) forecasts, whatever their scope"
     )
     events_scored: int = Field(
-        ge=0, description="Distinct events scored under the cut's process scope"
+        ge=0,
+        description="Distinct events scored in any stratum under the cut's process scope; "
+        "the per-stratum counts beside it never blend",
+    )
+    forward_events: int = Field(ge=0, description="Distinct events scored in the forward stratum")
+    retrospective_events: int = Field(
+        ge=0, description="Distinct events scored in the retrospective stratum"
+    )
+    procedural_events: int = Field(
+        ge=0, description="Distinct events scored in the procedural stratum"
     )
     scope: str = Field(min_length=1, description="The frame's coverage caveat, verbatim")
     records: list[TopicCutRecord] = Field(
         default_factory=list, description="Each predictor's scoped record, in id order"
+    )
+
+
+class TopicCutMoment(_Strict):
+    """One forecast moment's labeled share: the coverage every topic row is read beside."""
+
+    moment: str = Field(min_length=1, description="The stage@moment key")
+    forecast_events: int = Field(ge=0, description="Events forecast at this moment")
+    labeled_events: int = Field(
+        ge=0, description="Of those, events whose case carries a topic label"
     )
 
 
@@ -9940,6 +9959,9 @@ class TopicCut(_Strict):
         description="The process scope the scored counts and records are read under"
     )
     frames: list[TopicCutFrame] = Field(description="The two labels frames, each with its scope")
+    moments: list[TopicCutMoment] = Field(
+        description="Each moment's labeled share of its forecast events, in key order"
+    )
     cells: list[TopicCutCell] = Field(
         description="One cell per (moment, topic), unlabeled included, in key order"
     )

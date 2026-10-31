@@ -11,19 +11,21 @@ takes the petition's questions-presented label (``qp-topic-v0``,
 ``data/qp-topics/qp-topics.json``); an interim forecast takes its
 application's label (``qp-topic-v1``, ``data/qp-topics/qp-topics-applications.json``).
 Both are keyed by ``case_id``. A forecast whose case carries no label — the
-frame is not yet fully labeled, the case is outside the labeling frame, or its
-frame's artifact is missing or below the gate — is reported in the
-:data:`UNLABELED` bucket beside every topic, never dropped, so each moment's
-topic rows sum to its whole forecast population.
+case sits outside the labeling frame (a docket newer than the frame's vintage,
+or outside its scope), the frame is not yet fully labeled, or its frame's
+artifact is missing or below the gate — is reported in the :data:`UNLABELED`
+bucket beside every topic, never dropped, so each moment's topic rows sum to
+its whole forecast population, and each moment's labeled share is reported
+beside the rows (:class:`~fedcourtsai.schemas.TopicCutMoment`).
 
 **Descriptive only.** Nothing is scored on topic and no board conditions on it:
 there is no rank, no paired figure and no topic baseline here, only the
 board's own per-stratum record re-read over each topic's cells. Every cell
 carries its frame's scope string, because a per-topic figure lifted out of the
 report must keep the coverage caveat with it: labels are agreement with a
-reference block rather than accuracy, the labeled subset was batched rather
-than drawn at random from the forecast population, and the application frame's
-coverage is a different number from the petition frame's (``docs/qp-topic.md``).
+reference block rather than accuracy, the unlabeled forecasts are not a random
+remainder, and a record's Brier skill is scored against the band's base rate,
+not the topic's (``docs/qp-topic.md``).
 
 Read-only over the committed ledger and the labels artifacts; it reads no
 corpus and writes nothing itself.
@@ -55,6 +57,7 @@ from .schemas import (
     TopicCut,
     TopicCutCell,
     TopicCutFrame,
+    TopicCutMoment,
     TopicCutRecord,
 )
 from .serialize import read_model
@@ -121,11 +124,14 @@ def _scope(
         f"{vocabulary} labels: {artifact.cases} labeled case(s) of {frame_rows}, "
         f"{source}. Labels are agreement with the frame's reference block "
         f"({agreement.overall_agree}/{agreement.overall_n}, {rate}, against a "
-        f"{floor} constant-labeler floor), not accuracy. The labeled subset was batched "
-        "from committed state, with the reference block in every batch, not drawn at random "
-        "from the forecast population, so a topic's share of forecasts is a share of the "
-        "labeled forecasts, read beside the unlabeled row. Descriptive only: nothing is "
-        "scored on topic."
+        f"{floor} constant-labeler floor), not accuracy. A forecast is unlabeled when its "
+        "case sits outside the labeling frame (a docket newer than the frame's vintage, or "
+        "outside its scope), so the unlabeled row is not a random remainder: the newest "
+        "forecasts are the likeliest to be in it. A topic's share is a share of the labeled "
+        "forecasts of this salience-selected ledger, not of the docket; read it beside the "
+        "moment's labeled share. A record's Brier skill is scored against the band's base "
+        "rate, not the topic's, so a per-topic skill figure measures the topic's rate as "
+        "much as the predictor. Descriptive only: nothing is scored on topic."
     )
 
 
@@ -187,16 +193,23 @@ def _forecasts(
         court, docket = ref.case_id.split("/", 1)
         event_dir = CasePaths(data_root, court, int(docket)).base / "events" / ref.event_id
         event_file = event_dir / "event.yaml"
-        if not event_file.is_file():
-            continue
-        event = read_model(event_file, PredictableEvent)
-        stage = normalized_stage(event.kind, event.stage)
-        key = stage_moment_key(stage, normalized_moment(stage, event.moment))
+        stage: Stage | None = None
+        moment = None
+        if event_file.is_file():
+            event = read_model(event_file, PredictableEvent)
+            stage = normalized_stage(event.kind, event.stage)
+            moment = normalized_moment(stage, event.moment)
+        # An event with no event.yaml has no stage: it lands in the stage-less,
+        # unlabeled row rather than being dropped from the population.
+        key = stage_moment_key(stage, moment)
         topic = _topic(ref.case_id, stage, frames)
         tally = tallies[(key, topic)]
         tally.events.add((ref.case_id, ref.event_id))
         predictors = event_dir / "predictions"
-        tally.cells += sum(1 for p in predictors.iterdir() if p.is_dir())
+        # A predictor directory holding only a failed attempt is not a forecast.
+        tally.cells += sum(
+            1 for p in predictors.iterdir() if p.is_dir() and any(p.glob("*/prediction.json"))
+        )
     return tallies
 
 
@@ -258,6 +271,16 @@ def build_topic_cut(
             )
             for predictor_id, strata in sorted(predictors.items())
         ]
+        strata_events = {
+            stratum: len(
+                {
+                    (ev.case_id, ev.event_id)
+                    for strata in predictors.values()
+                    for ev in strata[stratum]
+                }
+            )
+            for stratum in (FORWARD, RETROSPECTIVE, PROCEDURAL)
+        }
         out.append(
             TopicCutCell(
                 moment=moment_key,
@@ -273,19 +296,33 @@ def build_topic_cut(
                         for ev in evs
                     }
                 ),
+                forward_events=strata_events[FORWARD],
+                retrospective_events=strata_events[RETROSPECTIVE],
+                procedural_events=strata_events[PROCEDURAL],
                 scope=frames[frame].record.scope
                 if frame is not None
                 else "A forecast with no stage joins no topic frame, so it is unlabeled.",
                 records=records,
             )
         )
+    moments: dict[str, list[int]] = defaultdict(lambda: [0, 0])
+    for cell in out:
+        moments[cell.moment][0] += cell.forecast_events
+        if cell.topic != UNLABELED:
+            moments[cell.moment][1] += cell.forecast_events
     return TopicCut(
         process_scope=process_scope,
         frames=[frames["petitions"].record, frames["applications"].record],
+        moments=[
+            TopicCutMoment(moment=key, forecast_events=total, labeled_events=labeled)
+            for key, (total, labeled) in sorted(moments.items())
+        ],
         cells=out,
     )
 
 
 def _stage_of(moment_key: str) -> Stage | None:
-    head = moment_key.split("@", 1)[0]
-    return Stage(head) if head in Stage.__members__.values() else None
+    try:
+        return Stage(moment_key.split("@", 1)[0])
+    except ValueError:
+        return None

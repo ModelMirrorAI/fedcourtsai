@@ -9,7 +9,8 @@ from typer.testing import CliRunner
 
 from fedcourtsai.cli import app
 from fedcourtsai.integrity import FORWARD
-from fedcourtsai.leaderboard import cell_facts, skill_components, vote_scores
+from fedcourtsai.leaderboard import cell_facts, skill_components, stage_moment_key, vote_scores
+from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline import qp_topics
 from fedcourtsai.schemas import (
     EventKind,
@@ -52,7 +53,8 @@ def _cut(data_root: Path) -> TopicCut:
 
 
 def _ledger(data_root: Path) -> None:
-    """Two cert forecasts (one labeled case, one not) and one interim forecast."""
+    """Cert forecasts on a labeled and an unlabeled case, an interim forecast, a
+    merits forecast and a stage-less one."""
     _write_cell(data_root, _evaluation("alpha", case_id="scotus/101", event_id="evt-a"))
     _write_cell(data_root, _evaluation("beta", case_id="scotus/101", event_id="evt-a"))
     _write_cell(data_root, _evaluation("alpha", case_id="scotus/202", event_id="evt-b"))
@@ -61,6 +63,16 @@ def _ledger(data_root: Path) -> None:
         _evaluation("alpha", case_id="scotus/303", event_id="evt-c"),
         kind=EventKind.motion,
         stage=Stage.interim,
+    )
+    _write_cell(
+        data_root,
+        _evaluation("alpha", case_id="scotus/101", event_id="evt-m"),
+        stage=Stage.merits,
+    )
+    _write_cell(
+        data_root,
+        _evaluation("alpha", case_id="scotus/404", event_id="evt-o"),
+        kind=EventKind.order,
     )
 
 
@@ -93,9 +105,17 @@ def test_each_forecast_joins_its_frame_and_the_unlabeled_row_keeps_the_rest(
         ("cert", "criminal-law"),
         ("cert", UNLABELED),
         ("interim", "immigration"),
+        ("merits", "criminal-law"),
+        ("(none)", UNLABELED),
     }
+    # A merits forecast joins the petition frame; a stage-less one joins none.
+    assert rows[("merits", "criminal-law")].frame == "petitions"
+    stageless = rows[("(none)", UNLABELED)]
+    assert stageless.frame is None
+    assert "no stage" in stageless.scope
     labeled = rows[("cert", "criminal-law")]
     assert (labeled.forecast_events, labeled.forecast_cells, labeled.events_scored) == (1, 2, 1)
+    assert (labeled.forward_events, labeled.retrospective_events) == (1, 0)
     assert labeled.frame == "petitions"
     assert [r.predictor_id for r in labeled.records] == ["alpha", "beta"]
     record = labeled.records[0]
@@ -177,3 +197,64 @@ def test_cli_topic_cut_writes_a_valid_cut(tmp_path: Path) -> None:
     assert cut.process_scope == "all"
     assert "criminal-law" in result.output
     assert UNLABELED in result.output
+
+
+def test_a_predictor_directory_holding_only_a_failed_attempt_is_not_a_forecast(
+    tmp_path: Path,
+) -> None:
+    data_root = tmp_path / "data"
+    _ledger(data_root)
+    attempt = (
+        CasePaths(data_root, "scotus", 101).event("evt-a").base
+        / "predictions"
+        / "gamma"
+        / "r9"
+        / "attempt.json"
+    )
+    attempt.parent.mkdir(parents=True)
+    attempt.write_text("{}", encoding="utf-8")
+
+    cut = _cut(data_root)
+
+    cert = [c for c in cut.cells if c.moment.startswith("cert@")]
+    assert sum(c.forecast_cells for c in cert) == 3
+
+
+def test_each_moment_reports_its_labeled_share(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    _ledger(data_root)
+    _qp_labels(qp_topics.labels_path(data_root), {"scotus/101": "criminal-law"})
+
+    cut = _cut(data_root)
+
+    shares = {m.moment.split("@", 1)[0]: (m.labeled_events, m.forecast_events) for m in cut.moments}
+    assert shares["cert"] == (1, 2)
+    assert shares["interim"] == (0, 1)
+    assert shares["merits"] == (1, 1)
+
+
+def test_records_summed_over_topics_reproduce_each_moments_scored_population(
+    tmp_path: Path,
+) -> None:
+    # The claim the docs make: a topic row is the board's record re-read over
+    # that topic's cells, so no cell is mis-keyed between rows or lost.
+    data_root = tmp_path / "data"
+    _ledger(data_root)
+    _qp_labels(qp_topics.labels_path(data_root), {"scotus/101": "criminal-law"})
+    cells = list(stratify(data_root, frozen_only=False).cells)
+
+    cut = _cut(data_root)
+
+    expected: dict[tuple[str, str], int] = {}
+    for _, stratum, stage, moment in cells:
+        key = (stage_moment_key(stage, moment), str(stratum))
+        expected[key] = expected.get(key, 0) + 1
+    got: dict[tuple[str, str], int] = {}
+    for cell in cut.cells:
+        for record in cell.records:
+            for name in ("forward", "retrospective", "procedural"):
+                stratum_record = getattr(record, name)
+                if stratum_record is not None:
+                    key = (cell.moment, name)
+                    got[key] = got.get(key, 0) + stratum_record.evaluations
+    assert got == expected
