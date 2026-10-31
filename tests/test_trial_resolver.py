@@ -168,17 +168,34 @@ def test_read_leave(text: str, leave: Leave) -> None:
 # --- reading an order --------------------------------------------------------
 
 
-def test_decretal_starts_at_the_last_ordering_paragraph() -> None:
+DISCUSSION = "The discussion weighs each argument at length. " * 30
+
+
+def test_decretal_is_the_last_run_of_ordering_paragraphs() -> None:
     order = (
         "On May 1 the Court wrote: IT IS ORDERED that the motion to stay is granted. "
-        "The discussion follows and the motion is denied in the Court's view. "
-        "IT IS ORDERED that the Motion to Dismiss (ECF No. 45) is DENIED. "
-        "IT IS FURTHER ORDERED that the parties meet and confer."
+        + DISCUSSION
+        + "IT IS ORDERED that the Motion to Dismiss (ECF No. 45) is DENIED. "
+        + "IT IS ORDERED that the parties meet and confer. "
+        + "IT IS FURTHER ORDERED that the Clerk close the motion."
     )
     section = decretal(order)
     assert section is not None
     assert section.startswith("IT IS ORDERED that the Motion to Dismiss")
     assert "FURTHER ORDERED" in section
+
+
+def test_decretal_starts_at_the_conclusion_before_its_ordering_paragraphs() -> None:
+    order = (
+        "IT IS ORDERED that briefing proceed. "
+        + DISCUSSION
+        + "For the foregoing reasons, IT IS THEREFORE ORDERED that the Motion to Dismiss "
+        + "(ECF No. 45) is GRANTED."
+    )
+    section = decretal(order)
+    assert section is not None
+    assert section.startswith("For the foregoing reasons")
+    assert read_order_ruling(order, 45).ruling is MotionRuling.granted
 
 
 def test_decretal_falls_back_to_the_last_concluding_anchor() -> None:
@@ -283,18 +300,18 @@ def test_what_is_not_a_ruling(text: str) -> None:
     assert ruling_on(MTD, entry(60, text)) is None
 
 
-def test_order_text_settles_a_docket_text_with_no_verb() -> None:
+def test_an_opinion_the_docket_text_cannot_read_is_triage() -> None:
     ruling = entry(60, "MEMORANDUM OPINION AND ORDER re 45 Motion to Dismiss")
     text = (
         "Defendants' arguments are considered below and largely denied. "
         "IT IS HEREBY ORDERED that Defendants' Motion to Dismiss (ECF No. 45) is GRANTED IN PART "
         "and DENIED IN PART, and Count III is DISMISSED with leave to amend."
     )
-    resolved = ruling_on(MTD, ruling, order_texts={1060: text})
-    assert isinstance(resolved, MotionResolution)
-    assert resolved.ruling is MotionRuling.granted_in_part
-    assert resolved.leave is Leave.with_leave
-    assert resolved.source is Source.order_text
+    # The order's text checks a docket reading; it never resolves on its own.
+    for texts in ({1060: text}, {}):
+        resolved = ruling_on(MTD, ruling, order_texts=texts)
+        assert isinstance(resolved, Unresolved)
+        assert "states no ruling" in resolved.reason
 
 
 def test_docket_text_and_order_must_agree() -> None:
@@ -556,10 +573,12 @@ def test_judgment_text_is_read_from_its_decretal_language() -> None:
         "This action came before the Court on Plaintiffs' claims against Defendants. "
         "IT IS ORDERED AND ADJUDGED that judgment is entered in favor of Defendants."
     )
-    resolved = resolve_judgment([judgment], order_texts={1060: text})
+    assert isinstance(resolve_judgment([judgment], order_texts={1060: text}), Unresolved)
+    named = entry(60, "JUDGMENT in favor of Defendants")
+    resolved = resolve_judgment([named], order_texts={1060: text})
     assert isinstance(resolved, JudgmentResolution)
     assert resolved.outcome is JudgmentOutcome.defendant
-    assert resolved.source is Source.order_text
+    assert resolved.source is Source.both
 
 
 def test_judgment_text_and_docket_text_must_agree() -> None:
@@ -573,3 +592,189 @@ def test_judgment_text_and_docket_text_must_agree() -> None:
     )
     assert isinstance(agreed, JudgmentResolution)
     assert agreed.source is Source.both
+
+
+# --- second-round counterexamples: none may record an outcome ----------------
+
+DOCKET_DENY = entry(60, "ORDER denying 45 Motion to Dismiss")
+
+
+@pytest.mark.parametrize(
+    "order",
+    [
+        "IT IS ORDERED that Plaintiff's unopposed motion for an extension of time to respond to "
+        + "Defendant's Motion to Dismiss (ECF No. 45) is GRANTED.",
+        "Accordingly, the Court GRANTS Plaintiff leave to file a sur-reply to the Motion to "
+        + "Dismiss (ECF No. 45).",
+        "IT IS ORDERED that Plaintiff's Motion to Strike the Reply in Support of the Motion to "
+        + "Dismiss [45] is GRANTED.",
+        "IT IS ORDERED that oral argument on the Motion to Dismiss (ECF No. 45) is granted.",
+        "IT IS ORDERED that Plaintiff show cause in writing within 14 days why Defendant's "
+        + "Motion to Dismiss (ECF No. 45) should not be granted as unopposed.",
+        "If Plaintiff fails to respond, the Motion to Dismiss (ECF No. 45) will be granted.",
+    ],
+)
+def test_order_clauses_about_other_matters_read_no_ruling(order: str) -> None:
+    assert read_order_ruling(order, 45).ruling is None
+    # With the docket text ruling the other way, nothing contradicts it.
+    resolved = ruling_on(MTD, DOCKET_DENY, order_texts={1060: order})
+    assert isinstance(resolved, MotionResolution)
+    assert resolved.ruling is MotionRuling.denied
+    assert resolved.source is Source.docket_text
+
+
+@pytest.mark.parametrize(
+    "order",
+    [
+        "Accordingly, the Court GRANTS Defendants' Motion to Dismiss (ECF No. 45) and DENIES "
+        + "Plaintiff's request for oral argument.",
+        "IT IS ORDERED that the Motion to Dismiss (ECF No. 45) is GRANTED, Plaintiff's motion "
+        + "for sanctions is DENIED.",
+    ],
+)
+def test_a_separate_denial_is_not_a_ruling_in_part(order: str) -> None:
+    assert read_order_ruling(order, 45).ruling is MotionRuling.granted
+
+
+def test_a_ruling_with_an_exception_is_triage() -> None:
+    order = (
+        "IT IS ORDERED that the Motion to Dismiss (ECF No. 45) is DENIED, except that "
+        + "Defendant's request for judicial notice is GRANTED."
+    )
+    assert read_order_ruling(order, 45).conflict is not None
+    assert isinstance(ruling_on(MTD, DOCKET_DENY, order_texts={1060: order}), Unresolved)
+
+
+def test_an_order_on_another_entry_never_resolves_the_motion() -> None:
+    docket = entry(60, "ORDER granting 50 Motion for Leave to File Excess Pages in support of 45")
+    order = (
+        "IT IS ORDERED that the Motion for Leave to File Excess Pages in support of the Motion "
+        + "to Dismiss (ECF No. 45) is GRANTED."
+    )
+    assert ruling_on(MTD, docket, order_texts={1060: order}) is None
+
+
+@pytest.mark.parametrize(
+    ("text", "ruling"),
+    [
+        (
+            "ORDER denying 45 Motion to Dismiss as moot in light of the 52 Amended Complaint.",
+            MotionRuling.mooted,
+        ),
+        ("TEXT ORDER denying [45] Motion to Dismiss as MOOT", MotionRuling.mooted),
+        ("ORDER denying 45 Motion to Dismiss without prejudice as moot.", MotionRuling.mooted),
+        ("ORDER granting 45 Motion to Dismiss in part.", MotionRuling.granted_in_part),
+        (
+            "ORDER ADOPTING 58 REPORT AND RECOMMENDATIONS and granting 45 Motion to Dismiss",
+            MotionRuling.granted,
+        ),
+    ],
+)
+def test_qualifiers_after_the_object(text: str, ruling: MotionRuling) -> None:
+    resolved = ruling_on(MTD, entry(60, text))
+    assert isinstance(resolved, MotionResolution)
+    assert resolved.ruling is ruling
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "ORDER granting 45 Motion to Dismiss as to Count I.",
+        "ORDER granting 45 Motion to Dismiss only as to the federal claims.",
+    ],
+)
+def test_a_limited_docket_ruling_is_triage(text: str) -> None:
+    assert isinstance(ruling_on(MTD, entry(60, text)), Unresolved)
+
+
+def test_a_number_not_naming_a_motion_is_not_an_object() -> None:
+    assert ruling_on(MTD, entry(60, "ORDER granting 45 days to file amended complaint")) is None
+
+
+def test_a_warning_is_not_leave() -> None:
+    text = (
+        "ORDER granting 45 Motion to Dismiss with leave to amend. Amended complaint due within 21 "
+        + "days; failure to file will result in dismissal with prejudice."
+    )
+    resolved = ruling_on(MTD, entry(60, text))
+    assert isinstance(resolved, MotionResolution)
+    assert resolved.leave is Leave.with_leave
+
+
+def test_a_limited_withdrawal_is_not_read() -> None:
+    notice = entry(50, "NOTICE of Withdrawal of 45 Motion to Dismiss as to Count III only")
+    assert ruling_on(MTD, notice) is None
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "ORDER granting 50 Motion to Withdraw Notice of Dismissal",
+        "ORDER granting 50 Motion to Vacate Stipulation of Dismissal",
+        "ORDER granting 50 Motion to Strike Notice of Dismissal",
+        "NOTICE of Voluntary Dismissal of Wells Fargo Bank, N.A. by Jane Doe",
+        "NOTICE of Voluntary Dismissal of John Smith by Jane Doe",
+        "STIPULATION of Dismissal of the Fifth Cause of Action",
+        "STIPULATION of Dismissal of Fraud Claim",
+        "STIPULATION of Dismissal of Crossclaims",
+        "ORDER granting 60 Stipulation of Dismissal re: Defendant Smith",
+        "NOTICE of Voluntary Dismissal of Appeal",
+        "NOTICE of Dismissal in Related Case 3:25-cv-01234",
+        "ORDER GRANTING FINAL APPROVAL OF SETTLEMENT WITH DEFENDANT BANK OF AMERICA",
+        "ORDER granting 80 Motion for Final Approval of Settlement with the Toyota Defendants",
+    ],
+)
+def test_second_round_non_closures(text: str) -> None:
+    assert find_closure([entry(70, text)]) is None
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "NOTICE of Voluntary Dismissal by Jane Doe",
+        "STIPULATION of Dismissal with prejudice by all parties. Signed by Judge A on 4/1/2026.",
+    ],
+)
+def test_second_round_closures(text: str) -> None:
+    assert find_closure([entry(70, text)]) is not None
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "JUDGMENT by default in favor of Plaintiff against Defendant Smith",
+        "JUDGMENT of USCA as to 70 Notice of Appeal",
+    ],
+)
+def test_judgments_that_are_not_the_final_disposition(text: str) -> None:
+    assert resolve_judgment([entry(60, text)]) is None
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "JUDGMENT in favor of Defendant Smith as to all claims against Smith",
+        "JUDGMENT entered against Defendant Acme's counterclaims",
+        "JUDGMENT in favor of plaintiff on Defendant's counterclaim",
+        "JUDGMENT in favor of Defendant Acme and judgment entered against Defendant Doe",
+    ],
+)
+def test_judgments_the_rule_will_not_read_for_a_side(text: str) -> None:
+    assert isinstance(resolve_judgment([entry(60, text)]), Unresolved)
+
+
+def test_a_possessive_is_not_a_side() -> None:
+    assert read_judgment("JUDGMENT in favor of Plaintiff's former employer, Defendant Acme") is None
+
+
+def test_post_judgment_relief_supersedes() -> None:
+    entries = [
+        entry(60, "JUDGMENT in favor of Plaintiff on jury verdict", day="2026-05-01"),
+        entry(
+            70,
+            "ORDER granting 65 Renewed Motion for Judgment as a Matter of Law; the judgment in "
+            + "favor of Plaintiff is set aside",
+            day="2026-06-01",
+        ),
+    ]
+    assert isinstance(resolve_judgment(entries), Unresolved)

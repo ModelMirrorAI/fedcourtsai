@@ -85,60 +85,70 @@ deterministic, runs no agent, and is built to miss rather than misread: a text
 it cannot read leaves the event open, or sends it to triage, and never records
 a guessed outcome.
 
-- **A ruling names the motion as its object.** The disposing entry is the
-  first court entry after the motion (an order, opinion, ruling or minute
-  order; never a party's filing, and never a magistrate judge's
-  recommendation, which counts only through the order adopting it) that
-  rules on the motion. In a docket text that is the CM/ECF form, a ruling verb
-  with the motion's entry number directly after it (`ORDER granting 45 Motion
-  to Dismiss`, `denying [45]`, `granting 45 and 47`). A number anywhere else
-  names a motion's subject rather than the one ruled on, so `ORDER granting 46
+- **The docket text decides.** The disposing entry is the first court entry
+  after the motion (an order, opinion, ruling or minute order, or an order
+  adopting a magistrate judge's recommendation; never a party's filing or the
+  recommendation itself) whose docket text rules on the motion. A ruling is
+  the CM/ECF form: a ruling verb with the motion's entry number directly after
+  it, going on to name a motion (`ORDER granting 45 Motion to Dismiss`,
+  `denying [45]`, `granting 45 and 47 Motions`). A number anywhere else names
+  a motion's subject rather than the one ruled on, so `ORDER granting 46
   Motion for Leave to File Excess Pages re 45 Motion to Dismiss` rules on 46,
-  not 45. An order that cites the motion without ruling on it (setting a
-  hearing, say) is passed over.
-- **An order's text is read from its decretal language**: from its last "it is
-  ordered" to the end (a later "it is further ordered" adds to it), else its
-  last concluding paragraph, never the discussion. There a ruling is a clause
-  whose subject cites the motion (`the Motion to Dismiss (ECF No. 45) is
-  DENIED`) or whose verb takes it as object (`the Court GRANTS ... (Dkt. 45)`).
-  A clause that cites several entries is triage.
-- **An entry or order that cites no entry number is never read as a ruling**,
-  because a docket can hold several motions of one kind, and a text order
-  ruling on one of them names it only in words.
-- **Where both read a ruling, they must agree.** Where only one of the docket
-  text and the order's text reads a ruling, that one stands.
+  and `granting 45 days` rules on nothing. An entry that cites no entry number
+  never rules, because a docket can hold several motions of one kind.
+- **The rest of the motion's phrase qualifies the verb.** `as moot` reads
+  mooted and `in part` reads granted in part, wherever in the phrase they
+  stand; `as to`, `only`, `to the extent`, `insofar` and `with respect to` are
+  triage, as is a bare "terminating".
+- **The order's text only checks.** Where it is given, its decretal language
+  (the final run of "it is ordered" paragraphs, from the last concluding
+  anchor where one leads them) is read for a clause whose subject is the
+  motion itself (`the Motion to Dismiss (ECF No. 45) is DENIED`) or whose verb
+  takes it by name (`the Court GRANTS Defendants' Motion to Dismiss (Dkt.
+  45)`). A clause that conditions or anticipates a ruling ("should not be
+  granted", "will be granted", "show cause"), or whose subject is another
+  matter about the motion (an extension, leave, a hearing, a reply), reads
+  nothing. A reading that disagrees with the docket text, a clause citing
+  several entries, and a ruling with an exception or a limit are triage. The
+  order's text never resolves an event on its own: an opinion that cites the
+  motion with no ruling its docket text states is triage.
 - **"In part" is stated, not inferred.** A ruling in part is one the text calls
   so, or one predicate that grants and denies (`GRANTED as to Count I and
-  DENIED as to Count II`). A grant beside a separate denial of something else
-  is not one, and a grant "as to" some counts with nothing said of the rest is
-  triage. Leave-to-amend and prejudice phrases are read first and struck
-  before the ruling verb is read, so "leave to amend is granted" never turns a
-  denial into a partial grant; leave stated both ways (some counts with
-  prejudice, others with leave) reads `mixed`.
+  DENIED as to Count II`); a grant beside a separate denial of something else
+  is not one. Leave-to-amend and prejudice phrases are read before the ruling
+  verb and struck, as is a warning of what follows a failure to amend
+  ("failure to file will result in dismissal with prejudice"); leave stated
+  both ways (some counts with prejudice, others with leave) reads `mixed`.
 - **A closure without a merits decision** is read from its leading noun: a
-  stipulation or notice of dismissal, or an order granting one, that names no
-  party, count or claim it is limited to; an order granting final approval of
-  a settlement; or a consent judgment. It resolves `trial-judgment` as no
-  merits decision and any motion still open as mooted. A motion for voluntary
-  dismissal, a preliminary approval, a notice of settlement, and a dismissal
-  naming a party close nothing. A stipulation that names no party but drops
-  only some of them is read as a closure; the docket text cannot tell the two
+  stipulation or notice of dismissal, an order granting one, an order granting
+  final approval of a settlement, or a consent judgment, followed by nothing
+  but prejudice words, the whole action or all claims, the filer, the rule it
+  rests on and the clerk's trailer. Anything else after it (a party, a claim,
+  a cause of action, a crossclaim, an appeal, a related case, a settlement
+  with one defendant) leaves it unread, and so does a motion for voluntary
+  dismissal, a preliminary approval or a notice of settlement. A closure
+  resolves `trial-judgment` as no merits decision and any motion still open as
+  mooted. A stipulation filed by named parties that drops only some of them
+  without saying so is read as a closure; the docket text cannot tell the two
   apart, which is a known limit of the rule.
-- **A withdrawal notice** naming the motion as the first entry it cites
-  resolves the motion withdrawn.
-- **A final judgment** is an entry whose leading noun is a judgment. It
-  resolves for the side named by "in favor of", "judgment against" or "take
-  nothing", or mixed where both sides are named "in favor of"; a mention of the
-  claims against a party names no side. A partial, Rule 54(b) or default
-  judgment is passed over.
+- **A withdrawal notice** naming the motion as the first entry it cites, with
+  no limit ("as to", "only", "in part"), resolves the motion withdrawn.
+- **A final judgment** is an entry whose leading noun is a judgment. Its docket
+  text must name the side, by "in favor of", "judgment against" or "take
+  nothing"; mixed needs both sides named "in favor of", and the judgment's own
+  text, where given, must not contradict it. A judgment whose first sentence
+  marks it partial, Rule 54(b), default, or for costs or fees, and the court of
+  appeals' judgment, are passed over.
 - **Every resolution cites the entry it read**: its CourtListener entry id,
   entry number and filing date.
 - **What goes to triage**, as an unrecorded outcome with the reason and the
   entries weighed: the docket text and the order disagreeing on the ruling or
-  on leave, a docket text that rules on the motion in two ways or only
-  "terminates" it, an order clause citing several entries, a partial grant
-  that says nothing of the rest, a final judgment naming no side, and a
-  judgment a later entry amends or vacates.
+  on leave; a docket ruling with a limit, two docket rulings that disagree, or
+  a bare "terminating"; an order clause citing several entries, or ruling with
+  an exception or on part only; an opinion with no docket-text ruling; a final
+  judgment whose docket text names no side, names both in different forms, is
+  limited to some parties or claims, or rules on a counterclaim; and a
+  judgment a later entry amends, vacates or sets aside.
 
 The order's text, where the resolver uses it, is the court's own order read
 from the RECAP archive. A court order is a work of the federal government and
