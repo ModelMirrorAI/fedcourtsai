@@ -431,6 +431,7 @@ from .pipeline.pull import (
     BACKLOG_MAX_POLL_AGE_DAYS,
     CaseDisposition,
     CaseReconciliation,
+    IncrementalEntries,
     PredictBacklog,
     derive_evaluate_backlog,
     derive_predict_backlog,
@@ -21112,6 +21113,10 @@ def pull_all(
             deadline=deadline,
             max_consecutive_transient_failures=pull_cfg.max_consecutive_transient_failures,
             max_entry_pages=pull_cfg.max_entry_pages_per_case,
+            incremental=IncrementalEntries(
+                overlap_days=pull_cfg.entry_overlap_days,
+                full_read_every_days=pull_cfg.full_read_every_days,
+            ),
         )
     # Re-derive owed gradings from the ledger, on top of this poll's fresh
     # resolutions. `already_queued` keeps a case the poll just queued from being
@@ -21152,6 +21157,12 @@ def pull_all(
         )
         + "."
     )
+    if queues.entry_reads:
+        typer.echo(
+            "Entry reads: "
+            + ", ".join(f"{count} {kind}" for kind, count in sorted(queues.entry_reads.items()))
+            + "."
+        )
     for skipped in queues.predict_skipped_decided:
         typer.echo(
             "Skipped forward prediction for "
