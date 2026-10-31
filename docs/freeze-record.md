@@ -15433,8 +15433,8 @@ freeze commit is recorded here.
   (`fedcourts register-boundary`), stamped by the promotion record. It is
   composition, not a cut; no board reads the field.
 
-  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
-  commit `<FILL: merge sha>`, merged `<FILL: merged time utc>`).
+  Carried to `main` by the promotion tagged `promotion/2026-10-31` (merge
+  commit `36071d617fb0bd8c5fed990422f5e3b5bdd6e286`, merged `2026-10-31T13:36:41Z`).
 
   The runnable effect check once it is live:
   - on `main`, `uv run python -c "from fedcourtsai.pipeline.salience import
