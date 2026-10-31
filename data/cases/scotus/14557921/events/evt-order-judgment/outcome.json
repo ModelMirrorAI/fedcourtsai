@@ -1,0 +1,23 @@
+{
+  "actual_disposition": "other",
+  "actual_granted": 1,
+  "case_id": "scotus/14557921",
+  "disposition_basis": "standard",
+  "disposition_route": null,
+  "event_id": "evt-order-judgment",
+  "interim_signals": null,
+  "judgment": "reversed",
+  "merits_decision_method": "summary-opinion",
+  "noted_dissent_from_denial": null,
+  "resolved_at": "2019-02-19",
+  "schema_version": "1.0",
+  "signals": {
+    "cvsg_date": null,
+    "distribution_count": 5,
+    "distribution_parse": "dist-v2"
+  },
+  "source": null,
+  "vote_provenance": null,
+  "votes": [],
+  "writing_roles": null
+}
