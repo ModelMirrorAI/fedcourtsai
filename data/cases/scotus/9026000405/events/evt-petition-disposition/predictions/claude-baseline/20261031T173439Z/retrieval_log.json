@@ -1,0 +1,195 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "call_source": "transcript_item",
+      "params_digest": "ec608e3ca59957a7",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; cat .github/prompts/predict.md; ls -R data/cases/scotus/9026000405/",
+      "result_capture": "captured",
+      "result_digest": "d034602406575dae",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-31T17:46:56.780Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "15fed908b48bfb6e",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; cat /home/runner/.claude/projects/-home-runner-work-fedcourtsai-fedcourtsai/e215d98d-1084-4499-b707-f9137bccca45/tool-results/b1gtff9yi.txt | head -c 95000 | tail -c 93000",
+      "result_capture": "captured",
+      "result_digest": "db68cdcf07da8c8d",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-31T17:47:00.690Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_capture": "captured",
+      "result_digest": "bd33af89e92a5eb5",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-31T17:47:02.037Z",
+      "tool": "Read"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "a1fb168f9f75e16a",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\", \"limit\": 480, \"offset\": 910}",
+      "result_capture": "captured",
+      "result_digest": "df8c65c000e99aea",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-31T17:47:04.020Z",
+      "tool": "Read"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "bd4bc2ae8c3c77d6",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; D=data/cases/scotus/9026000405; find $D -type f; cat $D/events/evt-petition-disposition/event.yaml; cat $D/record/context.json; ls $D/record/snapshots",
+      "result_capture": "captured",
+      "result_digest": "c946e858a984f32e",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-31T17:47:06.141Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "027dfd0bbd7dae15",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; D=data/cases/scotus/9026000405/record; cat $D/snapshots/2026-10-31.json | head -c 6000; echo; cat $D/same-question.json; cat $D/documents/documents.json; cat $D/documents/questions-presented.txt; wc -c $D/documents/petition.txt",
+      "result_capture": "captured",
+      "result_digest": "f6492e0f2b095c21",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-31T17:47:10.403Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "71d718bc0af5d2f5",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; D=data/cases/scotus/9026000405/record/documents; sed -n 1,400p $D/petition.txt | cut -c1-200 | grep -v '^\\s*$' | head -250",
+      "result_capture": "captured",
+      "result_digest": "f9e9358bd1824132",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-31T17:47:12.856Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "bd6689e455ee829c",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; D=data/cases/scotus/9026000405/record/documents; grep -n \"REASON FOR GRANTING\" $D/petition.txt; awk '/^REASON FOR GRANTING THE PETITION$/{c++} c==2' $D/petition.txt | grep -v '^\\s*$' | head -150",
+      "result_capture": "captured",
+      "result_digest": "c4bda23174cef5a9",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-31T17:47:16.558Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "5b5998dc20a878e2",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; D=data/cases/scotus/9026000405/record/documents; sed -n 230,520p $D/petition.txt | grep -v '^\\s*$' | cut -c1-200",
+      "result_capture": "captured",
+      "result_digest": "9f4465d546ece47a",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-31T17:47:18.926Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "8d5960d59aa1453c",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; uv run fedcourts query --help 2>&1 | head -40; grep -n \"Segment base rate by salience band\" -A 25 metrics/statpack.md | head -40",
+      "result_capture": "captured",
+      "result_digest": "5e5deff41f7c449f",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-31T17:47:23.053Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "228d517bccc6239f",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; grep -n -i \"by relist count (paid\" -A 14 metrics/statpack.md | head -20",
+      "result_capture": "captured",
+      "result_digest": "abaf4f99e116ccd8",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-31T17:47:23.691Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "4d704e6da4dff755",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; uv run fedcourts query --court scotus --disposition granted --era modern --limit 3 2>&1 | cut -c1-300 | tail -6; uv run fedcourts paths --court scotus --docket 9026000405 --event evt-petition-disposition --role predictor 2>&1 | tail -15",
+      "result_capture": "captured",
+      "result_digest": "c2eff55486a69d09",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-31T17:47:27.367Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "60e1e03b2ec50ea5",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; uv run fedcourts query --court scotus --disposition denied --limit 3 2>&1 | cut -c1-300 | tail -6",
+      "result_capture": "captured",
+      "result_digest": "07a916d5f9f41582",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-31T17:47:32.169Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "07bf87e898ee16b2",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; O=data/cases/scotus/9026000405/events/evt-petition-disposition/predictions/claude-baseline/20261031T173439Z; mkdir -p $O; cd $O\ncat > prediction.json <<'EOF'\n{\n  \"case_id\": \"scotus/9026000405\",\n  \"event_id\": \"evt-petition-disposition\",\n  \"predictor_id\": \"claude-baseline\",\n  \"run_id\": \"20261031T173439Z\",\n  \"engine\": \"claude-code\",\n  \"model\": \"claude-opus-5-5\",\n  \"created_at\": \"2026-10-31T17:45:00Z\",\n  \"input_snapshot\": \"2026-10-31.json\",\n  \"granted\": ",
+      "result_capture": "captured",
+      "result_digest": "e1781d49f8d0f93c",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-31T17:48:03.239Z",
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/9026000405",
+  "corpus_service": {
+    "open_events": 0,
+    "open_events_ok": 0,
+    "queries": 1,
+    "queries_ok": 1
+  },
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "result_capture_coverage": 1.0,
+  "role": "predictor",
+  "run_id": "20261031T173439Z",
+  "schema_version": "1.0",
+  "self_provisioned_fetches": 0,
+  "throttled_calls": null
+}
