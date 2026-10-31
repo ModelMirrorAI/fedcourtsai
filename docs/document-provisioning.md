@@ -135,10 +135,13 @@ Each of these is stated, with its reason, where the code makes the choice:
   detention cases) means nothing is posted behind them, so the selector finds
   no link. The cell's `record/context.json` freezes `paper_only_filings` from
   the placed payload, so a reader or grader can tell the empty
-  `record/documents/` from a provisioning failure. The predict prompt does not
-  name the field yet. The flag clears once the Court quotes the rule to call
-  for electronic versions, after briefing and argument are scheduled
-  (`pipeline/paper_only.py`).
+  `record/documents/` from a provisioning failure, and the predict prompt
+  tells the cell an empty `record/documents/` is expected there. The flag
+  clears once the Court quotes the rule to call for electronic versions, after
+  briefing and argument are scheduled (`pipeline/paper_only.py`). The
+  Solicitor General's own posted filings are an assessed, not adopted,
+  fallback for the government's side (*The Solicitor General's posted briefs*
+  in [data-sources.md](data-sources.md)).
 - **A consolidated member is checked for freshness on its own docket.** A merits
   filing entered only on the lead is left to the selection sweep
   (live-sources.md, *Document freshness*).

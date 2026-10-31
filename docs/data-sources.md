@@ -599,6 +599,57 @@ a corrected or extended span is a new rule label, never an edit to
 carry no copyright, and the committed roster republishes only names and the
 dates of public office.
 
+**The Solicitor General's posted briefs** are a candidate document source,
+assessed and not adopted. The question it would answer is narrow: on a docket
+the Court has put under Rule 34.6 and Paragraph 9 of its electronic filing
+guidelines (`PredictionContext.paper_only_filings`), the Court posts no party
+filing, so a cell gets no `documents/`; where the United States is a party,
+the Office of the Solicitor General may post its own brief on its site even
+though the Court does not.
+
+- **Source and shape.** `justice.gov/osg/supreme-court-briefs` lists the
+  Office's filings as a table of Term, docket number, caption, brief type and
+  filing date, and each brief has its own page (`justice.gov/osg/brief/<slug>`)
+  carrying the docket number and a type such as *Petition Stage Response*
+  (the Office's label for a brief in opposition), with the PDF linked from it.
+  The docket number is the join to a corpus row, and the types map onto the
+  existing kinds in `pipeline/documents.py`: the Office's petition onto
+  `petition`, a *Petition Stage Response* onto `brief-in-opposition`. A
+  waiver of response posts no brief at all.
+- **Terms.** The Department of Justice's legal-policies page states that,
+  unless otherwise indicated, information on its sites is in the public domain
+  and may be copied and distributed without permission; the stated exceptions
+  are third-party photographs and graphics and the Department's seals. A brief
+  filed by the United States is a work of the federal government. Fetching,
+  storing in the access-gated content store, and staging into a cell are
+  therefore permitted on the copyright question, under the same
+  no-republication posture as the Court's own filings.
+- **Not yet verified.** As read on 2026-10-31 the site's terms were taken from
+  search-engine copies of the legal-policies page and the brief listing; the
+  live pages were not fetched. Before any fetcher is built,
+  someone with access reads `justice.gov/robots.txt` for the `/osg` paths and
+  any crawl delay, the live legal-policies text, and whether the Office posts
+  its filings on a paper-only docket at all, and with what redaction: these
+  dockets are paper-only because the case was sealed or privacy-restricted
+  below, so the posted version is the only one the pipeline may read, and
+  anything the Office marks sealed stays out under the PII stance below.
+- **Reach.** Small. Counted on 2026-10-31 by a one-off read of the
+  production corpus (latest pull 2026-10-31, latest snapshot row 2026-07-13),
+  not by a committed command; a fetcher's PR re-derives the figures. The
+  frame is the SCOTUS dockets with an open event and no `predict_excluded`
+  latch whose newest snapshot is live-shaped, which is what the paper-only
+  reading needs: 1,348 dockets. 14 of them are paper-only, and 13 of those
+  have the federal government as a party by a hand reading of the captions
+  (`party-v1` in `pipeline/party.py` reads 12, missing one ICE field-office
+  director captioned in full). Of the 195 in that frame latched
+  `salience_selected` ([salience.md](salience.md)), 6 are paper-only, 5 of
+  them with the government as a party. The Office has a filing on four of
+  those six: the government is the petitioner on three (its petition is the
+  filing) and filed a brief in opposition on one; on a fifth it waived
+  response. A fetcher would therefore
+  reach a handful of cells a Term, though on those it supplies the one
+  document the cell otherwise lacks.
+
 Two layers of rights apply, and they are different:
 
 - **The underlying records are public.** Federal court opinions and docket data are
