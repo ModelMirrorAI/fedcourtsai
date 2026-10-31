@@ -440,8 +440,13 @@ process-stamped cell provably post-dates the field, so a null pointer on one
 fails validation, while unstamped shakedown records stay valid. A
 `predicted_reasoning.md` written beside a null pointer fails whatever the
 stamp, because no legacy record has that shape, and because the stamp lands
-after the engine exits, so this is the form of the miss a cell's own
-`validate` run can catch before it finishes.
+after the engine exits, so this is the form of the miss a ledger-wide
+`validate` run can catch before it finishes. The cell's own run names its
+directory (`validate data --cell <dir>`), which marks the prediction there as
+live, so it also fails a pointer that is null or left out with no document
+written. The same run fails a live prediction that leaves out a claim block its
+event declares (`claims`, `claim_distributions`, `semantic_claims`), omits
+`big_case_score`, or has no `prediction_summary.md` beside it.
 
 ## `reasoning.md`
 
@@ -465,8 +470,10 @@ One paragraph of about 80 words for a reader with no legal training: the call,
 its probability in words, and the main reason, with the predicted judgment and
 vote split at the merits stage. It restates `prediction.json` and must agree
 with it; it is not a second prediction. Blinded staging copies only the files a
-grade needs, so no judge reads it, and nothing scores it. `stamp-cell` warns,
-and only warns, where a cell left none or one over 160 words.
+grade needs, so no judge reads it, and nothing scores it. The cell's own
+`validate data --cell` run fails where it is missing or blank, while the agent
+can still write it. After the engine exits, `stamp-cell` only warns where a cell
+left none or one over 160 words, and the cell still lands.
 
 ## `retrieval.md`
 

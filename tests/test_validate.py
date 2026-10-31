@@ -1800,6 +1800,180 @@ def test_validate_cli_reports_a_dangling_document_pointer(tmp_path: Path) -> Non
     assert "reasoning.md" in result.output
 
 
+def _cell_dir(data_root: Path, predictor: str = "p1") -> Path:
+    return (
+        CasePaths(data_root, "ca9", 1)
+        .event("evt-motion-stay")
+        .prediction_dir(predictor, "2026-01-01T00-00-00Z")
+    )
+
+
+def _validate_cell(data_root: Path, cell: Path) -> tuple[int, str]:
+    result = runner.invoke(app, ["validate", str(data_root), "--cell", str(cell)])
+    return result.exit_code, result.output
+
+
+def _complete_cell(data_root: Path, *, forecast: bool = True) -> Path:
+    _write_event(data_root, "ca9", 1, "evt-motion-stay")
+    _write_prediction(data_root, "ca9", 1, "evt-motion-stay", "p1", forecast=forecast)
+    cell = _cell_dir(data_root)
+    (cell / "prediction_summary.md").write_text("A plain-language paragraph.\n")
+    return cell
+
+
+def test_validate_cell_passes_a_complete_cell(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    cell = _complete_cell(data_root)
+    code, output = _validate_cell(data_root, cell)
+    assert code == 0, output
+    assert "cell complete" in output
+
+
+def test_validate_cell_fails_an_omitted_forecast_document(tmp_path: Path) -> None:
+    """The unstamped miss the ledger-wide check must let through.
+
+    A prediction with no ``predicted_reasoning_doc`` and no document passes
+    ``validate data`` (legacy records share that shape) and fails only after the
+    stamp, when the cell can no longer fix it. Named as a live cell, it fails now.
+    """
+    data_root = tmp_path / "data"
+    cell = _complete_cell(data_root, forecast=False)
+    assert runner.invoke(app, ["validate", str(data_root)]).exit_code == 0
+    code, output = _validate_cell(data_root, cell)
+    assert code == 1
+    assert "INCOMPLETE" in output
+    assert "names no forecast document" in output
+
+
+def test_validate_cell_fails_a_missing_or_blank_summary(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    cell = _complete_cell(data_root)
+    (cell / "prediction_summary.md").unlink()
+    code, output = _validate_cell(data_root, cell)
+    assert code == 1
+    assert "no prediction_summary.md" in output
+    (cell / "prediction_summary.md").write_text("  \n")
+    code, output = _validate_cell(data_root, cell)
+    assert code == 1
+    assert "no prediction_summary.md" in output
+
+
+def test_validate_cell_fails_an_omitted_big_case_score(tmp_path: Path) -> None:
+    # Required as a number or an explicit null; parsed, absent and null are one
+    # value, so only the file as the agent wrote it shows the omission.
+    data_root = tmp_path / "data"
+    cell = _complete_cell(data_root)
+    path = cell / "prediction.json"
+    data = json.loads(path.read_text())
+    assert "big_case_score" in data
+    data.pop("big_case_score")
+    path.write_text(json.dumps(data))
+    code, output = _validate_cell(data_root, cell)
+    assert code == 1
+    assert "omits big_case_score" in output
+
+
+@pytest.mark.parametrize(
+    ("event", "blocks"),
+    [
+        ("evt-petition-disposition", ("no claims block", "no claim_distributions block")),
+        (MERITS_EVENT_ID, ("no claims block", "no claim_distributions", "no semantic_claims")),
+    ],
+)
+def test_validate_cell_fails_a_stripped_prediction(
+    tmp_path: Path, event: str, blocks: tuple[str, ...]
+) -> None:
+    """A prediction without the blocks its event declares passes the ledger, not the cell.
+
+    The ledger-wide claims check skips an absent block as legitimate (legacy
+    records carry none), so a stripped cell would land with nothing to score.
+    """
+    data_root = tmp_path / "data"
+    _write_event(data_root, "ca9", 1, event)
+    ep = CasePaths(data_root, "ca9", 1).event(event)
+    run = "2026-01-01T00-00-00Z"
+    prediction = Prediction(
+        case_id="ca9/1",
+        event_id=event,
+        predictor_id="p1",
+        engine=Engine.gemini,
+        run_id=run,
+        created_at=datetime(2026, 1, 1),
+        input_snapshot="2026-01-01.json",
+        granted=0,
+        probability=0.01,
+        predicted_disposition=Disposition.denied,
+        predicted_reasoning_doc="predicted_reasoning.md",
+    )
+    write_json(ep.prediction("p1", run), prediction)
+    cell = ep.prediction_dir("p1", run)
+    for name in ("reasoning.md", "predicted_reasoning.md", "prediction_summary.md"):
+        (cell / name).write_text("prose\n")
+    code, output = _validate_cell(data_root, cell)
+    assert code == 1
+    for block in blocks:
+        assert block in output
+    assert runner.invoke(app, ["validate", str(data_root)]).exit_code == 0
+
+
+def test_validate_cell_fails_a_cell_with_no_prediction(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    _write_event(data_root, "ca9", 1, "evt-motion-stay")
+    cell = _cell_dir(data_root)
+    cell.mkdir(parents=True)
+    code, output = _validate_cell(data_root, cell)
+    assert code == 1
+    assert "no prediction.json" in output
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("engine", {"cli": "gemini", "model": "gemini-x"}),
+        ("justice_votes", []),
+        ("outcome_probabilities", {"granted": 0.1}),
+    ],
+)
+def test_validate_cell_reports_an_off_schema_prediction_once(
+    tmp_path: Path, field: str, value: object
+) -> None:
+    """Invented keys and an object ``engine`` fail the schema layer the cell runs.
+
+    The live check leaves a prediction that does not parse to ``validate_ledger``,
+    so the error is one INVALID line, not an INVALID line and a second report.
+    """
+    data_root = tmp_path / "data"
+    cell = _complete_cell(data_root)
+    path = cell / "prediction.json"
+    data = json.loads(path.read_text())
+    data[field] = value
+    path.write_text(json.dumps(data))
+    code, output = _validate_cell(data_root, cell)
+    assert code == 1
+    assert "INVALID" in output
+    assert "INCOMPLETE" not in output
+
+
+def test_validate_cell_reports_malformed_tooling_json(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    cell = _complete_cell(data_root)
+    (cell / "tooling.json").write_text('{"used_corpus_query": true "notes": "x"}')
+    code, output = _validate_cell(data_root, cell)
+    assert code == 1
+    assert "INVALID" in output
+    assert "tooling.json" in output
+
+
+def test_validate_cell_outside_the_tree_is_refused(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    data_root.mkdir()
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    code, output = _validate_cell(data_root, elsewhere)
+    assert code == 2
+    assert "is not under" in output
+
+
 # --- corpus that does not open ------------------------------------------------
 
 
