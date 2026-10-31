@@ -1,0 +1,11 @@
+# Forecast of the Court's action
+
+The Court will most likely deny the petition without a separate writing. The provisioned docket shows exactly one distribution, entered October 21, 2026, for the November 6, 2026 conference; it shows no relist and no CVSG. The principal forecast is denial following that first conference, with zero additional distributions. The probability of at least one additional distribution from this state is 10%; if the Court takes that route, one further distribution is more likely than a prolonged series.
+
+The Court is very unlikely to invite the Solicitor General's views (0.1%). The United States is already a respondent and has waived a response. If the petition attracts attention, a request for a response from the federal respondents is the more natural next step, rather than an invitation for nonparty views. No CVSG timing is forecast.
+
+Conditional on granting review, the Court would most likely narrow the question to whether a federal court must refer an arguably work-related emotional-injury claim to the Department of Labor before entertaining an FTCA action, or may itself exclude that type of injury from FECA's statutory scope. The question would concern allocation of the initial coverage decision, not an adjudication that the alleged misconduct occurred or that the plaintiffs deserve damages. The family's separate Virginia-law assault claim, which the court of appeals revived, is not the proposed review question.
+
+Conditional on any grant, plenary briefing and argument is the likelier route: 92%, compared with 8% for a cert-order summary disposition. No staged filing identifies an intervening Supreme Court decision requiring a GVR. Resolving the asserted disagreement over FECA's scope would require more than straightforward application of an identified intervening holding.
+
+Conditional on denial, the probability of a noted dissent or statement respecting denial is 1.5%. No individual Justice is expected to write; the small independent probabilities in the order-writers block allow for an exceptional separate writing rather than predict a cert-stage majority opinion. Denial itself would supply no explanation and would not endorse the lower court's reasoning.

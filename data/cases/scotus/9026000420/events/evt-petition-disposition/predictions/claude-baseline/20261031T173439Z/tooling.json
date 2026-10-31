@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000420",
+  "run_id": "20261031T173439Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query --docket-number", "metrics/statpack.md"],
+  "helpful": ["--docket-number lookup let me check the companion petitions the petition cites (Sunoco denied, Pickett pending) without web search"],
+  "gaps": ["No way to see why a long-pending petition (Pickett) is being held, i.e., which granted case it is held for", "No statpack cut for paid petitions where every respondent waived and no response was called for"],
+  "notes": "Petition text was truncated, but the reasons section was intact."
+}

@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000606",
+  "run_id": "20261031T173439Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener MCP (search, call_endpoint, get_endpoint_item, read_document)"
+  ],
+  "helpful": [
+    "courtlistener MCP call_endpoint on dockets/clusters and read_document (located and read the unpublished Third Circuit opinion in No. 25-2933 even when opinion search by docket_number returned empty)",
+    "metrics/statpack.md interim docket table for strictly-prior pooled substantive application base rates",
+    "fedcourts query for recent OT2026 substantive application priors"
+  ],
+  "gaps": [
+    "No application.txt was provisioned in record/documents/ (likely unavailable for pro se filing on supremecourt.gov)"
+  ],
+  "notes": "Calling the CourtListener REST dockets endpoint via MCP with court='ca3' and docket_number='25-2933' resolved the exact lower-court docket and unpublished opinion (opinion_id=11386492) despite the search index returning 0 results for the same docket number."
+}
