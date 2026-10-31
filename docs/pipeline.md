@@ -490,7 +490,7 @@ queues behind the production run of the same mode. The modes:
   `public-updates` below), and the argument is about the
   artifact rather than the cadence. The board is a byte-stable pure function of
   the committed ledger and the committed schedule (whose rows carry no build
-  day, so it moves only when a case's conference does), so a day that changed
+  day, so it moves only when a case's date does), so a day that changed
   nothing opens nothing; a day that
   changed something re-rolls committed cells by a tested command that the PR's
   own required checks rerun; and the diff is bounded to the board's two files by

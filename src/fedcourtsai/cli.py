@@ -7965,18 +7965,19 @@ def schedule_cmd(
     ] = None,
     today: Annotated[
         str | None,
-        typer.Option(help="Judge passed conferences against this ISO date (default: UTC today)."),
+        typer.Option(help="Judge passed dates against this ISO date (default: UTC today)."),
     ] = None,
 ) -> None:
-    """Publish each pending public docket's next conference for the site timeline.
+    """Publish each pending public docket's next dates at the Court for the site timeline.
 
     Writes ``data/schedule/schedule.json`` — one row per docket with a committed
-    directory under ``data/cases`` whose corpus row is undecided and distributed
-    for a conference, enumerated from the committed tree alone. A conference
-    before today's UTC date is published as null with the reason, never as an
-    upcoming date. The live poll writes the same file after every cycle; this
-    command rebuilds it from a pulled corpus. Leaves a committed file alone when
-    no corpus is present.
+    directory under ``data/cases`` that has a date in play, enumerated from the
+    committed tree alone: the conference an undecided petition is distributed
+    for, the day a granted case awaiting decision is set for argument, and the
+    deadline for a response still owed. A date before today's UTC date is
+    published as null with the reason, never as an upcoming date. The live poll
+    writes the same file after every cycle; this command rebuilds it from a
+    pulled corpus. Leaves a committed file alone when no corpus is present.
     """
     settings = get_settings()
     destination = out if out is not None else schedule.schedule_path(settings.data_root)
@@ -8003,10 +8004,15 @@ def _write_schedule(data_root: Path, db_path: Path, destination: Path, *, as_of:
         staged.replace(destination)
     finally:
         staged.unlink(missing_ok=True)
-    upcoming = sum(1 for entry in built.entries if entry.next_conference is not None)
+    conferences = sum(1 for entry in built.entries if entry.next_conference is not None)
+    arguments = sum(1 for e in built.entries if e.argument is not None and e.argument.upcoming)
+    responses = sum(
+        1 for e in built.entries if e.response_due is not None and e.response_due.upcoming
+    )
     typer.echo(
-        f"schedule: {len(built.entries)} distributed public docket(s), {upcoming} with an "
-        f"upcoming conference, as of {built.as_of} -> {destination}"
+        f"schedule: {len(built.entries)} public docket(s) with a date in play; upcoming: "
+        f"{conferences} conference(s), {arguments} argument(s), {responses} response "
+        f"deadline(s), as of {built.as_of} -> {destination}"
     )
 
 

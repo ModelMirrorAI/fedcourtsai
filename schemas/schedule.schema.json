@@ -2,18 +2,38 @@
   "$defs": {
     "ScheduleEntry": {
       "additionalProperties": false,
-      "description": "One pending, already-public docket's next scheduled conference.\n\nA row exists for every docket on the public set whose corpus row is\nunresolved and carries a conference it was distributed for. The date is\npublished as `next_conference` only while it falls on or after the\nschedule's `as_of`; once it has passed and the docket has not moved, the\nrow keeps the date it was distributed for and says why it is no longer a\nscheduled date, so a past conference is never shown as upcoming.",
+      "description": "One pending, already-public docket's next dates at the Court.\n\nA row exists for every docket on the public set that has at least one of\nthree dates in play: the conference an undecided petition is distributed\nfor, the day a granted case awaiting its merits decision is set for\nargument, and the deadline for a response that is still owed. Each date is\npublished only while it falls on or after the schedule's `as_of`; once it\nhas passed and the docket has not moved, the row keeps the date as read and\nsays why it is no longer a scheduled date, so a past date is never shown as\nupcoming.",
       "properties": {
+        "argument": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ScheduledDay"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The day the docket's newest 'SET FOR ARGUMENT on \u2026' entry names, on a granted case the Court has not yet decided. Null when the case is not set for argument, or has been argued on or after that day"
+        },
         "case_id": {
           "description": "``<court>/<docket>`` of an already-public case",
           "title": "Case Id",
           "type": "string"
         },
         "distributed_for_conference": {
-          "description": "The corpus `distributed_for_conference`: the date named by the docket's newest 'DISTRIBUTED for Conference of \u2026' entry, as the live channel last read it, whether or not it has passed",
-          "format": "date",
-          "title": "Distributed For Conference",
-          "type": "string"
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The corpus `distributed_for_conference`: the date named by the docket's newest 'DISTRIBUTED for Conference of \u2026' entry, as the live channel last read it, whether or not it has passed. Null on an undecided docket never distributed, and on a granted case, whose conference is behind it",
+          "title": "Distributed For Conference"
         },
         "last_live_polled": {
           "anyOf": [
@@ -26,7 +46,7 @@
             }
           ],
           "default": null,
-          "description": "When the live channel last read this docket \u2014 the per-case vintage of `distributed_for_conference`, which `as_of` is not",
+          "description": "When the live channel last read this docket \u2014 the per-case vintage of every date on the row, which `as_of` is not",
           "title": "Last Live Polled"
         },
         "next_conference": {
@@ -39,8 +59,21 @@
               "type": "null"
             }
           ],
-          "description": "The conference the docket is distributed for, when it falls on or after `as_of`; null exactly when `stale_reason` is set",
+          "default": null,
+          "description": "The conference the docket is distributed for, when it falls on or after `as_of`; null when `stale_reason` is set, and when the row names no conference (`distributed_for_conference` null)",
           "title": "Next Conference"
+        },
+        "response_due": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ScheduledDay"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The newest stated deadline for a response to the petition or application, while the docket is undecided and the response is still owed. Null when no deadline is stated, or a response or waiver followed it"
         },
         "stale_reason": {
           "anyOf": [
@@ -53,21 +86,64 @@
             }
           ],
           "default": null,
-          "description": "Why the row carries no `next_conference`: `conference_passed` (the conference is before `as_of` and the docket shows no newer distribution or a decision yet). Null while the date is still ahead",
+          "description": "Why the row carries no `next_conference` although it names a conference: `conference_passed` (the conference is before `as_of` and the docket shows no newer distribution or a decision yet). Null while the date is still ahead, and on a row that names no conference",
           "title": "Stale Reason"
         }
       },
       "required": [
-        "case_id",
-        "next_conference",
-        "distributed_for_conference"
+        "case_id"
       ],
       "title": "ScheduleEntry",
+      "type": "object"
+    },
+    "ScheduledDay": {
+      "additionalProperties": false,
+      "description": "One date the Court has set on a docket, as the live channel last read it.\n\n`upcoming` carries the date only while it falls on or after the schedule's\n`as_of`; once it has passed, the row keeps the date as read in `set_for`\nand says why it is no longer scheduled, so a past date is never shown as\nupcoming.",
+      "properties": {
+        "set_for": {
+          "description": "The date the docket names, whether or not it has passed",
+          "format": "date",
+          "title": "Set For",
+          "type": "string"
+        },
+        "stale_reason": {
+          "anyOf": [
+            {
+              "const": "passed",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Why the day carries no `upcoming` date: `passed` (`set_for` is before `as_of`, and the docket shows no newer setting yet). Null while the date is ahead",
+          "title": "Stale Reason"
+        },
+        "upcoming": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`set_for`, when it falls on or after `as_of`; null exactly when `stale_reason` is set",
+          "title": "Upcoming"
+        }
+      },
+      "required": [
+        "set_for",
+        "upcoming"
+      ],
+      "title": "ScheduledDay",
       "type": "object"
     }
   },
   "additionalProperties": false,
-  "description": "``data/schedule/schedule.json`` \u2014 the next scheduled conference, public set only.\n\nWritten by the live poll from the corpus it already holds, after each cycle,\nfor the dockets the repository already discloses under ``data/cases``: it is\nenumerated from that committed tree alone and never from a corpus scan, the\nsame compilation-extent boundary as the scope manifest. Display data for\nthe public site: it is not a prediction-ledger record (a schedule moves on\nevery relist), nothing predicts, evaluates or scores on it, and no cell is\nprovisioned with it. ``skipped`` is set, with no entries, when no corpus was\npresent.",
+  "description": "``data/schedule/schedule.json`` \u2014 the Court's next dates, public set only.\n\nWritten by the live poll from the corpus it already holds, after each cycle,\nfor the dockets the repository already discloses under ``data/cases``: it is\nenumerated from that committed tree alone and never from a corpus scan, the\nsame compilation-extent boundary as the scope manifest. Display data for\nthe public site: it is not a prediction-ledger record (a schedule moves on\nevery relist), nothing predicts, evaluates or scores on it, and no cell is\nprovisioned with it. ``skipped`` is set, with no entries, when no corpus was\npresent.",
   "properties": {
     "as_of": {
       "anyOf": [
@@ -80,11 +156,11 @@
         }
       ],
       "default": null,
-      "description": "The UTC day the schedule was built on, which decides whether a conference has passed; null on a skipped build",
+      "description": "The UTC day the schedule was built on, which decides whether a date has passed; null on a skipped build",
       "title": "As Of"
     },
     "entries": {
-      "description": "One entry per pending public docket with a conference it was distributed for, in case_id order",
+      "description": "One entry per pending public docket with a conference, an argument day or a response deadline in play, in case_id order",
       "items": {
         "$ref": "#/$defs/ScheduleEntry"
       },
@@ -92,8 +168,12 @@
       "type": "array"
     },
     "schema_version": {
-      "const": "1.0",
-      "default": "1.0",
+      "default": "1.1",
+      "description": "The artifact's schema version. A reader keys on it: a `1.1` row adds `argument` and `response_due`, and may name no conference",
+      "enum": [
+        "1.0",
+        "1.1"
+      ],
       "title": "Schema Version",
       "type": "string"
     },
