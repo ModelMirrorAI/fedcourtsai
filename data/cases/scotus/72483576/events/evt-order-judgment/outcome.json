@@ -1,0 +1,23 @@
+{
+  "actual_disposition": "other",
+  "actual_granted": 0,
+  "case_id": "scotus/72483576",
+  "disposition_basis": "standard",
+  "disposition_route": null,
+  "event_id": "evt-order-judgment",
+  "interim_signals": null,
+  "judgment": "affirmed",
+  "merits_decision_method": "argued-signed",
+  "noted_dissent_from_denial": null,
+  "resolved_at": "2026-04-29",
+  "schema_version": "1.0",
+  "signals": {
+    "cvsg_date": null,
+    "distribution_count": 3,
+    "distribution_parse": "dist-v2"
+  },
+  "source": null,
+  "vote_provenance": null,
+  "votes": [],
+  "writing_roles": null
+}

@@ -6,7 +6,7 @@ event_id: evt-order-judgment
 kind: order
 moment: grant
 opened_at: '2021-09-30'
-resolved: false
+resolved: true
 schema_version: '1.0'
 stage: merits
 title: Federal Election Commission v. Ted Cruz for Senate, et al.

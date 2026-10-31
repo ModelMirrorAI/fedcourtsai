@@ -280,6 +280,8 @@ from .ops import (
 )
 from .paths import CasePaths, EventPaths
 from .pipeline import (
+    alignment_baseline,
+    alignment_side,
     application_backfill,
     argument_features,
     authorship,
@@ -507,6 +509,7 @@ from .schemas import (
     AgentFlags,
     AgentToolingFeedback,
     AiCaseActivityEntry,
+    AlignmentSideCodes,
     AuthorshipTally,
     Backtest,
     BlindingRecord,
@@ -554,6 +557,7 @@ from .schemas import (
     QpTopicAgreement,
     QpTopicApplicationLabels,
     QpTopicApplicationReference,
+    QpTopicFrame,
     QpTopicLabels,
     QpTopicReference,
     QpTopicRunSpend,
@@ -6329,6 +6333,138 @@ def merits_lineups_cmd(
     )
 
 
+@app.command("alignment-side-extract")
+def alignment_side_extract_cmd(
+    out: Annotated[Path, typer.Option(help="JSON output path for the coder's extract.")],
+    modes_out: Annotated[
+        Path, typer.Option("--modes-out", help="JSON output path for the modes sidecar.")
+    ],
+) -> None:
+    """Cut one side-coding run's extract: each uncoded merits grant's grant-time text.
+
+    The frame (`pipeline/alignment_side.py`) is every SCOTUS cert grant that
+    opened a merits proceeding and did not ride the cert order, granted in
+    OT2021 or later, on the live slice. Each case not yet in the committed
+    side codes, and with stored questions presented, gets one row: case id,
+    docket number, caption, petitioner as captioned, court below, grant date
+    and the questions presented, nothing postdating the grant. At most
+    `CODE_ROW_CEILING` rows, earliest grants first. Each row's mode (`replay`
+    if the case carried a merits judgment when cut, else `forward`) goes to
+    `--modes-out`, which the coder never reads, and the frame and row counts to
+    `<out stem>.batch.json`, the sidecar shape the labeling lane reads. All three
+    are working files
+    for one run and are refused inside the checkout, since the extract
+    republishes stored petition text. Prints the frame's counts to stderr; an
+    empty extract writes nothing and exits 0, a missing corpus exits 1.
+    """
+    settings = get_settings()
+    for destination in (out.resolve(), modes_out.resolve()):
+        for boundary in (_work_tree_root(), settings.data_root.resolve()):
+            if boundary is not None and (
+                destination == boundary or boundary in destination.parents
+            ):
+                typer.echo(
+                    f"alignment-side-extract: refusing to write inside the checkout ({boundary}); "
+                    "the extract republishes stored petition text",
+                    err=True,
+                )
+                raise typer.Exit(code=2)
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if settings.corpus_backend != "ranged" and not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before cutting a side-coding extract.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    committed = alignment_side.codes_path(settings.data_root)
+    coded = (
+        [e.case_id for e in read_model(committed, AlignmentSideCodes).entries]
+        if committed.is_file()
+        else []
+    )
+    try:
+        with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
+            extract = alignment_side.read_extract(conn, coded)
+    except Exception as exc:
+        # Broad for the reason the topic extract's read is: a content-store
+        # transport failure surfaces as whatever the client raises.
+        typer.echo(f"alignment-side-extract: cannot read the corpus at {db_path}: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    modes = alignment_side.modes_payload(extract)
+    replay = sum(1 for mode in modes.values() if mode == "replay")
+    typer.echo(
+        f"alignment-side-extract: frame {extract.frame} grant(s); {extract.already_coded} "
+        f"already coded, {extract.no_text} with no stored questions presented, "
+        f"{extract.deferred} deferred past the {alignment_side.CODE_ROW_CEILING}-row ceiling; "
+        f"{len(extract.rows)} row(s), {replay} replay",
+        err=True,
+    )
+    if not extract.rows:
+        typer.echo("alignment-side-extract: nothing owed; standing down")
+        return
+    write_raw_json(out, alignment_side.extract_payload(extract))
+    write_raw_json(modes_out, modes)
+    # The batch sidecar the labeling lane reads its two counts from, in the
+    # topic extract's shape and beside the extract under the same stem.
+    write_raw_json(
+        out.with_name(out.stem + ".batch.json"),
+        {"frame": extract.frame, "rows": len(extract.rows)},
+    )
+    typer.echo(f"alignment-side-extract: {len(extract.rows)} row(s) -> {out}")
+
+
+@app.command("alignment-side-codes")
+def alignment_side_codes_cmd(
+    extract: Annotated[Path, typer.Option(help="The run's extract.")],
+    modes: Annotated[Path, typer.Option(help="The run's modes sidecar.")],
+    codes: Annotated[Path, typer.Option(help="The coder's JSONL output.")],
+    model: Annotated[str, typer.Option(help="The model the coder ran.")],
+    run_id: Annotated[str, typer.Option("--run-id", help="The workflow run id.")],
+    coded_at: Annotated[
+        str | None,
+        typer.Option("--coded-at", help="The run's day, YYYY-MM-DD (default: today, UTC)."),
+    ] = None,
+    report: Annotated[
+        Path | None,
+        typer.Option(help="Also write the run's counts block (no case text) here."),
+    ] = None,
+) -> None:
+    """Publish one side-coding run into the committed side codes, append-only.
+
+    The code lines must name every extract row exactly once by its case id and
+    docket number and carry only the coder's fields (side, score, valence,
+    note); the grant date, mode, contamination flag, model, run and day are
+    stamped here. A line for a case the committed file already codes is
+    refused, since a code is never revised. Writes
+    `data/merits-alignment/alignment-side-codes.json`; any refusal exits 1 and
+    writes nothing. `--report` writes the counts the review PR body carries:
+    the run's codes by mode, valence and side, and their mean score.
+    """
+    settings = get_settings()
+    day = date.fromisoformat(coded_at) if coded_at else datetime.now(UTC).date()
+    committed = alignment_side.codes_path(settings.data_root)
+    try:
+        prior = read_model(committed, AlignmentSideCodes) if committed.is_file() else None
+        merged = alignment_side.publish(
+            prior,
+            json.loads(extract.read_text()),
+            json.loads(modes.read_text()),
+            alignment_side.read_code_lines(codes),
+            model=model,
+            run_id=run_id,
+            coded_at=day,
+        )
+    except (OSError, ValueError) as exc:
+        typer.echo(f"alignment-side-codes: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    added = len(merged.entries) - (len(prior.entries) if prior is not None else 0)
+    write_json(committed, merged)
+    if report is not None:
+        write_text(report, alignment_side.render_run_report(merged, run_id=run_id))
+    typer.echo(f"alignment-side-codes: {added} code(s) added, {len(merged.entries)} in all")
+
+
 @app.command("justice-priors")
 def justice_priors_cmd(
     first_term: Annotated[
@@ -6397,6 +6533,73 @@ def justice_priors_cmd(
             }
         )
     )
+
+
+@app.command("merits-alignment-baseline")
+def merits_alignment_baseline_cmd(
+    first_term: Annotated[
+        int, typer.Option("--first-term", help="First October Term to score.")
+    ] = 2022,
+    last_term: Annotated[
+        int, typer.Option("--last-term", help="Last October Term to score.")
+    ] = 2025,
+) -> None:
+    """Score the coding-free merits alignment baselines over the merits lineups, read-only.
+
+    The two baselines `docs/merits-alignment-baseline.md` specifies that need no
+    per-case coding (`pipeline/alignment_baseline.py`): majority alignment (the
+    conservative bloc, the Justices appointed by a Republican president, with the
+    judgment and everyone else in dissent, whichever side wins) and unanimity
+    (every Justice with the judgment). Each is read over every complete lineup
+    from `--first-term` to `--last-term` on justice accuracy (sides called over
+    the participating bench), exact split and full coalition, per Term and
+    pooled, beside each Term's realized unanimous and bloc-coalition counts.
+    Writes nothing. Prints a line per Term and for the pooled range, each
+    followed by one line per baseline, to stderr, and the readout JSON to
+    stdout; a reversed range exits 2, a missing corpus 1.
+    """
+    if first_term > last_term:
+        typer.echo("merits-alignment-baseline: --first-term must not exceed --last-term.", err=True)
+        raise typer.Exit(code=2)
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if settings.corpus_backend != "ranged" and not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before scoring the alignment baselines.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
+        lineups = merits_lineups.merits_lineups(conn, first_term=first_term, last_term=last_term)
+    readout = alignment_baseline.alignment_readout(
+        lineups, first_term=first_term, last_term=last_term
+    )
+
+    def _pct(rate: float | None) -> str:
+        return "-" if rate is None else f"{rate:.1%}"
+
+    for term in [*readout.terms, readout.pooled]:
+        label = (
+            f"OT{readout.first_term}-OT{readout.last_term}"
+            if term is readout.pooled
+            else f"OT{term.term}"
+        )
+        typer.echo(
+            f"{label}: {term.decisions} of {term.documents} documents with a complete lineup; "
+            f"{term.unanimous} unanimous, {term.bloc_coalition} bloc coalition",
+            err=True,
+        )
+        for reading in term.readings:
+            typer.echo(
+                f"  {reading.baseline}: justice {_pct(reading.justice_accuracy)} "
+                f"({reading.justice_hits}/{reading.justice_votes}), exact split "
+                f"{_pct(reading.exact_split_accuracy)} ({reading.exact_split_hits}), "
+                f"full coalition {_pct(reading.full_coalition_accuracy)} "
+                f"({reading.full_coalition_hits})",
+                err=True,
+            )
+    typer.echo(readout.model_dump_json())
 
 
 @app.command("backfill-opinion-record")
@@ -8453,7 +8656,7 @@ def qp_topic_spend_cmd(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
         ),
     ],
     frame: Annotated[
-        Literal["petitions", "applications"],
+        QpTopicFrame,
         typer.Option(help="The frame the run labeled."),
     ],
     run_id: Annotated[str, typer.Option("--run-id", help="The Actions run id.")],
@@ -8504,6 +8707,9 @@ def qp_topic_spend_cmd(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
     measurement exists — a labels file short of the batch, or a check ahead of
     the measurement that failed. A refused run spends as much as a published
     one, which is why this record, not the labels artifact, carries the spend.
+    The ``alignment-sides`` frame (the merits side coder) has no reference
+    gate: its run is ``published`` when every row was coded and the codes file
+    written, ``incomplete`` otherwise, and it takes no agreement file.
 
     A model with no rate in ``MODEL_RATES`` is priced at the entry that prices
     these token counts dearest and named in ``priced_as``, so its spend is still
@@ -8542,7 +8748,14 @@ def qp_topic_spend_cmd(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
         except (OSError, ValueError) as exc:
             typer.echo(f"qp-topic-spend: cannot read {agreement_file}: {exc}", err=True)
             raise typer.Exit(code=2) from exc
-    if published and (agreement is None or not agreement.gate_passed):
+    side_coding = frame == "alignment-sides"
+    if side_coding and agreement is not None:
+        typer.echo(
+            "qp-topic-spend: a side-coding run has no reference gate, so no agreement file",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    if published and not side_coding and (agreement is None or not agreement.gate_passed):
         typer.echo(
             "qp-topic-spend: --published needs a measurement that cleared the gate", err=True
         )
@@ -8598,19 +8811,19 @@ def qp_label_plan_cmd(
     *,
     rows: Annotated[int, typer.Option(min=1, help="Rows in the batch the extract cut.")],
     model: Annotated[str, typer.Option(help="The labeler's model.")],
-    frame: Annotated[
-        Literal["petitions", "applications"], typer.Option(help="The frame the round labels.")
-    ],
+    frame: Annotated[QpTopicFrame, typer.Option(help="The frame the round labels.")],
     out: Annotated[Path, typer.Option(help="Write the plan document here (JSON).")],
     report: Annotated[
         Path | None, typer.Option(help="Also write the plan's markdown report here.")
     ] = None,
 ) -> None:
-    """Price a topic-label round: the plan document the review hold judges it on.
+    """Price a label round: the plan document the review hold judges it on.
 
     The round's price is its batch's rows at the labeler's per-row planning
-    rate (:data:`fedcourtsai.planning_rates.LABEL_RATES_USD_PER_ROW`; a model the
-    table does not name prices at its highest rate), written as
+    rate (:data:`fedcourtsai.planning_rates.LABEL_RATES_USD_PER_ROW`, or
+    :data:`~fedcourtsai.planning_rates.SIDE_CODE_RATES_USD_PER_ROW` on the
+    `alignment-sides` frame; a model the table does not name prices at its
+    highest rate), written as
     ``estimated_cost_usd_high`` — the figure ``hold-decision --seam label``
     compares against the per-round cap. Reads nothing and spends nothing.
     """
@@ -8627,9 +8840,7 @@ def qp_label_plan_cmd(
 @app.command("qp-topic-pending")
 def qp_topic_pending_cmd(
     *,
-    frame: Annotated[
-        Literal["petitions", "applications"], typer.Option(help="The frame the round labels.")
-    ],
+    frame: Annotated[QpTopicFrame, typer.Option(help="The frame the round labels.")],
     carried_file: Annotated[
         Path,
         typer.Option(

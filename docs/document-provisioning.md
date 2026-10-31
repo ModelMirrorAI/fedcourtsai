@@ -110,9 +110,11 @@ Each of these is stated, with its reason, where the code makes the choice:
   `record/same-question.json` (`pipeline/same_question.py`; the harness
   boundary `cert-same-question-list`).
 
-- **A combined opposition is kept or dropped whole.** It is dated by its
-  earliest brief, so a cutoff between two respondents' briefs admits the later
-  one (`documents_before`).
+- **A combined opposition is cut brief by brief, its page count estimated.**
+  Each brief is placed by the docket date in its header, so a cell placed
+  between two respondents' briefs reads the earlier one alone. The stored row
+  keeps no per-brief page count, so a cut row's `pages` is the row's count
+  scaled by the share of text kept (`documents_before`).
 - **A corrected filing replaces the original.** The latest fetch of a kind wins,
   so a cell can read the text as later amended (`documents_before`), or lose
   the kind if the correction is dated after its cutoff (live-sources.md,
@@ -134,10 +136,13 @@ Each of these is stated, with its reason, where the code makes the choice:
   detention cases) means nothing is posted behind them, so the selector finds
   no link. The cell's `record/context.json` freezes `paper_only_filings` from
   the placed payload, so a reader or grader can tell the empty
-  `record/documents/` from a provisioning failure. The predict prompt does not
-  name the field yet. The flag clears once the Court quotes the rule to call
-  for electronic versions, after briefing and argument are scheduled
-  (`pipeline/paper_only.py`).
+  `record/documents/` from a provisioning failure, and the predict prompt
+  tells the cell an empty `record/documents/` is expected there. The flag
+  clears once the Court quotes the rule to call for electronic versions, after
+  briefing and argument are scheduled (`pipeline/paper_only.py`). The
+  Solicitor General's own posted filings are an assessed, not adopted,
+  fallback for the government's side (*The Solicitor General's posted briefs*
+  in [data-sources.md](data-sources.md)).
 - **A consolidated member is checked for freshness on its own docket.** A merits
   filing entered only on the lead is left to the selection sweep
   (live-sources.md, *Document freshness*).

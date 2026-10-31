@@ -849,6 +849,21 @@ def test_unblinding_hard_fails_on_an_invented_alias(ledger: Path) -> None:
         _unblind(ledger)
 
 
+def test_unblinding_hard_fails_on_an_alias_nested_under_the_cell(ledger: Path) -> None:
+    """A grader that wrote `<evaluator>/<run_id>/<alias>/` instead of
+    `<evaluator>/<alias>/<run_id>/` must not ship its grade under the alias."""
+    result = _blind(ledger)
+    _seed_evaluations(ledger, result)
+    event_paths = CasePaths(ledger, COURT, DOCKET).event(EVENT)
+    alias = result.candidates[0].alias
+    write_text(
+        event_paths.evaluation_cell_dir(EVALUATOR, EVALUATE_RUN) / alias / "evaluation.json",
+        "{}\n",
+    )
+    with pytest.raises(BlindingError, match="alias directories survive"):
+        _unblind(ledger)
+
+
 def test_a_partial_cell_fails_before_anything_moves(ledger: Path) -> None:
     """Mutate-then-check would let a retry sweep the wreckage clean and call it a success."""
     result = _blind(ledger)

@@ -56,10 +56,11 @@
       "title": "Floor"
     },
     "frame": {
-      "description": "Which labeling frame the run labeled",
+      "description": "Which labeling frame the run labeled: a topic-label frame, or `alignment-sides` for the merits side coder, which has no reference gate",
       "enum": [
         "petitions",
-        "applications"
+        "applications",
+        "alignment-sides"
       ],
       "title": "Frame",
       "type": "string"
@@ -110,7 +111,7 @@
       "title": "N"
     },
     "outcome": {
-      "description": "published: the batch cleared the reference gate and its labels were handed to the publish job; refused: it was measured and fell below the gate; incomplete: it reached neither (a labels file short of the batch, a check ahead of the measurement that failed, or a measurement that cleared the gate but did not reach publication), its gate figures carried wherever it was measured",
+      "description": "published: the batch cleared the reference gate (a side-coding run: coded every row) and its labels were handed to the publish job; refused: it was measured and fell below the gate; incomplete: it reached neither (a labels file short of the batch, a check ahead of the measurement that failed, or a measurement that cleared the gate but did not reach publication), its gate figures carried wherever it was measured",
       "enum": [
         "published",
         "refused",

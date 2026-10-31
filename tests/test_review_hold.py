@@ -858,7 +858,7 @@ def _write_run(
     cost: float = 10.01,
     attempt: int = 1,
 ) -> None:
-    measured = outcome != "incomplete"
+    measured = outcome != "incomplete" and frame != "alignment-sides"
     record = {
         "frame": frame,
         "run_id": run_id,
@@ -1131,3 +1131,38 @@ def test_the_command_holds_a_label_round_while_its_batch_awaits_review(tmp_path:
     held = json.loads(runner.invoke(app, [*args[:-1], str(gone)], env=env).stdout)
     assert held["auto_release"] is False
     assert "could not be read" in held["auto_release_reason"]
+
+
+def test_a_side_coding_round_is_held_on_its_own_frame(tmp_path: Path) -> None:
+    # The merits side coder rides the label seam on its own frame: it is a
+    # labeling frame the hold accepts, and a published side-coding batch on its
+    # open PR holds the next side-coding round, not a topic-label round.
+    plan = tmp_path / "label-plan.json"
+    plan.write_text(json.dumps({**_label_plan(rows=302, high=18.12), "frame": "alignment-sides"}))
+    subjects = tmp_path / "subjects.txt"
+    subjects.write_text("")
+    carried = tmp_path / "carried.txt"
+    carried.write_text("")
+    args = [
+        "hold-decision",
+        "--plan-file",
+        str(plan),
+        "--seam",
+        "label",
+        "--deployments-released",
+        "0",
+        "--main-subjects-file",
+        str(subjects),
+        "--carried-file",
+        str(carried),
+    ]
+    env = _cmd_env(tmp_path)
+    assert json.loads(runner.invoke(app, args, env=env).stdout)["auto_release"] is True
+    _write_run(tmp_path / "data", "400", "2026-10-28T09:00:00Z", frame="alignment-sides")
+    carried.write_text("data/qp-topics/spend/400-1.json\n")
+    held = json.loads(runner.invoke(app, args, env=env).stdout)
+    assert held["auto_release"] is False
+    assert "open alignment-sides labels PR" in held["auto_release_reason"]
+    assert (
+        label_pending(tmp_path / "data", "petitions", ["data/qp-topics/spend/400-1.json"]) is None
+    )

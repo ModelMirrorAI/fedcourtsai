@@ -15433,8 +15433,8 @@ freeze commit is recorded here.
   (`fedcourts register-boundary`), stamped by the promotion record. It is
   composition, not a cut; no board reads the field.
 
-  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
-  commit `<FILL: merge sha>`, merged `<FILL: merged time utc>`).
+  Carried to `main` by the promotion tagged `promotion/2026-10-31` (merge
+  commit `36071d617fb0bd8c5fed990422f5e3b5bdd6e286`, merged `2026-10-31T13:36:41Z`).
 
   The runnable effect check once it is live:
   - on `main`, `uv run python -c "from fedcourtsai.pipeline.salience import
@@ -15452,6 +15452,58 @@ freeze commit is recorded here.
   - `uv run python -c "from fedcourtsai.process_version import
     HARNESS_BOUNDARIES as H; print('context-band-refused' in {b.name for b
     in H})"` prints `True` once the promotion record has stamped the row.
+
+- **A multi-respondent opposition is cut brief by brief at a cell's cutoff;
+  recorded 2026-10-31.** No freeze commit belongs to this entry: no prompt
+  text or other digest input changes, and `uv run fedcourts process-digest
+  --all` prints the same six `proc-v15` digests before and after this change.
+
+  **What changes.** The `brief-in-opposition` row combines every respondent's
+  brief under one header each, the header naming that brief's docket date,
+  and the row is dated by its earliest brief. `provision.documents_before`
+  placed it whole by that date, so a cell placed between two respondents'
+  briefs read the later one as well. It now places each brief by its own
+  header date (an undated header on the row's `fetched_at`) and stages only
+  the briefs filed before the cutoff. A cut row's manifest fields describe the
+  kept briefs alone: `entry_date` the earliest kept brief's, `url` the stored
+  links whose entries on the served docket fall before the cutoff, `truncated` whether a
+  kept brief carries a cut note, and `pages` the row's count scaled by the
+  share of text kept. A row no later brief reaches is staged byte for byte as
+  before. A row stored under the older latest-brief dating, which a cell
+  between its briefs used to lose whole, now gives that cell its earlier
+  briefs.
+
+  **Why.** The call-for-response moment's cutoff falls just after the Court
+  calls for a response, so in a case where one respondent opposed early and
+  another waived, the brief filed after the cutoff is the called-for response
+  itself. On the committed ledger at this change, 3 of the 628 cells placed
+  at a cutoff read a brief filed on or after it: the three call-for-response
+  cells of scotus/73538544 in run `20261029T180303Z`, which read a
+  co-respondent's response filed 2026-10-13 against a 2026-09-11 cutoff. Of
+  the 158 cases those 628 cells sit on, 65 hold an opposition row and 8 of
+  those combine more than one brief. Figures on production index blob
+  `af21a39e…a711c6a8` (newest pull 2026-10-31, newest stored snapshot row
+  2026-07-13), the per-case content store read the same day.
+
+  The boundary is `opposition-cut-by-brief`, every predictor, reach `all`, not
+  gradual: every cell provisioned after the carrying merge is cut this way.
+  It is registered **pending** in this change (`fedcourts
+  register-boundary`), stamped by the promotion record. No board reads it as a
+  cut: the 3 cells it would split are one event's, too few to read a side.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge sha>`, merged `<FILL: merged time utc>`).
+
+  The runnable effect check once it is live:
+  - `uv run python -c "from fedcourtsai.process_version import
+    HARNESS_BOUNDARIES as H; print('opposition-cut-by-brief' in {b.name for
+    b in H})"` prints `True` once the promotion record has stamped the row;
+  - where the corpus is pulled, `uv run fedcourts provision-snapshot --court
+    scotus --docket 73538544 --event evt-order-call-for-response-disposition
+    --moment-cutoff --out <dir>` stages a `brief-in-opposition.txt` with one
+    `===` header, the Aug 26 2026 brief, and its `documents.json` row for
+    `brief-in-opposition` has `entry_date` `Aug 26 2026` and a `url` with no
+    `|` (one link); on this change's branch it read so.
 
 - **`proc-v16`: the forecast document is graded on every stage, cert and
   merits cells read the decision below, and the predict prompt names a refused

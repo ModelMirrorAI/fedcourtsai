@@ -6,7 +6,7 @@ event_id: evt-order-judgment
 kind: order
 moment: grant
 opened_at: '2017-12-08'
-resolved: false
+resolved: true
 schema_version: '1.0'
 stage: merits
 title: O. John Benisek, et al. v. Linda H. Lamone, Administrator, Maryland State Board

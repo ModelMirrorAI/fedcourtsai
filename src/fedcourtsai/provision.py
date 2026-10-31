@@ -56,13 +56,18 @@ from .pipeline import (
     moments,
 )
 from .pipeline.documents import (
+    BIO_URL_JOIN,
     KIND_ARGUMENT_TRANSCRIPT,
+    KIND_BRIEF_IN_OPPOSITION,
     KIND_DESCRIPTIONS,
     KIND_MERITS_BRIEF_APPOINTED_AMICUS,
     LOWER_COURT_KINDS,
     OTHER_LIST,
+    CombinedBlock,
     ScrubbedSnapshot,
     ScrubbedText,
+    combined_blocks,
+    link_entry_dates,
     party_contact_values,
     scrub_contact_details,
     scrub_snapshot_contacts,
@@ -741,7 +746,12 @@ def authorship_tally_for(
     return authorship.tally_record(tally, term=term, as_of=as_of)
 
 
-def documents_before(documents: Iterable[CaseDocument], cutoff: date) -> list[CaseDocument]:
+def documents_before(
+    documents: Iterable[CaseDocument],
+    cutoff: date,
+    *,
+    link_dates: Mapping[str, frozenset[date]] | None = None,
+) -> list[CaseDocument]:
     """The documents on the docket strictly before ``cutoff``.
 
     The snapshot's cut is only half a cell's information set: the merits briefs a
@@ -758,38 +768,104 @@ def documents_before(documents: Iterable[CaseDocument], cutoff: date) -> list[Ca
     document late), so the fallback drops documents a cell could have read rather
     than keeping ones it could not.
 
-    Two residuals the date cannot reach, both from a row holding more text than
-    its one date describes.
+    **A multi-respondent opposition is cut brief by brief.** Its briefs are stored
+    as one ``brief-in-opposition`` row, each under a header naming its own docket
+    date (:func:`fedcourtsai.pipeline.documents.combined_blocks`), so the row is
+    placed constituent by constituent (:func:`_opposition_before`) rather than
+    whole: a cell placed between two respondents' briefs reads the earlier one
+    and not the later. That matters most at the call-for-response moment, whose
+    cutoff falls just after the Court calls for a response — the brief a waiving
+    co-respondent files after it is the called-for response itself. ``link_dates``
+    (:func:`fedcourtsai.pipeline.documents.link_entry_dates` over the docket as
+    served) names which of the row's stored links survive the cut; without it a
+    cut row names none. The other combined rows, ``supplemental-brief`` and
+    ``party-letter``, are dated by their *latest* constituent and placed whole, so
+    they admit no filing after the cutoff — only the opposite cost, a cell placed
+    between two constituents reading neither.
 
-    The first is **combination**. A multi-respondent case's opposition briefs are
-    stored as one ``brief-in-opposition`` row dated by the earliest of them
-    (:mod:`fedcourtsai.pipeline.documents`), and a row is kept or dropped whole —
-    so a cutoff falling between two constituents admits the later one's text as
-    though it had been filed at the earlier date. Dating the row at its *last*
-    brief would close that at a price this cut is not willing to pay: the whole
-    opposition, lead respondent included, dropped from every cell placed between
-    the two. Nothing here can cut inside a stored row, so what bounds this
-    residual is how narrow the selector's arm for the kind is, not this function.
-    The other combined rows, ``supplemental-brief`` and ``party-letter``, are
-    dated by their *latest* constituent instead, so they carry no such residual
-    — only the opposite cost, a cell placed between two constituents reading
-    neither.
-
-    The second is **supersession**. Documents are keyed ``(case_id, kind)``
-    and the latest fetch of a kind wins, so a *corrected* filing supersedes the
-    original under the entry date of whichever fetch is stored. A pre-cutoff
-    ``entry_date`` therefore admits the text as later amended, not necessarily
-    the text as it read at the moment. The corpus keeps no per-kind history to
-    place the earlier version against, and the alternative — dropping every
-    document whose kind was ever re-fetched — would cost a cell its petition.
+    One residual the date cannot reach: **supersession**. Documents are keyed
+    ``(case_id, kind)`` and the latest fetch of a kind wins, so a *corrected*
+    filing supersedes the original under the entry date of whichever fetch is
+    stored. A pre-cutoff ``entry_date`` therefore admits the text as later
+    amended, not necessarily the text as it read at the moment. The corpus keeps
+    no per-kind history to place the earlier version against, and the alternative
+    — dropping every document whose kind was ever re-fetched — would cost a cell
+    its petition.
     """
     kept: list[CaseDocument] = []
     for document in documents:
+        if document.kind == KIND_BRIEF_IN_OPPOSITION and combined_blocks(document.text):
+            placed_row = _opposition_before(document, cutoff, link_dates or {})
+            if placed_row is not None:
+                kept.append(placed_row)
+            continue
         filed = cert_signals.entry_date(document.entry_date)
         placed = filed if filed is not None else document.fetched_at
         if placed < cutoff:
             kept.append(document)
     return kept
+
+
+def _opposition_before(
+    document: CaseDocument, cutoff: date, link_dates: Mapping[str, frozenset[date]]
+) -> CaseDocument | None:
+    """A combined opposition row cut to the briefs filed before ``cutoff``, or ``None``.
+
+    Each brief is placed by the docket date its header names, under the same
+    strict parse and the same ``fetched_at`` fallback as a whole document
+    (:func:`documents_before`). Where every brief falls before the cutoff the
+    row is returned unchanged, so a cell no later brief reaches reads the bytes
+    it always has; where none does, nothing is returned.
+
+    Otherwise the row is rebuilt from the briefs kept, and every field the
+    manifest shows the cell is made to describe them alone, because each would
+    otherwise say that a later brief exists: the text is the kept briefs in
+    stored order; ``entry_date`` the earliest kept brief's, the dating the
+    combiner gives the row (:mod:`fedcourtsai.pipeline.documents`); ``url`` the
+    stored links whose entries on the served docket all fall before the cutoff,
+    one of them on a kept brief's date (``link_dates``),
+    since the stored key is sorted and cannot say which brief each link is;
+    ``truncated`` whether a kept brief carries a cut note; and ``pages`` the
+    row's count scaled by the share of its text kept — an estimate, because the
+    stored row keeps no per-brief page count, at least one page where any text
+    survives. ``fetched_at`` and ``ocr_derived`` stay the row's.
+    """
+    blocks = combined_blocks(document.text)
+    kept: list[CombinedBlock] = []
+    dated: list[tuple[date, str | None]] = []
+    for block in blocks:
+        filed = cert_signals.entry_date(block.entry_date)
+        placed = filed if filed is not None else document.fetched_at
+        if placed < cutoff:
+            kept.append(block)
+            if filed is not None:
+                dated.append((filed, block.entry_date))
+    if len(kept) == len(blocks):
+        return document
+    if not kept:
+        return None
+    text = "\n\n".join(block.text for block in kept)
+    # A link is named only where every entry posting it falls before the cutoff
+    # and one of them is a kept brief's own date, so a link the docket also
+    # posts on a later filing's entry is never named for a brief it dropped.
+    kept_dates = {filed for filed, _ in dated}
+    urls = sorted(
+        url
+        for url in document.url.split(BIO_URL_JOIN)
+        if (posted := link_dates.get(url))
+        and max(posted) < cutoff
+        and not posted.isdisjoint(kept_dates)
+    )
+    pages = max(1, round(document.pages * len(text) / len(document.text))) if document.pages else 0
+    return document.model_copy(
+        update={
+            "text": text,
+            "entry_date": min(dated, key=lambda pair: pair[0])[1] if dated else None,
+            "url": BIO_URL_JOIN.join(urls),
+            "truncated": document.truncated and any(block.cut for block in kept),
+            "pages": pages,
+        }
+    )
 
 
 @dataclass(frozen=True)
@@ -846,6 +922,7 @@ def place_at_moment(
     whichever branch built it.
     """
     provenance: Literal["as-stored", "dated", "truncated"] = "as-stored"
+    served = payload
     admitted = documents_for_moment(documents, event)
     withheld = len(documents) - len(admitted)
     documents = admitted
@@ -923,7 +1000,10 @@ def place_at_moment(
     # document an arrival cell most needs — the application itself — is filed on
     # that day. Tightening to the day before would cost the cell its own
     # application to remove a tail the corpus cannot locate.
-    kept = documents_before(documents, cutoff)
+    # The links a cut opposition row keeps are dated off the docket as the
+    # corpus served it, before either bound thinned it, so the dating does not
+    # depend on which branch built the placed payload.
+    kept = documents_before(documents, cutoff, link_dates=link_entry_dates(served))
     return Placement(
         snapshot_date,
         payload,

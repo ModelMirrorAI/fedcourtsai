@@ -31,7 +31,8 @@
 # cells and the matrix the round actually minted, the larger of the two; a
 # summarize round's is its plan's upper estimate, one call per case, which
 # leaves out a rejected response's retry; a topic-label round's is its plan's
-# upper estimate too, its batch's rows at the labeler's per-row planning rate.
+# upper estimate too, its batch's rows at the labeler's per-row planning rate
+# (the merits side coder's own provisional table on its frame).
 # Those rates sit at or above each engine's measured mean, but a cell's spend varies around its mean and
 # retries spend more than a cell's rate, so actual spend can exceed the
 # estimate. The budget is a projection over a ledger that lags — a manually

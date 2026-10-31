@@ -1,14 +1,14 @@
 {
-  "cases": 342,
+  "cases": 346,
   "cases_out_of_scope": 0,
   "cases_without_score": 1,
   "coverage": [
     {
-      "cases": 309,
+      "cases": 312,
       "n": 3
     },
     {
-      "cases": 31,
+      "cases": 32,
       "n": 2
     },
     {
@@ -16,7 +16,7 @@
       "n": 1
     }
   ],
-  "current_reads": 1024,
+  "current_reads": 1035,
   "declared_no_view": 22,
   "frozen_process": {
     "digests": [
@@ -10018,6 +10018,162 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Herlihy",
+      "caption": "Michael Herlihy, et al. v. DBMP, LLC",
+      "caption_event_id": "evt-order-call-for-response-disposition",
+      "case_id": "scotus/9026000394",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Texas Two-Step good-faith question affects thousands of asbestos claimants and recurring mass-tort bankruptcies, with a claimed 3d/4th Cir. split; narrow \u00a7362(d) posture limits it somewhat.",
+          "big_case_score": 0.6,
+          "event_id": "evt-order-call-for-response-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261031T010306Z"
+        },
+        {
+          "big_case_rationale": "The question affects access to the civil courts for many asbestos claimants and the use of solvent-company restructurings to obtain bankruptcy protections; the particular vehicle is a narrower stay-relief appeal.",
+          "big_case_score": 0.78,
+          "event_id": "evt-order-call-for-response-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261031T010306Z"
+        },
+        {
+          "big_case_rationale": "High stakes if decided: resolving the Fourth/Third Circuit split over the Chapter 11 good-faith requirement for 'Texas Two-Step' divisional-merger bankruptcies would reshape mass-tort corporate reorganization practice nationwide.",
+          "big_case_score": 0.72,
+          "event_id": "evt-order-call-for-response-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261031T010306Z"
+        }
+      ],
+      "docket_id": 9026000394,
+      "docket_number": "26-394",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-394.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-call-for-response-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Texas Two-Step good-faith question affects thousands of asbestos claimants and recurring mass-tort bankruptcies, with a claimed 3d/4th Cir. split; narrow \u00a7362(d) posture limits it somewhat.",
+              "big_case_score": 0.6,
+              "cell_path": "data/cases/scotus/9026000394/events/evt-order-call-for-response-disposition/predictions/claude-baseline/20261031T010306Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000394/events/evt-order-call-for-response-disposition/predictions/claude-baseline/20261031T010306Z",
+              "confidence": 0.8,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.07,
+              "run_id": "20261031T010306Z"
+            },
+            {
+              "big_case_rationale": "The question affects access to the civil courts for many asbestos claimants and the use of solvent-company restructurings to obtain bankruptcy protections; the particular vehicle is a narrower stay-relief appeal.",
+              "big_case_score": 0.78,
+              "cell_path": "data/cases/scotus/9026000394/events/evt-order-call-for-response-disposition/predictions/codex-baseline/20261031T010306Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000394/events/evt-order-call-for-response-disposition/predictions/codex-baseline/20261031T010306Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.24,
+              "run_id": "20261031T010306Z"
+            },
+            {
+              "big_case_rationale": "High stakes if decided: resolving the Fourth/Third Circuit split over the Chapter 11 good-faith requirement for 'Texas Two-Step' divisional-merger bankruptcies would reshape mass-tort corporate reorganization practice nationwide.",
+              "big_case_score": 0.72,
+              "cell_path": "data/cases/scotus/9026000394/events/evt-order-call-for-response-disposition/predictions/gemini-baseline/20261031T010306Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000394/events/evt-order-call-for-response-disposition/predictions/gemini-baseline/20261031T010306Z",
+              "confidence": 0.75,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.14,
+              "run_id": "20261031T010306Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Michael Herlihy, et al. v. DBMP, LLC"
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Texas Two-Step legitimacy governs tens of thousands of stayed asbestos suits and a recurring mass-tort bankruptcy strategy; a state coalition filed in support.",
+              "big_case_score": 0.72,
+              "cell_path": "data/cases/scotus/9026000394/events/evt-petition-disposition/predictions/claude-baseline/20261031T010306Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000394/events/evt-petition-disposition/predictions/claude-baseline/20261031T010306Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.18,
+              "run_id": "20261031T010306Z"
+            },
+            {
+              "big_case_rationale": "Whether solvent enterprises can channel mass asbestos liabilities into bankruptcy through a Texas Two-Step affects many injured claimants, access to civil courts, and nationwide mass-tort restructuring practices.",
+              "big_case_score": 0.8,
+              "cell_path": "data/cases/scotus/9026000394/events/evt-petition-disposition/predictions/codex-baseline/20261031T010306Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000394/events/evt-petition-disposition/predictions/codex-baseline/20261031T010306Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.24,
+              "run_id": "20261031T010306Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Michael Herlihy, et al. v. DBMP, LLC"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.7,
+      "moment": "evt-order-call-for-response-disposition",
+      "moment_opened_at": "2026-10-30",
+      "n": 3,
+      "other_party": "DBMP",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Herlihy's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Herlihy's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-11-13",
+        "kind": "conference"
+      },
+      "score_max": 0.78,
+      "score_min": 0.6,
+      "score_range": 0.18,
+      "short_caption": "Herlihy v. DBMP",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Poore",
       "caption": "Raymond Poore v. United States",
       "caption_event_id": "evt-petition-disposition",
@@ -18717,6 +18873,103 @@
       "score_range": 0.23,
       "short_caption": "Moats v. National Credit Union Administration Board",
       "status": "resolved"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Nielsen",
+      "caption": "The Nielsen Company (US), LLC v. Cumulus Media New Holdings Inc.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000370",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Revives the long-standing LePage's v. PeaceHealth split on bundled discounts under Sherman Act Section 2; significant for antitrust doctrine and multiproduct sellers, though a private commercial dispute on a preliminary-injunction record.",
+          "big_case_score": 0.55,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261031T010306Z"
+        },
+        {
+          "big_case_rationale": "A rule governing above-cost bundled pricing and constructive tying could affect multiproduct businesses well beyond radio ratings, although this is an interlocutory private commercial dispute rather than a nationwide governmental program.",
+          "big_case_score": 0.58,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261031T010306Z"
+        }
+      ],
+      "docket_id": 9026000370,
+      "docket_number": "26-370",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-370.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Revives the long-standing LePage's v. PeaceHealth split on bundled discounts under Sherman Act Section 2; significant for antitrust doctrine and multiproduct sellers, though a private commercial dispute on a preliminary-injunction record.",
+              "big_case_score": 0.55,
+              "cell_path": "data/cases/scotus/9026000370/events/evt-petition-disposition/predictions/claude-baseline/20261031T010306Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000370/events/evt-petition-disposition/predictions/claude-baseline/20261031T010306Z",
+              "confidence": 0.6,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.12,
+              "run_id": "20261031T010306Z"
+            },
+            {
+              "big_case_rationale": "A rule governing above-cost bundled pricing and constructive tying could affect multiproduct businesses well beyond radio ratings, although this is an interlocutory private commercial dispute rather than a nationwide governmental program.",
+              "big_case_score": 0.58,
+              "cell_path": "data/cases/scotus/9026000370/events/evt-petition-disposition/predictions/codex-baseline/20261031T010306Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000370/events/evt-petition-disposition/predictions/codex-baseline/20261031T010306Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.14,
+              "run_id": "20261031T010306Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "The Nielsen Company (US), LLC v. Cumulus Media New Holdings Inc."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.565,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-09-17",
+      "n": 2,
+      "other_party": "Cumulus Media New Holdings",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Nielsen's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Nielsen's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-11-13",
+        "kind": "conference"
+      },
+      "score_max": 0.58,
+      "score_min": 0.55,
+      "score_range": 0.03,
+      "short_caption": "Nielsen v. Cumulus Media New Holdings",
+      "status": "pending"
     },
     {
       "asking_declined": null,
@@ -38137,6 +38390,176 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "John Torsten Loop",
+      "caption": "John Torsten Loop v. Washington, et al.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000369",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Rooker-Feldman scope and arbitration of family-law matters are recurring issues, but this vehicle is a pro se plaintiff's unpublished, fact-bound dismissal; stakes are modest beyond the parties.",
+          "big_case_score": 0.15,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261031T010306Z"
+        },
+        {
+          "big_case_rationale": "A broad decision could affect parental-rights safeguards in private family-law arbitration and access to federal civil-rights remedies, but this petition arises from an individual dispute and an unpublished jurisdictional ruling.",
+          "big_case_score": 0.39,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261031T010306Z"
+        },
+        {
+          "big_case_rationale": "Fact-bound pro se \u00a7 1983 challenge to a state-court domestic-relations arbitration restraining order dismissed under Rooker-Feldman and sovereign/arbitral immunity; attracts five family-law and due-process amici on the abstract delegation theory, but carries limited systemic stakes given severe vehicle flaws and the Court's recent Rooker-Feldman decision in T. M. v. University of Maryland Medical System Corp.",
+          "big_case_score": 0.12,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261031T010306Z"
+        }
+      ],
+      "docket_id": 9026000369,
+      "docket_number": "26-369",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-369.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-arrival-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "QP2 (whether a State may delegate parental-rights adjudication to a private arbitrator without Santosky/Troxel-grade procedure) would matter to family-law practice nationally if decided, but this pro se vehicle was dismissed on Rooker-Feldman jurisdiction and QP2 was never reached below, so a decision on this docket would almost certainly be a denial with no writing.",
+              "big_case_score": 0.12,
+              "cell_path": "data/cases/scotus/9026000369/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260927T182226Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000369/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260927T182226Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.006,
+              "run_id": "20260927T182226Z"
+            },
+            {
+              "big_case_rationale": "A decision defining federal access and constitutional safeguards for privately arbitrated parental restrictions could have substantial consequences beyond this family, but the unpublished, individualized jurisdictional dispute limits its demonstrated national reach.",
+              "big_case_score": 0.4,
+              "cell_path": "data/cases/scotus/9026000369/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260927T182226Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000369/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260927T182226Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.012,
+              "run_id": "20260927T182226Z"
+            },
+            {
+              "big_case_rationale": "A pro se petition challenging a state court family law arbitration decision under Rooker-Feldman; lacks national importance.",
+              "big_case_score": 0.05,
+              "cell_path": "data/cases/scotus/9026000369/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260927T182226Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000369/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260927T182226Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.001,
+              "run_id": "20260927T182226Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "John Torsten Loop v. Washington, et al."
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Rooker-Feldman scope and arbitration of family-law matters are recurring issues, but this vehicle is a pro se plaintiff's unpublished, fact-bound dismissal; stakes are modest beyond the parties.",
+              "big_case_score": 0.15,
+              "cell_path": "data/cases/scotus/9026000369/events/evt-petition-disposition/predictions/claude-baseline/20261031T010306Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000369/events/evt-petition-disposition/predictions/claude-baseline/20261031T010306Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.02,
+              "run_id": "20261031T010306Z"
+            },
+            {
+              "big_case_rationale": "A broad decision could affect parental-rights safeguards in private family-law arbitration and access to federal civil-rights remedies, but this petition arises from an individual dispute and an unpublished jurisdictional ruling.",
+              "big_case_score": 0.39,
+              "cell_path": "data/cases/scotus/9026000369/events/evt-petition-disposition/predictions/codex-baseline/20261031T010306Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000369/events/evt-petition-disposition/predictions/codex-baseline/20261031T010306Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.025,
+              "run_id": "20261031T010306Z"
+            },
+            {
+              "big_case_rationale": "Fact-bound pro se \u00a7 1983 challenge to a state-court domestic-relations arbitration restraining order dismissed under Rooker-Feldman and sovereign/arbitral immunity; attracts five family-law and due-process amici on the abstract delegation theory, but carries limited systemic stakes given severe vehicle flaws and the Court's recent Rooker-Feldman decision in T. M. v. University of Maryland Medical System Corp.",
+              "big_case_score": 0.12,
+              "cell_path": "data/cases/scotus/9026000369/events/evt-petition-disposition/predictions/gemini-baseline/20261031T010306Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000369/events/evt-petition-disposition/predictions/gemini-baseline/20261031T010306Z",
+              "confidence": 0.95,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.01,
+              "run_id": "20261031T010306Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "John Torsten Loop v. Washington, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.22,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-09-17",
+      "n": 3,
+      "other_party": "Washington",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up John Torsten Loop's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "John Torsten Loop's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-11-13",
+        "kind": "conference"
+      },
+      "score_max": 0.39,
+      "score_min": 0.12,
+      "score_range": 0.27,
+      "short_caption": "John Torsten Loop v. Washington",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Cummins",
       "caption": "Christopher R. Cummins v. Illinois",
       "caption_event_id": "evt-petition-disposition",
@@ -39399,123 +39822,6 @@
       "score_range": 0.26,
       "short_caption": "Greene v. Kansas Department of Revenue",
       "status": "resolved"
-    },
-    {
-      "asking_declined": null,
-      "asking_party": "John Torsten Loop",
-      "caption": "John Torsten Loop v. Washington, et al.",
-      "caption_event_id": "evt-petition-arrival-disposition",
-      "case_id": "scotus/9026000369",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "QP2 (whether a State may delegate parental-rights adjudication to a private arbitrator without Santosky/Troxel-grade procedure) would matter to family-law practice nationally if decided, but this pro se vehicle was dismissed on Rooker-Feldman jurisdiction and QP2 was never reached below, so a decision on this docket would almost certainly be a denial with no writing.",
-          "big_case_score": 0.12,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20260927T182226Z"
-        },
-        {
-          "big_case_rationale": "A decision defining federal access and constitutional safeguards for privately arbitrated parental restrictions could have substantial consequences beyond this family, but the unpublished, individualized jurisdictional dispute limits its demonstrated national reach.",
-          "big_case_score": 0.4,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20260927T182226Z"
-        },
-        {
-          "big_case_rationale": "A pro se petition challenging a state court family law arbitration decision under Rooker-Feldman; lacks national importance.",
-          "big_case_score": 0.05,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20260927T182226Z"
-        }
-      ],
-      "docket_id": 9026000369,
-      "docket_number": "26-369",
-      "docket_number_source": "case_id",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-369.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-petition-arrival-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "QP2 (whether a State may delegate parental-rights adjudication to a private arbitrator without Santosky/Troxel-grade procedure) would matter to family-law practice nationally if decided, but this pro se vehicle was dismissed on Rooker-Feldman jurisdiction and QP2 was never reached below, so a decision on this docket would almost certainly be a denial with no writing.",
-              "big_case_score": 0.12,
-              "cell_path": "data/cases/scotus/9026000369/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260927T182226Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000369/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260927T182226Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "claude-baseline",
-              "probability": 0.006,
-              "run_id": "20260927T182226Z"
-            },
-            {
-              "big_case_rationale": "A decision defining federal access and constitutional safeguards for privately arbitrated parental restrictions could have substantial consequences beyond this family, but the unpublished, individualized jurisdictional dispute limits its demonstrated national reach.",
-              "big_case_score": 0.4,
-              "cell_path": "data/cases/scotus/9026000369/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260927T182226Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000369/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260927T182226Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.012,
-              "run_id": "20260927T182226Z"
-            },
-            {
-              "big_case_rationale": "A pro se petition challenging a state court family law arbitration decision under Rooker-Feldman; lacks national importance.",
-              "big_case_score": 0.05,
-              "cell_path": "data/cases/scotus/9026000369/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260927T182226Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000369/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260927T182226Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.001,
-              "run_id": "20260927T182226Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "John Torsten Loop v. Washington, et al."
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.19,
-      "moment": "evt-petition-arrival-disposition",
-      "moment_opened_at": "2026-09-17",
-      "n": 3,
-      "other_party": "Washington",
-      "outcome_lines": [
-        {
-          "action": "granted",
-          "line": "The Court takes up John Torsten Loop's case. A grant alone decides nothing yet about who is right.",
-          "side": "granted"
-        },
-        {
-          "action": "denied",
-          "line": "John Torsten Loop's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
-          "side": "not-granted"
-        }
-      ],
-      "scheduled": null,
-      "score_max": 0.4,
-      "score_min": 0.05,
-      "score_range": 0.35,
-      "short_caption": "John Torsten Loop v. Washington",
-      "status": "pending"
     },
     {
       "asking_declined": null,
@@ -44838,6 +45144,126 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Scroggins",
+      "caption": "Felicia Scroggins v. City of Shreveport, Louisiana",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000383",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Fact-bound pro se ADA/summary-judgment dispute with a single municipal employer; no split asserted, no broader stakes.",
+          "big_case_score": 0.04,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261031T010306Z"
+        },
+        {
+          "big_case_rationale": "Disability accommodation and municipal employment have recurring importance, but this unpublished, record-specific dispute presents no demonstrated nationwide conflict.",
+          "big_case_score": 0.2,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261031T010306Z"
+        },
+        {
+          "big_case_rationale": "Routine pro se fact-bound employment dispute challenging summary judgment and an unpublished one-sentence Fifth Circuit affirmance under settled ADA and Rule 56 standards.",
+          "big_case_score": 0.02,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261031T010306Z"
+        }
+      ],
+      "docket_id": 9026000383,
+      "docket_number": "26-383",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-383.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Fact-bound pro se ADA/summary-judgment dispute with a single municipal employer; no split asserted, no broader stakes.",
+              "big_case_score": 0.04,
+              "cell_path": "data/cases/scotus/9026000383/events/evt-petition-disposition/predictions/claude-baseline/20261031T010306Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000383/events/evt-petition-disposition/predictions/claude-baseline/20261031T010306Z",
+              "confidence": 0.95,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.004,
+              "run_id": "20261031T010306Z"
+            },
+            {
+              "big_case_rationale": "Disability accommodation and municipal employment have recurring importance, but this unpublished, record-specific dispute presents no demonstrated nationwide conflict.",
+              "big_case_score": 0.2,
+              "cell_path": "data/cases/scotus/9026000383/events/evt-petition-disposition/predictions/codex-baseline/20261031T010306Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000383/events/evt-petition-disposition/predictions/codex-baseline/20261031T010306Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.007,
+              "run_id": "20261031T010306Z"
+            },
+            {
+              "big_case_rationale": "Routine pro se fact-bound employment dispute challenging summary judgment and an unpublished one-sentence Fifth Circuit affirmance under settled ADA and Rule 56 standards.",
+              "big_case_score": 0.02,
+              "cell_path": "data/cases/scotus/9026000383/events/evt-petition-disposition/predictions/gemini-baseline/20261031T010306Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000383/events/evt-petition-disposition/predictions/gemini-baseline/20261031T010306Z",
+              "confidence": 0.99,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.002,
+              "run_id": "20261031T010306Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Felicia Scroggins v. City of Shreveport, Louisiana"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.0867,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-09-21",
+      "n": 3,
+      "other_party": "City of Shreveport",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Scroggins' case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Scroggins' petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-11-13",
+        "kind": "conference"
+      },
+      "score_max": 0.2,
+      "score_min": 0.02,
+      "score_range": 0.18,
+      "short_caption": "Scroggins v. City of Shreveport",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Watson",
       "caption": "Henry L. Watson, III v. Kenya Mason, Warden",
       "caption_event_id": "evt-petition-disposition",
@@ -46222,6 +46648,126 @@
       "score_range": 0.15,
       "short_caption": "Sanders v. City of Long Beach",
       "status": "resolved"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Wray",
+      "caption": "Jarin M. Wray v. RTX Corporation",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000352",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Pro se individual employment-retaliation dismissal affirmed by unpublished per curiam; questions are abstract and raise no legal issue of general importance.",
+          "big_case_score": 0.03,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261031T010306Z"
+        },
+        {
+          "big_case_rationale": "Whistleblower protection at a defense contractor has potential public importance, but this record presents an individual pleading and exhaustion dispute, not a developed national legal conflict; the broader national-security assertions are allegations, not findings.",
+          "big_case_score": 0.12,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261031T010306Z"
+        },
+        {
+          "big_case_rationale": "Routine pro se employment-dismissal appeal turning on unpreserved or unexhausted pleading defects under settled statutory standards, carrying minimal legal or public policy significance beyond the individual dispute.",
+          "big_case_score": 0.03,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261031T010306Z"
+        }
+      ],
+      "docket_id": 9026000352,
+      "docket_number": "26-352",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-352.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Pro se individual employment-retaliation dismissal affirmed by unpublished per curiam; questions are abstract and raise no legal issue of general importance.",
+              "big_case_score": 0.03,
+              "cell_path": "data/cases/scotus/9026000352/events/evt-petition-disposition/predictions/claude-baseline/20261031T010306Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000352/events/evt-petition-disposition/predictions/claude-baseline/20261031T010306Z",
+              "confidence": 0.97,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.003,
+              "run_id": "20261031T010306Z"
+            },
+            {
+              "big_case_rationale": "Whistleblower protection at a defense contractor has potential public importance, but this record presents an individual pleading and exhaustion dispute, not a developed national legal conflict; the broader national-security assertions are allegations, not findings.",
+              "big_case_score": 0.12,
+              "cell_path": "data/cases/scotus/9026000352/events/evt-petition-disposition/predictions/codex-baseline/20261031T010306Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000352/events/evt-petition-disposition/predictions/codex-baseline/20261031T010306Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.003,
+              "run_id": "20261031T010306Z"
+            },
+            {
+              "big_case_rationale": "Routine pro se employment-dismissal appeal turning on unpreserved or unexhausted pleading defects under settled statutory standards, carrying minimal legal or public policy significance beyond the individual dispute.",
+              "big_case_score": 0.03,
+              "cell_path": "data/cases/scotus/9026000352/events/evt-petition-disposition/predictions/gemini-baseline/20261031T010306Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000352/events/evt-petition-disposition/predictions/gemini-baseline/20261031T010306Z",
+              "confidence": 0.98,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.002,
+              "run_id": "20261031T010306Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Jarin M. Wray v. RTX Corporation"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.06,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-09-16",
+      "n": 3,
+      "other_party": "RTX",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Wray's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Wray's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-11-13",
+        "kind": "conference"
+      },
+      "score_max": 0.12,
+      "score_min": 0.03,
+      "score_range": 0.09,
+      "short_caption": "Wray v. RTX",
+      "status": "pending"
     },
     {
       "asking_declined": null,
@@ -48065,5 +48611,5 @@
   ],
   "rows_with_leakage_flag": 4,
   "schema_version": "1.3",
-  "scored_reads": 991
+  "scored_reads": 1002
 }

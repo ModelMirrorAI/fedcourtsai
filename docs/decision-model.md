@@ -364,6 +364,10 @@ and resolved against the committed `merits_author` stamp (checked against the
 decision method) and writing roles
 (*The authorship claims* in `docs/outcome-decomposition.md`).
 
+The vote-level floors a merits vote forecast is read against, majority
+alignment and unanimity among them, are specified in
+[merits-alignment-baseline.md](merits-alignment-baseline.md).
+
 **The baseline is the strictly-prior pooled disturbed rate.** The statpack's
 merits section publishes per-grant-Term counts;
 `pipeline.base_rates.merits_base_rate` pools its `disturbed` over its `parsed`
