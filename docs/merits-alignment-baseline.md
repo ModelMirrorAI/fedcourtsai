@@ -11,8 +11,9 @@ predicted a 6–3 split in 62–91% of cases, against a realized 31%, while 43% 
 the decisions were unanimous. So this repository scores its merits forecasts
 beside four baselines, each labeled as a baseline wherever it appears.
 
-This document registers the baselines, the side-coding method two of them
-need, and the reading rule. What is built today, and what each remaining piece
+This document specifies the baselines, the side-coding method two of them
+need, and the reading rule; they are registered once their dated
+[freeze-record.md](freeze-record.md) entry lands (*What is built*, below). What is built today, and what each remaining piece
 owes, is at the end.
 
 ## The four baselines
@@ -20,8 +21,8 @@ owes, is at the end.
 1. **Majority alignment.** Every participating Justice of the conservative bloc
    votes with the judgment and every other participating Justice dissents,
    whichever side wins. It predicts no outcome, so it has no Brier score. It
-   needs no case coding, and it is the paper's rule, so the figures it yields
-   compare directly with theirs.
+   needs no case coding, and it is the paper's rule, applied here to a
+   different population of decisions (*The record*, below).
 2. **Unanimity.** Every participating Justice votes with the judgment: 9–0.
    It also predicts no outcome. It is the floor for the exact split and the
    full coalition.
@@ -45,7 +46,8 @@ each is scored only on the claims it makes.
 The bloc is a fixed rule, not an estimate: **the Justices appointed by a
 Republican president.** On the OT2025 bench those are the six the paper's rule
 names (Roberts, Thomas, Alito, Gorsuch, Kavanaugh, Barrett). On the benches
-before Justice Barrett they are the five of their day, Kennedy among them. The
+before Justice Barrett they are the five of their day (Kennedy among them
+through OT2017). The
 rule needs no data beyond the roster, and a Justice it would misplace on some
 axis stays where it puts them, since moving one would be a judgment made after
 seeing the votes. `pipeline.alignment_baseline.CONSERVATIVE_BLOC` and
@@ -69,9 +71,12 @@ recorded before the decision:
   case's record as of grant time (replay mode). The agent may know those
   outcomes from training, so every past-Term score carries a
   **contamination-risk** flag, and any fit on them is labeled as possibly
-  optimistic. The clean check, a fit on scores recorded at grant time only, is
-  reported separately once a full Term of them exists: OT2027 is the first
-  Term that can be scored out of sample on it.
+  optimistic. The clean check is a fit on scores recorded at grant time only,
+  reported separately. The pass runs at grant, so the first full Term of
+  clean scores is the grants of the first Term it runs for from that Term's
+  start; most of those cases are decided in the following Term. A clean
+  out-of-sample reading fits on that set and is scored on the grants of the
+  Term after it, and its report names both Terms.
 
 ## The readings
 
@@ -83,9 +88,14 @@ for every predictor on a decision, so no predictor chooses it.
   forecast called. A side is with the judgment (`majority` or
   `concur-in-judgment`) or in dissent. A vote in part on each side
   (`concur-in-part-dissent-in-part`) has neither side, so it is a miss for
-  every baseline, none of which predicts one.
+  every baseline, none of which predicts one. A model that predicts a vote in
+  part is read the same way: its call has neither side, so it is a miss
+  whatever the Justice did, and the reading stays symmetric between model and
+  baseline.
 - **Exact split.** Whether the predicted count with the judgment and in dissent
-  is the realized one, with no vote in part.
+  is the realized one, with no vote in part. It ignores who is on which side,
+  so majority alignment is credited for a 6–3 in which three conservatives
+  dissent: an exact split is not evidence of alignment.
 - **Full coalition.** Whether the predicted set of Justices with the judgment
   is the realized set, with no vote in part.
 - **Outcome**, for baseline 3 only: the Brier score of P(the conservative side
@@ -93,11 +103,24 @@ for every predictor on a decision, so no predictor chooses it.
 
 **Reading rule.** A model's merits vote figure is read as lift over the
 strongest baseline on the same reading and the same decisions, never alone.
-On the corpus's own record (below), unanimity is the stronger coding-free
-baseline on all three vote readings, so it is the floor a vote forecast has to
-clear before its accuracy says anything about the case. Majority alignment is
+Lift is the paired difference, model minus baseline, over exactly the
+decisions the model is scored on, in percentage points. Which baseline is
+strongest is recomputed on those decisions each time, not carried over from
+another population. Any interval on a lift is clustered by decision: a
+decision's nine votes are correlated, so 2,589 Justice votes are about 289
+clusters, not 2,589 independent trials, and one Term is roughly 50–60
+decisions, so a lift of a few points is not evidence of skill on its own. On
+the corpus's own record (below), unanimity is the stronger coding-free
+baseline on all three vote readings. Majority alignment is
 reported beside it because it is the paper's rule and the shape the paper's
 models overpredict.
+
+The readout below pools every complete lineup unconditionally. That is a
+description of the record, not yet a floor in the sense
+[decision-model.md](decision-model.md) requires (*the floor must be
+conditioned the way the predictor is conditioned*): the floor a model's figure
+is read against is computed on the model's own scored decisions, which is
+part of *Scoring beside the models*, below.
 
 Justice accuracy here is side-level, as the paper scores it. The leaderboard's
 `mean_vote_accuracy` (`pipeline.evaluate.bench_vote_accuracy`) instead matches

@@ -145,5 +145,14 @@ def test_the_command(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     payload = json.loads(result.stdout)
     assert (payload["first_term"], payload["last_term"]) == (2024, 2025)
     assert payload["terms"] == []
+    lineups = [_lineup(2025, "1", _ideological()), _lineup(2024, "1", _bench())]
+    monkeypatch.setattr("fedcourtsai.cli.merits_lineups.merits_lineups", lambda conn, **_: lineups)
+    result = runner.invoke(app, ["merits-alignment-baseline", "--first-term", "2024"])
+    assert result.exit_code == 0, result.output
+    assert "OT2025: 1 of 1 documents with a complete lineup; 0 unanimous, 1 bloc coalition" in (
+        result.stderr
+    )
+    assert "OT2024-OT2025: 2 of 2" in result.stderr
+    assert "majority-alignment: justice 83.3% (15/18)" in result.stderr
     backwards = ["merits-alignment-baseline", "--first-term", "2025", "--last-term", "2024"]
     assert runner.invoke(app, backwards).exit_code == 2

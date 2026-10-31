@@ -2,16 +2,17 @@
 
 A lay reader's floor for a merits vote forecast: "the Court splits along its
 usual ideological lines", or "the Court agrees". ``docs/merits-alignment-baseline.md``
-registers the four baselines and the reading rule; this module is the two that
+specifies the four baselines and the reading rule; this module is the two that
 need no per-case coding:
 
 - **Majority alignment** places every participating Justice of the
   conservative bloc with the judgment and every other participating Justice in
   dissent, whichever side wins. The bloc is a fixed rule, not an estimate: the
   Justices appointed by a Republican president (:data:`CONSERVATIVE_BLOC`). On
-  the OT2025 bench that is the six the rule Stillwell & Harrington score
-  ("six conservatives in the majority") names, and on the benches before
-  Justice Barrett it is the five of their day.
+  the OT2025 bench that is the six named by the rule Stillwell & Harrington
+  score ("six conservatives in the majority"), and on the benches before
+  Justice Barrett it is the five of their day (Kennedy among them through
+  OT2017).
 - **Unanimity** places every participating Justice with the judgment: 9-0.
 
 Neither predicts the outcome (which side wins), so neither has a Brier score;
@@ -219,16 +220,16 @@ def _term(term: int, members: Sequence[MeritsLineup]) -> AlignmentTerm:
         }
         unanimous += all(side is True for side in sides.values())
         with_other += any(side is True and j in OTHER_BLOC for j, side in sides.items())
+    readings = [_reading(baseline, complete) for baseline in BASELINES]
     return AlignmentTerm(
         term=term,
         documents=len(members),
         decisions=len(complete),
         unanimous=unanimous,
-        bloc_coalition=sum(
-            read_decision("majority-alignment", lu).full_coalition for lu in complete
-        ),
+        # The decisions majority alignment calls in full are those whose coalition is the bloc.
+        bloc_coalition=readings[BASELINES.index("majority-alignment")].full_coalition_hits,
         with_other_bloc=with_other,
-        readings=[_reading(baseline, complete) for baseline in BASELINES],
+        readings=readings,
     )
 
 

@@ -6410,7 +6410,7 @@ def merits_alignment_baseline_cmd(
 ) -> None:
     """Score the coding-free merits alignment baselines over the merits lineups, read-only.
 
-    The two baselines `docs/merits-alignment-baseline.md` registers that need no
+    The two baselines `docs/merits-alignment-baseline.md` specifies that need no
     per-case coding (`pipeline/alignment_baseline.py`): majority alignment (the
     conservative bloc, the Justices appointed by a Republican president, with the
     judgment and everyone else in dissent, whichever side wins) and unanimity
@@ -6418,8 +6418,9 @@ def merits_alignment_baseline_cmd(
     from `--first-term` to `--last-term` on justice accuracy (sides called over
     the participating bench), exact split and full coalition, per Term and
     pooled, beside each Term's realized unanimous and bloc-coalition counts.
-    Writes nothing. Prints one line per Term and baseline to stderr and the
-    readout JSON to stdout; a reversed range exits 2, a missing corpus 1.
+    Writes nothing. Prints a line per Term and for the pooled range, each
+    followed by one line per baseline, to stderr, and the readout JSON to
+    stdout; a reversed range exits 2, a missing corpus 1.
     """
     if first_term > last_term:
         typer.echo("merits-alignment-baseline: --first-term must not exceed --last-term.", err=True)
