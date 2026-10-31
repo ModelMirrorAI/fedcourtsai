@@ -16,7 +16,11 @@ from typer.testing import CliRunner
 
 from fedcourtsai.cli import app
 from fedcourtsai.pipeline.qp_topics import build_label_plan, render_label_plan, run_spend_path
-from fedcourtsai.planning_rates import LABEL_RATES_USD_PER_ROW, label_rate_usd_per_row
+from fedcourtsai.planning_rates import (
+    LABEL_RATES_USD_PER_ROW,
+    SIDE_CODE_RATES_USD_PER_ROW,
+    label_rate_usd_per_row,
+)
 from fedcourtsai.pricing import MODEL_RATES, TokenCounts, estimate_cost_usd
 from fedcourtsai.schemas import QpTopicAgreement, QpTopicRunSpend
 from fedcourtsai.serialize import write_json
@@ -289,3 +293,55 @@ def test_a_bad_recorded_at_exits_2_and_writes_nothing(tmp_path: Path) -> None:
     assert code == 2
     assert "not an ISO timestamp" in output
     assert not out.exists()
+
+
+def test_a_side_coding_run_publishes_without_a_gate(tmp_path: Path) -> None:
+    # The merits side coder has no reference set: a run that coded every row
+    # publishes with no gate figures, and an agreement file is refused.
+    code, output, out = _spend(tmp_path, "--frame", "alignment-sides", "--published")
+    assert code == 0, output
+    record = QpTopicRunSpend.model_validate_json(out.read_text())
+    assert (record.frame, record.outcome) == ("alignment-sides", "published")
+    assert (record.agree, record.n, record.rate, record.floor) == (None, None, None, None)
+    agreement = _agreement(tmp_path, agree=78, n=100, passed=True)
+    code, output, _ = _spend(
+        tmp_path, "--frame", "alignment-sides", "--agreement-file", str(agreement)
+    )
+    assert code == 2, output
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"outcome": "refused"},
+        {"agree": 1, "n": 1, "rate": 1.0},
+        {"floor": 0.3},
+    ],
+)
+def test_a_side_coding_record_carries_no_gate(tmp_path: Path, change: dict[str, Any]) -> None:
+    code, output, out = _spend(tmp_path, "--frame", "alignment-sides", "--published")
+    assert code == 0, output
+    payload = {**json.loads(out.read_text()), **change}
+    with pytest.raises(ValueError):
+        QpTopicRunSpend.model_validate(payload)
+
+
+def test_the_side_coding_plan_prices_at_its_own_provisional_table(tmp_path: Path) -> None:
+    plan = build_label_plan(frame="alignment-sides", model="claude-opus-5-5", rows=302)
+    assert plan["rate_usd_per_row"] == SIDE_CODE_RATES_USD_PER_ROW["claude-opus-5-5"]
+    assert plan["estimated_cost_usd_high"] == round(302 * 0.06, 2)
+    assert plan["rate_source"] == "provisional"
+    assert "provisional rate" in render_label_plan(plan)
+    unknown = build_label_plan(frame="alignment-sides", model="claude-new-6", rows=10)
+    assert unknown["rate_usd_per_row"] == max(SIDE_CODE_RATES_USD_PER_ROW.values())
+    assert unknown["rate_source"] == "highest-rate fallback"
+    # Never below the topic labeler's rate for the same model.
+    for model, rate in LABEL_RATES_USD_PER_ROW.items():
+        assert label_rate_usd_per_row(model, frame="alignment-sides") >= rate
+
+
+def test_a_short_side_coding_run_is_incomplete(tmp_path: Path) -> None:
+    code, output, out = _spend(tmp_path, "--frame", "alignment-sides", "--label-lines", "10")
+    assert code == 0, output
+    record = QpTopicRunSpend.model_validate_json(out.read_text())
+    assert (record.outcome, record.agree, record.rate) == ("incomplete", None, None)

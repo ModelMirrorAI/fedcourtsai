@@ -71,7 +71,7 @@ from pathlib import Path
 from typing import Final, Literal, NamedTuple, Protocol, cast, get_args
 
 from ..corpus import scotus_application_term_year, scotus_term_year, strip_docket_annotation
-from ..planning_rates import LABEL_RATES_USD_PER_ROW, label_rate_usd_per_row
+from ..planning_rates import SIDE_CODE_FRAME, label_rate_usd_per_row, label_rates_for
 from ..schemas import (
     QP_TOPIC_LABELS,
     QpTopicAgreement,
@@ -305,15 +305,31 @@ def run_spend_path(data_root: Path, run_id: str, run_attempt: int) -> Path:
     return run_spend_dir(data_root) / f"{run_id}-{run_attempt}.json"
 
 
+def rate_source(model: str, *, frame: str) -> str:
+    """Where a label round's per-row rate comes from.
+
+    ``measured`` for a topic-label model the table names, ``provisional`` for a
+    side-coder model the table names (that table is set ahead of any measured
+    run), and ``highest-rate fallback`` for a model its frame's table does not
+    name. Re-anchoring the side-coder table on a measured run moves its rows
+    to ``measured`` here too.
+    """
+    if model not in label_rates_for(frame):
+        return "highest-rate fallback"
+    return "provisional" if frame == SIDE_CODE_FRAME else "measured"
+
+
 def build_label_plan(*, frame: str, model: str, rows: int) -> dict[str, object]:
     """The plan document a topic-label round is held on.
 
     Priced at the batch's rows times the labeler's per-row planning rate, so
     the review hold reads one upper estimate the way it reads a summarize
-    plan's. A model the rate table does not name is priced at its highest rate
-    and the plan says so.
+    plan's. A model the frame's rate table does not name is priced at its
+    highest rate and the plan says so; the ``alignment-sides`` frame (the merits
+    side coder, :mod:`fedcourtsai.pipeline.alignment_side`) prices at the side
+    coder's own table.
     """
-    rate = label_rate_usd_per_row(model)
+    rate = label_rate_usd_per_row(model, frame=frame)
     return {
         "stage": "label",
         "frame": frame,
@@ -321,22 +337,29 @@ def build_label_plan(*, frame: str, model: str, rows: int) -> dict[str, object]:
         "labeler": f"claude-code/{model}",
         "rows": rows,
         "rate_usd_per_row": rate,
-        "rate_source": "measured" if model in LABEL_RATES_USD_PER_ROW else "highest-rate fallback",
+        "rate_source": rate_source(model, frame=frame),
         "estimated_cost_usd_high": round(rows * rate, 2),
         "basis": (
-            "rows x the labeler's per-row planning rate (fedcourtsai.planning_rates), set at "
-            "or above the measured ceiling-sized batches; one headless session, so a refused "
-            "or short run spends about what a published one does"
+            "rows x the side coder's provisional per-row rate (fedcourtsai.planning_rates), "
+            "three times the topic labeler's for the same model until a measured run "
+            "re-anchors it; one headless session, so a short run spends about what a "
+            "published one does"
+            if frame == SIDE_CODE_FRAME
+            else "rows x the labeler's per-row planning rate (fedcourtsai.planning_rates), "
+            "set at or above the measured ceiling-sized batches; one headless session, so a "
+            "refused or short run spends about what a published one does"
         ),
     }
 
 
 def render_label_plan(plan: Mapping[str, object]) -> str:
     """The plan's step-summary report: what the round labels and what it is priced at."""
-    fallback = (
-        " (a model the rate table does not name, so its highest rate)"
-        if plan.get("rate_source") != "measured"
-        else ""
+    fallback = {
+        "measured": "",
+        "provisional": " (a provisional rate, set ahead of any measured run)",
+    }.get(
+        str(plan.get("rate_source")),
+        " (a model the rate table does not name, so its highest rate)",
     )
     return (
         f"### qp-topic label plan ({plan['frame']} frame)\n\n"

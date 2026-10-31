@@ -136,12 +136,15 @@ def test_the_workflow_kickoffs_name_only_the_actors_own_template() -> None:
         named = _PROMPT_PATH.findall(text)
         # A matrix kickoff names the template the plan resolved from the
         # actor's registry entry, which is the template its digest hashes; the
-        # one literal is the labeler's own.
+        # one literal is the labeler's own, and the labeling lane names the
+        # frame's template its resolve job chose from a closed pair.
         assert named in ([], [LABELER_PROMPT]), f"{where}: {named}"
         if not named:
-            assert re.match(r"Read \$\{\{ (matrix|steps\.repro\.outputs)\.prompt \}\},", first), (
-                f"{where}: {first!r}"
-            )
+            assert re.match(
+                r"Read \$\{\{ (matrix|steps\.repro\.outputs|needs\.qp-topic-resolve\.outputs)"
+                r"\.prompt \}\},",
+                first,
+            ), f"{where}: {first!r}"
     # Three predict and three evaluate engine steps, the evaluate repro, the
     # labeler and its smoke: a scan that found fewer would be reading a
     # different set of workflows than this test names.
@@ -229,3 +232,21 @@ def test_every_agent_job_removes_the_development_instructions_first(name: str) -
         for file in DEVELOPMENT_INSTRUCTIONS:
             assert run.index(file) < mark, f"{name}:{job_id}: {file} is not marked skip-worktree"
     assert jobs, f"{name}: no job starts an engine — the scan would pass vacuously"
+
+
+def test_the_labeling_lane_resolves_its_prompt_from_a_closed_pair() -> None:
+    """The lane's kickoff names whichever template its resolve job chose.
+
+    Two literals, one per kind of frame, both under `.github/prompts/`: the
+    topic labeler's and the merits side coder's. A third value would be a
+    template no test here reads.
+    """
+    workflow = yaml.safe_load((REPO_ROOT / ".github/workflows/run-analytics.yml").read_text())
+    resolve = workflow["jobs"]["qp-topic-resolve"]
+    run = next(s for s in resolve["steps"] if s.get("id") == "resolve")["run"]
+    assert set(re.findall(r"prompt=(\S+) ;;", run)) == {
+        LABELER_PROMPT,
+        ".github/prompts/alignment-side-code.md",
+    }
+    for path in re.findall(r"prompt=(\S+) ;;", run):
+        assert (REPO_ROOT / path).is_file(), path

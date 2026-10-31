@@ -1144,7 +1144,13 @@ and its step summary says so. These records are one of the three sources the
 **measured spend total** sums — with the agent cells and the case summaries,
 each windowed on its own stamp, `recorded_at` here — and that one total is what
 the spend backstop (`tracking.yaml` `spend:`) and the auto-release budget both
-read ([budget.md](budget.md)). A refused run's spend counts.
+read ([budget.md](budget.md)). A refused run's spend counts. The lane's
+third frame, the merits side coder's `alignment-sides`
+([merits-alignment-baseline.md](merits-alignment-baseline.md)), writes its
+records to the same directory under its own frame name, so the hold, the
+pending-batch stand-down and the measured total read them on the same rules; it
+has no reference gate, so its runs are `published` or `incomplete` and carry no
+gate figures.
 
 ### Publication keys on the count, not on the agent's verdict
 

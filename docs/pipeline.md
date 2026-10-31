@@ -46,7 +46,7 @@ token or role, so privilege and outside reachability stay disjoint — see
 | `run-backtest`   | biweekly schedule (even ISO weeks, Sat 06:23 UTC — pinned cert parameters over the paid population, spends only on the manual `review` release), manual dispatch (replay/engine/limit/terms params; `replay: merits` replays the predictors over decided argued cases at the merits grant and briefed moments instead, dispatch only; `replay: salience-gate` runs the token-free gate replay instead of the predictors) | Claude Code + Codex + Gemini (replay) |
 | `run-ops`        | daily schedule (ops report, weekly performance digest on the run summary, public status snapshot, prediction-reading digest), manual | script (no agent)    |
 | `post-public-update` | weekly schedule (Mon 12:57 UTC), manual dispatch (`week`; re-dispatching a missed week is safe, since the post is idempotent per week) | script (no agent); creates up to two Buttondown drafts (the public update and the AI-cases update), never sends |
-| `run-analytics`  | manual dispatch + weekly schedule (metrics refresh, Mon 05:41 UTC) + daily schedule (big-case board, 04:36 UTC) + weekly schedule (update history, Mon 12:59 UTC) + weekly schedules (topic labeling: petitions Tue 09:08 UTC, applications Wed 09:04 UTC, behind the `review` hold) | script; the `qp-topic-label` and `qp-topic-label-applications` modes each run one Claude Code labeler |
+| `run-analytics`  | manual dispatch + weekly schedule (metrics refresh, Mon 05:41 UTC) + daily schedule (big-case board, 04:36 UTC) + weekly schedule (update history, Mon 12:59 UTC) + weekly schedules (topic labeling: petitions Tue 09:08 UTC, applications Wed 09:04 UTC, merits side coding Thu 09:14 UTC, behind the `review` hold) | script; the `qp-topic-label`, `qp-topic-label-applications` and `alignment-side-code` modes each run one Claude Code labeler |
 | `summarize`      | daily schedule (03:43 UTC), manual dispatch (`limit`); every run spends only on the `review` release, or on auto-release within the trailing spend budget (*Auto-release*) | script; one Messages API call per case (two when a rejected response is retried), no tools and no agent |
 | `integration-test` | manual dispatch + daily canary  | script; engine-smoke runs one real agent cell, engine-actions-smoke one boot probe per engine (the canary), each repro-family scenario one real cell against its pinned record, and qp-labeler-smoke one labeling agent over a synthetic extract |
 | `corpus-check`   | schedule every 30 minutes (:19, :49), input-less manual dispatch; a check of PR code runs only on the maintainer's `corpus-check` approval, an allowlisted `at: main` query unapproved under `corpus-check-auto` | script — the PR's own declared command, or `main`'s code for an `at: main` query (no agent) |
@@ -579,8 +579,8 @@ queues behind the production run of the same mode. The modes:
   measured total. Nothing retries a refused batch, and a scheduled run stands
   down while the frame's open labels PR holds an unmerged published batch
   ([qp-topic.md](qp-topic.md)). The three label jobs queue in per-frame
-  concurrency groups, so one frame's run never displaces the other's.
-  It is the only mode that runs an agent, and therefore the only one **split
+  concurrency groups, so one frame's run never displaces another's.
+  The labeling modes are the only ones that run an agent, and therefore the only ones **split
   across jobs**.
   The PR is opened by a later job, `qp-topic-publish`, which runs no agent and
   takes only the measured labels file, the measured block and the spend record,
@@ -592,9 +592,11 @@ queues behind the production run of the same mode. The modes:
   (`fedcourts qp-corpus`, under `$RUNNER_TEMP` — the command refuses an `--out`
   inside the checkout) to a one-day Actions artifact; `qp-topic-label` assumes
   no role at all, downloads that artifact, and runs the labeler with no cloud
-  credential in its environment and no MCP config (on either frame the extract
-  is the agent's entire evidentiary input). Exactly three things
-  cross the split: that artifact, and two job outputs, each one integer. The
+  credential in its environment and no MCP config (on every frame the extract
+  is the agent's entire evidentiary input). On every frame four things cross
+  the split: that artifact, and three job outputs, two integers and the
+  extract's digest (which the side-coding frame below checks before it
+  stamps); the side-coding frame's modes sidecar crosses besides. The
   size of the QP-bearing frame the extract cut the batch from goes to the
   post-label measure step's `qp-topics --frame-rows`, so the labels artifact
   records each batch's frame ([qp-topic.md](qp-topic.md)). The size of the batch
@@ -627,9 +629,11 @@ queues behind the production run of the same mode. The modes:
   though its spend record still lands. It applies the same
   structural prohibition the cell workflows do — `data/qp-topics/` is moved out
   of the tree for the duration of the agent step, since reading the reference
-  set would not improve the labels, only destroy the measurement — and restores
-  it from the commit afterwards, then asserts the tree is otherwise untouched
-  (the gate constants live in the checkout too). After the agent, the
+  set would not improve the labels, only destroy the measurement, and the rest
+  of `data/` and `metrics/` go with it, since no frame reads the committed
+  record and for the side coder it holds outcomes — and restores both from the
+  commit afterwards, then asserts the tree is otherwise untouched (the gate
+  constants live in the checkout too). After the agent, the
   tested `fedcourts qp-topics` measures the labels against the hand reference
   set and enforces the agreement/coverage gate — below it, nothing is written,
   the measured block still reaches the step summary, the gate figures go into
@@ -649,6 +653,36 @@ queues behind the production run of the same mode. The modes:
   naming its frame. A mode value rather than a dispatch input,
   because the inputs are near GitHub's cap. Its first run belongs on a
   `staging` ref, where the publish job is fenced as for the petition mode.
+- **`alignment-side-code`** (dispatch, or the weekly Thursday cron) is the
+  same jobs over a third frame, `alignment-sides`: the merits side coder of
+  [merits-alignment-baseline.md](merits-alignment-baseline.md). The extract is
+  `fedcourts alignment-side-extract` (every uncoded merits grant's grant-time
+  text, at most 400 rows, earliest grants first), the agent reads
+  `.github/prompts/alignment-side-code.md`, which `qp-topic-resolve` names
+  beside the frame, and the artifact is
+  `data/merits-alignment/alignment-side-codes.json`, landed on its own fixed
+  branch, `merits-alignment/side-codes`, which `main-base` admits. Three things
+  differ from a topic frame. There is **no reference gate**: where the measure
+  step would run, `fedcourts alignment-side-codes` stamps a complete code file
+  into the append-only artifact (it refuses a code for a case already coded),
+  and its spend record is `published` or `incomplete`, never `refused`. Each
+  row's **mode** (replay or forward) is cut beside the extract into a sidecar
+  that crosses as its own one-day artifact, `alignment-modes`, which the coding
+  job downloads only after its agent step and outside the agent's granted
+  directory, so the coder cannot read which of its cases are decided. The
+  coding job's stamp is the publication gate and a preview only: it runs
+  beside the agent, so `qp-topic-publish` stamps the codes again from the
+  coder's lines, the modes sidecar and the extract (checked against the digest
+  the extract job recorded, since the agent could write the coding job's
+  copy), on a runner no agent held, and publishes that file and its counts. And
+  the round is priced at the side coder's own provisional per-row rate
+  (`planning_rates.SIDE_CODE_RATES_USD_PER_ROW`), three times the topic
+  labeler's for the same model until a measured run re-anchors it. The publish
+  job's push guard holds the codes file to containment (every code `main`
+  holds, byte-identical, and more of them); spend records share
+  `data/qp-topics/spend/`, naming their frame, so the hold, the pending-batch
+  stand-down and the measured spend read them unchanged. A week with no new
+  grant stands down at the extract, on either trigger.
 
 ## `summarize` — plain-language case summaries
 
@@ -1985,7 +2019,8 @@ The mechanics:
   lane (the collect run branches, the maintainer's cleanup sweep, the
   metrics-refresh, cert-backtest, merits-backtest and salience-replay PRs,
   the qp-topic labeling runs' `qp-topics/refresh` and
-  `qp-topics/applications-refresh` PRs, the case-summary lane's
+  `qp-topics/applications-refresh` PRs and the side coder's
+  `merits-alignment/side-codes` PR, the case-summary lane's
   `summaries/refresh` PR, the big-case board's
   `metrics/big-cases` PR and the update history's `metrics/public-updates`
   PR), or a `record-fill/…` PR, which the `paths` jail holds to in-place fills

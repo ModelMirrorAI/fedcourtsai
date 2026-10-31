@@ -337,3 +337,27 @@ def publish(
         )
     merged = {**held, **seen}
     return AlignmentSideCodes(entries=[merged[k] for k in sorted(merged)])
+
+
+def render_run_report(codes: AlignmentSideCodes, *, run_id: str) -> str:
+    """The review PR's block for one run: counts over the codes it added, no text.
+
+    Counts and a mean only, never a note or a case: the block goes into a
+    public PR body, and the codes themselves are the diff beside it.
+    """
+    added = [e for e in codes.entries if e.run_id == run_id]
+    if not added:
+        return f"run {run_id}: no codes added\n"
+    by_mode = {m.value: sum(1 for e in added if e.mode == m) for m in AlignmentCodeMode}
+    by_valence = {v.value: sum(1 for e in added if e.valence == v) for v in AlignmentValence}
+    by_side = {s.value: sum(1 for e in added if e.conservative_side == s) for s in AlignmentSide}
+    mean = sum(e.score for e in added) / len(added)
+    granted = sorted(e.granted for e in added)
+    return (
+        f"run {run_id}: {len(added)} code(s) added, {len(codes.entries)} in the file\n"
+        f"granted {granted[0].isoformat()} to {granted[-1].isoformat()}\n"
+        "mode: " + ", ".join(f"{k} {v}" for k, v in by_mode.items()) + "\n"
+        "valence: " + ", ".join(f"{k} {v}" for k, v in by_valence.items()) + "\n"
+        "conservative side: " + ", ".join(f"{k} {v}" for k, v in by_side.items()) + "\n"
+        f"mean score (P conservative side prevails): {mean:.3f}\n"
+    )

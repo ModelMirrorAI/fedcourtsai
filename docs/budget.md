@@ -97,6 +97,12 @@ frames' backlogs clear and most weeks stand down. A `claude-fable-5` dispatch
 of a full 1,200-row batch prices at $72, just under the $75 per-round cap, so
 it too can auto-release. Every run's spend is recorded
 under `data/qp-topics/spend/`, a run refused at the reference gate included.
+The same lane runs the merits side coder
+([merits-alignment-baseline.md](merits-alignment-baseline.md)) weekly over new
+merits grants, priced at a provisional $0.06 a row at the default model
+(three times the topic labeler's, since no side-coding run has been measured):
+its first run codes the backlog of about 300 grants, about $18 at that rate,
+and a later week codes the few new grants or stands down.
 
 **The merits replay and the grading pilot over it spend outside the ledger
 too** ([pipeline.md](pipeline.md), *The predict/evaluate matrix*, for the

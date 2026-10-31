@@ -556,6 +556,7 @@ from .schemas import (
     QpTopicAgreement,
     QpTopicApplicationLabels,
     QpTopicApplicationReference,
+    QpTopicFrame,
     QpTopicLabels,
     QpTopicReference,
     QpTopicRunSpend,
@@ -6348,7 +6349,9 @@ def alignment_side_extract_cmd(
     and the questions presented, nothing postdating the grant. At most
     `CODE_ROW_CEILING` rows, earliest grants first. Each row's mode (`replay`
     if the case carried a merits judgment when cut, else `forward`) goes to
-    `--modes-out`, which the coder never reads. Both files are working files
+    `--modes-out`, which the coder never reads, and the frame and row counts to
+    `<out stem>.batch.json`, the sidecar shape the labeling lane reads. All three
+    are working files
     for one run and are refused inside the checkout, since the extract
     republishes stored petition text. Prints the frame's counts to stderr; an
     empty extract writes nothing and exits 0, a missing corpus exits 1.
@@ -6401,6 +6404,12 @@ def alignment_side_extract_cmd(
         return
     write_raw_json(out, alignment_side.extract_payload(extract))
     write_raw_json(modes_out, modes)
+    # The batch sidecar the labeling lane reads its two counts from, in the
+    # topic extract's shape and beside the extract under the same stem.
+    write_raw_json(
+        out.with_name(out.stem + ".batch.json"),
+        {"frame": extract.frame, "rows": len(extract.rows)},
+    )
     typer.echo(f"alignment-side-extract: {len(extract.rows)} row(s) -> {out}")
 
 
@@ -6415,6 +6424,10 @@ def alignment_side_codes_cmd(
         str | None,
         typer.Option("--coded-at", help="The run's day, YYYY-MM-DD (default: today, UTC)."),
     ] = None,
+    report: Annotated[
+        Path | None,
+        typer.Option(help="Also write the run's counts block (no case text) here."),
+    ] = None,
 ) -> None:
     """Publish one side-coding run into the committed side codes, append-only.
 
@@ -6424,7 +6437,8 @@ def alignment_side_codes_cmd(
     stamped here. A line for a case the committed file already codes is
     refused, since a code is never revised. Writes
     `data/merits-alignment/alignment-side-codes.json`; any refusal exits 1 and
-    writes nothing.
+    writes nothing. `--report` writes the counts the review PR body carries:
+    the run's codes by mode, valence and side, and their mean score.
     """
     settings = get_settings()
     day = date.fromisoformat(coded_at) if coded_at else datetime.now(UTC).date()
@@ -6445,6 +6459,8 @@ def alignment_side_codes_cmd(
         raise typer.Exit(code=1) from exc
     added = len(merged.entries) - (len(prior.entries) if prior is not None else 0)
     write_json(committed, merged)
+    if report is not None:
+        write_text(report, alignment_side.render_run_report(merged, run_id=run_id))
     typer.echo(f"alignment-side-codes: {added} code(s) added, {len(merged.entries)} in all")
 
 
@@ -8639,7 +8655,7 @@ def qp_topic_spend_cmd(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
         ),
     ],
     frame: Annotated[
-        Literal["petitions", "applications"],
+        QpTopicFrame,
         typer.Option(help="The frame the run labeled."),
     ],
     run_id: Annotated[str, typer.Option("--run-id", help="The Actions run id.")],
@@ -8690,6 +8706,9 @@ def qp_topic_spend_cmd(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
     measurement exists — a labels file short of the batch, or a check ahead of
     the measurement that failed. A refused run spends as much as a published
     one, which is why this record, not the labels artifact, carries the spend.
+    The ``alignment-sides`` frame (the merits side coder) has no reference
+    gate: its run is ``published`` when every row was coded and the codes file
+    written, ``incomplete`` otherwise, and it takes no agreement file.
 
     A model with no rate in ``MODEL_RATES`` is priced at the entry that prices
     these token counts dearest and named in ``priced_as``, so its spend is still
@@ -8728,7 +8747,14 @@ def qp_topic_spend_cmd(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
         except (OSError, ValueError) as exc:
             typer.echo(f"qp-topic-spend: cannot read {agreement_file}: {exc}", err=True)
             raise typer.Exit(code=2) from exc
-    if published and (agreement is None or not agreement.gate_passed):
+    side_coding = frame == "alignment-sides"
+    if side_coding and agreement is not None:
+        typer.echo(
+            "qp-topic-spend: a side-coding run has no reference gate, so no agreement file",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    if published and not side_coding and (agreement is None or not agreement.gate_passed):
         typer.echo(
             "qp-topic-spend: --published needs a measurement that cleared the gate", err=True
         )
@@ -8784,19 +8810,19 @@ def qp_label_plan_cmd(
     *,
     rows: Annotated[int, typer.Option(min=1, help="Rows in the batch the extract cut.")],
     model: Annotated[str, typer.Option(help="The labeler's model.")],
-    frame: Annotated[
-        Literal["petitions", "applications"], typer.Option(help="The frame the round labels.")
-    ],
+    frame: Annotated[QpTopicFrame, typer.Option(help="The frame the round labels.")],
     out: Annotated[Path, typer.Option(help="Write the plan document here (JSON).")],
     report: Annotated[
         Path | None, typer.Option(help="Also write the plan's markdown report here.")
     ] = None,
 ) -> None:
-    """Price a topic-label round: the plan document the review hold judges it on.
+    """Price a label round: the plan document the review hold judges it on.
 
     The round's price is its batch's rows at the labeler's per-row planning
-    rate (:data:`fedcourtsai.planning_rates.LABEL_RATES_USD_PER_ROW`; a model the
-    table does not name prices at its highest rate), written as
+    rate (:data:`fedcourtsai.planning_rates.LABEL_RATES_USD_PER_ROW`, or
+    :data:`~fedcourtsai.planning_rates.SIDE_CODE_RATES_USD_PER_ROW` on the
+    `alignment-sides` frame; a model the table does not name prices at its
+    highest rate), written as
     ``estimated_cost_usd_high`` — the figure ``hold-decision --seam label``
     compares against the per-round cap. Reads nothing and spends nothing.
     """
@@ -8813,9 +8839,7 @@ def qp_label_plan_cmd(
 @app.command("qp-topic-pending")
 def qp_topic_pending_cmd(
     *,
-    frame: Annotated[
-        Literal["petitions", "applications"], typer.Option(help="The frame the round labels.")
-    ],
+    frame: Annotated[QpTopicFrame, typer.Option(help="The frame the round labels.")],
     carried_file: Annotated[
         Path,
         typer.Option(
