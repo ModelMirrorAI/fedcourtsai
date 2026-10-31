@@ -23252,7 +23252,7 @@ def _refuse_pilot_section(section: Path) -> None:
     }
     if section.resolve() in registered:
         typer.echo(
-            f"--pilot-section {section} is a registered evaluate prompt, not a draft section.",
+            f"--pilot-section {section} is a registered evaluate prompt, not a pilot note.",
             err=True,
         )
         raise typer.Exit(code=1)

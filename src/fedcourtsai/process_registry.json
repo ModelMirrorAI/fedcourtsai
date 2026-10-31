@@ -110,7 +110,7 @@
       }
     },
     {
-      "digest": "sha256:ef9fca9df049ddb6ddea79169838364cb368a1ecd051249329cef8b5084ec9d2",
+      "digest": "sha256:2c24c01085a75e5634388510595476ca4887c51bb5c4ca0d0bb348bd5c572f5c",
       "role": "evaluator",
       "actor_id": "claude-judge",
       "label": "proc-v16",
@@ -121,7 +121,7 @@
       }
     },
     {
-      "digest": "sha256:00059397cd53a4153ad7e0cabfeb27200977cf748a336215884e2ba3ceaa9c82",
+      "digest": "sha256:4956b4db47514393d6455c004579fb5aec3f5ab4f37ab4765fb2ad38ef080316",
       "role": "evaluator",
       "actor_id": "codex-judge",
       "label": "proc-v16",
@@ -132,7 +132,7 @@
       }
     },
     {
-      "digest": "sha256:50251dc49781cef719feb0852a09daac15af3f4dd3f3120abf481f1a3c5f1e6e",
+      "digest": "sha256:829805f636d9b0baefd2fb39970ce83a430f3225384b724101975a06750c1a6c",
       "role": "evaluator",
       "actor_id": "gemini-judge",
       "label": "proc-v16",
@@ -570,13 +570,13 @@
     "sha256:e481306013cbb61ab29747a4eafd2d8d55c7694d196fe470ce14c78d2663310c": [
       "proc-v15"
     ],
-    "sha256:ef9fca9df049ddb6ddea79169838364cb368a1ecd051249329cef8b5084ec9d2": [
+    "sha256:2c24c01085a75e5634388510595476ca4887c51bb5c4ca0d0bb348bd5c572f5c": [
       "proc-v16"
     ],
-    "sha256:00059397cd53a4153ad7e0cabfeb27200977cf748a336215884e2ba3ceaa9c82": [
+    "sha256:4956b4db47514393d6455c004579fb5aec3f5ab4f37ab4765fb2ad38ef080316": [
       "proc-v16"
     ],
-    "sha256:50251dc49781cef719feb0852a09daac15af3f4dd3f3120abf481f1a3c5f1e6e": [
+    "sha256:829805f636d9b0baefd2fb39970ce83a430f3225384b724101975a06750c1a6c": [
       "proc-v16"
     ]
   },

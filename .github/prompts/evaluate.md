@@ -429,8 +429,8 @@ fails the cell.
       they diverge was not built by the pipeline: treat the divergence as a
       fact about the pack, note it in `flags.json` and `evaluation.md`, and do
       not reconcile the numbers.
-    - `semantic_grades` **is** yours, and it is the one graded block on this
-      cell. The merits event declares the `semantic-v1` set, and grading it is
+    - `semantic_grades` **is** yours, and it is the one graded claim block on
+      this cell. The merits event declares the `semantic-v1` set, and grading it is
       the *Semantic grading* section below. It is an exception to the
       do-not-score rule, and only for the declared set; the forecast document
       is graded apart from it, in its own fields (*Grading the forecast
@@ -443,10 +443,10 @@ fails the cell.
     `reasoning.md` (soundness of the legal analysis given the outcome, not just
     whether it was right), and of that document only — not its
     `predicted_reasoning.md`, which has its own grade below.
+    `notes_doc` = `evaluation.md`.
   - `predicted_reasoning_quality` and `predicted_reasoning_review` — your grade
     of the forecast document and what it rests on, on every stage, per
     *Grading the forecast document* below.
-    `notes_doc` = `evaluation.md`.
   - Do **not** write `process_version` — the harness stamps it after you run, from
     the registry in force at run time. Anything you put there is overwritten.
   - Do **not** write `claim_scores` — the harness computes the block in code
