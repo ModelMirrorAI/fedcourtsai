@@ -49,6 +49,7 @@ from __future__ import annotations
 
 import dataclasses
 import io
+import itertools
 import logging
 import re
 import sqlite3
@@ -4428,6 +4429,104 @@ def bio_block_texts(text: str) -> list[str]:
     return parts[1:]
 
 
+# The docket entry's date as :func:`_combine_documents` writes it at the end of
+# a constituent's header, inside the last pair of parentheses.
+_BLOCK_HEADER_DATE_RE = re.compile(r"\(([^()]*)\) ===$")
+# A header the plain head cut stopped inside: a blank line, then a line opening a
+# header that never closes, running to the end of the row.
+_OPEN_HEADER_TAIL_RE = re.compile(r"\n\n=== (?![^\n]* ===\n)[^\n]*(?:\n[^\n]*)?\Z")
+
+
+@dataclass(frozen=True)
+class CombinedBlock:
+    """One constituent of a stored multi-filing combined row, as its text reads.
+
+    ``text`` is the constituent's header line and body exactly as stored, without
+    the blank line that separates it from the next, so joining every block of a
+    row with that separator gives the row's text back byte for byte.
+    ``entry_date`` is the verbatim docket date its header names, or ``None``
+    where the header names none (the combiner writes one only where the entry
+    carried a date).
+    """
+
+    entry_date: str | None
+    text: str
+
+    @property
+    def cut(self) -> bool:
+        """Whether this constituent carries a cut note the storage cap left in it.
+
+        The note's opener is defused wherever a filing prints it itself
+        (:func:`read_filing_pages`), so finding it means the pipeline cut here.
+        """
+        return _CUT_NOTE_OPENER in self.text
+
+
+def combined_blocks(text: str) -> list[CombinedBlock]:
+    """A combined row's constituents in stored order, or ``[]`` for a headerless row.
+
+    A row of one filing stored raw has no header, so it has no constituents to
+    split: the caller places it whole. Anything before the first header (the
+    combiner writes nothing there) rides with the first constituent, so no text
+    is ever lost or reordered by a split.
+
+    The cut that can end a row early is split too: where a cap too small to give
+    every filing a page takes the plain head cut over the joined text
+    (:func:`cut_combined_text`), the cut can fall inside a later header. A
+    trailing line opening a header that never closes, and what follows it, is
+    returned as a constituent of its own with no date, so a reader placing it
+    on the row's fetch date never hands a fragment of a later filing's header
+    to a cell placed before it.
+    """
+    starts = [match.start() for match in _BIO_BLOCK_HEADER_RE.finditer(text)]
+    if not starts:
+        return []
+    starts[0] = 0
+    bounds = [*starts, len(text)]
+    blocks: list[CombinedBlock] = []
+    for index, (start, end) in enumerate(itertools.pairwise(bounds)):
+        block = text[start:end]
+        if index < len(starts) - 1 and block.endswith("\n\n"):
+            block = block[:-2]
+        header = _BIO_BLOCK_HEADER_RE.search(block)
+        dated = None if header is None else _BLOCK_HEADER_DATE_RE.search(header.group(0))
+        blocks.append(CombinedBlock(None if dated is None else dated.group(1), block))
+    last = blocks[-1].text
+    own_header = _BIO_BLOCK_HEADER_RE.search(last)
+    fragment = _OPEN_HEADER_TAIL_RE.search(last, 0 if own_header is None else own_header.end())
+    if fragment is not None:
+        blocks[-1] = dataclasses.replace(blocks[-1], text=last[: fragment.start()])
+        blocks.append(CombinedBlock(None, last[fragment.start() + 2 :]))
+    return blocks
+
+
+def link_entry_dates(payload: Mapping[str, Any]) -> dict[str, frozenset[date]]:
+    """Every document link on a docket JSON, mapped to the dates of the entries posting it.
+
+    Read off every entry's ``Links``, whatever its label, under the strict parse
+    a document is placed by (:func:`cert_signals.entry_date`); an entry whose date
+    does not parse contributes no date. Every date is kept, because a link can be
+    posted on more than one entry and a reader has to see all of them to place
+    it safely. What :func:`fedcourtsai.provision.documents_before` names a cut
+    combined row's surviving links from, since the stored set key is sorted and
+    cannot say which constituent each link belongs to.
+    """
+    dated: dict[str, set[date]] = {}
+    for entry in payload.get("ProceedingsandOrder") or []:
+        if not isinstance(entry, Mapping):
+            continue
+        filed = _parse_entry_date(str(entry.get("Date") or "") or None)
+        if filed is None:
+            continue
+        for link in entry.get("Links") or []:
+            if not isinstance(link, Mapping):
+                continue
+            url = str(link.get("DocumentUrl") or "").strip()
+            if url:
+                dated.setdefault(url, set()).add(filed)
+    return {url: frozenset(dates) for url, dates in dated.items()}
+
+
 def unheld_document_kinds(refs: Sequence[DocumentRef], stored_urls: Mapping[str, str]) -> list[str]:
     """The selected kinds the stored set does not hold at the selected link, in ``refs`` order.
 
@@ -4525,16 +4624,12 @@ def _combine_documents(
     first-come.
 
     The row is **dated by the earliest brief it carries**
-    (:func:`_earliest_entry_date`) — the date a moment cutoff then places the
-    whole row by, and therefore the source of one accepted residual: a cutoff
-    falling *between* two constituents keeps the row entire, so the later
-    brief's text reaches a cell placed before it was filed. That is the
-    deliberate direction, because the alternative — dating the row at its last
-    brief — loses the lead respondent's brief, the most predictive one, from
-    every such cell rather than merely adding to it. What bounds the residual is
-    how far apart the constituents are filed, which is what keeps the selector's
-    arm for this kind narrow. The residual is stated again where the cut is made
-    (:func:`fedcourtsai.provision.documents_before`).
+    (:func:`_earliest_entry_date`), and each brief's header names its own docket
+    date, which is what provisioning cuts by: a cell placed between two
+    constituents reads the earlier brief and not the later
+    (:func:`fedcourtsai.provision.documents_before`). The row's own date is the
+    one a whole-row reader takes, and the earliest is the date from which the
+    row holds any opposition at all.
 
     A failed fetch of one brief never drops the others, and each failure — plus
     the two case-level outcomes those per-brief failures cannot express, none of
@@ -4542,17 +4637,15 @@ def _combine_documents(
     (``bio-partial``) — is recorded (:func:`document_fetch_losses`).
 
     **The two cert-stage kinds** differ in two ways. Their row is **dated by its
-    latest constituent** (:func:`_latest_entry_date`), the opposite call from
-    the opposition's, because the residual the earliest date accepts is bounded
-    only by how close together the constituents are filed: an opposition's
-    briefs answer one call for a response, while a party's supplemental briefs
-    and letters are filed independently across the life of the petition, and a
-    mootness letter admitted to a cell placed before it was written would hand
-    that cell the outcome. Dating at the latest one cannot admit a filing to a
-    cell placed before it; the cost is that a cell placed between two
-    constituents receives neither. And their per-document losses are recorded
-    under the per-document reasons alone: ``bio-empty`` and ``bio-partial`` name
-    the opposition, which a reader takes for the respondent's whole answer.
+    latest constituent** (:func:`_latest_entry_date`) and placed whole, because
+    a party's supplemental briefs and letters are filed independently across the
+    life of the petition, and a mootness letter admitted to a cell placed before
+    it was written would hand that cell the outcome. Dating at the latest one
+    cannot admit a filing to a cell placed before it; the cost is that a cell
+    placed between two constituents receives neither. And their per-document
+    losses are recorded under the per-document reasons alone: ``bio-empty`` and
+    ``bio-partial`` name the opposition, which a reader takes for the
+    respondent's whole answer.
     """
     if not refs:
         return None
@@ -4633,24 +4726,14 @@ def _combine_documents(
         # The EARLIEST constituent's date, and of the briefs actually fetched.
         #
         # Earliest, because a combined row is one document from the moment its
-        # first brief was filed, and because that is the only reading a moment
-        # cutoff can act on: provisioning places a document by this date and
-        # keeps it only if it falls strictly before the cutoff
-        # (:func:`fedcourtsai.provision.documents_before`), so dating the row at
-        # its last constituent drops the WHOLE opposition from a cell cut
-        # between two of them — the lead respondent's brief included.
+        # first brief was filed. Provisioning cuts the row brief by brief on
+        # the dates the headers carry (`provision.documents_before`), so this
+        # date never admits a later brief to a cell placed before it.
         #
         # Of the fetched briefs rather than the selected ones, because the date
         # has to describe the text the row actually carries: a lead brief that
         # 404s this poll leaves the row holding a later respondent's brief
-        # alone, and borrowing the absent brief's earlier date would admit that
-        # text to a cell cut before it was filed.
-        #
-        # What the choice costs, stated where it is made: the row is kept or
-        # dropped whole, so a cutoff between two constituents now admits the
-        # later brief's text rather than dropping the whole opposition. The
-        # docstring above says why that is the direction taken, and
-        # `provision.documents_before` carries the same residual at the cut.
+        # alone, and borrowing the absent brief's earlier date would misdate it.
         # The two cert-stage combined kinds take the latest instead (see the
         # docstring for why the call differs).
         entry_date=(

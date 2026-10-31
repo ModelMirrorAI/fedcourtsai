@@ -749,13 +749,12 @@ rotations just polled, and the undecided predict-relevant cases they did not:
   keeps a document only where that date falls strictly before the cell's cutoff
   (`provision.documents_before`), in either mode — so a filing stored weeks
   after it was docketed reaches exactly the cells placed after its docketing,
-  forward or replay. Two residuals are stated where the cut is made, and
-  freshness makes both more reachable. **Combination**: the opposition row is
-  dated by its earliest brief (the supplemental-brief and party-letter rows by
-  their latest, which closes this residual for them), so it admits a later respondent's brief to a
-  cell cut between the two; the moment a cut can fall between two oppositions
-  on is the CVSG moment, where a respondent filing after the invitation is
-  rare, and the arrival moment's cut falls before any opposition.
+  forward or replay. The opposition row, which combines every respondent's
+  brief, is cut brief by brief, each placed by its own docket date, so a cell
+  placed between two respondents' briefs reads only the earlier one; the
+  supplemental-brief and party-letter rows are dated by their latest
+  constituent and placed whole. One residual is stated where the cut is made,
+  and freshness makes it more reachable.
   **Supersession**: a kind is one row, so a filing re-posted at a new link
   replaces the stored row under its own later date, and a cell placed between
   the two loses that kind rather than reading the earlier version.

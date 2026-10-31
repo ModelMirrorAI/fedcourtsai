@@ -111,9 +111,11 @@ Each of these is stated, with its reason, where the code makes the choice:
   `record/same-question.json` (`pipeline/same_question.py`; the harness
   boundary `cert-same-question-list`).
 
-- **A combined opposition is kept or dropped whole.** It is dated by its
-  earliest brief, so a cutoff between two respondents' briefs admits the later
-  one (`documents_before`).
+- **A combined opposition is cut brief by brief, its page count estimated.**
+  Each brief is placed by the docket date in its header, so a cell placed
+  between two respondents' briefs reads the earlier one alone. The stored row
+  keeps no per-brief page count, so a cut row's `pages` is the row's count
+  scaled by the share of text kept (`documents_before`).
 - **A corrected filing replaces the original.** The latest fetch of a kind wins,
   so a cell can read the text as later amended (`documents_before`), or lose
   the kind if the correction is dated after its cutoff (live-sources.md,
