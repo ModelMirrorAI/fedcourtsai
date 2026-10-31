@@ -1265,7 +1265,7 @@ def unblind_evaluations(
     roots.append(cell_dir)
     for root in roots:
         _resolve_aliases_in_tree(root, aliases)
-    _assert_no_alias_survives(evaluator_dir)
+    _assert_no_alias_survives(evaluator_dir, cell_dir)
     if record is not None:
         scanned, replaced, present = record
         write_json(
@@ -1365,18 +1365,20 @@ def _term_counts(file: str, terms: Iterable[str]) -> list[BlindingCount]:
     ]
 
 
-def _assert_no_alias_survives(evaluator_dir: Path) -> None:
-    """Fail if any alias-shaped directory is left under the evaluator.
+def _assert_no_alias_survives(evaluator_dir: Path, cell_dir: Path) -> None:
+    """Fail if any alias-shaped directory is left under the evaluator or the cell.
 
     Catches the case the map cannot: an evaluator that invented an alias it was
-    never given, or wrote one under a run id other than its own. Either way the
-    directory would reach the ledger keyed on a name no predictor answers to.
+    never given, wrote one under a run id other than its own, or nested its
+    candidates the other way round, under its own run's cell directory
+    (``<evaluator>/<run_id>/<alias>/``). Any of these would reach the ledger
+    keyed on a name no predictor answers to.
     """
-    if not evaluator_dir.is_dir():
-        return
     stray = sorted(
-        child.name
-        for child in evaluator_dir.iterdir()
+        str(child.relative_to(evaluator_dir))
+        for parent in (evaluator_dir, cell_dir)
+        if parent.is_dir()
+        for child in parent.iterdir()
         if child.is_dir() and child.name.lower().startswith(ALIAS_PREFIX)
     )
     if stray:
