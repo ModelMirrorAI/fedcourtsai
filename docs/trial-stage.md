@@ -3,8 +3,7 @@
 What a district-court forecast is, before any is committed: the moments a
 trial-court case passes, what each predicts, when each opens, and how each
 resolves. The stage is court-agnostic, so every later district slice reuses it
-rather than minting its own, as the circuit slice's design gives every circuit
-one `appeal` stage. The first slice to use it is the AI-case watchlist
+rather than minting its own. The first slice to use it is the AI-case watchlist
 (`config/ai-watchlist.yaml`), whose district dockets the corpus already keeps
 current ([data-pipeline.md](data-pipeline.md)).
 
@@ -46,8 +45,9 @@ this stage's.
 **Leave to amend** is recorded only on a dismissal granted in whole or in part:
 `with-leave` where the order grants leave or invites an amended complaint,
 `without-leave` where it dismisses with prejudice, denies leave, or calls
-amendment futile, and `unstated` otherwise. "Without prejudice" alone reads as
-unstated, because a dismissal without prejudice does not by itself grant leave.
+amendment futile, `mixed` where it does both for different claims, and
+`unstated` otherwise. "Without prejudice" alone reads as unstated, because a
+dismissal without prejudice does not by itself grant leave.
 
 ## When each moment opens
 
@@ -74,43 +74,71 @@ opening and the ruling changes nothing about the event.
 
 ## How each moment resolves
 
-**Nothing is voided**, the same rule the circuit slice's design carries. A motion
+**Nothing is voided**, the same rule the D.C. Circuit slice's design carries
+([milestones.md](milestones.md)). A motion
 withdrawn, mooted by an amended complaint, or overtaken by settlement resolves
 as such, and the forecast prices that in. A forecaster who thinks a motion will
 be mooted puts weight on that outcome.
 
 The resolver is `pipeline/trial_resolver.py` (rule `trial-resolver-v1`). It is
-deterministic and runs no agent:
+deterministic, runs no agent, and is built to miss rather than misread: a text
+it cannot read leaves the event open, or sends it to triage, and never records
+a guessed outcome.
 
-- **The disposing order is located by docket entry.** It is the first court
-  entry after the motion (an order, opinion, ruling or minute order, never a
-  party's filing) that cites the motion's entry number in the court's ECF
-  forms (`45 Motion`, `ECF No. 45`, `Dkt. 45`, `[45]`, `re 45`). An order that
-  cites no entry at all is read only when it names one motion of the same
-  kind. An order that rules on several motions is read clause by clause, so
-  each motion takes the verb of its own clause.
-- **The disposition is read twice and must agree.** Once from the docket text,
-  and once from the order's decretal language (from its first "it is ordered",
-  else its last concluding paragraph, never the discussion) where the order's
-  text is at hand. Leave-to-amend and prejudice phrases are read first and
-  struck before the ruling verb is read, so "leave to amend is granted" never
-  turns a denial into a partial grant.
-- **A closure without a merits decision** is a stipulated or voluntary
-  dismissal of the whole action, a final settlement approval, or a consent
-  judgment. It resolves `trial-judgment` as no merits decision and any motion
-  still open as mooted. A dismissal limited to some parties, counts or claims
-  closes nothing, and a notice of settlement alone waits for the dismissal or
-  judgment that follows it.
-- **A final judgment** resolves for the side its text names, or mixed where it
-  names both. A partial judgment, a Rule 54(b) judgment and a default judgment
-  are passed over as not the final disposition.
+- **A ruling names the motion as its object.** The disposing entry is the
+  first court entry after the motion (an order, opinion, ruling or minute
+  order; never a party's filing, and never a magistrate judge's
+  recommendation, which counts only through the order adopting it) that
+  rules on the motion. In a docket text that is the CM/ECF form, a ruling verb
+  with the motion's entry number directly after it (`ORDER granting 45 Motion
+  to Dismiss`, `denying [45]`, `granting 45 and 47`). A number anywhere else
+  names a motion's subject rather than the one ruled on, so `ORDER granting 46
+  Motion for Leave to File Excess Pages re 45 Motion to Dismiss` rules on 46,
+  not 45. An order that cites the motion without ruling on it (setting a
+  hearing, say) is passed over.
+- **An order's text is read from its decretal language**: from its last "it is
+  ordered" to the end (a later "it is further ordered" adds to it), else its
+  last concluding paragraph, never the discussion. There a ruling is a clause
+  whose subject cites the motion (`the Motion to Dismiss (ECF No. 45) is
+  DENIED`) or whose verb takes it as object (`the Court GRANTS ... (Dkt. 45)`).
+  A clause that cites several entries is triage.
+- **An entry or order that cites no entry number is never read as a ruling**,
+  because a docket can hold several motions of one kind, and a text order
+  ruling on one of them names it only in words.
+- **Where both read a ruling, they must agree.** Where only one of the docket
+  text and the order's text reads a ruling, that one stands.
+- **"In part" is stated, not inferred.** A ruling in part is one the text calls
+  so, or one predicate that grants and denies (`GRANTED as to Count I and
+  DENIED as to Count II`). A grant beside a separate denial of something else
+  is not one, and a grant "as to" some counts with nothing said of the rest is
+  triage. Leave-to-amend and prejudice phrases are read first and struck
+  before the ruling verb is read, so "leave to amend is granted" never turns a
+  denial into a partial grant; leave stated both ways (some counts with
+  prejudice, others with leave) reads `mixed`.
+- **A closure without a merits decision** is read from its leading noun: a
+  stipulation or notice of dismissal, or an order granting one, that names no
+  party, count or claim it is limited to; an order granting final approval of
+  a settlement; or a consent judgment. It resolves `trial-judgment` as no
+  merits decision and any motion still open as mooted. A motion for voluntary
+  dismissal, a preliminary approval, a notice of settlement, and a dismissal
+  naming a party close nothing. A stipulation that names no party but drops
+  only some of them is read as a closure; the docket text cannot tell the two
+  apart, which is a known limit of the rule.
+- **A withdrawal notice** naming the motion as the first entry it cites
+  resolves the motion withdrawn.
+- **A final judgment** is an entry whose leading noun is a judgment. It
+  resolves for the side named by "in favor of", "judgment against" or "take
+  nothing", or mixed where both sides are named "in favor of"; a mention of the
+  claims against a party names no side. A partial, Rule 54(b) or default
+  judgment is passed over.
 - **Every resolution cites the entry it read**: its CourtListener entry id,
   entry number and filing date.
-- **What it cannot read goes to triage.** The docket text and the order
-  disagreeing, an order that cites the motion with no readable ruling, or a
-  final judgment that names no side each come back as an unrecorded outcome
-  with the reason and the entries weighed, for the maintainer to resolve by
-  hand. The rule never guesses.
+- **What goes to triage**, as an unrecorded outcome with the reason and the
+  entries weighed: the docket text and the order disagreeing on the ruling or
+  on leave, a docket text that rules on the motion in two ways or only
+  "terminates" it, an order clause citing several entries, a partial grant
+  that says nothing of the rest, a final judgment naming no side, and a
+  judgment a later entry amends or vacates.
 
 The order's text, where the resolver uses it, is the court's own order read
 from the RECAP archive. A court order is a work of the federal government and

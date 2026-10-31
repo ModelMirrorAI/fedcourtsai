@@ -653,7 +653,7 @@ though the Court does not.
 **Model summaries of the AI watchlist's rulings** are a candidate public
 surface, assessed and not adopted. The AI-cases update would carry, beside an
 activity record for an opinion or a ruling, a short plain-language summary of
-that ruling, labelled with the model that wrote it, as the case summaries are.
+that ruling, labeled with the model that wrote it, as the case summaries are.
 The update renders without it. The question is what such a summary may be
 written from, given the two layers of rights below.
 
@@ -695,8 +695,8 @@ written from, given the two layers of rights below.
   by the watchlist's own name.
 - **Not yet verified.** As read on 2026-10-31 the RECAP terms were taken from
   search-engine copies of Free Law Project's RECAP FAQ and the site licence
-  notice; CourtListener's terms page refused the session's fetch, and
-  `free.law` lies outside the session's network. Before any summary is
+  notice; the live CourtListener terms of use and the `free.law` pages were not
+  read. Before any summary is
   generated, someone with access reads the live CourtListener terms of use and
   copyright policy for any condition on RECAP documents downloaded through the
   site, and records the decision here: summaries built on this footing, or
