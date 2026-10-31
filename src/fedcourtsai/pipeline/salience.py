@@ -94,7 +94,7 @@ logger = logging.getLogger(__name__)
 # and stamps with. A refit is a NEW version registered alongside, never an
 # in-place edit, so any past ranking replays against the function that produced
 # it — see :data:`SCORERS`.
-SALIENCE_VERSION = "sal-v4"
+SALIENCE_VERSION = "sal-v6"
 
 # sal-v1 builds a ranking score from empirical grant rates. Every constant below
 # is a real SCOTUS cert grant rate from ``metrics/statpack.md`` (denial-reweighted),
@@ -642,9 +642,10 @@ _SAL_V3 = SalienceScorer(
 # the count under a stable label would re-point every published per-band rate at
 # a population it was never measured on.
 #
-# The ACTIVE version: `SALIENCE_VERSION` names sal-v4, and
-# `cert_signals.DEFAULT_DISTRIBUTION_PARSE` names `dist-v2` with it. The two move
-# together by necessity, not by tidiness — the relist-increment claim reads its
+# Activated with `cert_signals.DEFAULT_DISTRIBUTION_PARSE` naming `dist-v2`
+# beside it, and superseded by sal-v6, which pins the same parse. The version and
+# the default parse move together by necessity, not by tidiness, wherever an
+# activation changes the pinned parse — the relist-increment claim reads its
 # prediction-time count from the frozen context (the active scorer's parse) and
 # its resolution-time count from the outcome's signals block (stamped with the
 # default parse at resolution), so a split between them would resolve every
@@ -664,12 +665,10 @@ _SAL_V4 = SalienceScorer(
     distribution_parse="dist-v2",
 )
 
-# sal-v5: registered, NOT active. `SALIENCE_VERSION` still names sal-v4, so the
-# live pass, the corpus stamp and every cell's frozen context are sal-v4's;
-# sal-v5's bands are published beside it in the statpack's `alt_segments` and
-# scored in every gate replay. It is never activated: its caption-v3 counsel
-# reading carries post-outcome information, so sal-v6 is the candidate
-# registered in its place (docs/salience.md).
+# sal-v5: registered, never active. Its bands are published in the statpack's
+# `alt_segments` and scored in every gate replay. It is never activated: its
+# caption-v3 counsel reading carries post-outcome information, so sal-v6 is
+# activated in its place (docs/salience.md).
 _SAL_V5 = SalienceScorer(
     version="sal-v5",
     score=_sal_v5_score,
@@ -682,11 +681,11 @@ _SAL_V5 = SalienceScorer(
     admits=_sal_v5_admits,
 )
 
-# sal-v6: registered, NOT active, for the same reason sal-v5 was registered
-# first: `SALIENCE_VERSION` still names sal-v4, and the flip is a separate
-# registration step (docs/salience.md). It is sal-v5's relist rule and writ
-# scope over sal-v3's caption-v2 carve-out and reachable ladder, reusing
-# each as the SAME callable so the versions cannot drift in what they share.
+# sal-v6: the ACTIVE version (`SALIENCE_VERSION`), registered inactive first and
+# flipped as a separate step (docs/salience.md). It is sal-v5's relist rule and
+# writ scope over sal-v3's caption-v2 carve-out and reachable ladder, reusing
+# each as the SAME callable so the versions cannot drift in what they share. It
+# pins `dist-v2`, the default parse, so its activation moved one constant.
 _SAL_V6 = SalienceScorer(
     version="sal-v6",
     score=_sal_v5_score,  # sal-v5's relist count; the caption never weights it

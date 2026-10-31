@@ -14,7 +14,7 @@ composes :func:`.caption.classify_petitioner_v2` over *both* caption halves;
 annotation means is a new label beside it, never an edit to this one. The
 selection-grade predicates are called and never touched: ``caption-v1`` is the
 ``sal-v2`` carve-in's frozen predicate and ``caption-v2`` is the predicate
-``sal-v3`` and the active ``sal-v4`` carve in on, so a widening of either would
+``sal-v3``, ``sal-v4`` and the active ``sal-v6`` carve in on, so a widening of either would
 move selection. The respondent half is a call site :mod:`.salience` has no
 analogue for — it reads the petitioner caption only — which is exactly why the
 composition lives here under its own label rather than inside a caption rule.

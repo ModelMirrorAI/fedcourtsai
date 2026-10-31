@@ -930,13 +930,16 @@ stays outside the gate:
   those petitions grant more often and have not resolved yet.
 
   None of this is the registered historical figure per band. The registered
-  sal-v4 band rates are the **skill anchor**: each band's risk-set rate pooled
+  band rates of the cell's frozen salience version are the **skill anchor**:
+  each band's risk-set rate pooled
   over the statpack Terms strictly before the cell's docket-number Term, within
   `salience.base_rate_lookback_terms`, so
-  the figure depends on the docket Term. On the committed pack that is 5.12%
+  the figure depends on the docket Term. For the `sal-v4` cells the board holds
+  before the `sal-v6` activation, on the committed pack that is 5.12%
   baseline / 17.22% elevated / 34.97% high / 72.93% federal / 22.70% state for
   an OT2025 docket and 5.02% / 16.89% / 35.51% / 70.79% / 23.63% for an OT2026
-  one (`uv run fedcourts segment-anchors --term 2025 --term 2026`). A band row
+  one (`uv run fedcourts segment-anchors --term 2025 --term 2026
+  --salience-version sal-v4`; the bare command pools the active `sal-v6`). A band row
   that mixes docket Terms states its count per docket Term beside the anchors.
   Their complements are grant-family denial shares, not exact-match floors, so
   they are not comparable with `always_deny_accuracy`, and no lift is measured
@@ -2377,16 +2380,16 @@ the rendered table) and
   `selected_rank_fill` each cell publishes. A bare precision delta between
   versions is not a claim this artifact supports.
 
-  **The registered, inactive `sal-v5` and `sal-v6`.** Their cells and
-  their statpack `alt_segments` blocks cover a narrower population than every
+  **The active `sal-v6` and the never-activated `sal-v5`.** Their cells and
+  their statpack blocks cover a narrower population than every
   other version's: Rule 20 writs are outside their segment, so their
   `eligible`, recall and band pools leave them out, and a cross-version
   comparison spans that population change as well as the scoring. `sal-v6` is
   `sal-v5` with the petitioner class read through `caption-v2` rather than
-  `caption-v3`, and it is the one a flip would activate: `sal-v5` is never
+  `caption-v3`, and it is the active scorer: `sal-v5` is never
   activated, because `caption-v3`'s counsel reading carries post-outcome
   information on resolved rows (a supporting United States amicus the Clerk
-  lists under "Petitioner"). The statpack `alt_segments` block measures that
+  lists under "Petitioner"). `sal-v5`'s statpack `alt_segments` block measures that
   leak; the replay cells do not. `sal-v5`'s replay cells measure the
   call-for-response relist rule and the writ scope but never `caption-v3`,
   since the projection carries no counsel. Either block over past Terms is
@@ -2665,7 +2668,7 @@ the rendered table) and
   `record/context.json`'s `decided_before`).
 
   **The arrival cohort's claim rule** (the caption-banded scorers'
-  `cert@arrival` cells — the active `sal-v4`, and earlier versions' cells beside
+  `cert@arrival` cells — the active `sal-v6`, and earlier versions' cells beside
   it). The
   cohort is two selection rules with grant rates an order of magnitude apart —
   the unbiased random slice and the federal-petitioner carve-in — and the
