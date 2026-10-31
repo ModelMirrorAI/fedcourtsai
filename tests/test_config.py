@@ -4,7 +4,9 @@ from pathlib import Path
 import pytest
 import yaml
 from pydantic import ValidationError
+from typer.testing import CliRunner
 
+from fedcourtsai import cli
 from fedcourtsai.cli import _client
 from fedcourtsai.config import (
     CourtListenerBudget,
@@ -24,6 +26,7 @@ from fedcourtsai.config import (
     load_spend_config,
     load_statpack_config,
 )
+from fedcourtsai.courtlistener import RateBudgetExceeded
 
 
 def _write_tracking(root: Path, body: str) -> None:
@@ -393,7 +396,7 @@ _REPO = Path(__file__).resolve().parent.parent
 def test_committed_courtlistener_lanes_fit_the_account() -> None:
     budget = load_courtlistener_budget(_REPO / "config")
 
-    assert sum(lane.per_day for lane in budget.lanes.values()) <= budget.account_per_day
+    assert budget.reserved_per_day <= budget.account_per_day
     # Every lane the CLI builds a client for has a share.
     cli_source = (_REPO / "src" / "fedcourtsai" / "cli.py").read_text()
     calls = re.findall(r"_client\(((?:\"[a-z-]+\"| if | else |[a-z_])+)\)", cli_source)
@@ -424,6 +427,30 @@ def test_lane_shares_over_the_account_are_refused() -> None:
         )
 
 
+def test_dispatched_lanes_reserve_only_the_largest_run() -> None:
+    budget = CourtListenerBudget.model_validate(
+        {
+            "account_per_day": 100,
+            "lanes": {
+                "a": {"per_run": 20, "runs_per_day": 2},
+                "b": {"per_run": 50, "dispatched": True},
+                "c": {"per_run": 60, "dispatched": True},
+            },
+        }
+    )
+    assert budget.reserved_per_day == 100
+    with pytest.raises(ValidationError, match="reserve 101 a day, over the account's 100"):
+        CourtListenerBudget.model_validate(
+            {
+                "account_per_day": 100,
+                "lanes": {
+                    "a": {"per_run": 20, "runs_per_day": 2},
+                    "c": {"per_run": 61, "dispatched": True},
+                },
+            }
+        )
+
+
 def test_an_unknown_lane_is_an_error_not_an_unbounded_client() -> None:
     budget = CourtListenerBudget.model_validate(
         {"account_per_day": 100, "lanes": {"a": {"per_run": 10, "runs_per_day": 1}}}
@@ -438,3 +465,20 @@ def test_cli_client_caps_a_run_at_its_lane_share() -> None:
         day = client._rate_limiter._windows[-1]
     assert day.period == 86400.0
     assert day.max_requests == budget.lane("fetch").per_run
+
+
+def test_a_fetch_past_its_share_fails_cleanly(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def over_budget(*_args: object, **_kwargs: object) -> None:
+        raise RateBudgetExceeded("daily window full")
+
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(tmp_path / "data"))
+    monkeypatch.setattr(cli, "pull_case", over_budget)
+
+    result = CliRunner().invoke(cli.app, ["pull", "--court", "ca9", "--docket", "1"])
+
+    assert result.exit_code == 1
+    assert "ca9/1: not fetched: daily window full" in result.output
+    assert not (tmp_path / "corpus").exists()

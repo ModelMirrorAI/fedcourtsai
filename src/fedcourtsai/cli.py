@@ -170,7 +170,12 @@ from .config import (
     load_statpack_config,
     load_summaries_config,
 )
-from .courtlistener import CourtListenerClient, default_rate_limiter
+from .courtlistener import (
+    CourtListenerClient,
+    EntryPageCapExceeded,
+    RateBudgetExceeded,
+    default_rate_limiter,
+)
 from .dataset_export import (
     BuildContext,
     ExportError,
@@ -15203,8 +15208,13 @@ def _fetch_one_docket(court: str, docket: int) -> None:
     """Fetch one docket via REST and ingest it into the corpus (onboard/refresh)."""
     settings = get_settings()
     db = corpus.corpus_db_path(settings.corpus_root)
-    with _client("fetch") as client:
-        result = pull_case(client, db, settings.data_root, court, docket)
+    try:
+        with _client("fetch") as client:
+            result = pull_case(client, db, settings.data_root, court, docket)
+    except (RateBudgetExceeded, EntryPageCapExceeded) as exc:
+        # Nothing is written when the read stops short: report and fail cleanly.
+        typer.echo(f"{court}/{docket}: not fetched: {exc}", err=True)
+        raise typer.Exit(1) from exc
     _ensure_corpus_layout(db)
     typer.echo(
         f"{result.case_id} changed={result.changed} snapshot={result.snapshot} "

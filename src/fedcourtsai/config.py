@@ -337,8 +337,12 @@ class CourtListenerLane(BaseModel):
     # Most requests one run of the lane may send. An enforced lane's client
     # stops at it (`RateBudgetExceeded`), whatever the tier's own ceilings.
     per_run: int = Field(gt=0)
-    # How many runs a day the share is sized for.
-    runs_per_day: int = Field(gt=0)
+    # How many scheduled runs a day the share is sized for.
+    runs_per_day: int = Field(default=1, gt=0)
+    # A maintainer's dispatch rather than a schedule. Dispatched lanes share
+    # one slot: at most one of them runs on a day, so the day reserves the
+    # largest dispatched run rather than every one.
+    dispatched: bool = False
     # False for a spender this package's client does not carry (the agent cells'
     # MCP server, interactive sessions): its share is reserved, not enforced.
     enforced: bool = True
@@ -353,9 +357,9 @@ class CourtListenerBudget(BaseModel):
     """The ``courtlistener_budget`` section of ``tracking.yaml``: each lane's share.
 
     The account's ceilings are per token, and each process's limiter counts only
-    its own requests, so the lanes share the account by a fixed split: every
-    lane's run cap times its runs a day, summed, stays under the account's daily
-    ceiling, and so no combination of runs on one day can overdraw it.
+    its own requests, so the lanes share the account by a fixed split: the
+    scheduled lanes' run caps times their runs a day, plus the largest
+    dispatched run, stay under the account's daily ceiling.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -363,12 +367,19 @@ class CourtListenerBudget(BaseModel):
     account_per_day: int = Field(gt=0)
     lanes: dict[str, CourtListenerLane] = Field(min_length=1)
 
+    @property
+    def reserved_per_day(self) -> int:
+        """What one day can spend: every scheduled share plus the largest dispatched run."""
+        scheduled = sum(lane.per_day for lane in self.lanes.values() if not lane.dispatched)
+        dispatched = [lane.per_run for lane in self.lanes.values() if lane.dispatched]
+        return scheduled + max(dispatched, default=0)
+
     @model_validator(mode="after")
     def _fits_the_account(self) -> Self:
-        total = sum(lane.per_day for lane in self.lanes.values())
-        if total > self.account_per_day:
+        if self.reserved_per_day > self.account_per_day:
             raise ValueError(
-                f"lane shares sum to {total} a day, over the account's {self.account_per_day}"
+                f"lane shares reserve {self.reserved_per_day} a day, "
+                f"over the account's {self.account_per_day}"
             )
         return self
 
