@@ -1452,10 +1452,14 @@ readers every artifact here is built on (`store.stratify`,
 `store.iter_predicted_events`, and the leaderboard's and window records' own
 ledger walks) read the SCOTUS population only, so `leaderboard.json`,
 `claim-scores.json`, `big-cases.json` and the rest never pool a slice's events
-with the Court's, and none is subject to the salience gate. The ops report's
-diagnostics are the exception by design: its ledger census and its leakage
-digest read every population, since contamination in a slice's cell is as much
-their subject as in the Court's, and neither is a performance figure. No slice is
+with the Court's. No slice is subject to the salience gate: its committed list
+is its selection. The ops report's substance funnel counts the SCOTUS population
+on both sides, its ledger census (`store.ledger_cell_counts`) as well as the
+stratified cells beside it. Its leakage digest is the exception by design: it
+reads every population, since contamination in a slice's cell is as much its
+subject as in the Court's, and it is not a performance figure. `fedcourts
+validate` warns on a committed cell whose case no population admits, since no
+figure reads it. No slice is
 switched on, so no artifact's shape or figures change. A slice's figures, once
 it has cells, are built over its own population, under its own process
 version, and are never differenced against or pooled into a SCOTUS figure.

@@ -255,8 +255,10 @@ reader (`store.stratify`, `store.iter_predictions`, `store.iter_evaluations`,
 `store.iter_predicted_events`, and the leaderboard's and window records' own
 ledger walks) reads one population, the SCOTUS docket unless a caller names a
 prediction slice (`fedcourtsai.prediction_slices`), so a slice's cells never
-enter a SCOTUS figure. The ops report's leakage digest and ledger census are
-diagnostics and read every population. While no slice is switched on and every committed cell
+enter a SCOTUS figure; the ops report's ledger census (`store.ledger_cell_counts`)
+keeps to the SCOTUS population too, so its funnel counts one population. The
+ops report's leakage digest is a diagnostic and reads every population. While
+no slice is switched on and every committed cell
 sits under `data/cases/scotus/`, the guard moves no figure.
 
 **A prediction slice is its own process.** A slice runs its own moments and
@@ -854,7 +856,7 @@ third offers a frozen build alongside, and says why that build is not the one
 published:
 
 - The **prediction census** (`ledger_cell_counts` — how many predictions and
-  events the funnel has) counts everything committed. A frozen scope showing many
+  events the funnel has) counts everything committed on the SCOTUS docket. A frozen scope showing many
   predictions but zero frozen evaluations is the honest shakedown state, and the
   ops report labels that divergence rather than hiding it.
 - The **leakage digest** counts every evaluation carrying a leakage grade,

@@ -24,6 +24,7 @@ from fedcourtsai.review_hold import decide as decide_hold
 from fedcourtsai.schemas import Disposition, Engine, EventKind, ModelUsage, Stage, UsageRole
 from fedcourtsai.serialize import write_json
 from tests.conftest import MERITS_EVENT, seed_evaluation, seed_merits_outcome, seed_prediction
+from tests.test_dataset_export import _event, _prediction
 
 runner = CliRunner()
 
@@ -3631,3 +3632,31 @@ def test_predict_matrix_refuses_an_enabled_slice_whose_list_is_missing(tmp_path:
     result = _slice_invoke(tmp_path, env, "predict-matrix")
     assert result.exit_code != 0
     assert isinstance(result.exception, FileNotFoundError)
+
+
+@pytest.mark.parametrize(
+    ("slices", "stray"),
+    [
+        (None, {"cand/101", "ca9/202", "cand/999", "ca9/998"}),
+        (("ai-watchlist",), {"cand/999", "ca9/998"}),
+    ],
+)
+def test_validate_warns_on_a_committed_cell_no_population_admits(
+    tmp_path: Path, slices: tuple[str, ...] | None, stray: set[str]
+) -> None:
+    # A cell outside every population is read by no figure: `validate` names
+    # its case as a warning and still passes the ledger it would otherwise pass.
+    env = _slice_env(tmp_path, slices=slices)
+    data_root = Path(env["FEDCOURTS_DATA_ROOT"])
+    for case_id in _SLICE_CASES:
+        _event(data_root, case_id)
+        _prediction(data_root, case_id, docs=True)
+    result = runner.invoke(app, ["validate", env["FEDCOURTS_DATA_ROOT"]], env=env)
+    warned = {
+        line.split()[1]
+        for line in result.output.splitlines()
+        if line.startswith("::warning::population: ")
+    }
+    assert warned == stray
+    assert not any(case_id.startswith("scotus/") for case_id in warned)
+    assert result.exit_code == 0, result.output

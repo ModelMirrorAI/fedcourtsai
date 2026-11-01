@@ -1530,6 +1530,29 @@ def test_evaluator_agreement_is_positive_when_the_panel_orders_alike(
     assert all(v.rank_agreement == 1.0 for v in agreement.values())
 
 
+def test_the_agreement_views_read_the_scotus_population_only(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A prediction slice's big-case reads never enter a SCOTUS agreement panel.
+
+    The lower-court case carries a read that inverts the panel's ordering, so
+    were it pooled the agreement would leave 1.0 and the case count would rise.
+    """
+    bless_process(monkeypatch, "sha256:blessed")
+    root = tmp_path / "data"
+    for case, (a, b) in {
+        "scotus/1": (0.9, 0.8),
+        "scotus/2": (0.5, 0.6),
+        "scotus/3": (0.1, 0.2),
+        "cand/101": (0.95, 0.05),
+    }.items():
+        _big_case_cell(root, case=case, evaluator="eval-a", score=a)
+        _big_case_cell(root, case=case, evaluator="eval-b", score=b)
+    agreement = evaluator_agreement(root)
+    assert all(v.events == 3 for v in agreement.values())
+    assert all(v.rank_agreement == 1.0 for v in agreement.values())
+
+
 def test_one_inverting_grader_drags_the_whole_small_panel_negative(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

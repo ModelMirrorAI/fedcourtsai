@@ -38,7 +38,7 @@ from .paths import CasePaths
 from .pipeline import moments
 from .pipeline.cert_signals import conference_sat_since, considering_conference
 from .pipeline.moments import first_moment
-from .prediction_slices import SCOTUS_POPULATION, Population
+from .prediction_slices import SCOTUS_POPULATION, Population, population_of
 from .process_version import (
     counted_on_event,
     freeze_in_force,
@@ -1221,6 +1221,32 @@ def in_population(event_dir: Path, population: Population) -> bool:
     return docket.isdigit() and population.admits(event_dir.parents[2].name, int(docket))
 
 
+def unpopulated_cases(data_root: Path, slices: Mapping[str, Population]) -> list[str]:
+    """Every case with a committed cell that no population admits, in case-id order.
+
+    A cell is a ``prediction.json`` or an ``evaluation.json``. Its case must be a
+    SCOTUS docket or a docket an enabled slice's list names (``slices``, from
+    :func:`fedcourtsai.prediction_slices.load_slices`); a cell anywhere else is
+    read by no figure, since every figure reader keeps to one population
+    (:func:`in_population`). Returns nothing where the ledger does not exist yet.
+    """
+    cases_dir = data_root / "cases"
+    if not cases_dir.exists():
+        return []
+    stray: set[str] = set()
+    for pattern in (
+        "*/*/events/*/predictions/*/*/prediction.json",
+        "*/*/events/*/evaluations/*/*/*/evaluation.json",
+    ):
+        for path in cases_dir.glob(pattern):
+            case_dir = path.relative_to(cases_dir).parts
+            court_id, docket = case_dir[0], case_dir[1]
+            case_id = f"{court_id}/{docket}"
+            if population_of(case_id, slices) is None:
+                stray.add(case_id)
+    return sorted(stray)
+
+
 def iter_evaluations(
     data_root: Path, *, population: Population | None = SCOTUS_POPULATION
 ) -> list[Evaluation]:
@@ -1906,20 +1932,28 @@ def iter_stratified_evaluations(
     return stratify(data_root, frozen_only=frozen_only, population=population).cells
 
 
-def ledger_cell_counts(data_root: Path) -> tuple[int, int, int]:
+def ledger_cell_counts(
+    data_root: Path, *, population: Population = SCOTUS_POPULATION
+) -> tuple[int, int, int]:
     """``(prediction cells, events predicted, predicted events resolved)``.
 
     The pipeline-funnel counts the ops substance section leads with, read
     straight off the committed ledger tree: every ``prediction.json`` is one
     cell; the distinct event directories those cells live under are the
     predicted events; a predicted event counts resolved once its
-    ``outcome.json`` has landed beside them. Returns zeros when the ledger does
-    not exist yet (reading must not create it).
+    ``outcome.json`` has landed beside them. Only cells in ``population`` (the
+    SCOTUS docket by default, :func:`in_population`) are counted, so the funnel
+    and the :func:`stratify` cells beside it count one population. Returns
+    zeros when the ledger does not exist yet (reading must not create it).
     """
     cases_dir = data_root / "cases"
     if not cases_dir.exists():
         return (0, 0, 0)
-    prediction_files = sorted(cases_dir.glob("*/*/events/*/predictions/*/*/prediction.json"))
+    prediction_files = [
+        path
+        for path in sorted(cases_dir.glob("*/*/events/*/predictions/*/*/prediction.json"))
+        if in_population(path.parents[3], population)
+    ]
     # prediction path: <event_dir>/predictions/<predictor>/<run>/prediction.json
     event_dirs = {path.parents[3] for path in prediction_files}
     resolved = sum(1 for event_dir in event_dirs if (event_dir / "outcome.json").exists())

@@ -15740,8 +15740,10 @@ freeze commit is recorded here.
   prediction slice (`fedcourtsai.prediction_slices`). A slice is a committed
   list of lower-court dockets the predict scope admits by name when
   `predict.slices` switches it on; one is registered, `ai-watchlist`, and none
-  is switched on. The ops report's leakage digest and ledger census read every
-  population.
+  is switched on. The ops report's ledger census reads the SCOTUS population,
+  like the stratified cells beside it; its leakage digest reads every
+  population. `fedcourts validate` warns, without failing, on a committed cell
+  whose case no population admits.
 
   **What it moves.** Nothing. Every committed cell sits under
   `data/cases/scotus/`. Over the ledger at `staging` `4443b9227`, `fedcourts

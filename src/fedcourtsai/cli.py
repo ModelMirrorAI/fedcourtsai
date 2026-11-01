@@ -612,6 +612,7 @@ from .store import (
     scored_prediction_cell,
     stratify,
     unforecastable_listed_events,
+    unpopulated_cases,
 )
 from .supremecourt import (
     SupremeCourtClient,
@@ -714,9 +715,16 @@ def validate(
     the claim scorer will not silently void. The corpus-dependent referential
     checks need the remote, so they run scheduled via ``validate-corpus``
     rather than here.
+
+    A committed cell whose case is neither a SCOTUS docket nor a docket of an
+    enabled prediction slice is warned about (``::warning::``), not failed: no
+    figure reads it (``store.unpopulated_cases``), so it is either a slice
+    switched off after its cells landed or a stray write, and either is worth a
+    reader's eye without holding the ledger red.
     """
     result = validate_ledger(path)
     references = run_ledger_referential_checks(path)
+    _warn_unpopulated_cases(path)
     ref_failures = sum(c.failures for c in references)
     if not result.ok or ref_failures:
         for err in result.problems:
@@ -732,6 +740,21 @@ def validate(
         raise typer.Exit(code=1)
     refs_checked = sum(c.checked for c in references)
     typer.echo(f"OK: {result.checked} artifact(s) valid, {refs_checked} reference(s) consistent")
+
+
+def _warn_unpopulated_cases(data_root: Path) -> None:
+    """Warn on each committed case no population admits; never fail on it."""
+    config_root = get_settings().config_root
+    try:
+        slices = load_slices(config_root, load_predict_config(config_root).slices)
+    except (OSError, ValueError) as exc:
+        typer.echo(f"::warning::population: the enabled prediction slices did not load ({exc})")
+        slices = {}
+    for case_id in unpopulated_cases(data_root, slices):
+        typer.echo(
+            f"::warning::population: {case_id} has committed cells but is neither a SCOTUS "
+            "docket nor a docket of an enabled prediction slice, so no figure reads them"
+        )
 
 
 @app.command("validate-corpus")
@@ -14758,7 +14781,9 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
     scope: Literal["frozen", "all"] = "all" if all_versions else "frozen"
     # Same shared producer + default as the leaderboard, so the two surfaces
     # always agree on the frozen headline. The census (ledger_cell_counts) stays
-    # version-blind — it counts committed predictions, not scored cells. The
+    # version-blind — it counts committed predictions, not scored cells — and,
+    # like the stratified cells beside it, reads the SCOTUS population only, so
+    # both sides of the funnel count one population. The
     # stage the join also carries is dropped here: the substance funnel is
     # deliberately stage-blind throughput (a census over every scored cell,
     # like the prediction counts beside it), so its counts pool stages by
