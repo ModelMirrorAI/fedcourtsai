@@ -14304,7 +14304,9 @@ def _terminal_skill_record_for(
     fields: dict[str, object] = {
         "brier_score": brier,
         "segment_base_rate": rate,
-        "brier_skill_score": _harness_skill_for(brier, outcome, rate),
+        "brier_skill_score": _harness_skill_for(
+            brier, _harness_target_for(event_paths, evaluation, outcome), rate
+        ),
         "base_rate_basis": basis,
         "base_rate_salience_version": version,
         "base_rate_statpack_digest": digest,

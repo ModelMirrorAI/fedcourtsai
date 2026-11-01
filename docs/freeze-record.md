@@ -16064,3 +16064,43 @@ freeze commit is recorded here.
     `segment_base_rate`, `base_rate_basis` and `brier_skill_score` null, and
     its `segment_base_rate` equals the `terminal` rate `uv run fedcourts
     segment-anchors --term <docket Term>` prints for that band to six decimals.
+
+- **A predict cell validates itself against the live contract before it
+  finishes, from `proc-v17`; recorded 2026-11-01.** A prompt change that
+  moves the predict digest of all three predictors. It changes no scoring
+  rule, no harness boundary and no committed record. Carried to `main` by the
+  promotion tagged `<FILL: promotion tag>` (merge commit `<FILL: merge hash>`,
+  merged `<FILL: merged-at>`), with the rest of `proc-v17`.
+
+  **What changes.** `fedcourts validate data --cell <dir>`
+  (`validate.live_cell_problems`) holds the named predict cell to what no
+  ledger-wide check can ask of an unstamped record: a `prediction.json` that
+  names its forecast document, carries every claim block its event declares
+  (`claims`, `claim_distributions`, `semantic_claims`) and writes
+  `big_case_score`, beside a non-empty `prediction_summary.md`. Its findings
+  print as `INCOMPLETE` lines. Plain `validate` is unchanged. The predict prompt
+  names that command near its top, inside the part of the prompt a
+  context-truncating engine keeps, says to repeat it until it prints `OK`, and
+  shows the `prediction.json` shape of a cert or interim cell under
+  *Outputs*.
+
+  **Why.** Gemini predict cells finished on a passing ledger-wide `validate`
+  and then failed after the stamp, so their partial PRs were closed and the
+  cells predicted again. The ledger holds unstamped records with a null
+  forecast pointer and no claims block, so the cell's own ledger-wide run
+  could not see either miss.
+
+  **What scored figures move.** None. The change adds a pre-finish check and
+  touches no scoring path. Over every `proc-v14`, `proc-v15` and `proc-v16`
+  stamped predict cell on the authoring checkout (claude 69, codex 69, gemini
+  67), the new check found nothing beyond 2 gemini cells with no
+  `prediction_summary.md`.
+
+  **Digests.** The predict prompt changes, so the three predictor digests move
+  with `proc-v17`. The evaluator digests do not move for this change.
+
+  The runnable effect check once it is live:
+  - `uv run fedcourts validate data --help` lists `--cell`;
+  - on the first predict run after the carrying merge, the gemini-baseline
+    cells' `retrieval_log.json` records a `validate data --cell` call, and the
+    run opens fewer `-partial` PRs than the proc-v16 runs did.
