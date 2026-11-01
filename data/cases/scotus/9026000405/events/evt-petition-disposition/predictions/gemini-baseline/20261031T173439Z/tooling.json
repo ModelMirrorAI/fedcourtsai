@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000405",
+  "run_id": "20261031T173439Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_read_document",
+    "fedcourts validate data"
+  ],
+  "helpful": [
+    "provisioned petition.txt with full lower-court appendices",
+    "cert_anchor in context.json and sal-v6 band tables in metrics/statpack.md",
+    "mcp_courtlistener_read_document for inspecting Ninth Circuit FECA precedents (Moe and Hawkins)"
+  ],
+  "gaps": [],
+  "notes": "All provisioned inputs (snapshot 2026-10-31.json, context.json, same-question.json, petition.txt, and questions-presented.txt) were complete and clean."
+}

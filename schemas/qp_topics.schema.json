@@ -85,7 +85,7 @@
     },
     "QpTopicBatchEntry": {
       "additionalProperties": false,
-      "description": "One labeling run's contribution to the accumulating labels artifact.\n\nThe artifact is the union of every batch, so without this ledger a reader\ncould not tell which run produced which row, what it was measured at, or how\nmany runs the file took. Each row records both counts because they answer\ndifferent questions: ``published`` is what the batch added to the file, while\n``measured`` is what its labeler actually read \u2014 larger by the reference rows\nit re-graded, which are the per-run cost of the measurement and publish\nnothing new.\n\nThe measurement fields are kept per batch rather than only at the top level\nso a drifting labeler is visible as a series rather than as a single current\nnumber \u2014 with two readings the series will not support. Every batch is\nscored over the **same** reference entries, so the differences between rows\nare labeler-side re-labeling of identical items, not independent samples of\nanything: a few points of movement on ``n`` this size is noise, and only a\nsustained move reads. And ``agree``/``n`` never read without ``floor``, which\nis why it is carried here rather than recomputed: on a sixteen-label\nvocabulary most of any rate is the floor.",
+      "description": "One labeling run's contribution to the accumulating labels artifact.\n\nThe artifact is the union of every batch, so without this ledger a reader\ncould not tell which run produced which row, what it was measured at, or how\nmany runs the file took. Each row records both counts because they answer\ndifferent questions: ``published`` is what the batch added to the file, while\n``measured`` is what its labeler actually read \u2014 larger by the reference rows\nit re-graded, which are the per-run cost of the measurement and publish\nnothing new. The ``policy_*`` fields are the application frame's policy\nmeasurement and stay empty on the petition frame.\n\nThe measurement fields are kept per batch rather than only at the top level\nso a drifting labeler is visible as a series rather than as a single current\nnumber \u2014 with two readings the series will not support. Every batch is\nscored over the **same** reference entries, so the differences between rows\nare labeler-side re-labeling of identical items, not independent samples of\nanything: a few points of movement on ``n`` this size is noise, and only a\nsustained move reads. And ``agree``/``n`` never read without ``floor``, which\nis why it is carried here rather than recomputed: on a sixteen-label\nvocabulary most of any rate is the floor.",
       "properties": {
         "agree": {
           "description": "Compared reference entries this batch matched",
@@ -166,6 +166,75 @@
           "minimum": 0,
           "title": "N",
           "type": "integer"
+        },
+        "policy_agree": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Application frame: hand-labeled rows whose policy area the labeler matched; null where the batch measured no policy area",
+          "title": "Policy Agree"
+        },
+        "policy_gate_passed": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Whether this batch's policy measurement passed its gate; null where the batch measured no policy area",
+          "title": "Policy Gate Passed"
+        },
+        "policy_n": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Hand-labeled rows compared on policy area",
+          "title": "Policy N"
+        },
+        "policy_prompt_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "sha256 of the labeling prompt this batch's policy measurement read. After a refusal, no later batch asks for policy areas until the prompt changes",
+          "title": "Policy Prompt Sha256"
+        },
+        "policy_published": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Policy areas this batch published; 0 when its policy measurement was refused",
+          "title": "Policy Published"
         },
         "published": {
           "description": "Rows this batch first published into the artifact",

@@ -23,6 +23,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from . import paths
 from .courtlistener import DEFAULT_MAX_ENTRY_PAGES
+from .prediction_slices import check_slice_ids
 
 # The corpus read backends, defined here because `corpus` imports this module.
 # One definition, so the setting, the type hints, and the CLI help cannot drift.
@@ -316,6 +317,15 @@ class PullConfig(BaseModel):
     # longer docket is recorded as failed with nothing written, so one huge
     # docket cannot spend a window's budget.
     max_entry_pages_per_case: int = Field(default=DEFAULT_MAX_ENTRY_PAGES, ge=1)
+    # A docket the corpus already holds is refreshed by reading only the entries
+    # upstream modified since its stored snapshot, less this many days (at least
+    # one: upstream reads the date in Pacific time), merged into it by id.
+    entry_overlap_days: int = Field(default=2, ge=1)
+    # A docket is read whole once a day its docket id picks, one in this many,
+    # has passed since its last read, to catch an entry deleted upstream or
+    # changed without moving its modification time. 1 reads every docket whole
+    # on every refresh after its first that day.
+    full_read_every_days: int = Field(default=7, ge=1)
 
 
 def load_pull_config(config_root: Path) -> PullConfig:
@@ -724,7 +734,8 @@ class PredictScope(StrEnum):
 
     # Only SCOTUS dockets (`court == "scotus"`) are in-scope — the cost gate.
     # Originating court-of-appeals dockets are ingested for context and
-    # retrieval but not predicted.
+    # retrieval but not predicted, unless an enabled prediction slice
+    # (`PredictConfig.slices`) names the docket.
     scotus_docket = "scotus_docket"
     # No gate: every changed case with open events is in-scope (dev / back-testing).
     all = "all"
@@ -741,6 +752,17 @@ class PredictConfig(BaseModel):
 
     # Which cases the agentic stages run on; `scotus_docket` is the default.
     scope: PredictScope = PredictScope.scotus_docket
+    # The committed lower-court slices `scotus_docket` also admits, by id from
+    # `fedcourtsai.prediction_slices.SLICES`: each admits exactly the dockets its
+    # list names, as its own population. Empty (the default) admits no slice, so
+    # the scope is the SCOTUS docket alone.
+    slices: list[str] = Field(default_factory=list)
+
+    @field_validator("slices")
+    @classmethod
+    def _known_slices(cls, value: list[str]) -> list[str]:
+        return check_slice_ids(value)
+
     # Salience-INDEPENDENT hard cap on predict cells (predictor x case x event
     # matrix jobs) queued into one run. A backstop *below* the salience gate, not
     # part of it: it holds regardless of what selection did, so a selection that

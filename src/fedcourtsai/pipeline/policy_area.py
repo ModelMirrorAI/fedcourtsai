@@ -1,10 +1,10 @@
 """Policy-area labels for analytics: what executive policy an emergency application is about.
 
-Read-side only and deliberately not a prediction input: the labels are a
-committed, hand-labeled reference (the package's ``policy_areas.json``),
-keyed by application docket number, and the one consumer is the executive
-success cut (:mod:`.executive_success`). No cell, outcome or score reads them,
-so a relabel moves no frozen input.
+Read-side only and deliberately not a prediction input: the ``policy-area-v1``
+labels are a committed, hand-labeled reference (the package's
+``policy_areas.json``), keyed by application docket number, and the one
+consumer is the executive success cut (:mod:`.executive_success`). No cell,
+outcome or score reads them, so a relabel moves no frozen input.
 
 **Why a separate vocabulary.** The questions-presented topics
 (``docs/qp-topic.md``) label what a petition asks, and no application carries
@@ -57,6 +57,13 @@ cut counts those beside its cells.
 **Versioned like the scope rule.** ``policy-area-v1`` is this vocabulary and
 these rules; a change to what an area covers is a new label beside it, while
 adding or correcting an entry under the same rules is not.
+
+**``policy-area-v2``** keeps this vocabulary and reads the area off the
+application labels artifact, where the application labeler gives it as a
+second field on every federal-party application, measured against these hand
+labels (:mod:`.application_policy`, ``docs/qp-topic.md``, *Policy areas*).
+:func:`policy_source` picks which version a cut reads: ``policy-area-v2`` once
+its measurement has passed, these hand labels until then.
 """
 
 from __future__ import annotations
@@ -69,24 +76,20 @@ from importlib.resources import files
 from types import MappingProxyType
 from typing import Any, Final, Literal, cast, get_args
 
+from ..schemas import PolicyAreaLabel, QpTopicApplicationLabels
+
 #: The registered vocabulary's version.
 POLICY_AREA_RULE_VERSION: Final[str] = "policy-area-v1"
 
 #: The labels resource, at the package root.
 POLICY_AREAS_RESOURCE: Final[str] = "policy_areas.json"
 
-PolicyArea = Literal[
-    "immigration",
-    "federal-executions",
-    "foreign-affairs",
-    "elections-census",
-    "personnel-removal",
-    "education",
-    "health",
-    "environment-energy",
-    "firearms",
-    "other",
-]
+#: The derived vocabulary's version: the same areas, read off the application
+#: labels artifact (:func:`policy_source`).
+POLICY_AREA_V2_RULE_VERSION: Final[str] = "policy-area-v2"
+
+#: The vocabulary, defined beside the labels artifact that carries it.
+PolicyArea = PolicyAreaLabel
 
 #: The vocabulary in reporting order, ``other`` last.
 POLICY_AREAS: Final[tuple[PolicyArea, ...]] = get_args(PolicyArea)
@@ -99,6 +102,8 @@ class PolicyLabel:
     area: PolicyArea
     note: str
     uncertain: bool
+    #: ``reference`` for a hand label, ``labeler`` for the application labeler's.
+    source: Literal["reference", "labeler"] = "reference"
 
 
 def parse_policy_areas(text: str) -> Mapping[str, PolicyLabel]:
@@ -145,3 +150,60 @@ def policy_areas() -> Mapping[str, PolicyLabel]:
 def policy_label(docket_number: str) -> PolicyLabel | None:
     """The label of one application, any spelling of its number; ``None`` if unlabeled."""
     return policy_areas().get(docket_number.strip().upper())
+
+
+@dataclass(frozen=True)
+class PolicySource:
+    """Where a cut reads its policy areas from: one rule version and its labels."""
+
+    rule_version: str
+    labels: Mapping[str, PolicyLabel]
+    measured_batch: int | None = None
+
+    def label(self, docket_number: str) -> PolicyLabel | None:
+        """The label of one application, any spelling of its number; ``None`` if unlabeled."""
+        return self.labels.get(docket_number.strip().upper())
+
+
+def hand_source() -> PolicySource:
+    """``policy-area-v1``: the committed hand labels."""
+    return PolicySource(rule_version=POLICY_AREA_RULE_VERSION, labels=policy_areas())
+
+
+def policy_source(artifact: QpTopicApplicationLabels | None) -> PolicySource:
+    """The policy areas a cut reads: ``policy-area-v2`` once it is measured, else the hand set.
+
+    ``policy-area-v2`` is every hand label, plus the labeler's area on every
+    other ``policy_row`` the application labels artifact carries one for
+    (``docs/qp-topic.md``, *Policy areas*). It is read only when the artifact
+    records a policy measurement that passed its gate; otherwise the hand set
+    stands. A row neither source labels is unlabeled, and the cut counts it
+    beside its cells. A hand label keeps its ``uncertain`` flag and note; a
+    labeler area is never flagged, since the labeler records no doubt, and
+    carries ``source`` ``labeler`` so a cut can count those rows apart.
+    """
+    if artifact is None or artifact.policy_agreement is None:
+        return hand_source()
+    if not artifact.policy_agreement.gate_passed:
+        return hand_source()
+    # The hand set first, so a hand-labeled docket the labels artifact does not
+    # hold (one outside the application frame) keeps its hand label rather than
+    # going unlabeled when the cut switches version.
+    labels: dict[str, PolicyLabel] = dict(policy_areas())
+    for entry in artifact.entries:
+        if entry.policy_area is None or entry.policy_source != "labeler":
+            continue
+        key = entry.docket_number.strip().upper()
+        if key in labels:
+            continue
+        labels[key] = PolicyLabel(
+            area=entry.policy_area,
+            note=f"labeled in batch {entry.policy_batch}",
+            uncertain=False,
+            source="labeler",
+        )
+    return PolicySource(
+        rule_version=POLICY_AREA_V2_RULE_VERSION,
+        labels=MappingProxyType(labels),
+        measured_batch=artifact.policy_agreement.batch,
+    )

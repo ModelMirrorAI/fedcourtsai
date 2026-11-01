@@ -111,8 +111,9 @@ permissions: {}
 #
 # The pins are the standing measurement — 10 petitions, all three real engines,
 # the paid modern-cert population, drawn at random by the salted-hash rule —
-# and what a fortnight costs is whatever the usage ledger measures against
-# exactly them.
+# and what a fortnight costs is whatever the replay's off-ledger spend record
+# measures against exactly them (its cells reach no ledger; see the record
+# step below).
 #
 # `--scope paid` is the pin, not the wider `all`, because the population has to
 # carry signal at this sample size: the paid class resolves grant-or-GVR at
@@ -368,7 +369,7 @@ jobs:
             # a maintainer judging the hold needs the number in front of them; a
             # re-anchor of that table moves this line too.
             bt_cost=$(awk -v n="$BT_LIMIT" 'BEGIN { printf "%.0f", n * 6.79 }')
-            printf 'Nothing has spent yet. Releasing the `review` hold below is what spends: up to the limit above x the routable predictors, one cert cell each. At the shipped predict rates as pinned in the CLI rate table ($4.27 claude-code + $1.88 codex + $0.64 gemini, about $6.79 an event across the three engines), %s petitions is on the order of $%s; the usage ledger (`fedcourts usage-summary`) measures what it actually spent. Declining the hold, or letting it expire, is a skipped fortnight — a first-class outcome of this lane, and the digest states the standing vintage either way.\n' \
+            printf 'Nothing has spent yet. Releasing the `review` hold below is what spends: up to the limit above x the routable predictors, one cert cell each. At the shipped predict rates as pinned in the CLI rate table ($4.27 claude-code + $1.88 codex + $0.64 gemini, about $6.79 an event across the three engines), %s petitions is on the order of $%s; the off-ledger spend record this run leaves (`fedcourts off-ledger-spend-report`) measures what it actually spent. Declining the hold, or letting it expire, is a skipped fortnight — a first-class outcome of this lane, and the digest states the standing vintage either way.\n' \
               "$BT_LIMIT" "$bt_cost"
             echo ""
             echo 'One operational consequence of leaving this pending: a run waiting on a hold counts as an in-flight back-test for the promotion gate'"'"'s quiescence check, so a parked fortnight blocks promotions until it is released or declined.'
@@ -662,7 +663,9 @@ jobs:
       # cell in this run; only non-secret identifiers, and the CLI hard-refuses to
       # allowlist anything matching /TOKEN|SECRET|KEY|AUTH|.../i regardless. No
       # MCP or telemetry block here: unlike the live workflows, the back-test
-      # configures no MCP servers and parses no telemetry.
+      # configures no MCP servers, and a telemetry log in this shared checkout
+      # would put one engine's responses where another engine's cells on the
+      # same case could read them — so gemini's replay spend goes unrecorded.
       # The clock's env is its only channel on every engine — the kickoff
       # inlines the six identifiers but not the clock, since the frozen prompt
       # spells `--decided-before "$DECIDED_BEFORE"` — which is why the
@@ -678,7 +681,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p .gemini
-          printf '%s\n' '{"security":{"environmentVariableRedaction":{"allowed":["COURT_ID","DOCKET_ID","EVENT_ID","PREDICTOR_ID","EVALUATOR_ID","RUN_ID","MODEL_ID","DECIDED_BEFORE","REPLAY_CUTOFF"]}}}' > .gemini/settings.json
+          printf '%s\n' '{"tools":{"truncateToolOutputThreshold":200000},"security":{"environmentVariableRedaction":{"allowed":["COURT_ID","DOCKET_ID","EVENT_ID","PREDICTOR_ID","EVALUATOR_ID","RUN_ID","MODEL_ID","DECIDED_BEFORE","REPLAY_CUTOFF"]}}}' > .gemini/settings.json
 
       # The codex replay sandbox (bubblewrap) needs unprivileged user
       # namespaces, which the Ubuntu runner images restrict via AppArmor: without
@@ -965,6 +968,36 @@ jobs:
             exit 1
           fi
           echo "big-case board and update history restored pristine"
+
+      # A real-engine replay spends tokens and its cells commit nothing, so
+      # its spend is in no measured total. It leaves one priced off-ledger
+      # record, failed replays included, which run-ops sweeps onto the
+      # ops-metrics branch and reports apart; no budget counts it. The logs
+      # are each engine's own: the Claude CLI's session transcripts, the codex
+      # sessions under the home the runner chose for the run's codex cells
+      # (`fedcourts-codex-home-<pid>` in the temp dir, one per replay
+      # process). Gemini's replay cells write no log to read (see the settings
+      # step above), so their spend is the one part not recorded. After the
+      # restores, as the job's other post-replay `fedcourts` steps are.
+      - name: Find the replay's codex sessions
+        id: codex_home
+        if: ${{ always() && env.BT_ENGINE == 'auto' && env.BT_REPLAY != 'salience-gate' }}
+        run: |
+          set -euo pipefail
+          home=$(find /tmp -maxdepth 1 -type d -name 'fedcourts-codex-home-*' -print -quit)
+          echo "sessions=${home:+$home/sessions}" >> "$GITHUB_OUTPUT"
+
+      - name: Record the replay's model spend
+        if: ${{ always() && env.BT_ENGINE == 'auto' && env.BT_REPLAY != 'salience-gate' }}
+        uses: ./.github/actions/off-ledger-spend
+        with:
+          workflow: run-backtest
+          lane: ${{ format('{0}-replay', env.BT_REPLAY) }}
+          leg: ${{ format('{0}-replay', env.BT_REPLAY) }}
+          selection: ${{ env.BT_REPLAY }}
+          conclusion: ${{ job.status }}
+          claude-transcripts-dir: "~/.claude/projects"
+          codex-sessions-dir: ${{ steps.codex_home.outputs.sessions }}
 
       # The salience-gate mode replays the deterministic gate, not the
       # predictors: `fedcourts salience-replay` runs offline over the pulled

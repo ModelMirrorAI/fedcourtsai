@@ -263,7 +263,7 @@
             }
           ],
           "default": null,
-          "description": "Where `scheduled` comes from and when it is null",
+          "description": "Where `schedule` and `scheduled` come from and when each is empty or null",
           "title": "Schedule Rule"
         },
         "short_caption_rule": {
@@ -629,6 +629,14 @@
           "description": "One fixed plain-language line per action open at `moment`'s stage, filled with `asking_party` and `other_party`: granted and denied for a petition or an application, reversed, affirmed and vacated for a merits case. Consequences only, never likelihood \u2014 shown beside the forecast, paired by each line's `side`, so a reader can tell whom each action helps. None exactly when `asking_party` is. Display-only",
           "title": "Outcome Lines"
         },
+        "schedule": {
+          "description": "Every upcoming date the committed schedule carries for the case \u2014 its conference, its argument day, its response deadline \u2014 earliest first, joined by the `schedule_rule` provenance string. Empty where none is ahead. Display-only",
+          "items": {
+            "$ref": "#/$defs/BigCaseScheduled"
+          },
+          "title": "Schedule",
+          "type": "array"
+        },
         "scheduled": {
           "anyOf": [
             {
@@ -639,7 +647,7 @@
             }
           ],
           "default": null,
-          "description": "The case's next scheduled date, joined from the committed `data/schedule/schedule.json` by the `schedule_rule` provenance string; None where the schedule carries no upcoming date for the case. Carries no `as_of`, so the board moves only when a case's date does. Display-only"
+          "description": "The case's next scheduled date, joined from the committed `data/schedule/schedule.json` by the `schedule_rule` provenance string; None where the schedule carries no upcoming conference for the case. Always the `conference` entry of `schedule`, kept for `1.3` readers. Carries no `as_of`, so the board moves only when a case's date does. Display-only"
         },
         "score_max": {
           "description": "Highest current read on the case's current moment",
@@ -702,7 +710,7 @@
     },
     "BigCaseScheduled": {
       "additionalProperties": false,
-      "description": "The next date the Court has set for a case, as the committed schedule carries it.",
+      "description": "A date ahead that the Court has set for a case, as the committed schedule carries it.",
       "properties": {
         "date": {
           "description": "The scheduled day, on or after the day the schedule was last built. A reader rendering later drops a date that has since passed rather than show it as upcoming",
@@ -711,8 +719,12 @@
           "type": "string"
         },
         "kind": {
-          "const": "conference",
-          "description": "What is scheduled: `conference`, the conference the docket is distributed for",
+          "description": "What is scheduled: `conference`, the conference the docket is distributed for; `argument`, the day a granted case is set for argument; `response_due`, the deadline for a response to the petition or application",
+          "enum": [
+            "conference",
+            "argument",
+            "response_due"
+          ],
           "title": "Kind",
           "type": "string"
         }
@@ -1000,9 +1012,12 @@
       "type": "integer"
     },
     "schema_version": {
-      "const": "1.3",
-      "default": "1.3",
-      "description": "The artifact's schema version. A reader keys on it: a `1.1` row carries the display fields `short_caption`, `docket_number`, `docket_number_source` and `docket_url`, a `1.2` row adds `asking_party`, `other_party`, `outcome_lines` and `asking_declined`, and a `1.3` row adds `scheduled`",
+      "default": "1.4",
+      "description": "The artifact's schema version. A reader keys on it: a `1.1` row carries the display fields `short_caption`, `docket_number`, `docket_number_source` and `docket_url`, a `1.2` row adds `asking_party`, `other_party`, `outcome_lines` and `asking_declined`, a `1.3` row adds `scheduled`, and a `1.4` row adds `schedule`",
+      "enum": [
+        "1.3",
+        "1.4"
+      ],
       "title": "Schema Version",
       "type": "string"
     },

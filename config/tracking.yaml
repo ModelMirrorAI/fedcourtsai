@@ -35,6 +35,16 @@ pull:
   # may read, following upstream's cursor. A longer docket is recorded as failed
   # with nothing written, so a single docket cannot spend a window's budget.
   max_entry_pages_per_case: 25
+  # A docket the corpus already holds is refreshed incrementally: one request
+  # for the docket and one page of the entries upstream modified since its
+  # stored snapshot, less this overlap (at least one day: upstream reads the
+  # date in Pacific time), merged into the stored entries by id. A long, quiet
+  # docket costs two requests instead of one per twenty entries.
+  entry_overlap_days: 2
+  # A docket is read whole once a day its docket id picks (one a week) has
+  # passed since its last read, to catch an entry deleted upstream or changed
+  # without moving its modification time.
+  full_read_every_days: 7
   # Discover newly-filed dockets in the tracked courts since the last run.
   # OFF: the live channel's frontier probing onboards newly filed SCOTUS
   # petitions (fresher, budget-free), and circuit discovery onboarded cases
@@ -333,6 +343,13 @@ predict:
   #   all           — no gate: every changed case with open events is in-scope;
   #                   keep for dev / unrestricted back-testing.
   scope: scotus_docket
+  # Committed lower-court slices `scotus_docket` also admits, by id from
+  # src/fedcourtsai/prediction_slices.py (`ai-watchlist` reads
+  # config/ai-watchlist.yaml). Each admits exactly the dockets its list names,
+  # never their whole court, and is its own population: no SCOTUS figure reads
+  # its events, and the salience gate does not apply to it. A slice is switched
+  # on with its own moments, prompts and process version; empty admits none.
+  slices: []
   # Salience-INDEPENDENT hard cap on predict cells (predictor x case x event jobs)
   # queued into one run. A backstop *below* the salience gate, not part of it: it
   # holds whatever selection did, so a selection that fails open cannot fan out an

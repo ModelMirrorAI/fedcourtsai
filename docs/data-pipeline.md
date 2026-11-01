@@ -55,6 +55,27 @@ Two different scopes apply, and keeping them apart is what bounds the bill:
   predicted, and the lower-court link columns (`originating_court` /
   `originating_docket_number`) are retrieval context — never a scope trigger.
 
+  **Prediction slices** widen the court predicate by name, never by court. A
+  slice is a committed list of lower-court dockets, registered in
+  `fedcourtsai.prediction_slices.SLICES` with the file it reads. One is
+  registered, `ai-watchlist`, which reads `config/ai-watchlist.yaml` and admits
+  every docket that file names, each listed case's own and its related ones. A
+  slice is switched on by naming it in `predict.slices` (`config/tracking.yaml`);
+  the committed list is empty, so the scope is the SCOTUS docket alone. A
+  switched-on slice admits exactly its dockets at the matrix backstop (the
+  predict and evaluate matrices, and `predict-plan` / `evaluate-plan`, which
+  rehearse them) and no other docket of their courts. The hard exclusions and
+  the reconcile's `predict_excluded` latch still apply to a slice docket; the
+  salience gate does not, because the list is the slice's selection. An enabled
+  slice whose file is missing, a SCOTUS docket in a slice, and a docket two
+  enabled slices both name are each refused rather than read. Each slice is its
+  own **population** (`store.in_population`): the SCOTUS figures read the SCOTUS
+  population only, so a slice's events never pool with the Court's
+  ([metrics/README.md](../metrics/README.md)). Admission is only the scope half
+  of a slice. Its moments, prompts, decision model, pull-side queueing and its
+  own process version ([process-version.md](process-version.md)) are switched
+  on with it.
+
   Within this prediction scope, [salience.md](salience.md) describes a live
   **salience-ordered** gate — hard eligibility filters, then a deterministic
   ranking that spends the tournament on the most salient slice up to a fundable
@@ -545,16 +566,23 @@ committed copy is a point-in-time snapshot that nothing schedules or gates (see
 `data/schedule/schedule.json` is the one repo-level file the **live poll**
 writes, beside the per-case outcomes and event records: after each cycle, `fedcourts live-poll` rebuilds it
 from the corpus it just refreshed, and it rides that window's data commit to
-`main`. It carries each public docket's distributed conference while the docket is
-undecided at the petition or application stage (a granted petition drops off)
-(`distributed_for_conference`), published as `next_conference` only while the
-date is on or after the schedule's `as_of` and as null with
-`stale_reason: conference_passed` once it has passed, so the public site never
-shows a past conference as upcoming. Like the scope manifest it is enumerated
+`main`. It carries three dates per public docket, each read off the docket's
+entries by the live poll: the conference the docket is distributed for while it
+is undecided at the petition or application stage (`distributed_for_conference`,
+published as `next_conference`), the day a granted case awaiting its merits
+decision is set for argument (`argument_set_for`, as `argument`, until an
+argument on or after that day is read), and the newest stated response deadline
+while the docket is undecided and the response is still owed (`response_due`,
+while `response_due_state` is `due`). A row exists when any one of them is in
+play. Each date is published as upcoming only while it is on or after the
+schedule's `as_of`, and as null with a stale reason (`conference_passed`, or
+`passed` on an argument day or deadline) once it has passed, so the public site
+never shows a past date as upcoming. Like the scope manifest it is enumerated
 from the committed `data/cases` tree alone. It is display data for the site's
-case timeline, joined onto the big-case board as `scheduled`: it is not a
-prediction-ledger record, since a schedule moves on every relist, and no cell
-is provisioned with it. The board row carries the date alone, not the
+case timeline, joined onto the big-case board as `schedule` (every upcoming
+date, earliest first) and `scheduled` (its conference entry): it is not a
+prediction-ledger record, since a schedule moves on every relist, reschedule and
+extension, and no cell is provisioned with it. The board row carries the dates alone, not the
 schedule's `as_of`, so the daily board moves only when a case's date does. A
 failed build warns and leaves the committed file as it was (the new file is
 written beside it and renamed over it); it never fails the poll. `fedcourts schedule` rebuilds it by hand from
@@ -1424,7 +1452,22 @@ or network.
   cursor (`docket-entries/` ignores a page number), at most
   `max_entry_pages_per_case` pages of twenty; a longer docket is recorded as
   failed with nothing written, so one bulk-loaded circuit docket with hundreds
-  of entry pages cannot spend a window's hourly budget.
+  of entry pages cannot spend a window's hourly budget. A docket the corpus
+  already holds is read **incrementally**: the docket, then the entries
+  upstream modified since its newest stored CourtListener read less
+  `entry_overlap_days`, merged into that read's entries by id (newest id
+  first, upstream's order), so a long, quiet docket costs two requests rather
+  than one per twenty entries. The merge base looks past a newer live-channel
+  snapshot stored under the same case, a few snapshots deep. The docket is
+  read whole instead once a day its id picks, one in every
+  `full_read_every_days`, has passed since that read (the rotation does not
+  reach a docket daily, so the day itself is usually missed), which catches an
+  entry deleted upstream or changed without moving its modification time. It
+  is also read whole when its stored entries are not in upstream's order, so
+  the first merge cannot read as a change, and when upstream returns a changed
+  entry without an id.
+  `pull-all` prints how many refreshes took each read. The one-docket `fetch`
+  always reads whole.
 - **Two forward jobs over the shared core:**
   1. **Refresh** active known cases (`pull_case`), routing changed cases with
      open case-baseline events onto the predict queue — a `predict_queued_at`

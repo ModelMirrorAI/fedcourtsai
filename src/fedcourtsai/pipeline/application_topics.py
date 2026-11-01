@@ -69,6 +69,7 @@ from typing import Any, Final, Literal
 
 from .. import corpus
 from .documents import KIND_APPLICATION
+from .exec_action import exec_action_annotations
 from .ingest import _date, _live_entries
 from .interim_signals import ApplicationKind, match_interim_disposition
 from .party import docket_stratum
@@ -128,6 +129,10 @@ class ApplicationExtractRow:
     lower_court: str | None
     text: str
     entries: tuple[ApplicationEntry, ...]
+    #: Whether the labeler also gives this row an executive policy area: the
+    #: federal government is a party (:func:`is_policy_row`). Cleared on a
+    #: batch that asks for no area.
+    policy_row: bool = False
 
     def as_json(self) -> dict[str, Any]:
         """The extract file's row shape."""
@@ -139,6 +144,7 @@ class ApplicationExtractRow:
             "lower_court": self.lower_court,
             "text": self.text,
             "entries": [{"date": entry.date, "text": entry.text} for entry in self.entries],
+            "policy_row": self.policy_row,
         }
 
 
@@ -235,6 +241,7 @@ def application_row(
         break
     lower_court = str(payload.get("LowerCourt") or "").strip() if payload is not None else ""
     return ApplicationExtractRow(
+        policy_row=is_policy_row(row),
         case_id=row.case_id,
         docket_number=row.docket_number.strip(),
         input_kind="application-text" if text else "docket-only",
@@ -243,6 +250,21 @@ def application_row(
         text=text,
         entries=entries,
     )
+
+
+def is_policy_row(row: corpus.CorpusRow) -> bool:
+    """Whether an application gets an executive policy area: a federal party on either side.
+
+    The ``exec-action-v1`` caption and counsel reading names a government side
+    (:func:`~fedcourtsai.pipeline.exec_action.exec_action_annotations`), which
+    is the population the ``policy-area-v1`` hand labels were drawn from: every
+    in-scope and unknown-scope application of that cut, and the federal-party
+    rows it reads out of scope. The reading is the whole rule: a hand-labeled
+    docket gets no flag of its own, so the flag says nothing about which rows
+    are measured, and a hand row the reading misses is left out of the
+    measurement and counts against its coverage.
+    """
+    return exec_action_annotations(row, None).government_side is not None
 
 
 def _ask(kind: str | None) -> AskKind:

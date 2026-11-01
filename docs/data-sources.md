@@ -624,31 +624,65 @@ though the Court does not.
   storing in the access-gated content store, and staging into a cell are
   therefore permitted on the copyright question, under the same
   no-republication posture as the Court's own filings.
-- **Not yet verified.** As read on 2026-10-31 the site's terms were taken from
-  search-engine copies of the legal-policies page and the brief listing; the
-  live pages were not fetched. Before any fetcher is built,
-  someone with access reads `justice.gov/robots.txt` for the `/osg` paths and
-  any crawl delay, the live legal-policies text, and whether the Office posts
-  its filings on a paper-only docket at all, and with what redaction: these
-  dockets are paper-only because the case was sealed or privacy-restricted
-  below, so the posted version is the only one the pipeline may read, and
-  anything the Office marks sealed stays out under the PII stance below.
-- **Reach.** Small. Counted on 2026-10-31 by a one-off read of the
-  production corpus (latest pull 2026-10-31, latest snapshot row 2026-07-13),
-  not by a committed command; a fetcher's PR re-derives the figures. The
-  frame is the SCOTUS dockets with an open event and no `predict_excluded`
-  latch whose newest snapshot is live-shaped, which is what the paper-only
-  reading needs: 1,348 dockets. 14 of them are paper-only, and 13 of those
-  have the federal government as a party by a hand reading of the captions
-  (`party-v1` in `pipeline/party.py` reads 12, missing one ICE field-office
-  director captioned in full). Of the 195 in that frame latched
-  `salience_selected` ([salience.md](salience.md)), 6 are paper-only, 5 of
-  them with the government as a party. The Office has a filing on four of
-  those six: the government is the petitioner on three (its petition is the
-  filing) and filed a brief in opposition on one; on a fifth it waived
-  response. A fetcher would therefore
-  reach a handful of cells a Term, though on those it supplies the one
-  document the cell otherwise lacks.
+- **The terms of use.** The RECAP terms above were first read from
+  search-engine copies of Free Law Project's RECAP FAQ and the site licence
+  notice, because the live CourtListener pages are not reachable from the
+  project's sessions. The maintainer read the live CourtListener terms of use
+  on 2026-11-01 and found no condition on the use of RECAP documents, so the
+  rule above stands as written. A condition added there later would narrow
+  it.
+
+**Model summaries of the AI watchlist's rulings** are an adopted public
+surface, not yet built. The AI-cases update will carry, beside an
+activity record for an opinion or a ruling, a short plain-language summary of
+that ruling, labeled with the model that wrote it, as the case summaries are.
+The update renders without it. The question is what such a summary may be
+written from, given the two layers of rights below.
+
+- **The ruling is public domain; CourtListener's docket is not.** A district
+  court's order or opinion is a work of the federal government. Free Law
+  Project's RECAP FAQ states that court-created PACER documents are works of
+  the federal government and in the public domain. The copy the pipeline reads
+  comes from the RECAP archive through CourtListener, and its text is
+  CourtListener's extraction of that public-domain document, the footing the
+  opinion bodies below already stand on. The docket around it, as
+  CourtListener serves it (the compiled entry list, the normalized caption,
+  nature of suit, cause, the judge and party fields, and any CourtListener
+  summary), is Free Law Project's curation, under CC BY-ND.
+- **What NoDerivatives means for a summary.** CC BY-ND lets the licensed
+  material be shared verbatim with attribution and does not let an adaptation
+  of it be shared. A model summary written from CourtListener's docket record
+  is a restatement of that record, and publishing it would publish an
+  adaptation the licence does not grant. Whether a short factual summary is an
+  adaptation in copyright terms is arguable, since facts are not protected; the
+  project does not rely on that argument, the same posture the case-summary
+  lane holds when it refuses a CourtListener REST snapshot
+  ([case-summaries.md](case-summaries.md)).
+- **The rule.** A summary may be published only
+  where it is written from the ruling's own text and from court-record
+  identifiers: the court, the docket and entry numbers, the filing date, and
+  the watchlist's own case name. Nothing from CourtListener's curated layer is
+  staged for the writer: no docket payload, no value-add field, and no entry
+  description (the clerk's entry text is a court record, but the activity
+  records already carry none of it, and the summary keeps that line). That
+  needs a staged record of its own shape, the order document plus identifiers,
+  since the case-summary lane's staged record is a docket. A party's filing (a
+  complaint, a brief) is written by counsel rather than the government and is
+  not public domain by authorship, so a summary of one is out of scope: only
+  rulings are summarized. Attribution follows [`NOTICE`](../NOTICE), since the
+  copy came through RECAP and CourtListener.
+- **PII.** A district ruling can name individuals: a minor in a product
+  liability suit, a self-represented party. The *PII stance* below governs the
+  staged text, and a summary names no private individual, identifying the case
+  by the watchlist's own name.
+- **Not yet verified.** As read on 2026-10-31 the RECAP terms were taken from
+  search-engine copies of Free Law Project's RECAP FAQ and the site licence
+  notice; the live CourtListener terms of use and the `free.law` pages were not
+  read. Before any summary is
+  generated, someone with access reads the live CourtListener terms of use and
+  copyright policy for any condition on RECAP documents downloaded through the
+  site, and records the decision here: summaries built on this footing, or
+  dropped.
 
 Two layers of rights apply, and they are different:
 

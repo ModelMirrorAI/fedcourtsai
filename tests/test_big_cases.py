@@ -45,6 +45,7 @@ from fedcourtsai.schemas import (
     QpTopicPublishedEntry,
     QpTopicShadow,
     Schedule,
+    ScheduledDay,
     ScheduleEntry,
 )
 from fedcourtsai.serialize import write_json, write_yaml
@@ -1292,10 +1293,10 @@ def test_without_a_labels_artifact_a_courtlistener_case_has_no_docket_number(
     assert (row.docket_number, row.docket_url) == (None, None)
 
 
-def test_the_board_is_schema_1_3_and_carries_the_display_rules(tmp_path: Path) -> None:
+def test_the_board_is_schema_1_4_and_carries_the_display_rules(tmp_path: Path) -> None:
     _write_read(tmp_path, "scotus/1", "claude-baseline", "r1", big_case_score=0.5)
     board = _board(tmp_path)
-    assert board.schema_version == "1.3"
+    assert board.schema_version == "1.4"
     assert board.provenance is not None
     assert "consequences only, never likelihood" in board.provenance.asking_rule
     assert "`cross_petition`" in board.provenance.asking_rule
@@ -1632,3 +1633,48 @@ def test_no_schedule_and_an_unreadable_one_both_leave_every_row_unscheduled(
     assert board.provenance is not None
     assert board.provenance.schedule_rule is not None
     assert "never a ledger record" in board.provenance.schedule_rule
+
+
+def test_a_row_lists_every_upcoming_date_earliest_first(tmp_path: Path) -> None:
+    _write_read(tmp_path, "scotus/1", "claude-baseline", "r1", big_case_score=0.5)
+    _write_read(tmp_path, "scotus/2", "claude-baseline", "r1", big_case_score=0.4)
+    _write_schedule(
+        tmp_path,
+        date(2026, 10, 19),
+        [
+            ScheduleEntry(
+                case_id="scotus/1",
+                next_conference=date(2026, 12, 4),
+                distributed_for_conference=date(2026, 12, 4),
+                response_due=ScheduledDay(set_for=date(2026, 11, 6), upcoming=date(2026, 11, 6)),
+            ),
+            # A granted case: an argument day and no conference; a passed deadline drops.
+            ScheduleEntry(
+                case_id="scotus/2",
+                argument=ScheduledDay(set_for=date(2026, 11, 3), upcoming=date(2026, 11, 3)),
+                response_due=ScheduledDay(
+                    set_for=date(2026, 6, 1), upcoming=None, stale_reason="passed"
+                ),
+            ),
+        ],
+    )
+    rows = {row.case_id: row for row in _board(tmp_path).rows}
+    assert rows["scotus/1"].schedule == [
+        BigCaseScheduled(kind="response_due", date=date(2026, 11, 6)),
+        BigCaseScheduled(kind="conference", date=date(2026, 12, 4)),
+    ]
+    assert rows["scotus/1"].scheduled == BigCaseScheduled(kind="conference", date=date(2026, 12, 4))
+    assert rows["scotus/2"].schedule == [BigCaseScheduled(kind="argument", date=date(2026, 11, 3))]
+    assert rows["scotus/2"].scheduled is None
+
+
+def test_scheduled_stays_the_conference_and_schedule_stays_ordered(tmp_path: Path) -> None:
+    _write_read(tmp_path, "scotus/1", "claude-baseline", "r1", big_case_score=0.5)
+    (board_row,) = _board(tmp_path).rows
+    payload = board_row.model_dump()
+    row = BigCaseScheduled(kind="argument", date=date(2026, 11, 3))
+    with pytest.raises(ValueError, match="conference only"):
+        BigCaseRow.model_validate({**payload, "scheduled": row.model_dump()})
+    later = BigCaseScheduled(kind="conference", date=date(2026, 12, 4))
+    with pytest.raises(ValueError, match="earliest first"):
+        BigCaseRow.model_validate({**payload, "schedule": [later.model_dump(), row.model_dump()]})

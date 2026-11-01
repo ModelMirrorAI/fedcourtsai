@@ -1354,6 +1354,15 @@ def test_ledger_cell_counts_walks_the_funnel(tmp_path: Path) -> None:
     assert ledger_cell_counts(data_root) == (3, 2, 1)
 
 
+def test_ledger_cell_counts_reads_the_scotus_population_only(tmp_path: Path) -> None:
+    # The funnel sits beside SCOTUS-only stratified cells, so a prediction
+    # slice's cell must not swell its census.
+    data_root = tmp_path / "data"
+    seed_prediction(data_root, "scotus", 1, "evt-petition-disposition", predictor_id="a")
+    seed_prediction(data_root, "cand", 101, "evt-motion-dismiss", predictor_id="a")
+    assert ledger_cell_counts(data_root) == (1, 1, 0)
+
+
 def test_ledger_cell_counts_empty_ledger_is_zero(tmp_path: Path) -> None:
     assert ledger_cell_counts(tmp_path / "data") == (0, 0, 0)
 

@@ -51,24 +51,41 @@ administration beside every cell, and listed.
 
 **The same population again, by controversy.** Beside the application cells,
 the in-scope applications are grouped into controversies under
-``controversy-v1`` (:mod:`.controversy`) and counted per administration and
+``controversy-v2`` (:mod:`.controversy`) and counted per administration and
 filer, so applications the record links weigh once. A
 controversy's result is its last decided application's; one with none decided
-is indeterminate and sits beside the rate. The same applications are counted
-once more per policy area (:mod:`.policy_area`), from a hand-labeled
-reference; an application it does not label is counted beside those cells.
+is indeterminate and sits beside the rate. The controversies are counted a
+second time with the hand-labeled policy keys' joins added
+(:mod:`.policy_key`), so one policy challenged by different litigants weighs
+once; those keyed cells sit beside the rule's, which stay the headline, and
+``policy_key_joins`` says how many of the rule's controversies the keys
+merged away. The same applications are counted
+once more per policy area (:mod:`.policy_area`), under ``policy-area-v2`` once
+its measurement has passed and the hand-labeled ``policy-area-v1`` reference
+until then; an application the source does not label is counted beside those
+cells.
 
 **One docket, one row; the date convention, moment and bound are the
 caller's**, exactly as on the party rates cut: rows de-duplicate by docket
 number, ``as_of_field`` is required, ``through`` places the cut at a past
 moment, and ``since`` bounds the start where coverage begins mid-window.
+
+**A row with no docketed date takes its first proceeding's.** Some
+application dockets carry an empty docketed date, so the stored
+``date_filed`` is null, and the row would sit in no administration. The first
+proceeding entry is the application's submission, so where a live snapshot
+is read its earliest entry date stands in, for the window, the ``filed``
+attribution and the controversy's first application alike. Each review row
+says which source its date came from, and ``filed_from_first_entry`` counts
+the rows that took the fallback. Without a snapshot the row keeps no filing
+date.
 """
 
 from __future__ import annotations
 
 from collections import Counter
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date
 from typing import Any, Final, Literal
 
@@ -95,11 +112,12 @@ from .exec_action import (
     ExecActionAnnotation,
     exec_action_rule,
 )
-from .ingest import interim_reading
+from .ingest import first_proceeding_date, interim_reading
 from .interim_signals import ApplicationKind, InterimReading
 from .party import ADMINISTRATIONS, PARTY_AS_OF_FIELDS, administration_for, docket_stratum
 from .party_rates import docket_key
-from .policy_area import POLICY_AREA_RULE_VERSION, POLICY_AREAS, policy_label
+from .policy_area import POLICY_AREAS, PolicySource, hand_source
+from .policy_key import POLICY_KEY_RULE_VERSION, policy_key
 from .prefetch import prefetch_by_case
 
 Filer = Literal["government", "challenger", "all"]
@@ -238,8 +256,13 @@ def executive_success(
     corpus_sha256: str = "",
     scope_rule_version: str = DEFAULT_SCOPE_RULE,
     reading: Reading = "finer",
+    policy: PolicySource | None = None,
 ) -> ExecutiveSuccess:
     """The executive success cut over the live slice (module docstring for every rule).
+
+    ``policy`` is where the policy cells read their areas
+    (:func:`~fedcourtsai.pipeline.policy_area.policy_source`); the hand set when
+    omitted.
 
     Deterministic and read-only. Raises :class:`KeyError` for an unregistered
     scope rule and :class:`ValueError` for an unknown date convention or
@@ -263,7 +286,12 @@ def executive_success(
         reading=reading,
         latest_pull=corpus.latest_pull_date(conn),
         latest_snapshot=corpus.latest_snapshot_date(conn),
+        policy=policy,
     )
+
+
+#: Where a row's filing date came from.
+DateSource = Literal["docketed", "first-entry"]
 
 
 @dataclass(frozen=True)
@@ -275,6 +303,8 @@ class _Placed:
     as_of: date | None
     resolution: date | None
     disposition: Disposition | None
+    filed: date | None = None
+    date_source: DateSource | None = None
 
     @property
     def counted(self) -> bool:
@@ -340,7 +370,8 @@ class _Fold:
             ExecutiveSuccessRow(
                 docket_number=row.docket_number,
                 administration=administration,
-                date_filed=row.date_filed,
+                date_filed=placed.filed,
+                date_source=placed.date_source,
                 in_scope=annotation.in_scope,
                 reason=annotation.reason,
                 government_side=annotation.government_side,
@@ -370,12 +401,12 @@ class _Fold:
 
 
 def _windowed(
-    row: corpus.CorpusRow, since: date | None, through: date | None
+    row: corpus.CorpusRow, filed: date | None, since: date | None, through: date | None
 ) -> tuple[Literal["before", "after"] | None, date | None, Disposition | None]:
     """Place a row against the cut: outside it, or inside with its as-of-cut resolution."""
     resolution = corpus.resolution_date(row)
     disposition = Disposition(row.disposition) if row.disposition is not None else None
-    anchor = row.date_filed or resolution
+    anchor = filed or resolution
     if since is not None and (anchor is None or anchor < since):
         return "before", None, None
     if through is not None:
@@ -399,54 +430,64 @@ def _success(  # noqa: PLR0913 - one keyword per stamp the cut carries
     reading: Reading,
     latest_pull: date | None,
     latest_snapshot: date | None,
+    policy: PolicySource | None = None,
 ) -> ExecutiveSuccess:
     """Fold the rows into the cut — the pure half of :func:`executive_success`.
 
-    Two passes: the rows are placed and scope-read first, so the snapshot
-    reads run as one prefetched batch and never share the row cursor. Without
-    a ``fetch`` no snapshot is read: no denial is re-read, and controversies
-    join on the caption alone.
+    The rows are collected first, so every snapshot read runs in a prefetched
+    batch and never shares the row cursor: one batch for the rows with no
+    docketed date, whose first proceeding dates them before they are placed,
+    and one for the rest the cut counts or lists, after the caption half of
+    the scope rule has said which those are. The scope rule then reads each
+    counted row again with its snapshot. Without a ``fetch`` no snapshot is
+    read: no row takes a first-entry date, no denial is re-read, the scope
+    rule reads the caption alone, and controversies join on the caption alone.
     """
     annotator = exec_action_rule(scope_rule_version)
-    seen: set[str] = set()
     outside: Counter[str] = Counter()
+    candidates, duplicates, extensions = _candidates(rows)
+    payloads: dict[str, Payload] = {}
+    if fetch is not None:
+        undated = [row for row in candidates if row.date_filed is None and _may_reach(row, since)]
+        payloads = dict(zip((row.case_id for row in undated), fetch(undated), strict=True))
     placed: list[_Placed] = []
-    duplicates = extensions = 0
-    for row in rows:
-        if docket_stratum(row) != "application":
-            continue
-        key = docket_key(row)
-        if key is not None:
-            if key in seen:
-                duplicates += 1
-                continue
-            seen.add(key)
-        if row.application_kind == ApplicationKind.extension.value:
-            extensions += 1
-            continue
-        where, resolution, disposition = _windowed(row, since, through)
+    for row in candidates:
+        filed, source = _filing_date(row, payloads.get(row.case_id))
+        where, resolution, disposition = _windowed(row, filed, since, through)
         if where is not None:
             outside[where] += 1
             continue
-        as_of = row.date_filed if as_of_field == "filed" else resolution
+        as_of = filed if as_of_field == "filed" else resolution
         if as_of_field == "resolved" and disposition is None:
             as_of = None
-        placed.append(_Placed(row, annotator(row, as_of), as_of, resolution, disposition))
-    payloads: dict[str, Payload] = {}
+        placed.append(
+            _Placed(row, annotator(row, as_of, None), as_of, resolution, disposition, filed, source)
+        )
     if fetch is not None:
-        wanted = [item.row for item in placed if item.counted]
-        payloads = dict(zip((row.case_id for row in wanted), fetch(wanted), strict=True))
+        wanted = [item.row for item in placed if item.counted and item.row.case_id not in payloads]
+        payloads.update(zip((row.case_id for row in wanted), fetch(wanted), strict=True))
+        placed = [
+            replace(
+                item, annotation=annotator(item.row, item.as_of, payloads.get(item.row.case_id))
+            )
+            if item.counted
+            else item
+            for item in placed
+        ]
     fold = _Fold(through=through, rereading=fetch is not None and reading == "finer")
     for item in placed:
         fold.add(item, payloads.get(item.row.case_id))
+    policies = policy if policy is not None else hand_source()
     groups = _controversies(placed, payloads, fold.results)
     for review_row in fold.review:
         review_row.controversy_id = groups.ids.get(review_row.docket_number)
-        label = policy_label(review_row.docket_number)
+        review_row.policy_controversy_id = groups.keyed_ids.get(review_row.docket_number)
+        label = policies.label(review_row.docket_number)
         if label is not None:
             review_row.policy_area = label.area
             review_row.policy_uncertain = label.uncertain
-    policy_cells, unlabeled = _policy_cells(placed, fold.results)
+            review_row.policy_source = label.source
+    policy_cells, unlabeled = _policy_cells(placed, fold.results, policies)
     order: dict[str, int] = {reason: index for index, reason in enumerate(SCOPE_REASONS)}
     return ExecutiveSuccess(
         scope_rule_version=scope_rule_version,
@@ -460,6 +501,7 @@ def _success(  # noqa: PLR0913 - one keyword per stamp the cut carries
         latest_pull=latest_pull,
         latest_snapshot=latest_snapshot,
         applications=len(placed),
+        filed_from_first_entry=sum(item.date_source == "first-entry" for item in placed),
         duplicate_rows=duplicates,
         extension_rows=extensions,
         filed_after_through=outside["after"],
@@ -476,15 +518,60 @@ def _success(  # noqa: PLR0913 - one keyword per stamp the cut carries
         controversy_rule_version=CONTROVERSY_RULE_VERSION,
         controversy_cells=groups.cells,
         controversy_unlinked=groups.unlinked,
-        policy_rule_version=POLICY_AREA_RULE_VERSION,
+        policy_key_rule_version=POLICY_KEY_RULE_VERSION,
+        policy_controversy_cells=groups.keyed_cells,
+        policy_key_joins=groups.key_joins,
+        policy_rule_version=policies.rule_version,
+        policy_measured_batch=policies.measured_batch,
         policy_cells=policy_cells,
         policy_unlabeled=unlabeled,
         review_rows=sorted(fold.review, key=lambda r: r.docket_number),
     )
 
 
+def _candidates(rows: Iterable[corpus.CorpusRow]) -> tuple[list[corpus.CorpusRow], int, int]:
+    """The applications the cut places: one per docket number, extensions left out.
+
+    Returns them with the counts of duplicate and extension rows dropped.
+    """
+    seen: set[str] = set()
+    candidates: list[corpus.CorpusRow] = []
+    duplicates = extensions = 0
+    for row in rows:
+        if docket_stratum(row) != "application":
+            continue
+        key = docket_key(row)
+        if key is not None:
+            if key in seen:
+                duplicates += 1
+                continue
+            seen.add(key)
+        if row.application_kind == ApplicationKind.extension.value:
+            extensions += 1
+            continue
+        candidates.append(row)
+    return candidates, duplicates, extensions
+
+
+def _filing_date(row: corpus.CorpusRow, payload: Payload) -> tuple[date | None, DateSource | None]:
+    """A row's filing date and its source: docketed, else its first proceeding's."""
+    if row.date_filed is not None:
+        return row.date_filed, "docketed"
+    if payload is not None:
+        first = first_proceeding_date(payload)
+        if first is not None:
+            return first, "first-entry"
+    return None, None
+
+
+def _may_reach(row: corpus.CorpusRow, since: date | None) -> bool:
+    """Whether an undated row can fall on or after ``since``: its first entry precedes its end."""
+    resolution = corpus.resolution_date(row)
+    return since is None or resolution is None or resolution >= since
+
+
 def _policy_cells(
-    placed: Sequence[_Placed], results: Mapping[str, bool | None]
+    placed: Sequence[_Placed], results: Mapping[str, bool | None], source: PolicySource
 ) -> tuple[list[ExecutivePolicyCell], int]:
     """Count the in-scope population per administration, filer and policy area."""
     tallies: dict[tuple[str | None, Filer, str], Counter[str]] = {}
@@ -493,7 +580,7 @@ def _policy_cells(
         docket = item.row.docket_number
         if item.annotation.in_scope is not True or docket not in results:
             continue
-        label = policy_label(docket)
+        label = source.label(docket)
         if label is None:
             unlabeled += 1
             continue
@@ -502,6 +589,7 @@ def _policy_cells(
         )
         tally = tallies.setdefault((administration_for(item.as_of), filer, label.area), Counter())
         tally["rows"] += 1
+        tally["labeler"] += label.source == "labeler"
         won = results[docket]
         if won is not None:
             tally["decided"] += 1
@@ -519,6 +607,7 @@ def _policy_cells(
             rows=tally["rows"],
             decided=tally["decided"],
             wins=tally["wins"],
+            labeler_rows=tally["labeler"],
             success_rate=tally["wins"] / tally["decided"] if tally["decided"] else None,
         )
         for (window, filer, area), tally in sorted(
@@ -534,6 +623,9 @@ class _Groups:
     ids: dict[str, str]
     cells: list[ExecutiveControversyCell]
     unlinked: int
+    keyed_ids: dict[str, str]
+    keyed_cells: list[ExecutiveControversyCell]
+    key_joins: int
 
 
 def _controversies(
@@ -545,15 +637,39 @@ def _controversies(
         for item in placed
         if item.annotation.in_scope is True and item.row.docket_number in results
     }
-    ids = group_controversies(
+    links = [
         controversy_links(
             item.row,
             payloads.get(item.row.case_id),
             government_applicant=item.annotation.government_side == "applicant",
             decided=item.disposition is not None,
+            filed=item.filed,
+            resolved=item.resolution,
         )
         for item in members.values()
+    ]
+    ids = group_controversies(links)
+    keyed_ids = group_controversies(links, keyed=_policy_key_name)
+    unlinked = sum(payloads.get(item.row.case_id) is None for item in members.values())
+    return _Groups(
+        ids=ids,
+        cells=_controversy_cells(members, ids, results),
+        unlinked=unlinked,
+        keyed_ids=keyed_ids,
+        keyed_cells=_controversy_cells(members, keyed_ids, results),
+        key_joins=len(set(ids.values())) - len(set(keyed_ids.values())),
     )
+
+
+def _policy_key_name(docket_number: str) -> str | None:
+    found = policy_key(docket_number)
+    return found.key if found is not None else None
+
+
+def _controversy_cells(
+    members: Mapping[str, _Placed], ids: Mapping[str, str], results: Mapping[str, bool | None]
+) -> list[ExecutiveControversyCell]:
+    """Count one grouping's controversies per administration and filer."""
     grouped: dict[str, list[_Placed]] = {}
     for docket, group_id in ids.items():
         grouped.setdefault(group_id, []).append(members[docket])
@@ -563,7 +679,7 @@ def _controversies(
             group,
             key=lambda item: (
                 item.as_of is None,
-                item.row.date_filed or date.max,
+                item.filed or date.max,
                 docket_order(item.row.docket_number),
             ),
         )
@@ -594,8 +710,7 @@ def _controversies(
                 pooled.update(found)
         if pooled:
             cells.append(_controversy_cell(window, "all", pooled))
-    unlinked = sum(payloads.get(item.row.case_id) is None for item in members.values())
-    return _Groups(ids=ids, cells=cells, unlinked=unlinked)
+    return cells
 
 
 def _controversy_cell(
