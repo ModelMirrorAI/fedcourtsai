@@ -67,8 +67,11 @@ jobs:
     # API this job's retries exist to survive. Seven retryable shell calls
     # across its three retried steps, each worth up to 105s when every attempt
     # times out (3 × `timeout 30` plus 5s + 10s of backoff): ~12 min of retry
-    # alone. Under a 15 min cap the job would be killed mid-recovery, after the
-    # ops-metrics snapshot but before the data-validation escalation. This job
+    # alone. The off-ledger spend sweep makes a retried call per page and per
+    # artifact, so it carries its own 10 min cap and gives up quietly rather
+    # than eat the escalation's share: ~22 min in all. Under a 15 min cap the
+    # job would be killed mid-recovery, after the ops-metrics snapshot but
+    # before the data-validation escalation. This job
     # holds no corpus lock, so a wider cap costs only runner minutes on a day
     # the API is already broken.
     timeout-minutes: 30
@@ -173,6 +176,94 @@ jobs:
             cat digest.md >> "$GITHUB_STEP_SUMMARY"
           fi
 
+      # Test and staging spend: the integration suite, the promotion gate,
+      # staging rehearsals and the replay and pilot rounds commit nothing to
+      # `data/`, so each spending leg leaves an `off-ledger-spend-*` artifact
+      # (the off-ledger-spend composite) and this sweep keeps them on the
+      # ops-metrics branch, where they outlive the artifacts' retention, then
+      # reports them. Reported apart and counted in no budget: nothing that
+      # gates spend reads this branch.
+      #
+      # Only artifacts uploaded by a run of one of the five recording
+      # workflows, from this repository, on `main`, `staging` or `promote/*`
+      # are read — the branches that take reviewed code only — so a fork PR's
+      # run, which can upload artifacts here too, cannot write a figure. The
+      # producing run is looked up per artifact, and each record must name
+      # that run, workflow and branch (`off-ledger-spend-ingest`). The files
+      # are data: unzipped into an empty directory of their own and parsed,
+      # never executed. Best-effort throughout: a fortnight's listing is
+      # re-read every day, so an artifact missed today is kept tomorrow, and
+      # nothing here can fail the run before the snapshot and the escalation.
+      - name: Sweep the off-ledger spend records
+        continue-on-error: true
+        timeout-minutes: 10
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # shellcheck disable=SC1091  # resolved on the runner; actionlint lints this block out of tree
+          source "${GITHUB_WORKSPACE}/scripts/gh_retry.sh"
+          base="$RUNNER_TEMP/off-ledger"
+          store="$base/off-ledger-spend"
+          rm -rf "$base"
+          mkdir -p "$store"
+          # The records already kept, so the sweep only adds and the report
+          # reads the whole series.
+          if git rev-parse --verify --quiet refs/remotes/origin/ops-metrics >/dev/null \
+            && git cat-file -e origin/ops-metrics:off-ledger-spend 2>/dev/null; then
+            git archive origin/ops-metrics off-ledger-spend | tar -x -C "$base"
+          fi
+          cutoff=$(date -u -d '14 days ago' +%Y-%m-%dT%H:%M:%SZ)
+          # The listing is every artifact in the repository, newest first, so
+          # the page cap bounds the whole fortnight's uploads, not only these:
+          # a heavier fortnight drops its oldest pages, which a daily sweep has
+          # already read.
+          : > "$base/candidates.tsv"
+          for page in $(seq 1 30); do
+            listing=$(gh_retry gh api "repos/${REPO}/actions/artifacts?per_page=100&page=${page}")
+            count=$(jq '.artifacts | length' <<< "$listing")
+            jq -r --arg cutoff "$cutoff" '.artifacts[]
+              | select(.name | startswith("off-ledger-spend-"))
+              | select(.expired | not)
+              | select(.created_at >= $cutoff)
+              | [.id, .name, .workflow_run.id] | @tsv' <<< "$listing" >> "$base/candidates.tsv"
+            oldest=$(jq -r '[.artifacts[].created_at] | min // ""' <<< "$listing")
+            if [ "$count" -lt 100 ] || [[ "$oldest" < "$cutoff" ]]; then
+              break
+            fi
+          done
+          while IFS=$'\t' read -r artifact name run; do
+            [ -n "$artifact" ] || continue
+            # Already kept: the artifact is `off-ledger-spend-<leg>-<attempt>`
+            # and its record `<run>-<attempt>-<leg>.json`, so skip the lookups.
+            suffix="${name#off-ledger-spend-}"
+            if [ -f "$store/${run}-${suffix##*-}-${suffix%-*}.json" ]; then
+              continue
+            fi
+            meta=$(gh_retry gh api "repos/${REPO}/actions/runs/${run}" \
+              --jq '[.path, .head_branch, .head_repository.full_name] | @tsv') || continue
+            IFS=$'\t' read -r path branch head_repo <<< "$meta"
+            [ "$head_repo" = "$REPO" ] || continue
+            case "$branch" in main | staging | promote/*) ;; *) continue ;; esac
+            case "$path" in
+              .github/workflows/integration-test.yml | .github/workflows/run-analytics.yml \
+                | .github/workflows/summarize.yml | .github/workflows/run-backtest.yml \
+                | .github/workflows/run-evaluate.yml) ;;
+              *) continue ;;
+            esac
+            workflow=$(basename "$path" .yml)
+            dir="$base/artifact-${artifact}"
+            mkdir -p "$dir"
+            if ! gh_retry gh run download "$run" --repo "$REPO" --name "$name" --dir "$dir" >/dev/null; then
+              echo "::warning::off-ledger spend artifact ${artifact} (run ${run}) did not download; the next sweep retries it"
+              continue
+            fi
+            uv run fedcourts off-ledger-spend-ingest --from "$dir" --run-id "$run" \
+              --workflow "$workflow" --ref "$branch" --store "$store"
+          done < "$base/candidates.tsv"
+          uv run fedcourts off-ledger-spend-report --store "$store" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Append the snapshot to the ops-metrics branch
         env:
           REF_NAME: ${{ github.ref_name }}
@@ -194,6 +285,11 @@ jobs:
           fi
           cp new-ops.json "$tree/ops-${day}.json" # dated history (last write of the day wins)
           cp new-ops.json "$tree/latest.json"     # the fallback prior snapshot for the deltas
+          # The swept off-ledger spend records (see the sweep step), when it ran.
+          if [ -d "$RUNNER_TEMP/off-ledger/off-ledger-spend" ]; then
+            mkdir -p "$tree/off-ledger-spend"
+            cp "$RUNNER_TEMP/off-ledger/off-ledger-spend/"*.json "$tree/off-ledger-spend/" 2>/dev/null || true
+          fi
           # The public status page reads status.json, so only a run on `main` (the
           # promoted tree and its data) writes it, and only when it was rendered.
           if [ "$REF_NAME" = "main" ] && [ -f status.json ]; then

@@ -530,6 +530,24 @@ def _aggregate(
     )
 
 
+def aggregate_stratum(
+    evals: Sequence[Evaluation],
+    skills: Mapping[EvaluationKey, CellSkill],
+    facts: Mapping[EvaluationKey, CellFacts] | None = None,
+    *,
+    vote_scores: Mapping[EvaluationKey, float] | None = None,
+) -> LeaderboardStratum | None:
+    """One stratum's record by the board's own rule, for a reader that cuts the cells.
+
+    The aggregate every board entry carries (:func:`_aggregate`), exposed so a
+    descriptive cut — the per-topic forecast cut in
+    :mod:`fedcourtsai.topic_cut` — reports a predictor's record under exactly
+    the columns, denominators and null rules the board publishes, and never a
+    re-derivation of them.
+    """
+    return _aggregate(evals, skills, facts, vote_scores=vote_scores)
+
+
 def _in_sample_fields(
     evals: Sequence[Evaluation], facts: Mapping[EvaluationKey, CellFacts] | None
 ) -> dict[str, float | int | None]:

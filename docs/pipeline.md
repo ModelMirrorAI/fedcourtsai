@@ -129,6 +129,19 @@ directly. One reading note the report carries itself: `promote` is
 level-triggered, so its failures are unsatisfied-gate reports rather than
 incidents, and its success rate counts promotion attempts.
 
+The same job keeps the **test and staging spend** record. Every leg that
+spends tokens and commits nothing — the integration suite's engine legs (the
+promotion gate among them), the staging labeling and summary rehearsals, the
+real-engine replays and the reasoning-pilot rounds — uploads one priced
+`off-ledger-spend-*` artifact through the `off-ledger-spend` composite. A
+sweep step lists a fortnight of those artifacts, keeps only the ones uploaded
+by a run of those five workflows from this repository on `main`, `staging` or
+`promote/*`, and stores each record that names that run, workflow and branch
+(`fedcourts off-ledger-spend-ingest`) under `off-ledger-spend/` on the
+`ops-metrics` branch; `fedcourts off-ledger-spend-report` then renders it onto
+the run summary. The figure is reported apart and counted in no budget
+([budget.md](budget.md), *Test and staging spend, reported separately*).
+
 It is also the **presenter** of the published corpus-side artifacts (see *Data
 validation* in [data-pipeline.md](data-pipeline.md)): the corpus-writer path
 produces a correctness verdict and the live-frontier readiness snapshot where
@@ -3362,6 +3375,18 @@ run-time install refusal (`fedcourts cell-policy`,
 the "Configure agent retrieval" step writes beside `.codex/config.toml`, which
 `codex-user-setup` copies root-owned into the codex account's home, and the
 gemini policy file that step names in `.gemini/settings.json`.
+
+**Gemini keeps a whole prompt template in context.** gemini-cli cuts every tool
+result older than the latest one to `tools.truncateToolOutputThreshold`
+characters, keeping the first fifth and the last four fifths. The default
+(40,000) is under half the predict template, so a gemini cell that reads its
+template whole loses the middle of its contract once its next call lands. Every
+workflow that writes `.gemini/settings.json` (the predict, evaluate and
+back-test cells, and the integration smokes that mirror them) sets the threshold
+to 200,000, which is at least twice the largest cell template. The CLI also caps it
+at its own estimate of the context the model has left. A test holds every
+writer to that floor, so growing a template past half the threshold fails CI
+instead of silently truncating the cells.
 
 **The un-aliasing runs before the stamp, and the ordering is load-bearing.**
 `stamp-cell --role evaluator` joins each evaluation to the prediction it scored

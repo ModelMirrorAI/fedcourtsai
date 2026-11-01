@@ -70,6 +70,7 @@ from . import (
     merits_backtest,
     merits_calibration,
     metrics_refresh,
+    off_ledger_spend,
     process_registration,
     process_version,
     promotion_record,
@@ -309,6 +310,16 @@ from .pipeline import (
     watchlist_refresh,
 )
 from .pipeline.amicus_rederive import AmicusRederiveResult, rederive_amicus_briefs
+from .pipeline.application_policy import (
+    PolicyBatch,
+    accrue_policy,
+    derive_policy_rows,
+    label_prompt_sha256,
+    measure_policy,
+    policy_only_rows,
+    read_policy_rows,
+    render_policy,
+)
 from .pipeline.application_reread import reread_applications
 from .pipeline.application_topics import (
     APPLICATION_EXTRACT_RULE,
@@ -435,6 +446,7 @@ from .pipeline.party import (
     party_census,
 )
 from .pipeline.party_rates import DEFAULT_RATES_RULE, party_rates
+from .pipeline.policy_area import policy_areas, policy_source
 from .pipeline.pull import (
     BACKLOG_MAX_POLL_AGE_DAYS,
     CaseDisposition,
@@ -559,6 +571,9 @@ from .schemas import (
     MeritsBacktestDispatch,
     ModelUsage,
     Moment,
+    OffLedgerLane,
+    OffLedgerSpend,
+    OffLedgerWorkflow,
     OpsReport,
     Outcome,
     PredictableEvent,
@@ -570,6 +585,7 @@ from .schemas import (
     QpTopicApplicationLabels,
     QpTopicApplicationReference,
     QpTopicFrame,
+    QpTopicLabelEntry,
     QpTopicLabels,
     QpTopicReference,
     QpTopicReplicate,
@@ -629,6 +645,7 @@ from .supremecourt import (
     october_term_year,
     parse_scotus_docket_number,
 )
+from .topic_cut import build_topic_cut
 from .usage import (
     parse_claude_served_models,
     parse_claude_usage,
@@ -2344,7 +2361,9 @@ def executive_success_cmd(
     A row with no docketed date takes its first proceeding entry's date where
     a live snapshot is read. The
     same applications are counted again by controversy
-    (`pipeline.controversy`), each controversy once. An analytics artifact:
+    (`pipeline.controversy`), each controversy once, and again with the
+    hand-labeled policy keys' joins added (`pipeline.policy_key`), beside the
+    rule's cells. An analytics artifact:
     nothing a predict or evaluate cell reads comes from it. Prints an
     `ExecutiveSuccess` (its `review_rows` list every in-scope and unknown-scope
     application); the human cut and the corpus vintage go to stderr. Fails
@@ -2394,6 +2413,12 @@ def executive_success_cmd(
             corpus_sha256=corpus_sha,
             scope_rule_version=scope_rule_version,
             reading="finer" if reading == "finer" else "registered",
+            policy=policy_source(
+                _read_best_effort(
+                    qp_topics.application_labels_path(settings.data_root),
+                    QpTopicApplicationLabels,
+                )
+            ),
         )
     pulled = result.latest_pull.isoformat() if result.latest_pull else "never pulled"
     snapshot = result.latest_snapshot.isoformat() if result.latest_snapshot else "none"
@@ -2437,6 +2462,20 @@ def executive_success_cmd(
         typer.echo(
             f"{group.administration or 'unattributed'} {group.filer} by controversy "
             f"({result.controversy_rule_version}): executive won {group.wins}/"
+            f"{group.determinate} = {rate}; controversies={group.controversies} "
+            f"applications={group.applications} indeterminate={group.indeterminate}",
+            err=True,
+        )
+    typer.echo(
+        f"controversies keyed ({result.policy_key_rule_version}): "
+        f"{result.policy_key_joins} fewer than the rule's",
+        err=True,
+    )
+    for group in result.policy_controversy_cells:
+        rate = f"{group.success_rate:.1%}" if group.success_rate is not None else "-"
+        typer.echo(
+            f"{group.administration or 'unattributed'} {group.filer} by keyed controversy "
+            f"({result.policy_key_rule_version}): executive won {group.wins}/"
             f"{group.determinate} = {rate}; controversies={group.controversies} "
             f"applications={group.applications} indeterminate={group.indeterminate}",
             err=True,
@@ -8167,7 +8206,50 @@ def _work_tree_root() -> Path | None:
     return None
 
 
-def _labeling_batch[Row: (QpExtractRow, ApplicationExtractRow)](  # noqa: PLR0912 - one refusal per state
+def _policy_batch(
+    frame: Sequence[QpExtractRow | ApplicationExtractRow],
+    topic_batch: Sequence[str],
+    artifact: QpTopicApplicationLabels | None,
+) -> PolicyBatch:
+    """The policy-only rows an application batch adds (:func:`derive_policy_rows`)."""
+    try:
+        return derive_policy_rows(
+            frame=[
+                (row.case_id, row.docket_number, getattr(row, "policy_row", False)) for row in frame
+            ],
+            topic_batch=topic_batch,
+            artifact=artifact,
+            hand=policy_areas(),
+            budget=qp_topics.LABEL_ROW_CEILING - len(topic_batch),
+            seed=qp_topics.APPLICATION_BATCH_ORDER_SEED,
+            prompt_sha256=label_prompt_sha256(),
+        )
+    except qp_topics.QpTopicError as exc:
+        typer.echo(f"qp-corpus: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+
+
+def _with_policy(
+    rows: Sequence[object], frame: Sequence[object], policy: PolicyBatch
+) -> list[ApplicationExtractRow]:
+    """The batch rows with the policy rows added, or every ``policy_row`` cleared.
+
+    A batch that asks for an area adds its rows (:func:`derive_policy_rows`)
+    flagged like every other policy row and in frame order, so nothing in the
+    extract, a row's position included, says which rows are measured. One that
+    asks for none clears the flag on every row, so the labeler gives no area
+    to measure.
+    """
+    batch = [row for row in rows if isinstance(row, ApplicationExtractRow)]
+    if policy.asks:
+        wanted = {row.case_id for row in batch} | set(policy.case_ids)
+        return [
+            row for row in frame if isinstance(row, ApplicationExtractRow) and row.case_id in wanted
+        ]
+    return [replace(row, policy_row=False) for row in batch]
+
+
+def _labeling_batch[Row: (QpExtractRow, ApplicationExtractRow)](  # noqa: PLR0912, PLR0915 - one refusal per state
     frame: Sequence[Row],
     *,
     data_root: Path,
@@ -8222,11 +8304,13 @@ def _labeling_batch[Row: (QpExtractRow, ApplicationExtractRow)](  # noqa: PLR091
         raise typer.Exit(code=1)
     reference: QpTopicReference | QpTopicApplicationReference
     labeled: set[str] = set()
+    application_labels: QpTopicApplicationLabels | None = None
     if applications:
         reference = read_model(reference_file, QpTopicApplicationReference)
         labels_file = qp_topics.application_labels_path(data_root)
         if labels_file.is_file():
-            labeled = {e.case_id for e in read_model(labels_file, QpTopicApplicationLabels).entries}
+            application_labels = read_model(labels_file, QpTopicApplicationLabels)
+            labeled = {e.case_id for e in application_labels.entries}
         stratum, seed = qp_topics.application_stratum_key, qp_topics.APPLICATION_BATCH_ORDER_SEED
     else:
         reference = read_model(reference_file, QpTopicReference)
@@ -8280,7 +8364,13 @@ def _labeling_batch[Row: (QpExtractRow, ApplicationExtractRow)](  # noqa: PLR091
             err=True,
         )
         raise typer.Exit(code=1)
-    if batch.converged and not reference_only:
+    policy = (
+        _policy_batch(frame, batch.case_ids, application_labels)
+        if applications and not reference_only
+        else None
+    )
+    policy_owed = policy is not None and policy.asks
+    if batch.converged and not reference_only and not policy_owed:
         # Loud, and non-zero: the frame is labeled out. Another dispatch would
         # re-grade the reference set, publish not one new row, and spend a
         # labeling run to do it. A pull that ingests new petitions is what makes
@@ -8295,7 +8385,7 @@ def _labeling_batch[Row: (QpExtractRow, ApplicationExtractRow)](  # noqa: PLR091
         if converged_ok:
             return None
         raise typer.Exit(code=1)
-    if not batch.fill and not reference_only:
+    if not batch.fill and not reference_only and not policy_owed:
         # Rows left to label, but no budget to label them with: the reference set
         # fills the ceiling on its own. The run would read a full extract and
         # publish nothing, repeatably — the converged waste without the converged
@@ -8312,14 +8402,25 @@ def _labeling_batch[Row: (QpExtractRow, ApplicationExtractRow)](  # noqa: PLR091
         if converged_ok:
             return None
         raise typer.Exit(code=1)
+    selected = set(batch.case_ids)
+    rows = [row for row in frame if row.case_id in selected]
+    metadata = qp_topics.batch_metadata(batch, seed=seed)
+    if policy is not None:
+        rows = cast(Any, _with_policy(rows, frame, policy))
+        # `rows` is the whole extract, the count the label step holds the
+        # labeler's lines to and the round is priced at.
+        metadata |= {
+            "rows": len(rows),
+            "policy_owed": policy.owed,
+            "policy_rows": len(policy.case_ids),
+            "policy_held": policy.held,
+        }
     # Beside the extract, never inside it: the extract is the labeler's whole
     # evidentiary input and the contract is text-only, so the selection rule and
     # its Term x fee-class counts stay out of the file the labeler reads. The run
     # mode uploads the extract by name, so this file does not travel to the
     # labeling job either.
-    write_raw_json(
-        out.with_name(out.stem + ".batch.json"), qp_topics.batch_metadata(batch, seed=seed)
-    )
+    write_raw_json(out.with_name(out.stem + ".batch.json"), metadata)
     typer.echo(f"qp-corpus: batch derived from committed state ({scope})", err=True)
     if reference_only:
         typer.echo(
@@ -8328,8 +8429,21 @@ def _labeling_batch[Row: (QpExtractRow, ApplicationExtractRow)](  # noqa: PLR091
             err=True,
         )
     typer.echo(qp_topics.render_batch(batch), err=True)
-    selected = set(batch.case_ids)
-    return [row for row in frame if row.case_id in selected]
+    if policy is not None and policy.held is not None:
+        typer.echo(
+            f"qp-corpus: policy areas owed on {policy.owed} row(s) but none asked for: "
+            f"{policy.held}",
+            err=True,
+        )
+    elif policy is not None and policy.asks:
+        typer.echo(
+            f"qp-corpus: policy areas owed on {policy.owed} row(s); adding "
+            f"{len(policy.case_ids)} row(s) for their area ({policy.backfill} backfill, the "
+            f"rest hand-labeled rows for the measurement), {policy.remaining} left for a "
+            "later batch",
+            err=True,
+        )
+    return rows
 
 
 @app.command("same-question-lists")
@@ -8797,6 +8911,10 @@ def _qp_corpus_applications(
     if rows is None:
         typer.echo("qp-corpus: nothing owed in this frame; standing down (--converged-ok)")
         return
+    if reference_only:
+        # A replicate measures the topic labeler alone, so its rows ask for no
+        # policy area and every replicate reads the same input.
+        rows = [replace(row, policy_row=False) for row in rows]
     write_raw_json(out, [row.as_json() for row in rows])
     typer.echo(f"qp-corpus: {len(rows)} application(s) -> {out}")
 
@@ -8990,22 +9108,64 @@ def _qp_topics_applications(
         raise typer.Exit(code=1)
     prior_path = qp_topics.application_labels_path(settings.data_root)
     prior = read_model(prior_path, QpTopicApplicationLabels) if prior_path.is_file() else None
+    policy_note: str | None = None
     try:
+        lines = qp_topics.read_application_label_lines(labels)
+        policy_rows = read_policy_rows(texts)
+        block = read_model(reference_path, QpTopicApplicationReference)
+        set_aside = policy_only_rows([entry.case_id for entry in lines], prior, block)
+        all_texts = qp_topics.read_texts(texts)
+        # A policy-only row is in the batch for its policy area alone: its topic
+        # is already published, so its topic line is neither measured nor
+        # published, and the topic accrual reads the rest exactly as before.
+        qp_topics.check_extract_join(lines, all_texts)
+        topic_lines = [
+            QpTopicLabelEntry.model_validate(entry.model_dump(exclude={"policy_area"}))
+            for entry in lines
+            if entry.case_id not in set_aside
+        ]
+        topic_ids = {entry.case_id for entry in topic_lines}
+        kinds = qp_topics.read_input_kinds(texts)
         artifact = qp_topics.build_application_labels(
-            entries=qp_topics.read_label_lines(labels),
-            texts=qp_topics.read_texts(texts),
-            input_kinds=qp_topics.read_input_kinds(texts),
+            entries=topic_lines,
+            texts={case_id: row for case_id, row in all_texts.items() if case_id in topic_ids},
+            input_kinds={case_id: kind for case_id, kind in kinds.items() if case_id in topic_ids},
             reference=read_model(reference_path, QpTopicApplicationReference),
             labeler=labeler,
             prior=prior,
             frame_rows=frame_rows,
         )
+        # Measured only when the topic gate passed: a refused run writes
+        # nothing, so a policy figure from it would never reach the ledger the
+        # refusal hold reads, and re-running until both gates pass would be a
+        # best-of-k policy gate.
+        measured = (
+            measure_policy(
+                entries=lines,
+                policy_rows=policy_rows,
+                hand=policy_areas(),
+                prompt_sha256=label_prompt_sha256(),
+            )
+            if artifact.agreement.gate_passed
+            else None
+        )
+        if measured is not None:
+            policy_agreement, areas = measured
+            artifact, published = accrue_policy(
+                artifact, agreement=policy_agreement, areas=areas, hand=policy_areas()
+            )
+            policy_note = render_policy(policy_agreement, published)
     except qp_topics.QpTopicError as exc:
         typer.echo(f"qp-topics: {exc}", err=True)
         raise typer.Exit(code=1) from exc
     reference = read_model(reference_path, QpTopicApplicationReference)
-    lines = {entry.case_id: entry.label for entry in qp_topics.read_label_lines(labels)}
-    typer.echo(qp_topics.render_input_kind_split(lines, reference))
+    typer.echo(
+        qp_topics.render_input_kind_split(
+            {entry.case_id: entry.label for entry in topic_lines}, reference
+        )
+    )
+    if policy_note is not None:
+        typer.echo(policy_note)
     if agreement_out is not None:
         write_json(agreement_out, artifact.agreement)
     _report_labels_run(artifact, reference_name="the application reference block")
@@ -9307,6 +9467,197 @@ def qp_topic_spend_cmd(  # noqa: PLR0912, PLR0913, PLR0915 - a CLI entrypoint; o
         f"qp-topic-spend: {frame} run {run_id} attempt {run_attempt} {outcome}, "
         f"{counts.total_tokens} tok ~${record.estimated_cost_usd:.2f} -> {destination}"
     )
+
+
+@app.command("off-ledger-spend")
+def off_ledger_spend_cmd(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
+    *,
+    workflow: Annotated[OffLedgerWorkflow, typer.Option(help="The workflow whose run spent.")],
+    lane: Annotated[OffLedgerLane, typer.Option(help="The off-ledger lane of the leg.")],
+    leg: Annotated[str, typer.Option(help="The leg's name, unique within the run attempt.")],
+    environment: Annotated[
+        str, typer.Option(help="The deployment environment whose keys paid: prod or staging.")
+    ],
+    ref: Annotated[str, typer.Option(help="The branch the run was dispatched from.")],
+    run_id: Annotated[str, typer.Option("--run-id", help="The Actions run id.")],
+    run_attempt: Annotated[int, typer.Option("--run-attempt", min=1, help="The run attempt.")],
+    conclusion: Annotated[
+        str, typer.Option(help="The leg's job status: success, failure or cancelled.")
+    ],
+    out_dir: Annotated[
+        Path, typer.Option("--out-dir", help="Write <run_id>-<attempt>-<leg>.json here.")
+    ],
+    selection: Annotated[
+        str,
+        typer.Option(help="The dispatched selection or mode (`gate` for a promotion-gate run)."),
+    ] = "",
+    claude_execution_file: Annotated[
+        Path | None, typer.Option(help="A claude-code-action execution_file.")
+    ] = None,
+    claude_transcripts_dir: Annotated[
+        Path | None,
+        typer.Option(help="The Claude CLI's session transcripts (~/.claude/projects)."),
+    ] = None,
+    codex_sessions_dir: Annotated[
+        Path | None, typer.Option(help="A Codex sessions dir; every session in it is summed.")
+    ] = None,
+    gemini_telemetry_file: Annotated[
+        Path | None, typer.Option(help="A Gemini CLI telemetry.log.")
+    ] = None,
+    cell_usage_root: Annotated[
+        Path | None,
+        typer.Option(help="A data root whose cells' usage.json records the leg wrote."),
+    ] = None,
+    case_summaries_root: Annotated[
+        Path | None,
+        typer.Option(help="A data root holding only the case summaries the leg wrote."),
+    ] = None,
+    claude_model: Annotated[str, typer.Option(help="Price the execution file at this model.")] = "",
+    codex_model: Annotated[str, typer.Option(help="Price the Codex sessions at this model.")] = "",
+    gemini_model: Annotated[
+        str, typer.Option(help="Price the Gemini telemetry at this model.")
+    ] = "",
+    recorded_at: Annotated[
+        str, typer.Option("--recorded-at", help="ISO timestamp; defaults to now (UTC).")
+    ] = "",
+) -> None:
+    """Record one off-ledger leg's model spend (``OffLedgerSpend``), reported apart.
+
+    For a run that commits nothing to ``data/`` — an integration smoke, a
+    promotion-gate leg, a staging rehearsal, a replay or pilot round — so its
+    spend is in no measured total. Reads each source given (an engine's log,
+    the ``usage.json`` records a round's cells wrote, or the summaries a
+    rehearsal wrote) by the parsers the cells' ``record-usage`` uses, prices it
+    at the one rate table, and writes one record for the leg. A model with no
+    rate is priced at the entry that prices its tokens dearest, named in
+    ``priced_as``. The workflow uploads the record as an ``off-ledger-spend-*``
+    artifact, and ``run-ops`` sweeps it onto the ``ops-metrics`` branch. It is
+    never counted toward the spend backstop or the auto-release budget.
+
+    Exits 3 without writing when no source holds any usage, so a leg that
+    spent nothing records nothing; exits 2 on an invalid field.
+    """
+    try:
+        when = datetime.fromisoformat(recorded_at) if recorded_at else datetime.now(UTC)
+    except ValueError as exc:
+        typer.echo(f"off-ledger-spend: --recorded-at is not an ISO timestamp: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=UTC)
+    try:
+        lines = off_ledger_spend.spend_lines(
+            claude_execution_file=claude_execution_file,
+            claude_transcripts_dir=claude_transcripts_dir,
+            codex_sessions_dir=codex_sessions_dir,
+            gemini_telemetry_file=gemini_telemetry_file,
+            cell_usage_root=cell_usage_root,
+            case_summaries_root=case_summaries_root,
+            claude_model=claude_model or None,
+            codex_model=codex_model or None,
+            gemini_model=gemini_model or None,
+        )
+    except (OSError, ValueError) as exc:
+        typer.echo(f"off-ledger-spend: a source would not read: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    if not lines:
+        typer.echo("off-ledger-spend: no model usage in any source; nothing recorded", err=True)
+        raise typer.Exit(code=3)
+    for line in lines:
+        if line.priced_as is not None:
+            typer.echo(
+                f"off-ledger-spend: no rate for model '{line.model}'; priced at the dearest "
+                f"entry, '{line.priced_as}'",
+                err=True,
+            )
+    try:
+        record = OffLedgerSpend.model_validate(
+            {
+                "workflow": workflow,
+                "lane": lane,
+                "leg": leg,
+                "selection": selection or None,
+                "environment": environment,
+                "ref": ref,
+                "run_id": run_id,
+                "run_attempt": run_attempt,
+                "conclusion": conclusion,
+                "recorded_at": when,
+                "lines": lines,
+                "estimated_cost_usd": sum(line.estimated_cost_usd for line in lines),
+            }
+        )
+    except ValueError as exc:
+        typer.echo(f"off-ledger-spend: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    destination = out_dir / off_ledger_spend.record_filename(run_id, run_attempt, leg)
+    write_json(destination, record)
+    typer.echo(
+        f"off-ledger-spend: {workflow} {leg} ({environment}) run {run_id} attempt "
+        f"{run_attempt} ~${record.estimated_cost_usd:.2f} -> {destination}"
+    )
+
+
+@app.command("off-ledger-spend-ingest")
+def off_ledger_spend_ingest_cmd(
+    *,
+    source: Annotated[
+        Path, typer.Option("--from", help="One downloaded off-ledger-spend-* artifact.")
+    ],
+    run_id: Annotated[
+        str, typer.Option("--run-id", help="The run the artifact listing says produced it.")
+    ],
+    workflow: Annotated[
+        str, typer.Option(help="The producing run's workflow file stem, per the Actions API.")
+    ],
+    ref: Annotated[str, typer.Option(help="The producing run's head branch, per the Actions API.")],
+    store: Annotated[Path, typer.Option(help="The record store to keep validated records in.")],
+) -> None:
+    """Keep an artifact's off-ledger spend records that validate and name their run.
+
+    The ``run-ops`` sweep's per-artifact step. A record naming a run, workflow
+    or branch other than the producing run's, one that does not validate, or
+    one that differs from the copy already kept is refused with a warning and
+    never written; one already kept unchanged is skipped. Always exits 0, so
+    one bad artifact cannot stop the sweep or the ops snapshot behind it.
+    """
+    result = off_ledger_spend.ingest(source, run_id=run_id, workflow=workflow, ref=ref, store=store)
+    for name, reason in result.refused:
+        typer.echo(f"::warning::off-ledger spend record {name} refused: {reason}")
+    typer.echo(
+        f"off-ledger-spend-ingest: run {run_id}: {len(result.stored)} kept, "
+        f"{len(result.unchanged)} already held, {len(result.refused)} refused"
+    )
+
+
+@app.command("off-ledger-spend-report")
+def off_ledger_spend_report_cmd(
+    *,
+    store: Annotated[Path, typer.Option(help="The record store the run-ops sweep keeps.")],
+    as_of: Annotated[
+        str, typer.Option("--as-of", help="ISO timestamp the windows end at; defaults to now.")
+    ] = "",
+    json_out: Annotated[
+        Path | None, typer.Option("--json", help="Also write the figures as JSON here.")
+    ] = None,
+) -> None:
+    """Report test and staging model spend, by week and month, with the gate's cost.
+
+    Reads the off-ledger spend records (``OffLedgerSpend``) the ``run-ops``
+    sweep keeps on the ``ops-metrics`` branch and prints Markdown: the trailing
+    7 and 30 days split by environment and by lane, the six newest months with
+    spend, and each promotion-gate run's cost (every recorded leg of every
+    attempt, so a lower bound where a leg's record was lost).
+    The figure is reported separately; nothing that gates spend reads it.
+    """
+    try:
+        when = datetime.fromisoformat(as_of) if as_of else datetime.now(UTC)
+    except ValueError as exc:
+        typer.echo(f"off-ledger-spend-report: --as-of is not an ISO timestamp: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    summary = off_ledger_spend.summarize(off_ledger_spend.read_store(store), as_of=when)
+    if json_out is not None:
+        write_text(json_out, off_ledger_spend.summary_json(summary))
+    typer.echo(off_ledger_spend.render_report(summary))
 
 
 def _read_replicate_record(
@@ -9980,6 +10331,73 @@ def corpus_seed_slice(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map
             f"corpus-seed-slice: {len(result.census.missing)} requested case(s) "
             "have no row in the source corpus",
             err=True,
+        )
+
+
+@app.command("topic-cut")
+def topic_cut_cmd(
+    out: Annotated[
+        Path | None, typer.Option(help="Also write the cut as JSON here (default: stdout only).")
+    ] = None,
+    all_versions: Annotated[
+        bool,
+        typer.Option(
+            "--all-versions",
+            help="Read the scored counts and records over every process version, as "
+            "`leaderboard --all-versions` does (default: the frozen headline scope).",
+        ),
+    ] = False,
+) -> None:
+    """Cut every forecast by its case's topic, per forecast moment (descriptive only).
+
+    Joins each committed forecast to its case's topic label — a cert or merits
+    forecast to the petition's ``qp-topic-v0`` label, an interim forecast to its
+    application's ``qp-topic-v1`` label — and reports, per ``stage@moment`` and
+    topic: the committed forecasts (events and predictor cells, whatever their
+    scope), the events scored under the process scope, and each predictor's
+    forward, retrospective and procedural record by the board's own aggregate
+    (:mod:`fedcourtsai.topic_cut`). A forecast whose case carries no label is
+    reported as ``unlabeled`` beside every topic, never dropped. Every cell
+    carries its frame's coverage caveat verbatim.
+
+    Nothing is scored on topic and no board conditions on it: there is no rank
+    and no paired figure. The cut is built over the same stratify pass, skill
+    terms, band facts and vote scores the leaderboard is, so a record here is
+    the board's record re-read over one topic's cells. Reads the committed
+    ledger, the labels artifacts and ``metrics/statpack.json``; no corpus, no
+    spend. Its figures are not published until a stats review has read them
+    (``docs/qp-topic.md``).
+    """
+    settings = get_settings()
+    scope: Literal["frozen", "all"] = "all" if all_versions else "frozen"
+    run = stratify(settings.data_root, frozen_only=not all_versions)
+    _report_exclusions(run)
+    cells = list(run.cells)
+    statpack = _read_best_effort(settings.metrics_root / "statpack.json", StatPack)
+    cut = build_topic_cut(
+        settings.data_root,
+        cells,
+        process_scope=scope,
+        skills=skill_components(cells, settings.data_root, statpack),
+        facts=cell_facts(cells, settings.data_root),
+        vote_scores=vote_scores(cells, settings.data_root),
+    )
+    if out is not None:
+        write_json(out, cut)
+    for frame in cut.frames:
+        typer.echo(f"{frame.frame} ({frame.vocabulary}): {frame.scope}")
+    typer.echo("")
+    for moment in cut.moments:
+        typer.echo(
+            f"{moment.moment}: {moment.labeled_events}/{moment.forecast_events} "
+            "forecast events labeled"
+        )
+    typer.echo("")
+    typer.echo(f"{'moment':24s} {'topic':40s} {'events':>7s} {'cells':>6s} {'scored':>7s}")
+    for cell in cut.cells:
+        typer.echo(
+            f"{cell.moment:24s} {cell.topic:40s} {cell.forecast_events:7d} "
+            f"{cell.forecast_cells:6d} {cell.events_scored:7d}"
         )
 
 

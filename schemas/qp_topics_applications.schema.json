@@ -137,6 +137,62 @@
           "title": "Label",
           "type": "string"
         },
+        "policy_area": {
+          "anyOf": [
+            {
+              "enum": [
+                "immigration",
+                "federal-executions",
+                "foreign-affairs",
+                "elections-census",
+                "personnel-removal",
+                "education",
+                "health",
+                "environment-energy",
+                "firearms",
+                "other"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The executive policy area (policy-area-v2), set once by the first batch whose policy measurement passed its gate; null on a row with none",
+          "title": "Policy Area"
+        },
+        "policy_batch": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The batch that published the policy area",
+          "title": "Policy Batch"
+        },
+        "policy_source": {
+          "anyOf": [
+            {
+              "enum": [
+                "labeler",
+                "reference"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Where the policy area came from: the labeler, or the policy-area-v1 hand label for a row the hand set covers",
+          "title": "Policy Source"
+        },
         "secondary": {
           "anyOf": [
             {
@@ -197,7 +253,7 @@
     },
     "QpTopicBatchEntry": {
       "additionalProperties": false,
-      "description": "One labeling run's contribution to the accumulating labels artifact.\n\nThe artifact is the union of every batch, so without this ledger a reader\ncould not tell which run produced which row, what it was measured at, or how\nmany runs the file took. Each row records both counts because they answer\ndifferent questions: ``published`` is what the batch added to the file, while\n``measured`` is what its labeler actually read \u2014 larger by the reference rows\nit re-graded, which are the per-run cost of the measurement and publish\nnothing new.\n\nThe measurement fields are kept per batch rather than only at the top level\nso a drifting labeler is visible as a series rather than as a single current\nnumber \u2014 with two readings the series will not support. Every batch is\nscored over the **same** reference entries, so the differences between rows\nare labeler-side re-labeling of identical items, not independent samples of\nanything: a few points of movement on ``n`` this size is noise, and only a\nsustained move reads. And ``agree``/``n`` never read without ``floor``, which\nis why it is carried here rather than recomputed: on a sixteen-label\nvocabulary most of any rate is the floor.",
+      "description": "One labeling run's contribution to the accumulating labels artifact.\n\nThe artifact is the union of every batch, so without this ledger a reader\ncould not tell which run produced which row, what it was measured at, or how\nmany runs the file took. Each row records both counts because they answer\ndifferent questions: ``published`` is what the batch added to the file, while\n``measured`` is what its labeler actually read \u2014 larger by the reference rows\nit re-graded, which are the per-run cost of the measurement and publish\nnothing new. The ``policy_*`` fields are the application frame's policy\nmeasurement and stay empty on the petition frame.\n\nThe measurement fields are kept per batch rather than only at the top level\nso a drifting labeler is visible as a series rather than as a single current\nnumber \u2014 with two readings the series will not support. Every batch is\nscored over the **same** reference entries, so the differences between rows\nare labeler-side re-labeling of identical items, not independent samples of\nanything: a few points of movement on ``n`` this size is noise, and only a\nsustained move reads. And ``agree``/``n`` never read without ``floor``, which\nis why it is carried here rather than recomputed: on a sixteen-label\nvocabulary most of any rate is the floor.",
       "properties": {
         "agree": {
           "description": "Compared reference entries this batch matched",
@@ -278,6 +334,75 @@
           "minimum": 0,
           "title": "N",
           "type": "integer"
+        },
+        "policy_agree": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Application frame: hand-labeled rows whose policy area the labeler matched; null where the batch measured no policy area",
+          "title": "Policy Agree"
+        },
+        "policy_gate_passed": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Whether this batch's policy measurement passed its gate; null where the batch measured no policy area",
+          "title": "Policy Gate Passed"
+        },
+        "policy_n": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Hand-labeled rows compared on policy area",
+          "title": "Policy N"
+        },
+        "policy_prompt_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "sha256 of the labeling prompt this batch's policy measurement read. After a refusal, no later batch asks for policy areas until the prompt changes",
+          "title": "Policy Prompt Sha256"
+        },
+        "policy_published": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Policy areas this batch published; 0 when its policy measurement was refused",
+          "title": "Policy Published"
         },
         "published": {
           "description": "Rows this batch first published into the artifact",
@@ -365,6 +490,214 @@
         "n"
       ],
       "title": "QpTopicLabelAgreement",
+      "type": "object"
+    },
+    "QpTopicPolicyAgreement": {
+      "additionalProperties": false,
+      "description": "One batch's policy-area measurement against the ``policy-area-v1`` hand labels.\n\nAgreement with hand labels whose raters were not blind to the outcome and\nread their own knowledge of a public case, which the labeler may not, so\nit is agreement with that reference and not accuracy.",
+      "properties": {
+        "agree": {
+          "description": "Compared rows whose policy area matches the hand label",
+          "minimum": 0,
+          "title": "Agree",
+          "type": "integer"
+        },
+        "batch": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The ledger batch that took this measurement; set when it becomes the artifact's standing measurement",
+          "title": "Batch"
+        },
+        "certain_agree": {
+          "default": 0,
+          "description": "Of the compared rows the hand set does not flag uncertain, those matched",
+          "minimum": 0,
+          "title": "Certain Agree",
+          "type": "integer"
+        },
+        "certain_n": {
+          "default": 0,
+          "description": "Compared rows the hand set does not flag uncertain",
+          "minimum": 0,
+          "title": "Certain N",
+          "type": "integer"
+        },
+        "floor": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The rate a constant labeler would score: the commonest hand area's share",
+          "title": "Floor"
+        },
+        "gate_passed": {
+          "description": "Whether the rate cleared the agreement gate and the constant-labeler floor with the hand rows covered",
+          "title": "Gate Passed",
+          "type": "boolean"
+        },
+        "n": {
+          "description": "Hand-labeled rows the labeler gave a policy area",
+          "minimum": 0,
+          "title": "N",
+          "type": "integer"
+        },
+        "named_agree": {
+          "default": 0,
+          "description": "Of the compared rows whose hand label is a named area (not `other`), those the labeler matched",
+          "minimum": 0,
+          "title": "Named Agree",
+          "type": "integer"
+        },
+        "named_n": {
+          "default": 0,
+          "description": "Compared rows whose hand label is a named area",
+          "minimum": 0,
+          "title": "Named N",
+          "type": "integer"
+        },
+        "off_frame": {
+          "default": 0,
+          "description": "Lines that gave a policy area on a row not marked policy_row; dropped",
+          "minimum": 0,
+          "title": "Off Frame",
+          "type": "integer"
+        },
+        "per_area": {
+          "description": "Agreement per hand area, in vocabulary order",
+          "items": {
+            "$ref": "#/$defs/QpTopicPolicyAreaShare"
+          },
+          "title": "Per Area",
+          "type": "array"
+        },
+        "prompt_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "sha256 of the labeling prompt the measured run read, where it was found",
+          "title": "Prompt Sha256"
+        },
+        "rate": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "agree / n; null when nothing was compared",
+          "title": "Rate"
+        },
+        "reference_rows": {
+          "description": "Hand-labeled rows in the batch, each a policy row",
+          "minimum": 0,
+          "title": "Reference Rows",
+          "type": "integer"
+        },
+        "reference_rule": {
+          "const": "policy-area-v1",
+          "default": "policy-area-v1",
+          "description": "The hand labels measured against",
+          "title": "Reference Rule",
+          "type": "string"
+        },
+        "reference_total": {
+          "description": "Hand-labeled rows in the committed set",
+          "minimum": 0,
+          "title": "Reference Total",
+          "type": "integer"
+        },
+        "uncovered": {
+          "description": "Hand-labeled rows in the batch the labeler gave no policy area",
+          "minimum": 0,
+          "title": "Uncovered",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "reference_rows",
+        "reference_total",
+        "agree",
+        "n",
+        "uncovered",
+        "gate_passed"
+      ],
+      "title": "QpTopicPolicyAgreement",
+      "type": "object"
+    },
+    "QpTopicPolicyAreaShare": {
+      "additionalProperties": false,
+      "description": "One hand-labeled policy area's agreement between the labeler and the hand labels.",
+      "properties": {
+        "agree": {
+          "description": "Hand-labeled rows of this area the labeler matched",
+          "minimum": 0,
+          "title": "Agree",
+          "type": "integer"
+        },
+        "area": {
+          "description": "The hand label's area",
+          "enum": [
+            "immigration",
+            "federal-executions",
+            "foreign-affairs",
+            "elections-census",
+            "personnel-removal",
+            "education",
+            "health",
+            "environment-energy",
+            "firearms",
+            "other"
+          ],
+          "title": "Area",
+          "type": "string"
+        },
+        "labeled_other": {
+          "default": 0,
+          "description": "Hand-labeled rows of this area the labeler called `other`, the direction a labeler that may not use its own knowledge of a case errs in",
+          "minimum": 0,
+          "title": "Labeled Other",
+          "type": "integer"
+        },
+        "n": {
+          "description": "Hand-labeled rows of this area compared",
+          "minimum": 0,
+          "title": "N",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "area",
+        "agree",
+        "n"
+      ],
+      "title": "QpTopicPolicyAreaShare",
       "type": "object"
     },
     "QpTopicShadow": {
@@ -500,6 +833,18 @@
       "minLength": 1,
       "title": "Labeler",
       "type": "string"
+    },
+    "policy_agreement": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/QpTopicPolicyAgreement"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The most recent policy-area measurement that passed its gate, which the standing policy areas were published under; null until one has. A refused policy measurement is recorded on its batch's ledger row and leaves this unchanged"
     },
     "schema_version": {
       "const": "1.0",

@@ -69,7 +69,7 @@
 #
 # Two consumption modes:
 #   * `source scripts/gh_retry.sh` — wherever the step runs after a checkout
-#     into a workspace no agent has written to (the run-ops job's three retried
+#     into a workspace no agent has written to (the run-ops job's four retried
 #     steps).
 #   * an inline copy of the function below — for the steps with no checkout to
 #     source it from: run-pull's two failure alarms and run-seed's guard, which

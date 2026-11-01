@@ -1772,6 +1772,10 @@ jobs:
         run: |
           set -euo pipefail
           mv data/qp-topics "$RUNNER_TEMP/qp-topics-oracle"
+          # The policy-area hand labels are the application frame's second
+          # measurement set, and they ship inside the package, so they leave
+          # the tree the same way.
+          mv src/fedcourtsai/policy_areas.json "$RUNNER_TEMP/policy-areas-oracle.json"
 
       # The rest of the committed record leaves the agent's tree too: the
       # docket records, the outcomes and gradings under `data/`, and the
@@ -2032,7 +2036,10 @@ jobs:
         if: ${{ !cancelled() }}
         run: |
           set -euo pipefail
-          rm -rf "$RUNNER_TEMP/qp-topics-oracle" "$RUNNER_TEMP/record-aside"
+          rm -rf "$RUNNER_TEMP/qp-topics-oracle" "$RUNNER_TEMP/record-aside" \
+            "$RUNNER_TEMP/policy-areas-oracle.json"
+          rm -f src/fedcourtsai/policy_areas.json
+          git checkout -- src/fedcourtsai/policy_areas.json
           # From the commit, not from the copy: whatever the agent did to the
           # tree, the files the gate measures against are the reviewed ones.
           # The rm before the checkout is load-bearing for the accrual base:
@@ -2637,6 +2644,30 @@ jobs:
           outcome=$(jq -er '.outcome' "$RUNNER_TEMP/qp-spend.json")
           echo "spend record: ${outcome} run, ~\$${cost} at the rate table" >> "$GITHUB_STEP_SUMMARY"
 
+      # A rehearsal off `main` publishes nothing (the publish job is fenced to
+      # `main`), so the record above never reaches the ledger and its spend is
+      # in no total. It is recorded off-ledger instead and reported apart:
+      # run-ops sweeps it onto the ops-metrics branch, and no budget counts
+      # it. The recorder runs on the same runner-owned scanner, and only once
+      # the tree is pristine, because the composite it runs is read from the
+      # checkout the labeler held a Write grant over.
+      - name: Record a rehearsal's spend off-ledger
+        if: >-
+          ${{ always() && github.ref_name != 'main' && steps.pristine.outcome == 'success'
+          && steps.scanner_install.outcome == 'success'
+          && steps.label.outputs.execution_file != '' }}
+        uses: ./.github/actions/off-ledger-spend
+        with:
+          workflow: run-analytics
+          lane: qp-topic-label
+          leg: ${{ format('qp-topic-label-{0}', env.QP_FRAME) }}
+          selection: ${{ inputs.mode }}
+          conclusion: ${{ job.status }}
+          claude-execution-file: ${{ steps.label.outputs.execution_file }}
+          claude-model: ${{ needs.qp-topic-resolve.outputs.model }}
+          scanner-python: ${{ github.workspace }}/.transcript-scanner/.venv/bin/python
+          scanner-dir: ${{ github.workspace }}/.transcript-scanner
+
       - name: Note a run with no spend to record
         if: ${{ !cancelled() && steps.label.outputs.execution_file == '' }}
         run: |
@@ -3111,19 +3142,31 @@ jobs:
             extends='. as [$a, $b] | (($a - $b) | length == 0) and (($b | length) > ($a | length))'
           else
             ledger_q='[.batches[] | {batch, labeler, published}]'
-            rows_q='[.entries[] | select(.source == "labeler")]'
+            # An application row's policy area is accrued apart from its
+            # topic label and lands on rows already published, so the topic
+            # containment reads each row without its policy fields, and the
+            # policy check below holds every labeler-sourced area main
+            # publishes in turn. A reference-sourced area is not held: it is
+            # rebuilt from the committed hand labels on every passing batch.
+            rows_q='[.entries[] | select(.source == "labeler") | del(.policy_area, .policy_source, .policy_batch)]'
             extends='. as [$a, $b] | ($b[:($a | length)] == $a) and (($b | length) > ($a | length))'
           fi
+          # Empty on both sides for the petition and alignment-sides frames,
+          # whose rows carry no policy area.
+          areas_q='[.entries[] | select(.policy_area != null) | {case_id, policy_area, policy_source, policy_batch}]'
           if git cat-file -e "origin/main:${LABELS_DIR}/${LABELS_NAME}" 2>/dev/null; then
             git show "origin/main:${LABELS_DIR}/${LABELS_NAME}" > "$RUNNER_TEMP/landed.json"
             jq -cS "$ledger_q" "$RUNNER_TEMP/landed.json" > "$RUNNER_TEMP/landed-ledger.json"
             jq -cS "$rows_q" "$RUNNER_TEMP/landed.json" > "$RUNNER_TEMP/landed-rows.json"
+            jq -cS "$areas_q" "$RUNNER_TEMP/landed.json" > "$RUNNER_TEMP/landed-areas.json"
           else
             echo '[]' > "$RUNNER_TEMP/landed-ledger.json"
             echo '[]' > "$RUNNER_TEMP/landed-rows.json"
+            echo '[]' > "$RUNNER_TEMP/landed-areas.json"
           fi
           jq -cS "$ledger_q" "$RUNNER_TEMP/qp-topics.json" > "$RUNNER_TEMP/incoming-ledger.json"
           jq -cS "$rows_q" "$RUNNER_TEMP/qp-topics.json" > "$RUNNER_TEMP/incoming-rows.json"
+          jq -cS "$areas_q" "$RUNNER_TEMP/qp-topics.json" > "$RUNNER_TEMP/incoming-areas.json"
           # Both checks read their operands from files, never from the
           # argument list. The row arrays are the artifact's whole
           # labeler-sourced content — hundreds of kilobytes from the second
@@ -3155,6 +3198,21 @@ jobs:
             echo "::error::rows main already publishes are missing or changed in this run's" \
               "artifact — pushing would rewrite published labels. The run accrued onto a" \
               "stale or divergent artifact; dispatch from the ref carrying main's newest copy."
+            exit 1
+          fi
+          # Every labeler area main publishes is in this run's artifact
+          # unchanged, or its row now carries a hand label (`reference`),
+          # which outranks it once a hand label is added for that docket.
+          areas_check='. as [$a, $b]
+            | [$b[] | select(.policy_source == "reference") | .case_id] as $ref
+            | [($a - $b)[] | select(.policy_source == "labeler")
+                | select(.case_id as $c | $ref | index([$c]) | not)]
+            | length == 0'
+          if ! guard areas "$areas_check" \
+                 "$RUNNER_TEMP/landed-areas.json" "$RUNNER_TEMP/incoming-areas.json"; then
+            echo "::error::policy areas main already publishes are missing or changed in this" \
+              "run's artifact — a labeler area is set once. The run accrued onto a stale or" \
+              "divergent artifact; dispatch from the ref carrying main's newest copy."
             exit 1
           fi
           mkdir -p data/qp-topics/spend "$LABELS_DIR"

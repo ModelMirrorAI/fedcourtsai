@@ -3677,11 +3677,50 @@ to it.
   policy area. A published per-policy grouping can be coarser, so a reader
   quotes `controversies`, `determinate` and `indeterminate` with the pair, and
   each review row's `controversy_id` shows the grouping.
-- **A policy area is a hand label, and a per-area cell is small.**
-  `policy_cells` count the in-scope applications per administration, filer
-  and policy area under `policy-area-v1` (`pipeline.policy_area`), at the
-  application level. The labels are a committed reference, not a rule: two
-  agent raters, each blind to the other but not to the outcome (the docket
+- **A keyed controversy is a hand grouping, beside the rule's.**
+  `policy_controversy_cells` count the same controversies again with the
+  joins of the policy keys under `policy-key-v1` (`pipeline.policy_key`)
+  added: a committed reference naming the applications that challenge or
+  defend one federal policy, or that sit in one suit across courts, such as
+  the travel ban, the census question or one EPA rule, whoever brought them
+  and wherever they were decided. One grouper made the keys: the authoring
+  session, alone, with no second rater and so no agreement figure, not blind
+  to the outcome, and with the published column below in view, which joins
+  related litigation the same way. A keyed pair that matches the column is
+  therefore not an independent replication of it. The session grouped the
+  rows the policy-area rounds labeled (OT2016 from 2017-01-20 through
+  OT2024), reading the raters' notes and the public cases the dockets name,
+  so a key is not reproducible from the record. The newest keyed application
+  is `24A199`: no key reaches a `trump-47` row, and the keyed `trump-47`
+  cells equal the rule's. A later application joins only by the rule until a
+  key lists it, and adding one keeps the label, so a quoted keyed figure
+  names its commit. The rule's cells stay the headline: a keyed pair is
+  quoted as the rule's pair with the keyed one beside it, and
+  `policy_key_joins` says how many fewer controversies the keys count. Each
+  review row's `policy_controversy_id` shows the keyed grouping. A key can
+  join across a transition, and its controversy takes its first dated
+  application's administration, as the rule's do; a keyed application
+  outside the cut's in-scope population is joined to nothing.
+- **A policy area is a hand label or a measured labeler's area, and a
+  per-area cell is small.** `policy_cells` count the in-scope applications
+  per administration, filer and policy area under the version
+  `policy_rule_version` names, at the application level. Under
+  `policy-area-v2`, read once the application labeler's policy areas have
+  passed their measurement against these hand labels (`docs/qp-topic.md`,
+  *Policy areas*), a hand-labeled row keeps its hand label and every other
+  row carries the labeler's area, which is agreement with this reference
+  rather than accuracy; each cell's `labeler_rows` counts those rows and each
+  review row's `policy_source` names its source, so a quoted per-area pair
+  under `policy-area-v2` names its labeler count. The labeler reads the
+  docket alone and may not use its knowledge of a case, so it calls `other`
+  where a hand rater named the case's policy; the measurement counts that
+  direction per area (`labeled_other`). A v2 cut reads the newest *passing*
+  measurement, which `policy_measured_batch` names: a later refused
+  measurement leaves it standing, and the labeler areas grow with every
+  passing batch after it, so two v2 cuts compare only beside that batch and
+  the artifact each read. Under `policy-area-v1` (`pipeline.policy_area`)
+  every label is the hand set's. The hand labels are a committed reference,
+  not a rule: two agent raters, each blind to the other but not to the outcome (the docket
   entries carry the orders), labeled every in-scope and unknown-scope
   application from its caption, court below and docket entries and from
   their own knowledge of a public case the docket names, so a label is not
@@ -3708,8 +3747,12 @@ to it.
   unsure (13 of them in scope), and 77 of the later 167, where a rater was
   unsure or the raters' areas differed. A quoted per-area pair names its
   uncertain count. An
-  application added after the labels is `policy_unlabeled`, outside every
-  cell, and a quoted per-area figure names that count. Most cells hold a few
+  application neither source labels is `policy_unlabeled`, outside every
+  cell, and a quoted per-area figure names that count: under
+  `policy-area-v1`, every application added after the hand labels; under
+  `policy-area-v2`, a policy row the labeler has not reached yet, so the
+  count can rise when the cut switches version and falls as later batches
+  backfill. Most cells hold a few
   rows: quote the pair.
 
 **Hand-coded check of the scope rule.** Measured under `exec-action-v1`,

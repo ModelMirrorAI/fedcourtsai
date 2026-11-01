@@ -491,6 +491,96 @@ still owed before an application agreement figure is quoted; the docket
 pack's application cut prints the figure marked as not yet quotable for that
 reason. The petition frame's gates are unchanged.
 
+### Policy areas (`policy-area-v2`)
+
+The executive success cut groups the federal executive's emergency
+applications by the policy each one challenges or defends
+(`pipeline.policy_area`). `policy-area-v1` is a committed hand-labeled
+reference. `policy-area-v2` keeps the same vocabulary and has the application
+labeler give the area as a second field, so a new application is labeled as
+soon as the lane labels it (`pipeline.application_policy`).
+
+- **Which rows.** The extract marks a row `policy_row` when the
+  `exec-action-v1` caption and counsel reading names a federal party on either
+  side. The flag is that reading alone: a hand-labeled docket the reading
+  misses is not forced in, since a flag set only on hand rows would tell the
+  labeler which rows are measured. The labeler gives `policy_area` on policy
+  rows and on no other. An area on any other row is dropped and counted
+  (`off_frame`).
+- **Which rows a batch carries for it.** Each new application in the topic
+  batch that is a policy row is asked for its area. A batch also owes an area
+  on every published policy row that has none. A batch that owes any area also
+  carries every hand-labeled policy row in the frame whose topic line is
+  accounted for (chosen by the topic rule, or already published) for the
+  measurement, as a topic batch carries the whole reference block, then fills the rest of the
+  labeling ceiling with published rows that lack an area, in seeded order. The
+  extract marks those rows like every other policy row and lists every row in
+  frame order: nothing in it says
+  which rows are measured or which are there for their area alone. The
+  measuring step derives the second set from committed state (a row the
+  artifact already publishes and the topic reference block does not hold), and
+  their topic lines are neither measured nor published, so the topic accrual is
+  unchanged. A batch that owes no area clears `policy_row` on every row, so the
+  labeler gives none. A converged topic frame still cuts a batch while areas
+  are owed. A replicate asks for no area.
+- **When a batch asks for none.** A batch holds its policy areas back, while
+  its topic batch goes ahead, in three cases. When the frame holds under 90%
+  of the hand set as policy rows, the measurement could not pass whatever the
+  labeler did, as the topic frame's coverage refusal reads it at extract time.
+  When the hand-labeled rows do not fit under the labeling ceiling beside the
+  topic batch, a batch carrying only some of them would measure a different
+  set. And while the newest batch that
+  measured policy areas was refused and the labeling prompt's digest has not
+  changed since, a re-run would measure the same labeler on the same rows
+  again, and a run of tries until one passes is a best-of-k gate rather than
+  the gate. Each ledger row records the prompt digest it measured under
+  (`policy_prompt_sha256`), so revising the prompt releases the hold. The
+  digest is of the file's bytes, so any committed edit releases it; the edit
+  goes through review like every prompt change. A run whose topic gate is
+  refused writes nothing, so its policy areas are not measured at all, and it
+  neither sets nor releases the hold.
+- **The measurement.** The labeler's areas on the hand-labeled rows are
+  compared with the hand labels, overall and per area, beside the share a
+  constant labeler would score, and over two narrower sets: the rows whose hand
+  label is a named area (not `other`), and the rows the hand set does not flag
+  uncertain. Each area also counts the rows the labeler called `other`. The gate
+  is the topic gate plus the floor: agreement of at least 80%, above the
+  constant-labeler share, with at least 90% of the hand set compared. The hand
+  raters were not blind to the outcome and read their own knowledge of a public
+  case. The labeler reads the row alone, under the same rule that a recognized
+  caption is not evidence, and the label step moves the hand labels file out of
+  the checkout while it runs. So the rate is agreement with that reference, not
+  accuracy, and a docket that names no policy is `other` for the labeler where
+  a hand rater may have named the case's policy. Most policy rows are
+  `docket-only`, so a refused measurement is an expected result: the cut keeps
+  reading `policy-area-v1`, and the next attempt is a revised prompt, not a
+  re-run.
+- **What publishes.** A batch whose policy measurement passed publishes areas
+  onto the application labels artifact. Each row records `policy_area`,
+  `policy_source` (`reference` for a hand-labeled row, which publishes its hand
+  label, otherwise `labeler`) and `policy_batch`. A labeler area is set once; a
+  hand-labeled row always carries its hand label. A topic label is never
+  touched, and a later topic batch carries every published area forward. A
+  refused policy measurement publishes nothing. It is recorded on its batch's
+  ledger row (`policy_agree`, `policy_n`, `policy_published`,
+  `policy_gate_passed`) and leaves the artifact's `policy_agreement`, the most
+  recent passing measurement, as it stands. The batch's topic labels still
+  publish under their own gate, and a refused topic gate refuses the whole
+  batch, its policy areas included. The standing measurement records the
+  batch that took it (`policy_agreement.batch`), and the cut stamps it as
+  `policy_measured_batch`.
+- **What the cut reads.** The executive success cut reads `policy-area-v2` once
+  the artifact records a passing policy measurement, and the hand set before
+  that, so one cut never mixes the two. `policy-area-v2` is every hand label,
+  including dockets outside the application frame, plus the labeler's area on
+  every other policy row that carries one. The cut stamps `policy_rule_version`
+  either way, and counts the rows whose area came from the labeler
+  (`labeler_rows` on each cell, `policy_source` on each review row). The cut
+  switches when the measurement passes, before backfill has reached every
+  published policy row, so `policy_unlabeled` can rise at the switch: a policy
+  row the hand set never labeled and the labeler has not reached yet is counted
+  there beside the cells until a later batch gives it an area.
+
 ## The reference set
 
 `data/qp-topics/qp-topic-reference.json` — labels for 353 cases, assigned by
@@ -1032,6 +1122,61 @@ outright as a split to read row by row rather than as a rate. The reference
 share is per bucket because it is not uniform across them: the block holds every
 QP-bearing grant it could reach, so it inflates the grant-heavy topics most and
 no single factor de-biases a row.
+
+## Forecasts by topic
+
+`fedcourts topic-cut` joins every committed forecast to its case's topic and
+reports, per forecast moment (the `stage@moment` block every board aggregates
+on) and per topic, how many forecasts there are and how each predictor's record
+reads over them. It is the reader that answers "what are we forecasting, and
+how are we doing, by subject?" across the cert, interim and merits moments.
+
+- **The join key follows the stage.** A cert or merits forecast is a forecast of
+  a petition, so it takes the petition's `qp-topic-v0` label from
+  `qp-topics.json`. An interim forecast is a forecast of an application, so it
+  takes the `qp-topic-v1` label from `qp-topics-applications.json`. Both join
+  on `case_id`. A labels artifact whose recorded agreement is below the
+  publication gate is not read, just as the docket pack skips one.
+- **Nothing is dropped.** A forecast whose case carries no label is counted in
+  an `unlabeled` row beside the topics, so a moment's rows sum to its whole
+  forecast population, and the cut reports each moment's labeled share of its
+  forecast events beside the rows. A case goes unlabeled because it sits
+  outside the labeling frame (a docket newer than the frame's vintage, or
+  outside its scope), because its frame is not fully labeled yet, or because
+  its frame's artifact is missing or below the gate. The unlabeled row is
+  therefore not a random remainder: the newest forecasts are the likeliest to
+  be in it. A forecast cell is a predictor directory holding a committed
+  prediction; one holding only a failed attempt is not counted.
+- **Two populations per row.** `forecast_events` and `forecast_cells` count every
+  committed forecast, scored or not and whatever its process version.
+  `events_scored` counts events scored in any stratum, with the forward,
+  retrospective and procedural counts beside it. It and the records read the
+  scored cells alone, under the
+  leaderboard's process scope (frozen by default, `--all-versions` for every
+  version) and over the same stratify pass, skill terms, band facts and vote
+  scores the leaderboard is built from. Each record is the board's own
+  per-stratum aggregate (forward, retrospective, procedural) re-read over one
+  topic's cells, so its columns, denominators and null rules are the board's.
+- **Every row carries its frame's scope string.** The string states the labeled
+  count against the frame, that a label is agreement with the reference block
+  and not accuracy, that the unlabeled row is not a random remainder, that a
+  topic's share is a share of this salience-selected ledger, and that a
+  record's Brier skill is scored against the band's base rate. A figure lifted
+  out of the cut keeps that caveat with it. The application frame's string
+  also says that a docket-only label reads thin dockets as much as subject.
+
+The cut is **descriptive only**. Nothing is scored on topic, no board conditions
+on it, and it carries no rank, no paired comparison and no topic baseline. A
+topic row holds a handful of scored events, so a per-topic record is a split to
+read event by event, not a rate to compare across topics or predictors. No
+figure from it is published until the stats reviewer has read that figure.
+A record's Brier skill is scored against the band's base rate, not the
+topic's, and topic correlates with the outcome, so a constant base-rate
+forecaster shows nonzero per-topic skill: a per-topic skill figure measures
+how far the topic's rate sits from the band's as much as it measures the
+predictor, and is never published as skill. Topic is also not exogenous to
+which forecasts exist: salience selects what gets forecast, so a topic's share
+of forecasts describes this ledger, not the docket.
 
 ## What one labeling run can hold
 

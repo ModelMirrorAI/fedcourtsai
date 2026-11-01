@@ -1,0 +1,26 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/9026000245",
+  "gaps": [
+    "party/case-name substring filter on fedcourts query to locate related SCOTUS petitions without knowing the exact docket number"
+  ],
+  "helpful": [
+    "provisioned filing texts (petition.txt, brief-in-opposition.txt, cert-reply.txt, appendix.txt)",
+    "context.json cert_anchor and statpack.md base-rate tables",
+    "fedcourts query --docket-number for prior GVR docket 23-9 and related precedents",
+    "CourtListener MCP read_document for Second Circuit opinion in Wildman/Ashley v. Deutsche Bank and SCOTUS opinions in Smith & Wesson and Cisco Systems"
+  ],
+  "notes": "All provisioned filings were complete and non-empty. Corpus query by docket number and CourtListener MCP opinion reads provided complete context on the prior GVR and alleged circuit split.",
+  "role": "predictor",
+  "run_id": "20261031T173439Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_read_document",
+    "mcp_courtlistener_search_document"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

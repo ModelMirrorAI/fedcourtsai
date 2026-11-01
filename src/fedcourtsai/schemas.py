@@ -9405,6 +9405,25 @@ class AlignmentSideCodes(_Strict):
         return self
 
 
+PolicyAreaLabel = Literal[
+    "immigration",
+    "federal-executions",
+    "foreign-affairs",
+    "elections-census",
+    "personnel-removal",
+    "education",
+    "health",
+    "environment-energy",
+    "firearms",
+    "other",
+]
+"""The executive policy-area vocabulary (``policy-area-v1``), in reporting order.
+
+Defined here so the application labels artifact can carry a policy area;
+:mod:`fedcourtsai.pipeline.policy_area` documents what each area covers.
+"""
+
+
 class QpTopicLabelEntry(_Strict):
     """One labeled question-presented text: a case, its primary topic, and its optional facets.
 
@@ -9437,6 +9456,21 @@ class QpTopicLabelEntry(_Strict):
         default=False,
         description="The petition asks for a GVR in light of a named decision; the label is "
         "the underlying subject. Recorded, unpublishable in v0",
+    )
+
+
+class QpTopicApplicationLabelEntry(QpTopicLabelEntry):
+    """One line of the labeler's JSONL on the application frame.
+
+    The topic line plus the executive policy area, which the labeler gives on
+    a row the extract marks ``policy_row`` and on no other (``docs/qp-topic.md``,
+    *Policy areas*).
+    """
+
+    policy_area: PolicyAreaLabel | None = Field(
+        default=None,
+        description="The executive policy area the application is about, under the "
+        "policy-area-v1 vocabulary; given only on a row the extract marks policy_row",
     )
 
 
@@ -9483,7 +9517,8 @@ class QpTopicBatchEntry(_Strict):
     different questions: ``published`` is what the batch added to the file, while
     ``measured`` is what its labeler actually read — larger by the reference rows
     it re-graded, which are the per-run cost of the measurement and publish
-    nothing new.
+    nothing new. The ``policy_*`` fields are the application frame's policy
+    measurement and stay empty on the petition frame.
 
     The measurement fields are kept per batch rather than only at the top level
     so a drifting labeler is visible as a series rather than as a single current
@@ -9546,6 +9581,31 @@ class QpTopicBatchEntry(_Strict):
         "extract counted them. The denominator that turns the labeled share of the frame "
         "from a bound into a measurement, at this batch's corpus vintage and no other's. "
         "None where the extract reported no count",
+    )
+    policy_agree: int | None = Field(
+        default=None,
+        ge=0,
+        description="Application frame: hand-labeled rows whose policy area the labeler "
+        "matched; null where the batch measured no policy area",
+    )
+    policy_n: int | None = Field(
+        default=None, ge=0, description="Hand-labeled rows compared on policy area"
+    )
+    policy_published: int | None = Field(
+        default=None,
+        ge=0,
+        description="Policy areas this batch published; 0 when its policy measurement was refused",
+    )
+    policy_gate_passed: bool | None = Field(
+        default=None,
+        description="Whether this batch's policy measurement passed its gate; null where the "
+        "batch measured no policy area",
+    )
+    policy_prompt_sha256: str | None = Field(
+        default=None,
+        pattern=r"^[0-9a-f]{64}$",
+        description="sha256 of the labeling prompt this batch's policy measurement read. After "
+        "a refusal, no later batch asks for policy areas until the prompt changes",
     )
 
     @model_validator(mode="after")
@@ -9778,6 +9838,130 @@ class QpTopicApplicationPublishedEntry(QpTopicPublishedEntry):
         description="Which extract shape the label was read from: with the stored "
         "application text, or from the caption, court below and docket entries alone"
     )
+    policy_area: PolicyAreaLabel | None = Field(
+        default=None,
+        description="The executive policy area (policy-area-v2), set once by the first batch "
+        "whose policy measurement passed its gate; null on a row with none",
+    )
+    policy_source: Literal["labeler", "reference"] | None = Field(
+        default=None,
+        description="Where the policy area came from: the labeler, or the policy-area-v1 hand "
+        "label for a row the hand set covers",
+    )
+    policy_batch: int | None = Field(
+        default=None, ge=1, description="The batch that published the policy area"
+    )
+
+    @model_validator(mode="after")
+    def _policy_fields_travel_together(self) -> QpTopicApplicationPublishedEntry:
+        present = [
+            field is not None for field in (self.policy_area, self.policy_source, self.policy_batch)
+        ]
+        if any(present) and not all(present):
+            raise ValueError(
+                f"{self.case_id}: policy_area, policy_source and policy_batch are set together"
+            )
+        return self
+
+
+class QpTopicPolicyAreaShare(_Strict):
+    """One hand-labeled policy area's agreement between the labeler and the hand labels."""
+
+    area: PolicyAreaLabel = Field(description="The hand label's area")
+    agree: int = Field(ge=0, description="Hand-labeled rows of this area the labeler matched")
+    n: int = Field(ge=0, description="Hand-labeled rows of this area compared")
+    labeled_other: int = Field(
+        default=0,
+        ge=0,
+        description="Hand-labeled rows of this area the labeler called `other`, the direction "
+        "a labeler that may not use its own knowledge of a case errs in",
+    )
+
+
+class QpTopicPolicyAgreement(_Strict):
+    """One batch's policy-area measurement against the ``policy-area-v1`` hand labels.
+
+    Agreement with hand labels whose raters were not blind to the outcome and
+    read their own knowledge of a public case, which the labeler may not, so
+    it is agreement with that reference and not accuracy.
+    """
+
+    reference_rule: Literal["policy-area-v1"] = Field(
+        default="policy-area-v1", description="The hand labels measured against"
+    )
+    batch: int | None = Field(
+        default=None,
+        ge=1,
+        description="The ledger batch that took this measurement; set when it becomes the "
+        "artifact's standing measurement",
+    )
+    reference_rows: int = Field(
+        ge=0, description="Hand-labeled rows in the batch, each a policy row"
+    )
+    reference_total: int = Field(ge=0, description="Hand-labeled rows in the committed set")
+    agree: int = Field(ge=0, description="Compared rows whose policy area matches the hand label")
+    n: int = Field(ge=0, description="Hand-labeled rows the labeler gave a policy area")
+    named_agree: int = Field(
+        default=0,
+        ge=0,
+        description="Of the compared rows whose hand label is a named area (not `other`), "
+        "those the labeler matched",
+    )
+    named_n: int = Field(
+        default=0, ge=0, description="Compared rows whose hand label is a named area"
+    )
+    certain_agree: int = Field(
+        default=0,
+        ge=0,
+        description="Of the compared rows the hand set does not flag uncertain, those matched",
+    )
+    certain_n: int = Field(
+        default=0, ge=0, description="Compared rows the hand set does not flag uncertain"
+    )
+    rate: float | None = Field(
+        default=None, ge=0, le=1, description="agree / n; null when nothing was compared"
+    )
+    floor: float | None = Field(
+        default=None,
+        ge=0,
+        le=1,
+        description="The rate a constant labeler would score: the commonest hand area's share",
+    )
+    uncovered: int = Field(
+        ge=0, description="Hand-labeled rows in the batch the labeler gave no policy area"
+    )
+    off_frame: int = Field(
+        default=0,
+        ge=0,
+        description="Lines that gave a policy area on a row not marked policy_row; dropped",
+    )
+    per_area: list[QpTopicPolicyAreaShare] = Field(
+        default_factory=list, description="Agreement per hand area, in vocabulary order"
+    )
+    gate_passed: bool = Field(
+        description="Whether the rate cleared the agreement gate and the constant-labeler "
+        "floor with the hand rows covered"
+    )
+    prompt_sha256: str | None = Field(
+        default=None,
+        pattern=r"^[0-9a-f]{64}$",
+        description="sha256 of the labeling prompt the measured run read, where it was found",
+    )
+
+    @model_validator(mode="after")
+    def _counts_hold(self) -> QpTopicPolicyAgreement:
+        if self.agree > self.n or self.n + self.uncovered != self.reference_rows:
+            raise ValueError(
+                "policy agreement counts do not hold: agree <= n and n + uncovered == "
+                "reference_rows"
+            )
+        if sum(share.n for share in self.per_area) != self.n:
+            raise ValueError("per-area n does not sum to the compared rows")
+        if self.named_agree > self.named_n or self.named_n > self.n:
+            raise ValueError("named-area counts do not hold")
+        if self.certain_agree > self.certain_n or self.certain_n > self.n:
+            raise ValueError("certain-row counts do not hold")
+        return self
 
 
 class QpTopicApplicationLabels(_Strict):
@@ -9820,6 +10004,12 @@ class QpTopicApplicationLabels(_Strict):
     )
     shadow: QpTopicShadow = Field(
         description="The most recent run's shadow-rule counts over the stored application text"
+    )
+    policy_agreement: QpTopicPolicyAgreement | None = Field(
+        default=None,
+        description="The most recent policy-area measurement that passed its gate, which the "
+        "standing policy areas were published under; null until one has. A refused policy "
+        "measurement is recorded on its batch's ledger row and leaves this unchanged",
     )
     batches: list[QpTopicBatchEntry] = Field(
         default_factory=list,
@@ -10094,6 +10284,235 @@ class QpTopicRunSpend(_Strict):
             if self.n > 0 and (self.rate is None or abs(self.rate - self.agree / self.n) > 1e-9):
                 raise ValueError("rate is agree / n")
         return self
+
+
+OffLedgerWorkflow = Literal[
+    "integration-test", "run-analytics", "summarize", "run-backtest", "run-evaluate"
+]
+OffLedgerLane = Literal[
+    "engine-smoke",
+    "engine-actions-smoke",
+    "codex-application-repro",
+    "qp-labeler-smoke",
+    "qp-topic-label",
+    "summarize",
+    "cert-replay",
+    "merits-replay",
+    "reasoning-pilot",
+]
+OffLedgerSource = Literal[
+    "claude-execution-file",
+    "claude-transcripts",
+    "codex-sessions",
+    "gemini-telemetry",
+    "cell-usage",
+    "case-summaries",
+]
+OffLedgerConclusion = Literal["success", "failure", "cancelled"]
+
+
+class OffLedgerSpendLine(_Strict):
+    """One engine log's (or one group of priced records') share of an off-ledger leg."""
+
+    source: OffLedgerSource = Field(
+        description="What the line was read from: an engine's own log, the usage.json "
+        + "records a pilot round's cells wrote, or the front matter of case summaries"
+    )
+    engine: Engine | None = Field(
+        description="The engine that spent; null for case summaries, which are direct "
+        + "Messages API calls with no engine"
+    )
+    model: str = Field(min_length=1, description="The model the line is priced at")
+    priced_as: str | None = Field(
+        default=None,
+        min_length=1,
+        description="The `pricing.MODEL_RATES` entry the line was priced at when `model` "
+        + "has none: the one that prices these token counts dearest; null when priced at "
+        + "`model`'s own rate, or when the line's records were priced where they were written",
+    )
+    records: int | None = Field(
+        default=None,
+        ge=1,
+        description="How many priced records the line sums (usage.json files or case "
+        + "summaries); null for a line read from an engine log",
+    )
+    input_tokens: int = Field(ge=0, description="Fresh input tokens")
+    output_tokens: int = Field(ge=0, description="Output tokens")
+    cache_read_input_tokens: int = Field(ge=0, description="Cached input tokens read")
+    cache_creation_input_tokens: int = Field(ge=0, description="Cache-write tokens")
+    estimated_cost_usd: float = Field(
+        ge=0.0,
+        allow_inf_nan=False,
+        description="The line's on-demand cost at `pricing.MODEL_RATES`",
+    )
+
+
+class OffLedgerSpend(_Strict):
+    """One leg's model spend from a run that commits nothing to the ledger.
+
+    Integration smokes, the promotion gate, staging rehearsals and the replay
+    and pilot rounds spend real tokens on runs whose outputs never reach
+    ``data/``, so neither :func:`fedcourtsai.spend.measured_spend` nor the
+    review hold sees them. Each such leg writes one of these and uploads it as
+    an ``off-ledger-spend-*`` run artifact; the daily ``run-ops`` job sweeps the
+    artifacts onto the ``ops-metrics`` branch as
+    ``off-ledger-spend/<run_id>-<run_attempt>-<leg>.json`` and reports them
+    (``fedcourts off-ledger-spend-report``). The figure is **reported
+    separately and counted nowhere**: it never joins the total the spend
+    backstop and the auto-release budget read, so test traffic cannot hold
+    back a production round. Lines are priced by the rule every cell's
+    ``usage.json`` is (:func:`fedcourtsai.pricing.estimate_cost_usd`).
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    workflow: OffLedgerWorkflow = Field(description="The workflow whose run spent")
+    lane: OffLedgerLane = Field(description="Which off-ledger lane the leg belongs to")
+    leg: str = Field(
+        pattern=r"^[a-z0-9][a-z0-9.-]{0,79}$",
+        description="The leg's name, unique within its run attempt (e.g. "
+        + "`engine-smoke-codex`); it names the record's file",
+    )
+    selection: str | None = Field(
+        default=None,
+        min_length=1,
+        description="What the run was dispatched to do — the integration suite's scenario "
+        + "selection (`gate` for a promotion-gate run), or the lane's mode; null where the "
+        + "lane has none",
+    )
+    environment: Literal["prod", "staging"] = Field(
+        description="The deployment environment whose engine keys paid for the leg"
+    )
+    ref: str = Field(min_length=1, description="The branch the run was dispatched from")
+    run_id: str = Field(pattern=r"^[0-9]+$", description="The Actions run id")
+    run_attempt: int = Field(ge=1, description="The run attempt")
+    conclusion: OffLedgerConclusion = Field(
+        description="The leg's job status when the record was written; a failed leg "
+        + "spends too, so it is recorded"
+    )
+    recorded_at: datetime = Field(
+        description="When the record was written, timezone-aware; the report windows read it"
+    )
+    lines: list[OffLedgerSpendLine] = Field(
+        min_length=1, description="The leg's spend, one line per engine log or record group"
+    )
+    estimated_cost_usd: float = Field(
+        ge=0.0, allow_inf_nan=False, description="The sum of the lines' costs"
+    )
+
+    @model_validator(mode="after")
+    def _consistent(self) -> OffLedgerSpend:
+        if self.recorded_at.tzinfo is None:
+            raise ValueError("recorded_at must be timezone-aware")
+        total = sum(line.estimated_cost_usd for line in self.lines)
+        if abs(total - self.estimated_cost_usd) > 1e-6:
+            raise ValueError("estimated_cost_usd is the sum of the lines' costs")
+        return self
+
+
+class TopicCutFrame(_Strict):
+    """One labels frame the topic cut joins forecasts to, and its coverage caveat."""
+
+    frame: Literal["petitions", "applications"] = Field(
+        description="petitions (cert and merits forecasts) or applications (interim forecasts)"
+    )
+    vocabulary: Literal["qp-topic-v0", "qp-topic-v1"] = Field(
+        description="The topic vocabulary the frame's labels are in"
+    )
+    labeler: str | None = Field(
+        description="Who labeled the frame; null when no gate-passing labels artifact is read"
+    )
+    labeled_cases: int = Field(ge=0, description="Cases the frame's labels artifact labels")
+    agreement_agree: int | None = Field(
+        ge=0, description="Reference entries the labeler matched; null when no labels are read"
+    )
+    agreement_n: int | None = Field(
+        ge=0, description="Reference entries compared; null when no labels are read"
+    )
+    scope: str = Field(
+        min_length=1,
+        description="The coverage caveat every cell joined to this frame carries verbatim",
+    )
+
+
+class TopicCutRecord(_Strict):
+    """One predictor's record on one (moment, topic) cell, by the board's own rule."""
+
+    predictor_id: str = Field(min_length=1, description="The predictor")
+    events_scored: int = Field(ge=0, description="Distinct (case, event) pairs scored")
+    forward: LeaderboardStratum | None = Field(
+        description="The forward stratum's record; null when it holds no cell"
+    )
+    retrospective: LeaderboardStratum | None = Field(
+        description="The retrospective stratum's record; null when it holds no cell"
+    )
+    procedural: LeaderboardStratum | None = Field(
+        description="The procedural stratum's record; null when it holds no cell"
+    )
+
+
+class TopicCutCell(_Strict):
+    """Every forecast of one moment on cases of one topic (or unlabeled)."""
+
+    moment: str = Field(min_length=1, description="The stage@moment key the boards aggregate on")
+    frame: Literal["petitions", "applications"] | None = Field(
+        description="The labels frame the moment joins; null for a stage-less forecast"
+    )
+    topic: str = Field(
+        min_length=1, description="The case's topic label, or `unlabeled` when it carries none"
+    )
+    forecast_events: int = Field(
+        ge=0, description="Events with at least one committed forecast, whatever its scope"
+    )
+    forecast_cells: int = Field(
+        ge=0, description="Committed (predictor, event) forecasts, whatever their scope"
+    )
+    events_scored: int = Field(
+        ge=0,
+        description="Distinct events scored in any stratum under the cut's process scope; "
+        "the per-stratum counts beside it never blend",
+    )
+    forward_events: int = Field(ge=0, description="Distinct events scored in the forward stratum")
+    retrospective_events: int = Field(
+        ge=0, description="Distinct events scored in the retrospective stratum"
+    )
+    procedural_events: int = Field(
+        ge=0, description="Distinct events scored in the procedural stratum"
+    )
+    scope: str = Field(min_length=1, description="The frame's coverage caveat, verbatim")
+    records: list[TopicCutRecord] = Field(
+        default_factory=list, description="Each predictor's scoped record, in id order"
+    )
+
+
+class TopicCutMoment(_Strict):
+    """One forecast moment's labeled share: the coverage every topic row is read beside."""
+
+    moment: str = Field(min_length=1, description="The stage@moment key")
+    forecast_events: int = Field(ge=0, description="Events forecast at this moment")
+    labeled_events: int = Field(
+        ge=0, description="Of those, events whose case carries a topic label"
+    )
+
+
+class TopicCut(_Strict):
+    """Every forecast cut by its case's topic, per forecast moment (descriptive only).
+
+    Nothing is scored on topic and no board conditions on it: no rank, no
+    paired figure and no topic baseline, only each predictor's per-stratum
+    record re-read over each topic's cells. See ``docs/qp-topic.md``.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    process_scope: Literal["frozen", "all"] = Field(
+        description="The process scope the scored counts and records are read under"
+    )
+    frames: list[TopicCutFrame] = Field(description="The two labels frames, each with its scope")
+    moments: list[TopicCutMoment] = Field(
+        description="Each moment's labeled share of its forecast events, in key order"
+    )
+    cells: list[TopicCutCell] = Field(
+        description="One cell per (moment, topic), unlabeled included, in key order"
+    )
 
 
 class DispositionShare(_Strict):
@@ -13152,6 +13571,12 @@ class ExecutivePolicyCell(_Strict):
     rows: int = Field(ge=0, description="In-scope applications in the cell, never-parsed aside")
     decided: int = Field(default=0, ge=0, description="Of those, substantively decided")
     wins: int = Field(default=0, ge=0, description="Of those decided, the executive's wins")
+    labeler_rows: int = Field(
+        default=0,
+        ge=0,
+        description="Of the rows, those whose area the application labeler gave rather than "
+        "the hand set (policy-area-v2 only)",
+    )
     success_rate: float | None = Field(
         default=None, description="wins / decided; null where none is decided"
     )
@@ -13199,6 +13624,12 @@ class ExecutiveSuccessRow(_Strict):
         "number, as spelled); null for an unknown-scope or never-parsed row, which is "
         "grouped with nothing",
     )
+    policy_controversy_id: str | None = Field(
+        default=None,
+        description="The controversy the row belongs to once the policy keys' joins are "
+        "added to the rule's (its first-docketed application's number, as spelled); null "
+        "where controversy_id is",
+    )
     policy_area: str | None = Field(
         default=None, description="The row's policy area; null where it is unlabeled"
     )
@@ -13208,6 +13639,11 @@ class ExecutiveSuccessRow(_Strict):
             "Whether the label's subject is in doubt: a rater was unsure of it "
             "or the raters differed"
         ),
+    )
+    policy_source: Literal["reference", "labeler"] | None = Field(
+        default=None,
+        description="Where the area came from: the hand set, or the application labeler under "
+        "policy-area-v2, whose areas are never flagged uncertain; null where unlabeled",
     )
 
 
@@ -13326,8 +13762,28 @@ class ExecutiveSuccess(_Strict):
         description="Grouped applications with no live snapshot, so no case-below or "
         "decided-together link; they join on the caption alone",
     )
+    policy_key_rule_version: str = Field(
+        description="The hand-labeled policy keys the keyed controversy cells add, "
+        "e.g. policy-key-v1"
+    )
+    policy_controversy_cells: list[ExecutiveControversyCell] = Field(
+        default_factory=list,
+        description="The controversies counted again with the policy keys' joins added "
+        "to the rule's, beside the rule's own cells; non-empty cells only",
+    )
+    policy_key_joins: int = Field(
+        default=0,
+        ge=0,
+        description="How many fewer controversies the keyed grouping counts than the rule's",
+    )
     policy_rule_version: str = Field(
         description="The vocabulary the policy cells are labeled under, e.g. policy-area-v1"
+    )
+    policy_measured_batch: int | None = Field(
+        default=None,
+        description="Under policy-area-v2, the application labels batch whose passing policy "
+        "measurement the cut reads; v2's labeler areas grow with later batches, so two v2 "
+        "cuts compare only beside this and the artifact they read",
     )
     policy_cells: list[ExecutivePolicyCell] = Field(
         default_factory=list,
@@ -15059,6 +15515,7 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "qp_topics": QpTopicLabels,
     "qp_topics_applications": QpTopicApplicationLabels,
     "qp_topic_run_spend": QpTopicRunSpend,
+    "off_ledger_spend": OffLedgerSpend,
     "alignment_side_codes": AlignmentSideCodes,
     "ai_case_activity": AiCaseActivity,
     "case_summary_front_matter": CaseSummaryFrontMatter,
