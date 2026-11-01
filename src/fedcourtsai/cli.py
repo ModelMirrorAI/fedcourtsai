@@ -657,6 +657,7 @@ from .usage import (
     resolve_pipeline_sha,
 )
 from .validate import (
+    live_cell_problems,
     run_corpus_validation,
     run_ledger_referential_checks,
     run_scope_audit,
@@ -728,6 +729,16 @@ def _client(lane: str) -> CourtListenerClient:
 @app.command()
 def validate(
     path: Annotated[Path, typer.Argument(help="Directory to validate recursively.")] = Path("data"),
+    cell: Annotated[
+        Path | None,
+        typer.Option(
+            help="A predict cell's own output directory under PATH "
+            "(predictions/<predictor_id>/<run_id>/): also hold it to the live "
+            "contract — prediction.json present, naming its forecast document, "
+            "carrying every claim block its event declares and writing "
+            "big_case_score, beside a written prediction_summary.md.",
+        ),
+    ] = None,
 ) -> None:
     """Validate the git ledger under PATH: schema conformance + git-only references.
 
@@ -741,24 +752,40 @@ def validate(
     the claim scorer will not silently void. The corpus-dependent referential
     checks need the remote, so they run scheduled via ``validate-corpus``
     rather than here.
+
+    ``--cell`` is the predict cell's own pre-finish check: the directory it
+    names is held to the live contract as well
+    (:func:`fedcourtsai.validate.live_cell_problems`), which no ledger-wide
+    check can ask of an unstamped record. It must lie under PATH, so the cell's
+    files are also among those the schema and reference checks read.
     """
+    if cell is not None and not cell.resolve().is_relative_to(path.resolve()):
+        typer.echo(f"--cell {cell} is not under {path}; name the cell's directory there", err=True)
+        raise typer.Exit(code=2)
     result = validate_ledger(path)
     references = run_ledger_referential_checks(path)
     ref_failures = sum(c.failures for c in references)
-    if not result.ok or ref_failures:
+    incomplete = live_cell_problems(cell) if cell is not None else []
+    if not result.ok or ref_failures or incomplete:
         for err in result.problems:
             typer.echo(f"INVALID {err}", err=True)
         for check in references:
             for problem in check.problems:
                 typer.echo(f"ORPHAN {problem}", err=True)
+        for problem in incomplete:
+            typer.echo(f"INCOMPLETE {problem}", err=True)
         typer.echo(
             f"\n{result.invalid} invalid / {result.checked} checked; "
-            f"{ref_failures} referential problem(s)",
+            f"{ref_failures} referential problem(s)"
+            + (f"; {len(incomplete)} cell problem(s)" if cell is not None else ""),
             err=True,
         )
         raise typer.Exit(code=1)
     refs_checked = sum(c.checked for c in references)
-    typer.echo(f"OK: {result.checked} artifact(s) valid, {refs_checked} reference(s) consistent")
+    typer.echo(
+        f"OK: {result.checked} artifact(s) valid, {refs_checked} reference(s) consistent"
+        + ("; cell complete" if cell is not None else "")
+    )
 
 
 @app.command("validate-corpus")

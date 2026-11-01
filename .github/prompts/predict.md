@@ -32,8 +32,20 @@ below says how:
 - **`flags.json` is the channel that survives.** You run headless and nobody
   can answer a question; when blocked, write the note there, make the most
   conservative reasonable call, and finish (*Rules*).
-- **Validate before you finish.** `uv run fedcourts validate data` must pass
-  for your files.
+- **Validate your cell before you finish, and fix every line it reports.** Run
+  `uv run fedcourts validate data --cell
+  data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/predictions/$PREDICTOR_ID/$RUN_ID`
+  and repeat until it prints `OK`. It checks your files against the schemas
+  and checks that the cell is complete. A cell that does not pass is not merged,
+  and it is predicted again later. The files are `prediction.json`,
+  `reasoning.md`, `predicted_reasoning.md`, `prediction_summary.md`,
+  `retrieval.md` and `tooling.json`, with `flags.json` only when you have a note
+  (*Outputs*). In `prediction.json`, write only the keys in
+  `schemas/prediction.schema.json`, with no others. `engine` is the string
+  `claude-code`, `codex` or `gemini`, and `model` is a separate key. Name
+  `predicted_reasoning.md` in `predicted_reasoning_doc`. Write `claims` (and
+  `claim_distributions` and `semantic_claims` where your stage declares them)
+  for your own stage, not for another stage.
 - **Install nothing.** The cell's tooling is fixed before you start, and a
   package install (`pip install`, `uv pip`, `uv add`, `npm install`,
   `apt-get` and the like) is refused. To read a PDF, run
@@ -1036,7 +1048,36 @@ or the argument, was worth.
 Write to `data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/predictions/$PREDICTOR_ID/$RUN_ID/`:
 
 - **`prediction.json`** — must validate against `schemas/prediction.schema.json`
-  (the `Prediction` model). Key fields:
+  (the `Prediction` model). Its shape on a cert or interim cell is below. Each
+  `<…>` is a value you replace, and each `[…]` is a list the field notes below
+  describe. Leave out any key that is not shown, unless a note below adds it
+  for your stage. A merits cell also writes `judgment`, a filled `votes` list
+  and `semantic_claims` (*Stage: merits* above):
+
+  ```text
+  {
+    "schema_version": "1.0",
+    "case_id": "<COURT_ID>/<DOCKET_ID>",
+    "event_id": "<EVENT_ID>",
+    "predictor_id": "<PREDICTOR_ID>",
+    "engine": "<claude-code | codex | gemini>",
+    "model": "<MODEL_ID>",
+    "run_id": "<RUN_ID>",
+    "created_at": "<any UTC timestamp, e.g. 2026-01-01T00:00:00Z>",
+    "input_snapshot": "<YYYY-MM-DD>.json",
+    "granted": <1 or 0>,
+    "probability": <0 to 1>,
+    "predicted_disposition": "<a disposition label>",
+    "big_case_score": <0 to 1, or null>,
+    "big_case_rationale": "<one line; required when big_case_score is null>",
+    "claims": [<one {"claim_id", "probability"} per claim your stage declares>],
+    "claim_distributions": [<one {"claim_id", "probabilities"} per distribution claim>],
+    "reasoning_doc": "reasoning.md",
+    "predicted_reasoning_doc": "predicted_reasoning.md"
+  }
+  ```
+
+  Key fields:
   - `case_id` = `$COURT_ID/$DOCKET_ID`, `event_id` = `$EVENT_ID`,
     `predictor_id` = `$PREDICTOR_ID`, `run_id` = `$RUN_ID`.
   - `engine` — `claude-code`, `codex`, or `gemini` (whichever you are).
@@ -1416,5 +1457,6 @@ willing to be scored on, not a hedge.
   conservative reasonable call rather than guessing widely. `flags.json` is the
   channel that survives, so do not rely on issue comments.
 - **Do not commit, push, or open a PR** — the workflow handles git.
-- Before finishing, make sure `uv run fedcourts validate data` would pass for your
-  files (correct schema, well-formed JSON).
+- Before finishing, run `uv run fedcourts validate data --cell` on your cell's
+  directory (*Cell contract* above), fix every `INVALID`, `ORPHAN` and
+  `INCOMPLETE` line it prints, and run it again until it prints `OK`.
