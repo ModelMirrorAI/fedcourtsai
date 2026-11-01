@@ -1230,23 +1230,46 @@ corpus vintage. The figures in this section are on blob `3ddb381f…c41a05`
 (newest pull 2026-10-31, newest stored snapshot row 2026-07-13), with the
 per-case content store read the same day.
 
-**What activation still owes**, stated here so the flip does not rediscover it:
+**The frozen cell band and the replay projection.** Every reader that bands a
+projected row rather than a stored one — the frozen cell band
+(`cell_context.build`) and the gate replay's projection (`asof.project_row`) —
+reads `caption-v4` through exactly one counsel fact: whether the captioned
+petitioner's counsel of record is the Solicitor General's office. The projected
+row is a `caption.CutRow`, which carries that boolean and refuses any counsel
+entry, party or attorney list, so nothing else about counsel reaches the band or
+the cell, and the cell's `context.json` gains no field. The fact is read by one
+function, `caption.sg_counsel_of_record_at_cut`, off the payload **as served,
+before any redaction**, for forward and replay cells alike: a forward cell's
+payload is read as it is placed, and the replay and back-test provisioners
+(`cert_backtest`, `merits_backtest`, `salience_replay`) read it off the snapshot
+they are about to redact, then redact the snapshot as before. So forward and
+replay cells band on one rule. The function reads the `Petitioner` block only,
+an entry only where it is marked counsel of record and its party names the
+captioned petitioner, and an attorney only where `sg-office-v1`'s roster places
+them in the office at some point between the payload's `DocketedDate` and the
+cell's cut (`counsel.office_entries_at_cut`).
 
-- *The frozen cell band.* `cell_context` builds its base row from the cell's
-  payload with no counsel, so a cell banded under `sal-v7` today would read
-  `caption-v2`. A forward cell's payload carries the petitioner block, so the
-  base row can take the captioned petitioner's own entry from it. A replay or
-  back-test snapshot has its counsel blocks redacted by design, so a replay
-  cell would band without the entry: the same forward/replay asymmetry
-  replay's counsel blindness already carries, now in the band. Whether the
-  replay band reads the one entry before redaction is a decision for the flip.
-- *The replay reading.* The gate replay's projection carries no counsel, so a
-  `sal-v7` replay cell equals `sal-v6`'s and cannot show the `caption-v4`
-  difference. A matched-recall reading of the flip needs the projection to carry
-  the captioned petitioner's counsel entry.
-- *The statistical bar `sal-v3`'s activation cleared*, read on the census above
-  and on a statpack rendered after this registration, which is the first to
-  carry a `sal-v7` block.
+The fact is **knowable at the cut** by two guarantees, both enforced in that
+function. It is read only off a payload the docket served by the cut: a forward
+cell's stored snapshot (`as-stored`) or a stored snapshot from before the cutoff
+(`dated`). A `truncated` payload is a later pull cut down by date, whose counsel
+blocks are undated and so are the later pull's, and a `blind` one is the same
+pull with its proceedings removed; neither is the record at the cut, so on either
+the fact is false and the class is `caption-v2`'s. And the roster test admits no
+one who took office after the cut: the late-write reading `sg-office-v1` applies
+to a stored row (a successor's name on a federal party) is left out, because a
+list served by the cut cannot hold a later write. The cost is declared: a
+replay or back-test cell reconstructed by truncation bands as `sal-v6` would on
+the class, so a `sal-v7` replay reading measures `caption-v4` on its `dated`
+cells only, and the provenance mix each replay cell reports says how many
+those are. Under the active `sal-v6` nothing reads the fact, and nothing a cell
+sees or freezes changes.
+
+**What activation still owes**, stated here so the flip does not rediscover it:
+the statistical bar `sal-v3`'s activation cleared, read on the census above, on
+a statpack rendered after this registration (the first to carry a `sal-v7`
+block), and on a `salience-replay` whose `sal-v7` cells are read at matched
+recall against `sal-v6`'s over their `dated` provenance.
 
 ## Selection — deterministic rank-and-cap, sticky per conference
 

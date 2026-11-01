@@ -2392,12 +2392,16 @@ the rendered table) and
   lists under "Petitioner"). `sal-v5`'s statpack `alt_segments` block measures that
   leak; the replay cells do not. `sal-v5`'s replay cells measure the
   call-for-response relist rule and the writ scope but never `caption-v3`,
-  since the projection carries no counsel. `sal-v7` is `sal-v6` with the
-  class read through `caption-v4`, which keeps the office only as counsel of
-  record for the captioned petitioner; it is registered and not active. Its
-  statpack block reads that class, and its replay cells equal `sal-v6`'s for
-  the same reason `sal-v5`'s do: the projection carries no counsel, so no
-  replay figure measures `caption-v4`. Any of these blocks over past Terms is
+  since the projection carries no counsel entry. `sal-v7` is `sal-v6` with
+  the class read through `caption-v4`, which keeps the office only as counsel
+  of record for the captioned petitioner; it is registered and not active. Its
+  statpack block reads that class. Its replay cells read it through the one
+  counsel fact the projection carries, read off the served snapshot before
+  redaction, and only on a `dated` projection: a petition reconstructed by
+  truncating a later pull, or projected blind, reads `caption-v2`'s class
+  there. So a `sal-v7` replay cell measures `caption-v4` on its `dated` rows
+  alone, and its `provenance` mix says how many those are; a difference from
+  `sal-v6`'s cell is never a reading over the whole frame. Any of these blocks over past Terms is
   **not that version's pool** on a pack rendered before the run-repair
   back-fill filled `distributed_after_call` and `opening_writ` on the decided
   rows: on such a pack those rows read as `sal-v4` reads them, mixed with the

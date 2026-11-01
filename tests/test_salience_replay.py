@@ -12,7 +12,7 @@ from typer.testing import CliRunner
 from fedcourtsai import casestore, corpus
 from fedcourtsai.cli import app
 from fedcourtsai.config import SalienceConfig
-from fedcourtsai.pipeline import asof
+from fedcourtsai.pipeline import asof, caption
 from fedcourtsai.pipeline.asof import CutoffPolicy, replay_cutoff
 from fedcourtsai.pipeline.salience import (
     SALIENCE_VERSION,
@@ -20,7 +20,7 @@ from fedcourtsai.pipeline.salience import (
     registered_versions,
     scorer,
 )
-from fedcourtsai.salience_replay import replay_gate, select_replay_population
+from fedcourtsai.salience_replay import _project, replay_gate, select_replay_population
 from fedcourtsai.schemas import Disposition, SalienceReplay
 from fedcourtsai.serialize import read_model
 
@@ -801,3 +801,67 @@ def test_the_replay_leaves_a_rule_20_writ_out_of_the_writ_scoped_cells_only(
         assert cells[version].eligible == 0, version
         assert cells[version].bands == {}, version
         assert cells[version].selected == 0, version
+
+
+def test_the_projection_carries_the_captioned_petitioners_sg_counsel_from_a_dated_snapshot(
+    tmp_path: Path,
+) -> None:
+    """The gate replay reads caption-v4's one counsel fact off the payload as
+    served, before redaction, by the cell's rule: a stored snapshot from before
+    the cutoff lists the office as counsel of record for the captioned Warden,
+    so the projection carries it and sal-v7 bands `federal` where sal-v6 reads
+    `state`. A petition reconstructed by truncating a later pull carries the
+    fact as false, so its sal-v7 band is sal-v6's. Neither projection carries
+    any counsel entry."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    entries = (
+        ("Jan 5 2024", "Petition for a writ of certiorari filed."),
+        ("Feb 2 2024", "DISTRIBUTED for Conference of February 16, 2024."),
+        ("Mar 4 2024", "Petition DENIED."),
+    )
+    sg_block = {
+        "DocketedDate": "January 5, 2024",
+        "PetitionerTitle": "Michael Smith, Warden, Petitioner",
+        "Petitioner": [
+            {
+                "PartyName": "Michael Smith",
+                "Attorney": "Elizabeth B. Prelogar",
+                "IsCounselofRecord": True,
+            }
+        ],
+    }
+    seeded = []
+    for case_id, docket in (("scotus/1", "23-100"), ("scotus/2", "23-200")):
+        row, payload = _petition(
+            case_id,
+            docket,
+            disposition=Disposition.denied,
+            resolved=date(2024, 3, 4),
+            entries=entries,
+        )
+        row = row.model_copy(
+            update={"petitioner_title": "Michael Smith, Warden", "opening_writ": "certiorari"}
+        )
+        seeded.append((row, payload | sg_block))
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [row for row, _ in seeded])
+        for row, payload in seeded:
+            corpus.upsert_snapshot(conn, row.case_id, date(2024, 7, 1), payload)
+        early = seeded[0][1] | {
+            "ProceedingsandOrder": [{"Date": "Jan 5 2024", "Text": entries[0][1]}]
+        }
+        corpus.upsert_snapshot(conn, "scotus/1", date(2024, 1, 20), early)
+    with corpus.connect(db) as conn:
+        dated = _project(conn, seeded[0][0], CutoffPolicy.resolution, parse="dist-v2")
+        truncated = _project(conn, seeded[1][0], CutoffPolicy.resolution, parse="dist-v2")
+    assert dated is not None and truncated is not None
+    assert dated[1] == "dated" and truncated[1] == "truncated"
+    facts = []
+    for projection in (dated[0], truncated[0]):
+        assert isinstance(projection.row, caption.CutRow)
+        assert projection.row.counsel == [] and projection.row.attorneys == []
+        facts.append(projection.row.sg_counsel_of_record_for_petitioner)
+    assert facts == [True, False]
+    assert scorer("sal-v6").band(dated[0].row) == "state"
+    assert scorer("sal-v7").band(dated[0].row) == "federal"
+    assert scorer("sal-v7").band(truncated[0].row) == scorer("sal-v6").band(truncated[0].row)

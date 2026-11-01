@@ -540,6 +540,36 @@ def office_entries(row: corpus.CorpusRow, moment: date | None) -> tuple[corpus.C
     return tuple(found)
 
 
+def office_entries_at_cut(
+    entries: Iterable[corpus.CounselEntry], *, filed: date | None, cut: date
+) -> tuple[corpus.CounselEntry, ...]:
+    """The petitioner- and respondent-side entries naming someone in the office by ``cut``.
+
+    The per-entry reading for a counsel list served at or before a cell's cut,
+    where :func:`office_entries` reads a row's list as it stands now. An entry
+    counts only where its attorney is a roster member one of whose spans
+    overlaps the docket's life from ``filed`` to ``cut``, both inclusive.
+    :func:`_read_entry`'s successor path is left out on purpose: it exists for
+    a name a list gained *after* the docket's life, and a list served by the cut
+    has no such name, so a member whose span opens after the cut was named
+    there before taking office, which is private practice whatever the party.
+    An undated docket (``filed`` is ``None``) reads no entry. ``other`` is never
+    read. Pure and total, in served order.
+    """
+    if filed is None:
+        return ()
+    found: list[corpus.CounselEntry] = []
+    for entry in entries:
+        if entry.role not in _READ_ROLES:
+            continue
+        member = _ROSTER_BY_ALIAS.get(normalize_attorney(entry.attorney or ""))
+        if member is not None and any(
+            (span.end is None or span.end >= filed) and span.start <= cut for span in member.spans
+        ):
+            found.append(entry)
+    return tuple(found)
+
+
 #: Every registered counsel annotation rule, keyed by version label. Added to,
 #: never edited: a cut names the rule it ran under.
 COUNSEL_RULES: Final[

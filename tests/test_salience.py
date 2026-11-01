@@ -8,6 +8,7 @@ from dataclasses import fields
 from datetime import date
 from pathlib import Path
 from types import MappingProxyType
+from typing import Literal
 
 import pytest
 import yaml
@@ -17,7 +18,8 @@ from fedcourtsai import corpus
 from fedcourtsai.cli import app
 from fedcourtsai.config import SalienceConfig, load_salience_config
 from fedcourtsai.paths import CasePaths
-from fedcourtsai.pipeline import asof, cell_context
+from fedcourtsai.pipeline import asof, caption, cell_context
+from fedcourtsai.pipeline import counsel as counsel_module
 from fedcourtsai.pipeline import salience as salience_module
 from fedcourtsai.pipeline.cert_signals import DEFAULT_DISTRIBUTION_PARSE, DISTRIBUTION_PARSES
 from fedcourtsai.pipeline.pull import _in_predict_scope
@@ -41,7 +43,8 @@ from fedcourtsai.pipeline.salience import (
     scorer,
     unlatch_overselected,
 )
-from fedcourtsai.schemas import Disposition, EventKind, Stage
+from fedcourtsai.provision import redact_snapshot
+from fedcourtsai.schemas import Disposition, EventKind, PredictionContext, Stage
 
 REGULAR_CONFERENCE = date(2026, 1, 9)  # a Term conference (Oct-June)
 LONG_CONFERENCE = date(2025, 9, 29)  # the Term's opening long conference (September)
@@ -2934,3 +2937,220 @@ def test_band_refused_marks_only_a_segment_refusal(monkeypatch: pytest.MonkeyPat
     application = {**writ, "CaseNumber": "25A100"}
     interim = cell_context.build("scotus/102", date(2025, 10, 2), application, "forward")
     assert interim.band is None and interim.band_refused is None
+
+
+# --- caption-v4's one counsel fact in the frozen cell band ------------------------
+
+_CUT = date(2025, 10, 2)
+
+
+def _replay_context(
+    payload: dict[str, object], *, provenance: Literal["dated", "truncated"] = "dated"
+) -> PredictionContext:
+    """A replay cell as the back-test provisioners build it: the fact read off the
+    served payload, then the payload redacted before the context sees it."""
+    fact = cell_context.counsel_fact(
+        "scotus/100", payload, snapshot_date=_CUT, provenance=provenance, cutoff=_CUT
+    )
+    return cell_context.build(
+        "scotus/100",
+        _CUT,
+        redact_snapshot(dict(payload)),
+        "replay",
+        provenance=provenance,
+        cutoff=_CUT,
+        sg_counsel_of_record_for_petitioner=fact,
+    )
+
+
+def test_a_forward_sg_cell_bands_federal_under_sal_v7(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The office as counsel of record for the captioned Warden, read off the
+    forward payload, freezes `federal` under sal-v7, where sal-v6 freezes the
+    sub-national officer fallback's `state`."""
+    _activate(monkeypatch, "sal-v6")
+    assert cell_context.build("scotus/100", _CUT, _warden_payload(), "forward").band == "state"
+    _activate(monkeypatch, "sal-v7")
+    built = cell_context.build("scotus/100", _CUT, _warden_payload(), "forward")
+    assert built.band == "federal" and built.salience_version == "sal-v7"
+
+
+def test_a_redacted_replay_cell_bands_as_the_forward_cell_does(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A replay snapshot's counsel blocks are redacted, so the fact is read off the
+    served payload first: the replay cell then bands `federal` exactly as the
+    forward cell on the same snapshot does. Without the pre-redaction read the
+    redacted payload carries no block to read it from, and a truncated payload
+    (a later pull, so not the record at the cut) never supplies it."""
+    _activate(monkeypatch, "sal-v7")
+    forward = cell_context.build("scotus/100", _CUT, _warden_payload(), "forward")
+    replay = _replay_context(_warden_payload())
+    assert "Petitioner" not in redact_snapshot(_warden_payload())
+    assert replay.band == forward.band == "federal"
+    blind_to_it = cell_context.build(
+        "scotus/100",
+        _CUT,
+        redact_snapshot(_warden_payload()),
+        "replay",
+        provenance="dated",
+        cutoff=_CUT,
+    )
+    assert blind_to_it.band == "state"
+    assert _replay_context(_warden_payload(), provenance="truncated").band == "state"
+
+
+@pytest.mark.parametrize("mode", ["forward", "replay"])
+def test_a_non_sg_cell_is_unchanged_under_sal_v7(
+    monkeypatch: pytest.MonkeyPatch, mode: str
+) -> None:
+    """Without the office as counsel of record for the captioned petitioner — no
+    office entry, a supporting United States amicus listed under "Petitioner", the
+    office not of record, or the office named only in the Respondent and Other
+    blocks — sal-v7 freezes the band sal-v6 does, forward and replay alike."""
+    not_of_record = _warden_payload()
+    not_of_record["Petitioner"] = [{"PartyName": "Michael Smith", "Attorney": "D. John Sauer"}]
+    amicus = {
+        **_warden_payload(),
+        "PetitionerTitle": "Acme Corp., Petitioner",
+        "Petitioner": [
+            {"PartyName": "Acme Corp.", "Attorney": "Jane Private", "IsCounselofRecord": True},
+            {"PartyName": "United States", "Attorney": "D. John Sauer", "IsCounselofRecord": True},
+        ],
+    }
+    respondent_side = {
+        **_warden_payload(sg=False),
+        "Respondent": [
+            {"PartyName": "Michael Smith", "Attorney": "D. John Sauer", "IsCounselofRecord": True}
+        ],
+    }
+    for payload in (_warden_payload(sg=False), not_of_record, amicus, respondent_side):
+        bands = {}
+        for version in ("sal-v6", "sal-v7"):
+            _activate(monkeypatch, version)
+            built = (
+                cell_context.build("scotus/100", _CUT, payload, "forward")
+                if mode == "forward"
+                else _replay_context(payload)
+            )
+            bands[version] = built.band
+        assert bands["sal-v7"] == bands["sal-v6"] != "federal", payload
+
+
+def test_no_other_counsel_field_reaches_the_base_row_or_the_cell(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The base row carries the one boolean and nothing else about counsel: the
+    projected row holds no entry, party or attorney, a cut row refuses one, and
+    two payloads that differ in every counsel field but agree on the fact freeze
+    the same context."""
+    _activate(monkeypatch, "sal-v7")
+    projected = asof.project_row(
+        corpus.CorpusRow(case_id="scotus/100", court="scotus", docket_number="25-100"),
+        _warden_payload(),
+        cutoff=_CUT,
+        provenance="dated",
+        sg_counsel_of_record_for_petitioner=True,
+    )
+    assert isinstance(projected.row, caption.CutRow)
+    assert projected.row.counsel == [] and projected.row.parties == []
+    assert projected.row.attorneys == []
+    dumped = projected.row.model_dump_json()
+    assert "Sauer" not in dumped and "Jane Roe" not in dumped and "John Doe" not in dumped
+    with pytest.raises(ValueError, match="no counsel entry"):
+        caption.CutRow(
+            case_id="scotus/100",
+            court="scotus",
+            counsel=[corpus.CounselEntry(party="Michael Smith", attorney="D. John Sauer")],
+        )
+
+    other = {
+        **_warden_payload(),
+        "Petitioner": [
+            {
+                "PartyName": "Smith, Warden",
+                "Attorney": "Sarah M. Harris",
+                "IsCounselofRecord": True,
+            },
+            {"PartyName": "Michael Smith", "Attorney": "Someone Else"},
+        ],
+        "Respondent": [{"PartyName": "Richard Roe", "Attorney": "Elizabeth B. Prelogar"}],
+        "Other": [],
+    }
+    for build in (
+        lambda p: cell_context.build("scotus/100", _CUT, p, "forward"),
+        _replay_context,
+    ):
+        first, second = build(_warden_payload()), build(other)
+        assert first.band == "federal"
+        assert first.model_dump() == second.model_dump()
+    assert set(PredictionContext.model_fields) == set(
+        cell_context.build("scotus/100", _CUT, _warden_payload(), "forward").model_dump()
+    )
+
+
+def test_sal_v6_cells_never_read_the_counsel_fact(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Under the active sal-v6 the fact moves nothing a cell freezes: an SG cell
+    with the fact forced either way, forward and replay, freezes one context."""
+    _activate(monkeypatch, "sal-v6")
+    for mode in ("forward", "replay"):
+        contexts = [
+            cell_context.build(
+                "scotus/100",
+                _CUT,
+                _warden_payload() if mode == "forward" else redact_snapshot(_warden_payload()),
+                mode,
+                provenance="dated",
+                cutoff=_CUT,
+                sg_counsel_of_record_for_petitioner=fact,
+            ).model_dump()
+            for fact in (True, False, None)
+        ]
+        assert contexts[0] == contexts[1] == contexts[2]
+        assert contexts[0]["band"] == "state"
+
+
+def test_the_fact_admits_no_one_who_took_office_after_the_cut() -> None:
+    """Knowable at the cut: a roster member whose span opens after the cut was
+    named there before taking office, so the entry is not the office — on a
+    federal party too, where a stored row's late-write reading would admit it —
+    and an undated docket reads no entry."""
+    payload = {
+        **_warden_payload(),
+        "DocketedDate": "September 16, 2024",
+    }
+    args = {"caption_text": "Michael Smith, Warden", "provenance": "dated"}
+    assert caption.sg_counsel_of_record_at_cut(payload, cut=date(2025, 4, 4), **args) is True
+    assert caption.sg_counsel_of_record_at_cut(payload, cut=date(2025, 1, 1), **args) is False
+    sovereign = {
+        **payload,
+        "PetitionerTitle": "United States, Petitioner",
+        "Petitioner": [
+            {"PartyName": "United States", "Attorney": "D. John Sauer", "IsCounselofRecord": True}
+        ],
+    }
+    early = date(2025, 1, 1)
+    assert (
+        caption.sg_counsel_of_record_at_cut(
+            sovereign, caption_text="United States", cut=early, provenance="dated"
+        )
+        is False
+    )
+    stored = corpus.CorpusRow(
+        case_id="scotus/100",
+        court="scotus",
+        date_filed=date(2024, 9, 16),
+        counsel=[_sg_for_petitioner("United States")],
+    )
+    assert counsel_module.office_entries(stored, early)  # the late-write reading admits it
+    undated = {key: value for key, value in payload.items() if key != "DocketedDate"}
+    assert caption.sg_counsel_of_record_at_cut(undated, cut=_CUT, **args) is False
+    for provenance in ("truncated", "blind"):
+        assert (
+            caption.sg_counsel_of_record_at_cut(
+                _warden_payload(),
+                caption_text="Michael Smith, Warden",
+                cut=_CUT,
+                provenance=provenance,
+            )
+            is False
+        )

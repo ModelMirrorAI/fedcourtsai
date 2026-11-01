@@ -15804,12 +15804,37 @@ freeze commit is recorded here.
   2026-10-31, newest stored snapshot row 2026-07-13), with the per-case
   content store read the same day.
 
-  **Not owed by this registration, owed by an activation.** The frozen cell
-  band reads no counsel today (`cell_context` builds its base row without
-  it), and replay and back-test snapshots carry none by design, so a
-  `sal-v7` cell band, a replay comparison at matched recall, and a reviewed
-  census are the flip's prerequisites (`docs/salience.md`, the `sal-v7`
-  section).
+  **The cell band and the replay projection, as decided.** The maintainer
+  decided on 2026-11-01 how a projected row reads `caption-v4`: through one
+  fact only, whether the captioned petitioner's counsel of record is the
+  Solicitor General's office, read off the payload as served and before any
+  redaction, for forward and replay cells alike, and carried the same way by
+  the gate replay's projection. The base row of the frozen cell band
+  (`cell_context.build`) and the replay's projected row (`asof.project_row`)
+  are a `caption.CutRow`, which carries that boolean and refuses any counsel
+  entry, party or attorney list; the cell's `context.json` gains no field.
+  The replay and back-test provisioners (`cert_backtest`, `merits_backtest`,
+  `salience_replay`) read the fact off the snapshot before redacting it, and
+  the redaction is unchanged. The fact is knowable at the cut because it is
+  read only off a payload the docket served by the cut (`as-stored` or
+  `dated`; a `truncated` or `blind` payload is a later pull, so the fact is
+  false there) and the roster test admits only an attorney in the office at
+  some point between the payload's `DocketedDate` and the cut
+  (`counsel.office_entries_at_cut`, without `sg-office-v1`'s late-write
+  reading). So a `sal-v7` replay cell measures `caption-v4` on its `dated`
+  rows only. Under the active `sal-v6` nothing reads the fact: on a grid of
+  forward and replay payloads (an office-represented Warden, the same
+  without the office, a Rule 20 writ, a personal-name petitioner, a
+  supporting United States amicus; forward `as-stored` and `dated`, replay
+  `dated` and `truncated`, each served and redacted)
+  and the gate replay's test corpus, every frozen context and every `sal-v6`
+  replay cell is byte-identical before and after the change.
+
+  **Not owed by this registration, owed by an activation.** A reviewed
+  census, the statistical bar `sal-v3`'s activation cleared on a statpack
+  carrying a `sal-v7` block, and a replay comparison at matched recall over
+  the `dated` cells are the flip's prerequisites (`docs/salience.md`, the
+  `sal-v7` section).
 
   Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
   commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).

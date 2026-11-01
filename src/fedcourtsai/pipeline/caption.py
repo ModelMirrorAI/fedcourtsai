@@ -71,8 +71,11 @@ import re
 import unicodedata
 from collections import defaultdict
 from collections.abc import Callable, Mapping
+from datetime import date, datetime
 from types import MappingProxyType
-from typing import Final, Literal
+from typing import Any, Final, Literal
+
+from pydantic import Field, model_validator
 
 from .. import corpus
 from ..schemas import (
@@ -555,14 +558,47 @@ def names_captioned_petitioner(party: str, caption_text: str) -> bool:
     return long_[len(long_) - len(short) :] == short
 
 
+class CutRow(corpus.CorpusRow):
+    """A row projected to a cell's cut, carrying caption-v4's one counsel fact and no counsel.
+
+    The base row a frozen cell band and the gate replay's projection read
+    (:func:`.asof.project_row`) holds no counsel entry: a replay or back-test
+    snapshot has its counsel blocks redacted, and an entry list is far more than
+    the band needs. The single fact caption-v4 turns on rides here instead,
+    read off the served payload before any redaction by
+    :func:`sg_counsel_of_record_at_cut`, so forward and replay cells band on one
+    rule. Every other counsel field must stay empty, and the validator refuses a
+    row that carries one, so nothing else about counsel reaches a band through
+    this type. Never written to the corpus: a projection, not a stored row.
+    """
+
+    sg_counsel_of_record_for_petitioner: bool = Field(
+        default=False,
+        description="Whether the payload served at or before the cut lists the "
+        "Solicitor General's office as counsel of record for the captioned "
+        "petitioner (`sg_counsel_of_record_at_cut`). The only counsel fact a "
+        "projected row carries.",
+    )
+
+    @model_validator(mode="after")
+    def _carries_no_other_counsel(self) -> CutRow:
+        if self.counsel or self.parties or self.attorneys:
+            raise ValueError("a cut row carries one counsel fact and no counsel entry")
+        return self
+
+
 def sg_counsel_of_record_for_petitioner(row: corpus.CorpusRow) -> bool:
     """Whether the office is counsel of record for the row's captioned petitioner.
 
-    An entry on the petitioner side, marked counsel of record, whose attorney
-    ``sg-office-v1`` places in the office on this docket
+    On a stored row: an entry on the petitioner side, marked counsel of record,
+    whose attorney ``sg-office-v1`` places in the office on this docket
     (:func:`.counsel.office_entries`, the whole row, no cut), and whose party is
-    the petitioner the caption names (:func:`names_captioned_petitioner`).
+    the petitioner the caption names (:func:`names_captioned_petitioner`). On a
+    :class:`CutRow`: the fact it carries, which the same three tests produced
+    over the payload served at the cut (:func:`sg_counsel_of_record_at_cut`).
     """
+    if isinstance(row, CutRow):
+        return row.sg_counsel_of_record_for_petitioner
     from .counsel import office_entries  # noqa: PLC0415 - counsel<-party<-caption cycle
 
     title = petitioner_caption(row)
@@ -571,6 +607,71 @@ def sg_counsel_of_record_for_petitioner(row: corpus.CorpusRow) -> bool:
         and entry.counsel_of_record
         and names_captioned_petitioner(entry.party, title)
         for entry in office_entries(row, None)
+    )
+
+
+#: The provenances whose payload the docket served at or before the cut: the
+#: forward cell's stored snapshot and a stored snapshot from before the cutoff.
+#: A ``truncated`` payload is a later pull cut down by date, and its counsel
+#: blocks are undated, so they are the later pull's; a ``blind`` one is the
+#: same later pull with its proceedings removed. Neither is the record at the
+#: cut, so neither is read.
+_SERVED_BY_THE_CUT: Final[frozenset[str]] = frozenset({"as-stored", "dated"})
+
+#: How the Court's docket JSON writes ``DocketedDate`` ("September 16, 2025").
+_DOCKETED_FORMATS: Final[tuple[str, ...]] = ("%B %d, %Y", "%b %d, %Y", "%m/%d/%Y")
+
+
+def _docketed(value: object) -> date | None:
+    """A live payload's ``DocketedDate``, or ``None`` when it is not one."""
+    text = str(value or "").strip()
+    for fmt in _DOCKETED_FORMATS:
+        try:
+            return datetime.strptime(text, fmt).date()
+        except ValueError:
+            continue
+    return None
+
+
+def sg_counsel_of_record_at_cut(
+    payload: Mapping[str, Any], *, caption_text: str, cut: date, provenance: str
+) -> bool:
+    """caption-v4's one counsel fact, read off a payload before any redaction.
+
+    True where the payload is one the docket served at or before the cut
+    (:data:`_SERVED_BY_THE_CUT`), and its ``Petitioner`` block lists, for the
+    party ``caption_text`` names (:func:`names_captioned_petitioner`), an
+    attorney marked counsel of record whom ``sg-office-v1``'s roster places in
+    the office at some point between the payload's ``DocketedDate`` and ``cut``
+    (:func:`.counsel.office_entries_at_cut`). Only the ``Petitioner`` block is
+    read; the ``Respondent`` and ``Other`` blocks never are. False otherwise,
+    including a payload with no ``DocketedDate`` to date the docket's life from
+    and the REST shape, which carries no per-side blocks.
+
+    Knowable at the cut by construction: the payload is the record as the
+    docket served it by then, and the roster test admits no one who took office
+    after it. Pure and total.
+    """
+    if provenance not in _SERVED_BY_THE_CUT:
+        return False
+    from .counsel import office_entries_at_cut  # noqa: PLC0415 - counsel<-party<-caption cycle
+
+    blocks = payload.get("Petitioner")
+    entries = [
+        corpus.CounselEntry(
+            party=str(block.get("PartyName") or "").strip(),
+            attorney=str(block.get("Attorney") or "").strip() or None,
+            role=corpus.CounselRole.petitioner,
+            counsel_of_record=block.get("IsCounselofRecord") is True,
+        )
+        for block in (blocks if isinstance(blocks, list) else [])
+        if isinstance(block, Mapping)
+    ]
+    return any(
+        entry.counsel_of_record and names_captioned_petitioner(entry.party, caption_text)
+        for entry in office_entries_at_cut(
+            entries, filed=_docketed(payload.get("DocketedDate")), cut=cut
+        )
     )
 
 
