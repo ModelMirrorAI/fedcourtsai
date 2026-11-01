@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000516",
+  "run_id": "20261101T050708Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts validate",
+    "CourtListener search",
+    "CourtListener read_document",
+    "CourtListener search_document",
+    "web search/open",
+    "local record and statpack reads"
+  ],
+  "helpful": [
+    "Frozen cert anchor and observable distribution state",
+    "Complete petition with lower-court opinions in the bound appendix",
+    "Primary precedent text accessible through CourtListener MCP",
+    "Corpus transfer reports and explicit sparse-citation coverage warning"
+  ],
+  "gaps": [
+    "Default uv cache is read-only; a writable cache override was necessary",
+    "Web tool attempts returned no visible result or error",
+    "Structured corpus filters did not supply subject-matched venue/GVR analogues"
+  ],
+  "notes": "Used UV_CACHE_DIR=/tmp/uv-cache and --no-sync with the existing environment; installed nothing. No BIO was staged because the government waived its response. Corpus examples were procedural context, not issue-matched evidence. No outcome of the target petition was sought or encountered."
+}
