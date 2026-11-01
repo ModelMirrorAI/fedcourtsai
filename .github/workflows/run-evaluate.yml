@@ -869,7 +869,10 @@ jobs:
               # names clear the CLI's credential-name refusal regex). This is
               # what gives this engine corpus retrieval parity: the sanitizer
               # could never allowlist AWS credentials, but it accepts these.
-              printf '%s\n' '{"telemetry":{"enabled":true,"target":"local","outfile":".gemini/telemetry.log","logPrompts":true},"security":{"environmentVariableRedaction":{"allowed":["COURT_ID","DOCKET_ID","EVENT_ID","PREDICTOR_ID","EVALUATOR_ID","RUN_ID","MODEL_ID","DECIDED_BEFORE","FEDCOURTS_CORPUS_BACKEND","FEDCOURTS_CORPUS_SERVICE_URL"]}}}' > .gemini/settings.json
+              # tools.truncateToolOutputThreshold keeps a prompt template read whole
+              # whole in context: the CLI default (40,000 characters) cuts older tool
+              # results and drops the middle of the template (docs/pipeline.md).
+              printf '%s\n' '{"tools":{"truncateToolOutputThreshold":200000},"telemetry":{"enabled":true,"target":"local","outfile":".gemini/telemetry.log","logPrompts":true},"security":{"environmentVariableRedaction":{"allowed":["COURT_ID","DOCKET_ID","EVENT_ID","PREDICTOR_ID","EVALUATOR_ID","RUN_ID","MODEL_ID","DECIDED_BEFORE","FEDCOURTS_CORPUS_BACKEND","FEDCOURTS_CORPUS_SERVICE_URL"]}}}' > .gemini/settings.json
               uv run fedcourts mcp-config --engine gemini \
                 --role evaluator --actor "$EVALUATOR_ID" \
                 --base-settings .gemini/settings.json \

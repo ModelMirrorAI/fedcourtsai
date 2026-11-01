@@ -371,6 +371,35 @@ def _gemini_allowlist(name: str) -> set[str]:
     return set(allowed)
 
 
+#: The largest prompt template a gemini cell reads in one tool call. gemini-cli
+#: cuts every tool result older than the latest down to
+#: ``tools.truncateToolOutputThreshold`` characters (first fifth, last four
+#: fifths), so a threshold below the template's size drops its middle from the
+#: agent's context once the next call lands.
+GEMINI_CELL_PROMPTS = (
+    Path(".github/prompts/predict.md"),
+    Path(".github/prompts/evaluate.md"),
+)
+
+
+def test_every_gemini_settings_writer_keeps_the_whole_prompt_in_context() -> None:
+    """Each workflow that writes gemini's settings sets a tool-output threshold
+    at least twice the largest cell prompt, so a template read whole stays
+    whole in the agent's context and has room to grow."""
+    floor = 2 * max(len(path.read_text(encoding="utf-8")) for path in GEMINI_CELL_PROMPTS)
+    for name, _ in GEMINI_ALLOWLIST_WORKFLOWS:
+        text = (WORKFLOWS / name).read_text(encoding="utf-8")
+        settings = [
+            json.loads(match)
+            for match in re.findall(r"printf '%s\\n' '(\{.*?\})'", text)
+            if "environmentVariableRedaction" in match
+        ]
+        assert len(settings) == 1, f"expected exactly one gemini settings writer in {name}"
+        threshold = settings[0].get("tools", {}).get("truncateToolOutputThreshold")
+        assert isinstance(threshold, int), f"{name}: no tools.truncateToolOutputThreshold"
+        assert threshold >= floor, f"{name}: threshold {threshold} is under {floor}"
+
+
 def test_every_gemini_allowlist_covers_its_own_cell_env_contract() -> None:
     """Gemini's sanitizer strips every custom var, so the allowlist *is* the cell
     env contract for that engine — and a variable missing from it is silent.
@@ -3481,7 +3510,7 @@ ACTIONS_SMOKE_IF = "${{ matrix.scenario == 'engine-actions-smoke' }}"
 ACTIONS_SMOKE_ENGINES = ("claude-code", "codex", "gemini")
 
 
-_GEMINI_SETTINGS = re.compile(r"(\{\"context\":\{\"fileFiltering\".*?\}\}\})")
+_GEMINI_SETTINGS = re.compile(r"(\{\"tools\":\{[^}]*\},\"context\":\{\"fileFiltering\".*?\]\}\}\})")
 
 
 def _gemini_settings_literal(name: str) -> str:

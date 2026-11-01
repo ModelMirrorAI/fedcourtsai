@@ -681,7 +681,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p .gemini
-          printf '%s\n' '{"security":{"environmentVariableRedaction":{"allowed":["COURT_ID","DOCKET_ID","EVENT_ID","PREDICTOR_ID","EVALUATOR_ID","RUN_ID","MODEL_ID","DECIDED_BEFORE","REPLAY_CUTOFF"]}}}' > .gemini/settings.json
+          printf '%s\n' '{"tools":{"truncateToolOutputThreshold":200000},"security":{"environmentVariableRedaction":{"allowed":["COURT_ID","DOCKET_ID","EVENT_ID","PREDICTOR_ID","EVALUATOR_ID","RUN_ID","MODEL_ID","DECIDED_BEFORE","REPLAY_CUTOFF"]}}}' > .gemini/settings.json
 
       # The codex replay sandbox (bubblewrap) needs unprivileged user
       # namespaces, which the Ubuntu runner images restrict via AppArmor: without
