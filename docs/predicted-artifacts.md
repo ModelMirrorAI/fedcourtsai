@@ -286,10 +286,12 @@ grant or denial of the requested relief.
   is pre-registered ([salience.md](salience.md), *The interim docket*), and
   scoring partial relief as a grant would over-state the number on exactly the
   mixed shadow-docket shape.
-- `predicted_disposition` draws from four labels only — `granted`, `denied`,
-  `withdrawn`, `dismissed`. `gvr`, `summary-reversal`, and `granted-in-part`
-  are cert-stage routes the interim vocabulary never records.
-- **A `claims` field over `interim-v2`** — `interim-v1`'s four binary claims,
+- `predicted_disposition` draws from five labels only — `granted`,
+  `granted-in-part`, `denied`, `withdrawn`, `dismissed`. `granted-in-part` is
+  the finer interim reading's partial grant, which the registered interim
+  vocabulary reads denial-first; `gvr` and `summary-reversal` are cert-stage
+  routes no interim reading records.
+- **A `claims` field over `interim-v3`** — `interim-v1`'s four binary claims,
   with `order-writers` in `claim_distributions` beside them: `interim-disposition` (restating the
   headline `probability`), `response-requested-increment`, `referral-increment`,
   `amicus-increment`, in that order. Every interim moment declares the same four,
@@ -440,8 +442,13 @@ process-stamped cell provably post-dates the field, so a null pointer on one
 fails validation, while unstamped shakedown records stay valid. A
 `predicted_reasoning.md` written beside a null pointer fails whatever the
 stamp, because no legacy record has that shape, and because the stamp lands
-after the engine exits, so this is the form of the miss a cell's own
-`validate` run can catch before it finishes.
+after the engine exits, so this is the form of the miss a ledger-wide
+`validate` run can catch before it finishes. The cell's own run names its
+directory (`validate data --cell <dir>`), which marks the prediction there as
+live, so it also fails a pointer that is null or left out with no document
+written. The same run fails a live prediction that leaves out a claim block its
+event declares (`claims`, `claim_distributions`, `semantic_claims`), omits
+`big_case_score`, or has no `prediction_summary.md` beside it.
 
 ## `reasoning.md`
 
@@ -465,8 +472,10 @@ One paragraph of about 80 words for a reader with no legal training: the call,
 its probability in words, and the main reason, with the predicted judgment and
 vote split at the merits stage. It restates `prediction.json` and must agree
 with it; it is not a second prediction. Blinded staging copies only the files a
-grade needs, so no judge reads it, and nothing scores it. `stamp-cell` warns,
-and only warns, where a cell left none or one over 160 words.
+grade needs, so no judge reads it, and nothing scores it. The cell's own
+`validate data --cell` run fails where it is missing or blank, while the agent
+can still write it. After the engine exits, `stamp-cell` only warns where a cell
+left none or one over 160 words, and the cell still lands.
 
 ## `retrieval.md`
 
@@ -989,9 +998,10 @@ in prose.
   re-prediction cannot re-point a standing grading), and `process_version` are
   the harness's, never the evaluator's word — as is the whole skill record of `brier_score`,
   `segment_base_rate`, and `brier_skill_score` on the two stages whose pool the
-  harness computes (below), and on a cert cell from `proc-v9` on whose
-  prediction froze a band, which leaves `brier_score` the evaluator's only on
-  an earlier label's cert cell or one on the terminal fallback. `correct` takes no such exemption: a label comparison needs no
+  harness computes (below), on a cert cell from `proc-v9` on whose
+  prediction froze a band, and on a cert cell from `proc-v17` on whose
+  prediction froze none (the terminal fallback), which leaves `brier_score`
+  the evaluator's only on an earlier label's cert cell. `correct` takes no such exemption: a label comparison needs no
   pooled baseline and so no band judgment, so it is stamped on every stage, and
   null wherever the prediction or the outcome it compares was unreadable.
   `semantic_grades` is the counterpart of the prediction's `semantic_claims`
@@ -1051,9 +1061,15 @@ who writes the baseline on each:
   window `config/tracking.yaml` names at that commit, and re-pool to the
   frozen rate, or the anchor and skill are cleared with a warning
   (`docs/process-version.md` states the trust boundary). A context with no `cert_anchor` pools the statpack checked out at
-  grading. Before `proc-v9`,
-  and on the terminal fallback, the evaluator transcribes the rate from
-  `metrics/statpack.md`.
+  grading. A cert cell whose prediction froze no band takes the terminal
+  fallback, and from `proc-v17` on the stamp writes that record too:
+  `pipeline.base_rates.terminal_base_rate` over the band, salience version
+  and Term in the evaluate cell's own provisioned `record/context.json`
+  (built from the decided docket, so its band is the terminal one), at the
+  terminal rate, with `base_rate_basis: terminal`, its version, the build and
+  the window, all nulled together where the pool is empty. Before `proc-v9`,
+  and on the terminal fallback before `proc-v17`, the evaluator transcribes
+  the rate from `metrics/statpack.md`.
 - **An interim cell's baseline is registered and wired** — the statpack interim
   section's substantive grant rate pooled over application Terms strictly before
   the case's own — but it is no band product either, so `base_rate_basis` and
@@ -1078,9 +1094,9 @@ who writes the baseline on each:
   and still be wrong. It clears `base_rate_basis` and
   `base_rate_salience_version` there too, which is what makes their null
   structural rather than a rule an evaluator has to honour. The cert numbers
-  are the evaluator's only before `proc-v9` and on the terminal fallback,
-  because only there is a judgment involved: which band population the rate is
-  taken over. The evaluate prompt says the same
+  are the evaluator's only before `proc-v9`, and on the terminal fallback
+  before `proc-v17`, where the registered reading had the evaluator choose
+  which band population the rate is taken over. The evaluate prompt says the same
   thing from the agent's side for the pooled **pair**: on those two stages it
   writes neither field and reads the stamped values, so `evaluation.md`'s prose
   about the rate and the skill describes the harness's numbers. The prompt still

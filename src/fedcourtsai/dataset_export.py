@@ -55,6 +55,7 @@ from .blinding import latest_prediction_dirs
 from .integrity import FORWARD_CLAIM_POLICY, cell_clock, forward_claim_breach
 from .leaderboard import SKILL_COHERENCE_TOLERANCE
 from .paths import CasePaths
+from .pipeline.evaluate import scored_granted
 from .process_version import frozen_process_record, graded_in_window, window_of
 from .schemas import (
     EXPORTABLE_MODELS,
@@ -68,6 +69,7 @@ from .schemas import (
     ExportReasoningRecord,
     Outcome,
     PredictableEvent,
+    Stage,
     Stratum,
 )
 from .serialize import read_model, write_json, write_jsonl, write_raw_json, write_text
@@ -392,6 +394,11 @@ def build_tables(
                 resolved_at=outcome.resolved_at if outcome is not None else None,
                 actual_disposition=outcome.actual_disposition if outcome is not None else None,
                 actual_granted=outcome.actual_granted if outcome is not None else None,
+                scored_granted=(
+                    scored_granted(prediction, outcome, interim=stage == Stage.interim)
+                    if outcome is not None
+                    else None
+                ),
                 disposition_basis=outcome.disposition_basis if outcome is not None else None,
                 stratum=counted_strata[0] if counted_strata else None,
                 scored=bool(counted_strata),
@@ -782,7 +789,8 @@ mean Brier and prior-Term skill, given its rules:
 - Accuracy is the mean of `correct`; mean Brier the mean of `brier_score`. A
   per-petition figure is null where the judges of one petition disagree on
   `correct`.
-- Prior-Term skill uses the baseline `(segment_base_rate - actual_granted)^2`.
+- Prior-Term skill uses the baseline `(segment_base_rate - scored_granted)^2`,
+  `scored_granted` being the binary the grading's Brier is taken against.
   A grading enters it only where its recorded `brier_skill_score` reproduces
   from its own `brier_score` and that baseline within {SKILL_COHERENCE_TOLERANCE}
   (relative and absolute), and an exact (zero) baseline is dropped. Skill is a

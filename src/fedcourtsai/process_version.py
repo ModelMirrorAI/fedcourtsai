@@ -223,6 +223,16 @@ HARNESS_CERT_ANCHOR_FROM = "proc-v9"
 # earlier label keeps the grading-time pool through any re-grade.
 PINNED_CERT_ANCHOR_FROM = "proc-v15"
 
+# The first label whose **terminal-fallback** cert gradings also take a
+# harness-stamped skill record: a cert grading whose scored prediction froze no
+# band is scored against the terminal band the evaluate cell's own provisioned
+# `record/context.json` carries, pooled by the scorer's own pooler over the
+# terminal rate (`cli._terminal_skill_record_for`), rather than the evaluator's
+# transcription of the rendered `metrics/statpack.md` table. Keyed on the
+# grading's label like HARNESS_CERT_ANCHOR_FROM, so a grading stamped under an
+# earlier label keeps the evaluator's terminal record through any re-grade.
+HARNESS_TERMINAL_ANCHOR_FROM = "proc-v17"
+
 # The first label whose predict prompt elicits the authorship forecast, the
 # label under which every declared moment names its authorship set
 # (`cert-v3`, `interim-v2`, `merits-v2`). A cell stamped under an earlier label
@@ -230,6 +240,17 @@ PINNED_CERT_ANCHOR_FROM = "proc-v15"
 # (`pipeline.claims.declared_claim_set_for`), so the moment table's advance
 # never relabels a committed grading.
 AUTHORSHIP_CLAIMS_FROM = "proc-v12"
+
+# The first label whose **interim** cells are scored on the finer interim
+# reading (`Outcome.interim_reading` / `interim_granted`): a partial grant scores
+# as a grant, and an application dismissed or denied as moot leaves the scored
+# set and the base-rate denominator (`pipeline.evaluate.scored_granted`,
+# `pipeline.base_rates.interim_base_rate`'s `finer` pool). Keyed on the **scored
+# prediction's** label, like AUTHORSHIP_CLAIMS_FROM, because what the predict
+# prompt told the cell its probability means is what it is scored against: a
+# cell stamped under an earlier label keeps the registered reading through any
+# later re-grade.
+FINER_INTERIM_READING_FROM = "proc-v17"
 
 _LABEL_PATTERN = re.compile(r"proc-v(\d+)")
 
@@ -259,6 +280,19 @@ def asked_authorship_claims(label: str | None, *, states_distributions: bool) ->
     return ordinal is not None and threshold is not None and ordinal >= threshold
 
 
+def scores_finer_interim_reading(label: str | None) -> bool:
+    """Whether an interim cell whose prediction was stamped under ``label`` takes the finer reading.
+
+    True from :data:`FINER_INTERIM_READING_FROM` on. False for an earlier label,
+    for an unstamped record (``None``) and for a label that is not a ``proc-vN``
+    at all, so an unrecognised label keeps the registered reading rather than
+    acquiring a new scoring rule by accident.
+    """
+    ordinal = label_ordinal(label)
+    threshold = label_ordinal(FINER_INTERIM_READING_FROM)
+    return ordinal is not None and threshold is not None and ordinal >= threshold
+
+
 def harness_stamps_cert_anchor(label: str | None) -> bool:
     """Whether a cert grading stamped under ``label`` takes the harness's skill record.
 
@@ -269,6 +303,18 @@ def harness_stamps_cert_anchor(label: str | None) -> bool:
     """
     ordinal = label_ordinal(label)
     threshold = label_ordinal(HARNESS_CERT_ANCHOR_FROM)
+    return ordinal is not None and threshold is not None and ordinal >= threshold
+
+
+def harness_stamps_terminal_anchor(label: str | None) -> bool:
+    """Whether a terminal-fallback cert grading stamped under ``label`` is the harness's.
+
+    True from :data:`HARNESS_TERMINAL_ANCHOR_FROM` on. False for an earlier
+    label, for an unstamped record (``None``), and for a label that is not a
+    ``proc-vN`` at all, exactly as :func:`harness_stamps_cert_anchor` reads it.
+    """
+    ordinal = label_ordinal(label)
+    threshold = label_ordinal(HARNESS_TERMINAL_ANCHOR_FROM)
     return ordinal is not None and threshold is not None and ordinal >= threshold
 
 

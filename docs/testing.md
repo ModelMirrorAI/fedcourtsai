@@ -25,7 +25,7 @@ it drives provision → predict → evaluate (blinded, then un-aliased) → `val
 network, so a broken predict/evaluate cell fails in the gate in seconds. It covers every
 predicted stage — a cert petition, and the opt-in CVSG docket whose later-moment cert
 cell answers the same `cert-v3` claim set; the fixture's substantive stay application,
-whose interim cell answers the four `interim-v2` binary claims and carries a Brier score but no
+whose interim cell answers the four `interim-v3` binary claims and carries a Brier score but no
 segment baseline; and its granted docket,
 whose merits cell carries a judgment with its mandatory vote block, the one declared
 `merits-v2` binary claim with its two authorship distributions, and the two declared `semantic-v1` propositions its grader answers

@@ -532,7 +532,10 @@ salience:
   # a change re-bases every published skill number at once. The authorship
   # claims' baselines (docs/outcome-decomposition.md, *The authorship claims*)
   # pool under the same window; the per-opinion record starts at OT2020, so
-  # there it reaches back at most to that Term.
+  # there it reaches back at most to that Term. The interim pool reads it
+  # before the OT2027 application Term only; from that Term the interim pool is
+  # its own registered window, the three Terms before the cell's
+  # (`pipeline.base_rates.INTERIM_LOOKBACK_TERMS`), which this knob does not move.
   base_rate_lookback_terms: 10
   # Cap on interim-docket tournament slots (stays, injunctions — docs/salience.md
   # "The interim docket"). Defined INSIDE N by the selection pass

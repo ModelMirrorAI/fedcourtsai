@@ -507,9 +507,13 @@ stays outside the gate:
   re-pool stands down for nearly every cell: it verifies an off-cycle build,
   and what holds the committed figure is the stamp itself. A re-grade keeps
   the anchor it was first stamped with. An
-  earlier label's cert grading, and a cert cell on the terminal fallback (no
-  frozen band, so the band is re-derived from the corpus row), keep the
-  evaluator's transcription, held by the coherence check alone.
+  earlier label's cert grading keeps the evaluator's transcription, held by
+  the coherence check alone, and so does a cert cell on the terminal fallback
+  (no frozen band) graded before `proc-v17`. From `proc-v17` the stamp writes
+  the terminal fallback's record too, pooled over the terminal band in the
+  evaluate cell's own provisioned record. That band is in no committed
+  record, so the board does not re-pool it, and the coherence check is what
+  holds it there as well.
 
   **One grading per cell per judge.** A re-graded cell commits a second
   `evaluation.json` beside the first, and both describe one observation, so
@@ -1168,7 +1172,7 @@ stays outside the gate:
 
   **Counts and comparability.** The population is the **cert stage's first
   moment's** cells: the board never blends stages or moments, so although the
-  other two stages declare their own sets (`interim-v2` on every interim
+  other two stages declare their own sets (`interim-v3` on every interim
   moment, `merits-v2` on every merits moment), a non-cert cell's block sits
   outside this surface (and
   outside its absence counts) entirely until a per-stage claim surface exists. The reporting unit is the **event**: every
@@ -1759,7 +1763,10 @@ practice) or a dismissal as moot — segments into a third, `procedural` stratum
 regardless of timing (the outcome's `disposition_basis` marks it at
 resolution). Its aggregates are reported per predictor but never enter the
 ranking: scoring them as merits calls would conflate cert-worthiness
-calibration with vacatur-practice prediction.
+calibration with vacatur-practice prediction. An interim cell whose scored
+prediction takes the finer interim reading (`proc-v17` on) is not scored at
+all when its application was dismissed or denied as moot: its Brier,
+`correct` and skill are null, so it lands in this stratum with no score.
 
 **The stage axis.** Orthogonal to the strata runs the event's decision
 **stage** (cert / interim / merits — the `event.yaml` vocabulary), and within a
@@ -1782,7 +1789,13 @@ decision standards and support no cross-cell claim. Skill scores appear only
 where a scored base rate exists for the stage. All three now have one. The
 **interim stage's** is the statpack interim section's substantive grant rate,
 pooled over application Terms strictly before the case's own
-(`pipeline.base_rates.interim_base_rate`), subject to its own per-pool floor and
+(`pipeline.base_rates.interim_base_rate`) — over the finer counts
+(`finer_granted` / `finer_resolved`) for a cell whose scored prediction takes
+the finer interim reading, each cell's baseline paired with the binary its
+Brier was taken against, and a pooled figure spanning the change naming both
+windows in its composition; from the OT2027 application Term, the three Terms
+before the cell's own over the widened ask vocabulary
+(`base_rates.INTERIM_LOOKBACK_TERMS`, `docs/salience.md`) — subject to its own per-pool floor and
 carrying the selection caveats registered in
 [`docs/salience.md`](../docs/salience.md) — notably that the pool is the whole
 substantive slice while the scored cells are reserve-selected on the escalation

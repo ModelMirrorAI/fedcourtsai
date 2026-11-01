@@ -225,6 +225,7 @@ PASSES: Mapping[str, RepairPass] = {
         _bounded("amicus-rederive", "--max-changes"),
         _bounded("cert-amicus-rederive", "--max-changes"),
         _bounded("salience-cert-backfill", "--max-fills"),
+        _bounded("application-reread", "--max-changes"),
         RepairPass("regrade-stale", ("regrade",), target_kind="cells"),
         _bounded(
             "opinion-votes", "--max-stamps", (*_HANDOFF, "votes"), options=("replace-differing",)
@@ -354,6 +355,11 @@ PERSIST: Mapping[str, Persist] = {
         message="repair: back-fill the sal-v5 cert columns",
         label="salience-cert-backfill pointer",
         unchanged="The sal-v5 cert columns already filled; nothing to persist.",
+    ),
+    "application-reread": Persist(
+        message="repair: re-read the resolved applications' interim readings and asks",
+        label="application-reread pointer",
+        unchanged="Interim readings and asks already filled; nothing to persist.",
     ),
 }
 

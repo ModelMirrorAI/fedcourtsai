@@ -1795,6 +1795,7 @@ passes, commits from the same record.
 | `amicus-rederive` | `rederive-amicus-briefs` | `--max-changes` | — | — |
 | `cert-amicus-rederive` | `rederive-cert-amicus-briefs` | `--max-changes` (rows written: the dry run's `total_changes`, fills plus raises) | — | — |
 | `salience-cert-backfill` | `backfill-salience-cert-columns` | `--max-fills` (column fills across the three columns: the dry run's `total_fills`, not rows) | — | — |
+| `application-reread` | `reread-applications` | `--max-changes` (column values written: the dry run's `total_changes`, fills plus moves over both columns) | — | — |
 | `regrade-stale` | `stamp-cell --regrade` | — | cell list, **required in both modes** | — |
 | `opinion-votes` | `stamp-opinion-votes` (split: `--emit-corpus-projection`, `--projection --plan-out`, `--from-plan`) | `--max-stamps` (outcomes stamped, new records and replacements together) | — | `replace-differing` |
 | `order-votes` | `stamp-order-votes` (split, as above) | `--max-stamps` (outcomes stamped, new records and replacements together) | — | `replace-differing` |
@@ -2381,6 +2382,18 @@ gh workflow run run-repair.yml --ref main \
   -f repair=salience-cert-backfill -f repair_mode=dry-run
 gh workflow run run-repair.yml --ref main \
   -f repair=salience-cert-backfill -f repair_mode=apply -f repair_bound=<the ledger's total_fills>
+
+# Fill the `interim_reading` column (the finer interim reading) on the resolved
+# application rows the poll no longer reaches, re-reading each row's newest live
+# snapshot with the function ingest calls. A NULL is filled and a differing
+# stored value overwritten (`moved`, each listed). Corpus only; no outcome moves.
+# Read `unobservable` first, then `no_reading` (rows the finer pool will count
+# `finer_unread`). The bound is the ledger's `total_changes`. Re-dispatching in
+# `dry-run` after the apply is the control: it must report `total_changes = 0`.
+gh workflow run run-repair.yml --ref main \
+  -f repair=application-reread -f repair_mode=dry-run
+gh workflow run run-repair.yml --ref main \
+  -f repair=application-reread -f repair_mode=apply -f repair_bound=<the ledger's total_changes>
 
 # The vote writer stamps committed outcomes from the Court's documents; each
 # pass's bound is the dry run's "would stamp N", in the handoff-parse job's

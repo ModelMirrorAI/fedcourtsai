@@ -116,7 +116,7 @@ from .cert_signals import entry_date as _parse_entry_date
 # queue admits (:func:`interim_signals.is_predictable_application`), and so a
 # change to either moves both. The import direction is safe — `interim_signals`
 # reaches only `schemas` and `cert_signals`, neither of which reaches here.
-from .interim_signals import ApplicationKind, application_kind, is_response_filed_entry
+from .interim_signals import ApplicationKind, application_kind_for_term, is_response_filed_entry
 
 # The merits lane's reading of which entry is each side's brief. Imported rather
 # than restated so the selector fetches exactly the filing the merits signal
@@ -897,14 +897,21 @@ def _entry_link(
     return None
 
 
-def _is_application_entry(text: str) -> bool:
+def _application_term(payload: Mapping[str, Any]) -> int | None:
+    """The application Term a live payload's own number carries, or ``None``."""
+    return corpus.scotus_application_term_year(str(payload.get("CaseNumber") or ""))
+
+
+def _is_application_entry(text: str, term: int | None) -> bool:
     """Whether an entry is an application's own submission, seeking relief.
 
     Two conditions, and the second is a **positive** test rather than an
     exclusion list. The entry must be a submission
     (:data:`_APPLICATION_ENTRY_RE`), and its ask must read *substantive* to
-    :func:`~fedcourtsai.pipeline.interim_signals.application_kind` — the same
-    predicate :func:`~fedcourtsai.pipeline.interim_signals.is_predictable_application`
+    :func:`~fedcourtsai.pipeline.interim_signals.application_kind_for_term` at
+    the docket's own Term (``term``) — the reading ingest stores as
+    ``application_kind``, which the predicate
+    :func:`~fedcourtsai.pipeline.interim_signals.is_predictable_application`
     gates the interim predict queue on, so the selector fetches exactly the
     class that mints cells and nothing else.
 
@@ -936,7 +943,7 @@ def _is_application_entry(text: str) -> bool:
     """
     return (
         _APPLICATION_ENTRY_RE.search(text) is not None
-        and application_kind([text]) is ApplicationKind.substantive
+        and application_kind_for_term([text], term) is ApplicationKind.substantive
     )
 
 
@@ -1132,6 +1139,7 @@ def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:  # noqa: PLR09
     # sg-brief moment, so the stored document and the moment are one entry.
     # Positions count the mapping entries alone, as `proceedings_entries` does.
     sg_position = sg_invited_brief_position(payload)
+    term = _application_term(payload)
     position = -1
     for entry in payload.get("ProceedingsandOrder") or []:
         if not isinstance(entry, Mapping):
@@ -1145,7 +1153,7 @@ def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:  # noqa: PLR09
             if found is not None:
                 petition = DocumentRef(KIND_PETITION, found[0], entry_date, found[1])
             appendix = appendix or _appendix_ref(entry, entry_date, filing=petition)
-        elif application is None and _is_application_entry(text):
+        elif application is None and _is_application_entry(text, term):
             # No any-link fallback here: an application entry's other links are
             # the covering `Written Request` and `Proof of Service`, which are
             # not the filing (:func:`_entry_link`).
@@ -1846,13 +1854,14 @@ def primary_entry_matched(payload: Mapping[str, Any], *, kind: str) -> bool:
     :data:`KIND_APPLICATION`); any other kind matches nothing, since no other
     kind opens a docket.
     """
+    term = _application_term(payload)
     for entry in payload.get("ProceedingsandOrder") or []:
         if not isinstance(entry, Mapping):
             continue
         text = str(entry.get("Text") or "")
         if kind == KIND_PETITION and _CASE_OPENING_ENTRY_RE.search(text):
             return True
-        if kind == KIND_APPLICATION and _is_application_entry(text):
+        if kind == KIND_APPLICATION and _is_application_entry(text, term):
             return True
     return False
 

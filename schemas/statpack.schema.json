@@ -290,6 +290,62 @@
           "title": "Extension",
           "type": "integer"
         },
+        "finer_granted": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Of `finer_resolved`, the applications the finer reading grants in whole or in part (`granted`, `granted-in-part`). Absent with `finer_resolved`",
+          "title": "Finer Granted"
+        },
+        "finer_moot": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Resolved substantive applications the finer reading names `dismissed-moot` \u2014 out of the finer pool's numerator and denominator, because a moot application decided nothing about its ask. Absent with `finer_resolved`",
+          "title": "Finer Moot"
+        },
+        "finer_resolved": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The resolved substantive applications the **finer** interim reading scores (the corpus `interim_reading` column, `interim_signals.interim_reading_granted`): `substantive_resolved` less the moot dismissals (`finer_moot`) and the rows with no stored finer reading (`finer_unread`). The denominator of the pool a cell stamped under `process_version.FINER_INTERIM_READING_FROM` or later is scored against. Absent from a pack built before the finer reading was stored, so absent reads as unknown, never as zero",
+          "title": "Finer Resolved"
+        },
+        "finer_unread": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Resolved substantive applications with no stored finer reading (a NULL or out-of-vocabulary `interim_reading`). Non-zero means the `reread-applications` pass has not reached them, and a finer pool over this Term refuses a rate rather than count a partial Term. Absent with `finer_resolved`",
+          "title": "Finer Unread"
+        },
         "referred_to_court": {
           "default": 0,
           "description": "Substantive applications referred to the full Court rather than decided by a Circuit Justice alone",
@@ -335,7 +391,7 @@
         },
         "substantive_resolved": {
           "default": 0,
-          "description": "Substantive applications carrying a machine-readable interim disposition \u2014 the raw denominator behind `substantive_grant_rate`. An application whose disposing entry the interim vocabulary never matched stays out of the denominator, visibly unresolved, so the resolved set is selected for machine-matchable resolution text",
+          "description": "Substantive applications carrying a machine-readable interim disposition \u2014 the raw denominator behind `substantive_grant_rate`. An application whose disposing entry the interim vocabulary never matched stays out of the denominator, visibly unresolved, so the resolved set is selected for machine-matchable resolution text. Counted on the stored `application_kind`, which is the registered ask vocabulary before the OT2027 application Term and the widened one from it, so a series of these counts across that Term changes vocabulary there; the `wide_*` counts are the widened vocabulary on every Term",
           "minimum": 0,
           "title": "Substantive Resolved",
           "type": "integer"
@@ -361,6 +417,90 @@
           "minimum": 0,
           "title": "Unparsed",
           "type": "integer"
+        },
+        "wide_finer_granted": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Of `wide_finer_resolved`, the applications the finer reading grants in whole or in part. Absent with `wide_resolved`",
+          "title": "Wide Finer Granted"
+        },
+        "wide_finer_resolved": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "`finer_resolved` over the widened slice: the widened slice's resolved applications less its moot dismissals and its rows with no stored finer reading (`wide_finer_unread`). The denominator of the interim pool from `interim_signals.WIDE_APPLICATION_KIND_FROM_TERM` for a cell scored on the finer reading. Absent with `wide_resolved`",
+          "title": "Wide Finer Resolved"
+        },
+        "wide_finer_unread": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The widened slice's resolved applications with no stored finer reading \u2014 `finer_unread` over the widened slice. Absent with `wide_resolved`",
+          "title": "Wide Finer Unread"
+        },
+        "wide_granted": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Of `wide_resolved`, the applications the registered reading grants. Absent with `wide_resolved`",
+          "title": "Wide Granted"
+        },
+        "wide_resolved": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The resolved applications the **widened** ask vocabulary reads `substantive` (the corpus `application_kind_wide` column, `interim_signals.application_kind_wide`), under the registered reading's machine-readable rule \u2014 `substantive_resolved` plus the asks only the widened vocabulary reads. The registered denominator of the interim pool from `interim_signals.WIDE_APPLICATION_KIND_FROM_TERM`. Absent from a pack built before the column was stored",
+          "title": "Wide Resolved"
+        },
+        "wide_unread": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Resolved, application-parsed rows with no stored widened ask (a NULL or out-of-vocabulary `application_kind_wide`). Non-zero means the `reread-applications` pass has not reached them, and a pool over this Term that reads the widened slice refuses a rate. Absent with `wide_resolved`",
+          "title": "Wide Unread"
         },
         "with_amicus": {
           "default": 0,
@@ -405,6 +545,62 @@
           "title": "Extension",
           "type": "integer"
         },
+        "finer_granted": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Of `finer_resolved`, the applications the finer reading grants in whole or in part (`granted`, `granted-in-part`). Absent with `finer_resolved`",
+          "title": "Finer Granted"
+        },
+        "finer_moot": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Resolved substantive applications the finer reading names `dismissed-moot` \u2014 out of the finer pool's numerator and denominator, because a moot application decided nothing about its ask. Absent with `finer_resolved`",
+          "title": "Finer Moot"
+        },
+        "finer_resolved": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The resolved substantive applications the **finer** interim reading scores (the corpus `interim_reading` column, `interim_signals.interim_reading_granted`): `substantive_resolved` less the moot dismissals (`finer_moot`) and the rows with no stored finer reading (`finer_unread`). The denominator of the pool a cell stamped under `process_version.FINER_INTERIM_READING_FROM` or later is scored against. Absent from a pack built before the finer reading was stored, so absent reads as unknown, never as zero",
+          "title": "Finer Resolved"
+        },
+        "finer_unread": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Resolved substantive applications with no stored finer reading (a NULL or out-of-vocabulary `interim_reading`). Non-zero means the `reread-applications` pass has not reached them, and a finer pool over this Term refuses a rate rather than count a partial Term. Absent with `finer_resolved`",
+          "title": "Finer Unread"
+        },
         "referred_to_court": {
           "default": 0,
           "description": "Substantive applications referred to the full Court rather than decided by a Circuit Justice alone",
@@ -450,7 +646,7 @@
         },
         "substantive_resolved": {
           "default": 0,
-          "description": "Substantive applications carrying a machine-readable interim disposition \u2014 the raw denominator behind `substantive_grant_rate`. An application whose disposing entry the interim vocabulary never matched stays out of the denominator, visibly unresolved, so the resolved set is selected for machine-matchable resolution text",
+          "description": "Substantive applications carrying a machine-readable interim disposition \u2014 the raw denominator behind `substantive_grant_rate`. An application whose disposing entry the interim vocabulary never matched stays out of the denominator, visibly unresolved, so the resolved set is selected for machine-matchable resolution text. Counted on the stored `application_kind`, which is the registered ask vocabulary before the OT2027 application Term and the widened one from it, so a series of these counts across that Term changes vocabulary there; the `wide_*` counts are the widened vocabulary on every Term",
           "minimum": 0,
           "title": "Substantive Resolved",
           "type": "integer"
@@ -473,6 +669,90 @@
           "minimum": 0,
           "title": "Unparsed",
           "type": "integer"
+        },
+        "wide_finer_granted": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Of `wide_finer_resolved`, the applications the finer reading grants in whole or in part. Absent with `wide_resolved`",
+          "title": "Wide Finer Granted"
+        },
+        "wide_finer_resolved": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "`finer_resolved` over the widened slice: the widened slice's resolved applications less its moot dismissals and its rows with no stored finer reading (`wide_finer_unread`). The denominator of the interim pool from `interim_signals.WIDE_APPLICATION_KIND_FROM_TERM` for a cell scored on the finer reading. Absent with `wide_resolved`",
+          "title": "Wide Finer Resolved"
+        },
+        "wide_finer_unread": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The widened slice's resolved applications with no stored finer reading \u2014 `finer_unread` over the widened slice. Absent with `wide_resolved`",
+          "title": "Wide Finer Unread"
+        },
+        "wide_granted": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Of `wide_resolved`, the applications the registered reading grants. Absent with `wide_resolved`",
+          "title": "Wide Granted"
+        },
+        "wide_resolved": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The resolved applications the **widened** ask vocabulary reads `substantive` (the corpus `application_kind_wide` column, `interim_signals.application_kind_wide`), under the registered reading's machine-readable rule \u2014 `substantive_resolved` plus the asks only the widened vocabulary reads. The registered denominator of the interim pool from `interim_signals.WIDE_APPLICATION_KIND_FROM_TERM`. Absent from a pack built before the column was stored",
+          "title": "Wide Resolved"
+        },
+        "wide_unread": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Resolved, application-parsed rows with no stored widened ask (a NULL or out-of-vocabulary `application_kind_wide`). Non-zero means the `reread-applications` pass has not reached them, and a pool over this Term that reads the widened slice refuses a rate. Absent with `wide_resolved`",
+          "title": "Wide Unread"
         },
         "with_amicus": {
           "default": 0,

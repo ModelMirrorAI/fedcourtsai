@@ -53,6 +53,7 @@ from fedcourtsai.schemas import (
     PredictableEvent,
     Prediction,
     PredictionContext,
+    ProcessVersion,
     ResolutionSignals,
     RetrievalCall,
     RetrievalLog,
@@ -859,6 +860,101 @@ def test_stamp_evaluator_scores_the_interim_set_off_the_application_term(
     assert stamped["brier_score"] == pytest.approx(0.04)
     assert stamped["segment_base_rate"] == pytest.approx(0.10)
     assert stamped["brier_skill_score"] == pytest.approx(1 - 0.04 / 0.01)
+
+
+@pytest.mark.parametrize(
+    ("finer", "expected"),
+    [
+        # Registered `denied`, finer `granted-in-part`: scored as a grant, so
+        # (0.2 - 1)**2, `correct` 0 (a predicted denial), and the finer pool
+        # OT2025 9/50 = 0.18.
+        ("granted-in-part", (0.64, 0, 0.18, 1 - 0.64 / (0.18 - 1) ** 2)),
+        # A moot dismissal leaves the scored set: Brier, `correct` and skill
+        # null. The pool's rate is a property of the prior Terms, not of this
+        # outcome, so it is still recorded.
+        ("dismissed-moot", (None, None, 0.18, None)),
+    ],
+)
+def test_stamp_scores_a_finer_label_interim_cell_on_the_finer_reading(
+    _data_root: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    finer: str,
+    expected: tuple[float | None, int | None, float | None, float | None],
+) -> None:
+    """End to end: a finer-label prediction is stamped on `interim_granted`.
+
+    The Brier, `correct`, the pooled rate and the skill all read one target, and
+    the claim block is `interim-v3`.
+    """
+    monkeypatch.setenv("FEDCOURTS_METRICS_ROOT", str(tmp_path / "metrics"))
+    event = "evt-motion-disposition"
+    event_paths = _seed_interim_cell(_data_root, tmp_path / "metrics")
+    prediction_path = event_paths.prediction("claude-baseline", "RID")
+    prediction = read_model(prediction_path, Prediction)
+    write_json(
+        prediction_path,
+        prediction.model_copy(
+            update={
+                "process_version": ProcessVersion(
+                    label=process_version.FINER_INTERIM_READING_FROM,
+                    digest="sha256:" + "0" * 64,
+                    stamped_at=datetime(2026, 3, 2, tzinfo=UTC),
+                )
+            }
+        ),
+    )
+    outcome = read_model(event_paths.outcome, Outcome)
+    write_json(
+        event_paths.outcome,
+        outcome.model_copy(
+            update={
+                "interim_reading": finer,
+                "interim_granted": 1 if finer == "granted-in-part" else None,
+            }
+        ),
+    )
+    write_json(
+        tmp_path / "metrics" / "statpack.json",
+        StatPack(
+            corpus_rows=1,
+            interim=StatPackInterim(
+                substantive_resolved=60,
+                substantive_granted=6,
+                terms=[
+                    StatPackInterimTerm(
+                        term=2025,
+                        substantive_resolved=60,
+                        substantive_granted=6,
+                        finer_resolved=50,
+                        finer_granted=9,
+                        finer_moot=10,
+                        finer_unread=0,
+                    ),
+                ],
+            ),
+        ),
+    )
+
+    result = _stamp("evaluator", "claude-judge", 7, event, "RID")
+    assert result.exit_code == 0, result.output
+    stamped = json.loads(
+        event_paths.evaluation("claude-judge", "claude-baseline", "RID").read_text()
+    )
+    brier, correct, rate, skill = expected
+    got = (
+        stamped.get("brier_score"),
+        stamped.get("correct"),
+        stamped.get("segment_base_rate"),
+        stamped.get("brier_skill_score"),
+    )
+    assert got == (
+        pytest.approx(brier) if brier is not None else None,
+        correct,
+        pytest.approx(rate) if rate is not None else None,
+        pytest.approx(skill) if skill is not None else None,
+    )
+    assert stamped["claim_scores"]["declared_set_version"] == "interim-v3"
 
 
 def test_a_regrade_reproduces_the_interim_numbers_off_the_named_run(
