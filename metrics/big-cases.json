@@ -1,10 +1,10 @@
 {
-  "cases": 346,
+  "cases": 350,
   "cases_out_of_scope": 0,
   "cases_without_score": 1,
   "coverage": [
     {
-      "cases": 312,
+      "cases": 316,
       "n": 3
     },
     {
@@ -16,8 +16,8 @@
       "n": 1
     }
   ],
-  "current_reads": 1035,
-  "declared_no_view": 22,
+  "current_reads": 1048,
+  "declared_no_view": 23,
   "frozen_process": {
     "digests": [
       "sha256:11ddd73ac5e4ef4d883f51997f00822dd737df2c9d52b0f8f599a27aa3dde31a",
@@ -10138,6 +10138,20 @@
               "predictor_id": "codex-baseline",
               "probability": 0.24,
               "run_id": "20261031T010306Z"
+            },
+            {
+              "big_case_rationale": "If granted and decided on the merits, a ruling on whether the Texas Two-Step and Chapter 11 section 524(g) asbestos trusts require financial distress would reshape mass-tort bankruptcy practice nationwide and govern tens of thousands of tort claims.",
+              "big_case_score": 0.72,
+              "cell_path": "data/cases/scotus/9026000394/events/evt-petition-disposition/predictions/gemini-baseline/20261031T141655Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000394/events/evt-petition-disposition/predictions/gemini-baseline/20261031T141655Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.14,
+              "run_id": "20261031T141655Z"
             }
           ],
           "resolved_at": null,
@@ -12495,6 +12509,126 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "AstraZeneca UK Limited",
+      "caption": "AstraZeneca UK Limited, et al. v. Joshua Atchley, et al.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000245",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Defines post-Taamneh ATA aiding-abetting and proximate-cause limits for corporate defendants doing business with foreign governments; 21 major pharma defendants, years of litigation, Chamber amicus; but a statutory, pleading-stage question rather than a constitutional one.",
+          "big_case_score": 0.6,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261031T173439Z"
+        },
+        {
+          "big_case_rationale": "Potentially substantial consequences for terrorism victims, multinational businesses, and humanitarian operations in conflict zones, but the questions concern statutory liability and pleading rather than a broad constitutional rule.",
+          "big_case_score": 0.64,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261031T173439Z"
+        },
+        {
+          "big_case_rationale": "High-stakes Antiterrorism Act litigation against five major multinational healthcare corporations returning to the Court after a 2024 GVR, testing the post-Twitter v. Taamneh boundaries of secondary and direct terrorism liability for companies operating in conflict zones.",
+          "big_case_score": 0.72,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261031T173439Z"
+        }
+      ],
+      "docket_id": 9026000245,
+      "docket_number": "26-245",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-245.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Defines post-Taamneh ATA aiding-abetting and proximate-cause limits for corporate defendants doing business with foreign governments; 21 major pharma defendants, years of litigation, Chamber amicus; but a statutory, pleading-stage question rather than a constitutional one.",
+              "big_case_score": 0.6,
+              "cell_path": "data/cases/scotus/9026000245/events/evt-petition-disposition/predictions/claude-baseline/20261031T173439Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000245/events/evt-petition-disposition/predictions/claude-baseline/20261031T173439Z",
+              "confidence": 0.6,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.22,
+              "run_id": "20261031T173439Z"
+            },
+            {
+              "big_case_rationale": "Potentially substantial consequences for terrorism victims, multinational businesses, and humanitarian operations in conflict zones, but the questions concern statutory liability and pleading rather than a broad constitutional rule.",
+              "big_case_score": 0.64,
+              "cell_path": "data/cases/scotus/9026000245/events/evt-petition-disposition/predictions/codex-baseline/20261031T173439Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000245/events/evt-petition-disposition/predictions/codex-baseline/20261031T173439Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.24,
+              "run_id": "20261031T173439Z"
+            },
+            {
+              "big_case_rationale": "High-stakes Antiterrorism Act litigation against five major multinational healthcare corporations returning to the Court after a 2024 GVR, testing the post-Twitter v. Taamneh boundaries of secondary and direct terrorism liability for companies operating in conflict zones.",
+              "big_case_score": 0.72,
+              "cell_path": "data/cases/scotus/9026000245/events/evt-petition-disposition/predictions/gemini-baseline/20261031T173439Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000245/events/evt-petition-disposition/predictions/gemini-baseline/20261031T173439Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.14,
+              "run_id": "20261031T173439Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "AstraZeneca UK Limited, et al. v. Joshua Atchley, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.6533,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-08-26",
+      "n": 3,
+      "other_party": "Atchley",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up AstraZeneca UK Limited's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "AstraZeneca UK Limited's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-11-06",
+        "kind": "conference"
+      },
+      "score_max": 0.72,
+      "score_min": 0.6,
+      "score_range": 0.12,
+      "short_caption": "AstraZeneca UK Limited v. Atchley",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Rio Grande Foundation",
       "caption": "Rio Grande Foundation v. Maggie Toulouse Oliver, in Her Official Capacity as Secretary of State of New Mexico",
       "caption_event_id": "evt-petition-disposition",
@@ -13067,6 +13201,126 @@
       "score_min": 0.55,
       "score_range": 0.2,
       "short_caption": "Cantero v. Bank of America",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Palestine Liberation Organization",
+      "caption": "Palestine Liberation Organization, et al. v. Mark I. Sokolow, et al.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000372",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "A $655.5M Anti-Terrorism Act judgment against the PLO/PA, a follow-on to Fuld v. PLO, with a novel question about reviving a judgment vacated for lack of personal jurisdiction; significant but sequel-like and fact-bound.",
+          "big_case_score": 0.45,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261031T173439Z"
+        },
+        {
+          "big_case_rationale": "A $655.5 million terrorism judgment against the PLO and Palestinian Authority, with substantial asserted foreign-policy consequences and an important question about reviving judgments after a jurisdictional dismissal; the unusual statutory history limits its general reach.",
+          "big_case_score": 0.7,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261031T173439Z"
+        },
+        {
+          "big_case_rationale": "If granted and decided on the merits, the case tests the constitutional limits of federal appellate mandate-recall power under Article III, Plaut v. Spendthrift Farm, and Pennoyer v. Neff when reinstating a $655.5 million Anti-Terrorism Act judgment against the PLO and Palestinian Authority previously vacated for lack of personal jurisdiction.",
+          "big_case_score": 0.78,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261031T173439Z"
+        }
+      ],
+      "docket_id": 9026000372,
+      "docket_number": "26-372",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-372.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A $655.5M Anti-Terrorism Act judgment against the PLO/PA, a follow-on to Fuld v. PLO, with a novel question about reviving a judgment vacated for lack of personal jurisdiction; significant but sequel-like and fact-bound.",
+              "big_case_score": 0.45,
+              "cell_path": "data/cases/scotus/9026000372/events/evt-petition-disposition/predictions/claude-baseline/20261031T173439Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000372/events/evt-petition-disposition/predictions/claude-baseline/20261031T173439Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.04,
+              "run_id": "20261031T173439Z"
+            },
+            {
+              "big_case_rationale": "A $655.5 million terrorism judgment against the PLO and Palestinian Authority, with substantial asserted foreign-policy consequences and an important question about reviving judgments after a jurisdictional dismissal; the unusual statutory history limits its general reach.",
+              "big_case_score": 0.7,
+              "cell_path": "data/cases/scotus/9026000372/events/evt-petition-disposition/predictions/codex-baseline/20261031T173439Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000372/events/evt-petition-disposition/predictions/codex-baseline/20261031T173439Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.04,
+              "run_id": "20261031T173439Z"
+            },
+            {
+              "big_case_rationale": "If granted and decided on the merits, the case tests the constitutional limits of federal appellate mandate-recall power under Article III, Plaut v. Spendthrift Farm, and Pennoyer v. Neff when reinstating a $655.5 million Anti-Terrorism Act judgment against the PLO and Palestinian Authority previously vacated for lack of personal jurisdiction.",
+              "big_case_score": 0.78,
+              "cell_path": "data/cases/scotus/9026000372/events/evt-petition-disposition/predictions/gemini-baseline/20261031T173439Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000372/events/evt-petition-disposition/predictions/gemini-baseline/20261031T173439Z",
+              "confidence": 0.9,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.02,
+              "run_id": "20261031T173439Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Palestine Liberation Organization, et al. v. Mark I. Sokolow, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.6433,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-09-18",
+      "n": 3,
+      "other_party": "Sokolow",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Palestine Liberation Organization's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Palestine Liberation Organization's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-11-13",
+        "kind": "conference"
+      },
+      "score_max": 0.78,
+      "score_min": 0.45,
+      "score_range": 0.33,
+      "short_caption": "Palestine Liberation Organization v. Sokolow",
       "status": "pending"
     },
     {
@@ -16934,6 +17188,126 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Nielsen",
+      "caption": "The Nielsen Company (US), LLC v. Cumulus Media New Holdings Inc.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000370",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Revives the long-standing LePage's v. PeaceHealth split on bundled discounts under Sherman Act Section 2; significant for antitrust doctrine and multiproduct sellers, though a private commercial dispute on a preliminary-injunction record.",
+          "big_case_score": 0.55,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261031T010306Z"
+        },
+        {
+          "big_case_rationale": "A rule governing above-cost bundled pricing and constructive tying could affect multiproduct businesses well beyond radio ratings, although this is an interlocutory private commercial dispute rather than a nationwide governmental program.",
+          "big_case_score": 0.58,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261031T010306Z"
+        },
+        {
+          "big_case_rationale": "Significant Sherman Act Section 2 question on whether a standalone price alongside a discounted bundle can constitute a 'constructive tie' without below-cost pricing, affecting multiproduct firms broadly if decided on the merits.",
+          "big_case_score": 0.65,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261031T141655Z"
+        }
+      ],
+      "docket_id": 9026000370,
+      "docket_number": "26-370",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-370.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Revives the long-standing LePage's v. PeaceHealth split on bundled discounts under Sherman Act Section 2; significant for antitrust doctrine and multiproduct sellers, though a private commercial dispute on a preliminary-injunction record.",
+              "big_case_score": 0.55,
+              "cell_path": "data/cases/scotus/9026000370/events/evt-petition-disposition/predictions/claude-baseline/20261031T010306Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000370/events/evt-petition-disposition/predictions/claude-baseline/20261031T010306Z",
+              "confidence": 0.6,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.12,
+              "run_id": "20261031T010306Z"
+            },
+            {
+              "big_case_rationale": "A rule governing above-cost bundled pricing and constructive tying could affect multiproduct businesses well beyond radio ratings, although this is an interlocutory private commercial dispute rather than a nationwide governmental program.",
+              "big_case_score": 0.58,
+              "cell_path": "data/cases/scotus/9026000370/events/evt-petition-disposition/predictions/codex-baseline/20261031T010306Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000370/events/evt-petition-disposition/predictions/codex-baseline/20261031T010306Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.14,
+              "run_id": "20261031T010306Z"
+            },
+            {
+              "big_case_rationale": "Significant Sherman Act Section 2 question on whether a standalone price alongside a discounted bundle can constitute a 'constructive tie' without below-cost pricing, affecting multiproduct firms broadly if decided on the merits.",
+              "big_case_score": 0.65,
+              "cell_path": "data/cases/scotus/9026000370/events/evt-petition-disposition/predictions/gemini-baseline/20261031T141655Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000370/events/evt-petition-disposition/predictions/gemini-baseline/20261031T141655Z",
+              "confidence": 0.78,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.04,
+              "run_id": "20261031T141655Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "The Nielsen Company (US), LLC v. Cumulus Media New Holdings Inc."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.5933,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-09-17",
+      "n": 3,
+      "other_party": "Cumulus Media New Holdings",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Nielsen's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Nielsen's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-11-13",
+        "kind": "conference"
+      },
+      "score_max": 0.65,
+      "score_min": 0.55,
+      "score_range": 0.1,
+      "short_caption": "Nielsen v. Cumulus Media New Holdings",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Fairfield Sentry",
       "caption": "Fairfield Sentry Ltd., et al. v. Citibank NA London, et al.",
       "caption_event_id": "evt-petition-disposition",
@@ -18873,103 +19247,6 @@
       "score_range": 0.23,
       "short_caption": "Moats v. National Credit Union Administration Board",
       "status": "resolved"
-    },
-    {
-      "asking_declined": null,
-      "asking_party": "Nielsen",
-      "caption": "The Nielsen Company (US), LLC v. Cumulus Media New Holdings Inc.",
-      "caption_event_id": "evt-petition-disposition",
-      "case_id": "scotus/9026000370",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "Revives the long-standing LePage's v. PeaceHealth split on bundled discounts under Sherman Act Section 2; significant for antitrust doctrine and multiproduct sellers, though a private commercial dispute on a preliminary-injunction record.",
-          "big_case_score": 0.55,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20261031T010306Z"
-        },
-        {
-          "big_case_rationale": "A rule governing above-cost bundled pricing and constructive tying could affect multiproduct businesses well beyond radio ratings, although this is an interlocutory private commercial dispute rather than a nationwide governmental program.",
-          "big_case_score": 0.58,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20261031T010306Z"
-        }
-      ],
-      "docket_id": 9026000370,
-      "docket_number": "26-370",
-      "docket_number_source": "case_id",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-370.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-petition-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "Revives the long-standing LePage's v. PeaceHealth split on bundled discounts under Sherman Act Section 2; significant for antitrust doctrine and multiproduct sellers, though a private commercial dispute on a preliminary-injunction record.",
-              "big_case_score": 0.55,
-              "cell_path": "data/cases/scotus/9026000370/events/evt-petition-disposition/predictions/claude-baseline/20261031T010306Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000370/events/evt-petition-disposition/predictions/claude-baseline/20261031T010306Z",
-              "confidence": 0.6,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "claude-baseline",
-              "probability": 0.12,
-              "run_id": "20261031T010306Z"
-            },
-            {
-              "big_case_rationale": "A rule governing above-cost bundled pricing and constructive tying could affect multiproduct businesses well beyond radio ratings, although this is an interlocutory private commercial dispute rather than a nationwide governmental program.",
-              "big_case_score": 0.58,
-              "cell_path": "data/cases/scotus/9026000370/events/evt-petition-disposition/predictions/codex-baseline/20261031T010306Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000370/events/evt-petition-disposition/predictions/codex-baseline/20261031T010306Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.14,
-              "run_id": "20261031T010306Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "The Nielsen Company (US), LLC v. Cumulus Media New Holdings Inc."
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.565,
-      "moment": "evt-petition-disposition",
-      "moment_opened_at": "2026-09-17",
-      "n": 2,
-      "other_party": "Cumulus Media New Holdings",
-      "outcome_lines": [
-        {
-          "action": "granted",
-          "line": "The Court takes up Nielsen's case. A grant alone decides nothing yet about who is right.",
-          "side": "granted"
-        },
-        {
-          "action": "denied",
-          "line": "Nielsen's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
-          "side": "not-granted"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-13",
-        "kind": "conference"
-      },
-      "score_max": 0.58,
-      "score_min": 0.55,
-      "score_range": 0.03,
-      "short_caption": "Nielsen v. Cumulus Media New Holdings",
-      "status": "pending"
     },
     {
       "asking_declined": null,
@@ -24050,6 +24327,126 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Jack Rabbit",
+      "caption": "Jack Rabbit, LLC v. Visa Inc., et al.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000420",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Allocation of a $5.6B interchange-fee settlement fund touches millions of merchants, but the question as decided below is contract interpretation of one settlement; the broader uninjured-class-member issue is the stake the petition borrows.",
+          "big_case_score": 0.3,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261031T173439Z"
+        },
+        {
+          "big_case_rationale": "Allocation of a $5.6 billion merchant settlement has substantial commercial stakes; a ruling on injury and statutory eligibility in settlement classes could affect class actions nationally, although this vehicle concerns a specialized settlement-enforcement order.",
+          "big_case_score": 0.62,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261031T173439Z"
+        },
+        {
+          "big_case_rationale": "If decided on the merits, a ruling on Article III and Rule 23 limits on settlement-class membership and claims administration in the $5.6 billion Payment Card Interchange Fee MDL would have significant commercial and class-action impact, moderated by the case's idiosyncratic post-judgment contract-enforcement posture.",
+          "big_case_score": 0.55,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261031T173439Z"
+        }
+      ],
+      "docket_id": 9026000420,
+      "docket_number": "26-420",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-420.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Allocation of a $5.6B interchange-fee settlement fund touches millions of merchants, but the question as decided below is contract interpretation of one settlement; the broader uninjured-class-member issue is the stake the petition borrows.",
+              "big_case_score": 0.3,
+              "cell_path": "data/cases/scotus/9026000420/events/evt-petition-disposition/predictions/claude-baseline/20261031T173439Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000420/events/evt-petition-disposition/predictions/claude-baseline/20261031T173439Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.012,
+              "run_id": "20261031T173439Z"
+            },
+            {
+              "big_case_rationale": "Allocation of a $5.6 billion merchant settlement has substantial commercial stakes; a ruling on injury and statutory eligibility in settlement classes could affect class actions nationally, although this vehicle concerns a specialized settlement-enforcement order.",
+              "big_case_score": 0.62,
+              "cell_path": "data/cases/scotus/9026000420/events/evt-petition-disposition/predictions/codex-baseline/20261031T173439Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000420/events/evt-petition-disposition/predictions/codex-baseline/20261031T173439Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.03,
+              "run_id": "20261031T173439Z"
+            },
+            {
+              "big_case_rationale": "If decided on the merits, a ruling on Article III and Rule 23 limits on settlement-class membership and claims administration in the $5.6 billion Payment Card Interchange Fee MDL would have significant commercial and class-action impact, moderated by the case's idiosyncratic post-judgment contract-enforcement posture.",
+              "big_case_score": 0.55,
+              "cell_path": "data/cases/scotus/9026000420/events/evt-petition-disposition/predictions/gemini-baseline/20261031T173439Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000420/events/evt-petition-disposition/predictions/gemini-baseline/20261031T173439Z",
+              "confidence": 0.95,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.01,
+              "run_id": "20261031T173439Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Jack Rabbit, LLC v. Visa Inc., et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.49,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-09-25",
+      "n": 3,
+      "other_party": "Visa",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Jack Rabbit's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Jack Rabbit's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-11-13",
+        "kind": "conference"
+      },
+      "score_max": 0.62,
+      "score_min": 0.3,
+      "score_range": 0.32,
+      "short_caption": "Jack Rabbit v. Visa",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Aldridge",
       "caption": "Jerry Aldridge, et al. v. Regions Bank",
       "caption_event_id": "evt-order-cvsg-disposition",
@@ -25135,173 +25532,6 @@
       "score_min": 0.35,
       "score_range": 0.21,
       "short_caption": "Radiall USA v. Ramadei",
-      "status": "pending"
-    },
-    {
-      "asking_declined": null,
-      "asking_party": "Thomas Douglas Arthur",
-      "caption": "Thomas Douglas Arthur v. Alabama",
-      "caption_event_id": "evt-brief-response-disposition",
-      "case_id": "scotus/72406996",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "Single capital execution, but the linked petition (16-595) raises a Hurst-based challenge to Alabama's judicial-override sentencing that reaches other Alabama death sentences.",
-          "big_case_score": 0.3,
-          "event_id": "evt-brief-response-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20261030T230229Z"
-        },
-        {
-          "big_case_rationale": "An execution stay has irreversible individual stakes, but the docket alone establishes no broader doctrinal question.",
-          "big_case_score": 0.55,
-          "event_id": "evt-brief-response-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20261030T230229Z"
-        },
-        {
-          "big_case_rationale": "Capital execution-eve stay application challenging Alabama's judicial-override death-sentencing scheme under Hurst v. Florida on an eighth successive state postconviction petition, paired with a parallel method-of-execution stay request.",
-          "big_case_score": 0.55,
-          "event_id": "evt-brief-response-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20261030T230229Z"
-        }
-      ],
-      "docket_id": 72406996,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-brief-response-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "Single capital execution, but the linked petition (16-595) raises a Hurst-based challenge to Alabama's judicial-override sentencing that reaches other Alabama death sentences.",
-              "big_case_score": 0.3,
-              "cell_path": "data/cases/scotus/72406996/events/evt-brief-response-disposition/predictions/claude-baseline/20261030T230229Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/72406996/events/evt-brief-response-disposition/predictions/claude-baseline/20261030T230229Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "claude-baseline",
-              "probability": 0.25,
-              "run_id": "20261030T230229Z"
-            },
-            {
-              "big_case_rationale": "An execution stay has irreversible individual stakes, but the docket alone establishes no broader doctrinal question.",
-              "big_case_score": 0.55,
-              "cell_path": "data/cases/scotus/72406996/events/evt-brief-response-disposition/predictions/codex-baseline/20261030T230229Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/72406996/events/evt-brief-response-disposition/predictions/codex-baseline/20261030T230229Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.16,
-              "run_id": "20261030T230229Z"
-            },
-            {
-              "big_case_rationale": "Capital execution-eve stay application challenging Alabama's judicial-override death-sentencing scheme under Hurst v. Florida on an eighth successive state postconviction petition, paired with a parallel method-of-execution stay request.",
-              "big_case_score": 0.55,
-              "cell_path": "data/cases/scotus/72406996/events/evt-brief-response-disposition/predictions/gemini-baseline/20261030T230229Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/72406996/events/evt-brief-response-disposition/predictions/gemini-baseline/20261030T230229Z",
-              "confidence": 0.65,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.28,
-              "run_id": "20261030T230229Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Thomas Douglas Arthur v. Alabama"
-        },
-        {
-          "actual_disposition": null,
-          "event_id": "evt-motion-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "A single capital execution-day stay, but tied to a live post-Hurst challenge to Alabama's judicial-override sentencing scheme (linked cert petition 16-595), which reaches many Alabama death sentences.",
-              "big_case_score": 0.35,
-              "cell_path": "data/cases/scotus/72406996/events/evt-motion-disposition/predictions/claude-baseline/20261030T230229Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/72406996/events/evt-motion-disposition/predictions/claude-baseline/20261030T230229Z",
-              "confidence": 0.6,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "claude-baseline",
-              "probability": 0.2,
-              "run_id": "20261030T230229Z"
-            },
-            {
-              "big_case_rationale": "A requested stay of execution has irreversible individual stakes, but the application and linked petition are unavailable, so a broader doctrinal or national consequence cannot be established.",
-              "big_case_score": 0.55,
-              "cell_path": "data/cases/scotus/72406996/events/evt-motion-disposition/predictions/codex-baseline/20261030T230229Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/72406996/events/evt-motion-disposition/predictions/codex-baseline/20261030T230229Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.2,
-              "run_id": "20261030T230229Z"
-            },
-            {
-              "big_case_rationale": "Capital stay application arising from long-running Alabama execution litigation (Thomas Douglas Arthur), though overshadowed by the companion federal method-of-execution stay application (16A451/16-602).",
-              "big_case_score": 0.35,
-              "cell_path": "data/cases/scotus/72406996/events/evt-motion-disposition/predictions/gemini-baseline/20261030T230229Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/72406996/events/evt-motion-disposition/predictions/gemini-baseline/20261030T230229Z",
-              "confidence": 0.78,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.14,
-              "run_id": "20261030T230229Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Thomas Douglas Arthur v. Alabama"
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.4667,
-      "moment": "evt-brief-response-disposition",
-      "moment_opened_at": "2016-11-03",
-      "n": 3,
-      "other_party": "Alabama",
-      "outcome_lines": [
-        {
-          "action": "granted",
-          "line": "Thomas Douglas Arthur gets the relief requested for now, while the case continues in the lower courts.",
-          "side": "granted"
-        },
-        {
-          "action": "denied",
-          "line": "Thomas Douglas Arthur does not get the relief requested for now, and things stay as the lower courts left them while the case continues.",
-          "side": "not-granted"
-        }
-      ],
-      "scheduled": null,
-      "score_max": 0.55,
-      "score_min": 0.3,
-      "score_range": 0.25,
-      "short_caption": "Thomas Douglas Arthur v. Alabama",
       "status": "pending"
     },
     {
@@ -35936,159 +36166,6 @@
     },
     {
       "asking_declined": null,
-      "asking_party": "Steven Lynn Long",
-      "caption": "Steven Lynn Long v. Lorie Davis, Director, Texas Department of Criminal Justice, Correctional Institutions Division",
-      "caption_event_id": "evt-brief-response-disposition",
-      "case_id": "scotus/72408073",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "Routine Texas capital stay application tied to a pending IFP cert petition from CA5 federal habeas; grave for the applicant but no sign of broad legal significance in the record provided.",
-          "big_case_score": 0.1,
-          "event_id": "evt-brief-response-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20261030T230229Z"
-        },
-        {
-          "big_case_rationale": "A request to prevent an execution has exceptionally high personal stakes, but the available record identifies no question with demonstrated broader doctrinal or institutional reach.",
-          "big_case_score": 0.45,
-          "event_id": "evt-brief-response-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20261030T230229Z"
-        },
-        {
-          "big_case_rationale": "Capital stay application tied to a Fifth Circuit Atkins intellectual-disability COA denial and an intervening decision (Moore v. Texas), but resting primarily on case-specific malingering findings under AEDPA.",
-          "big_case_score": 0.25,
-          "event_id": "evt-brief-response-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20261030T230229Z"
-        }
-      ],
-      "docket_id": 72408073,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-brief-response-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "Routine Texas capital stay application tied to a pending IFP cert petition from CA5 federal habeas; grave for the applicant but no sign of broad legal significance in the record provided.",
-              "big_case_score": 0.1,
-              "cell_path": "data/cases/scotus/72408073/events/evt-brief-response-disposition/predictions/claude-baseline/20261030T230229Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/72408073/events/evt-brief-response-disposition/predictions/claude-baseline/20261030T230229Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "claude-baseline",
-              "probability": 0.04,
-              "run_id": "20261030T230229Z"
-            },
-            {
-              "big_case_rationale": "A request to prevent an execution has exceptionally high personal stakes, but the available record identifies no question with demonstrated broader doctrinal or institutional reach.",
-              "big_case_score": 0.45,
-              "cell_path": "data/cases/scotus/72408073/events/evt-brief-response-disposition/predictions/codex-baseline/20261030T230229Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/72408073/events/evt-brief-response-disposition/predictions/codex-baseline/20261030T230229Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.08,
-              "run_id": "20261030T230229Z"
-            },
-            {
-              "big_case_rationale": "Capital stay application tied to a Fifth Circuit Atkins intellectual-disability COA denial and an intervening decision (Moore v. Texas), but resting primarily on case-specific malingering findings under AEDPA.",
-              "big_case_score": 0.25,
-              "cell_path": "data/cases/scotus/72408073/events/evt-brief-response-disposition/predictions/gemini-baseline/20261030T230229Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/72408073/events/evt-brief-response-disposition/predictions/gemini-baseline/20261030T230229Z",
-              "confidence": 0.72,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.12,
-              "run_id": "20261030T230229Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Steven Lynn Long v. Lorie Davis, Director, Texas Department of Criminal Justice, Correctional Institutions Division"
-        },
-        {
-          "actual_disposition": null,
-          "event_id": "evt-motion-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "Individual capital federal-habeas stay out of the Fifth Circuit. The stakes are grave for the applicant, but there is no sign of a broad doctrinal question or national attention.",
-              "big_case_score": 0.12,
-              "cell_path": "data/cases/scotus/72408073/events/evt-motion-disposition/predictions/claude-baseline/20261030T230229Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/72408073/events/evt-motion-disposition/predictions/claude-baseline/20261030T230229Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "claude-baseline",
-              "probability": 0.03,
-              "run_id": "20261030T230229Z"
-            },
-            {
-              "big_case_rationale": "An execution stay has irreversible individual stakes, but the provisioned record identifies no legal issue with demonstrated systemic reach.",
-              "big_case_score": 0.45,
-              "cell_path": "data/cases/scotus/72408073/events/evt-motion-disposition/predictions/codex-baseline/20261030T230229Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/72408073/events/evt-motion-disposition/predictions/codex-baseline/20261030T230229Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.08,
-              "run_id": "20261030T230229Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Steven Lynn Long v. Lorie Davis, Director, Texas Department of Criminal Justice, Correctional Institutions Division"
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.2667,
-      "moment": "evt-brief-response-disposition",
-      "moment_opened_at": "2017-08-10",
-      "n": 3,
-      "other_party": "Davis",
-      "outcome_lines": [
-        {
-          "action": "granted",
-          "line": "Steven Lynn Long gets the relief requested for now, while the case continues in the lower courts.",
-          "side": "granted"
-        },
-        {
-          "action": "denied",
-          "line": "Steven Lynn Long does not get the relief requested for now, and things stay as the lower courts left them while the case continues.",
-          "side": "not-granted"
-        }
-      ],
-      "scheduled": null,
-      "score_max": 0.45,
-      "score_min": 0.1,
-      "score_range": 0.35,
-      "short_caption": "Steven Lynn Long v. Davis",
-      "status": "pending"
-    },
-    {
-      "asking_declined": null,
       "asking_party": "Casarez",
       "caption": "Christina Casarez v. Irigoyen Farms, Inc., et al.",
       "caption_event_id": "evt-order-call-for-response-disposition",
@@ -39822,6 +39899,126 @@
       "score_range": 0.26,
       "short_caption": "Greene v. Kansas Department of Revenue",
       "status": "resolved"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Gengshu Scott He",
+      "caption": "Gengshu Scott He, et al. v. Marco Rubio, Secretary of State, et al.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000405",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "A FECA/FTCA channeling question that recurs for federal employees, but technical and narrow; the individual tort facts carry little broader stakes.",
+          "big_case_score": 0.12,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261031T173439Z"
+        },
+        {
+          "big_case_rationale": "Potentially consequential for federal employees' access to tort remedies and the allocation of FECA coverage decisions between courts and Labor, but a specialized statutory dispute rather than a broad constitutional case.",
+          "big_case_score": 0.3,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261031T173439Z"
+        },
+        {
+          "big_case_rationale": "Routine single-employee FTCA/FECA preemption dispute arising from an unpublished D.C. Circuit summary affirmance with a government waiver, though the underlying question of judicial deference to Department of Labor FECA coverage determinations affects federal-employee tort litigation across circuits.",
+          "big_case_score": 0.15,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261031T173439Z"
+        }
+      ],
+      "docket_id": 9026000405,
+      "docket_number": "26-405",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-405.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A FECA/FTCA channeling question that recurs for federal employees, but technical and narrow; the individual tort facts carry little broader stakes.",
+              "big_case_score": 0.12,
+              "cell_path": "data/cases/scotus/9026000405/events/evt-petition-disposition/predictions/claude-baseline/20261031T173439Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000405/events/evt-petition-disposition/predictions/claude-baseline/20261031T173439Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.012,
+              "run_id": "20261031T173439Z"
+            },
+            {
+              "big_case_rationale": "Potentially consequential for federal employees' access to tort remedies and the allocation of FECA coverage decisions between courts and Labor, but a specialized statutory dispute rather than a broad constitutional case.",
+              "big_case_score": 0.3,
+              "cell_path": "data/cases/scotus/9026000405/events/evt-petition-disposition/predictions/codex-baseline/20261031T173439Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000405/events/evt-petition-disposition/predictions/codex-baseline/20261031T173439Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.025,
+              "run_id": "20261031T173439Z"
+            },
+            {
+              "big_case_rationale": "Routine single-employee FTCA/FECA preemption dispute arising from an unpublished D.C. Circuit summary affirmance with a government waiver, though the underlying question of judicial deference to Department of Labor FECA coverage determinations affects federal-employee tort litigation across circuits.",
+              "big_case_score": 0.15,
+              "cell_path": "data/cases/scotus/9026000405/events/evt-petition-disposition/predictions/gemini-baseline/20261031T173439Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000405/events/evt-petition-disposition/predictions/gemini-baseline/20261031T173439Z",
+              "confidence": 0.92,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.008,
+              "run_id": "20261031T173439Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Gengshu Scott He, et al. v. Marco Rubio, Secretary of State, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.19,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-09-23",
+      "n": 3,
+      "other_party": "Rubio",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Gengshu Scott He's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Gengshu Scott He's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-11-06",
+        "kind": "conference"
+      },
+      "score_max": 0.3,
+      "score_min": 0.12,
+      "score_range": 0.18,
+      "short_caption": "Gengshu Scott He v. Rubio",
+      "status": "pending"
     },
     {
       "asking_declined": null,
@@ -44450,6 +44647,123 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Silva",
+      "caption": "Gina Silva, et al. v. Todd Blanche, Attorney General",
+      "caption_event_id": "evt-motion-disposition",
+      "case_id": "scotus/9526000606",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Individual self-represented stay-of-removal application from the Third Circuit; consequential for the applicants but no broader legal question is visible on the record.",
+          "big_case_score": 0.03,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261031T173439Z"
+        },
+        {
+          "big_case_rationale": "Removal has serious personal stakes, but the docket alone identifies no broadly consequential legal question or system-wide relief.",
+          "big_case_score": 0.25,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261031T173439Z"
+        },
+        {
+          "big_case_rationale": "Routine pro se emergency application for a stay of removal following an unpublished Third Circuit per curiam decision affirming the BIA's denial of asylum, withholding of removal, and CAT relief on exhaustion, waiver, and substantial-evidence nexus grounds; no circuit split or broader policy impact beyond the individual applicants.",
+          "big_case_score": 0.02,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261031T173439Z"
+        }
+      ],
+      "docket_id": 9526000606,
+      "docket_number": "26A606",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26a606.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-motion-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Individual self-represented stay-of-removal application from the Third Circuit; consequential for the applicants but no broader legal question is visible on the record.",
+              "big_case_score": 0.03,
+              "cell_path": "data/cases/scotus/9526000606/events/evt-motion-disposition/predictions/claude-baseline/20261031T173439Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000606/events/evt-motion-disposition/predictions/claude-baseline/20261031T173439Z",
+              "confidence": 0.9,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.012,
+              "run_id": "20261031T173439Z"
+            },
+            {
+              "big_case_rationale": "Removal has serious personal stakes, but the docket alone identifies no broadly consequential legal question or system-wide relief.",
+              "big_case_score": 0.25,
+              "cell_path": "data/cases/scotus/9526000606/events/evt-motion-disposition/predictions/codex-baseline/20261031T173439Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000606/events/evt-motion-disposition/predictions/codex-baseline/20261031T173439Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.07,
+              "run_id": "20261031T173439Z"
+            },
+            {
+              "big_case_rationale": "Routine pro se emergency application for a stay of removal following an unpublished Third Circuit per curiam decision affirming the BIA's denial of asylum, withholding of removal, and CAT relief on exhaustion, waiver, and substantial-evidence nexus grounds; no circuit split or broader policy impact beyond the individual applicants.",
+              "big_case_score": 0.02,
+              "cell_path": "data/cases/scotus/9526000606/events/evt-motion-disposition/predictions/gemini-baseline/20261031T173439Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000606/events/evt-motion-disposition/predictions/gemini-baseline/20261031T173439Z",
+              "confidence": 0.95,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.01,
+              "run_id": "20261031T173439Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Gina Silva, et al. v. Todd Blanche, Attorney General"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.1,
+      "moment": "evt-motion-disposition",
+      "moment_opened_at": "2026-10-16",
+      "n": 3,
+      "other_party": "Blanche",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "Silva gets the relief requested for now, while the case continues in the lower courts.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Silva does not get the relief requested for now, and things stay as the lower courts left them while the case continues.",
+          "side": "not-granted"
+        }
+      ],
+      "scheduled": null,
+      "score_max": 0.25,
+      "score_min": 0.02,
+      "score_range": 0.23,
+      "short_caption": "Silva v. Blanche",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "John Paul Gomez",
       "caption": "John Paul Gomez v. David Ryan, et al.",
       "caption_event_id": "evt-petition-disposition",
@@ -47930,6 +48244,123 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Nichloson",
+      "caption": "Micahiel Nichloson, et al. v. U.S. Bank National Association",
+      "caption_event_id": "evt-motion-disposition",
+      "case_id": "scotus/9526000602",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "A self-represented litigant's stay request in a single private mortgage/foreclosure-type dispute with U.S. Bank; no broader legal stakes are visible.",
+          "big_case_score": 0.02,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261031T173439Z"
+        },
+        {
+          "big_case_rationale": "The application has no extractable text and the snapshot identifies neither the legal question nor the threatened harm; the caption alone cannot establish the stakes.",
+          "big_case_score": null,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261031T173439Z"
+        },
+        {
+          "big_case_rationale": "Routine pro se emergency stay application seeking to halt a federal district court order remanding a removed state-court foreclosure/ejectment action (U.S. Bank National Association v. Nichloson, S.D. Fla. No. 1:26-cv-25796) without prior Eleventh Circuit disposition.",
+          "big_case_score": 0.02,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261031T173439Z"
+        }
+      ],
+      "docket_id": 9526000602,
+      "docket_number": "26A602",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26a602.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-motion-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A self-represented litigant's stay request in a single private mortgage/foreclosure-type dispute with U.S. Bank; no broader legal stakes are visible.",
+              "big_case_score": 0.02,
+              "cell_path": "data/cases/scotus/9526000602/events/evt-motion-disposition/predictions/claude-baseline/20261031T173439Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000602/events/evt-motion-disposition/predictions/claude-baseline/20261031T173439Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.01,
+              "run_id": "20261031T173439Z"
+            },
+            {
+              "big_case_rationale": "The application has no extractable text and the snapshot identifies neither the legal question nor the threatened harm; the caption alone cannot establish the stakes.",
+              "big_case_score": null,
+              "cell_path": "data/cases/scotus/9526000602/events/evt-motion-disposition/predictions/codex-baseline/20261031T173439Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000602/events/evt-motion-disposition/predictions/codex-baseline/20261031T173439Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.04,
+              "run_id": "20261031T173439Z"
+            },
+            {
+              "big_case_rationale": "Routine pro se emergency stay application seeking to halt a federal district court order remanding a removed state-court foreclosure/ejectment action (U.S. Bank National Association v. Nichloson, S.D. Fla. No. 1:26-cv-25796) without prior Eleventh Circuit disposition.",
+              "big_case_score": 0.02,
+              "cell_path": "data/cases/scotus/9526000602/events/evt-motion-disposition/predictions/gemini-baseline/20261031T173439Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000602/events/evt-motion-disposition/predictions/gemini-baseline/20261031T173439Z",
+              "confidence": 0.98,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.005,
+              "run_id": "20261031T173439Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Micahiel Nichloson, et al. v. U.S. Bank National Association"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.02,
+      "moment": "evt-motion-disposition",
+      "moment_opened_at": "2026-10-20",
+      "n": 2,
+      "other_party": "U.S. Bank National Association",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "Nichloson gets the relief requested for now, while the case continues in the lower courts.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Nichloson does not get the relief requested for now, and things stay as the lower courts left them while the case continues.",
+          "side": "not-granted"
+        }
+      ],
+      "scheduled": null,
+      "score_max": 0.02,
+      "score_min": 0.02,
+      "score_range": 0.0,
+      "short_caption": "Nichloson v. U.S. Bank National Association",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Gilmore",
       "caption": "Bridget Gilmore v. Walmart, Incorporated",
       "caption_event_id": "evt-motion-disposition",
@@ -48611,5 +49042,5 @@
   ],
   "rows_with_leakage_flag": 4,
   "schema_version": "1.3",
-  "scored_reads": 1002
+  "scored_reads": 1014
 }
