@@ -158,6 +158,7 @@ class PolicySource:
 
     rule_version: str
     labels: Mapping[str, PolicyLabel]
+    measured_batch: int | None = None
 
     def label(self, docket_number: str) -> PolicyLabel | None:
         """The label of one application, any spelling of its number; ``None`` if unlabeled."""
@@ -201,4 +202,8 @@ def policy_source(artifact: QpTopicApplicationLabels | None) -> PolicySource:
             uncertain=False,
             source="labeler",
         )
-    return PolicySource(rule_version=POLICY_AREA_V2_RULE_VERSION, labels=MappingProxyType(labels))
+    return PolicySource(
+        rule_version=POLICY_AREA_V2_RULE_VERSION,
+        labels=MappingProxyType(labels),
+        measured_batch=artifact.policy_agreement.batch,
+    )

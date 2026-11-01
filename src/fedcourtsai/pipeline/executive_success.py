@@ -512,6 +512,7 @@ def _success(  # noqa: PLR0913 - one keyword per stamp the cut carries
         controversy_cells=groups.cells,
         controversy_unlinked=groups.unlinked,
         policy_rule_version=policies.rule_version,
+        policy_measured_batch=policies.measured_batch,
         policy_cells=policy_cells,
         policy_unlabeled=unlabeled,
         review_rows=sorted(fold.review, key=lambda r: r.docket_number),

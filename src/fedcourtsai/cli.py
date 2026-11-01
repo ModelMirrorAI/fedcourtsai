@@ -8083,17 +8083,17 @@ def _with_policy(
     """The batch rows with the policy rows added, or every ``policy_row`` cleared.
 
     A batch that asks for an area adds its rows (:func:`derive_policy_rows`)
-    flagged like every other policy row, so nothing in the extract says which
-    rows are measured. One that asks for none clears the flag on every row, so
-    the labeler gives no area to measure.
+    flagged like every other policy row and in frame order, so nothing in the
+    extract, a row's position included, says which rows are measured. One that
+    asks for none clears the flag on every row, so the labeler gives no area
+    to measure.
     """
     batch = [row for row in rows if isinstance(row, ApplicationExtractRow)]
     if policy.asks:
-        extra = set(policy.case_ids)
-        added = [
-            row for row in frame if isinstance(row, ApplicationExtractRow) and row.case_id in extra
+        wanted = {row.case_id for row in batch} | set(policy.case_ids)
+        return [
+            row for row in frame if isinstance(row, ApplicationExtractRow) and row.case_id in wanted
         ]
-        return [*batch, *added]
     return [replace(row, policy_row=False) for row in batch]
 
 
@@ -8983,11 +8983,19 @@ def _qp_topics_applications(
             prior=prior,
             frame_rows=frame_rows,
         )
-        measured = measure_policy(
-            entries=lines,
-            policy_rows=policy_rows,
-            hand=policy_areas(),
-            prompt_sha256=label_prompt_sha256(),
+        # Measured only when the topic gate passed: a refused run writes
+        # nothing, so a policy figure from it would never reach the ledger the
+        # refusal hold reads, and re-running until both gates pass would be a
+        # best-of-k policy gate.
+        measured = (
+            measure_policy(
+                entries=lines,
+                policy_rows=policy_rows,
+                hand=policy_areas(),
+                prompt_sha256=label_prompt_sha256(),
+            )
+            if artifact.agreement.gate_passed
+            else None
         )
         if measured is not None:
             policy_agreement, areas = measured

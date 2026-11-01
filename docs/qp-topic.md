@@ -510,10 +510,12 @@ soon as the lane labels it (`pipeline.application_policy`).
 - **Which rows a batch carries for it.** Each new application in the topic
   batch that is a policy row is asked for its area. A batch also owes an area
   on every published policy row that has none. A batch that owes any area also
-  carries every hand-labeled policy row in the frame for the measurement, as a
-  topic batch carries the whole reference block, then fills the rest of the
+  carries every hand-labeled policy row in the frame whose topic line is
+  accounted for (chosen by the topic rule, or already published) for the
+  measurement, as a topic batch carries the whole reference block, then fills the rest of the
   labeling ceiling with published rows that lack an area, in seeded order. The
-  extract marks those rows like every other policy row: nothing in it says
+  extract marks those rows like every other policy row and lists every row in
+  frame order: nothing in it says
   which rows are measured or which are there for their area alone. The
   measuring step derives the second set from committed state (a row the
   artifact already publishes and the topic reference block does not hold), and
@@ -532,7 +534,11 @@ soon as the lane labels it (`pipeline.application_policy`).
   changed since, a re-run would measure the same labeler on the same rows
   again, and a run of tries until one passes is a best-of-k gate rather than
   the gate. Each ledger row records the prompt digest it measured under
-  (`policy_prompt_sha256`), so revising the prompt releases the hold.
+  (`policy_prompt_sha256`), so revising the prompt releases the hold. The
+  digest is of the file's bytes, so any committed edit releases it; the edit
+  goes through review like every prompt change. A run whose topic gate is
+  refused writes nothing, so its policy areas are not measured at all, and it
+  neither sets nor releases the hold.
 - **The measurement.** The labeler's areas on the hand-labeled rows are
   compared with the hand labels, overall and per area, beside the share a
   constant labeler would score, and over two narrower sets: the rows whose hand
@@ -560,7 +566,9 @@ soon as the lane labels it (`pipeline.application_policy`).
   `policy_gate_passed`) and leaves the artifact's `policy_agreement`, the most
   recent passing measurement, as it stands. The batch's topic labels still
   publish under their own gate, and a refused topic gate refuses the whole
-  batch, its policy areas included.
+  batch, its policy areas included. The standing measurement records the
+  batch that took it (`policy_agreement.batch`), and the cut stamps it as
+  `policy_measured_batch`.
 - **What the cut reads.** The executive success cut reads `policy-area-v2` once
   the artifact records a passing policy measurement, and the hand set before
   that, so one cut never mixes the two. `policy-area-v2` is every hand label,

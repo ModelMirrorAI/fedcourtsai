@@ -263,7 +263,7 @@ def test_a_passing_measurement_publishes_hand_and_labeler_areas_once() -> None:
         1,
     )
     assert published == 12
-    assert accrued.policy_agreement == agreement
+    assert accrued.policy_agreement == agreement.model_copy(update={"batch": 1})
     assert accrued.batches[-1].policy_published == 12
     assert accrued.batches[-1].policy_gate_passed is True
     # Topic labels are untouched.
@@ -470,3 +470,82 @@ def test_a_batch_asking_no_area_clears_every_policy_row() -> None:
     added = cli._with_policy(rows[:4], rows, asking)
     assert [row.case_id for row in added] == [*(r.case_id for r in rows[:4]), rows[5].case_id]
     assert all(row.policy_row for row in added)
+
+
+def test_added_policy_rows_keep_frame_order() -> None:
+    rows = _rows(policy_row=True)
+    asking = PolicyBatch(
+        case_ids=(rows[0].case_id, rows[7].case_id),
+        owed=2,
+        reference_rows=0,
+        backfill=2,
+        remaining=0,
+    )
+
+    added = cli._with_policy(rows[2:5], rows, asking)
+
+    expected = [rows[0], *rows[2:5], rows[7]]
+    assert [row.case_id for row in added] == [row.case_id for row in expected]
+
+
+def test_an_unpublished_hand_row_the_topic_rule_did_not_choose_is_not_added() -> None:
+    # No artifact: nothing is published, so only the topic batch's hand rows count.
+    chosen = [c for c, _, _ in _REFERENCE[:9]]
+    batch = derive_policy_rows(
+        frame=_frame(),
+        topic_batch=chosen,
+        artifact=None,
+        hand=_HAND,
+        budget=100,
+        seed="s",
+        prompt_sha256=_SHA,
+    )
+    assert batch.case_ids == ()
+    assert batch.reference_rows == 9
+    assert batch.asks
+    assert _REFERENCE[9][0] not in batch.case_ids
+
+
+def test_the_standing_measurement_names_its_batch_and_the_cut_stamps_it() -> None:
+    accrued = _accrued(miss=1)
+    assert accrued.policy_agreement is not None
+    assert accrued.policy_agreement.batch == accrued.batches[-1].batch
+    assert policy_source(accrued).measured_batch == accrued.batches[-1].batch
+    assert policy_source(_artifact()).measured_batch is None
+
+
+def test_a_topic_refused_run_measures_no_policy_area(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    data = tmp_path / "data"
+    write_json(qp_topics.application_reference_path(data), _block())
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(data))
+    monkeypatch.setattr(cli, "policy_areas", lambda: _HAND)
+    texts = tmp_path / "applications.json"
+    texts.write_text(json.dumps([{**row, "policy_row": True} for row in _extract()]))
+    refused = {c for c, _, _ in _REFERENCE[:5]}
+    lines = [
+        line.model_copy(update={"label": "tax"}) if line.case_id in refused else line
+        for line in _policy_lines()
+    ]
+    labels = tmp_path / "labels.jsonl"
+    labels.write_text("".join(line.model_dump_json() + "\n" for line in lines))
+
+    result = runner.invoke(
+        app,
+        [
+            "qp-topics",
+            "--frame",
+            "applications",
+            "--labels",
+            str(labels),
+            "--texts",
+            str(texts),
+            "--labeler",
+            "claude-code/test",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "policy areas" not in result.output
+    assert not qp_topics.application_labels_path(data).exists()

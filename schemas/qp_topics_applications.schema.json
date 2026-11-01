@@ -253,7 +253,7 @@
     },
     "QpTopicBatchEntry": {
       "additionalProperties": false,
-      "description": "One labeling run's contribution to the accumulating labels artifact.\n\nThe artifact is the union of every batch, so without this ledger a reader\ncould not tell which run produced which row, what it was measured at, or how\nmany runs the file took. Each row records both counts because they answer\ndifferent questions: ``published`` is what the batch added to the file, while\n``measured`` is what its labeler actually read \u2014 larger by the reference rows\nit re-graded, which are the per-run cost of the measurement and publish\nnothing new.\n\nThe measurement fields are kept per batch rather than only at the top level\nso a drifting labeler is visible as a series rather than as a single current\nnumber \u2014 with two readings the series will not support. Every batch is\nscored over the **same** reference entries, so the differences between rows\nare labeler-side re-labeling of identical items, not independent samples of\nanything: a few points of movement on ``n`` this size is noise, and only a\nsustained move reads. And ``agree``/``n`` never read without ``floor``, which\nis why it is carried here rather than recomputed: on a sixteen-label\nvocabulary most of any rate is the floor.",
+      "description": "One labeling run's contribution to the accumulating labels artifact.\n\nThe artifact is the union of every batch, so without this ledger a reader\ncould not tell which run produced which row, what it was measured at, or how\nmany runs the file took. Each row records both counts because they answer\ndifferent questions: ``published`` is what the batch added to the file, while\n``measured`` is what its labeler actually read \u2014 larger by the reference rows\nit re-graded, which are the per-run cost of the measurement and publish\nnothing new. The ``policy_*`` fields are the application frame's policy\nmeasurement and stay empty on the petition frame.\n\nThe measurement fields are kept per batch rather than only at the top level\nso a drifting labeler is visible as a series rather than as a single current\nnumber \u2014 with two readings the series will not support. Every batch is\nscored over the **same** reference entries, so the differences between rows\nare labeler-side re-labeling of identical items, not independent samples of\nanything: a few points of movement on ``n`` this size is noise, and only a\nsustained move reads. And ``agree``/``n`` never read without ``floor``, which\nis why it is carried here rather than recomputed: on a sixteen-label\nvocabulary most of any rate is the floor.",
       "properties": {
         "agree": {
           "description": "Compared reference entries this batch matched",
@@ -501,6 +501,20 @@
           "minimum": 0,
           "title": "Agree",
           "type": "integer"
+        },
+        "batch": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The ledger batch that took this measurement; set when it becomes the artifact's standing measurement",
+          "title": "Batch"
         },
         "certain_agree": {
           "default": 0,

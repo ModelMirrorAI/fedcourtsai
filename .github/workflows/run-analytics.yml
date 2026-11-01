@@ -3122,11 +3122,14 @@ jobs:
             # topic label and lands on rows already published, so the topic
             # containment reads each row without its policy fields, and the
             # policy check below holds every labeler-sourced area main
-            # publishes immutable in turn.
+            # publishes in turn. A reference-sourced area is not held: it is
+            # rebuilt from the committed hand labels on every passing batch.
             rows_q='[.entries[] | select(.source == "labeler") | del(.policy_area, .policy_source, .policy_batch)]'
             extends='. as [$a, $b] | ($b[:($a | length)] == $a) and (($b | length) > ($a | length))'
           fi
-          areas_q='[.entries[] | select(.policy_source == "labeler") | {case_id, policy_area, policy_source, policy_batch}]'
+          # Empty on both sides for the petition and alignment-sides frames,
+          # whose rows carry no policy area.
+          areas_q='[.entries[] | select(.policy_area != null) | {case_id, policy_area, policy_source, policy_batch}]'
           if git cat-file -e "origin/main:${LABELS_DIR}/${LABELS_NAME}" 2>/dev/null; then
             git show "origin/main:${LABELS_DIR}/${LABELS_NAME}" > "$RUNNER_TEMP/landed.json"
             jq -cS "$ledger_q" "$RUNNER_TEMP/landed.json" > "$RUNNER_TEMP/landed-ledger.json"
@@ -3173,10 +3176,18 @@ jobs:
               "stale or divergent artifact; dispatch from the ref carrying main's newest copy."
             exit 1
           fi
-          if ! guard areas '. as [$a, $b] | ($a - $b) | length == 0' \
+          # Every labeler area main publishes is in this run's artifact
+          # unchanged, or its row now carries a hand label (`reference`),
+          # which outranks it once a hand label is added for that docket.
+          areas_check='. as [$a, $b]
+            | [$b[] | select(.policy_source == "reference") | .case_id] as $ref
+            | [($a - $b)[] | select(.policy_source == "labeler")
+                | select(.case_id as $c | $ref | index([$c]) | not)]
+            | length == 0'
+          if ! guard areas "$areas_check" \
                  "$RUNNER_TEMP/landed-areas.json" "$RUNNER_TEMP/incoming-areas.json"; then
             echo "::error::policy areas main already publishes are missing or changed in this" \
-              "run's artifact — an area is set once. The run accrued onto a stale or" \
+              "run's artifact — a labeler area is set once. The run accrued onto a stale or" \
               "divergent artifact; dispatch from the ref carrying main's newest copy."
             exit 1
           fi

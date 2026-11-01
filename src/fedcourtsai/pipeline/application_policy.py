@@ -11,9 +11,12 @@ areas*).
 holds the new applications, and each of them that is a policy row is asked for
 its area. A batch also owes the area of every published policy row that lacks
 one, so the field reaches the applications labeled before it existed. Whenever
-a batch owes any area, it carries every hand-labeled row the frame holds too,
-for the measurement, exactly as a topic batch carries the whole reference
-block, then the published rows lacking an area up to the labeling ceiling. A
+a batch owes any area, it carries every hand-labeled policy row the frame
+holds too, for the measurement, exactly as a topic batch carries the whole
+reference block, then the published rows lacking an area up to the labeling
+ceiling, all in frame order. A hand row joins only where its topic line is
+accounted for, chosen by the topic rule or already published, so the policy
+measurement never publishes a topic label the topic rule did not draw. A
 batch owing none asks for no area at all: its rows go out with ``policy_row``
 cleared.
 
@@ -45,7 +48,10 @@ refused policy measurement publishes nothing, leaves the standing areas and
 the artifact's ``policy_agreement`` as they are, and is recorded on its batch's
 ledger row, while the batch's topic labels publish under their own gate. The
 topic gate is the artifact's: a batch whose topic measurement is refused
-writes no artifact, so its policy areas do not publish either.
+writes no artifact, so its policy areas are not measured at all, since a
+figure from a run that writes nothing would never reach the ledger the
+refusal hold reads. The prompt digest is read from the checkout at extract
+and again at measurement; the run mode reads both from one commit.
 """
 
 from __future__ import annotations
@@ -187,7 +193,15 @@ def derive_policy_rows(
         if case_id in standing and standing[case_id].policy_area is None
     ]
     owed = new_owed + len(lacking)
-    hand_rows = [case_id for case_id, number in policy_rows if _key(number) in hand]
+    # A hand row joins the batch for the measurement only where its topic line
+    # is already accounted for: chosen by the topic rule, or already published
+    # (its topic line is then set aside). An unpublished hand row the topic
+    # rule did not choose would otherwise publish a topic label outside it.
+    hand_rows = [
+        case_id
+        for case_id, number in policy_rows
+        if _key(number) in hand and (case_id in chosen or case_id in standing)
+    ]
     if not owed:
         return PolicyBatch(case_ids=(), owed=0, reference_rows=0, backfill=0, remaining=0)
     if refusal_hold(artifact, prompt_sha256):
@@ -208,8 +222,8 @@ def derive_policy_rows(
             backfill=0,
             remaining=len(lacking),
             held=f"the frame holds {len(hand_rows)} of the {len(hand)} hand-labeled row(s) as "
-            f"policy rows, under the {COVERAGE_FLOOR:.0%} coverage floor, so the measurement "
-            "could not pass whatever the labeler did",
+            f"published or chosen policy rows, under the {COVERAGE_FLOOR:.0%} coverage floor, "
+            "so the measurement could not pass whatever the labeler did",
         )
     measured = [case_id for case_id in hand_rows if case_id not in chosen]
     if len(measured) > budget:
@@ -376,7 +390,7 @@ def accrue_policy(
     )
     update: dict[str, object] = {"batches": ledger, "entries": entries}
     if agreement.gate_passed:
-        update["policy_agreement"] = agreement
+        update["policy_agreement"] = agreement.model_copy(update={"batch": batch})
     accrued = QpTopicApplicationLabels.model_validate(
         artifact.model_copy(update=update).model_dump()
     )

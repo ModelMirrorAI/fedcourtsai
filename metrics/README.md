@@ -3681,10 +3681,13 @@ to it.
   under `policy-area-v2` names its labeler count. The labeler reads the
   docket alone and may not use its knowledge of a case, so it calls `other`
   where a hand rater named the case's policy; the measurement counts that
-  direction per area (`labeled_other`). Under `policy-area-v1`
-(`pipeline.policy_area`) every label is the hand set's. The hand labels are
-  a committed reference, not a rule: two
-  agent raters, each blind to the other but not to the outcome (the docket
+  direction per area (`labeled_other`). A v2 cut reads the newest *passing*
+  measurement, which `policy_measured_batch` names: a later refused
+  measurement leaves it standing, and the labeler areas grow with every
+  passing batch after it, so two v2 cuts compare only beside that batch and
+  the artifact each read. Under `policy-area-v1` (`pipeline.policy_area`)
+  every label is the hand set's. The hand labels are a committed reference,
+  not a rule: two agent raters, each blind to the other but not to the outcome (the docket
   entries carry the orders), labeled every in-scope and unknown-scope
   application from its caption, court below and docket entries and from
   their own knowledge of a public case the docket names, so a label is not

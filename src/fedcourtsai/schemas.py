@@ -9448,7 +9448,8 @@ class QpTopicBatchEntry(_Strict):
     different questions: ``published`` is what the batch added to the file, while
     ``measured`` is what its labeler actually read — larger by the reference rows
     it re-graded, which are the per-run cost of the measurement and publish
-    nothing new.
+    nothing new. The ``policy_*`` fields are the application frame's policy
+    measurement and stay empty on the petition frame.
 
     The measurement fields are kept per batch rather than only at the top level
     so a drifting labeler is visible as a series rather than as a single current
@@ -9818,6 +9819,12 @@ class QpTopicPolicyAgreement(_Strict):
 
     reference_rule: Literal["policy-area-v1"] = Field(
         default="policy-area-v1", description="The hand labels measured against"
+    )
+    batch: int | None = Field(
+        default=None,
+        ge=1,
+        description="The ledger batch that took this measurement; set when it becomes the "
+        "artifact's standing measurement",
     )
     reference_rows: int = Field(
         ge=0, description="Hand-labeled rows in the batch, each a policy row"
@@ -13351,6 +13358,12 @@ class ExecutiveSuccess(_Strict):
     )
     policy_rule_version: str = Field(
         description="The vocabulary the policy cells are labeled under, e.g. policy-area-v1"
+    )
+    policy_measured_batch: int | None = Field(
+        default=None,
+        description="Under policy-area-v2, the application labels batch whose passing policy "
+        "measurement the cut reads; v2's labeler areas grow with later batches, so two v2 "
+        "cuts compare only beside this and the artifact they read",
     )
     policy_cells: list[ExecutivePolicyCell] = Field(
         default_factory=list,
