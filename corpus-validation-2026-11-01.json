@@ -41,7 +41,7 @@
       "problems": []
     },
     {
-      "checked": 664,
+      "checked": 663,
       "detail": "granted before 2024-11-01 (730 days); 13 resolved by termination (1 abated, 1 grant-vacated, 2 judgment-issued, 9 voluntary-dismissal)",
       "failures": 0,
       "name": "no_stale_unparsed_grants",
@@ -169,7 +169,7 @@
       "checked": 1827,
       "detail": "",
       "failures": 0,
-      "name": "predicted_reasoning_grade_awaits_registration",
+      "name": "predicted_reasoning_grade_only_under_a_prompt_that_asks",
       "passed": true,
       "problems": []
     },
