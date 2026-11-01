@@ -16,7 +16,13 @@ from fedcourtsai import schedule as schedule_module
 from fedcourtsai.pipeline.live import LiveDiscovery
 from fedcourtsai.pipeline.pull import PullQueues
 from fedcourtsai.schedule import build_schedule, schedule_path
-from fedcourtsai.schemas import FILENAME_MODELS, Disposition, Schedule, ScheduleEntry
+from fedcourtsai.schemas import (
+    FILENAME_MODELS,
+    Disposition,
+    Schedule,
+    ScheduledDay,
+    ScheduleEntry,
+)
 from fedcourtsai.serialize import read_model, write_json
 
 _AS_OF = date(2026, 10, 19)
@@ -253,3 +259,131 @@ def test_the_schedule_validates_under_its_filename(tmp_path: Path) -> None:
     assert FILENAME_MODELS[schedule_path(tmp_path).name] is Schedule
     write_json(schedule_path(tmp_path), Schedule(as_of=_AS_OF))
     assert read_model(schedule_path(tmp_path), Schedule).as_of == _AS_OF
+
+
+def test_a_granted_case_publishes_its_argument_day_until_it_is_argued(tmp_path: Path) -> None:
+    granted = {
+        "date_cert_granted": date(2026, 6, 30),
+        "disposition": Disposition.granted,
+        "distributed_for_conference": date(2026, 6, 26),
+    }
+    data_root, db = _seed(
+        tmp_path,
+        [
+            _row("scotus/2", argument_set_for=date(2026, 11, 3), **granted),
+            # Argued on its setting: nothing left to schedule.
+            _row(
+                "scotus/3",
+                argument_set_for=date(2026, 10, 6),
+                merits_argued=date(2026, 10, 6),
+                **granted,
+            ),
+            # Argued once before, now set for reargument.
+            _row(
+                "scotus/4",
+                argument_set_for=date(2026, 12, 1),
+                merits_argued=date(2026, 3, 2),
+                **granted,
+            ),
+            # Its day passed with no argument entry read yet.
+            _row("scotus/5", argument_set_for=date(2026, 10, 14), **granted),
+            # Decided on the merits: off the schedule.
+            _row(
+                "scotus/6",
+                argument_set_for=date(2026, 11, 3),
+                merits_judgment="affirmed",
+                **granted,
+            ),
+            # A GVR is a grant with no merits proceeding.
+            _row(
+                "scotus/7",
+                argument_set_for=date(2026, 11, 3),
+                date_cert_granted=date(2026, 6, 30),
+                disposition=Disposition.gvr,
+            ),
+        ],
+        public=[f"scotus/{n}" for n in range(2, 8)],
+    )
+    built = build_schedule(data_root=data_root, corpus_db_path=db, as_of=_AS_OF)
+    by_case = {entry.case_id: entry for entry in built.entries}
+    assert sorted(by_case) == ["scotus/2", "scotus/4", "scotus/5"]
+    assert by_case["scotus/2"].argument == ScheduledDay(
+        set_for=date(2026, 11, 3), upcoming=date(2026, 11, 3)
+    )
+    # A granted case's conference is behind it, so the row names none.
+    assert by_case["scotus/2"].distributed_for_conference is None
+    assert by_case["scotus/2"].next_conference is None
+    assert by_case["scotus/4"].argument is not None
+    assert by_case["scotus/4"].argument.upcoming == date(2026, 12, 1)
+    assert by_case["scotus/5"].argument == ScheduledDay(
+        set_for=date(2026, 10, 14), upcoming=None, stale_reason="passed"
+    )
+
+
+def test_a_response_deadline_is_published_only_while_owed(tmp_path: Path) -> None:
+    data_root, db = _seed(
+        tmp_path,
+        [
+            _row("scotus/2", response_due=date(2026, 11, 6), response_due_state="due"),
+            _row("scotus/3", response_due=date(2026, 11, 6), response_due_state="filed"),
+            _row("scotus/4", response_due=date(2026, 11, 6), response_due_state="waived"),
+            _row("scotus/5", response_due=date(2026, 10, 9), response_due_state="due"),
+            # Decided: no response is owed any more.
+            _row(
+                "scotus/6",
+                response_due=date(2026, 11, 6),
+                response_due_state="due",
+                date_cert_denied=date(2026, 10, 13),
+            ),
+            # Owed, and distributed: both dates on one row.
+            _row(
+                "scotus/7",
+                response_due=date(2026, 11, 6),
+                response_due_state="due",
+                distributed_for_conference=date(2026, 12, 4),
+            ),
+        ],
+        public=[f"scotus/{n}" for n in range(2, 8)],
+    )
+    built = build_schedule(data_root=data_root, corpus_db_path=db, as_of=_AS_OF)
+    by_case = {entry.case_id: entry for entry in built.entries}
+    assert sorted(by_case) == ["scotus/2", "scotus/5", "scotus/7"]
+    assert by_case["scotus/2"].response_due == ScheduledDay(
+        set_for=date(2026, 11, 6), upcoming=date(2026, 11, 6)
+    )
+    assert by_case["scotus/2"].distributed_for_conference is None
+    assert by_case["scotus/5"].response_due == ScheduledDay(
+        set_for=date(2026, 10, 9), upcoming=None, stale_reason="passed"
+    )
+    assert by_case["scotus/7"].next_conference == date(2026, 12, 4)
+    assert by_case["scotus/7"].response_due is not None
+
+
+def test_a_row_names_a_date_and_a_day_says_why_it_is_not_upcoming() -> None:
+    with pytest.raises(ValueError, match="carries a conference"):
+        ScheduleEntry(case_id="scotus/2")
+    with pytest.raises(ValueError, match="need distributed_for_conference"):
+        ScheduleEntry(
+            case_id="scotus/2",
+            next_conference=_AS_OF,
+            response_due=ScheduledDay(set_for=_AS_OF, upcoming=_AS_OF),
+        )
+    with pytest.raises(ValueError, match="stale_reason"):
+        ScheduledDay(set_for=_AS_OF, upcoming=None)
+    with pytest.raises(ValueError, match="stale_reason"):
+        ScheduledDay(set_for=_AS_OF, upcoming=_AS_OF, stale_reason="passed")
+
+
+def test_the_scheduled_columns_never_reach_the_retrieval_surface() -> None:
+    assert {"argument_set_for", "response_due", "response_due_state"} <= (
+        corpus.RETRIEVAL_WITHHELD_COLUMNS
+    )
+
+
+def test_a_1_0_schedule_carries_conferences_only() -> None:
+    entry = ScheduleEntry(
+        case_id="scotus/2", response_due=ScheduledDay(set_for=_AS_OF, upcoming=_AS_OF)
+    )
+    with pytest.raises(ValueError, match=r"need 1\.1"):
+        Schedule(schema_version="1.0", as_of=_AS_OF, entries=[entry])
+    assert Schedule(as_of=_AS_OF, entries=[entry]).schema_version == "1.1"

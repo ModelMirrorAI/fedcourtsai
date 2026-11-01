@@ -26,9 +26,11 @@ from fedcourtsai.pipeline.controversy import (
 )
 from fedcourtsai.pipeline.exec_action import (
     EXEC_ACTION_RULE_VERSION,
+    EXEC_ACTION_RULE_VERSION_V1,
     REASON_SCOPE,
     SCOPE_REASONS,
     exec_action_annotations,
+    exec_action_annotations_v2,
     exec_action_rule,
 )
 from fedcourtsai.pipeline.executive_success import (
@@ -37,6 +39,7 @@ from fedcourtsai.pipeline.executive_success import (
     _success,
     executive_success,
 )
+from fedcourtsai.pipeline.interim_signals import is_overlength_request
 from fedcourtsai.schemas import (
     Disposition,
     ExecutiveControversyCell,
@@ -129,13 +132,21 @@ def test_each_caption_shape_reads_its_reason(
     annotation = exec_action_annotations(row, row.date_filed)
     assert (annotation.reason, annotation.government_side) == (reason, side)
     assert annotation.in_scope is REASON_SCOPE[annotation.reason]
-    assert annotation.rule_version == EXEC_ACTION_RULE_VERSION
+    assert annotation.rule_version == EXEC_ACTION_RULE_VERSION_V1
+    # v2 reads the caption the same way where it has no snapshot to read.
+    v2 = exec_action_annotations_v2(row, row.date_filed)
+    assert (v2.reason, v2.government_side, v2.rule_version) == (
+        reason,
+        side,
+        EXEC_ACTION_RULE_VERSION,
+    )
 
 
 def test_the_reason_codes_are_registered_once() -> None:
     assert set(SCOPE_REASONS) == set(REASON_SCOPE)
     assert len(SCOPE_REASONS) == len(set(SCOPE_REASONS))
-    assert exec_action_rule(EXEC_ACTION_RULE_VERSION) is exec_action_annotations
+    assert exec_action_rule(EXEC_ACTION_RULE_VERSION_V1) is exec_action_annotations
+    assert exec_action_rule(EXEC_ACTION_RULE_VERSION) is exec_action_annotations_v2
     with pytest.raises(KeyError):
         exec_action_rule("exec-action-v9")
 
@@ -420,19 +431,19 @@ def test_the_command_prints_the_cut_with_its_vintage(
     )
     assert result.exit_code == 0, result.output
     assert (
-        "executive success (exec-action-v1 over party-v2 and sg-office-v1, as-of filed, "
+        "executive success (exec-action-v2 over party-v2 and sg-office-v1, as-of filed, "
         "through 2025-10-01)"
     ) in result.stderr
     assert "trump-47 government: executive won 3/4 = 75.0%" in result.stderr
     assert "finer reading re-read 3 stored denial(s)" in result.stderr
     assert (
-        "trump-47 government by controversy (controversy-v1): executive won 1/1"
+        "trump-47 government by controversy (controversy-v2): executive won 1/1"
     ) in result.stderr
     assert "corpus latest pull never pulled" in result.stderr
     assert "policy areas (policy-area-v1):" in result.stderr
     payload = json.loads(result.stdout)
     assert payload["through"] == "2025-10-01"
-    assert payload["scope_rule_version"] == "exec-action-v1"
+    assert payload["scope_rule_version"] == "exec-action-v2"
 
 
 @pytest.mark.parametrize(
@@ -471,8 +482,21 @@ def _links(
     lower: set[tuple[str, str]] | None = None,
     named: set[str] | None = None,
     caption: tuple[str, str] | None = None,
+    order: tuple[str, date, str, str] | None = None,
+    court: str = "",
+    filed: date | None = None,
+    ended: date | None = None,
 ) -> ControversyLinks:
-    return ControversyLinks(docket, frozenset(lower or ()), frozenset(named or ()), caption)
+    return ControversyLinks(
+        docket,
+        frozenset(lower or ()),
+        frozenset(named or ()),
+        caption,
+        order=order,
+        lower_court=court,
+        filed=filed,
+        ended=ended or filed,
+    )
 
 
 def test_controversy_links_read_the_case_below_the_order_and_the_caption() -> None:
@@ -505,8 +529,8 @@ def test_controversies_are_the_connected_sets_of_any_link() -> None:
             _links("24A95", lower={("ca9", "25-1")}),
             _links("24A105", lower={("ca9", "25-1")}, named={"24A300"}),
             _links("24A300"),  # joined through 24A105's order
-            _links("24A400", caption=("noem", "doe")),
-            _links("25A1", caption=("noem", "doe")),
+            _links("24A400", caption=("noem", "doe"), filed=date(2025, 3, 1)),
+            _links("25A1", caption=("noem", "doe"), filed=date(2025, 4, 1)),
             _links("24A500", lower={("ca1", "25-1")}),  # same number, another court
             _links("24A600", named={"24A999"}),  # names an application outside the cut
         ]
@@ -567,14 +591,16 @@ def test_controversy_cells_sit_beside_the_application_cells(tmp_path: Path) -> N
     with corpus.connect(db) as conn:
         result = executive_success(conn, as_of_field="filed")
     cells = {(c.administration, c.filer): c for c in result.controversy_cells}
-    # One caption joins every government application; the last decided one, a grant, wins.
+    # One caption joins every government application: 25A10, filed in September,
+    # is within CAPTION_LINK_DAYS of the March ones. The last decided, a grant, wins.
     government = cells[("trump-47", "government")]
     assert (government.controversies, government.applications, government.wins) == (1, 7, 1)
+    listed = {row.docket_number: row for row in result.review_rows}
+    assert listed["25A10"].controversy_id == "24A900"
     # Challengers' applications share no caption key and no snapshot: one controversy each.
     challenger = cells[("biden-46", "challenger")]
     assert (challenger.controversies, challenger.determinate, challenger.wins) == (3, 2, 1)
     # The unknown-scope row is listed but never grouped.
-    listed = {row.docket_number: row for row in result.review_rows}
     assert listed["24A104"].controversy_id is None
 
 
@@ -691,3 +717,372 @@ def test_spelling_and_parsing_do_not_break_the_grouping() -> None:
     # A lower-case, padded number is grouped under its own spelling; the
     # never-parsed row is counted beside its cell and grouped with nothing.
     assert _ids(result) == {"24A901": None, "24A902": "24a900 ", "24a900 ": "24a900 "}
+
+
+# Submission entries as the docket records them (scotus 17A132, 23A55, 17A212, 22A702).
+_OVERLENGTH_ASKS = [
+    "Application (17A132) of Donald J. Trump, President of the United States, et al. "
+    + "to file a consolidated petitioners' brief on the merits and a consolidated reply "
+    + "brief on the merits in excess of the word limits, submitted to The Chief Justice.",
+    "Application (23A55) for leave to file briefs on the merits in excess of the word "
+    + "limits, submitted to Justice Alito.",
+    "Application (17A212) to file petition for a writ of certiorari in excess of page "
+    + "limits, submitted to Justice Kagan.",
+    "Application (22A702) of the parties to file consolidated briefs on the merits in "
+    + "excess of the word limits, submitted to Justice Barrett.  VIDED.",
+]
+
+
+@pytest.mark.parametrize("ask", _OVERLENGTH_ASKS)
+def test_an_overlength_request_is_read_from_its_submission_entry(ask: str) -> None:
+    granted = "Application granted by The Chief Justice."
+    assert is_overlength_request([ask, granted])
+
+
+@pytest.mark.parametrize(
+    "texts",
+    [
+        # A stay is substantive whatever a later entry says about word limits.
+        [
+            "Application (24A1) for a stay, submitted to Justice Alito.",
+            "Application (24A2) to file a response in excess of the word limit granted.",
+        ],
+        ["Application (24A1) to extend the time to file a petition, submitted to Justice Alito."],
+        # A filer named first, then a stay and leave together: the stay makes it substantive.
+        [
+            "Application (17A132) of Donald J. Trump, President of the United States, et al. "
+            + "for a stay pending appeal and for leave to file in excess of the word limits, "
+            + "submitted to The Chief Justice."
+        ],
+        ["Response to application filed in excess of the word limit."],  # no ask clause
+        [],
+    ],
+)
+def test_other_asks_are_not_overlength_requests(texts: list[str]) -> None:
+    assert not is_overlength_request(texts)
+
+
+def _submitted(docket: str, ask: str, day: str = "2025-03-01") -> dict[str, object]:
+    """A live payload whose only entry is the application's submission."""
+    return {"ProceedingsandOrder": [{"Date": day, "Text": f"Application ({docket}) {ask}"}]}
+
+
+def test_v2_sets_a_procedural_request_out_of_scope() -> None:
+    fcc = "Federal Communications Commission, et al. v. Consumers' Research, et al."
+    row = _app("scotus/1", fcc, "24A754", date(2025, 1, 24), Disposition.granted, kind="unknown")
+    payload = _submitted(
+        "24A754",
+        "for leave to file a consolidated response brief on the merits in excess of the "
+        + "word limit, submitted to Justice Alito.",
+    )
+    annotation = exec_action_annotations_v2(row, row.date_filed, payload)
+    assert (annotation.reason, annotation.in_scope) == ("procedural-request", False)
+    assert annotation.government_side == "applicant"
+    # v1 reads the caption only, and so does v2 without the snapshot.
+    assert exec_action_annotations(row, row.date_filed, payload).reason == "gov-applicant"
+    assert exec_action_annotations_v2(row, row.date_filed).reason == "gov-applicant"
+    # A stored substantive ask is never re-read.
+    substantive = _app("scotus/2", fcc, "24A755", date(2025, 1, 24), Disposition.granted)
+    assert exec_action_annotations_v2(substantive, None, payload).reason == "gov-applicant"
+    # No government party: nothing for step 4 to narrow.
+    private = _app(
+        "scotus/3", "Acme Corp. v. Jane Doe", "24A756", date(2025, 1, 24), None, kind="unknown"
+    )
+    assert exec_action_annotations_v2(private, None, payload).reason == "no-federal-party"
+    # A row the caption already sets out of scope keeps its caption reason.
+    prosecution = _app(
+        "scotus/4", "John Roe v. United States", "24A757", date(2025, 1, 24), None, kind="unknown"
+    )
+    assert exec_action_annotations_v2(prosecution, None, payload).reason == "federal-prosecution"
+
+
+def test_the_cut_leaves_procedural_requests_out_and_dates_undated_rows(tmp_path: Path) -> None:
+    """A word-limit grant is no win, and an empty docketed date takes the first entry's."""
+    trump = "Donald J. Trump, President of the United States, et al. v. Jane Doe, et al."
+    rows = [
+        # Undated, procedural: a grant that would read as the government's win.
+        _row(
+            "scotus/1",
+            trump,
+            docket_number="17A824",
+            date_decided=date(2018, 2, 8),
+            disposition=Disposition.granted,
+            application_kind="unknown",
+        ),
+        # Undated, substantive: the transgender-service shape.
+        _row(
+            "scotus/2",
+            trump,
+            docket_number="18A625",
+            date_decided=date(2019, 1, 22),
+            disposition=Disposition.granted,
+            application_kind="substantive",
+        ),
+        # Undated and no snapshot: it keeps no filing date.
+        _row(
+            "scotus/3",
+            trump,
+            docket_number="18A700",
+            date_decided=date(2019, 2, 1),
+            disposition=Disposition.denied,
+            application_kind="substantive",
+        ),
+    ]
+    payloads: dict[str, dict[str, object]] = {
+        "17A824": _submitted(
+            "17A824",
+            "for leave to file the brief of petitioners in excess of the word limits, "
+            + "submitted to Justice Kennedy.",
+            "2018-02-05",
+        ),
+        "18A625": {
+            "ProceedingsandOrder": [
+                {"Date": "2018-12-13", "Text": "Application (18A625) for a stay, submitted."},
+                {"Date": "2019-01-22", "Text": "Application (18A625) granted."},
+            ]
+        },
+    }
+    result = _grouped(rows, payloads)
+    listed = {row.docket_number: row for row in result.review_rows}
+    assert "17A824" not in listed  # out of scope, so not listed for review
+    assert result.scope_reasons["procedural-request"] == 1
+    assert (listed["18A625"].date_filed, listed["18A625"].date_source) == (
+        date(2018, 12, 13),
+        "first-entry",
+    )
+    assert listed["18A625"].administration == "trump-45"
+    assert (listed["18A700"].date_filed, listed["18A700"].date_source) == (None, None)
+    assert listed["18A700"].administration is None
+    assert result.filed_from_first_entry == 2  # 17A824 and 18A625 took the fallback
+    government = _cells(result)[("trump-45", "government")]
+    assert (government.rows, government.wins, government.decided) == (1, 1, 1)
+    # Under exec-action-v1 the word-limit grant still counts, as a win.
+    v1 = _success(
+        rows,
+        as_of_field="filed",
+        through=None,
+        since=None,
+        corpus_sha256="",
+        scope_rule_version=EXEC_ACTION_RULE_VERSION_V1,
+        fetch=lambda wanted: [payloads.get(row.docket_number) for row in wanted],
+        reading="registered",
+        latest_pull=None,
+        latest_snapshot=None,
+    )
+    assert _cells(v1)[("trump-45", "government")].wins == 2
+
+
+def test_since_skips_reading_undated_rows_that_ended_before_it() -> None:
+    fetched: list[str] = []
+
+    def fetch(wanted: Sequence[corpus.CorpusRow]) -> list[Payload]:
+        fetched.extend(row.docket_number for row in wanted)
+        return [None for _ in wanted]
+
+    rows = [
+        _row(
+            "scotus/1",
+            _NOEM,
+            docket_number="16A1",
+            date_decided=date(2016, 9, 1),
+            disposition=Disposition.denied,
+            application_kind="substantive",
+        ),
+        _row(
+            "scotus/2",
+            _NOEM,
+            docket_number="25A2",
+            date_decided=date(2025, 9, 1),
+            disposition=Disposition.denied,
+            application_kind="substantive",
+        ),
+    ]
+    _success(
+        rows,
+        as_of_field="filed",
+        through=None,
+        since=date(2017, 1, 20),
+        corpus_sha256="",
+        scope_rule_version=EXEC_ACTION_RULE_VERSION,
+        fetch=fetch,
+        reading="registered",
+        latest_pull=None,
+        latest_snapshot=None,
+    )
+    assert "16A1" not in fetched
+    assert "25A2" in fetched
+
+
+def _referred(
+    docket: str, decided: str, court: str = "D.C. Circuit", opinion: str = "opinion"
+) -> dict[str, object]:
+    """One cluster's companion order, as the Court enters it on each docket.
+
+    The lead docket links the detached opinion where its companions name it.
+    """
+    order = (
+        f"Application ({docket}) for stay presented to The Chief Justice and by him referred "
+        + "to the Court is denied.  Justice Thomas would grant the application. "
+        + f"(detached {opinion})"
+    )
+    return {
+        "LowerCourt": court,
+        "LowerCourtCaseNumbers": f"({docket[-3:]}-1)",  # a different case below each
+        "ProceedingsandOrder": [
+            {"Date": "2024-07-23", "Text": f"Application ({docket}) for a stay, submitted."},
+            {"Date": decided, "Text": order},
+        ],
+    }
+
+
+def test_one_order_text_on_one_day_joins_a_cluster_across_cases_below() -> None:
+    west_virginia = "West Virginia, et al. v. Environmental Protection Agency, et al."
+    edison = "Edison Electric Institute, et al. v. Environmental Protection Agency, et al."
+    labor = "Acme Corp. v. Department of Labor, et al."
+    decided = date(2024, 10, 16)
+    rows = [
+        _app(
+            "scotus/1",
+            west_virginia,
+            "24A95",
+            date(2024, 7, 23),
+            Disposition.denied,
+            decided=decided,
+        ),
+        _app("scotus/2", edison, "24A116", date(2024, 7, 29), Disposition.denied, decided=decided),
+        _app("scotus/3", _OHIO, "24A117", date(2024, 7, 29), Disposition.denied, decided=decided),
+        # The same text on another day joins nothing.
+        _app(
+            "scotus/4",
+            _OHIO,
+            "24A300",
+            date(2024, 9, 1),
+            Disposition.denied,
+            decided=date(2024, 11, 1),
+        ),
+        # The same text and day against another agency joins nothing.
+        _app("scotus/5", labor, "24A301", date(2024, 9, 2), Disposition.denied, decided=decided),
+    ]
+    payloads = {
+        "24A95": _referred(
+            "24A95", "2024-10-16", opinion="<a href='https://example.test/24a95.pdf'>opinion</a>"
+        ),
+        "24A116": _referred("24A116", "2024-10-16"),
+        "24A117": _referred("24A117", "2024-10-16"),
+        "24A300": _referred("24A300", "2024-11-01"),
+        "24A301": _referred("24A301", "2024-10-16"),
+    }
+    ids = _ids(_grouped(rows, payloads))
+    assert ids["24A116"] == ids["24A117"] == ids["24A95"] == "24A95"
+    assert ids["24A300"] == "24A300"
+    assert ids["24A301"] == "24A301"
+
+
+def test_a_shared_caption_joins_only_close_in_time_and_court() -> None:
+    biden = "Joseph R. Biden, Jr., President of the United States, et al. v. Missouri, et al."
+    eighth: dict[str, object] = {"LowerCourt": "Eighth Circuit"}
+    fifth: dict[str, object] = {"LowerCourt": "Fifth Circuit"}
+    rows = [
+        # A vaccine rule in 2021 and a loan plan in 2024: one caption, two policies.
+        _app(
+            "scotus/1",
+            biden,
+            "21A240",
+            date(2021, 12, 16),
+            Disposition.granted,
+            decided=date(2022, 1, 13),
+        ),
+        _app(
+            "scotus/2",
+            biden,
+            "24A173",
+            date(2024, 8, 13),
+            Disposition.denied,
+            decided=date(2024, 8, 28),
+        ),
+        # Renewed on the next appeal within weeks: one controversy.
+        _app(
+            "scotus/3",
+            biden,
+            "24A190",
+            date(2024, 9, 20),
+            Disposition.granted,
+            decided=date(2024, 10, 1),
+        ),
+        # Close in time but from another circuit: apart.
+        _app(
+            "scotus/4",
+            biden,
+            "24A200",
+            date(2024, 9, 25),
+            Disposition.denied,
+            decided=date(2024, 10, 2),
+        ),
+    ]
+    payloads = {"21A240": eighth, "24A173": eighth, "24A190": eighth, "24A200": fifth}
+    ids = _ids(_grouped(rows, payloads))
+    assert ids["21A240"] == "21A240"
+    assert ids["24A173"] == ids["24A190"] == "24A173"
+    assert ids["24A200"] == "24A200"
+
+
+def test_an_undated_row_decided_after_the_cut_but_filed_before_it_is_pending() -> None:
+    """The first entry places it in the window; its later decision had not happened."""
+    row = _row(
+        "scotus/1",
+        _NOEM,
+        docket_number="25A50",
+        date_decided=date(2025, 11, 1),
+        disposition=Disposition.granted,
+        application_kind="substantive",
+    )
+    payload = _submitted("25A50", "for a stay, submitted to Justice Alito.", "2025-09-01")
+    result = _success(
+        [row],
+        as_of_field="filed",
+        through=date(2025, 10, 1),
+        since=None,
+        corpus_sha256="",
+        scope_rule_version=EXEC_ACTION_RULE_VERSION,
+        fetch=lambda wanted: [payload for _ in wanted],
+        reading="registered",
+        latest_pull=None,
+        latest_snapshot=None,
+    )
+    assert (result.applications, result.filed_after_through) == (1, 0)
+    government = _cells(result)[("trump-47", "government")]
+    assert (government.rows, government.pending, government.decided) == (1, 1, 0)
+
+
+def test_one_order_text_on_one_day_needs_one_court_below() -> None:
+    decided = date(2024, 10, 16)
+    rows = [
+        _app("scotus/1", _OHIO, "24A117", date(2024, 7, 29), Disposition.denied, decided=decided),
+        _app("scotus/2", _OHIO, "24A118", date(2024, 7, 29), Disposition.denied, decided=decided),
+    ]
+    payloads = {
+        "24A117": _referred("24A117", "2024-10-16"),
+        "24A118": _referred("24A118", "2024-10-16", court="Fifth Circuit"),
+    }
+    assert _ids(_grouped(rows, payloads)) == {"24A117": "24A117", "24A118": "24A118"}
+
+
+def test_a_shared_caption_runs_from_a_pending_applications_filing_and_needs_a_date() -> None:
+    rows = [
+        # Pending at the cut: the window runs from its filing.
+        _app("scotus/1", _NOEM, "25A10", date(2025, 3, 1), None),
+        _app("scotus/2", _NOEM, "25A20", date(2025, 5, 1), Disposition.granted),
+        _app("scotus/3", _NOEM, "25A30", date(2026, 1, 15), Disposition.granted),
+        # No filing date at all, and no snapshot to date it: it caption-joins nothing.
+        _row(
+            "scotus/4",
+            _NOEM,
+            docket_number="25A40",
+            disposition=Disposition.granted,
+            application_kind="substantive",
+        ),
+    ]
+    ids = _ids(_grouped(rows))
+    assert ids["25A10"] == ids["25A20"] == "25A10"
+    assert ids["25A30"] == "25A30"  # more than 210 days after 25A20's decision
+    assert ids["25A40"] == "25A40"

@@ -8932,51 +8932,108 @@ class ScopeManifest(_Strict):
 
 
 ScheduleStaleReason = Literal["conference_passed"]
+ScheduledDayStaleReason = Literal["passed"]
+
+
+class ScheduledDay(_Strict):
+    """One date the Court has set on a docket, as the live channel last read it.
+
+    `upcoming` carries the date only while it falls on or after the schedule's
+    `as_of`; once it has passed, the row keeps the date as read in `set_for`
+    and says why it is no longer scheduled, so a past date is never shown as
+    upcoming.
+    """
+
+    set_for: date = Field(description="The date the docket names, whether or not it has passed")
+    upcoming: date | None = Field(
+        description="`set_for`, when it falls on or after `as_of`; null exactly when "
+        "`stale_reason` is set"
+    )
+    stale_reason: ScheduledDayStaleReason | None = Field(
+        default=None,
+        description="Why the day carries no `upcoming` date: `passed` (`set_for` is before "
+        "`as_of`, and the docket shows no newer setting yet). Null while the date is ahead",
+    )
+
+    @model_validator(mode="after")
+    def _stale_exactly_when_not_upcoming(self) -> ScheduledDay:
+        """A day is either upcoming or says why it is not."""
+        if (self.upcoming is None) == (self.stale_reason is None):
+            raise ValueError("stale_reason is set exactly when upcoming is null")
+        return self
 
 
 class ScheduleEntry(_Strict):
-    """One pending, already-public docket's next scheduled conference.
+    """One pending, already-public docket's next dates at the Court.
 
-    A row exists for every docket on the public set whose corpus row is
-    unresolved and carries a conference it was distributed for. The date is
-    published as `next_conference` only while it falls on or after the
-    schedule's `as_of`; once it has passed and the docket has not moved, the
-    row keeps the date it was distributed for and says why it is no longer a
-    scheduled date, so a past conference is never shown as upcoming.
+    A row exists for every docket on the public set that has at least one of
+    three dates in play: the conference an undecided petition is distributed
+    for, the day a granted case awaiting its merits decision is set for
+    argument, and the deadline for a response that is still owed. Each date is
+    published only while it falls on or after the schedule's `as_of`; once it
+    has passed and the docket has not moved, the row keeps the date as read and
+    says why it is no longer a scheduled date, so a past date is never shown as
+    upcoming.
     """
 
     case_id: str = Field(description="``<court>/<docket>`` of an already-public case")
     next_conference: date | None = Field(
+        default=None,
         description="The conference the docket is distributed for, when it falls on or "
-        "after `as_of`; null exactly when `stale_reason` is set"
+        "after `as_of`; null when `stale_reason` is set, and when the row names no "
+        "conference (`distributed_for_conference` null)",
     )
-    distributed_for_conference: date = Field(
+    distributed_for_conference: date | None = Field(
+        default=None,
         description="The corpus `distributed_for_conference`: the date named by the "
         "docket's newest 'DISTRIBUTED for Conference of …' entry, as the live channel "
-        "last read it, whether or not it has passed"
+        "last read it, whether or not it has passed. Null on an undecided docket never "
+        "distributed, and on a granted case, whose conference is behind it",
     )
     stale_reason: ScheduleStaleReason | None = Field(
         default=None,
-        description="Why the row carries no `next_conference`: `conference_passed` (the "
-        "conference is before `as_of` and the docket shows no newer distribution or a "
-        "decision yet). Null while the date is still ahead",
+        description="Why the row carries no `next_conference` although it names a "
+        "conference: `conference_passed` (the conference is before `as_of` and the "
+        "docket shows no newer distribution or a decision yet). Null while the date is "
+        "still ahead, and on a row that names no conference",
+    )
+    argument: ScheduledDay | None = Field(
+        default=None,
+        description="The day the docket's newest 'SET FOR ARGUMENT on …' entry names, on "
+        "a granted case the Court has not yet decided. Null when the case is not set for "
+        "argument, or has been argued on or after that day",
+    )
+    response_due: ScheduledDay | None = Field(
+        default=None,
+        description="The newest stated deadline for a response to the petition or "
+        "application, while the docket is undecided and the response is still owed. Null "
+        "when no deadline is stated, or a response or waiver followed it",
     )
     last_live_polled: date | None = Field(
         default=None,
         description="When the live channel last read this docket — the per-case vintage of "
-        "`distributed_for_conference`, which `as_of` is not",
+        "every date on the row, which `as_of` is not",
     )
 
     @model_validator(mode="after")
     def _stale_exactly_when_unscheduled(self) -> ScheduleEntry:
-        """A row is either scheduled or says why it is not."""
-        if (self.next_conference is None) == (self.stale_reason is None):
+        """A conference is either scheduled or says why it is not; a row holds a date."""
+        if self.distributed_for_conference is None:
+            if self.next_conference is not None or self.stale_reason is not None:
+                raise ValueError("next_conference and stale_reason need distributed_for_conference")
+        elif (self.next_conference is None) == (self.stale_reason is None):
             raise ValueError("stale_reason is set exactly when next_conference is null")
+        if (
+            self.distributed_for_conference is None
+            and self.argument is None
+            and self.response_due is None
+        ):
+            raise ValueError("a schedule row carries a conference, an argument or a deadline")
         return self
 
 
 class Schedule(_Strict):
-    """``data/schedule/schedule.json`` — the next scheduled conference, public set only.
+    """``data/schedule/schedule.json`` — the Court's next dates, public set only.
 
     Written by the live poll from the corpus it already holds, after each cycle,
     for the dockets the repository already discloses under ``data/cases``: it is
@@ -8988,20 +9045,36 @@ class Schedule(_Strict):
     present.
     """
 
-    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    schema_version: Literal["1.0", "1.1"] = Field(
+        default="1.1",
+        description="The artifact's schema version. A reader keys on it: a `1.1` row adds "
+        "`argument` and `response_due`, and may name no conference",
+    )
     skipped: bool = Field(
         default=False, description="True when no corpus was present; nothing was read"
     )
     as_of: date | None = Field(
         default=None,
         description="The UTC day the schedule was built on, which decides whether a "
-        "conference has passed; null on a skipped build",
+        "date has passed; null on a skipped build",
     )
     entries: list[ScheduleEntry] = Field(
         default_factory=list,
-        description="One entry per pending public docket with a conference it was "
-        "distributed for, in case_id order",
+        description="One entry per pending public docket with a conference, an argument "
+        "day or a response deadline in play, in case_id order",
     )
+
+    @model_validator(mode="after")
+    def _a_1_0_row_is_a_conference(self) -> Schedule:
+        """A `1.0` schedule carries conferences only: the other dates need `1.1`."""
+        if self.schema_version == "1.0" and any(
+            entry.distributed_for_conference is None
+            or entry.argument is not None
+            or entry.response_due is not None
+            for entry in self.entries
+        ):
+            raise ValueError("argument, response_due and conference-less rows need 1.1")
+        return self
 
 
 QpTopicLabel = Literal[
@@ -9747,7 +9820,84 @@ class AiCaseActivity(_Strict):
 
 
 QpTopicFrame = Literal["petitions", "applications", "alignment-sides"]
-QpTopicRunOutcome = Literal["published", "refused", "incomplete"]
+QpTopicRunOutcome = Literal["published", "refused", "incomplete", "replicate"]
+
+
+class QpTopicKindAgreement(_Strict):
+    """A replicate's agreement on one application ``input_kind`` of the reference block."""
+
+    input_kind: Literal["application-text", "docket-only"] = Field(
+        description="Which input shape the reference rows were read from"
+    )
+    agree: int = Field(ge=0, description="Reference rows of this kind where the two labels match")
+    n: int = Field(ge=0, description="Reference rows of this kind the replicate compared")
+
+    @model_validator(mode="after")
+    def _bounded(self) -> QpTopicKindAgreement:
+        if self.agree > self.n:
+            raise ValueError("agree cannot exceed n")
+        return self
+
+
+class QpTopicReplicate(_Strict):
+    """One reference-only replicate's item-level measurement (``docs/qp-topic.md``).
+
+    A replicate labels the frame's reference block alone and publishes nothing:
+    it exists to measure how far one labeler's agreement moves between runs on
+    identical inputs. The pooled figures sit on the run record beside this; what
+    this adds is what separates a run-level component from item-level noise —
+    which reference rows this run matched, as one character per reference entry
+    in ``case_id`` order — and the shares the gate candidates are cut by. The
+    reference entries are committed already, so the string discloses nothing a
+    reader of the reference file does not hold. ``reference_sha256`` pins which
+    reference the string indexes and ``prompt_sha256`` which labeling prompt was
+    read: replicates that differ on either are not pooled, since a reference
+    revision or a prompt edit would land in the run-level component.
+    """
+
+    reference_sha256: str = Field(
+        pattern=r"^[0-9a-f]{64}$",
+        description="sha256 of the committed reference file the replicate was measured against",
+    )
+    prompt_sha256: str = Field(
+        pattern=r"^[0-9a-f]{64}$",
+        description="sha256 of the labeling prompt the replicate's labeler read; replicates "
+        "under different prompts are not pooled",
+    )
+    reference_entries: int = Field(ge=1, description="Entries in that reference file")
+    matches: str = Field(
+        pattern=r"^[01-]+$",
+        description="One character per reference entry in case_id order: 1 the labeler "
+        "matched the reference label, 0 it did not, - the entry was not in the replicate's "
+        "extract",
+    )
+    unclassifiable: int = Field(
+        ge=0,
+        description="Compared reference entries the labeler labeled `unclassifiable`",
+    )
+    per_input_kind: list[QpTopicKindAgreement] = Field(
+        default_factory=list,
+        description="Agreement per application input kind; empty on the petition frame, "
+        "whose reference rows are all questions-presented text",
+    )
+
+    @model_validator(mode="after")
+    def _consistent(self) -> QpTopicReplicate:
+        if len(self.matches) != self.reference_entries:
+            raise ValueError("matches carries one character per reference entry")
+        kinds = [row.input_kind for row in self.per_input_kind]
+        if len(set(kinds)) != len(kinds):
+            raise ValueError("an input kind appears twice")
+        compared = len(self.matches) - self.matches.count("-")
+        if self.unclassifiable > compared:
+            raise ValueError("unclassifiable cannot exceed the compared entries")
+        if self.per_input_kind and sum(row.n for row in self.per_input_kind) != compared:
+            raise ValueError("the per-kind n sum to the compared entries")
+        if self.per_input_kind and sum(row.agree for row in self.per_input_kind) != (
+            self.matches.count("1")
+        ):
+            raise ValueError("the per-kind agreements sum to the matched entries")
+        return self
 
 
 class QpTopicRunSpend(_Strict):
@@ -9786,7 +9936,9 @@ class QpTopicRunSpend(_Strict):
         "measured and fell below the gate; "
         "incomplete: it reached neither (a labels file short of the batch, a check ahead of "
         "the measurement that failed, or a measurement that cleared the gate but did not "
-        "reach publication), its gate figures carried wherever it was measured"
+        "reach publication), its gate figures carried wherever it was measured; "
+        "replicate: a reference-only replicate that labeled the reference block alone, "
+        "measured it, and published nothing by design, so it is neither a pass nor a refusal"
     )
     batch_rows: int = Field(ge=0, description="Rows in the extract the labeler was handed")
     label_lines: int = Field(ge=0, description="Label lines the run left behind")
@@ -9830,6 +9982,19 @@ class QpTopicRunSpend(_Strict):
         "none: the one that prices these token counts dearest, so an unpriced model's spend "
         "is still counted and never under-counted; null when priced at `model`'s own rate",
     )
+    replicate: QpTopicReplicate | None = Field(
+        default=None,
+        description="A replicate run's item-level measurement; present exactly when the "
+        "outcome is `replicate`",
+    )
+
+    def _check_replicate(self) -> None:
+        if (self.outcome == "replicate") != (self.replicate is not None):
+            raise ValueError("a replicate run, and only one, carries its replicate measurement")
+        if self.replicate is not None and self.agree is not None and self.n is not None:
+            matches = self.replicate.matches
+            if self.agree != matches.count("1") or self.n != len(matches) - matches.count("-"):
+                raise ValueError("agree and n are the replicate's matched and compared entries")
 
     @model_validator(mode="after")
     def _consistent(self) -> QpTopicRunSpend:
@@ -9843,12 +10008,13 @@ class QpTopicRunSpend(_Strict):
         if self.frame == "alignment-sides":
             # The merits side coder has no reference set, so no gate: a run is
             # published or incomplete, and never carries gate figures.
-            if self.outcome == "refused":
-                raise ValueError("a side-coding run has no gate to be refused at")
+            if self.outcome in ("refused", "replicate"):
+                raise ValueError(f"a side-coding run has no gate, so it is never {self.outcome}")
             if measured or self.rate is not None or self.floor is not None:
                 raise ValueError("a side-coding run carries no gate figures")
         elif self.outcome != "incomplete" and not measured:
             raise ValueError(f"a {self.outcome} run carries its gate figures")
+        self._check_replicate()
         if self.outcome == "published" and self.label_lines != self.batch_rows:
             raise ValueError("a published run labeled every row of its batch")
         if self.rate is not None and not measured:
@@ -11663,10 +11829,12 @@ _Day = date
 
 
 class BigCaseScheduled(_Strict):
-    """The next date the Court has set for a case, as the committed schedule carries it."""
+    """A date ahead that the Court has set for a case, as the committed schedule carries it."""
 
-    kind: Literal["conference"] = Field(
-        description="What is scheduled: `conference`, the conference the docket is distributed for"
+    kind: Literal["conference", "argument", "response_due"] = Field(
+        description="What is scheduled: `conference`, the conference the docket is "
+        "distributed for; `argument`, the day a granted case is set for argument; "
+        "`response_due`, the deadline for a response to the petition or application"
     )
     date: _Day = Field(
         description="The scheduled day, on or after the day the schedule was last built. A "
@@ -11776,8 +11944,15 @@ class BigCaseRow(_Strict):
         default=None,
         description="The case's next scheduled date, joined from the committed "
         "`data/schedule/schedule.json` by the `schedule_rule` provenance string; None where "
-        "the schedule carries no upcoming date for the case. Carries no `as_of`, so the "
-        "board moves only when a case's date does. Display-only",
+        "the schedule carries no upcoming conference for the case. Always the `conference` "
+        "entry of `schedule`, kept for `1.3` readers. Carries no `as_of`, so the board moves "
+        "only when a case's date does. Display-only",
+    )
+    schedule: list[BigCaseScheduled] = Field(
+        default_factory=list,
+        description="Every upcoming date the committed schedule carries for the case — its "
+        "conference, its argument day, its response deadline — earliest first, joined by "
+        "the `schedule_rule` provenance string. Empty where none is ahead. Display-only",
     )
     status: Literal["pending", "partly_resolved", "resolved"] = Field(
         description="Resolution state across **all** the case's predicted events, derived "
@@ -11851,6 +12026,17 @@ class BigCaseRow(_Strict):
             raise ValueError("asking_declined is set exactly when asking_party is not")
         return self
 
+    @model_validator(mode="after")
+    def _scheduled_is_the_conference(self) -> BigCaseRow:
+        """`scheduled` keeps its `1.3` meaning: the conference entry, when there is one."""
+        if self.scheduled is not None and self.scheduled.kind != "conference":
+            raise ValueError("scheduled carries the conference only; see schedule")
+        if self.schedule != sorted(self.schedule, key=lambda day: (day.date, day.kind)):
+            raise ValueError("schedule is ordered earliest first")
+        if self.scheduled is not None and self.schedule and self.scheduled not in self.schedule:
+            raise ValueError("scheduled is the conference entry of schedule")
+        return self
+
 
 class BigCaseCoverage(_Strict):
     """How many cases the board ranks on `n` reads — the denominator distribution."""
@@ -11905,7 +12091,7 @@ class BigCaseProvenance(_Strict):
     )
     schedule_rule: str | None = Field(
         default=None,
-        description="Where `scheduled` comes from and when it is null",
+        description="Where `schedule` and `scheduled` come from and when each is empty or null",
     )
     process_label: str = Field(
         description="The process label in force when the board was built — what a "
@@ -11947,13 +12133,13 @@ class BigCaseBoard(_Strict):
     artifact's vintage is the commit that wrote it.
     """
 
-    schema_version: Literal["1.3"] = Field(
-        default="1.3",
+    schema_version: Literal["1.3", "1.4"] = Field(
+        default="1.4",
         description="The artifact's schema version. A reader keys on it: a `1.1` row "
         "carries the display fields `short_caption`, `docket_number`, "
         "`docket_number_source` and `docket_url`, a `1.2` row adds `asking_party`, "
-        "`other_party`, `outcome_lines` and `asking_declined`, and a `1.3` row adds "
-        "`scheduled`",
+        "`other_party`, `outcome_lines` and `asking_declined`, a `1.3` row adds "
+        "`scheduled`, and a `1.4` row adds `schedule`",
     )
     process_scope: Literal["frozen", "all"] = Field(
         default="all",
@@ -12913,7 +13099,15 @@ class ExecutiveSuccessRow(_Strict):
     administration: str | None = Field(
         default=None, description="Administration under the cut's date convention"
     )
-    date_filed: date | None = Field(default=None, description="The row's filing date")
+    date_filed: date | None = Field(
+        default=None,
+        description="The row's filing date: the docketed date, else its first proceeding's",
+    )
+    date_source: Literal["docketed", "first-entry"] | None = Field(
+        default=None,
+        description="Where `date_filed` came from: the docket's docketed date, or the "
+        "first proceeding entry where the docketed date is empty; null = neither",
+    )
     in_scope: bool | None = Field(description="The scope rule's reading; null = unknown")
     reason: str = Field(description="The scope rule's reason code")
     government_side: Literal["applicant", "respondent"] = Field(
@@ -12962,7 +13156,7 @@ class ExecutiveSuccess(_Strict):
     """
 
     schema_version: Literal["1.0"] = SCHEMA_VERSION
-    scope_rule_version: str = Field(description="The committed scope rule, e.g. exec-action-v1")
+    scope_rule_version: str = Field(description="The committed scope rule, e.g. exec-action-v2")
     party_rule_version: str = Field(description="The party rule the scope rule composes")
     counsel_rule_version: str = Field(description="The counsel rule the scope rule composes")
     reading: Literal["finer", "registered"] = Field(
@@ -12998,6 +13192,12 @@ class ExecutiveSuccess(_Strict):
         ge=0,
         description="Applications in the window, extensions of time left out, one per "
         "docket number",
+    )
+    filed_from_first_entry: int = Field(
+        default=0,
+        ge=0,
+        description="Of those, rows with no docketed date that took their first "
+        "proceeding entry's date as their filing date",
     )
     duplicate_rows: int = Field(
         default=0,
@@ -13050,7 +13250,7 @@ class ExecutiveSuccess(_Strict):
         default_factory=list, description="Non-empty cells only; an absent cell is not a zero"
     )
     controversy_rule_version: str = Field(
-        description="The grouping rule the controversy cells are counted under, e.g. controversy-v1"
+        description="The grouping rule the controversy cells are counted under, e.g. controversy-v2"
     )
     controversy_cells: list[ExecutiveControversyCell] = Field(
         default_factory=list,
