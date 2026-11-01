@@ -71,6 +71,18 @@ run-name: "run-analytics: ${{ github.event_name == 'workflow_dispatch' && inputs
 #                      `qp-topic-resolve` job reads the mode (or the cron) once,
 #                      and its frame and labels-name outputs are the only places
 #                      the two frames differ.
+#   - qp-topic-replicate / qp-topic-replicate-applications: a reference-only
+#                      replicate of the petition or application labeler
+#                      (`docs/qp-topic.md`). Dispatch only, no cron. The same
+#                      jobs, hold and spend ledger, with two differences the
+#                      resolve job's `replicate` output carries: the extract is
+#                      the frame's reference rows alone (`qp-corpus
+#                      --reference-only`), and the measure step records the run
+#                      (`qp-topics --replicate-out`) instead of writing a labels
+#                      file, so the publish job lands the run's spend record
+#                      alone, outcome `replicate`. The labeler reads the same
+#                      prompt and is not told it is a replicate. Each dispatch is
+#                      one replicate; `fedcourts qp-topic-replicates` pools them.
 #   - alignment-side-code: the labeling lane's third frame, `alignment-sides`:
 #                      the merits side coder (`docs/merits-alignment-baseline.md`,
 #                      `.github/prompts/alignment-side-code.md`) codes each
@@ -207,12 +219,14 @@ on:
           - tool-usage
           - qp-topic-label
           - qp-topic-label-applications
+          - qp-topic-replicate
+          - qp-topic-replicate-applications
           - alignment-side-code
           - order-scan
           - decision-below
         default: corpus-stats
       label_model:
-        description: "qp-topic-label and alignment-side-code modes only: the agent's model."
+        description: "Labeling modes only (qp-topic-label, qp-topic-label-applications, the two qp-topic-replicate modes, alignment-side-code): the agent's model."
         # The scheduled runs use this default too, through `qp-topic-resolve`,
         # which carries the same literal and refuses any other value.
         # A choice, not a free string: the value is spliced into the agent's own
@@ -1116,6 +1130,7 @@ jobs:
       ${{ ((github.event_name == 'schedule' && (startsWith(github.event.schedule, '8 ')
       || startsWith(github.event.schedule, '4 ') || startsWith(github.event.schedule, '14 ')))
       || inputs.mode == 'qp-topic-label' || inputs.mode == 'qp-topic-label-applications'
+      || inputs.mode == 'qp-topic-replicate' || inputs.mode == 'qp-topic-replicate-applications'
       || inputs.mode == 'alignment-side-code')
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
@@ -1134,6 +1149,9 @@ jobs:
       prompt: ${{ steps.resolve.outputs.prompt }}
       model: ${{ steps.resolve.outputs.model }}
       scheduled: ${{ steps.resolve.outputs.scheduled }}
+      # `true` for a reference-only replicate: the extract cuts the reference
+      # rows alone and the measure step records the run without writing labels.
+      replicate: ${{ steps.resolve.outputs.replicate }}
     steps:
       - name: Resolve the labeling mode, frame and model
         id: resolve
@@ -1145,6 +1163,7 @@ jobs:
         run: |
           set -euo pipefail
           scheduled=false
+          replicate=false
           case "${EVENT_NAME}:${SCHEDULE}" in
             "schedule:8 9 * * 2") mode=qp-topic-label; scheduled=true ;;
             "schedule:4 9 * * 3") mode=qp-topic-label-applications; scheduled=true ;;
@@ -1155,6 +1174,8 @@ jobs:
           case "$mode" in
             qp-topic-label) frame=petitions; labels=qp-topics.json ;;
             qp-topic-label-applications) frame=applications; labels=qp-topics-applications.json ;;
+            qp-topic-replicate) frame=petitions; labels=qp-topics.json; replicate=true ;;
+            qp-topic-replicate-applications) frame=applications; labels=qp-topics-applications.json; replicate=true ;;
             alignment-side-code) frame=alignment-sides; labels=alignment-side-codes.json ;;
             *) echo "::error::not a labeling mode: ${mode}"; exit 1 ;;
           esac
@@ -1178,8 +1199,9 @@ jobs:
             echo "prompt=$prompt"
             echo "model=$model"
             echo "scheduled=$scheduled"
+            echo "replicate=$replicate"
           } >> "$GITHUB_OUTPUT"
-          echo "labeling run: ${mode} (${frame} frame) by ${model}, scheduled=${scheduled}"
+          echo "labeling run: ${mode} (${frame} frame) by ${model}, scheduled=${scheduled}, replicate=${replicate}"
 
   qp-topic-extract:
     needs: [authorize, qp-topic-resolve]
@@ -1356,6 +1378,7 @@ jobs:
           FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
           SCHEDULED: ${{ needs.qp-topic-resolve.outputs.scheduled }}
           PENDING: ${{ steps.carry.outputs.pending }}
+          REPLICATE: ${{ needs.qp-topic-resolve.outputs.replicate }}
         run: |
           set -euo pipefail
           # A scheduled run stands down while the frame's open labels PR holds
@@ -1371,9 +1394,14 @@ jobs:
           # label — converged, or a batch the reference set fills alone — and
           # writes no extract; a dispatch keeps the refusal, so an operator who
           # asked for a batch hears why there is none.
-          standdown=()
+          cut_args=()
           if [ "$SCHEDULED" = true ]; then
-            standdown=(--converged-ok)
+            cut_args=(--converged-ok)
+          fi
+          # A replicate cuts the frame's reference rows alone: the labeler reads
+          # identical inputs on every replicate, and nothing it labels is owed.
+          if [ "$REPLICATE" = true ]; then
+            cut_args+=(--reference-only)
           fi
           # Under $RUNNER_TEMP, never the work tree: the extract republishes
           # stored petition text and enumerates the ingested corpus, so
@@ -1405,7 +1433,7 @@ jobs:
               2> "$RUNNER_TEMP/qp-batch.txt" || status=$?
           else
             uv run fedcourts qp-corpus --frame "$QP_FRAME" --out "$RUNNER_TEMP/qp-texts.json" \
-              "${standdown[@]+"${standdown[@]}"}" 2> "$RUNNER_TEMP/qp-batch.txt" || status=$?
+              "${cut_args[@]+"${cut_args[@]}"}" 2> "$RUNNER_TEMP/qp-batch.txt" || status=$?
           fi
           cat "$RUNNER_TEMP/qp-batch.txt" >&2
           {
@@ -2469,6 +2497,13 @@ jobs:
           # record below: a refused run writes no labels file, so this is the
           # only place its measurement survives the runner.
           agreement-out: ${{ runner.temp }}/qp-agreement.json
+          # A replicate records the run here and writes no labels file.
+          replicate-out: >-
+            ${{ needs.qp-topic-resolve.outputs.replicate == 'true'
+            && format('{0}/qp-replicate.json', runner.temp) || '' }}
+          # The prompt the labeler read, restored from the commit by the
+          # pristine step; a replicate record carries its digest.
+          prompt-file: ${{ needs.qp-topic-resolve.outputs.prompt }}
           transcript-hint: >-
             The qp-label-transcript run artifact carries the turn-by-turn
             transcript to diagnose from (absent only when the scan withheld it
@@ -2559,8 +2594,13 @@ jobs:
           MODEL: ${{ needs.qp-topic-resolve.outputs.model }}
           BATCH_ROWS: ${{ needs.qp-topic-extract.outputs.batch-rows }}
           LABEL_LINES: ${{ steps.label_lines.outputs.lines }}
+          REPLICATE: ${{ needs.qp-topic-resolve.outputs.replicate }}
+          # A replicate's measure step succeeds without writing labels, so it
+          # never counts as a published measurement.
           MEASURED: >-
-            ${{ (steps.measure.outcome == 'success' || steps.side_codes.outcome == 'success')
+            ${{ ((steps.measure.outcome == 'success'
+            && needs.qp-topic-resolve.outputs.replicate != 'true')
+            || steps.side_codes.outcome == 'success')
             && 'success' || 'unpublished' }}
           RUN_ATTEMPT: ${{ github.run_attempt }}
         run: |
@@ -2577,6 +2617,9 @@ jobs:
           agreement=()
           if [ "$QP_FRAME" != alignment-sides ]; then
             agreement=(--agreement-file "$RUNNER_TEMP/qp-agreement.json")
+          fi
+          if [ "$REPLICATE" = true ]; then
+            agreement+=(--replicate-file "$RUNNER_TEMP/qp-replicate.json")
           fi
           status=0
           "$SCANNER" -E -s -P -m fedcourtsai.cli qp-topic-spend \
@@ -2644,15 +2687,20 @@ jobs:
       - name: Stage the measured artifact for the publish job
         id: stage_publish
         if: >-
-          ${{ !cancelled() && (steps.measure.outcome == 'success'
+          ${{ !cancelled() && ((steps.measure.outcome == 'success'
+          && needs.qp-topic-resolve.outputs.replicate != 'true')
           || steps.side_codes.outcome == 'success' || steps.spend.outcome == 'success') }}
         env:
           # The composite's declared output, not a path convention: where the
           # sanitized measured block lands is the measure step's contract.
           MEASURED_FILE: >-
             ${{ steps.measure.outputs.measured-file || steps.side_codes.outputs.measured-file }}
+          # A replicate's measure step succeeds without writing labels, so it
+          # never counts as a published measurement.
           MEASURED: >-
-            ${{ (steps.measure.outcome == 'success' || steps.side_codes.outcome == 'success')
+            ${{ ((steps.measure.outcome == 'success'
+            && needs.qp-topic-resolve.outputs.replicate != 'true')
+            || steps.side_codes.outcome == 'success')
             && 'success' || 'unpublished' }}
           SPENT: ${{ steps.spend.outcome }}
         run: |
@@ -2844,6 +2892,7 @@ jobs:
         id: revalidate
         env:
           REPO: ${{ github.repository }}
+          REPLICATE: ${{ needs.qp-topic-resolve.outputs.replicate }}
         run: |
           set -euo pipefail
           dir="$RUNNER_TEMP/qp-publish"
@@ -2862,6 +2911,12 @@ jobs:
           fi
           labels=false
           if [ -f "$dir/${LABELS_NAME}" ]; then
+            # Checked here, on the runner no agent held, as well as by the stage
+            # step on the labeling runner: a replicate publishes nothing.
+            if [ "$REPLICATE" = true ]; then
+              echo "::error::a replicate's hand-off carries a labels file; refusing to publish it"
+              exit 1
+            fi
             labels=true
             if [ ! -f "$dir/measured.txt" ]; then
               echo "::error::the labels file crossed without its measured block"
@@ -2962,6 +3017,7 @@ jobs:
           # reads off `main`'s subjects.
           AUTO_RELEASED: ${{ needs.qp-topic-extract.outputs.auto-release }}
           OWNER: ${{ github.repository_owner }}
+          REPLICATE: ${{ needs.qp-topic-resolve.outputs.replicate }}
         run: |
           set -euo pipefail
           gh auth setup-git
@@ -2991,7 +3047,13 @@ jobs:
             esac
             title="data(qp-topics): spend record of a ${outcome} ${frame_word} labeling run, no labels published (run ${GITHUB_RUN_ID})${mark}"
             {
-              printf '%s\n\n' "A \`${QP_FRAME}\` labeling run by \`${LABELER}\` that published no labels: outcome \`${outcome}\`. ${spend_line} A refused or short run spends as much as one that publishes, so its spend is recorded and counted toward the measured spend total all the same (\`docs/qp-topic.md\`). The batch is not retried on its own: the next run's batch is cut deterministically from the same committed state against the same reference set, so unless the frame has grown it is largely the same rows scored the same way, and while this frame's last gated run stands refused that run waits on a maintainer's release, which calls for a stated change. **Merge this PR; do not close it.** It touches only \`data/qp-topics/spend/\`, and closing it drops the run's spend from the measured total and, for a refused run, the refusal the hold reads."
+              if [ "$REPLICATE" = true ] && [ "$outcome" != replicate ]; then
+                printf '%s\n\n' "A reference-only replicate of the \`${QP_FRAME}\` labeler \`${LABELER}\` that was never measured as one (outcome \`${outcome}\`): it published nothing, and its record neither clears nor sets the hold's refusal. ${spend_line} **Merge this PR; do not close it.** It touches only \`data/qp-topics/spend/\`, and closing it drops the run's spend from the measured total."
+              elif [ "$REPLICATE" = true ]; then
+                printf '%s\n\n' "A reference-only replicate of the \`${QP_FRAME}\` labeler \`${LABELER}\`: it labeled the frame's reference rows alone and published nothing by design. ${spend_line} The record carries the run's agreement and which reference rows it matched, so \`fedcourts qp-topic-replicates\` can pool it with the frame's other replicates to separate run-to-run spread from item-level noise (\`docs/qp-topic.md\`). A replicate neither clears nor sets the hold's refusal. **Merge this PR; do not close it.** It touches only \`data/qp-topics/spend/\`, and closing it drops the run's spend from the measured total and its measurement from the pool."
+              else
+                printf '%s\n\n' "A \`${QP_FRAME}\` labeling run by \`${LABELER}\` that published no labels: outcome \`${outcome}\`. ${spend_line} A refused or short run spends as much as one that publishes, so its spend is recorded and counted toward the measured spend total all the same (\`docs/qp-topic.md\`). The batch is not retried on its own: the next run's batch is cut deterministically from the same committed state against the same reference set, so unless the frame has grown it is largely the same rows scored the same way, and while this frame's last gated run stands refused that run waits on a maintainer's release, which calls for a stated change. **Merge this PR; do not close it.** It touches only \`data/qp-topics/spend/\`, and closing it drops the run's spend from the measured total and, for a refused run, the refusal the hold reads."
+              fi
               if [ -f "$MEASURED_FILE" ]; then
                 printf '%s\n' "The gate figures, as the measure step rendered them:"
                 printf '%s\n' '```'

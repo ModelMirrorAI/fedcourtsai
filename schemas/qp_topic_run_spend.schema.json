@@ -1,4 +1,93 @@
 {
+  "$defs": {
+    "QpTopicKindAgreement": {
+      "additionalProperties": false,
+      "description": "A replicate's agreement on one application ``input_kind`` of the reference block.",
+      "properties": {
+        "agree": {
+          "description": "Reference rows of this kind where the two labels match",
+          "minimum": 0,
+          "title": "Agree",
+          "type": "integer"
+        },
+        "input_kind": {
+          "description": "Which input shape the reference rows were read from",
+          "enum": [
+            "application-text",
+            "docket-only"
+          ],
+          "title": "Input Kind",
+          "type": "string"
+        },
+        "n": {
+          "description": "Reference rows of this kind the replicate compared",
+          "minimum": 0,
+          "title": "N",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "input_kind",
+        "agree",
+        "n"
+      ],
+      "title": "QpTopicKindAgreement",
+      "type": "object"
+    },
+    "QpTopicReplicate": {
+      "additionalProperties": false,
+      "description": "One reference-only replicate's item-level measurement (``docs/qp-topic.md``).\n\nA replicate labels the frame's reference block alone and publishes nothing:\nit exists to measure how far one labeler's agreement moves between runs on\nidentical inputs. The pooled figures sit on the run record beside this; what\nthis adds is what separates a run-level component from item-level noise \u2014\nwhich reference rows this run matched, as one character per reference entry\nin ``case_id`` order \u2014 and the shares the gate candidates are cut by. The\nreference entries are committed already, so the string discloses nothing a\nreader of the reference file does not hold. ``reference_sha256`` pins which\nreference the string indexes and ``prompt_sha256`` which labeling prompt was\nread: replicates that differ on either are not pooled, since a reference\nrevision or a prompt edit would land in the run-level component.",
+      "properties": {
+        "matches": {
+          "description": "One character per reference entry in case_id order: 1 the labeler matched the reference label, 0 it did not, - the entry was not in the replicate's extract",
+          "pattern": "^[01-]+$",
+          "title": "Matches",
+          "type": "string"
+        },
+        "per_input_kind": {
+          "description": "Agreement per application input kind; empty on the petition frame, whose reference rows are all questions-presented text",
+          "items": {
+            "$ref": "#/$defs/QpTopicKindAgreement"
+          },
+          "title": "Per Input Kind",
+          "type": "array"
+        },
+        "prompt_sha256": {
+          "description": "sha256 of the labeling prompt the replicate's labeler read; replicates under different prompts are not pooled",
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Prompt Sha256",
+          "type": "string"
+        },
+        "reference_entries": {
+          "description": "Entries in that reference file",
+          "minimum": 1,
+          "title": "Reference Entries",
+          "type": "integer"
+        },
+        "reference_sha256": {
+          "description": "sha256 of the committed reference file the replicate was measured against",
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Reference Sha256",
+          "type": "string"
+        },
+        "unclassifiable": {
+          "description": "Compared reference entries the labeler labeled `unclassifiable`",
+          "minimum": 0,
+          "title": "Unclassifiable",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "reference_sha256",
+        "prompt_sha256",
+        "reference_entries",
+        "matches",
+        "unclassifiable"
+      ],
+      "title": "QpTopicReplicate",
+      "type": "object"
+    }
+  },
   "additionalProperties": false,
   "description": "``data/qp-topics/spend/<run_id>-<run_attempt>.json`` \u2014 one labeling run's spend.\n\nOne record per attempt of the labeling job whose engine left an execution\nfile, whatever became of the batch: a run refused at the reference gate\nspends as much as one that publishes and writes no labels file, so the\nspend lives here rather than on the labels artifact's batch ledger. The\ntoken counts are the engine log's, read and priced by the rule every\ncell's ``usage.json`` is (:func:`fedcourtsai.usage.parse_claude_usage`,\n:func:`fedcourtsai.pricing.estimate_cost_usd`), so a labeler dollar and a\ncell dollar are the same dollar, and the measured spend total\n(:func:`fedcourtsai.spend.measured_spend`) sums these by ``recorded_at``.\n\nThe gate figures are carried for the same reason: a refused attempt is on\nfile with its measured agreement, and the label seam's review hold reads\nthe newest gated outcome per frame (:mod:`fedcourtsai.review_hold`).",
   "properties": {
@@ -111,11 +200,12 @@
       "title": "N"
     },
     "outcome": {
-      "description": "published: the batch cleared the reference gate (a side-coding run: coded every row) and its labels were handed to the publish job; refused: it was measured and fell below the gate; incomplete: it reached neither (a labels file short of the batch, a check ahead of the measurement that failed, or a measurement that cleared the gate but did not reach publication), its gate figures carried wherever it was measured",
+      "description": "published: the batch cleared the reference gate (a side-coding run: coded every row) and its labels were handed to the publish job; refused: it was measured and fell below the gate; incomplete: it reached neither (a labels file short of the batch, a check ahead of the measurement that failed, or a measurement that cleared the gate but did not reach publication), its gate figures carried wherever it was measured; replicate: a reference-only replicate that labeled the reference block alone, measured it, and published nothing by design, so it is neither a pass nor a refusal",
       "enum": [
         "published",
         "refused",
-        "incomplete"
+        "incomplete",
+        "replicate"
       ],
       "title": "Outcome",
       "type": "string"
@@ -160,6 +250,18 @@
       "format": "date-time",
       "title": "Recorded At",
       "type": "string"
+    },
+    "replicate": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/QpTopicReplicate"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "A replicate run's item-level measurement; present exactly when the outcome is `replicate`"
     },
     "run_attempt": {
       "description": "The labeling job's run attempt",

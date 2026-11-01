@@ -1033,6 +1033,61 @@ share is per bucket because it is not uniform across them: the block holds every
 QP-bearing grant it could reach, so it inflates the grant-heavy topics most and
 no single factor de-biases a row.
 
+## Forecasts by topic
+
+`fedcourts topic-cut` joins every committed forecast to its case's topic and
+reports, per forecast moment (the `stage@moment` block every board aggregates
+on) and per topic, how many forecasts there are and how each predictor's record
+reads over them. It is the reader that answers "what are we forecasting, and
+how are we doing, by subject?" across the cert, interim and merits moments.
+
+- **The join key follows the stage.** A cert or merits forecast is a forecast of
+  a petition, so it takes the petition's `qp-topic-v0` label from
+  `qp-topics.json`. An interim forecast is a forecast of an application, so it
+  takes the `qp-topic-v1` label from `qp-topics-applications.json`. Both join
+  on `case_id`. A labels artifact whose recorded agreement is below the
+  publication gate is not read, just as the docket pack skips one.
+- **Nothing is dropped.** A forecast whose case carries no label is counted in
+  an `unlabeled` row beside the topics, so a moment's rows sum to its whole
+  forecast population, and the cut reports each moment's labeled share of its
+  forecast events beside the rows. A case goes unlabeled because it sits
+  outside the labeling frame (a docket newer than the frame's vintage, or
+  outside its scope), because its frame is not fully labeled yet, or because
+  its frame's artifact is missing or below the gate. The unlabeled row is
+  therefore not a random remainder: the newest forecasts are the likeliest to
+  be in it. A forecast cell is a predictor directory holding a committed
+  prediction; one holding only a failed attempt is not counted.
+- **Two populations per row.** `forecast_events` and `forecast_cells` count every
+  committed forecast, scored or not and whatever its process version.
+  `events_scored` counts events scored in any stratum, with the forward,
+  retrospective and procedural counts beside it. It and the records read the
+  scored cells alone, under the
+  leaderboard's process scope (frozen by default, `--all-versions` for every
+  version) and over the same stratify pass, skill terms, band facts and vote
+  scores the leaderboard is built from. Each record is the board's own
+  per-stratum aggregate (forward, retrospective, procedural) re-read over one
+  topic's cells, so its columns, denominators and null rules are the board's.
+- **Every row carries its frame's scope string.** The string states the labeled
+  count against the frame, that a label is agreement with the reference block
+  and not accuracy, that the unlabeled row is not a random remainder, that a
+  topic's share is a share of this salience-selected ledger, and that a
+  record's Brier skill is scored against the band's base rate. A figure lifted
+  out of the cut keeps that caveat with it. The application frame's string
+  also says that a docket-only label reads thin dockets as much as subject.
+
+The cut is **descriptive only**. Nothing is scored on topic, no board conditions
+on it, and it carries no rank, no paired comparison and no topic baseline. A
+topic row holds a handful of scored events, so a per-topic record is a split to
+read event by event, not a rate to compare across topics or predictors. No
+figure from it is published until the stats reviewer has read that figure.
+A record's Brier skill is scored against the band's base rate, not the
+topic's, and topic correlates with the outcome, so a constant base-rate
+forecaster shows nonzero per-topic skill: a per-topic skill figure measures
+how far the topic's rate sits from the band's as much as it measures the
+predictor, and is never published as skill. Topic is also not exogenous to
+which forecasts exist: salience selects what gets forecast, so a topic's share
+of forecasts describes this ledger, not the docket.
+
 ## What one labeling run can hold
 
 The extract is **bounded by what a dispatch can finish, not by how many texts
@@ -1128,11 +1183,12 @@ whose engine left an execution file writes one record,
 `data/qp-topics/spend/<run_id>-<run_attempt>.json` (`fedcourts qp-topic-spend`,
 the `QpTopicRunSpend` model), carrying the engine's token counts priced by the
 rule every cell's `usage.json` is, the run's outcome (`published`, `refused`,
-or `incomplete` for a batch that reached neither), and its gate figures
+`incomplete` for a batch that reached neither, or `replicate` for a
+reference-only replicate, below), and its gate figures
 (agree, n, rate, floor) wherever it was measured. A model with no rate in
 `pricing.MODEL_RATES` is priced at the entry that prices its token counts
 dearest and named in `priced_as`, so no run's spend is dropped. A published run's labels PR carries the record beside
-the labels file; a refused or incomplete run's record lands alone on the same
+the labels file; a refused, incomplete or replicate run's record lands alone on the same
 fixed branch, in a PR titled as a spend record of a run that published no
 labels, with the gate figures in its body — onto the frame's open PR where one
 is open, so a pending batch is kept. Neither is ever auto-merged, and both
@@ -1151,6 +1207,83 @@ records to the same directory under its own frame name, so the hold, the
 pending-batch stand-down and the measured total read them on the same rules; it
 has no reference gate, so its runs are `published` or `incomplete` and carry no
 gate figures.
+
+### Replicates: how far one labeler moves between runs
+
+Runs of one labeler on the same reference rows may land several points apart,
+so a single run's agreement may carry a **run-level component** the binomial
+error at the reference block's `n` does not capture. A fixed per-run
+floor then refuses some runs on luck, and passes others on luck once retries
+are allowed. The **replicate mode** measures that spread directly, as input to
+a variance-aware gate that is pre-registered separately, before any batch is
+published under it; until then the 80% floor stands unchanged.
+
+A replicate is a dispatch of `run-analytics` mode `qp-topic-replicate` (the
+petition frame) or `qp-topic-replicate-applications` (the application frame),
+with no cron. It runs the labeling lane's own jobs, hold and spend ledger with
+two differences:
+
+- **The extract is the frame's in-frame reference rows alone** (`qp-corpus
+  --reference-only`): clause 1 of the batch rule without clause 2, so every
+  replicate of a frame reads identical inputs, and the coverage floor still
+  refuses one that would measure a sliver. The labeler reads the same prompt
+  and the same row shape, and is not told it is a replicate; batch membership
+  tells it nothing either, since every labeling batch carries the whole
+  reference set too.
+- **Nothing is published.** The measure step runs `qp-topics --replicate-out`,
+  which makes the labeling run's joins (plus a refusal of any extract row
+  outside the reference), writes the pooled agreement and the run's item-level
+  record, builds no labels artifact, and exits 0 on either side of the gate.
+  The publish job lands the run's spend record alone, on the frame's fixed
+  branch, outcome `replicate`.
+
+The record (`QpTopicRunSpend.replicate`, the `QpTopicReplicate` model) carries
+the gate figures and, beside them, which reference rows the run matched — one
+character per reference entry in `case_id` order — the count it labeled
+`unclassifiable`, the per-input-kind split on the application block, and the
+sha256 of the reference file it was measured against and of the labeling
+prompt its labeler read. The reference entries are
+committed already, so the match string discloses nothing a reader of the
+reference file does not hold. **A replicate neither clears nor sets the hold's
+refusal**: it measured the reference and published nothing by design, so
+`label_refusal` reads `published` and `refused` runs alone, and a replicate
+dispatched after a refusal cannot release the next labeling round. Its spend
+counts toward the measured total like any run's, and its round is priced and
+held like any label round's, at the in-frame reference row count — so while a
+frame's last gated run stands refused, a replicate of that frame waits for a
+maintainer's release too. Dispatch replicates **one at a time**: the lane's
+jobs take per-frame concurrency groups, which keep one pending run, so a third
+dispatch while one runs and one waits cancels the waiting one.
+
+`fedcourts qp-topic-replicates --frame <frame>` pools the frame's replicate
+records for one labeler model against the reference file as committed now and
+under one labeling prompt (a record measured against another reference file,
+by another model, or under another prompt is listed and left out, since a
+revision of either would otherwise land in the run-level figure) and separates
+the spread of the run rates into its two sources: **item-level noise**, the
+variance the run rate would have if items flipping independently between runs
+were its only source (`sum p_i(1 - p_i) / n^2`, estimated from the k runs
+without bias), and the **run-level component**, the run rates' sample variance
+less that term — the crossed items x runs analysis of variance estimator up to
+a factor `(n - 1)/n`, since every run reads the same items and item difficulty
+cancels from the run means. The split is linear on the probability scale and
+treats items as independent within a run, so a component that cannot move an
+item every run matches, or a chunk effect inside one session, reads as
+run-level. It also prints the constant-labeler floor on the same items (every
+rate reads against it), the run sd's 95% chi-square interval on `k - 1`
+degrees of freedom — with a handful of replicates the run sd is itself
+imprecise — each run's `unclassifiable` share, the always / never / flipped
+item counts, Cochran's Q for a run effect, the per-kind split, and, apart, the
+binomial error at `n`: item-sampling error, how far this block's rate may stand
+from a frame's, a different estimand from the run sd and never a component of
+one total; a variance-aware gate has to reckon with both. Every figure is agreement with the frame's
+reference on the reference block's own items: it says how far a next run on
+these items may land, not how a labeler reads rows the block does not hold.
+`--labels` adds a past labeling run's saved labels, read on the reference rows
+it holds, to an exploratory pool beside the records; those runs are not
+records, and a figure drawn from them says which runs it pooled and against
+which reference. The command reads the committed records and any saved labels
+it is handed, spends nothing, and chooses no gate.
 
 ### Publication keys on the count, not on the agent's verdict
 

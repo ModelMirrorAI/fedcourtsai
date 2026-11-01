@@ -879,6 +879,15 @@ def _write_run(
         "cache_creation_input_tokens": 0,
         "estimated_cost_usd": cost,
     }
+    if outcome == "replicate":
+        record["batch_rows"] = record["label_lines"] = 200
+        record["replicate"] = {
+            "reference_sha256": "0" * 64,
+            "prompt_sha256": "1" * 64,
+            "reference_entries": 200,
+            "matches": "1" * 160 + "0" * 40,
+            "unclassifiable": 20,
+        }
     path = data_root / "qp-topics" / "spend" / f"{run_id}-{attempt}.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(record))
@@ -944,6 +953,10 @@ def test_the_refusal_rule_reads_the_newest_gated_run_of_the_frame(tmp_path: Path
     assert reason is not None and "petitions labeling run was refused" in reason
     # An incomplete run was never gated: it neither clears nor sets the rule.
     _write_run(tmp_path, "300", "2026-10-15T09:00:00Z", outcome="incomplete")
+    assert label_refusal(tmp_path, "petitions") is not None
+    # Nor does a replicate: it measured the reference and published nothing by
+    # design, so a replicate after a refusal cannot release the next round.
+    _write_run(tmp_path, "302", "2026-10-15T10:00:00Z", outcome="replicate")
     assert label_refusal(tmp_path, "petitions") is not None
     # The other frame's record is not this frame's.
     assert label_refusal(tmp_path, "applications") is None
