@@ -1,0 +1,222 @@
+{
+  "checks": [
+    {
+      "checked": 1,
+      "detail": "corpus opened",
+      "failures": 0,
+      "name": "corpus_opens",
+      "passed": true,
+      "problems": []
+    },
+    {
+      "checked": 2153874,
+      "detail": "2153874 rows vs baseline 2153866",
+      "failures": 0,
+      "name": "row_count_monotonic",
+      "passed": true,
+      "problems": []
+    },
+    {
+      "checked": 4311163,
+      "detail": "",
+      "failures": 0,
+      "name": "required_columns_non_empty",
+      "passed": true,
+      "problems": []
+    },
+    {
+      "checked": 2153874,
+      "detail": "no marked docket numbers stored (1 ***-shaped string(s) are legitimate separators)",
+      "failures": 0,
+      "name": "docket_numbers_carry_no_capital_marking",
+      "passed": true,
+      "problems": []
+    },
+    {
+      "checked": 3073,
+      "detail": "as of 2026-11-01",
+      "failures": 0,
+      "name": "snapshot_not_future_dated",
+      "passed": true,
+      "problems": []
+    },
+    {
+      "checked": 665,
+      "detail": "granted before 2024-11-01 (730 days); 13 resolved by termination (1 abated, 1 grant-vacated, 2 judgment-issued, 9 voluntary-dismissal)",
+      "failures": 0,
+      "name": "no_stale_unparsed_grants",
+      "passed": true,
+      "problems": []
+    },
+    {
+      "checked": 2153874,
+      "detail": "0 future-dated, 66 decided-before-filed (21 docket rows vs accepted baseline 30, 45 SCOTUS application rows vs accepted baseline 50; as of 2026-11-01); faithful upstream data \u2014 investigate the climb upstream before raising a baseline",
+      "failures": 66,
+      "name": "case_dates_ordered",
+      "passed": true,
+      "problems": [
+        "case 'ca1/4490126' is decided before filed (filed 2016-06-17, decided 2014-01-29; docket row)",
+        "case 'ca10/4134809' is decided before filed (filed 2016-06-24, decided 2015-05-01; docket row)",
+        "case 'ca10/66666109' is decided before filed (filed 2022-12-15, decided 2022-11-16; docket row)",
+        "case 'ca11/4565191' is decided before filed (filed 2017-09-01, decided 2015-01-05; docket row)",
+        "case 'ca2/4135978' is decided before filed (filed 2015-10-02, decided 2014-03-27; docket row)",
+        "case 'ca2/65360496' is decided before filed (filed 2023-03-29, decided 2023-01-24; docket row)",
+        "case 'ca3/4490420' is decided before filed (filed 2015-09-03, decided 2015-04-08; docket row)",
+        "case 'ca3/66808103' is decided before filed (filed 2023-09-08, decided 2023-08-17; docket row)",
+        "case 'ca5/66761616' is decided before filed (filed 2025-10-01, decided 2020-07-07; docket row)",
+        "case 'ca5/67681435' is decided before filed (filed 2023-12-11, decided 2023-10-19; docket row)",
+        "case 'ca6/66766012' is decided before filed (filed 2023-10-11, decided 2023-08-16; docket row)",
+        "case 'ca9/64454285' is decided before filed (filed 2023-10-23, decided 2023-06-23; docket row)",
+        "case 'ca9/64883208' is decided before filed (filed 2023-09-08, decided 2023-06-16; docket row)",
+        "case 'ca9/65770700' is decided before filed (filed 2023-11-06, decided 2022-12-16; docket row)",
+        "case 'ca9/67108822' is decided before filed (filed 2023-08-10, decided 2023-07-19; docket row)",
+        "case 'ca9/70552707' is decided before filed (filed 2025-06-03, decided 1994-08-08; docket row)",
+        "case 'ca9/71959035' is decided before filed (filed 2025-11-25, decided 1995-09-28; docket row)",
+        "case 'ca9/72111052' is decided before filed (filed 2025-12-12, decided 1994-10-04; docket row)",
+        "case 'ca9/73391004' is decided before filed (filed 2026-05-20, decided 1994-06-07; docket row)",
+        "case 'cafc/64942476' is decided before filed (filed 2023-08-21, decided 2023-07-14; docket row)"
+      ]
+    },
+    {
+      "checked": 4308090,
+      "detail": "",
+      "failures": 0,
+      "name": "domain_values_valid",
+      "passed": true,
+      "problems": []
+    },
+    {
+      "checked": 4311163,
+      "detail": "",
+      "failures": 0,
+      "name": "no_duplicate_cases_or_events",
+      "passed": true,
+      "problems": []
+    },
+    {
+      "checked": 17902,
+      "detail": "",
+      "failures": 0,
+      "name": "ledger_references_exist",
+      "passed": true,
+      "problems": []
+    },
+    {
+      "checked": 315,
+      "detail": "",
+      "failures": 0,
+      "name": "minted_moments_defined_in_ledger",
+      "passed": true,
+      "problems": []
+    },
+    {
+      "checked": 29385,
+      "detail": "",
+      "failures": 0,
+      "name": "event_dirs_hold_only_ledger_entries",
+      "passed": true,
+      "problems": []
+    },
+    {
+      "checked": 1827,
+      "detail": "",
+      "failures": 0,
+      "name": "evaluation_targets_prediction",
+      "passed": true,
+      "problems": []
+    },
+    {
+      "checked": 1284,
+      "detail": "",
+      "failures": 0,
+      "name": "base_rate_basis_carries_version",
+      "passed": true,
+      "problems": []
+    },
+    {
+      "checked": 3462,
+      "detail": "",
+      "failures": 0,
+      "name": "prediction_docs_exist",
+      "passed": true,
+      "problems": []
+    },
+    {
+      "checked": 1526,
+      "detail": "",
+      "failures": 0,
+      "name": "prediction_claims_scoreable",
+      "passed": true,
+      "problems": []
+    },
+    {
+      "checked": 185,
+      "detail": "",
+      "failures": 0,
+      "name": "prediction_semantic_claims_conform",
+      "passed": true,
+      "problems": []
+    },
+    {
+      "checked": 0,
+      "detail": "",
+      "failures": 0,
+      "name": "evaluation_semantic_grades_gradeable",
+      "passed": true,
+      "problems": []
+    },
+    {
+      "checked": 1827,
+      "detail": "",
+      "failures": 0,
+      "name": "predicted_reasoning_grade_awaits_registration",
+      "passed": true,
+      "problems": []
+    },
+    {
+      "checked": 180,
+      "detail": "",
+      "failures": 0,
+      "name": "merits_predictions_carry_judgment",
+      "passed": true,
+      "problems": []
+    },
+    {
+      "checked": 1827,
+      "detail": "",
+      "failures": 0,
+      "name": "vote_accuracy_only_on_merits_events",
+      "passed": true,
+      "problems": []
+    },
+    {
+      "checked": 14139,
+      "detail": "",
+      "failures": 0,
+      "name": "outcome_votes_await_a_registered_source",
+      "passed": true,
+      "problems": []
+    },
+    {
+      "checked": 588,
+      "detail": "",
+      "failures": 0,
+      "name": "evaluation_correct_agrees",
+      "passed": true,
+      "problems": []
+    },
+    {
+      "checked": 14133,
+      "detail": "",
+      "failures": 0,
+      "name": "judgment_only_on_merits_outcomes",
+      "passed": true,
+      "problems": []
+    }
+  ],
+  "corpus_events": 2154216,
+  "corpus_rows": 2153874,
+  "ok": true,
+  "schema_version": "1.0",
+  "skipped": false
+}

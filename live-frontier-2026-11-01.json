@@ -1,0 +1,219 @@
+{
+  "conferences": [
+    {
+      "conference": "2017-09-25",
+      "petitions": 3
+    },
+    {
+      "conference": "2017-10-06",
+      "petitions": 4
+    },
+    {
+      "conference": "2017-10-27",
+      "petitions": 1
+    },
+    {
+      "conference": "2017-11-03",
+      "petitions": 2
+    },
+    {
+      "conference": "2017-11-09",
+      "petitions": 1
+    },
+    {
+      "conference": "2017-11-21",
+      "petitions": 1
+    },
+    {
+      "conference": "2017-12-01",
+      "petitions": 1
+    },
+    {
+      "conference": "2018-01-05",
+      "petitions": 1
+    },
+    {
+      "conference": "2018-01-19",
+      "petitions": 3
+    },
+    {
+      "conference": "2018-02-16",
+      "petitions": 4
+    },
+    {
+      "conference": "2018-02-23",
+      "petitions": 1
+    },
+    {
+      "conference": "2018-03-23",
+      "petitions": 1
+    },
+    {
+      "conference": "2018-04-13",
+      "petitions": 1
+    },
+    {
+      "conference": "2018-05-10",
+      "petitions": 1
+    },
+    {
+      "conference": "2018-05-17",
+      "petitions": 1
+    },
+    {
+      "conference": "2018-05-31",
+      "petitions": 1
+    },
+    {
+      "conference": "2018-06-07",
+      "petitions": 1
+    },
+    {
+      "conference": "2018-06-21",
+      "petitions": 2
+    },
+    {
+      "conference": "2018-06-27",
+      "petitions": 1
+    },
+    {
+      "conference": "2018-09-24",
+      "petitions": 8
+    },
+    {
+      "conference": "2018-10-26",
+      "petitions": 1
+    },
+    {
+      "conference": "2018-11-30",
+      "petitions": 2
+    },
+    {
+      "conference": "2019-01-04",
+      "petitions": 1
+    },
+    {
+      "conference": "2025-09-29",
+      "petitions": 5
+    },
+    {
+      "conference": "2025-10-10",
+      "petitions": 3
+    },
+    {
+      "conference": "2025-10-17",
+      "petitions": 2
+    },
+    {
+      "conference": "2025-11-07",
+      "petitions": 1
+    },
+    {
+      "conference": "2025-11-14",
+      "petitions": 3
+    },
+    {
+      "conference": "2025-11-21",
+      "petitions": 1
+    },
+    {
+      "conference": "2025-12-05",
+      "petitions": 2
+    },
+    {
+      "conference": "2025-12-12",
+      "petitions": 2
+    },
+    {
+      "conference": "2026-01-09",
+      "petitions": 2
+    },
+    {
+      "conference": "2026-02-20",
+      "petitions": 4
+    },
+    {
+      "conference": "2026-02-27",
+      "petitions": 1
+    },
+    {
+      "conference": "2026-03-06",
+      "petitions": 1
+    },
+    {
+      "conference": "2026-03-20",
+      "petitions": 1
+    },
+    {
+      "conference": "2026-04-02",
+      "petitions": 2
+    },
+    {
+      "conference": "2026-04-17",
+      "petitions": 4
+    },
+    {
+      "conference": "2026-04-24",
+      "petitions": 3
+    },
+    {
+      "conference": "2026-05-01",
+      "petitions": 1
+    },
+    {
+      "conference": "2026-05-14",
+      "petitions": 1
+    },
+    {
+      "conference": "2026-05-21",
+      "petitions": 1
+    },
+    {
+      "conference": "2026-05-28",
+      "petitions": 3
+    },
+    {
+      "conference": "2026-06-11",
+      "petitions": 2
+    },
+    {
+      "conference": "2026-06-18",
+      "petitions": 8
+    },
+    {
+      "conference": "2026-06-25",
+      "petitions": 7
+    },
+    {
+      "conference": "2026-06-29",
+      "petitions": 3
+    },
+    {
+      "conference": "2026-09-28",
+      "petitions": 83
+    },
+    {
+      "conference": "2026-10-09",
+      "petitions": 31
+    },
+    {
+      "conference": "2026-10-16",
+      "petitions": 25
+    },
+    {
+      "conference": "2026-11-06",
+      "petitions": 290
+    },
+    {
+      "conference": "2026-11-13",
+      "petitions": 85
+    }
+  ],
+  "documents_provisioned": 149,
+  "generated_on": "2026-11-01",
+  "next_conference": "2026-11-06",
+  "next_conference_petitions": 290,
+  "schema_version": "1.0",
+  "skipped": false,
+  "watchlist": 620
+}
