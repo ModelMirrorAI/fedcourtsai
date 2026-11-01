@@ -1117,7 +1117,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p .gemini
-          printf '%s\n' '{"context":{"fileFiltering":{"respectGitIgnore":false}},"telemetry":{"enabled":true,"target":"local","outfile":".gemini/telemetry.log","logPrompts":true},"security":{"environmentVariableRedaction":{"allowed":["COURT_ID","DOCKET_ID","EVENT_ID","PREDICTOR_ID","EVALUATOR_ID","RUN_ID","MODEL_ID","DECIDED_BEFORE","FEDCOURTS_CORPUS_BACKEND","FEDCOURTS_CORPUS_SERVICE_URL"]}}}' > .gemini/settings.json
+          printf '%s\n' '{"tools":{"truncateToolOutputThreshold":200000},"context":{"fileFiltering":{"respectGitIgnore":false}},"telemetry":{"enabled":true,"target":"local","outfile":".gemini/telemetry.log","logPrompts":true},"security":{"environmentVariableRedaction":{"allowed":["COURT_ID","DOCKET_ID","EVENT_ID","PREDICTOR_ID","EVALUATOR_ID","RUN_ID","MODEL_ID","DECIDED_BEFORE","FEDCOURTS_CORPUS_BACKEND","FEDCOURTS_CORPUS_SERVICE_URL"]}}}' > .gemini/settings.json
 
       # The backend split that makes this faithful: `--corpus-backend ranged`
       # pins the cascade's own provisioning reads to the blob (using this
