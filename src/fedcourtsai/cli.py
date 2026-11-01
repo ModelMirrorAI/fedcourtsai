@@ -2213,7 +2213,9 @@ def executive_success_cmd(
     A row with no docketed date takes its first proceeding entry's date where
     a live snapshot is read. The
     same applications are counted again by controversy
-    (`pipeline.controversy`), each controversy once. An analytics artifact:
+    (`pipeline.controversy`), each controversy once, and again with the
+    hand-labeled policy keys' joins added (`pipeline.policy_key`), beside the
+    rule's cells. An analytics artifact:
     nothing a predict or evaluate cell reads comes from it. Prints an
     `ExecutiveSuccess` (its `review_rows` list every in-scope and unknown-scope
     application); the human cut and the corpus vintage go to stderr. Fails
@@ -2306,6 +2308,20 @@ def executive_success_cmd(
         typer.echo(
             f"{group.administration or 'unattributed'} {group.filer} by controversy "
             f"({result.controversy_rule_version}): executive won {group.wins}/"
+            f"{group.determinate} = {rate}; controversies={group.controversies} "
+            f"applications={group.applications} indeterminate={group.indeterminate}",
+            err=True,
+        )
+    typer.echo(
+        f"controversies keyed ({result.policy_key_rule_version}): "
+        f"{result.policy_key_joins} fewer than the rule's",
+        err=True,
+    )
+    for group in result.policy_controversy_cells:
+        rate = f"{group.success_rate:.1%}" if group.success_rate is not None else "-"
+        typer.echo(
+            f"{group.administration or 'unattributed'} {group.filer} by keyed controversy "
+            f"({result.policy_key_rule_version}): executive won {group.wins}/"
             f"{group.determinate} = {rate}; controversies={group.controversies} "
             f"applications={group.applications} indeterminate={group.indeterminate}",
             err=True,

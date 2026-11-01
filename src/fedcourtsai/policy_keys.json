@@ -1,0 +1,49 @@
+{
+ "rule_version": "policy-key-v1",
+ "keys": {
+  "travel-ban": {
+   "note": "The 2017 executive orders and proclamation restricting entry from listed countries",
+   "dockets": ["16A1190", "16A1191", "17A275", "17A550", "17A560"]
+  },
+  "military-transgender-service": {
+   "note": "The 2017-2018 policy on military service by transgender individuals",
+   "dockets": ["18A276", "18A625", "18A626", "18A627"]
+  },
+  "census-citizenship-question": {
+   "note": "The citizenship question on the 2020 census and discovery into its adoption",
+   "dockets": ["18A350", "18A375", "18A455"]
+  },
+  "juliana-climate-suit": {
+   "note": "The constitutional climate suit against the federal government (Juliana)",
+   "dockets": ["18A65", "18A410"]
+  },
+  "public-charge-rule": {
+   "note": "The 2019 public-charge inadmissibility rule",
+   "dockets": ["19A785", "19A905"]
+  },
+  "bump-stock-rule": {
+   "note": "The 2018 rule classifying bump stocks as machineguns",
+   "dockets": ["18A963", "18A964", "18A1019"]
+  },
+  "federal-execution-protocol": {
+   "note": "The 2019 federal execution protocol and the executions scheduled under it",
+   "dockets": ["19A615", "19A1050", "20A8", "20A99", "20A102", "20A131"]
+  },
+  "osha-vaccine-or-test-rule": {
+   "note": "The 2021 OSHA emergency temporary standard on COVID-19 vaccination or testing",
+   "dockets": ["21A243", "21A246", "21A252", "21A293"]
+  },
+  "idaho-emtala-suit": {
+   "note": "The federal EMTALA suit against Idaho's abortion law",
+   "dockets": ["23A469", "23A470"]
+  },
+  "epa-2024-power-plant-rule": {
+   "note": "The 2024 EPA greenhouse-gas rule for power plants",
+   "dockets": ["24A95", "24A106", "24A116", "24A117"]
+  },
+  "epa-24-1119-petitions": {
+   "note": "The 2024 EPA rule under review in D.C. Circuit No. 24-1119 and consolidated petitions",
+   "dockets": ["24A178", "24A199"]
+  }
+ }
+}
