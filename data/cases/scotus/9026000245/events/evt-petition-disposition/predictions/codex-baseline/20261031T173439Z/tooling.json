@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000245",
+  "run_id": "20261031T173439Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell record inspection",
+    "fedcourts paths",
+    "fedcourts query",
+    "committed statpack",
+    "CourtListener MCP opinion search",
+    "CourtListener MCP within-opinion search",
+    "web search and official PDF open attempts",
+    "fedcourts validate"
+  ],
+  "helpful": [
+    "Frozen reached-band cert anchor and explicit conditioning state",
+    "Complete adversarial cert briefs and renewed appellate opinion in the appendix",
+    "CourtListener search within precedent text without fetching a whole opinion"
+  ],
+  "gaps": [
+    "Corpus reporter-citation coverage did not return Taamneh",
+    "CourtListener citation search did not locate Ashley",
+    "Web calls returned no usable content"
+  ],
+  "notes": "Default uv cache was read-only; a writable temporary UV_CACHE_DIR resolved CLI execution without installing packages. Broad output truncation required focused rereads and a compact repeat query; the repeat reported zero cache transfers. No current-petition disposition was sought or encountered. No remaining blocker."
+}

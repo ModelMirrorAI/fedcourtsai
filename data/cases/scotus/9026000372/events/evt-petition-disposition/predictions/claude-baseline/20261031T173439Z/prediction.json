@@ -1,0 +1,100 @@
+{
+  "big_case_rationale": "A $655.5M Anti-Terrorism Act judgment against the PLO/PA, a follow-on to Fuld v. PLO, with a novel question about reviving a judgment vacated for lack of personal jurisdiction; significant but sequel-like and fact-bound.",
+  "big_case_score": 0.45,
+  "case_id": "scotus/9026000372",
+  "claim_distributions": [
+    {
+      "claim_id": "order-writers",
+      "probabilities": {
+        "Alito": 0.008,
+        "Barrett": 0.005,
+        "Gorsuch": 0.025,
+        "Jackson": 0.005,
+        "Kagan": 0.003,
+        "Kavanaugh": 0.006,
+        "Roberts": 0.003,
+        "Sotomayor": 0.004,
+        "Thomas": 0.015
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.04
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.38
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.005
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.08
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.04
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "baseline",
+    "band_refused": null,
+    "cert_anchor": {
+      "lookback_terms": 10,
+      "rate": 0.0518752467429925,
+      "statpack_digest": "sha256:a059cb872f890b63515d8e2ac6ef798347ae7231a62d08543a5b7431bd941faa"
+    },
+    "cut_anchor_index": null,
+    "cut_kind": null,
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 1,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v6",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_contact_scrub": {
+      "blocks": 0,
+      "fields": 0,
+      "sides": []
+    },
+    "snapshot_date": "2026-10-31",
+    "snapshot_provenance": "as-stored",
+    "snapshot_uptake": "read",
+    "term": 2026,
+    "vide_links": []
+  },
+  "created_at": "2026-10-31T17:45:55.945529Z",
+  "engine": "claude-code",
+  "event_id": "evt-petition-disposition",
+  "granted": 0,
+  "input_snapshot": "2026-10-31.json",
+  "judgment": null,
+  "model": "claude-opus-5-5",
+  "predicted_disposition": "denied",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.04,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:11ddd73ac5e4ef4d883f51997f00822dd737df2c9d52b0f8f599a27aa3dde31a",
+    "label": "proc-v15",
+    "pipeline_sha": "f0612aefc0a77201436e21a145a34e92828ccf24",
+    "stamped_at": "2026-10-31T17:45:55.945529Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261031T173439Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000602",
+  "run_id": "20261031T173439Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "flags": [
+    {
+      "category": "provisioning",
+      "severity": "info",
+      "event_id": "evt-motion-disposition",
+      "message": "Provisioned record/documents/application.txt has empty_text: true (ocr_derived: false, 12 pages) because the upstream PDF (20261028134604134_scan_kratliff_2026-10-28-13-25-11.pdf) is a scanned filing without an embedded text layer. Forecast relied on the Supreme Court snapshot (2026-10-21.json) and lower-court RECAP docket entries for S.D. Fla. No. 1:26-cv-25796."
+    }
+  ]
+}
