@@ -170,7 +170,7 @@ def test_segment_base_rate_keys_on_the_cases_own_band() -> None:
     assert baseline == pytest.approx(0.01)
 
 
-@pytest.mark.parametrize("version", ["sal-v5", "sal-v6"])
+@pytest.mark.parametrize("version", ["sal-v5", "sal-v6", "sal-v7"])
 def test_segment_base_rate_none_for_a_row_outside_the_active_segment(
     monkeypatch: pytest.MonkeyPatch, version: str
 ) -> None:

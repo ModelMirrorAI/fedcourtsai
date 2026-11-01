@@ -8,6 +8,7 @@ from dataclasses import fields
 from datetime import date
 from pathlib import Path
 from types import MappingProxyType
+from typing import Literal
 
 import pytest
 import yaml
@@ -17,7 +18,8 @@ from fedcourtsai import corpus
 from fedcourtsai.cli import app
 from fedcourtsai.config import SalienceConfig, load_salience_config
 from fedcourtsai.paths import CasePaths
-from fedcourtsai.pipeline import asof, cell_context
+from fedcourtsai.pipeline import asof, caption, cell_context
+from fedcourtsai.pipeline import counsel as counsel_module
 from fedcourtsai.pipeline import salience as salience_module
 from fedcourtsai.pipeline.cert_signals import DEFAULT_DISTRIBUTION_PARSE, DISTRIBUTION_PARSES
 from fedcourtsai.pipeline.pull import _in_predict_scope
@@ -41,7 +43,8 @@ from fedcourtsai.pipeline.salience import (
     scorer,
     unlatch_overselected,
 )
-from fedcourtsai.schemas import Disposition, EventKind, Stage
+from fedcourtsai.provision import redact_snapshot
+from fedcourtsai.schemas import Disposition, EventKind, PredictionContext, Stage
 
 REGULAR_CONFERENCE = date(2026, 1, 9)  # a Term conference (Oct-June)
 LONG_CONFERENCE = date(2025, 9, 29)  # the Term's opening long conference (September)
@@ -202,6 +205,8 @@ def test_the_carve_out_set_is_exactly_the_strongest_band(version: str) -> None:
         "sal-v5": ("federal", "high"),
         # sal-v6 is sal-v5's relist rule over sal-v3's caption-v2 carve-in.
         "sal-v6": ("federal", "high"),
+        # sal-v7 is sal-v6 with the carve-in read through caption-v4.
+        "sal-v7": ("federal", "high"),
         # Indexed, never `.get` with a self-satisfying fallback: a prefix
         # compared against a prefix of its own length passes for any version,
         # so a new registration must state its carve prefix here or KeyError.
@@ -362,7 +367,7 @@ def test_sal_v5_reads_as_sal_v4_without_any_of_its_three_inputs() -> None:
             assert v5.in_segment(row) and v4.in_segment(row)
 
 
-@pytest.mark.parametrize("version", ["sal-v5", "sal-v6"])
+@pytest.mark.parametrize("version", ["sal-v5", "sal-v6", "sal-v7"])
 def test_the_relist_rule_does_not_count_a_superseded_first_distribution(version: str) -> None:
     """A call for response takes the petition off its first conference, so the
     distribution after the response is the conference it was deferred to."""
@@ -429,7 +434,7 @@ def _docket_after(events: tuple[str, ...]) -> list[dict[str, str]]:
     return entries
 
 
-@pytest.mark.parametrize("version", ["sal-v5", "sal-v6"])
+@pytest.mark.parametrize("version", ["sal-v5", "sal-v6", "sal-v7"])
 def test_the_relist_rule_band_never_weakens_over_any_order_of_docket_events(version: str) -> None:
     """The statpack's risk sets read a band as monotone over a petition's life.
 
@@ -456,7 +461,7 @@ def test_the_relist_rule_band_never_weakens_over_any_order_of_docket_events(vers
     assert checked == 4 + 16 + 64 + 256
 
 
-@pytest.mark.parametrize("version", ["sal-v5", "sal-v6"])
+@pytest.mark.parametrize("version", ["sal-v5", "sal-v6", "sal-v7"])
 def test_a_call_after_a_reschedule_or_relist_never_removes_a_counted_relist(version: str) -> None:
     """The two scenarios the review raised: a petition at two distributions after
     a reschedule (`elevated`) and at three (`high`) keeps its band when a call
@@ -563,9 +568,103 @@ def test_sal_v6_reads_as_sal_v4_without_a_call_or_a_writ() -> None:
                 assert v6.in_segment(row), key
 
 
-@pytest.mark.parametrize("version", ["sal-v5", "sal-v6"])
+def test_sal_v7_is_registered_and_sal_v6_stays_active() -> None:
+    """sal-v7 is registered beside sal-v6, inactive: the live pass still scores,
+    latches and stamps under sal-v6. It is sal-v6's relist rule, writ scope and
+    parse pin as the same callables."""
+    assert "sal-v7" in SCORERS
+    assert SALIENCE_VERSION == "sal-v6"
+    assert registered_versions()[0] == "sal-v6"
+    v6, v7 = scorer("sal-v6"), scorer("sal-v7")
+    assert v7.bands == v6.bands
+    assert v7.distribution_parse == v6.distribution_parse == "dist-v2"
+    assert v7.selects_arrivals is True
+    assert v7.score is v6.score
+    assert v7.admits is v6.admits
+
+
+def _sg_for_petitioner(party: str, *, of_record: bool = True) -> corpus.CounselEntry:
+    return corpus.CounselEntry(
+        party=party,
+        attorney="D. John Sauer",
+        role=corpus.CounselRole.petitioner,
+        counsel_of_record=of_record,
+    )
+
+
+def test_sal_v7_bands_and_carves_an_sg_represented_warden_as_federal() -> None:
+    """The office as counsel of record for the captioned Warden moves the band,
+    the carve-in and the ladder to `federal` under sal-v7, where sal-v6 reads the
+    sub-national officer fallback's `state`."""
+    v6, v7 = scorer("sal-v6"), scorer("sal-v7")
+    floor = load_salience_config(Path("config")).floor
+    row = _v5_row(
+        distribution_count=1,
+        petitioner_title="Juan Baltazar, Warden, et al.",
+        counsel=[_sg_for_petitioner("Baltazar, Warden, et al.")],
+    )
+    assert v6.band(row) == "state"
+    assert v7.band(row) == "federal"
+    assert v7.reachable_bands(row) == ("federal",)
+    assert v7.carve_out(row, v7.score(row), floor) is True
+    assert v6.carve_out(row, v6.score(row), floor) is False
+
+
+def test_sal_v7_never_reads_a_supporting_amicus_or_a_consolidation() -> None:
+    """The two post-outcome shapes that set sal-v5 aside: the office listed under
+    the petitioner for "United States" on a private or state petition. sal-v5
+    reads both `federal`; sal-v7 reads each exactly as sal-v6 does."""
+    v5, v6, v7 = scorer("sal-v5"), scorer("sal-v6"), scorer("sal-v7")
+    for title in (
+        "International Partners for Ethical Care, Inc., et al.",
+        "Mark Brnovich, Attorney General of Arizona, et al.",
+    ):
+        row = _v5_row(
+            distribution_count=1,
+            petitioner_title=title,
+            counsel=[_sg_for_petitioner("United States")],
+        )
+        assert v5.band(row) == "federal", title
+        assert v7.band(row) == v6.band(row) != "federal", title
+        assert v7.reachable_bands(row) == v6.reachable_bands(row), title
+
+
+def test_sal_v7_reads_as_sal_v6_without_the_office_for_the_captioned_petitioner() -> None:
+    """With no office entry for the captioned petitioner, sal-v7 scores, bands,
+    carves, ladders and scopes exactly as sal-v6: caption-v4's counsel check is
+    its only input beyond sal-v6's."""
+    v6, v7 = scorer("sal-v6"), scorer("sal-v7")
+    floor = load_salience_config(Path("config")).floor
+    others = [
+        [],
+        [_sg_for_petitioner("United States")],
+        [_sg_for_petitioner("Somebody Else")],
+        [_sg_for_petitioner("John Doe", of_record=False)],
+        [_sg_for_petitioner("John Doe").model_copy(update={"role": corpus.CounselRole.respondent})],
+    ]
+    for count in (None, 0, 1, 2, 3, 4):
+        for after in (None, 1):
+            for title in ("United States", "State of Texas", "John Doe", "Michael Smith, Warden"):
+                for counsel in others:
+                    row = _v5_row(
+                        distribution_count=count,
+                        distributed_after_call=after,
+                        petitioner_title=title,
+                        counsel=counsel,
+                    )
+                    key = (count, after, title, counsel)
+                    assert v7.score(row) == v6.score(row), key
+                    assert v7.band(row) == v6.band(row), key
+                    assert v7.reachable_bands(row) == v6.reachable_bands(row), key
+                    assert v7.carve_out(row, v7.score(row), floor) == v6.carve_out(
+                        row, v6.score(row), floor
+                    ), key
+                    assert v7.in_segment(row) == v6.in_segment(row), key
+
+
+@pytest.mark.parametrize("version", ["sal-v5", "sal-v6", "sal-v7"])
 def test_the_writ_scope_leaves_rule_20_writs_out_of_scoring_and_selection(version: str) -> None:
-    """A Rule 20 writ is outside sal-v5's and sal-v6's segment: not scored, not cohorted, not
+    """A Rule 20 writ is outside the writ-scoped versions' segment: not scored, not cohorted, not
     carved in. A sealed certiorari petition captioned "In re …" stays in, because
     the opening entry, not the caption, classifies — and sal-v4 still scores both."""
     config = SalienceConfig(per_conference_capacity=5, floor=0.28)
@@ -1845,6 +1944,7 @@ def test_a_second_version_is_reachable_and_the_active_one_is_unchanged(
         "sal-v3",
         "sal-v4",
         "sal-v5",
+        "sal-v7",
     )
     row = _petition("scotus/1", distribution_count=3, cvsg=True)
     assert scorer("sal-toy").band(row) == "hot"
@@ -2177,6 +2277,7 @@ def test_every_registered_scorer_pins_a_registered_distribution_parse(version: s
         "sal-v4": "dist-v2",
         "sal-v5": "dist-v2",
         "sal-v6": "dist-v2",
+        "sal-v7": "dist-v2",
     }
     assert SCORERS[version].distribution_parse in DISTRIBUTION_PARSES
     assert SCORERS[version].distribution_parse == expected[version]
@@ -2794,12 +2895,12 @@ def _activate(monkeypatch: pytest.MonkeyPatch, version: str) -> None:
     monkeypatch.setattr(salience_module, "SALIENCE_VERSION", version)
 
 
-@pytest.mark.parametrize("version", ["sal-v5", "sal-v6"])
+@pytest.mark.parametrize("version", ["sal-v5", "sal-v6", "sal-v7"])
 def test_the_band_freeze_refuses_a_rule_20_writ_only_under_a_version_that_excludes_it(
     monkeypatch: pytest.MonkeyPatch, version: str
 ) -> None:
     """The segment is read off the payload's opening petition entry: a writ of
-    mandamus freezes no band under sal-v5 or sal-v6, a sealed certiorari petition captioned
+    mandamus freezes no band under sal-v5, sal-v6 or sal-v7, a sealed certiorari petition captioned
     "In re" still does, and under sal-v4, whose segment narrows nothing, the writ is banded."""
     writ = _warden_payload(opening="Petition for a writ of mandamus filed.", sg=False)
     sealed = {
@@ -2836,3 +2937,256 @@ def test_band_refused_marks_only_a_segment_refusal(monkeypatch: pytest.MonkeyPat
     application = {**writ, "CaseNumber": "25A100"}
     interim = cell_context.build("scotus/102", date(2025, 10, 2), application, "forward")
     assert interim.band is None and interim.band_refused is None
+
+
+# --- caption-v4's one counsel fact in the frozen cell band ------------------------
+
+_CUT = date(2025, 10, 2)
+
+
+def _replay_context(
+    payload: dict[str, object], *, provenance: Literal["dated", "truncated"] = "dated"
+) -> PredictionContext:
+    """A replay cell as the back-test provisioners build it: the fact read off the
+    served payload, then the payload redacted before the context sees it."""
+    fact = cell_context.counsel_fact(
+        "scotus/100", payload, snapshot_date=_CUT, provenance=provenance, cutoff=_CUT
+    )
+    return cell_context.build(
+        "scotus/100",
+        _CUT,
+        redact_snapshot(dict(payload)),
+        "replay",
+        provenance=provenance,
+        cutoff=_CUT,
+        sg_counsel_of_record_for_petitioner=fact,
+    )
+
+
+def test_a_forward_sg_cell_bands_federal_under_sal_v7(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The office as counsel of record for the captioned Warden, read off the
+    forward payload, freezes `federal` under sal-v7, where sal-v6 freezes the
+    sub-national officer fallback's `state`."""
+    _activate(monkeypatch, "sal-v6")
+    assert cell_context.build("scotus/100", _CUT, _warden_payload(), "forward").band == "state"
+    _activate(monkeypatch, "sal-v7")
+    built = cell_context.build("scotus/100", _CUT, _warden_payload(), "forward")
+    assert built.band == "federal" and built.salience_version == "sal-v7"
+
+
+def test_a_redacted_replay_cell_bands_as_the_forward_cell_does(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A replay snapshot's counsel blocks are redacted, so the fact is read off the
+    served payload first: the replay cell then bands `federal` exactly as the
+    forward cell on the same snapshot does. Without the pre-redaction read the
+    redacted payload carries no block to read it from, and a truncated payload
+    (a later pull, so not the record at the cut) never supplies it."""
+    _activate(monkeypatch, "sal-v7")
+    forward = cell_context.build("scotus/100", _CUT, _warden_payload(), "forward")
+    replay = _replay_context(_warden_payload())
+    assert "Petitioner" not in redact_snapshot(_warden_payload())
+    assert replay.band == forward.band == "federal"
+    blind_to_it = cell_context.build(
+        "scotus/100",
+        _CUT,
+        redact_snapshot(_warden_payload()),
+        "replay",
+        provenance="dated",
+        cutoff=_CUT,
+    )
+    assert blind_to_it.band == "state"
+    assert _replay_context(_warden_payload(), provenance="truncated").band == "state"
+
+
+@pytest.mark.parametrize("mode", ["forward", "replay"])
+def test_a_non_sg_cell_is_unchanged_under_sal_v7(
+    monkeypatch: pytest.MonkeyPatch, mode: str
+) -> None:
+    """Without the office as counsel of record for the captioned petitioner — no
+    office entry, a supporting United States amicus listed under "Petitioner", the
+    office not of record, or the office named only in the Respondent and Other
+    blocks — sal-v7 freezes the band sal-v6 does, forward and replay alike."""
+    not_of_record = _warden_payload()
+    not_of_record["Petitioner"] = [{"PartyName": "Michael Smith", "Attorney": "D. John Sauer"}]
+    amicus = {
+        **_warden_payload(),
+        "PetitionerTitle": "Acme Corp., Petitioner",
+        "Petitioner": [
+            {"PartyName": "Acme Corp.", "Attorney": "Jane Private", "IsCounselofRecord": True},
+            {"PartyName": "United States", "Attorney": "D. John Sauer", "IsCounselofRecord": True},
+        ],
+    }
+    respondent_side = {
+        **_warden_payload(sg=False),
+        "Respondent": [
+            {"PartyName": "Michael Smith", "Attorney": "D. John Sauer", "IsCounselofRecord": True}
+        ],
+    }
+    for payload in (_warden_payload(sg=False), not_of_record, amicus, respondent_side):
+        bands = {}
+        for version in ("sal-v6", "sal-v7"):
+            _activate(monkeypatch, version)
+            built = (
+                cell_context.build("scotus/100", _CUT, payload, "forward")
+                if mode == "forward"
+                else _replay_context(payload)
+            )
+            bands[version] = built.band
+        assert bands["sal-v7"] == bands["sal-v6"] != "federal", payload
+
+
+def test_no_other_counsel_field_reaches_the_base_row_or_the_cell(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The base row carries the one boolean and nothing else about counsel: the
+    projected row holds no entry, party or attorney, a cut row refuses one, and
+    two payloads that differ in every counsel field but agree on the fact freeze
+    the same context."""
+    _activate(monkeypatch, "sal-v7")
+    projected = asof.project_row(
+        corpus.CorpusRow(case_id="scotus/100", court="scotus", docket_number="25-100"),
+        _warden_payload(),
+        cutoff=_CUT,
+        provenance="dated",
+        sg_counsel_of_record_for_petitioner=True,
+    )
+    assert isinstance(projected.row, caption.CutRow)
+    assert projected.row.counsel == [] and projected.row.parties == []
+    assert projected.row.attorneys == []
+    dumped = projected.row.model_dump_json()
+    assert "Sauer" not in dumped and "Jane Roe" not in dumped and "John Doe" not in dumped
+    with pytest.raises(ValueError, match="no counsel entry"):
+        caption.CutRow(
+            case_id="scotus/100",
+            court="scotus",
+            counsel=[corpus.CounselEntry(party="Michael Smith", attorney="D. John Sauer")],
+        )
+
+    other = {
+        **_warden_payload(),
+        "Petitioner": [
+            {
+                "PartyName": "Smith, Warden",
+                "Attorney": "Sarah M. Harris",
+                "IsCounselofRecord": True,
+            },
+            {"PartyName": "Michael Smith", "Attorney": "Someone Else"},
+        ],
+        "Respondent": [{"PartyName": "Richard Roe", "Attorney": "Elizabeth B. Prelogar"}],
+        "Other": [],
+    }
+    for build in (
+        lambda p: cell_context.build("scotus/100", _CUT, p, "forward"),
+        _replay_context,
+    ):
+        first, second = build(_warden_payload()), build(other)
+        assert first.band == "federal"
+        assert first.model_dump() == second.model_dump()
+    assert set(PredictionContext.model_fields) == set(
+        cell_context.build("scotus/100", _CUT, _warden_payload(), "forward").model_dump()
+    )
+
+
+def test_sal_v6_cells_never_read_the_counsel_fact(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Under the active sal-v6 the fact moves nothing a cell freezes: an SG cell
+    with the fact forced either way, forward and replay, freezes one context."""
+    _activate(monkeypatch, "sal-v6")
+    for mode in ("forward", "replay"):
+        contexts = [
+            cell_context.build(
+                "scotus/100",
+                _CUT,
+                _warden_payload() if mode == "forward" else redact_snapshot(_warden_payload()),
+                mode,
+                provenance="dated",
+                cutoff=_CUT,
+                sg_counsel_of_record_for_petitioner=fact,
+            ).model_dump()
+            for fact in (True, False, None)
+        ]
+        assert contexts[0] == contexts[1] == contexts[2]
+        assert contexts[0]["band"] == "state"
+
+
+def test_the_fact_admits_no_one_who_was_not_in_office_at_filing() -> None:
+    """The roster test is at the docket's filing date: a member whose span opens
+    after the filing was named there in private practice, so the entry is not
+    the office at any cut — on a federal party too, where `sg-office-v1`'s
+    late-write reading would admit it — and an undated docket reads no entry."""
+    payload = {
+        **_warden_payload(),
+        "DocketedDate": "September 16, 2024",
+    }
+    args = {"caption_text": "Michael Smith, Warden", "provenance": "dated"}
+    for cut in (date(2025, 1, 1), date(2025, 4, 4), _CUT):
+        assert caption.sg_counsel_of_record_at_cut(payload, cut=cut, **args) is False
+    assert caption.sg_counsel_of_record_at_cut(_warden_payload(), cut=_CUT, **args) is True
+    sovereign = {
+        **payload,
+        "PetitionerTitle": "United States, Petitioner",
+        "Petitioner": [
+            {"PartyName": "United States", "Attorney": "D. John Sauer", "IsCounselofRecord": True}
+        ],
+    }
+    assert (
+        caption.sg_counsel_of_record_at_cut(
+            sovereign, caption_text="United States", cut=_CUT, provenance="dated"
+        )
+        is False
+    )
+    stored = corpus.CorpusRow(
+        case_id="scotus/100",
+        court="scotus",
+        date_filed=date(2024, 9, 16),
+        petitioner_title="Michael Smith, Warden",
+        counsel=[_sg_for_petitioner("Michael Smith")],
+    )
+    assert not caption.sg_counsel_of_record_for_petitioner(stored)
+    assert not counsel_module.office_entries_at_filing(stored.counsel, filed=stored.date_filed)
+    undated = {key: value for key, value in payload.items() if key != "DocketedDate"}
+    assert caption.sg_counsel_of_record_at_cut(undated, cut=_CUT, **args) is False
+    for provenance in ("truncated", "blind"):
+        assert (
+            caption.sg_counsel_of_record_at_cut(
+                _warden_payload(),
+                caption_text="Michael Smith, Warden",
+                cut=_CUT,
+                provenance=provenance,
+            )
+            is False
+        )
+
+
+def test_a_private_petition_filed_before_its_counsel_took_office_never_reads_federal() -> None:
+    """A private petition filed in 2024 with D. John Sauer, then in private
+    practice, as counsel of record reads its caption class at every cut, on or
+    after the 2025-04-04 he took office included: the roster span must cover
+    the filing date, not merely overlap the docket's life. The stored-row
+    reading the census and statpack use agrees with the cell's."""
+    payload: dict[str, object] = {
+        "CaseNumber": "24-300",
+        "DocketedDate": "September 16, 2024",
+        "PetitionerTitle": "Acme Corp., Petitioner",
+        "Petitioner": [
+            {"PartyName": "Acme Corp.", "Attorney": "D. John Sauer", "IsCounselofRecord": True}
+        ],
+    }
+    for cut in (date(2025, 4, 4), date(2025, 4, 5), date(2025, 10, 2)):
+        assert (
+            caption.sg_counsel_of_record_at_cut(
+                payload, caption_text="Acme Corp.", cut=cut, provenance="dated"
+            )
+            is False
+        )
+    stored = corpus.CorpusRow(
+        case_id="scotus/2024300",
+        court="scotus",
+        docket_number="24-300",
+        petitioner_title="Acme Corp.",
+        date_filed=date(2024, 9, 16),
+        counsel=[_sg_for_petitioner("Acme Corp.")],
+    )
+    assert caption.petitioner_class_v4(stored) == "private"
+    filed_in_office = stored.model_copy(update={"date_filed": date(2025, 4, 4)})
+    assert caption.petitioner_class_v4(filed_in_office) == "federal"

@@ -15754,3 +15754,136 @@ freeze commit is recorded here.
   own counting windows, registered on its own dated entry in the change that
   switches it on, so no SCOTUS window ever holds a slice cell and two slices
   never pool.
+
+- **`caption-v4` and `sal-v7` registered, inactive; recorded 2026-11-01.** No
+  freeze commit belongs to this entry, on the `sal-v6` registration's pattern:
+  the salience version sits outside the process digest (`pipeline_sha` is not
+  an input), carries its own data-visible boundary
+  (`context.salience_version`), and a registration re-blesses nothing.
+  `SALIENCE_VERSION` stays `sal-v6`, so nothing the live pass selects, latches
+  or stamps moves; `statpack.json` and `salience-replay.json` carry a seventh
+  version's bands from their next render. No prompt text or other digest input
+  changes.
+
+  **What `caption-v4` is.** `caption-v2` with one check run ahead of every
+  caption pattern: a petition whose captioned petitioner has the Solicitor
+  General's office as counsel of record reads `federal`. The entry must be on
+  the petitioner side, marked counsel of record, name an attorney
+  `sg-office-v1`'s roster places in the office on the docket's filing date
+  (`counsel.office_entries_at_filing`), and carry a party whose lead (the name
+  up to its first comma, folded) is the caption's lead or its trailing words.
+  `caption-v1` to `caption-v3` are unchanged.
+
+  **What `sal-v7` is.** `sal-v6`'s score, writ scope, `dist-v2` pin,
+  cutpoints, band vocabulary and arrival draw, as the same callables, with
+  the band, the carve-in and the reachable ladder read through `caption-v4`.
+
+  **Why the party match answers `sal-v5`'s exclusion.** The two post-outcome
+  shapes the 2026-10-30 entry names, a supporting United States amicus and a
+  government petition consolidated at the grant, are listed under a party
+  other than the captioned petitioner. On the census frame (live-slice, paid,
+  modern-cert scored segment) `caption-v3` moves 21 rows off their `caption-v2`
+  class and `caption-v4` moves 15, every one of them among `caption-v3`'s 21.
+  Of the 6 it does not move, 5 are the 5 that entry names: 19-1257, 25-840,
+  18-1587, 24-20 and 24-422. The sixth, 19-546, lists the office for its
+  captioned petitioner only under an acting Solicitor General who took office
+  after the docket was filed, which the filing-date roster test leaves out.
+
+  **When the entry exists.** The office's entry for the captioned petitioner
+  is on the earliest stored snapshot of each of the 5 pending moved rows
+  (25-952, 26-111, 26-145, 26-146, 26-379), and on a snapshot from before the
+  outcome of the 2 resolved moved rows that have one (25-1103, on 2026-07-16
+  against its 2026-10-13 grant; 26-48, on 2026-08-13 against its 2026-10-05
+  GVR). The other 8 resolved moved rows (19-71, 20-1044, 20-1478,
+  23-411, 24-1246, 25-1083, 25-701, 25-886) have no stored snapshot from
+  before their outcome, so their entry cannot be dated. The declared residual
+  is the office substituting for a captioned petitioner after the grant, by an
+  attorney already in the office at the filing.
+
+  **The census.** `uv run fedcourts caption-census --rule-version <v>`,
+  pooled over the complete Terms OT2018–OT2024:
+
+  | class | `caption-v2` | `caption-v4` |
+  | --- | --: | --: |
+  | federal | 125/165 | 128/170 |
+  | state | 79/340 | 79/340 |
+  | private | 524/9,947 | 521/9,942 |
+
+  Per Term the moves are OT2019 +1 `federal` (1 grant-family), OT2020 +2
+  (0), OT2023 +1 (1) and OT2024 +1 (1), each from `private`. The incomplete
+  Terms move OT2025 +4 (3 grant-family; one of the four from `state`) and OT2026 +1
+  (1). Of the 15 moved rows' captions, 12 name a federal agency or an
+  officer's title; 19-71, 25-952 and 26-111 carry a personal name only. The shapes were surfaced by forecasts flagged on petitions later
+  granted, so the migrated rows' grant record is partly outcome-selected and
+  no recall gain may be quoted from the `federal` cell's rate.
+
+  **The band moves.** `uv run python scripts/checks/caption_v4_band_census.py`,
+  `sal-v6` against `sal-v7` over the same frame inside `sal-v6`'s segment:
+
+  | status | `sal-v6` band | `sal-v7` band | rows |
+  | --- | --- | --- | --: |
+  | pending | baseline | federal | 2 |
+  | pending | elevated | federal | 1 |
+  | pending | state | federal | 2 |
+  | resolved | baseline | federal | 6 |
+  | resolved | elevated | federal | 2 |
+  | resolved | high | federal | 2 |
+
+  Of the 5 pending rows, 25-952, 26-145 and 26-146 are already selected under
+  `sal-v6`; 26-111 and 26-379 are not.
+
+  The census and band figures are on production index blob `f6beb2e3…4d502`
+  (newest pull 2026-11-01, newest stored snapshot row 2026-07-13). The
+  snapshot dating above was read on blob `3ddb381f…c41a05` (newest pull
+  2026-10-31) with the per-case content store read the same day.
+
+  **The cell band and the replay projection, as decided.** The maintainer
+  decided on 2026-11-01 how a projected row reads `caption-v4`: through one
+  fact only, whether the captioned petitioner's counsel of record is the
+  Solicitor General's office, read off the payload as served and before any
+  redaction, for forward and replay cells alike, and carried the same way by
+  the gate replay's projection. The base row of the frozen cell band
+  (`cell_context.build`) and the replay's projected row (`asof.project_row`)
+  are a `caption.CutRow`, which carries that boolean and refuses any counsel
+  entry, party or attorney list; the cell's `context.json` gains no field.
+  The replay and back-test provisioners (`cert_backtest`, `merits_backtest`,
+  `salience_replay`) read the fact off the snapshot before redacting it, and
+  the redaction is unchanged. The fact is knowable at the cut because it is
+  read only off a payload the docket served by the cut (`as-stored` or
+  `dated`; a `truncated` or `blind` payload is a later pull, so the fact is
+  false there) and the roster test admits only an attorney in the office on
+  the payload's `DocketedDate` (`counsel.office_entries_at_filing`, without
+  `sg-office-v1`'s late-write reading). So a `sal-v7` replay cell measures
+  `caption-v4` on its `dated` rows only. The census, the band census and the
+  statpack's `sal-v7` block read the same rule over a stored row's whole
+  counsel list as of its last write, where a cell reads the list served by
+  the cut, so a stored-row figure can read `federal` a row a cell cut on the
+  same docket would not (`docs/salience.md`, *Two readings of one rule*). Under the active `sal-v6` nothing reads the fact: on a grid of
+  forward and replay payloads (an office-represented Warden, the same
+  without the office, a Rule 20 writ, a personal-name petitioner, a
+  supporting United States amicus; forward `as-stored` and `dated`, replay
+  `dated` and `truncated`, each served and redacted)
+  and the gate replay's test corpus, every frozen context and every `sal-v6`
+  replay cell is byte-identical before and after the change.
+
+  **Not owed by this registration, owed by an activation.** A reviewed
+  census, the statistical bar `sal-v3`'s activation cleared on a statpack
+  carrying a `sal-v7` block, and a replay comparison at matched recall over
+  the `dated` cells are the flip's prerequisites (`docs/salience.md`, the
+  `sal-v7` section).
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - on `main`, `uv run python -c "from fedcourtsai.pipeline.salience import
+    SALIENCE_VERSION, SCORERS; from fedcourtsai.pipeline.caption import
+    CAPTION_RULES; print(SALIENCE_VERSION, 'sal-v7' in SCORERS, 'caption-v4'
+    in CAPTION_RULES)"` prints `sal-v6 True True`;
+  - after the first post-promotion metrics refresh, `jq -r
+    '[.terms[].alt_segments[].salience_version] | unique | join(" ")'
+    metrics/statpack.json` includes `sal-v7`, and `.terms[].salience_version`
+    stays `sal-v6`;
+  - where the corpus is pulled, `CHECK_SUMMARY=<file> uv run python
+    scripts/checks/caption_v4_band_census.py` lists the moves above, with any
+    petition docketed since added to the pending rows.

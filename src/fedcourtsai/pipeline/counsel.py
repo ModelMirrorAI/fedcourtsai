@@ -520,6 +520,38 @@ def sg_office_annotations(row: corpus.CorpusRow, moment: date | None) -> Counsel
     )
 
 
+def office_entries_at_filing(
+    entries: Iterable[corpus.CounselEntry], *, filed: date | None
+) -> tuple[corpus.CounselEntry, ...]:
+    """The petitioner- and respondent-side entries naming someone in the office at ``filed``.
+
+    The per-entry reading caption-v4 turns on: an entry counts only where its
+    attorney is a roster member one of whose spans covers the docket's filing
+    date ``filed``, both ends inclusive. Narrower than :func:`_read_entry` on
+    purpose, which places a name anywhere in the docket's life and admits a
+    successor's late write on a federal party: the entry caption-v4 reads is the
+    one the petition's own filing writes, so the attorney on it is in office the
+    day the docket opens or is private practice, whatever the party and however
+    long the docket then runs. A name that took office after the filing — a
+    private petitioner's counsel who later became Solicitor General, or the
+    office's own successor substituted on a pending federal petition — is
+    therefore not read. An undated docket (``filed`` is ``None``) reads no
+    entry. ``other`` is never read. Pure and total, in served order.
+    """
+    if filed is None:
+        return ()
+    found: list[corpus.CounselEntry] = []
+    for entry in entries:
+        if entry.role not in _READ_ROLES:
+            continue
+        member = _ROSTER_BY_ALIAS.get(normalize_attorney(entry.attorney or ""))
+        if member is not None and any(
+            span.start <= filed and (span.end is None or span.end >= filed) for span in member.spans
+        ):
+            found.append(entry)
+    return tuple(found)
+
+
 #: Every registered counsel annotation rule, keyed by version label. Added to,
 #: never edited: a cut names the rule it ran under.
 COUNSEL_RULES: Final[

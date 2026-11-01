@@ -518,6 +518,12 @@ def redact_snapshot(payload: dict[str, Any]) -> dict[str, Any]:
     a forward cell sees, so replay figures understate the same predictor's
     forward information set. Do not "fix" this on dated snapshots — that
     reopens the seam on every decided one.
+
+    One fact is read off the blocks before they go, and never reaches the
+    snapshot: whether the captioned petitioner's counsel of record is the
+    Solicitor General's office, which a projected row carries as a boolean for
+    ``caption-v4`` (:func:`fedcourtsai.pipeline.caption.sg_counsel_of_record_at_cut`,
+    read on a ``dated`` payload only). The redaction itself is unchanged.
     """
     return {key: value for key, value in payload.items() if key not in SNAPSHOT_OUTCOME_FIELDS}
 
@@ -1247,6 +1253,7 @@ def write_cell_record(  # noqa: PLR0913 - one record, each optional part a keywo
     same_question: SameQuestionList | None = None,
     decided_before: str | None = None,
     anchor_pool: AnchorPool | None = None,
+    sg_counsel_of_record_for_petitioner: bool | None = None,
 ) -> RecordWrite:
     """Materialize one cell's whole ``record/`` from its placement.
 
@@ -1294,6 +1301,12 @@ def write_cell_record(  # noqa: PLR0913 - one record, each optional part a keywo
     over the band the context froze, so the grading reads the pool of the build
     in force when the forecast was placed. Without it, or over a context that
     froze no band, ``cert_anchor`` is null.
+
+    ``sg_counsel_of_record_for_petitioner`` is the one counsel fact the band's
+    base row carries (:func:`fedcourtsai.pipeline.cell_context.counsel_fact`),
+    passed by a caller whose placement payload is already redacted and so
+    carries no counsel block to read it from; left ``None``, the context reads
+    it off ``placement.payload``.
     """
     kinds = screen_document_kinds(placement.documents)
     if snapshot_dest is None:
@@ -1334,6 +1347,7 @@ def write_cell_record(  # noqa: PLR0913 - one record, each optional part a keywo
         cutoff=cutoff,
         boundary=placement.boundary,
         decided_before=decided_before,
+        sg_counsel_of_record_for_petitioner=sg_counsel_of_record_for_petitioner,
     )
     write_raw_json(
         paths.cell_context,

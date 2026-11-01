@@ -27,7 +27,7 @@ from enum import StrEnum
 from typing import Any, Literal
 
 from .. import corpus
-from . import cert_signals, interim_signals
+from . import caption, cert_signals, interim_signals
 
 
 @dataclass(frozen=True)
@@ -59,6 +59,7 @@ def project_row(
     cutoff: date | None,
     provenance: Literal["dated", "truncated", "blind"],
     parse: str = cert_signals.DEFAULT_DISTRIBUTION_PARSE,
+    sg_counsel_of_record_for_petitioner: bool | None = None,
 ) -> AsOfRow:
     """Project ``base`` to what ``payload`` disclosed, as an :class:`AsOfRow`.
 
@@ -117,6 +118,19 @@ def project_row(
       A caller that wants the flag reads the stored row, where
       ``last_live_polled`` says whether it means anything.
 
+    - **Counsel is never copied.** The projected row carries no counsel
+      entry, party or attorney list: a replay payload's counsel blocks are
+      redacted, and the stored row's list is as of its last write, not the
+      cutoff. The one exception is a single fact, and only when the caller
+      passes it: ``sg_counsel_of_record_for_petitioner``, whether the payload
+      served at or before the cut lists the Solicitor General's office as
+      counsel of record for the captioned petitioner
+      (:func:`.caption.sg_counsel_of_record_at_cut`, read before redaction).
+      Given, the row is a :class:`.caption.CutRow`, which carries that boolean
+      and refuses any other counsel field, and ``caption-v4`` reads it there.
+      Left ``None``, the row is a plain :class:`~fedcourtsai.corpus.CorpusRow`
+      and ``caption-v4`` reads it as ``caption-v2``.
+
     ``parse`` names the registered DISTRIBUTED reading
     (:data:`~fedcourtsai.pipeline.cert_signals.DISTRIBUTION_PARSES`) the
     ``distribution_count`` is derived under. A caller that goes on to band the
@@ -135,8 +149,14 @@ def project_row(
     requested, referred, amicus = (
         interim_signals.escalation_signals(entries) if observable else (None, None, None)
     )
+    fields: dict[str, Any] = {}
+    row_type: type[corpus.CorpusRow] = corpus.CorpusRow
+    if sg_counsel_of_record_for_petitioner is not None:
+        row_type = caption.CutRow
+        fields["sg_counsel_of_record_for_petitioner"] = sg_counsel_of_record_for_petitioner
     return AsOfRow(
-        row=corpus.CorpusRow(
+        row=row_type(
+            **fields,
             case_id=base.case_id,
             court=base.court,
             docket_number=base.docket_number,

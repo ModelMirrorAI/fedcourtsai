@@ -57,7 +57,7 @@ from . import corpus
 from .analytics import _is_scored_segment_row
 from .cert_backtest import _kept_entries_show_a_disposition
 from .config import SalienceConfig
-from .pipeline import asof
+from .pipeline import asof, caption
 from .pipeline.outcome import granted_flag, is_machine_readable
 from .pipeline.salience import (
     SALIENCE_VERSION,
@@ -122,7 +122,8 @@ def _project(
     found = corpus.latest_snapshot(conn, row.case_id)
     if found is None:
         return None
-    working = redact_snapshot(found[1])
+    served = found[1]
+    working = redact_snapshot(served)
     cutoff = asof.policy_cutoff(policy, row, working)
     provenance: Literal["dated", "truncated", "blind"] = (
         "truncated" if cutoff is not None else "blind"
@@ -131,7 +132,8 @@ def _project(
     if cutoff is not None:
         dated = corpus.snapshot_at(conn, row.case_id, before=cutoff)
         if dated is not None:
-            working = redact_snapshot(dated[1])
+            served = dated[1]
+            working = redact_snapshot(served)
             provenance = label = "dated"
     # Truncation runs on the dated payload too: a no-op when the stored snapshot
     # really predates the cutoff, an alarm when it does not.
@@ -143,7 +145,26 @@ def _project(
         provenance = "blind"
         label = "blind-untrusted-cutoff"
         cutoff = None
-    projected = asof.project_row(row, working, cutoff=cutoff, provenance=provenance, parse=parse)
+    # caption-v4's one counsel fact, read off the payload as served, before
+    # redaction stripped its counsel blocks, by the rule a cell's base row
+    # reads it under (`caption.sg_counsel_of_record_at_cut`): only a `dated`
+    # payload is the record at the cut, so a truncated or blind projection
+    # carries the fact as false. The caption is the row's own, the one the
+    # band reads.
+    counsel = cutoff is not None and caption.sg_counsel_of_record_at_cut(
+        served,
+        caption_text=caption.petitioner_caption(row),
+        cut=cutoff,
+        provenance=provenance,
+    )
+    projected = asof.project_row(
+        row,
+        working,
+        cutoff=cutoff,
+        provenance=provenance,
+        parse=parse,
+        sg_counsel_of_record_for_petitioner=counsel,
+    )
     if cutoff is not None:
         # The as-of conference, so cohorting reproduces the latest-entry-wins
         # value the live channel would have held at that moment.

@@ -26,13 +26,13 @@ from typing import Any, Literal
 
 from .. import corpus
 from ..schemas import PredictionContext
-from . import arrival_cut, cert_signals, vide_links
+from . import arrival_cut, caption, cert_signals, vide_links
 from .asof import project_row
 from .paper_only import paper_only_filings
 from .salience import scorer
 
 
-def build(
+def build(  # noqa: PLR0913 - one context, each optional part a keyword
     case_id: str,
     snapshot_date: date,
     payload: Mapping[str, Any],
@@ -42,6 +42,7 @@ def build(
     cutoff: date | None = None,
     boundary: arrival_cut.CutBoundary | None = None,
     decided_before: str | None = None,
+    sg_counsel_of_record_for_petitioner: bool | None = None,
 ) -> PredictionContext:
     """The conditioning state ``payload`` discloses, as at ``snapshot_date``.
 
@@ -77,44 +78,33 @@ def build(
     freeze for it. The signals still freeze, and the refusal is stamped as
     ``band_refused="outside-segment"``, so the null band is told apart from an
     unobservable docket and from an application without inference.
+
+    The base row carries exactly one counsel fact, for ``caption-v4``: whether
+    the payload the docket served by the cut lists the Solicitor General's
+    office as counsel of record for the captioned petitioner
+    (:func:`counsel_fact`). A caller that redacts the payload before this call
+    — the replay and back-test provisioners — reads the fact off the payload it
+    redacted and passes it as ``sg_counsel_of_record_for_petitioner``; left
+    ``None``, it is read off ``payload`` itself, which for a forward cell is
+    the served payload. Nothing the cell reads carries it: it can reach the
+    record only as the band of a version that reads ``caption-v4``.
     """
     # Both payload shapes: the REST record carries `docket_number`, the live
     # supremecourt.gov JSON carries `CaseNumber`. Only the live shape carries
     # proceedings, so reading just the first leaves every live cell without a Term
     # and silently disables the whole frozen path.
-    docket_number = str(payload.get("docket_number") or payload.get("CaseNumber") or "").strip()
-    # The caption in both payload shapes: the live JSON's structured
-    # `PetitionerTitle` (preferred, exactly as ingest prefers the structured
-    # column) and the REST record's joined `case_name`. It must come from the
-    # payload, not the corpus row, because the band below turns on the caption
-    # class under sal-v2 — a `federal` band frozen from a caption the cell
-    # cannot read would break this module's reproducibility rule. Caption is
-    # time-invariant identity (`asof.project_row`), so a dated or truncated
-    # payload's caption is as leakage-safe as its docket number.
-    petitioner_title = str(payload.get("PetitionerTitle") or "").strip() or None
-    case_name = str(payload.get("case_name") or "").strip()
+    base = _base_row(case_id, payload)
+    docket_number = base.docket_number
     # The docket form, read off the number alone: it decides which signals and
     # which band the context freezes below.
     application = corpus.is_scotus_application_form(docket_number)
     active = scorer()
-    # The shared as-of projection derives the signals and their observability;
-    # the base row carries only the identity a payload discloses (a forward
-    # cell's snapshot need not disclose its originating court, and the nudge is
-    # bounded below every band cutpoint anyway, so a band never turns on it).
-    # One more piece of that identity is what a version's segment reads: the
-    # writ the opening petition entry names (`cert_signals.opening_writ`, the
-    # reading ingest latches and the back-fill fills, on the cert form only, as
-    # both do). It is fixed at filing, so a dated or truncated payload discloses
-    # it as safely as its docket number.
+    if sg_counsel_of_record_for_petitioner is None:
+        sg_counsel_of_record_for_petitioner = counsel_fact(
+            case_id, payload, snapshot_date=snapshot_date, provenance=provenance, cutoff=cutoff
+        )
     projected = project_row(
-        corpus.CorpusRow(
-            case_id=case_id,
-            court=case_id.split("/", 1)[0],
-            docket_number=docket_number,
-            case_name=case_name,
-            petitioner_title=petitioner_title,
-            opening_writ=None if application else cert_signals.opening_writ(payload),
-        ),
+        base,
         payload,
         cutoff=cutoff if cutoff is not None else snapshot_date,
         provenance="dated" if provenance == "as-stored" else provenance,
@@ -133,6 +123,7 @@ def build(
         # through here, which is what makes registration safe ahead of that
         # re-derivation.
         parse=active.distribution_parse,
+        sg_counsel_of_record_for_petitioner=sg_counsel_of_record_for_petitioner,
     )
     observable = projected.observable
     count = projected.row.distribution_count
@@ -202,4 +193,65 @@ def build(
         # Frozen so a cell, and a grader reading the record, can tell a filing
         # the Court never posted from one provisioning missed.
         paper_only_filings=paper_only_filings(payload),
+    )
+
+
+def _base_row(case_id: str, payload: Mapping[str, Any]) -> corpus.CorpusRow:
+    """The identity a payload discloses, as the row the projection starts from."""
+    # Both payload shapes: the REST record carries `docket_number`, the live
+    # supremecourt.gov JSON carries `CaseNumber`. Only the live shape carries
+    # proceedings, so reading just the first leaves every live cell without a Term
+    # and silently disables the whole frozen path.
+    docket_number = str(payload.get("docket_number") or payload.get("CaseNumber") or "").strip()
+    # The caption in both payload shapes: the live JSON's structured
+    # `PetitionerTitle` (preferred, exactly as ingest prefers the structured
+    # column) and the REST record's joined `case_name`. It must come from the
+    # payload, not the corpus row, because the band turns on the caption
+    # class under sal-v2 — a `federal` band frozen from a caption the cell
+    # cannot read would break this module's reproducibility rule. Caption is
+    # time-invariant identity (`asof.project_row`), so a dated or truncated
+    # payload's caption is as leakage-safe as its docket number.
+    petitioner_title = str(payload.get("PetitionerTitle") or "").strip() or None
+    case_name = str(payload.get("case_name") or "").strip()
+    application = corpus.is_scotus_application_form(docket_number)
+    # The base row carries only the identity a payload discloses (a forward
+    # cell's snapshot need not disclose its originating court, and the nudge is
+    # bounded below every band cutpoint anyway, so a band never turns on it).
+    # One more piece of that identity is what a version's segment reads: the
+    # writ the opening petition entry names (`cert_signals.opening_writ`, the
+    # reading ingest latches and the back-fill fills, on the cert form only, as
+    # both do). It is fixed at filing, so a dated or truncated payload discloses
+    # it as safely as its docket number.
+    return corpus.CorpusRow(
+        case_id=case_id,
+        court=case_id.split("/", 1)[0],
+        docket_number=docket_number,
+        case_name=case_name,
+        petitioner_title=petitioner_title,
+        opening_writ=None if application else cert_signals.opening_writ(payload),
+    )
+
+
+def counsel_fact(
+    case_id: str,
+    payload: Mapping[str, Any],
+    *,
+    snapshot_date: date,
+    provenance: str,
+    cutoff: date | None,
+) -> bool:
+    """The one counsel fact a cell's base row carries, read off ``payload``.
+
+    :func:`.caption.sg_counsel_of_record_at_cut` over the caption the base row
+    takes from the same payload, at the cell's cut (``cutoff``, else the
+    snapshot date), under the placement's provenance. A provisioner that
+    redacts calls this on the payload **before** redacting it and hands the
+    result to :func:`build`, so a replay cell reads the fact a forward cell
+    reads from the same served snapshot.
+    """
+    return caption.sg_counsel_of_record_at_cut(
+        payload,
+        caption_text=caption.petitioner_caption(_base_row(case_id, payload)),
+        cut=cutoff if cutoff is not None else snapshot_date,
+        provenance=provenance,
     )
