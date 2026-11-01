@@ -917,3 +917,272 @@ def test_stamp_cell_walks_the_history_it_is_handed(tmp_path: Path) -> None:
     finally:
         cli._ANCHOR_HISTORY.reset(token)
     assert seen == [(tmp_path, "main")]
+
+
+# The terminal fallback, harness-stamped from proc-v17: a cert grading whose
+# scored prediction froze no band is priced against the terminal band the
+# evaluate cell's own provisioned `record/context.json` carries.
+
+#: The exact terminal pool over the two prior Terms' `alt_segments` below:
+#: (0.12 * 200 + 0.06 * 100) / 300. The risk-set rates beside them pool to 0.3,
+#: so a stamp reading the wrong half of the segment misses by threefold.
+_TERMINAL_POOL = 0.1
+
+
+def _terminal_term(term: int, rate: float, n: int) -> StatPackTerm:
+    return StatPackTerm(
+        term=term,
+        base_rates=BaseRateBucket(),
+        salience_version=SALIENCE_VERSION,
+        segments=[_segment("baseline", 0.9, 500)],
+        alt_segments=[
+            StatPackTermVersionSegments(
+                salience_version=_OLD_VERSION,
+                segments=[
+                    StatPackTermSegment(
+                        band="baseline",
+                        prefix_est_grant_rate=0.3,
+                        prefix_weighted_resolved=2 * n,
+                        est_grant_rate=rate,
+                        weighted_resolved=n,
+                    )
+                ],
+            )
+        ],
+    )
+
+
+def _terminal_statpack() -> StatPack:
+    return StatPack(
+        corpus_rows=1,
+        terms=[
+            _terminal_term(2026, 0.5, 1000),
+            _terminal_term(2025, 0.12, 200),
+            _terminal_term(2024, 0.06, 100),
+        ],
+    )
+
+
+def _graded_context(
+    band: str | None = "baseline", term: int | None = 2026, version: str | None = _OLD_VERSION
+) -> PredictionContext:
+    """The evaluate cell's provisioned record, banded off the decided docket."""
+    return PredictionContext(
+        mode="forward",
+        snapshot_date=date(2026, 10, 7),
+        signals_observable=band is not None,
+        distribution_count=1,
+        band=band,
+        salience_version=version if band is not None else None,
+        term=term,
+    )
+
+
+def _seed_terminal(
+    data_root: Path,
+    tmp_path: Path,
+    docket: int,
+    *,
+    graded: PredictionContext | None,
+    recorded_rate: float = 0.0995,
+    recorded_basis: str = "terminal",
+) -> EventPaths:
+    """A bandless cert prediction graded with a transcribed terminal anchor."""
+    write_json(tmp_path / "metrics" / "statpack.json", _terminal_statpack())
+    event_paths = _seed(
+        data_root, docket, context=_frozen(band=None, version=None), recorded_rate=recorded_rate
+    )
+    path = event_paths.evaluation("claude-judge", "claude-baseline", _RUN)
+    write_json(
+        path,
+        read_model(path, Evaluation).model_copy(
+            update={"base_rate_basis": recorded_basis, "base_rate_statpack_digest": None}
+        ),
+    )
+    if graded is not None:
+        write_json(CasePaths(data_root, "scotus", docket).cell_context, graded)
+    return event_paths
+
+
+_ANCHOR_FIELDS = (
+    "segment_base_rate",
+    "brier_score",
+    "brier_skill_score",
+    "base_rate_basis",
+    "base_rate_salience_version",
+    "base_rate_statpack_digest",
+    "base_rate_lookback_terms",
+)
+
+
+def test_the_terminal_gate_opens_at_proc_v17() -> None:
+    assert process_version.HARNESS_TERMINAL_ANCHOR_FROM == "proc-v17"
+    assert not process_version.harness_stamps_terminal_anchor("proc-v16")
+    assert process_version.harness_stamps_terminal_anchor("proc-v17")
+    assert process_version.harness_stamps_terminal_anchor("proc-v18")
+    assert not process_version.harness_stamps_terminal_anchor(None)
+    assert not process_version.harness_stamps_terminal_anchor("proc-v17-draft")
+
+
+def test_before_proc_v17_a_bandless_cert_record_stays_the_evaluators(
+    _roots: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v16")
+    event_paths = _seed_terminal(_roots, tmp_path, 20, graded=_graded_context())
+
+    result = _stamp(20)
+
+    assert result.exit_code == 0, result.output
+    stamped = _stamped(event_paths)
+    assert stamped["segment_base_rate"] == pytest.approx(0.0995)
+    assert stamped["base_rate_basis"] == "terminal"
+    assert stamped["base_rate_salience_version"] == SALIENCE_VERSION
+    assert stamped["base_rate_statpack_digest"] is None
+
+
+def test_from_proc_v17_a_bandless_cert_cell_takes_the_stamped_terminal_pool(
+    _roots: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The judge's transcription is replaced by the scorer's own terminal pool
+    over the evaluate cell's provisioned band — read off `alt_segments` for a
+    version the rendered table no longer shows, and off `est_grant_rate`, not
+    the risk-set rate — with the Brier, skill, basis pair, build and window."""
+    monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v17")
+    event_paths = _seed_terminal(_roots, tmp_path, 21, graded=_graded_context())
+    before = {field: _stamped(event_paths)[field] for field in _ANCHOR_FIELDS}
+
+    result = _stamp(21)
+
+    assert result.exit_code == 0, result.output
+    stamped = _stamped(event_paths)
+    after = {field: stamped[field] for field in _ANCHOR_FIELDS}
+    # Printed for `pytest -s`: the before/after a reviewer reads.
+    print(json.dumps({"before": before, "after": after}, indent=2))
+    assert after["segment_base_rate"] == pytest.approx(_TERMINAL_POOL)
+    assert after["brier_score"] == pytest.approx(0.04)
+    assert after["brier_skill_score"] == pytest.approx(1 - 0.04 / _TERMINAL_POOL**2)
+    assert after["base_rate_basis"] == "terminal"
+    assert after["base_rate_salience_version"] == _OLD_VERSION
+    assert after["base_rate_statpack_digest"] == statpack_digest(_terminal_statpack())
+    assert after["base_rate_lookback_terms"] == 10  # config/tracking.yaml
+    assert before["segment_base_rate"] != after["segment_base_rate"]
+
+
+def test_from_proc_v17_a_prediction_with_no_context_takes_the_terminal_pool(
+    _roots: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An older prediction carrying no frozen context at all is bandless too."""
+    monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v17")
+    event_paths = _seed_terminal(_roots, tmp_path, 22, graded=_graded_context())
+    path = event_paths.prediction("claude-baseline", _RUN)
+    write_json(path, read_model(path, Prediction).model_copy(update={"context": None}))
+
+    result = _stamp(22)
+
+    assert result.exit_code == 0, result.output
+    assert _stamped(event_paths)["segment_base_rate"] == pytest.approx(_TERMINAL_POOL)
+
+
+def test_from_proc_v17_a_judges_risk_set_on_a_bandless_cell_is_overwritten_and_said(
+    _roots: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Before the label this fails the cell (a risk-set basis with no version);
+    from it the harness owns the basis and replaces it out loud."""
+    monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v17")
+    event_paths = _seed_terminal(
+        _roots, tmp_path, 23, graded=_graded_context(), recorded_basis="risk_set"
+    )
+
+    result = _stamp(23)
+
+    assert result.exit_code == 0, result.output
+    assert "base_rate_basis 'risk_set'" in result.output
+    stamped = _stamped(event_paths)
+    assert stamped["base_rate_basis"] == "terminal"
+    assert stamped["segment_base_rate"] == pytest.approx(_TERMINAL_POOL)
+
+
+@pytest.mark.parametrize(
+    ("graded", "drop_statpack", "said"),
+    [
+        pytest.param(None, False, "no provisioned record/context.json", id="no-context"),
+        pytest.param(_graded_context(band=None), False, None, id="no-band"),
+        pytest.param(_graded_context(term=None), False, None, id="no-term"),
+        pytest.param(_graded_context(term=2024), False, None, id="no-prior-term"),
+        pytest.param(_graded_context(version="sal-unknown"), False, None, id="no-version-pool"),
+        pytest.param(_graded_context(), True, "no readable metrics/statpack.json", id="no-pack"),
+    ],
+)
+def test_from_proc_v17_a_terminal_pool_that_cannot_be_taken_is_the_omission(
+    _roots: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    graded: PredictionContext | None,
+    drop_statpack: bool,
+    said: str | None,
+) -> None:
+    """The omission the frozen-band path takes: rate, basis, version, build,
+    window and skill null together, the Brier still stamped, and the judge's
+    transcription discarded rather than kept."""
+    monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v17")
+    event_paths = _seed_terminal(_roots, tmp_path, 24, graded=graded)
+    if drop_statpack:
+        (tmp_path / "metrics" / "statpack.json").unlink()
+
+    result = _stamp(24)
+
+    assert result.exit_code == 0, result.output
+    if said is not None:
+        assert said in result.output
+    stamped = _stamped(event_paths)
+    for field in _ANCHOR_FIELDS:
+        if field != "brier_score":
+            assert stamped[field] is None, field
+    assert stamped["brier_score"] == pytest.approx(0.04)
+
+
+def test_a_regrade_keeps_the_stamped_terminal_anchor(
+    _roots: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A corrected outcome recomputes the Brier and skill over the anchor first
+    stamped, with no provisioned record left and after a refresh moved the pool."""
+    monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v17")
+    event_paths = _seed_terminal(_roots, tmp_path, 25, graded=_graded_context())
+    assert _stamp(25).exit_code == 0
+    first = _stamped(event_paths)
+    CasePaths(_roots, "scotus", 25).cell_context.unlink()
+    write_json(tmp_path / "metrics" / "statpack.json", _statpack())
+    write_json(
+        event_paths.outcome,
+        read_model(event_paths.outcome, Outcome).model_copy(
+            update={"actual_disposition": Disposition.granted, "actual_granted": 1}
+        ),
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "stamp-cell",
+            "--court",
+            "scotus",
+            "--docket",
+            "25",
+            "--event",
+            _EVENT,
+            "--run-id",
+            _RUN,
+            "--role",
+            "evaluator",
+            "--actor",
+            "claude-judge",
+            "--regrade",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    stamped = _stamped(event_paths)
+    assert stamped["brier_score"] == pytest.approx(0.64)
+    assert stamped["segment_base_rate"] == pytest.approx(_TERMINAL_POOL)
+    assert stamped["brier_skill_score"] == pytest.approx(1 - 0.64 / (1 - _TERMINAL_POOL) ** 2)
+    for field in ("base_rate_basis", "base_rate_salience_version", "base_rate_statpack_digest"):
+        assert stamped[field] == first[field], field

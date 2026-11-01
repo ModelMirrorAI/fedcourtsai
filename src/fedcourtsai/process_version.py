@@ -223,6 +223,16 @@ HARNESS_CERT_ANCHOR_FROM = "proc-v9"
 # earlier label keeps the grading-time pool through any re-grade.
 PINNED_CERT_ANCHOR_FROM = "proc-v15"
 
+# The first label whose **terminal-fallback** cert gradings also take a
+# harness-stamped skill record: a cert grading whose scored prediction froze no
+# band is scored against the terminal band the evaluate cell's own provisioned
+# `record/context.json` carries, pooled by the scorer's own pooler over the
+# terminal rate (`cli._terminal_skill_record_for`), rather than the evaluator's
+# transcription of the rendered `metrics/statpack.md` table. Keyed on the
+# grading's label like HARNESS_CERT_ANCHOR_FROM, so a grading stamped under an
+# earlier label keeps the evaluator's terminal record through any re-grade.
+HARNESS_TERMINAL_ANCHOR_FROM = "proc-v17"
+
 # The first label whose predict prompt elicits the authorship forecast, the
 # label under which every declared moment names its authorship set
 # (`cert-v3`, `interim-v2`, `merits-v2`). A cell stamped under an earlier label
@@ -293,6 +303,18 @@ def harness_stamps_cert_anchor(label: str | None) -> bool:
     """
     ordinal = label_ordinal(label)
     threshold = label_ordinal(HARNESS_CERT_ANCHOR_FROM)
+    return ordinal is not None and threshold is not None and ordinal >= threshold
+
+
+def harness_stamps_terminal_anchor(label: str | None) -> bool:
+    """Whether a terminal-fallback cert grading stamped under ``label`` is the harness's.
+
+    True from :data:`HARNESS_TERMINAL_ANCHOR_FROM` on. False for an earlier
+    label, for an unstamped record (``None``), and for a label that is not a
+    ``proc-vN`` at all, exactly as :func:`harness_stamps_cert_anchor` reads it.
+    """
+    ordinal = label_ordinal(label)
+    threshold = label_ordinal(HARNESS_TERMINAL_ANCHOR_FROM)
     return ordinal is not None and threshold is not None and ordinal >= threshold
 
 

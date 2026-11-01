@@ -15989,3 +15989,78 @@ freeze commit is recorded here.
   - on the first interim evaluate collect PR after a `proc-v17` interim cell
     resolves, its `outcome.json` carries `interim_reading` and the stamped
     `segment_base_rate` equals the finer pool.
+
+- **The terminal-fallback cert anchor is harness-stamped from `proc-v17`;
+  recorded 2026-10-31.** A scoring-baseline change keyed on a label, the shape
+  `HARNESS_CERT_ANCHOR_FROM` took at `proc-v9`: no harness boundary is
+  registered, and the edge is the `proc-v17` window's own, at the carrying
+  merge's instant. Carried to `main` by the promotion tagged `<FILL: promotion
+  tag>` (merge commit `<FILL: merge hash>`, merged `<FILL: merged-at>`), with
+  the rest of `proc-v17`.
+
+  **What changes.** `HARNESS_TERMINAL_ANCHOR_FROM` in `process_version.py`
+  names `proc-v17`. A cert grading stamped under that label or later whose
+  scored prediction froze no band (an older cell, or one whose snapshot
+  disclosed no proceedings) takes its whole skill record from `stamp-cell
+  --role evaluator`, as a frozen-band grading has since `proc-v9`. The rate is
+  `pipeline.base_rates.terminal_base_rate`: the scorer's own pooler,
+  `_pooled_band_rate`, over the band, salience version and docket-number Term
+  in the evaluate cell's own provisioned `record/context.json`, which
+  `provision-snapshot` builds from the decided docket, so its band is the
+  terminal one. It pools the **terminal** rate (`est_grant_rate`, over
+  petitions that ended in the band), over Terms strictly before the case's,
+  inside `salience.base_rate_lookback_terms`. That is the `terminal` figure
+  `fedcourts segment-anchors` prints. Beside it the stamp writes the Brier,
+  the skill, `base_rate_basis: terminal`, the band's salience version, the
+  statpack build (`base_rate_statpack_digest`) and the window
+  (`base_rate_lookback_terms`). Where no rate pools, all of them are null
+  together and the Brier still stamps. That covers no scored prediction, no
+  readable provisioned context, a context with no band or no Term, no
+  readable statpack, and no prior Term carrying the band under its version:
+  the omission the frozen-band path takes for the same cases. A re-grade
+  keeps the anchor as first stamped. The evaluate prompt no longer has the
+  judge pool the rendered `metrics/statpack.md` table, record `terminal`, or
+  note the fallback. It writes none of the three fields on any stage.
+
+  **Why.** The judges transcribed this anchor inconsistently. On the one
+  ranked cert event, scotus/73281619, the three gradings recorded 0.172242
+  (the exact pool), 0.172379 (the rendered percentages times `n`) and 0.1722.
+  On evaluate run `20261007T185906Z` all three judges left the rate, skill
+  and basis null on seven arrival cells whose band was read under `sal-v3`,
+  because the rendered table shows only the active version. The pooler reads
+  a Term's `alt_segments`, so it pools those bands.
+
+  **The trust boundary.** The evaluate cell's `record/context.json` is
+  reachable from the judge's workspace, as the predict cell's is from the
+  predictor's, and the stamp reads its band the way it reads a predict cell's
+  provisioned `band`: as provisioned, not verified. Under the registered
+  reading the judge wrote the rate directly, so this narrows what the judge
+  controls to the file the rate is pooled from.
+
+  **What scored figures move.** None at once: no committed grading is
+  re-scored. At `origin/main` `34aa5ef8b`, 24 committed evaluations on 3
+  cases record `base_rate_basis: terminal`, and each keeps the record its
+  own label registered through any re-grade. From `proc-v17` gradings on, a
+  terminal-fallback cert cell carries the exact pool under the configured
+  window. The rendered table's window was the judge's, and today the two
+  agree, since the table renders 10 of 10 Terms and the configured window is
+  10. A cert skill figure that spans the label pools two authors of the
+  terminal anchor, which differ by the transcription spread alone, and reads
+  per label where that spread matters.
+
+  **Digests.** The evaluate prompt changes, so the three evaluator digests
+  move with `proc-v17`. The predictor digests do not move for this change.
+  The `proc-v17` registration records the digests once every `proc-v17`
+  change has landed.
+
+  The runnable effect check once it is live:
+  - `uv run python -c "from fedcourtsai.process_version import
+    CURRENT_PROCESS_LABEL as L, HARNESS_TERMINAL_ANCHOR_FROM as T; print(L,
+    T)"` prints `proc-v17 proc-v17`;
+  - on the first evaluate run's collect PR after the carrying merge, every
+    cert `evaluation.json` stamped `proc-v17` whose scored prediction froze
+    no band carries `base_rate_basis` `terminal` beside a non-null
+    `base_rate_statpack_digest` and `base_rate_lookback_terms`, or all of
+    `segment_base_rate`, `base_rate_basis` and `brier_skill_score` null, and
+    its `segment_base_rate` equals the `terminal` rate `uv run fedcourts
+    segment-anchors --term <docket Term>` prints for that band to six decimals.

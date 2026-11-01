@@ -507,9 +507,13 @@ stays outside the gate:
   re-pool stands down for nearly every cell: it verifies an off-cycle build,
   and what holds the committed figure is the stamp itself. A re-grade keeps
   the anchor it was first stamped with. An
-  earlier label's cert grading, and a cert cell on the terminal fallback (no
-  frozen band, so the band is re-derived from the corpus row), keep the
-  evaluator's transcription, held by the coherence check alone.
+  earlier label's cert grading keeps the evaluator's transcription, held by
+  the coherence check alone, and so does a cert cell on the terminal fallback
+  (no frozen band) graded before `proc-v17`. From `proc-v17` the stamp writes
+  the terminal fallback's record too, pooled over the terminal band in the
+  evaluate cell's own provisioned record. That band is in no committed
+  record, so the board does not re-pool it, and the coherence check is what
+  holds it there as well.
 
   **One grading per cell per judge.** A re-graded cell commits a second
   `evaluation.json` beside the first, and both describe one observation, so

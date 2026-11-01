@@ -199,6 +199,43 @@ def prediction_base_rate(
     )
 
 
+def terminal_base_rate(
+    context: PredictionContext | None, statpack: StatPack, *, lookback_terms: int = 0
+) -> float | None:
+    """The terminal-fallback band rate for a cert cell whose prediction froze no band.
+
+    ``context`` is the **evaluate** cell's provisioned record, built from the
+    decided docket, so its band is the petition's *terminal* band, and the rate
+    pooled is ``est_grant_rate`` — over petitions that ended in the band — the
+    pairing :func:`prediction_base_rate`'s docstring sets out. Version-pinned
+    and strictly prior like every band pool: the band's own
+    ``salience_version``, Terms before ``context.term``, inside
+    ``lookback_terms``. The harness-side twin of
+    :func:`fedcourtsai.pipeline.evaluate.segment_base_rate`, which bands a
+    corpus row rather than reading a provisioned context.
+
+    ``None`` where the context carries no band, Term or version — a snapshot
+    that disclosed no proceedings, an application docket, a row outside the
+    active version's segment — or no prior Term carries the band under that
+    version: no baseline, as on the frozen-band path.
+    """
+    if (
+        context is None
+        or context.band is None
+        or context.term is None
+        or context.salience_version is None
+    ):
+        return None
+    return _pooled_band_rate(
+        context.band,
+        context.salience_version,
+        context.term,
+        statpack,
+        lookback_terms=lookback_terms,
+        risk_set=False,
+    )
+
+
 def freeze_cert_anchor(
     context: PredictionContext, statpack: StatPack, *, lookback_terms: int
 ) -> CertAnchor | None:
