@@ -129,6 +129,19 @@ directly. One reading note the report carries itself: `promote` is
 level-triggered, so its failures are unsatisfied-gate reports rather than
 incidents, and its success rate counts promotion attempts.
 
+The same job keeps the **test and staging spend** record. Every leg that
+spends tokens and commits nothing — the integration suite's engine legs (the
+promotion gate among them), the staging labeling and summary rehearsals, the
+real-engine replays and the reasoning-pilot rounds — uploads one priced
+`off-ledger-spend-*` artifact through the `off-ledger-spend` composite. A
+sweep step lists a fortnight of those artifacts, keeps only the ones uploaded
+by a run of those five workflows from this repository on `main`, `staging` or
+`promote/*`, and stores each record that names that run, workflow and branch
+(`fedcourts off-ledger-spend-ingest`) under `off-ledger-spend/` on the
+`ops-metrics` branch; `fedcourts off-ledger-spend-report` then renders it onto
+the run summary. The figure is reported apart and counted in no budget
+([budget.md](budget.md), *Test and staging spend, reported separately*).
+
 It is also the **presenter** of the published corpus-side artifacts (see *Data
 validation* in [data-pipeline.md](data-pipeline.md)): the corpus-writer path
 produces a correctness verdict and the live-frontier readiness snapshot where

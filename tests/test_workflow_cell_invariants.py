@@ -1982,6 +1982,7 @@ SOURCING_OPS_STEPS = (
     "Collect recent workflow runs",
     "Collect issues wearing a stale fan-out label",
     "Escalate a failing data-validation verdict",
+    "Sweep the off-ledger spend records",
 )
 # `(workflow, job, step name)` for the record-keeping writes that source the
 # script: each runs after its own job's checkout, in a workspace no agent has

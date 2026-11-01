@@ -427,6 +427,10 @@ jobs:
       # resolved from the corpus or passed through from the dispatch.
       court: ${{ steps.case.outputs.court }}
       docket: ${{ steps.case.outputs.docket }}
+      # What the run was dispatched to do, for the spending legs' off-ledger
+      # records: a `gate` run's legs sum to the promotion gate's cost per
+      # candidate. Resolved here so the scenario job reads no dispatch input.
+      selection: ${{ github.event_name == 'schedule' && 'canary' || inputs.scenario }}
     steps:
       - name: Compute the scenario matrix
         id: plan
@@ -2383,6 +2387,33 @@ jobs:
           echo "engine-actions-smoke: the cells' capture parsed the ${ENGINE} log (${tokens} tok, ${calls} call(s))" \
             >> "$GITHUB_STEP_SUMMARY"
 
+      # --- off-ledger spend: every spending leg leaves a priced record -------
+
+      # These legs spend real tokens and commit nothing, so their spend is in
+      # no measured total. Each leaves one priced record as a run artifact,
+      # whatever its verdict (a failed leg spends too), which run-ops sweeps
+      # onto the ops-metrics branch and reports apart, counted in no budget.
+      # The logs are the ones the legs' own assertions read: the claude
+      # action's execution file, the CLI's transcripts for the cascade's
+      # runner-launched `claude -p`, the workspace `.codex/sessions` every
+      # codex leg's rollout is surfaced into, and the gemini telemetry log the
+      # cell settings above write. `selection` carries the dispatch, so a
+      # `gate` run's legs sum to the promotion gate's cost per candidate.
+      - name: Record the leg's model spend
+        if: ${{ always() && (matrix.scenario == 'engine-smoke' || matrix.scenario == 'engine-actions-smoke' || matrix.scenario == 'codex-application-repro') }}
+        uses: ./.github/actions/off-ledger-spend
+        with:
+          workflow: integration-test
+          lane: ${{ matrix.scenario }}
+          leg: ${{ format('{0}-{1}', matrix.scenario, matrix.engine) }}
+          selection: ${{ needs.plan.outputs.selection }}
+          conclusion: ${{ job.status }}
+          claude-execution-file: ${{ matrix.engine == 'claude-code' && steps.actions_smoke_claude.outputs.execution_file || '' }}
+          claude-transcripts-dir: ${{ matrix.engine == 'claude-code' && matrix.scenario == 'engine-smoke' && '~/.claude/projects' || '' }}
+          codex-sessions-dir: ${{ matrix.engine == 'codex' && format('{0}/.codex/sessions', github.workspace) || '' }}
+          gemini-telemetry-file: ${{ matrix.engine == 'gemini' && format('{0}/.gemini/telemetry.log', github.workspace) || '' }}
+          codex-model: ${{ matrix.scenario == 'engine-actions-smoke' && steps.cell.outputs.model || '' }}
+
       # Both sidecars' logs carry startup lines (the corpus one's
       # `health-check corpus read:` transfer evidence among them) and
       # per-request records (server noise, no secrets — GitHub masks the
@@ -3131,6 +3162,7 @@ jobs:
       # `$GITHUB_PATH` written by the agent's subprocesses prepends ahead of
       # everything for every later step.
       - name: Restore the oracle path and assert the tree is pristine
+        id: smoke_pristine
         if: ${{ !cancelled() }}
         env:
           PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
@@ -3271,6 +3303,23 @@ jobs:
           # The paid lane's window, for a file of invented questions: this leg
           # rehearses that lane's capture and inherits its retention with it.
           retention-days: 1
+
+      # The smoke spends the labeler's cents and commits nothing, so it leaves
+      # a priced off-ledger record like the scenario job's spending legs. Only
+      # once the tree is pristine: the composite and the `uv` project it runs
+      # are read from the checkout the labeler held a Write grant over, so a
+      # record leaves the runner only on a tree the assertion vouched for, as
+      # the labels do.
+      - name: Record the smoke's model spend
+        if: ${{ !cancelled() && steps.smoke_pristine.outcome == 'success' && steps.smoke_label.outputs.execution_file != '' }}
+        uses: ./.github/actions/off-ledger-spend
+        with:
+          workflow: integration-test
+          lane: qp-labeler-smoke
+          leg: qp-labeler-smoke
+          selection: ${{ github.event_name == 'schedule' && 'canary' || inputs.scenario }}
+          conclusion: ${{ job.status }}
+          claude-execution-file: ${{ steps.smoke_label.outputs.execution_file }}
 
   # The run gate's verdict on the run as a whole. A refused partial re-run
   # skips every job it re-runs, which alone would leave the earlier attempt's

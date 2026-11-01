@@ -70,6 +70,7 @@ from . import (
     merits_backtest,
     merits_calibration,
     metrics_refresh,
+    off_ledger_spend,
     process_registration,
     process_version,
     promotion_record,
@@ -563,6 +564,9 @@ from .schemas import (
     MeritsBacktestDispatch,
     ModelUsage,
     Moment,
+    OffLedgerLane,
+    OffLedgerSpend,
+    OffLedgerWorkflow,
     OpsReport,
     Outcome,
     PredictableEvent,
@@ -9332,6 +9336,197 @@ def qp_topic_spend_cmd(  # noqa: PLR0912, PLR0913, PLR0915 - a CLI entrypoint; o
         f"qp-topic-spend: {frame} run {run_id} attempt {run_attempt} {outcome}, "
         f"{counts.total_tokens} tok ~${record.estimated_cost_usd:.2f} -> {destination}"
     )
+
+
+@app.command("off-ledger-spend")
+def off_ledger_spend_cmd(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
+    *,
+    workflow: Annotated[OffLedgerWorkflow, typer.Option(help="The workflow whose run spent.")],
+    lane: Annotated[OffLedgerLane, typer.Option(help="The off-ledger lane of the leg.")],
+    leg: Annotated[str, typer.Option(help="The leg's name, unique within the run attempt.")],
+    environment: Annotated[
+        str, typer.Option(help="The deployment environment whose keys paid: prod or staging.")
+    ],
+    ref: Annotated[str, typer.Option(help="The branch the run was dispatched from.")],
+    run_id: Annotated[str, typer.Option("--run-id", help="The Actions run id.")],
+    run_attempt: Annotated[int, typer.Option("--run-attempt", min=1, help="The run attempt.")],
+    conclusion: Annotated[
+        str, typer.Option(help="The leg's job status: success, failure or cancelled.")
+    ],
+    out_dir: Annotated[
+        Path, typer.Option("--out-dir", help="Write <run_id>-<attempt>-<leg>.json here.")
+    ],
+    selection: Annotated[
+        str,
+        typer.Option(help="The dispatched selection or mode (`gate` for a promotion-gate run)."),
+    ] = "",
+    claude_execution_file: Annotated[
+        Path | None, typer.Option(help="A claude-code-action execution_file.")
+    ] = None,
+    claude_transcripts_dir: Annotated[
+        Path | None,
+        typer.Option(help="The Claude CLI's session transcripts (~/.claude/projects)."),
+    ] = None,
+    codex_sessions_dir: Annotated[
+        Path | None, typer.Option(help="A Codex sessions dir; every session in it is summed.")
+    ] = None,
+    gemini_telemetry_file: Annotated[
+        Path | None, typer.Option(help="A Gemini CLI telemetry.log.")
+    ] = None,
+    cell_usage_root: Annotated[
+        Path | None,
+        typer.Option(help="A data root whose cells' usage.json records the leg wrote."),
+    ] = None,
+    case_summaries_root: Annotated[
+        Path | None,
+        typer.Option(help="A data root holding only the case summaries the leg wrote."),
+    ] = None,
+    claude_model: Annotated[str, typer.Option(help="Price the execution file at this model.")] = "",
+    codex_model: Annotated[str, typer.Option(help="Price the Codex sessions at this model.")] = "",
+    gemini_model: Annotated[
+        str, typer.Option(help="Price the Gemini telemetry at this model.")
+    ] = "",
+    recorded_at: Annotated[
+        str, typer.Option("--recorded-at", help="ISO timestamp; defaults to now (UTC).")
+    ] = "",
+) -> None:
+    """Record one off-ledger leg's model spend (``OffLedgerSpend``), reported apart.
+
+    For a run that commits nothing to ``data/`` — an integration smoke, a
+    promotion-gate leg, a staging rehearsal, a replay or pilot round — so its
+    spend is in no measured total. Reads each source given (an engine's log,
+    the ``usage.json`` records a round's cells wrote, or the summaries a
+    rehearsal wrote) by the parsers the cells' ``record-usage`` uses, prices it
+    at the one rate table, and writes one record for the leg. A model with no
+    rate is priced at the entry that prices its tokens dearest, named in
+    ``priced_as``. The workflow uploads the record as an ``off-ledger-spend-*``
+    artifact, and ``run-ops`` sweeps it onto the ``ops-metrics`` branch. It is
+    never counted toward the spend backstop or the auto-release budget.
+
+    Exits 3 without writing when no source holds any usage, so a leg that
+    spent nothing records nothing; exits 2 on an invalid field.
+    """
+    try:
+        when = datetime.fromisoformat(recorded_at) if recorded_at else datetime.now(UTC)
+    except ValueError as exc:
+        typer.echo(f"off-ledger-spend: --recorded-at is not an ISO timestamp: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=UTC)
+    try:
+        lines = off_ledger_spend.spend_lines(
+            claude_execution_file=claude_execution_file,
+            claude_transcripts_dir=claude_transcripts_dir,
+            codex_sessions_dir=codex_sessions_dir,
+            gemini_telemetry_file=gemini_telemetry_file,
+            cell_usage_root=cell_usage_root,
+            case_summaries_root=case_summaries_root,
+            claude_model=claude_model or None,
+            codex_model=codex_model or None,
+            gemini_model=gemini_model or None,
+        )
+    except (OSError, ValueError) as exc:
+        typer.echo(f"off-ledger-spend: a source would not read: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    if not lines:
+        typer.echo("off-ledger-spend: no model usage in any source; nothing recorded", err=True)
+        raise typer.Exit(code=3)
+    for line in lines:
+        if line.priced_as is not None:
+            typer.echo(
+                f"off-ledger-spend: no rate for model '{line.model}'; priced at the dearest "
+                f"entry, '{line.priced_as}'",
+                err=True,
+            )
+    try:
+        record = OffLedgerSpend.model_validate(
+            {
+                "workflow": workflow,
+                "lane": lane,
+                "leg": leg,
+                "selection": selection or None,
+                "environment": environment,
+                "ref": ref,
+                "run_id": run_id,
+                "run_attempt": run_attempt,
+                "conclusion": conclusion,
+                "recorded_at": when,
+                "lines": lines,
+                "estimated_cost_usd": sum(line.estimated_cost_usd for line in lines),
+            }
+        )
+    except ValueError as exc:
+        typer.echo(f"off-ledger-spend: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    destination = out_dir / off_ledger_spend.record_filename(run_id, run_attempt, leg)
+    write_json(destination, record)
+    typer.echo(
+        f"off-ledger-spend: {workflow} {leg} ({environment}) run {run_id} attempt "
+        f"{run_attempt} ~${record.estimated_cost_usd:.2f} -> {destination}"
+    )
+
+
+@app.command("off-ledger-spend-ingest")
+def off_ledger_spend_ingest_cmd(
+    *,
+    source: Annotated[
+        Path, typer.Option("--from", help="One downloaded off-ledger-spend-* artifact.")
+    ],
+    run_id: Annotated[
+        str, typer.Option("--run-id", help="The run the artifact listing says produced it.")
+    ],
+    workflow: Annotated[
+        str, typer.Option(help="The producing run's workflow file stem, per the Actions API.")
+    ],
+    ref: Annotated[str, typer.Option(help="The producing run's head branch, per the Actions API.")],
+    store: Annotated[Path, typer.Option(help="The record store to keep validated records in.")],
+) -> None:
+    """Keep an artifact's off-ledger spend records that validate and name their run.
+
+    The ``run-ops`` sweep's per-artifact step. A record naming a run, workflow
+    or branch other than the producing run's, one that does not validate, or
+    one that differs from the copy already kept is refused with a warning and
+    never written; one already kept unchanged is skipped. Always exits 0, so
+    one bad artifact cannot stop the sweep or the ops snapshot behind it.
+    """
+    result = off_ledger_spend.ingest(source, run_id=run_id, workflow=workflow, ref=ref, store=store)
+    for name, reason in result.refused:
+        typer.echo(f"::warning::off-ledger spend record {name} refused: {reason}")
+    typer.echo(
+        f"off-ledger-spend-ingest: run {run_id}: {len(result.stored)} kept, "
+        f"{len(result.unchanged)} already held, {len(result.refused)} refused"
+    )
+
+
+@app.command("off-ledger-spend-report")
+def off_ledger_spend_report_cmd(
+    *,
+    store: Annotated[Path, typer.Option(help="The record store the run-ops sweep keeps.")],
+    as_of: Annotated[
+        str, typer.Option("--as-of", help="ISO timestamp the windows end at; defaults to now.")
+    ] = "",
+    json_out: Annotated[
+        Path | None, typer.Option("--json", help="Also write the figures as JSON here.")
+    ] = None,
+) -> None:
+    """Report test and staging model spend, by week and month, with the gate's cost.
+
+    Reads the off-ledger spend records (``OffLedgerSpend``) the ``run-ops``
+    sweep keeps on the ``ops-metrics`` branch and prints Markdown: the trailing
+    7 and 30 days split by environment and by lane, the six newest months with
+    spend, and each promotion-gate run's cost (every recorded leg of every
+    attempt, so a lower bound where a leg's record was lost).
+    The figure is reported separately; nothing that gates spend reads it.
+    """
+    try:
+        when = datetime.fromisoformat(as_of) if as_of else datetime.now(UTC)
+    except ValueError as exc:
+        typer.echo(f"off-ledger-spend-report: --as-of is not an ISO timestamp: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    summary = off_ledger_spend.summarize(off_ledger_spend.read_store(store), as_of=when)
+    if json_out is not None:
+        write_text(json_out, off_ledger_spend.summary_json(summary))
+    typer.echo(off_ledger_spend.render_report(summary))
 
 
 def _read_replicate_record(
