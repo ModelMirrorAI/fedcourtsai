@@ -3670,8 +3670,13 @@ to it.
   each review row's `controversy_id` shows the grouping.
 - **A policy area is a hand label, and a per-area cell is small.**
   `policy_cells` count the in-scope applications per administration, filer
-  and policy area under `policy-area-v1` (`pipeline.policy_area`), at the
-  application level. The labels are a committed reference, not a rule: two
+  and policy area under the version `policy_rule_version` names, at the
+  application level. Under `policy-area-v2`, read once the application
+  labeler's policy areas have passed their measurement against these hand
+  labels (`docs/qp-topic.md`, *Policy areas*), a hand-labeled row keeps its
+  hand label and every other row carries the labeler's area, which is
+  agreement with this reference rather than accuracy. Under `policy-area-v1`
+  (`pipeline.policy_area`) every label is the hand set's. The labels are a committed reference, not a rule: two
   agent raters, each blind to the other but not to the outcome (the docket
   entries carry the orders), labeled every in-scope and unknown-scope
   application from its caption, court below and docket entries and from

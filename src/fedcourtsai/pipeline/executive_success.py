@@ -55,8 +55,10 @@ the in-scope applications are grouped into controversies under
 filer, so applications the record links weigh once. A
 controversy's result is its last decided application's; one with none decided
 is indeterminate and sits beside the rate. The same applications are counted
-once more per policy area (:mod:`.policy_area`), from a hand-labeled
-reference; an application it does not label is counted beside those cells.
+once more per policy area (:mod:`.policy_area`), under ``policy-area-v2`` once
+its measurement has passed and the hand-labeled ``policy-area-v1`` reference
+until then; an application the source does not label is counted beside those
+cells.
 
 **One docket, one row; the date convention, moment and bound are the
 caller's**, exactly as on the party rates cut: rows de-duplicate by docket
@@ -109,7 +111,7 @@ from .ingest import first_proceeding_date, interim_reading
 from .interim_signals import ApplicationKind, InterimReading
 from .party import ADMINISTRATIONS, PARTY_AS_OF_FIELDS, administration_for, docket_stratum
 from .party_rates import docket_key
-from .policy_area import POLICY_AREA_RULE_VERSION, POLICY_AREAS, policy_label
+from .policy_area import POLICY_AREAS, PolicySource, hand_source
 from .prefetch import prefetch_by_case
 
 Filer = Literal["government", "challenger", "all"]
@@ -248,8 +250,13 @@ def executive_success(
     corpus_sha256: str = "",
     scope_rule_version: str = DEFAULT_SCOPE_RULE,
     reading: Reading = "finer",
+    policy: PolicySource | None = None,
 ) -> ExecutiveSuccess:
     """The executive success cut over the live slice (module docstring for every rule).
+
+    ``policy`` is where the policy cells read their areas
+    (:func:`~fedcourtsai.pipeline.policy_area.policy_source`); the hand set when
+    omitted.
 
     Deterministic and read-only. Raises :class:`KeyError` for an unregistered
     scope rule and :class:`ValueError` for an unknown date convention or
@@ -273,6 +280,7 @@ def executive_success(
         reading=reading,
         latest_pull=corpus.latest_pull_date(conn),
         latest_snapshot=corpus.latest_snapshot_date(conn),
+        policy=policy,
     )
 
 
@@ -416,6 +424,7 @@ def _success(  # noqa: PLR0913 - one keyword per stamp the cut carries
     reading: Reading,
     latest_pull: date | None,
     latest_snapshot: date | None,
+    policy: PolicySource | None = None,
 ) -> ExecutiveSuccess:
     """Fold the rows into the cut — the pure half of :func:`executive_success`.
 
@@ -462,14 +471,15 @@ def _success(  # noqa: PLR0913 - one keyword per stamp the cut carries
     fold = _Fold(through=through, rereading=fetch is not None and reading == "finer")
     for item in placed:
         fold.add(item, payloads.get(item.row.case_id))
+    policies = policy if policy is not None else hand_source()
     groups = _controversies(placed, payloads, fold.results)
     for review_row in fold.review:
         review_row.controversy_id = groups.ids.get(review_row.docket_number)
-        label = policy_label(review_row.docket_number)
+        label = policies.label(review_row.docket_number)
         if label is not None:
             review_row.policy_area = label.area
             review_row.policy_uncertain = label.uncertain
-    policy_cells, unlabeled = _policy_cells(placed, fold.results)
+    policy_cells, unlabeled = _policy_cells(placed, fold.results, policies)
     order: dict[str, int] = {reason: index for index, reason in enumerate(SCOPE_REASONS)}
     return ExecutiveSuccess(
         scope_rule_version=scope_rule_version,
@@ -500,7 +510,7 @@ def _success(  # noqa: PLR0913 - one keyword per stamp the cut carries
         controversy_rule_version=CONTROVERSY_RULE_VERSION,
         controversy_cells=groups.cells,
         controversy_unlinked=groups.unlinked,
-        policy_rule_version=POLICY_AREA_RULE_VERSION,
+        policy_rule_version=policies.rule_version,
         policy_cells=policy_cells,
         policy_unlabeled=unlabeled,
         review_rows=sorted(fold.review, key=lambda r: r.docket_number),
@@ -549,7 +559,7 @@ def _may_reach(row: corpus.CorpusRow, since: date | None) -> bool:
 
 
 def _policy_cells(
-    placed: Sequence[_Placed], results: Mapping[str, bool | None]
+    placed: Sequence[_Placed], results: Mapping[str, bool | None], source: PolicySource
 ) -> tuple[list[ExecutivePolicyCell], int]:
     """Count the in-scope population per administration, filer and policy area."""
     tallies: dict[tuple[str | None, Filer, str], Counter[str]] = {}
@@ -558,7 +568,7 @@ def _policy_cells(
         docket = item.row.docket_number
         if item.annotation.in_scope is not True or docket not in results:
             continue
-        label = policy_label(docket)
+        label = source.label(docket)
         if label is None:
             unlabeled += 1
             continue

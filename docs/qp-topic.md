@@ -491,6 +491,53 @@ still owed before an application agreement figure is quoted; the docket
 pack's application cut prints the figure marked as not yet quotable for that
 reason. The petition frame's gates are unchanged.
 
+### Policy areas (`policy-area-v2`)
+
+The executive success cut groups the federal executive's emergency
+applications by the policy each one challenges or defends
+(`pipeline.policy_area`). `policy-area-v1` is a committed hand-labeled
+reference. `policy-area-v2` keeps the same vocabulary and has the application
+labeler give the area as a second field, so a new application is labeled as
+soon as the lane labels it (`pipeline.application_policy`).
+
+- **Which rows.** The extract marks a row `policy_row` when the
+  `exec-action-v1` caption and counsel reading names a federal party on either
+  side, or the hand set labels it. That is the population the hand set was
+  drawn from. The labeler gives `policy_area` on those rows and on no other. An
+  area on any other row is dropped and counted (`off_frame`).
+- **Which rows a batch carries for it.** Each new application in the topic
+  batch that is a policy row is asked for its area. A batch also owes an area
+  on every published policy row that has none. Those rows enter marked
+  `policy_only`, and their topic line is neither measured nor published, so the
+  topic accrual is unchanged. A batch that owes any area also carries every
+  hand-labeled row in the frame for the measurement, as a topic batch carries
+  the whole reference block. A batch that owes none carries no policy rows, and
+  a converged topic frame still cuts a batch while areas are owed. A replicate
+  asks for no area.
+- **The measurement.** The labeler's areas on the hand-labeled rows are
+  compared with the hand labels, overall and per area, beside the share a
+  constant labeler would score. The gate is the topic gate: agreement of at
+  least 80% with at least 90% of the hand set compared. The hand raters were
+  not blind to the outcome and read their own knowledge of a public case. The
+  labeler reads the row alone, under the same rule that a recognized caption is
+  not evidence. So the rate is agreement with that reference, not accuracy, and
+  a docket that names no policy is `other` for the labeler where a hand rater
+  may have named the case's policy.
+- **What publishes.** A batch whose policy measurement passed publishes areas
+  onto the application labels artifact. Each row records `policy_area`,
+  `policy_source` (`reference` for a hand-labeled row, which publishes its hand
+  label, otherwise `labeler`) and `policy_batch`. An area is set once, and a
+  topic label is never touched. A refused policy measurement publishes nothing.
+  It is recorded on its batch's ledger row (`policy_agree`, `policy_n`,
+  `policy_published`) and leaves the artifact's `policy_agreement`, the most
+  recent passing measurement, as it stands. The batch's topic labels still
+  publish under their own gate.
+- **What the cut reads.** The executive success cut reads `policy-area-v2` once
+  the artifact records a passing policy measurement, and the hand set before
+  that, so one cut never mixes the two. It stamps `policy_rule_version`
+  either way. Under `policy-area-v2`, a policy row with no area yet is counted
+  as `policy_unlabeled` beside the cells.
+
 ## The reference set
 
 `data/qp-topics/qp-topic-reference.json` — labels for 353 cases, assigned by

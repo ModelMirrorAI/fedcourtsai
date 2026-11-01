@@ -69,10 +69,12 @@ from typing import Any, Final, Literal
 
 from .. import corpus
 from .documents import KIND_APPLICATION
+from .exec_action import exec_action_annotations
 from .ingest import _date, _live_entries
 from .interim_signals import ApplicationKind, match_interim_disposition
 from .party import docket_stratum
 from .party_rates import docket_key
+from .policy_area import policy_label
 from .prefetch import prefetch_by_case
 
 #: This extract rule's version.
@@ -128,6 +130,12 @@ class ApplicationExtractRow:
     lower_court: str | None
     text: str
     entries: tuple[ApplicationEntry, ...]
+    #: Whether the labeler also gives this row an executive policy area: the
+    #: federal government is a party (:func:`is_policy_row`).
+    policy_row: bool = False
+    #: Whether the row is in the batch for its policy area alone: its topic is
+    #: already published, so its topic line is neither measured nor published.
+    policy_only: bool = False
 
     def as_json(self) -> dict[str, Any]:
         """The extract file's row shape."""
@@ -139,6 +147,8 @@ class ApplicationExtractRow:
             "lower_court": self.lower_court,
             "text": self.text,
             "entries": [{"date": entry.date, "text": entry.text} for entry in self.entries],
+            "policy_row": self.policy_row,
+            "policy_only": self.policy_only,
         }
 
 
@@ -235,6 +245,7 @@ def application_row(
         break
     lower_court = str(payload.get("LowerCourt") or "").strip() if payload is not None else ""
     return ApplicationExtractRow(
+        policy_row=is_policy_row(row),
         case_id=row.case_id,
         docket_number=row.docket_number.strip(),
         input_kind="application-text" if text else "docket-only",
@@ -243,6 +254,21 @@ def application_row(
         text=text,
         entries=entries,
     )
+
+
+def is_policy_row(row: corpus.CorpusRow) -> bool:
+    """Whether an application gets an executive policy area: a federal party on either side.
+
+    The ``exec-action-v1`` caption and counsel reading names a government side
+    (:func:`~fedcourtsai.pipeline.exec_action.exec_action_annotations`), which
+    is the population the ``policy-area-v1`` hand labels were drawn from: every
+    in-scope and unknown-scope application of that cut, and the federal-party
+    rows it reads out of scope. A hand-labeled docket is a policy row whatever
+    this reading says, so the measurement set never leaves the frame it grades.
+    """
+    if policy_label(row.docket_number) is not None:
+        return True
+    return exec_action_annotations(row, None).government_side is not None
 
 
 def _ask(kind: str | None) -> AskKind:

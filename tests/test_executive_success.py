@@ -426,6 +426,7 @@ def test_the_command_prints_the_cut_with_its_vintage(
     corpus_root = tmp_path / "corpus"
     _success_corpus(corpus.corpus_db_path(corpus_root))
     monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(corpus_root))
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(tmp_path / "data"))
     result = runner.invoke(
         app, ["executive-success", "--as-of", "filed", "--through", "2025-10-01"]
     )

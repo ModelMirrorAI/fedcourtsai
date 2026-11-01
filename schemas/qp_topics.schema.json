@@ -167,6 +167,48 @@
           "title": "N",
           "type": "integer"
         },
+        "policy_agree": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Application frame: hand-labeled rows whose policy area the labeler matched; null where the batch measured no policy area",
+          "title": "Policy Agree"
+        },
+        "policy_n": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Hand-labeled rows compared on policy area",
+          "title": "Policy N"
+        },
+        "policy_published": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Policy areas this batch published; 0 when its policy measurement was refused",
+          "title": "Policy Published"
+        },
         "published": {
           "description": "Rows this batch first published into the artifact",
           "minimum": 0,
