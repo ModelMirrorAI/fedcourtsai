@@ -305,6 +305,24 @@ before the call, or undated, also names. It is the relist-count input of
 Cert branch only, fill-in latched, withheld from the `query` rows, and null where
 the docket shows no dated call or on a row polled before the column existed.
 
+Two more readings serve the published schedule (`data/schedule/schedule.json`)
+and nothing else (`pipeline/schedule_signals.py`). `argument_set_for` is the
+day the newest "SET FOR ARGUMENT on …" entry names, so a rescheduled argument
+reads its new day; cert branch only, fill-in latched. `response_due` is the
+newest response deadline the proceedings state — the docketing entry's
+"(Response due …)", a call for response's "(Due …)", a granted extension's
+"extended to and including …", a Justice's request for a response to an
+application — and `response_due_state` says whether it is still owed: the
+entries are walked in docket order, a stated deadline makes it `due`, a
+respondent's response or brief in opposition makes it `filed`, and a waiver of
+the right to respond makes it `waived`, until a later entry states a new
+deadline. `response_due` is read on both the cert and application forms and
+latched as a pair keyed on `response_due_state`. All three are
+withheld from the `query` rows and are never a cell input, and a row polled
+before the columns existed carries none until its next poll. A removal from the
+argument calendar is not read: the setting stands until it passes, when the
+schedule marks it `passed`.
+
 On a granted docket the same parse also lands the **merits decision record**
 (`pipeline/decision_record.py`), over every grant — the GVR and the summary
 reversal included, where the merits pair (`merits_judgment` / `merits_decided`)
@@ -749,13 +767,12 @@ rotations just polled, and the undecided predict-relevant cases they did not:
   keeps a document only where that date falls strictly before the cell's cutoff
   (`provision.documents_before`), in either mode — so a filing stored weeks
   after it was docketed reaches exactly the cells placed after its docketing,
-  forward or replay. Two residuals are stated where the cut is made, and
-  freshness makes both more reachable. **Combination**: the opposition row is
-  dated by its earliest brief (the supplemental-brief and party-letter rows by
-  their latest, which closes this residual for them), so it admits a later respondent's brief to a
-  cell cut between the two; the moment a cut can fall between two oppositions
-  on is the CVSG moment, where a respondent filing after the invitation is
-  rare, and the arrival moment's cut falls before any opposition.
+  forward or replay. The opposition row, which combines every respondent's
+  brief, is cut brief by brief, each placed by its own docket date, so a cell
+  placed between two respondents' briefs reads only the earlier one; the
+  supplemental-brief and party-letter rows are dated by their latest
+  constituent and placed whole. One residual is stated where the cut is made,
+  and freshness makes it more reachable.
   **Supersession**: a kind is one row, so a filing re-posted at a new link
   replaces the stored row under its own later date, and a cell placed between
   the two loses that kind rather than reading the earlier version.

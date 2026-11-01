@@ -100,7 +100,7 @@ also on `corpus-write`, for the corpus writer jobs that bind it. Each workflow m
 | `run-analytics` (metrics-refresh job only) | dev | contents, pull-requests | open the reviewed metrics-refresh PR; the read-only analysis modes hold no write token. Minted on `main`-branch (prod-bound) runs only — a staging rehearsal fences the mint, identity and review-PR steps and publishes nothing |
 | `run-analytics` (big-cases job only) | dev | contents, pull-requests | open and, once its required checks pass, merge the **unattended** big-case-board PR — one of the two PR openers in this repo not reviewed by a human (with the public-updates row below), which is why its diff is bounded independently by the required `paths` check (`assert-board-paths`: the board's two files, written, nothing else). The job assumes no role and holds no `id-token`: it reads the committed ledger and nothing else. Minted on `main`-branch (prod-bound) runs only, on the same terms as the row above |
 | `run-analytics` (public-updates job only) | dev | contents, pull-requests | open and, once its required checks pass, merge the **unattended** update-history PR, whose diff the required `paths` check bounds independently (`assert-update-paths`: added `metrics/updates/<YYYY-Www>.md` files, nothing else). The job assumes no role, holds no `id-token` and does not bind `website`: it reads the committed ledger and nothing else. Minted on `main`-branch (prod-bound) runs only, on the same terms as the rows above |
-| `run-analytics` (qp-topic-publish job only) | dev | contents, pull-requests | open the reviewed qp-topic labels PR, or a spend-record PR, from a job that runs no agent and takes only the measured labels file, the measured block and the run's spend record from `qp-topic-label`, as a one-day artifact: the labels and the block once the gate has passed, the spend record on any outcome it was written on — a refused or incomplete run hands off the record (and a refused run its block) alone, and the job re-validates the record, holds it to this run's id and frame, and scans every handed-off file before it mints. The mint is fenced to `main`-branch (prod-bound) runs, so a rehearsal exercises the hand-off and publishes nothing. The labeling job itself holds no App token on any ref — the agent step is passed the job's own ambient token as `github_token` (the action requires one, and its OIDC fallback would mint an App installation token defaulting to contents/issues/pull-requests *write*), capped at `contents: read` by the job's permissions block |
+| `run-analytics` (qp-topic-publish job only) | dev | contents, pull-requests | open the reviewed qp-topic labels PR (on the side-coding frame, the reviewed side-codes PR on `merits-alignment/side-codes`), or a spend-record PR, from a job that runs no agent and takes only the measured labels file, the measured block and the run's spend record from `qp-topic-label`, as a one-day artifact: the labels and the block once the gate has passed, the spend record on any outcome it was written on — a refused or incomplete run hands off the record (and a refused run its block) alone, and the job re-validates the record, holds it to this run's id and frame, and scans every handed-off file before it mints. The mint is fenced to `main`-branch (prod-bound) runs, so a rehearsal exercises the hand-off and publishes nothing. The labeling job itself holds no App token on any ref — the agent step is passed the job's own ambient token as `github_token` (the action requires one, and its OIDC fallback would mint an App installation token defaulting to contents/issues/pull-requests *write*), capped at `contents: read` by the job's permissions block |
 | `summarize` (publish job only) | dev | contents, pull-requests | open or update the reviewed `summaries/refresh` PR (never auto-merged). The job runs on `main` only, binds `prod`, assumes no role and holds no model key: it mints after the generate job has jailed, validated and scanned the summaries, and re-runs all three over the whole change set before the push |
 | `promotion-prep` (`write` job only — the promotion train) | dev | contents, pull-requests | create a `promote/<date>` candidate branch at staging's tip (the one ref write; never an update, force push or deletion), open its draft PR into `main`, mark it ready, request the approvers' review, refresh the generated block of its body — and **merge it**, with a merge commit pinned to the head, using the dev App's `main: require approval` bypass. The merge runs only after the job re-reads, on the ambient token before minting, that the PR is open, ready and unchanged at the planned head, that an approver in `config/promotion-train.yaml` approved exactly that head with no change requested since, from every page of the reviews (`fedcourts promotion-train-approval`; a short or failed read is not approved), that no fan-out is in flight, and that the registry gate still passes; `main: require PR`'s required checks still bind the merge. The `plan` job before it decides and renders holding no write credential and no environment |
 | `run-pull` (chain-predict job), `run-predict` (chain job) | dispatch | actions write; pull-requests read | start an input-less `run-predict` on `main`: after a pull window commits, and after a round a cap stopped short once its collect PR merges. Both read the open PRs into `main` and their reviews first, standing down while a promotion is about to merge, and `chain` also reads its round's collect PR. The started round derives its own backlog and waits on the review hold unless its own plan auto-releases |
@@ -678,6 +678,14 @@ this policy.
   corpus-writer path (`run-pull`, `run-seed` and `run-repair`, via the `publish-corpus-verdict`
   action) publishes
   the data-validation verdict and live-frontier snapshot for `run-ops` to present.
+  `run-ops` also keeps the off-ledger spend records there, swept from
+  `off-ledger-spend-*` run artifacts. Artifacts are uploaded by any run, a fork
+  PR's included, so the sweep reads only those uploaded by a run of one of the
+  five recording workflows from this repository on `main`, `staging` or
+  `promote/*`, keeps only records that name that run, workflow and branch, and
+  parses them as data in a directory of their own. The records are reported
+  and gate nothing: no spend backstop or review-hold budget reads them, so a
+  forged one could misstate a report and nothing more.
   Every writer only ever does a normal append push (never a force-push), so the rule
   does not impede them; it guards the metrics history from accidental or malicious
   rewrite once the repo is public. No required PR (the jobs push directly) and no
@@ -1664,6 +1672,12 @@ Access mirrors each workflow's role in the pipeline:
 | `run-ops`                                 | none          | the report reads GitHub state only |
 | `ci`                                      | none          | gate stays offline/fast          |
 
+What the decision-below fill stores reaches every cert and merits predict cell
+as `record/documents/decision-below.txt` and `lower-court-docket.txt`. The
+residual: a wrong docket-number match or poisoned CourtListener text misleads a
+cert or merits forecast, read under the cells' data-not-instructions guard, and the
+cell's output rides to `collect` as an artifact like every cell's.
+
 The split is deliberate: a cell touches KBs of one case's data, so it reads the
 immutable index in place through its own sidecar and moves no full blob; the
 backlog derivations and the whole-corpus scanners (`run-analytics` and
@@ -1840,7 +1854,18 @@ in for that, because it pre-approves and refuses nothing: a tool left out of
 shell command are not permission-gated at all. It also holds no
 write-capable GitHub token while it runs: the App token is minted only after
 the agent finishes and the publication
-gate passes. The cert back-test's replay cells hold the same line at a
+gate passes. The merits side coder (`run-analytics` `alignment-side-code`)
+runs on these same jobs as the lane's third frame, under the same grant and
+denials, with two additions its input calls for: the committed record
+(`data/`, `metrics/`) is out of every labeling agent's tree while it runs,
+since a grant it codes may already carry a committed outcome (prose under
+`docs/` and the test fixtures stay, and the prompt's no-recall rule is the
+only fence there, which is why every replay code carries the
+contamination-risk flag), and the
+sidecar naming which of its cases are decided reaches the job only after the
+agent has exited, and the publish job stamps the fields that sidecar decides
+on its own runner, from the coder's lines alone, so nothing the coding
+runner computed reaches the PR but those lines and the spend record. The cert back-test's replay cells hold the same line at a
 different seam: their workflow process legitimately keeps the read-only
 credentials job-wide (`corpus-readonly` — the replay needs a full local pull,
 and under the corpus-split mode mid-replay content-store reads), so the shared
@@ -2199,19 +2224,21 @@ sections roll it up per Term, so a forged row moves a published count a cell
 may anchor on, in the diff of the metrics-refresh PR that carries it, and the
 section reader does not repeat the write-time roster check. Its other readers
 are the analytic `merits-lineups` and `authorship-tally`, and `provision-opinion --writings`,
-which uses it only to pick a pilot cell's decisions and stages kind and
+which uses it only to pick an evaluate cell's decisions and stages kind and
 author from the digest-checked text object, not from the row. The same plan carries each writing's text, which the
 writer stores in the content store under `scotus/opinions/`, each writing's
 body and footnotes up to 1,000,000 characters apiece within the plan's 64 MB
 handoff cap. The one check on it, that it recounts to the word counts, is
 no control against a forged plan, which writes those counts too, so a
 compromised parse could store arbitrary text there, kept, like the rows,
-until a replacing pass exists. A pilot round's evaluate cell is its one
-cell reader (`provision-opinion --writings`, on a pilot row alone): the
-grader there reads it under the cells' data-not-instructions guard, the step
-takes an object only where its bytes match the row's digest, and the worst a
-forged text can do is mislead a pilot grade, which is uploaded for review
-rather than committed. That residual is likewise **pending the maintainer's
+until a replacing pass exists. Every evaluate cell reads it
+(`provision-opinion --writings`): the grader reads it under the cells'
+data-not-instructions guard, the step takes an object only where its bytes
+match the row's digest, and the worst a forged text can do is mislead the
+committed grades that read it — the forecast document's
+`predicted_reasoning_quality`, which enters no score and no rank key and which
+no board reads, and the leakage and `reasoning_quality` readings of a cell
+whose grader takes the forged text as the Court's. That residual is likewise **pending the maintainer's
 acceptance**, which merging the sweep's jobs gives; the text half of it is
 added by the change that stores the text, and waits on the same acceptance. The plan is the
 Court's word only as far as the parse job can be trusted; what the split

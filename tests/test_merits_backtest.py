@@ -411,6 +411,27 @@ def test_each_moment_gets_its_own_record_cut_at_its_cutoff(tmp_path: Path) -> No
     assert not any("REVERSED" in text for text in _entries(briefed_root))
 
 
+def test_a_replay_cell_is_never_handed_the_lower_court_kinds(tmp_path: Path) -> None:
+    """The fill walks undecided cases only, so a decided case holds them by
+    timing alone; a forward merits cell may read them, a replay cell may not."""
+    work = tmp_path / "cells"
+    with _replayable(tmp_path, _DECIDED_DOCKET) as conn:
+        corpus.upsert_documents(
+            conn,  # type: ignore[arg-type]
+            [
+                _document("decision-below", "Jan 02 2024"),
+                _document("lower-court-docket", "Jan 02 2024"),
+            ],
+        )
+        case = _case(conn)
+        grant = provision_replay_cell(conn, case, case.cutoffs[0], work)
+
+    assert isinstance(grant, MeritsReplayCell)
+    assert grant.documents == ["petition"]
+    staged = moment_root(work, Moment.grant) / "cases/scotus/1/record/documents"
+    assert not list(staged.glob("decision-below*")) and not list(staged.glob("lower-court*"))
+
+
 def test_the_snapshots_outcome_fields_are_stripped(tmp_path: Path) -> None:
     payload = {**_DECIDED_DOCKET, "QPLink": "/qp/24-00100qp.pdf", "Petitioner": [{"Name": "A"}]}
     assert {"QPLink", "Petitioner"} <= set(SNAPSHOT_OUTCOME_FIELDS)

@@ -10,7 +10,7 @@ ground for it.
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -18,16 +18,21 @@ import pytest
 from pydantic import ValidationError
 
 from fedcourtsai.paths import CasePaths
+from fedcourtsai.process_version import EVALUATE_BLESSING_LABELS
 from fedcourtsai.schemas import (
     CentralClaim,
+    CorpusCheck,
     Engine,
     Evaluation,
     PredictedReasoningReview,
+    ProcessVersion,
 )
 from fedcourtsai.serialize import read_model, write_json
 from fedcourtsai.validate import (
-    CHECK_PREDICTED_REASONING_HELD,
-    check_predicted_reasoning_grade_held,
+    CHECK_PREDICTED_REASONING_REGISTERED,
+    PREDICTED_REASONING_GRADE_FROM,
+    asks_predicted_reasoning_grade,
+    check_predicted_reasoning_grade_registered,
 )
 
 _CLAIMS = [
@@ -133,24 +138,88 @@ def test_a_null_grade_may_list_the_claims_the_record_could_not_settle() -> None:
     assert evaluation.predicted_reasoning_quality is None
 
 
-def test_no_committed_evaluation_carries_the_grade_before_registration(tmp_path: Path) -> None:
-    """The pilot grades off the ledger; a committed grade is one no protocol covers yet."""
+_OLD_JUDGE = "sha256:" + "a" * 64
+_NEW_JUDGE = "sha256:" + "b" * 64
+_LABELS = {_OLD_JUDGE: ("proc-v14", "proc-v15"), _NEW_JUDGE: ("proc-v16",)}
+
+
+def _stamp(digest: str) -> ProcessVersion:
+    return ProcessVersion(
+        label="proc-v16", digest=digest, stamped_at=datetime(2026, 11, 1, tzinfo=UTC)
+    )
+
+
+def _graded(**fields: Any) -> Evaluation:
+    return _evaluation(
+        predicted_reasoning_quality=0.5,
+        predicted_reasoning_review=PredictedReasoningReview(central_claims=_CLAIMS),
+        **fields,
+    )
+
+
+def _check_one(tmp_path: Path, evaluation: Evaluation) -> CorpusCheck:
     data_root = tmp_path / "data"
-    ep = CasePaths(data_root, "scotus", 1).event("evt-petition-disposition")
-    path = ep.evaluation("e", "p", "r")
-    write_json(path, _evaluation())
-    check = check_predicted_reasoning_grade_held(data_root)
-    assert check.name == CHECK_PREDICTED_REASONING_HELD
+    path = (
+        CasePaths(data_root, "scotus", 1)
+        .event("evt-petition-disposition")
+        .evaluation("e", "p", "r")
+    )
+    write_json(path, evaluation)
+    return check_predicted_reasoning_grade_registered(data_root, blessing_labels=_LABELS)
+
+
+def test_the_registering_label_is_proc_v16() -> None:
+    assert PREDICTED_REASONING_GRADE_FROM == "proc-v16"
+
+
+def test_a_grade_under_a_digest_blessed_at_the_registering_label_passes(tmp_path: Path) -> None:
+    check = _check_one(tmp_path, _graded(process_version=_stamp(_NEW_JUDGE)))
+    assert check.name == CHECK_PREDICTED_REASONING_REGISTERED
     assert check.passed and check.checked == 1
 
-    write_json(
-        path,
-        _evaluation(
-            predicted_reasoning_quality=0.5,
-            predicted_reasoning_review=PredictedReasoningReview(central_claims=_CLAIMS),
-        ),
-    )
-    check = check_predicted_reasoning_grade_held(data_root)
+
+def test_a_grade_under_an_earlier_digest_is_refused(tmp_path: Path) -> None:
+    """A proc-v15 judge's prompt never asked for the grade, so no protocol covers it."""
+    check = _check_one(tmp_path, _graded(process_version=_stamp(_OLD_JUDGE)))
     assert not check.passed
-    assert any("no registered protocol" in p for p in check.problems)
-    assert check_predicted_reasoning_grade_held(data_root, registered=True).passed
+    assert any("not blessed at proc-v16" in p for p in check.problems)
+
+
+def test_a_grade_under_an_unregistered_digest_is_refused(tmp_path: Path) -> None:
+    check = _check_one(tmp_path, _graded(process_version=_stamp("sha256:" + "c" * 64)))
+    assert not check.passed
+
+
+def test_an_unstamped_grade_is_refused(tmp_path: Path) -> None:
+    """No stamp shows which prompt ran, so the conservative reading refuses it."""
+    check = _check_one(tmp_path, _graded())
+    assert not check.passed
+    assert any("no process stamp" in p for p in check.problems)
+
+
+def test_an_ungraded_evaluation_passes_under_any_stamp(tmp_path: Path) -> None:
+    assert _check_one(tmp_path, _evaluation(process_version=_stamp(_OLD_JUDGE))).passed
+    assert _check_one(tmp_path, _evaluation()).passed
+
+
+def test_a_later_label_asks_too_and_the_live_registry_asks_at_proc_v16() -> None:
+    assert asks_predicted_reasoning_grade(
+        _OLD_JUDGE, blessing_labels={_OLD_JUDGE: ("proc-v15", "proc-v17")}
+    )
+    assert not asks_predicted_reasoning_grade(None, blessing_labels=_LABELS)
+    live = [d for d, labels in EVALUATE_BLESSING_LABELS.items() if "proc-v16" in labels]
+    assert len(live) == 3
+    assert all(asks_predicted_reasoning_grade(d) for d in live)
+
+
+def test_the_evaluate_prompt_asks_for_the_grade_and_the_pilot_note_does_not() -> None:
+    """The rubric lives in the registered prompt once; the pilot note repeats none of it."""
+    root = Path(__file__).resolve().parent.parent / ".github" / "prompts"
+    prompt = (root / "evaluate.md").read_text()
+    assert "**Grading the forecast document — every stage" in prompt
+    for field in ("`predicted_reasoning_quality`", "`predicted_reasoning_review`"):
+        assert field in prompt
+    assert "Do not score the forecast document" not in prompt
+    note = (root / "pilot" / "predicted-reasoning-quality.md").read_text()
+    assert "| Grade | Anchor |" not in note
+    assert "central_claims" not in note

@@ -404,6 +404,9 @@ def test_the_decision_record_never_reaches_the_retrieval_surface() -> None:
         "cert_amicus_briefs",
         "opening_writ",
         "distributed_after_call",
+        "argument_set_for",
+        "response_due",
+        "response_due_state",
     }
     assert withheld == corpus.RETRIEVAL_WITHHELD_COLUMNS
     every_other = set(corpus.CorpusRow.model_fields) - withheld

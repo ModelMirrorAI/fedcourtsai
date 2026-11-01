@@ -88,10 +88,34 @@ LABEL_RATES_USD_PER_ROW: dict[str, float] = {
 }
 
 
-def label_rate_usd_per_row(model: str) -> float:
-    """The per-row rate a label round of ``model`` prices at.
+#: Per-row merits side-coder rates in USD, keyed by the coder's model — what a
+#: side-coding round (the ``alignment-sides`` frame) prices its batch at. No
+#: side-coding run has been measured, so each row is three times the topic
+#: labeler's rate for the same model: a side code reads the same
+#: questions-presented text a topic label does, and writes a scored call and a
+#: one-sentence note where a topic label writes a register, so it is priced as
+#: the dearer task until the first run's spend record re-anchors it.
+SIDE_CODE_RATES_USD_PER_ROW: dict[str, float] = {
+    "claude-opus-5-5": 0.06,
+    "claude-fable-5": 0.18,
+}
 
-    A model the table does not name prices at the table's highest rate, so a
-    new labeler model is never priced below the dearest one measured.
+#: The frame whose rounds the side-coder table prices; every other frame is a
+#: topic-label frame.
+SIDE_CODE_FRAME = "alignment-sides"
+
+
+def label_rates_for(frame: str) -> dict[str, float]:
+    """The per-row rate table a label round of ``frame`` prices at."""
+    return SIDE_CODE_RATES_USD_PER_ROW if frame == SIDE_CODE_FRAME else LABEL_RATES_USD_PER_ROW
+
+
+def label_rate_usd_per_row(model: str, *, frame: str = "petitions") -> float:
+    """The per-row rate a label round of ``model`` over ``frame`` prices at.
+
+    A model the frame's table does not name prices at that table's highest
+    rate, so a new labeler model is never priced below the dearest one the
+    table names.
     """
-    return LABEL_RATES_USD_PER_ROW.get(model, max(LABEL_RATES_USD_PER_ROW.values()))
+    rates = label_rates_for(frame)
+    return rates.get(model, max(rates.values()))

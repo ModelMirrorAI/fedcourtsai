@@ -250,7 +250,10 @@ gh workflow run run-repair.yml --ref main \
 
 `fedcourts granted-noted-check` cross-checks the stamped Terms.
 
-**Owed:** the stated naive floor for `mean_vote_accuracy`.
+**Owed:** the stated naive floor for `mean_vote_accuracy`. The candidate floors are registered in
+[merits-alignment-baseline.md](merits-alignment-baseline.md), unanimity the
+stronger on the corpus's own lineups; computing them on the scored cells under
+the leaderboard's exact-vote rule is what remains.
 
 **Terminations.** The write-up also covers the forecast merits events that
 ended without a disposition: a voluntary dismissal, dismissal as moot,

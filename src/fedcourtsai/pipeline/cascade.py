@@ -462,6 +462,9 @@ def _cell_mode(event: corpus.CorpusEvent, row: corpus.CorpusRow) -> str:
     and its documents — the conditioning ``context.json`` records — but its priors
     are unmasked, which is the local loop's known narrowing against
     :mod:`fedcourtsai.cert_backtest`, the lane that produces scored replays.
+    Nor is the lower-court filter of :mod:`fedcourtsai.merits_backtest` applied:
+    a cascade replay cell on a decided case is handed whichever decision-below
+    documents the fill happened to store before the case was decided.
     """
     decided = event.resolved or corpus.stage_shows_decided(row, event.stage)
     return "replay" if decided else "forward"

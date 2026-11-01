@@ -65,72 +65,80 @@
         "merge": "a3b2daec8ba19b6c3b3aecb9316bd62c15d568df",
         "source": "merge"
       }
+    },
+    {
+      "label": "proc-v16",
+      "since": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      }
     }
   ],
   "blessings": [
     {
-      "digest": "sha256:11ddd73ac5e4ef4d883f51997f00822dd737df2c9d52b0f8f599a27aa3dde31a",
+      "digest": "sha256:6a7047b68d17cc856aeabec7b557db010e775081f4efa58af5e9bf7d53417b94",
       "role": "predictor",
       "actor_id": "claude-baseline",
-      "label": "proc-v15",
+      "label": "proc-v16",
       "blessed": {
-        "at": "2026-10-30T16:38:43Z",
-        "merge": "a3b2daec8ba19b6c3b3aecb9316bd62c15d568df",
+        "at": null,
+        "merge": null,
         "source": "merge"
       }
     },
     {
-      "digest": "sha256:3df3d7aa2267e392cf047493c336737c9ea5a30b310919e027eeb3a850027990",
+      "digest": "sha256:bf956e358b5e31f3d72302c1b660d638ce16e4c4a0fa542887dd0c591c275e04",
       "role": "predictor",
       "actor_id": "codex-baseline",
-      "label": "proc-v15",
+      "label": "proc-v16",
       "blessed": {
-        "at": "2026-10-30T16:38:43Z",
-        "merge": "a3b2daec8ba19b6c3b3aecb9316bd62c15d568df",
+        "at": null,
+        "merge": null,
         "source": "merge"
       }
     },
     {
-      "digest": "sha256:274fea05cdeb0d3b004926de218364183603bbf331e3a2a5cdfcf7fe4909ec07",
+      "digest": "sha256:758b95e861e1913da28900f558837a2fdbc0c1f4a4341ae130be83cd7e752164",
       "role": "predictor",
       "actor_id": "gemini-baseline",
-      "label": "proc-v15",
+      "label": "proc-v16",
       "blessed": {
-        "at": "2026-10-30T16:38:43Z",
-        "merge": "a3b2daec8ba19b6c3b3aecb9316bd62c15d568df",
+        "at": null,
+        "merge": null,
         "source": "merge"
       }
     },
     {
-      "digest": "sha256:ede964258702cee0803a5255106a9ddc542164c017dd5e56ce47813c8b028388",
+      "digest": "sha256:2c24c01085a75e5634388510595476ca4887c51bb5c4ca0d0bb348bd5c572f5c",
       "role": "evaluator",
       "actor_id": "claude-judge",
-      "label": "proc-v15",
+      "label": "proc-v16",
       "blessed": {
-        "at": "2026-10-30T16:38:43Z",
-        "merge": "a3b2daec8ba19b6c3b3aecb9316bd62c15d568df",
+        "at": null,
+        "merge": null,
         "source": "merge"
       }
     },
     {
-      "digest": "sha256:fb4db8c6b28902554a44e42078039dd467afe47bd986a4aa40ba4435307f60c0",
+      "digest": "sha256:4956b4db47514393d6455c004579fb5aec3f5ab4f37ab4765fb2ad38ef080316",
       "role": "evaluator",
       "actor_id": "codex-judge",
-      "label": "proc-v15",
+      "label": "proc-v16",
       "blessed": {
-        "at": "2026-10-30T16:38:43Z",
-        "merge": "a3b2daec8ba19b6c3b3aecb9316bd62c15d568df",
+        "at": null,
+        "merge": null,
         "source": "merge"
       }
     },
     {
-      "digest": "sha256:e481306013cbb61ab29747a4eafd2d8d55c7694d196fe470ce14c78d2663310c",
+      "digest": "sha256:829805f636d9b0baefd2fb39970ce83a430f3225384b724101975a06750c1a6c",
       "role": "evaluator",
       "actor_id": "gemini-judge",
-      "label": "proc-v15",
+      "label": "proc-v16",
       "blessed": {
-        "at": "2026-10-30T16:38:43Z",
-        "merge": "a3b2daec8ba19b6c3b3aecb9316bd62c15d568df",
+        "at": null,
+        "merge": null,
         "source": "merge"
       }
     }
@@ -433,7 +441,11 @@
         "merge": "a3b2daec8ba19b6c3b3aecb9316bd62c15d568df",
         "source": "merge"
       },
-      "closes": null,
+      "closes": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      },
       "revoked_at": null
     },
     {
@@ -445,7 +457,11 @@
         "merge": "a3b2daec8ba19b6c3b3aecb9316bd62c15d568df",
         "source": "merge"
       },
-      "closes": null,
+      "closes": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      },
       "revoked_at": null
     },
     {
@@ -455,6 +471,46 @@
       "opens": {
         "at": "2026-10-30T16:38:43Z",
         "merge": "a3b2daec8ba19b6c3b3aecb9316bd62c15d568df",
+        "source": "merge"
+      },
+      "closes": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      },
+      "revoked_at": null
+    },
+    {
+      "label": "proc-v16",
+      "digest": "sha256:6a7047b68d17cc856aeabec7b557db010e775081f4efa58af5e9bf7d53417b94",
+      "predictor_id": "claude-baseline",
+      "opens": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      },
+      "closes": null,
+      "revoked_at": null
+    },
+    {
+      "label": "proc-v16",
+      "digest": "sha256:bf956e358b5e31f3d72302c1b660d638ce16e4c4a0fa542887dd0c591c275e04",
+      "predictor_id": "codex-baseline",
+      "opens": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      },
+      "closes": null,
+      "revoked_at": null
+    },
+    {
+      "label": "proc-v16",
+      "digest": "sha256:758b95e861e1913da28900f558837a2fdbc0c1f4a4341ae130be83cd7e752164",
+      "predictor_id": "gemini-baseline",
+      "opens": {
+        "at": null,
+        "merge": null,
         "source": "merge"
       },
       "closes": null,
@@ -513,6 +569,15 @@
     ],
     "sha256:e481306013cbb61ab29747a4eafd2d8d55c7694d196fe470ce14c78d2663310c": [
       "proc-v15"
+    ],
+    "sha256:2c24c01085a75e5634388510595476ca4887c51bb5c4ca0d0bb348bd5c572f5c": [
+      "proc-v16"
+    ],
+    "sha256:4956b4db47514393d6455c004579fb5aec3f5ab4f37ab4765fb2ad38ef080316": [
+      "proc-v16"
+    ],
+    "sha256:829805f636d9b0baefd2fb39970ce83a430f3225384b724101975a06750c1a6c": [
+      "proc-v16"
     ]
   },
   "harness_boundaries": [
@@ -796,6 +861,22 @@
       "predictors": null,
       "reach": "all",
       "gradual": false
+    },
+    {
+      "name": "opposition-cut-by-brief",
+      "merge": null,
+      "at": null,
+      "predictors": null,
+      "reach": "all",
+      "gradual": false
+    },
+    {
+      "name": "decision-below-documents",
+      "merge": null,
+      "at": null,
+      "predictors": null,
+      "reach": "all",
+      "gradual": true
     }
   ]
 }

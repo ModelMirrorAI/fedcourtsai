@@ -371,6 +371,35 @@ def _gemini_allowlist(name: str) -> set[str]:
     return set(allowed)
 
 
+#: The largest prompt template a gemini cell reads in one tool call. gemini-cli
+#: cuts every tool result older than the latest down to
+#: ``tools.truncateToolOutputThreshold`` characters (first fifth, last four
+#: fifths), so a threshold below the template's size drops its middle from the
+#: agent's context once the next call lands.
+GEMINI_CELL_PROMPTS = (
+    Path(".github/prompts/predict.md"),
+    Path(".github/prompts/evaluate.md"),
+)
+
+
+def test_every_gemini_settings_writer_keeps_the_whole_prompt_in_context() -> None:
+    """Each workflow that writes gemini's settings sets a tool-output threshold
+    at least twice the largest cell prompt, so a template read whole stays
+    whole in the agent's context and has room to grow."""
+    floor = 2 * max(len(path.read_text(encoding="utf-8")) for path in GEMINI_CELL_PROMPTS)
+    for name, _ in GEMINI_ALLOWLIST_WORKFLOWS:
+        text = (WORKFLOWS / name).read_text(encoding="utf-8")
+        settings = [
+            json.loads(match)
+            for match in re.findall(r"printf '%s\\n' '(\{.*?\})'", text)
+            if "environmentVariableRedaction" in match
+        ]
+        assert len(settings) == 1, f"expected exactly one gemini settings writer in {name}"
+        threshold = settings[0].get("tools", {}).get("truncateToolOutputThreshold")
+        assert isinstance(threshold, int), f"{name}: no tools.truncateToolOutputThreshold"
+        assert threshold >= floor, f"{name}: threshold {threshold} is under {floor}"
+
+
 def test_every_gemini_allowlist_covers_its_own_cell_env_contract() -> None:
     """Gemini's sanitizer strips every custom var, so the allowlist *is* the cell
     env contract for that engine — and a variable missing from it is silent.
@@ -658,20 +687,20 @@ def test_the_qp_labels_push_guard_checks_rows_not_ledger_counts() -> None:
     # leaves untracked files in place, so while main does not carry the
     # artifact a tree read would hand the guard the run's own file as the
     # prior and refuse the first batch.
-    assert 'git cat-file -e "origin/main:data/qp-topics/${LABELS_NAME}"' in guard
-    assert 'git show "origin/main:data/qp-topics/${LABELS_NAME}"' in guard
+    assert 'git cat-file -e "origin/main:${LABELS_DIR}/${LABELS_NAME}"' in guard
+    assert 'git show "origin/main:${LABELS_DIR}/${LABELS_NAME}"' in guard
     # Between the branch switch and the copy back into the tree, the only
     # mentions of the artifact path are the ref-qualified reads and the error
     # prose — never a bare tree read, under any quoting.
     switched = guard[
         guard.index('git checkout -q -f -B "$BRANCH" origin/main') : guard.index(
-            'cp "$RUNNER_TEMP/qp-topics.json" "data/qp-topics/${LABELS_NAME}"'
+            'cp "$RUNNER_TEMP/qp-topics.json" "${LABELS_DIR}/${LABELS_NAME}"'
         )
     ]
-    bare = switched.replace("origin/main:data/qp-topics/${LABELS_NAME}", "").replace(
-        "newest data/qp-topics/${LABELS_NAME}", ""
+    bare = switched.replace("origin/main:${LABELS_DIR}/${LABELS_NAME}", "").replace(
+        "newest ${LABELS_DIR}/${LABELS_NAME}", ""
     )
-    assert "data/qp-topics/${LABELS_NAME}" not in bare, (
+    assert "${LABELS_DIR}/${LABELS_NAME}" not in bare, (
         "the prior must come from origin/main, never from the checked-out tree"
     )
 
@@ -1676,12 +1705,24 @@ def test_the_qp_labeling_run_publishes_on_its_count_not_on_the_agents_verdict() 
     # The labels cross only behind the measure step's success; the run's spend
     # record crosses on any outcome it was written on, so a refused or short
     # run still lands what it cost.
+    # The side coder's stamping step stands where the measure step does on
+    # its frame, so its success carries the codes file exactly as the measure
+    # step's carries the labels.
     assert _norm(stage["if"]) == (
-        "${{ !cancelled() && (steps.measure.outcome == 'success' "
-        "|| steps.spend.outcome == 'success') }}"
+        "${{ !cancelled() && ((steps.measure.outcome == 'success' "
+        "&& needs.qp-topic-resolve.outputs.replicate != 'true') "
+        "|| steps.side_codes.outcome == 'success' || steps.spend.outcome == 'success') }}"
     )
     assert 'if [ "$MEASURED" = success ]; then' in stage["run"]
-    assert stage["env"]["MEASURED"] == "${{ steps.measure.outcome }}"
+    # A replicate's measure step succeeds without writing labels, so its
+    # success is not a published measurement.
+    published = (
+        "${{ ((steps.measure.outcome == 'success' "
+        "&& needs.qp-topic-resolve.outputs.replicate != 'true') "
+        "|| steps.side_codes.outcome == 'success') "
+        "&& 'success' || 'unpublished' }}"
+    )
+    assert _norm(stage["env"]["MEASURED"]) == published
     assert "steps.stage_publish.outcome == 'success'" in _norm(upload["if"])
     assert '[ -L "$1" ]' in stage["run"], "the source side refuses a symlinked file"
 
@@ -1845,12 +1886,21 @@ def test_the_qp_frame_count_crosses_as_a_value_and_the_sidecar_stays_behind() ->
     assert 'echo "frame-rows=$frame" >> "$GITHUB_OUTPUT"' in step["run"]
     assert 'echo "batch-rows=$rows" >> "$GITHUB_OUTPUT"' in step["run"]
 
-    # One file crosses the job boundary, and it is the extract.
+    # One file crosses the job boundary on a topic frame, and it is the extract.
+    # The side-coding frame adds its modes sidecar alone, as its own artifact,
+    # which the labeling job downloads only after its agent step (below).
     uploads = [s for s in extract["steps"] if "upload-artifact" in str(s.get("uses") or "")]
-    assert [u["with"]["path"] for u in uploads] == ["${{ runner.temp }}/qp-texts.json"], (
-        "only the extract may leave the extract job: a second upload is how the batch "
-        "sidecar reaches the labeler"
+    assert [u["with"]["path"] for u in uploads] == [
+        "${{ runner.temp }}/qp-texts.json",
+        "${{ runner.temp }}/alignment-modes.json",
+    ], (
+        "only the extract (and the side coder's modes sidecar) may leave the extract job: "
+        "another upload is how the batch sidecar reaches the labeler"
     )
+    assert _norm(uploads[1]["if"]) == (
+        "${{ steps.extract.outputs.owed == 'true' && env.QP_FRAME == 'alignment-sides' }}"
+    )
+    assert [u["with"]["name"] for u in uploads] == ["qp-texts", "alignment-modes"]
     assert "batch.json" not in json.dumps(label), (
         "the labeling job must never name the batch sidecar: it is the draw's shape"
     )
@@ -1893,9 +1943,9 @@ def test_the_qp_measure_composite_is_shared_by_the_paid_run_and_the_scenario() -
     # body through the hand-off, which copies it from that output.
     assert production[0].get("id") == "measure"
     stage = next(s for s in label_steps if s.get("id") == "stage_publish")
-    assert stage["env"]["MEASURED_FILE"] == "${{ steps.measure.outputs.measured-file }}", (
-        "the hand-off must read the measured block from the composite's output"
-    )
+    assert _norm(stage["env"]["MEASURED_FILE"]) == (
+        "${{ steps.measure.outputs.measured-file || steps.side_codes.outputs.measured-file }}"
+    ), "the hand-off must read the measured block from the composite's output"
     assert '"$RUNNER_TEMP/qp-publish/measured.txt"' in stage["run"]
     publish_steps = _load("run-analytics.yml")["jobs"]["qp-topic-publish"]["steps"]
     pr_step = next(s for s in publish_steps if s.get("name") == "Open or update the review PR")
@@ -1961,6 +2011,7 @@ SOURCING_OPS_STEPS = (
     "Collect recent workflow runs",
     "Collect issues wearing a stale fan-out label",
     "Escalate a failing data-validation verdict",
+    "Sweep the off-ledger spend records",
 )
 # `(workflow, job, step name)` for the record-keeping writes that source the
 # script: each runs after its own job's checkout, in a workspace no agent has
@@ -3459,7 +3510,7 @@ ACTIONS_SMOKE_IF = "${{ matrix.scenario == 'engine-actions-smoke' }}"
 ACTIONS_SMOKE_ENGINES = ("claude-code", "codex", "gemini")
 
 
-_GEMINI_SETTINGS = re.compile(r"(\{\"context\":\{\"fileFiltering\".*?\}\}\})")
+_GEMINI_SETTINGS = re.compile(r"(\{\"tools\":\{[^}]*\},\"context\":\{\"fileFiltering\".*?\]\}\}\})")
 
 
 def _gemini_settings_literal(name: str) -> str:
@@ -4167,6 +4218,9 @@ def test_the_labeler_smoke_sends_the_labeling_lanes_own_invocation_block() -> No
         str(lane_with["prompt"])
         .replace("${{ needs.qp-topic-resolve.outputs.model }}", default_model)
         .replace("${{ env.QP_FRAME }}", "petitions")
+        .replace(
+            "${{ needs.qp-topic-resolve.outputs.prompt }}", ".github/prompts/qp-topic-label.md"
+        )
     )
     assert lane_with == smoke_with, "the with: mappings diverge beyond the model"
 
@@ -5064,13 +5118,13 @@ def test_the_evaluate_cell_provisions_its_snapshot_before_its_opinion() -> None:
     assert order == ["snapshot", "opinion"], order
 
 
-def test_the_evaluate_cell_stages_every_writing_on_a_pilot_row_alone() -> None:
-    """`--writings` widens a cell's information set, so only a pilot round passes it.
+def test_the_evaluate_cell_stages_every_writing_on_every_row() -> None:
+    """`--writings` is passed unconditionally, pilot row or not.
 
-    A registered evaluate cell's inputs are part of what its grades mean; the
-    concurrences and dissents reach a cell only on a row the pilot mode minted,
-    whose `pilot_section` the step reads, until the grade that reads them is
-    registered.
+    The registered forecast-document grade checks a forecast of who writes
+    separately against the concurrences and dissents, so every evaluate cell
+    stages them; a row-keyed condition would let a registered cell grade
+    without the writings its prompt names.
     """
     [step] = [
         step
@@ -5078,10 +5132,11 @@ def test_the_evaluate_cell_stages_every_writing_on_a_pilot_row_alone() -> None:
         for step in job.get("steps", []) or []
         if "provision-opinion" in (step.get("run") or "")
     ]
-    assert step["env"]["PILOT_SECTION"] == "${{ matrix.pilot_section }}"
+    assert "PILOT_SECTION" not in (step.get("env") or {})
     run = step["run"]
-    assert 'if [ -n "$PILOT_SECTION" ]; then writings=(--writings); fi' in run
-    assert run.count("--writings") == 1
+    assert run.strip() == (
+        'uv run fedcourts provision-opinion --court "$COURT_ID" --docket "$DOCKET_ID" --writings'
+    )
 
 
 def test_the_settled_case_cascades_keep_both_of_their_refusals() -> None:
@@ -5244,6 +5299,58 @@ def test_the_application_labeling_mode_reads_its_frame_off_the_mode_alone() -> N
     assert "needs.qp-topic-resolve.outputs.frame == 'applications'" in branch
 
 
+def test_a_replicate_mode_labels_the_reference_alone_and_publishes_no_labels() -> None:
+    """The two replicate modes reuse the labeling lane with one switch, `replicate`.
+
+    The resolve job maps each to its frame with ``replicate=true``; the extract
+    then cuts the reference rows alone, the measure step records the run instead
+    of writing a labels file, and neither the spend record nor the hand-off
+    counts the replicate's successful measurement as a published one — so the
+    publish job lands the spend record alone.
+    """
+    wf = _load("run-analytics.yml")
+    triggers = wf.get("on") or wf.get(True) or {}
+    modes = triggers["workflow_dispatch"]["inputs"]["mode"]["options"]
+    assert {"qp-topic-replicate", "qp-topic-replicate-applications"} <= set(modes)
+    resolve = wf["jobs"]["qp-topic-resolve"]
+    assert (
+        "inputs.mode == 'qp-topic-replicate' || inputs.mode == 'qp-topic-replicate-applications'"
+        in _norm(resolve["if"])
+    )
+    run = next(s for s in resolve["steps"] if s.get("id") == "resolve")["run"]
+    assert "qp-topic-replicate) frame=petitions; labels=qp-topics.json; replicate=true ;;" in run
+    assert (
+        "qp-topic-replicate-applications) frame=applications; "
+        "labels=qp-topics-applications.json; replicate=true ;;" in run
+    )
+    # No cron resolves to a replicate.
+    assert "replicate=false" in run
+    assert resolve["outputs"]["replicate"] == "${{ steps.resolve.outputs.replicate }}"
+    extract = next(s for s in wf["jobs"]["qp-topic-extract"]["steps"] if s.get("id") == "extract")
+    assert extract["env"]["REPLICATE"] == "${{ needs.qp-topic-resolve.outputs.replicate }}"
+    assert 'if [ "$REPLICATE" = true ]; then' in extract["run"]
+    assert "cut_args+=(--reference-only)" in extract["run"]
+    label_steps = wf["jobs"]["qp-topic-label"]["steps"]
+    measure = next(s for s in label_steps if s.get("id") == "measure")
+    assert "outputs.replicate == 'true'" in _norm(measure["with"]["replicate-out"])
+    for step_id in ("spend", "stage_publish"):
+        step = next(s for s in label_steps if s.get("id") == step_id)
+        assert "needs.qp-topic-resolve.outputs.replicate != 'true'" in _norm(
+            step["env"]["MEASURED"]
+        ), step_id
+    spend = next(s for s in label_steps if s.get("id") == "spend")
+    assert '--replicate-file "$RUNNER_TEMP/qp-replicate.json"' in spend["run"]
+    assert measure["with"]["prompt-file"] == "${{ needs.qp-topic-resolve.outputs.prompt }}"
+    # The publish runner, which no agent held, refuses labels in a replicate's hand-off.
+    revalidate = next(
+        s for s in wf["jobs"]["qp-topic-publish"]["steps"] if s.get("id") == "revalidate"
+    )
+    assert revalidate["env"]["REPLICATE"] == "${{ needs.qp-topic-resolve.outputs.replicate }}"
+    assert "a replicate's hand-off carries a labels file" in revalidate["run"]
+    action = (REPO_ROOT / ".github" / "actions" / "qp-topic-measure" / "action.yml").read_text()
+    assert '--replicate-out "$REPLICATE_OUT" --prompt-file "$PROMPT_FILE"' in action
+
+
 def test_a_scheduled_label_run_takes_the_dispatch_default_model() -> None:
     """A schedule carries no inputs, so the resolve job supplies the model.
 
@@ -5267,7 +5374,7 @@ def test_a_scheduled_label_run_stands_down_on_a_converged_frame() -> None:
     extract = wf["jobs"]["qp-topic-extract"]
     step = next(s for s in extract["steps"] if s.get("id") == "extract")
     assert step["env"]["SCHEDULED"] == "${{ needs.qp-topic-resolve.outputs.scheduled }}"
-    assert 'if [ "$SCHEDULED" = true ]; then\n  standdown=(--converged-ok)' in step["run"]
+    assert 'if [ "$SCHEDULED" = true ]; then\n  cut_args=(--converged-ok)' in step["run"]
     assert 'echo "owed=false" >> "$GITHUB_OUTPUT"' in step["run"]
     assert extract["outputs"]["owed"] == "${{ steps.extract.outputs.owed }}"
     assert _norm(wf["jobs"]["qp-topic-approval"]["if"]).startswith(
@@ -5289,3 +5396,117 @@ def test_the_documents_writer_rereads_the_tip_around_its_dedupe() -> None:
     # Without `--no-renames` a moved directory reads as renamed, not deleted.
     assert "--no-renames --name-only --diff-filter=D HEAD -- data/cases" in commit
     assert commit.index("merged away since it ran") < commit.index("git commit -m")
+
+
+def test_the_side_coding_mode_rides_the_labeling_lane_on_its_own_frame() -> None:
+    """The merits side coder is the labeling lane's third frame.
+
+    It reads its frame, artifact directory and prompt off the resolve job like
+    the topic frames, keeps its modes sidecar away from the agent (uploaded as
+    its own artifact, downloaded only after the agent step and outside the one
+    granted directory), stamps its codes on the same gate the measure step
+    runs on, and lands on its own fixed branch, which `main-base` admits.
+    """
+    wf = _load("run-analytics.yml")
+    triggers = wf.get("on") or wf.get(True) or {}
+    assert "alignment-side-code" in triggers["workflow_dispatch"]["inputs"]["mode"]["options"]
+    assert {"cron": "14 9 * * 4"} in triggers["schedule"]
+    resolve = wf["jobs"]["qp-topic-resolve"]
+    assert "startsWith(github.event.schedule, '14 ')" in _norm(resolve["if"])
+    assert "inputs.mode == 'alignment-side-code'" in _norm(resolve["if"])
+    run = next(s for s in resolve["steps"] if s.get("id") == "resolve")["run"]
+    assert '"schedule:14 9 * * 4") mode=alignment-side-code; scheduled=true ;;' in run
+    assert "alignment-side-code) frame=alignment-sides; labels=alignment-side-codes.json ;;" in run
+    assert (
+        "alignment-sides) dir=data/merits-alignment; "
+        "prompt=.github/prompts/alignment-side-code.md ;;"
+    ) in run
+    assert "*) dir=data/qp-topics; prompt=.github/prompts/qp-topic-label.md ;;" in run
+
+    extract = next(s for s in wf["jobs"]["qp-topic-extract"]["steps"] if s.get("id") == "extract")
+    assert '--modes-out "$RUNNER_TEMP/alignment-modes.json"' in extract["run"]
+
+    steps = wf["jobs"]["qp-topic-label"]["steps"]
+    index = {s.get("id") or s.get("name"): i for i, s in enumerate(steps)}
+    download = steps[index["modes"]]
+    assert download["with"] == {
+        "name": "alignment-modes",
+        "path": "${{ runner.temp }}/alignment-modes",
+    }, "the modes sidecar lands outside the qp-io grant"
+    assert index["label"] < index["pristine"] < index["modes"] < index["side_codes"]
+    side = steps[index["side_codes"]]
+    gate = _norm(side["if"])
+    for clause in (
+        "env.QP_FRAME == 'alignment-sides'",
+        "steps.pristine.outcome == 'success'",
+        "steps.modes.outcome == 'success'",
+        "steps.label_lines.outputs.lines == needs.qp-topic-extract.outputs.batch-rows",
+    ):
+        assert clause in gate, clause
+    assert "steps.label.outcome" not in gate
+    assert "uv run fedcourts alignment-side-codes" in side["run"]
+    # The extract sits in the agent's writable directory and the stamp reads
+    # grant dates from it, so its digest is fixed at the extract job and checked.
+    assert extract_job_outputs_digest(wf)
+    assert side["env"]["EXTRACT_SHA256"] == "${{ needs.qp-topic-extract.outputs.extract-sha256 }}"
+    assert "/usr/bin/sha256sum --check --status" in side["run"]
+    assert side["run"].index("sha256sum") < side["run"].index("alignment-side-codes")
+    assert '--modes "$RUNNER_TEMP/alignment-modes/alignment-modes.json"' in side["run"]
+    measure = steps[index["measure"]]
+    assert "env.QP_FRAME != 'alignment-sides'" in _norm(measure["if"])
+
+    # The committed record leaves the agent's tree on every frame, and the
+    # pristine assertion restores it from the commit before anything reads it.
+    aside = steps[index["Move the committed record out of the labeler's tree"]]
+    assert "if" not in aside, "the record fence must not carry an `if:`"
+    assert index["Move the committed record out of the labeler's tree"] < index["label"]
+    assert 'mv data "$RUNNER_TEMP/record-aside/data"' in aside["run"]
+    assert 'mv metrics "$RUNNER_TEMP/record-aside/metrics"' in aside["run"]
+    restore = steps[index["pristine"]]["run"]
+    assert restore.index("rm -rf data metrics") < restore.index("git checkout -- data metrics")
+    assert "git status --porcelain -- data metrics" in restore
+
+    for job in ("qp-topic-extract", "qp-topic-publish"):
+        branch = next(s for s in wf["jobs"][job]["steps"] if "BRANCH" in (s.get("env") or {}))[
+            "env"
+        ]["BRANCH"]
+        assert "needs.qp-topic-resolve.outputs.frame == 'alignment-sides'" in branch
+        assert "'merits-alignment/side-codes'" in branch
+    ci = _norm(_load("ci.yml")["jobs"]["main-base"]["if"])
+    assert "github.head_ref == 'merits-alignment/side-codes'" in ci
+
+
+def extract_job_outputs_digest(wf: dict[str, Any]) -> bool:
+    """Whether the labeling extract job publishes the extract's digest as an output."""
+    job = wf["jobs"]["qp-topic-extract"]
+    step = next(s for s in job["steps"] if s.get("id") == "extract")
+    return (
+        job["outputs"].get("extract-sha256") == "${{ steps.extract.outputs.extract-sha256 }}"
+        and 'sha256sum "$RUNNER_TEMP/qp-texts.json"' in step["run"]
+    )
+
+
+def test_the_side_codes_are_restamped_where_no_agent_ran() -> None:
+    """The harness fields are stamped again on the publish runner.
+
+    The labeling job's stamp ran beside its agent, so the publish job
+    re-stamps from the coder's lines, the digest-checked extract and the
+    modes sidecar, ahead of the re-validation, and publishes that file.
+    """
+    wf = _load("run-analytics.yml")
+    publish = wf["jobs"]["qp-topic-publish"]["steps"]
+    names = [s.get("id") or s.get("name") for s in publish]
+    restamp = publish[names.index("restamp")]
+    assert names.index("Download the measured artifact") < names.index("restamp")
+    assert names.index("restamp") < names.index("revalidate")
+    assert "sha256sum --check --status" in restamp["run"]
+    assert restamp["env"]["EXTRACT_SHA256"] == (
+        "${{ needs.qp-topic-extract.outputs.extract-sha256 }}"
+    )
+    assert '--codes "$lines"' in restamp["run"]
+    assert 'cp "${LABELS_DIR}/${LABELS_NAME}" "$dir/${LABELS_NAME}"' in restamp["run"]
+    assert 'cp "$RUNNER_TEMP/restamp-report.txt" "$dir/measured.txt"' in restamp["run"]
+    downloads = {
+        s["with"]["name"]: s for s in publish if "download-artifact" in str(s.get("uses") or "")
+    }
+    assert {"qp-publish", "qp-texts", "alignment-modes"} == set(downloads)

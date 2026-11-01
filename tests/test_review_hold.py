@@ -858,7 +858,7 @@ def _write_run(
     cost: float = 10.01,
     attempt: int = 1,
 ) -> None:
-    measured = outcome != "incomplete"
+    measured = outcome != "incomplete" and frame != "alignment-sides"
     record = {
         "frame": frame,
         "run_id": run_id,
@@ -879,6 +879,15 @@ def _write_run(
         "cache_creation_input_tokens": 0,
         "estimated_cost_usd": cost,
     }
+    if outcome == "replicate":
+        record["batch_rows"] = record["label_lines"] = 200
+        record["replicate"] = {
+            "reference_sha256": "0" * 64,
+            "prompt_sha256": "1" * 64,
+            "reference_entries": 200,
+            "matches": "1" * 160 + "0" * 40,
+            "unclassifiable": 20,
+        }
     path = data_root / "qp-topics" / "spend" / f"{run_id}-{attempt}.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(record))
@@ -944,6 +953,10 @@ def test_the_refusal_rule_reads_the_newest_gated_run_of_the_frame(tmp_path: Path
     assert reason is not None and "petitions labeling run was refused" in reason
     # An incomplete run was never gated: it neither clears nor sets the rule.
     _write_run(tmp_path, "300", "2026-10-15T09:00:00Z", outcome="incomplete")
+    assert label_refusal(tmp_path, "petitions") is not None
+    # Nor does a replicate: it measured the reference and published nothing by
+    # design, so a replicate after a refusal cannot release the next round.
+    _write_run(tmp_path, "302", "2026-10-15T10:00:00Z", outcome="replicate")
     assert label_refusal(tmp_path, "petitions") is not None
     # The other frame's record is not this frame's.
     assert label_refusal(tmp_path, "applications") is None
@@ -1131,3 +1144,38 @@ def test_the_command_holds_a_label_round_while_its_batch_awaits_review(tmp_path:
     held = json.loads(runner.invoke(app, [*args[:-1], str(gone)], env=env).stdout)
     assert held["auto_release"] is False
     assert "could not be read" in held["auto_release_reason"]
+
+
+def test_a_side_coding_round_is_held_on_its_own_frame(tmp_path: Path) -> None:
+    # The merits side coder rides the label seam on its own frame: it is a
+    # labeling frame the hold accepts, and a published side-coding batch on its
+    # open PR holds the next side-coding round, not a topic-label round.
+    plan = tmp_path / "label-plan.json"
+    plan.write_text(json.dumps({**_label_plan(rows=302, high=18.12), "frame": "alignment-sides"}))
+    subjects = tmp_path / "subjects.txt"
+    subjects.write_text("")
+    carried = tmp_path / "carried.txt"
+    carried.write_text("")
+    args = [
+        "hold-decision",
+        "--plan-file",
+        str(plan),
+        "--seam",
+        "label",
+        "--deployments-released",
+        "0",
+        "--main-subjects-file",
+        str(subjects),
+        "--carried-file",
+        str(carried),
+    ]
+    env = _cmd_env(tmp_path)
+    assert json.loads(runner.invoke(app, args, env=env).stdout)["auto_release"] is True
+    _write_run(tmp_path / "data", "400", "2026-10-28T09:00:00Z", frame="alignment-sides")
+    carried.write_text("data/qp-topics/spend/400-1.json\n")
+    held = json.loads(runner.invoke(app, args, env=env).stdout)
+    assert held["auto_release"] is False
+    assert "open alignment-sides labels PR" in held["auto_release_reason"]
+    assert (
+        label_pending(tmp_path / "data", "petitions", ["data/qp-topics/spend/400-1.json"]) is None
+    )

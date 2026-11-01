@@ -42,11 +42,11 @@ token or role, so privilege and outside reachability stay disjoint — see
 | `run-seed`       | daily schedules (4 windows), manual | script (no agent)    |
 | `run-repair`     | manual dispatch only (one maintenance pass per dispatch, dry-run by default) | script (no agent)    |
 | `run-predict`    | daily schedules (14:12 and 17:32 UTC), input-less dispatch (manual, or the dispatch App's chain jobs) | Claude Code + Codex + Gemini |
-| `run-evaluate`   | daily schedule (15:39 UTC), manual dispatch whose one input picks the derivation: the backlog, the `reasoning-pilot` round of the unregistered `predicted_reasoning_quality` grade, or its `reasoning-pilot-merits` round over the replay merits calibration cells (the newest merits back-test's kept forecasts), each always held for review and committing nothing | Claude Code + Codex + Gemini |
+| `run-evaluate`   | daily schedule (15:39 UTC), manual dispatch whose one input picks the derivation: the backlog, the `reasoning-pilot` round of the `predicted_reasoning_quality` grade (a re-grade of a fixed sample under the registered prompt), or its `reasoning-pilot-merits` round over the replay merits calibration cells (the newest merits back-test's kept forecasts), each always held for review and committing nothing | Claude Code + Codex + Gemini |
 | `run-backtest`   | biweekly schedule (even ISO weeks, Sat 06:23 UTC — pinned cert parameters over the paid population, spends only on the manual `review` release), manual dispatch (replay/engine/limit/terms params; `replay: merits` replays the predictors over decided argued cases at the merits grant and briefed moments instead, dispatch only; `replay: salience-gate` runs the token-free gate replay instead of the predictors) | Claude Code + Codex + Gemini (replay) |
 | `run-ops`        | daily schedule (ops report, weekly performance digest on the run summary, public status snapshot, prediction-reading digest), manual | script (no agent)    |
 | `post-public-update` | weekly schedule (Mon 12:57 UTC), manual dispatch (`week`; re-dispatching a missed week is safe, since the post is idempotent per week) | script (no agent); creates up to two Buttondown drafts (the public update and the AI-cases update), never sends |
-| `run-analytics`  | manual dispatch + weekly schedule (metrics refresh, Mon 05:41 UTC) + daily schedule (big-case board, 04:36 UTC) + weekly schedule (update history, Mon 12:59 UTC) + weekly schedules (topic labeling: petitions Tue 09:08 UTC, applications Wed 09:04 UTC, behind the `review` hold) | script; the `qp-topic-label` and `qp-topic-label-applications` modes each run one Claude Code labeler |
+| `run-analytics`  | manual dispatch + weekly schedule (metrics refresh, Mon 05:41 UTC) + daily schedule (big-case board, 04:36 UTC) + weekly schedule (update history, Mon 12:59 UTC) + weekly schedules (topic labeling: petitions Tue 09:08 UTC, applications Wed 09:04 UTC, merits side coding Thu 09:14 UTC, behind the `review` hold) | script; the `qp-topic-label`, `qp-topic-label-applications`, `qp-topic-replicate`, `qp-topic-replicate-applications` and `alignment-side-code` modes each run one Claude Code labeler |
 | `summarize`      | daily schedule (03:43 UTC), manual dispatch (`limit`); every run spends only on the `review` release, or on auto-release within the trailing spend budget (*Auto-release*) | script; one Messages API call per case (two when a rejected response is retried), no tools and no agent |
 | `integration-test` | manual dispatch + daily canary  | script; engine-smoke runs one real agent cell, engine-actions-smoke one boot probe per engine (the canary), each repro-family scenario one real cell against its pinned record, and qp-labeler-smoke one labeling agent over a synthetic extract |
 | `corpus-check`   | schedule every 30 minutes (:19, :49), input-less manual dispatch; a check of PR code runs only on the maintainer's `corpus-check` approval, an allowlisted `at: main` query unapproved under `corpus-check-auto` | script — the PR's own declared command, or `main`'s code for an `at: main` query (no agent) |
@@ -128,6 +128,19 @@ sections read `data/` and `metrics/`, which the writers commit to `main`
 directly. One reading note the report carries itself: `promote` is
 level-triggered, so its failures are unsatisfied-gate reports rather than
 incidents, and its success rate counts promotion attempts.
+
+The same job keeps the **test and staging spend** record. Every leg that
+spends tokens and commits nothing — the integration suite's engine legs (the
+promotion gate among them), the staging labeling and summary rehearsals, the
+real-engine replays and the reasoning-pilot rounds — uploads one priced
+`off-ledger-spend-*` artifact through the `off-ledger-spend` composite. A
+sweep step lists a fortnight of those artifacts, keeps only the ones uploaded
+by a run of those five workflows from this repository on `main`, `staging` or
+`promote/*`, and stores each record that names that run, workflow and branch
+(`fedcourts off-ledger-spend-ingest`) under `off-ledger-spend/` on the
+`ops-metrics` branch; `fedcourts off-ledger-spend-report` then renders it onto
+the run summary. The figure is reported apart and counted in no budget
+([budget.md](budget.md), *Test and staging spend, reported separately*).
 
 It is also the **presenter** of the published corpus-side artifacts (see *Data
 validation* in [data-pipeline.md](data-pipeline.md)): the corpus-writer path
@@ -490,7 +503,7 @@ queues behind the production run of the same mode. The modes:
   `public-updates` below), and the argument is about the
   artifact rather than the cadence. The board is a byte-stable pure function of
   the committed ledger and the committed schedule (whose rows carry no build
-  day, so it moves only when a case's conference does), so a day that changed
+  day, so it moves only when a case's date does), so a day that changed
   nothing opens nothing; a day that
   changed something re-rolls committed cells by a tested command that the PR's
   own required checks rerun; and the diff is bounded to the board's two files by
@@ -574,13 +587,13 @@ queues behind the production run of the same mode. The modes:
   isolated environment) with its outcome and gate figures, which the publish
   job lands as `data/qp-topics/spend/<run_id>-<run_attempt>.json`: beside the
   labels file on a published run, alone on the same fixed branch in a PR titled
-  as a spend record on a refused or short one — onto the open labels PR where
+  as a spend record on a refused, short or replicate one — onto the open labels PR where
   there is one; either PR must be merged, not closed, or its records leave the
   measured total. Nothing retries a refused batch, and a scheduled run stands
   down while the frame's open labels PR holds an unmerged published batch
   ([qp-topic.md](qp-topic.md)). The three label jobs queue in per-frame
-  concurrency groups, so one frame's run never displaces the other's.
-  It is the only mode that runs an agent, and therefore the only one **split
+  concurrency groups, so one frame's run never displaces another's.
+  The labeling modes are the only ones that run an agent, and therefore the only ones **split
   across jobs**.
   The PR is opened by a later job, `qp-topic-publish`, which runs no agent and
   takes only the measured labels file, the measured block and the spend record,
@@ -592,9 +605,11 @@ queues behind the production run of the same mode. The modes:
   (`fedcourts qp-corpus`, under `$RUNNER_TEMP` — the command refuses an `--out`
   inside the checkout) to a one-day Actions artifact; `qp-topic-label` assumes
   no role at all, downloads that artifact, and runs the labeler with no cloud
-  credential in its environment and no MCP config (on either frame the extract
-  is the agent's entire evidentiary input). Exactly three things
-  cross the split: that artifact, and two job outputs, each one integer. The
+  credential in its environment and no MCP config (on every frame the extract
+  is the agent's entire evidentiary input). On every frame four things cross
+  the split: that artifact, and three job outputs, two integers and the
+  extract's digest (which the side-coding frame below checks before it
+  stamps); the side-coding frame's modes sidecar crosses besides. The
   size of the QP-bearing frame the extract cut the batch from goes to the
   post-label measure step's `qp-topics --frame-rows`, so the labels artifact
   records each batch's frame ([qp-topic.md](qp-topic.md)). The size of the batch
@@ -627,9 +642,11 @@ queues behind the production run of the same mode. The modes:
   though its spend record still lands. It applies the same
   structural prohibition the cell workflows do — `data/qp-topics/` is moved out
   of the tree for the duration of the agent step, since reading the reference
-  set would not improve the labels, only destroy the measurement — and restores
-  it from the commit afterwards, then asserts the tree is otherwise untouched
-  (the gate constants live in the checkout too). After the agent, the
+  set would not improve the labels, only destroy the measurement, and the rest
+  of `data/` and `metrics/` go with it, since no frame reads the committed
+  record and for the side coder it holds outcomes — and restores both from the
+  commit afterwards, then asserts the tree is otherwise untouched (the gate
+  constants live in the checkout too). After the agent, the
   tested `fedcourts qp-topics` measures the labels against the hand reference
   set and enforces the agreement/coverage gate — below it, nothing is written,
   the measured block still reaches the step summary, the gate figures go into
@@ -649,6 +666,53 @@ queues behind the production run of the same mode. The modes:
   naming its frame. A mode value rather than a dispatch input,
   because the inputs are near GitHub's cap. Its first run belongs on a
   `staging` ref, where the publish job is fenced as for the petition mode.
+- **`qp-topic-replicate`** and **`qp-topic-replicate-applications`**
+  (dispatch only) are one reference-only replicate of the petition or
+  application labeler ([qp-topic.md](qp-topic.md), *Replicates: how far one
+  labeler moves between runs*): the same
+  jobs, hold and spend ledger, with `qp-topic-resolve`'s `replicate` output
+  set. The extract cuts the frame's reference rows alone (`qp-corpus
+  --reference-only`), the measure step records the run with `qp-topics
+  --replicate-out` and writes no labels file, and the publish job lands the
+  run's spend record alone (outcome `replicate`) on the frame's fixed branch,
+  where it must be merged like any spend-record PR. Each dispatch is one
+  replicate, priced at the in-frame reference rows, and is held like any label
+  round, so while the frame's last gated run stands refused a replicate waits
+  for a maintainer too. Dispatch replicates **one at a time**: the extract,
+  label and publish jobs each take a per-frame concurrency group, which keeps
+  one pending run, so a third dispatch while one runs and one waits cancels the
+  waiting one. `fedcourts qp-topic-replicates` pools them. A replicate neither
+  clears nor sets the hold's refusal.
+- **`alignment-side-code`** (dispatch, or the weekly Thursday cron) is the
+  same jobs over a third frame, `alignment-sides`: the merits side coder of
+  [merits-alignment-baseline.md](merits-alignment-baseline.md). The extract is
+  `fedcourts alignment-side-extract` (every uncoded merits grant's grant-time
+  text, at most 400 rows, earliest grants first), the agent reads
+  `.github/prompts/alignment-side-code.md`, which `qp-topic-resolve` names
+  beside the frame, and the artifact is
+  `data/merits-alignment/alignment-side-codes.json`, landed on its own fixed
+  branch, `merits-alignment/side-codes`, which `main-base` admits. Three things
+  differ from a topic frame. There is **no reference gate**: where the measure
+  step would run, `fedcourts alignment-side-codes` stamps a complete code file
+  into the append-only artifact (it refuses a code for a case already coded),
+  and its spend record is `published` or `incomplete`, never `refused`. Each
+  row's **mode** (replay or forward) is cut beside the extract into a sidecar
+  that crosses as its own one-day artifact, `alignment-modes`, which the coding
+  job downloads only after its agent step and outside the agent's granted
+  directory, so the coder cannot read which of its cases are decided. The
+  coding job's stamp is the publication gate and a preview only: it runs
+  beside the agent, so `qp-topic-publish` stamps the codes again from the
+  coder's lines, the modes sidecar and the extract (checked against the digest
+  the extract job recorded, since the agent could write the coding job's
+  copy), on a runner no agent held, and publishes that file and its counts. And
+  the round is priced at the side coder's own provisional per-row rate
+  (`planning_rates.SIDE_CODE_RATES_USD_PER_ROW`), three times the topic
+  labeler's for the same model until a measured run re-anchors it. The publish
+  job's push guard holds the codes file to containment (every code `main`
+  holds, byte-identical, and more of them); spend records share
+  `data/qp-topics/spend/`, naming their frame, so the hold, the pending-batch
+  stand-down and the measured spend read them unchanged. A week with no new
+  grant stands down at the extract, on either trigger.
 
 ## `summarize` — plain-language case summaries
 
@@ -859,7 +923,7 @@ the evaluate lane's opinion-hold window, so a just-decided case's body usually
 lands before the next evaluate tick (*The evaluate queue is level-triggered
 too*, below). A second step on the same windows, `enrich-decision-below
 --apply --max-cases 6`, stores the decision below for up to six pending cert
-petitions from the federal courts of appeals, withheld from cells
+petitions from the federal courts of appeals, staged for cert and merits cells
 ([document-provisioning.md](document-provisioning.md)). Those two steps alone in
 the live job hold the CourtListener token, and both are `continue-on-error`: a
 failed or slow enrichment never fails the live pull, whose facts the push and
@@ -1985,7 +2049,8 @@ The mechanics:
   lane (the collect run branches, the maintainer's cleanup sweep, the
   metrics-refresh, cert-backtest, merits-backtest and salience-replay PRs,
   the qp-topic labeling runs' `qp-topics/refresh` and
-  `qp-topics/applications-refresh` PRs, the case-summary lane's
+  `qp-topics/applications-refresh` PRs and the side coder's
+  `merits-alignment/side-codes` PR, the case-summary lane's
   `summaries/refresh` PR, the big-case board's
   `metrics/big-cases` PR and the update history's `metrics/public-updates`
   PR), or a `record-fill/…` PR, which the `paths` jail holds to in-place fills
@@ -3254,11 +3319,10 @@ the agent on every cell. It stages nothing where the corpus row holds no body,
 which is most cases, so an **absent** slot is the ordinary state and the grader
 masks. When a round's semantic claims all mask, read that step's outcome first:
 a failed staging and genuine non-coverage leave the same empty slot, and the
-step annotates the run summary where it failed. On a pilot round's row the
-same step also stages every writing of the decision under
-`record/opinion/writings/`, from the per-writing texts the per-opinion record
-stores, for the pilot grade of `predicted_reasoning.md`; no registered round's
-cell receives them.
+step annotates the run summary where it failed. On every cell the same step
+also stages every writing of the decision under `record/opinion/writings/`,
+from the per-writing texts the per-opinion record stores, for the grade of
+`predicted_reasoning.md` (`predicted_reasoning_quality`) to check against.
 
 A second pair of steps keeps the aliases worth having. The committed `predictions/` and
 `evaluations/` trees name every predictor elsewhere in the same case tree, at
@@ -3294,6 +3358,18 @@ run-time install refusal (`fedcourts cell-policy`,
 the "Configure agent retrieval" step writes beside `.codex/config.toml`, which
 `codex-user-setup` copies root-owned into the codex account's home, and the
 gemini policy file that step names in `.gemini/settings.json`.
+
+**Gemini keeps a whole prompt template in context.** gemini-cli cuts every tool
+result older than the latest one to `tools.truncateToolOutputThreshold`
+characters, keeping the first fifth and the last four fifths. The default
+(40,000) is under half the predict template, so a gemini cell that reads its
+template whole loses the middle of its contract once its next call lands. Every
+workflow that writes `.gemini/settings.json` (the predict, evaluate and
+back-test cells, and the integration smokes that mirror them) sets the threshold
+to 200,000, which is at least twice the largest cell template. The CLI also caps it
+at its own estimate of the context the model has left. A test holds every
+writer to that floor, so growing a template past half the threshold fails CI
+instead of silently truncating the cells.
 
 **The un-aliasing runs before the stamp, and the ordering is load-bearing.**
 `stamp-cell --role evaluator` joins each evaluation to the prediction it scored

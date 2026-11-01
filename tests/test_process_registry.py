@@ -48,9 +48,10 @@ _V11 = datetime(2026, 10, 23, 2, 37, 11, tzinfo=UTC)
 _V12 = datetime(2026, 10, 25, 13, 40, 46, tzinfo=UTC)
 _V13 = datetime(2026, 10, 26, 19, 0, 50, tzinfo=UTC)
 _V14 = datetime(2026, 10, 29, 14, 16, 26, tzinfo=UTC)
+_V15 = datetime(2026, 10, 30, 16, 38, 43, tzinfo=UTC)
 _CODEX_AND_GEMINI = frozenset({"codex-baseline", "gemini-baseline"})
 
-# proc-v15 replaces all six blessings with its own pending six, which bless
+# proc-v16 replaces all six blessings with its own pending six, which bless
 # nothing until the carrying merge stamps them, so the carried map is empty.
 GOLDEN_DIGESTS: dict[str, datetime] = {}
 
@@ -165,18 +166,39 @@ GOLDEN_WINDOWS = (
         digest="sha256:641ede79b901c3dead9f6dc49cd2fe94e350511b9bc3ac43d603c08919b8eddf",
         predictor_id="claude-baseline",
         opens=_V14,
+        closes=_V15,
     ),
     CountingWindow(
         label="proc-v14",
         digest="sha256:231b2fd0b0381db5a321b479ad12793f5c9ef990942823e77029cbdec3caecc6",
         predictor_id="codex-baseline",
         opens=_V14,
+        closes=_V15,
     ),
     CountingWindow(
         label="proc-v14",
         digest="sha256:725538ea76a7fc5bb3d37cd80dd6a7f2f24440f5b75e1644f0ece61656d62583",
         predictor_id="gemini-baseline",
         opens=_V14,
+        closes=_V15,
+    ),
+    CountingWindow(
+        label="proc-v15",
+        digest="sha256:11ddd73ac5e4ef4d883f51997f00822dd737df2c9d52b0f8f599a27aa3dde31a",
+        predictor_id="claude-baseline",
+        opens=_V15,
+    ),
+    CountingWindow(
+        label="proc-v15",
+        digest="sha256:3df3d7aa2267e392cf047493c336737c9ea5a30b310919e027eeb3a850027990",
+        predictor_id="codex-baseline",
+        opens=_V15,
+    ),
+    CountingWindow(
+        label="proc-v15",
+        digest="sha256:274fea05cdeb0d3b004926de218364183603bbf331e3a2a5cdfcf7fe4909ec07",
+        predictor_id="gemini-baseline",
+        opens=_V15,
     ),
 )
 
@@ -211,6 +233,9 @@ GOLDEN_BLESSING_LABELS = {
     "sha256:ede964258702cee0803a5255106a9ddc542164c017dd5e56ce47813c8b028388": ("proc-v15",),
     "sha256:fb4db8c6b28902554a44e42078039dd467afe47bd986a4aa40ba4435307f60c0": ("proc-v15",),
     "sha256:e481306013cbb61ab29747a4eafd2d8d55c7694d196fe470ce14c78d2663310c": ("proc-v15",),
+    "sha256:2c24c01085a75e5634388510595476ca4887c51bb5c4ca0d0bb348bd5c572f5c": ("proc-v16",),
+    "sha256:4956b4db47514393d6455c004579fb5aec3f5ab4f37ab4765fb2ad38ef080316": ("proc-v16",),
+    "sha256:829805f636d9b0baefd2fb39970ce83a430f3225384b724101975a06750c1a6c": ("proc-v16",),
 }
 
 _SCRUB_0921 = "a2f84f2eedb4e3b3dcc222522a55b8a93ae1eff0"
@@ -397,6 +422,7 @@ _GOLDEN_MERGES = frozenset(
         "51cca3cb5eab4d7fa8ab3701f1dbae103d1a00c0",
         "728efab06a9ad44bf39523c7181827d4eade70de",
         "116bd569e4d44e5d9ff2878bce34b4b903f206ba",
+        "a3b2daec8ba19b6c3b3aecb9316bd62c15d568df",
     }
 )
 
@@ -430,9 +456,9 @@ def test_the_bless_map_reproduces_its_golden_values_in_order() -> None:
 
 
 def test_the_counting_instant_reproduces_its_golden_value() -> None:
-    assert counting_instant(_as_the_goldens_know_it()) == _V14
+    assert counting_instant(_as_the_goldens_know_it()) == _V15
     assert FROZEN_SINCE is not None and FROZEN_SINCE.tzinfo is UTC
-    assert FROZEN_SINCE >= _V14
+    assert FROZEN_SINCE >= _V15
 
 
 def test_the_counting_windows_reproduce_their_golden_values_in_order() -> None:

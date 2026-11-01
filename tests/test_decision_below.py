@@ -48,6 +48,8 @@ from fedcourtsai.pipeline.decision_below import (
     split_lower_numbers,
     unmapped_class,
 )
+from fedcourtsai.pipeline.documents import LOWER_COURT_KINDS
+from fedcourtsai.schemas import Stage
 from tests.workflow_argv import command_argv
 
 _BASE = "https://www.courtlistener.com/api/rest/v4/"
@@ -954,8 +956,8 @@ def test_a_settled_case_is_re_stamped_with_no_request(tmp_path: Path) -> None:
     assert row is not None and row.decision_below_attempted_at == _TODAY
 
 
-def test_neither_fill_kind_reaches_a_cell_until_released() -> None:
-    documents = [
+def _fill_documents() -> list[corpus.CaseDocument]:
+    return [
         corpus.CaseDocument(
             case_id="scotus/1",
             kind=kind,
@@ -965,8 +967,27 @@ def test_neither_fill_kind_reaches_a_cell_until_released() -> None:
         )
         for kind in ("decision-below", "lower-court-docket", "petition")
     ]
-    kept = provision.documents_for_moment(documents, "evt-petition-disposition")
+
+
+@pytest.mark.parametrize(
+    "event_id",
+    ["evt-petition-disposition", "evt-order-judgment"],
+)
+def test_a_cert_or_merits_cell_is_handed_both_fill_kinds(event_id: str) -> None:
+    kept = provision.documents_for_moment(_fill_documents(), event_id)
+    assert [d.kind for d in kept] == ["decision-below", "lower-court-docket", "petition"]
+
+
+def test_an_interim_cell_is_handed_neither_fill_kind() -> None:
+    """An application comes from a district court or an agency the fill does not
+    join, so the interim stage is outside LOWER_COURT_STAGES."""
+    kept = provision.documents_for_moment(_fill_documents(), "evt-brief-response-disposition")
     assert [d.kind for d in kept] == ["petition"]
+
+
+def test_neither_fill_kind_is_withheld() -> None:
+    assert not (provision.WITHHELD_KINDS & LOWER_COURT_KINDS)
+    assert {Stage.cert, Stage.merits} == provision.LOWER_COURT_STAGES
 
 
 def test_the_fill_command_stores_a_named_case(

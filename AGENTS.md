@@ -13,7 +13,8 @@ development** (change the Python package, workflows, docs, schemas, or prompts
 — in an interactive session on the branch-and-PR flow below, like any
 contributor; do **not** touch `data/`) or **data production** (a `run-pull`,
 `run-predict`, `run-evaluate` or `run-backtest` round, and the dispatched
-`qp-topic-label` and `qp-topic-label-applications` labeling runs — produce or update the corpus
+`qp-topic-label`, `qp-topic-label-applications`, `qp-topic-replicate`,
+`qp-topic-replicate-applications` and `alignment-side-code` labeling runs — produce or update the corpus
 and/or the derived artifacts under `data/`; do **not** change pipeline code to
 make your task easier, and never weaken validation, CI, lint, type, or
 security checks). A cell never reads this file: its job takes `AGENTS.md`,
@@ -593,11 +594,13 @@ task-specific instructions: the prompt file named in your run
 | Which command does X, and with which flags? | `docs/cli.md` |
 | How does a PR get its corpus-dependent figure checked without corpus access? | `docs/corpus-check.md` |
 | Which cases get predicted, and against which base rate? | `docs/salience.md` |
-| What do the petitions ask about, and how are QP texts labeled? (vocabulary, reference set, labeler, run mode, and the docket-pack cut all built; the labels artifact accrues batch by batch, ten batches have landed covering the scoped frame; the committed `metrics/docket.md` still renders the two-batch cut until the next weekly metrics refresh regenerates it) | `docs/qp-topic.md` |
+| What do the petitions ask about, and how are QP texts labeled? (vocabulary, reference set, labeler, run mode, and the docket-pack cut all built; the labels artifact accrues batch by batch, ten batches have landed covering the scoped frame; the weekly metrics refresh regenerates `metrics/docket.md`, so its cut follows the labels `main` publishes) | `docs/qp-topic.md` |
 | What is pre-registered, and when does a digest move? | `docs/process-version.md` (the rules), `docs/freeze-record.md` (the dated record) |
-| How is a predicted outcome decomposed and scored? (mechanical cert, interim, and merits-judgment claims implemented; vote pre-registered; writing elicited as distribution claims on every moment (authorship scored on the merits moments, order writers collected); the semantic family an alpha declared, elicited, staged and graded on the merits moments, producing only the availability mask while opinion coverage is a rounding error; a grade of `predicted_reasoning.md` itself, `predicted_reasoning_quality`, designed and awaiting its pilot) | `docs/outcome-decomposition.md` |
+| How is a predicted outcome decomposed and scored? (mechanical cert, interim, and merits-judgment claims implemented; vote pre-registered; writing elicited as distribution claims on every moment (authorship scored on the merits moments, order writers collected); the semantic family an alpha declared, elicited, staged and graded on the merits moments, producing only the availability mask while opinion coverage is a rounding error; a grade of `predicted_reasoning.md` itself, `predicted_reasoning_quality`, registered and collected on every stage, published by no board yet) | `docs/outcome-decomposition.md` |
 | How many votes decide this, and what can I ever observe? (merits scoring registered and wired; vote accuracy scored, merits-gated and completeness-gated, and recomputed over the whole bench for the leaderboard's `mean_vote_accuracy` — the orders vote source (cert and interim, banked unscored) is stamped on committed outcomes, while the opinions source (merits) is registered with a dispatch-only writer and not yet populated; margins pre-registered only) | `docs/decision-model.md` |
+| What must a merits vote forecast beat before its accuracy means anything? (majority alignment and unanimity built, with a read-only readout over the corpus's merits lineups; the side coder's prompt, extract, append-only codes artifact and run mode built, and the score baselines' read-only readout, with positions estimated from the lineups; the first fits and scoring beside the models owed) | `docs/merits-alignment-baseline.md` |
 | Who can reach what, and why is a token scoped that way? | `SECURITY.md` (invariants), `docs/security.md` (setup) |
+| What is a district-court forecast, and how does it resolve? (the court-agnostic trial stage designed, not registered; its resolver built as library code and wired into nothing) | `docs/trial-stage.md` |
 | What does one prediction actually consist of, file by file? | `docs/predicted-artifacts.md` |
 | What does a cell agent have to produce? | `.github/prompts/` |
 | What are the plain-language case summaries, which cases get one, and who writes them? | `docs/case-summaries.md` |

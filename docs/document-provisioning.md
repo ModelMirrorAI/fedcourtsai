@@ -53,8 +53,8 @@ transcript, which only a post-argument cell is given.
 | `merits-amicus-united-states` | The United States' amicus brief on the merits, filed after the grant | Granted |
 | `merits-brief-appointed-amicus` | The merits brief of a Court-appointed amicus defending the judgment, filed after the grant; stored, staged for no cell yet | Granted |
 | `argument-transcript` | The oral argument transcript, from the Court's per-Term list rather than the docket | Argued |
-| `decision-below` | The federal court of appeals' opinion under review, read from CourtListener and dated by the judgment below; stored, staged for no cell yet | Cert, Granted |
-| `lower-court-docket` | A short record of that court's docket: panel, and whether rehearing en banc was sought, how it was disposed of and any dissent; stored, staged for no cell yet | Cert, Granted |
+| `decision-below` | The federal court of appeals' opinion under review, read from CourtListener and dated by the judgment below | Cert, Granted |
+| `lower-court-docket` | A short record of that court's docket: panel, and whether rehearing en banc was sought, how it was disposed of and any dissent | Cert, Granted |
 | `application` | The application to a Justice or the Court | Application |
 | `application-response` | The first response to the application | Application |
 | `application-reply` | The applicant's reply to it | Application |
@@ -64,9 +64,8 @@ cell reads is part of its information set, and the process digest does not see
 it ([process-version.md](process-version.md)), so a kind is staged only in the
 re-bless whose prompt tells cells about it. Until then
 `provision.WITHHELD_KINDS` keeps it from every cell at every moment, and the
-case-summary plan leaves it out of the record it reads. Three kinds are held
-there now: `merits-brief-appointed-amicus`, `decision-below` and
-`lower-court-docket`. One record input that is not a document is held back on the same rule:
+case-summary plan leaves it out of the record it reads. One kind is held
+there now: `merits-brief-appointed-amicus`. One record input that is not a document is held back on the same rule:
 the post-argument merits cell's `record/authorship-tally.json`, the Term's
 tally of who has written from each argument sitting
 (`provision.AUTHORSHIP_TALLY_WITHHELD`).
@@ -111,9 +110,11 @@ Each of these is stated, with its reason, where the code makes the choice:
   `record/same-question.json` (`pipeline/same_question.py`; the harness
   boundary `cert-same-question-list`).
 
-- **A combined opposition is kept or dropped whole.** It is dated by its
-  earliest brief, so a cutoff between two respondents' briefs admits the later
-  one (`documents_before`).
+- **A combined opposition is cut brief by brief, its page count estimated.**
+  Each brief is placed by the docket date in its header, so a cell placed
+  between two respondents' briefs reads the earlier one alone. The stored row
+  keeps no per-brief page count, so a cut row's `pages` is the row's count
+  scaled by the share of text kept (`documents_before`).
 - **A corrected filing replaces the original.** The latest fetch of a kind wins,
   so a cell can read the text as later amended (`documents_before`), or lose
   the kind if the correction is dated after its cutoff (live-sources.md,
@@ -135,15 +136,18 @@ Each of these is stated, with its reason, where the code makes the choice:
   detention cases) means nothing is posted behind them, so the selector finds
   no link. The cell's `record/context.json` freezes `paper_only_filings` from
   the placed payload, so a reader or grader can tell the empty
-  `record/documents/` from a provisioning failure. The predict prompt does not
-  name the field yet. The flag clears once the Court quotes the rule to call
-  for electronic versions, after briefing and argument are scheduled
-  (`pipeline/paper_only.py`).
+  `record/documents/` from a provisioning failure, and the predict prompt
+  tells the cell an empty `record/documents/` is expected there. The flag
+  clears once the Court quotes the rule to call for electronic versions, after
+  briefing and argument are scheduled (`pipeline/paper_only.py`). The
+  Solicitor General's own posted filings are an assessed, not adopted,
+  fallback for the government's side (*The Solicitor General's posted briefs*
+  in [data-sources.md](data-sources.md)).
 - **A consolidated member is checked for freshness on its own docket.** A merits
   filing entered only on the lead is left to the selection sweep
   (live-sources.md, *Document freshness*).
-- **The decision below reaches a cell only through the petition's appendix
-  until a re-bless releases the two CourtListener kinds.**
+- **The decision below reaches cert and merits cells from CourtListener as
+  well as through the petition's appendix.**
   `fedcourts enrich-decision-below` joins a petition from a federal court of
   appeals to the lower court's docket on CourtListener and stores what upstream
   holds: the opinion on the judgment date as `decision-below`, and the docket
@@ -152,7 +156,13 @@ Each of these is stated, with its reason, where the code makes the choice:
   [cli.md](cli.md)); `run-pull`'s live job runs it on six petitions each full
   window, four windows a day. The en banc reading is matched from entry text filed
   before the SCOTUS docketing, so a petition on remand cannot leak back. Both
-  kinds are held in `provision.WITHHELD_KINDS`. A petition from a state court,
+  kinds are staged for cert and merits cells only
+  (`provision.LOWER_COURT_STAGES`): an interim application comes from a court
+  the fill does not join. The merits back-test replay sweep stages neither,
+  because the fill walks undecided cases only, so a decided case holds them
+  by accident of timing. An evaluate cell reads neither, since it is placed at
+  no moment and grades against the docket and the opinion. The `decision-below-documents` harness boundary dates
+  the cells that read them. A petition from a state court,
   a district court or a specialized tribunal gets neither, and a missing
   opinion is not bought through RECAP Fetch. `fedcourts decision-below`
   measures the match rate without storing anything: 18 of the newest 35

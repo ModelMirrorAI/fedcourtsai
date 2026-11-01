@@ -53,11 +53,12 @@ on:
   # maintainer's judgement, not a trigger input that would reintroduce an
   # unauthenticated case list.
   #
-  # `reasoning-pilot` runs the pilot of the unregistered
-  # `predicted_reasoning_quality` grade (docs/outcome-decomposition.md, *The
-  # pilot, and what it reports*). Its cells are derived too, by
-  # `reasoning-pilot-sample` over the committed ledger at a fixed seed, and
-  # each cell reads the draft section beside its registered prompt. A pilot
+  # `reasoning-pilot` runs a pilot round of the `predicted_reasoning_quality`
+  # grade (docs/outcome-decomposition.md, *The pilot, and what it reports*).
+  # Its cells are derived too, by `reasoning-pilot-sample` over the committed
+  # ledger at a fixed seed, and re-grade already-graded events under the
+  # registered evaluate prompt, which asks for the grade; each cell also reads
+  # the pilot note, which marks the round and changes no instruction. A pilot
   # round commits nothing: `collect` is skipped, and `pilot-report` uploads the
   # round's evaluations and its report as an artifact instead. It always waits
   # on the `review` hold.
@@ -716,10 +717,10 @@ jobs:
       # opinion, which is most cases, and the slot's *absence* is what tells the
       # grader to mask. Best-effort for the same reason the snapshot step is — a
       # read that fails must not abort a cell that can still grade everything else.
-      # A pilot row also stages every writing of the decision (`--writings`): the
-      # predicted-reasoning pilot grades against the concurrences and dissents as
-      # well as the majority, and a registered evaluate cell's inputs stay as they
-      # are until the grade that reads them is registered.
+      # Every cell also stages every writing of the decision (`--writings`): the
+      # forecast document's grade checks a forecast of who writes separately and
+      # what each writing says against the concurrences and dissents as well as
+      # the majority.
       - name: Stage the majority opinion for the grader
         id: opinion
         continue-on-error: true
@@ -741,12 +742,7 @@ jobs:
           # bit and the citation are row facts, and this command refuses the
           # rowless backends by name rather than failing obscurely inside them.
           FEDCOURTS_CORPUS_BACKEND: ranged
-          PILOT_SECTION: ${{ matrix.pilot_section }}
-        run: |
-          set -euo pipefail
-          writings=()
-          if [ -n "$PILOT_SECTION" ]; then writings=(--writings); fi
-          uv run fedcourts provision-opinion --court "$COURT_ID" --docket "$DOCKET_ID" "${writings[@]}"
+        run: uv run fedcourts provision-opinion --court "$COURT_ID" --docket "$DOCKET_ID" --writings
 
       # A failed staging and a case with no opinion leave the grader the same
       # empty slot, and the prompt tells it to mask on `not-ingested` either way
@@ -873,7 +869,10 @@ jobs:
               # names clear the CLI's credential-name refusal regex). This is
               # what gives this engine corpus retrieval parity: the sanitizer
               # could never allowlist AWS credentials, but it accepts these.
-              printf '%s\n' '{"telemetry":{"enabled":true,"target":"local","outfile":".gemini/telemetry.log","logPrompts":true},"security":{"environmentVariableRedaction":{"allowed":["COURT_ID","DOCKET_ID","EVENT_ID","PREDICTOR_ID","EVALUATOR_ID","RUN_ID","MODEL_ID","DECIDED_BEFORE","FEDCOURTS_CORPUS_BACKEND","FEDCOURTS_CORPUS_SERVICE_URL"]}}}' > .gemini/settings.json
+              # tools.truncateToolOutputThreshold keeps a prompt template read whole
+              # whole in context: the CLI default (40,000 characters) cuts older tool
+              # results and drops the middle of the template (docs/pipeline.md).
+              printf '%s\n' '{"tools":{"truncateToolOutputThreshold":200000},"telemetry":{"enabled":true,"target":"local","outfile":".gemini/telemetry.log","logPrompts":true},"security":{"environmentVariableRedaction":{"allowed":["COURT_ID","DOCKET_ID","EVENT_ID","PREDICTOR_ID","EVALUATOR_ID","RUN_ID","MODEL_ID","DECIDED_BEFORE","FEDCOURTS_CORPUS_BACKEND","FEDCOURTS_CORPUS_SERVICE_URL"]}}}' > .gemini/settings.json
               uv run fedcourts mcp-config --engine gemini \
                 --role evaluator --actor "$EVALUATOR_ID" \
                 --base-settings .gemini/settings.json \
@@ -1191,7 +1190,7 @@ jobs:
           prompt: |
             Read ${{ matrix.prompt }}, then score every predictor's
             prediction for this cell against its outcome.json:
-            ${{ matrix.pilot_section && format('This is a pilot round: also read {0}, which amends the evaluate prompt for this round only.', matrix.pilot_section) || '' }}
+            ${{ matrix.pilot_section && format('This is a pilot round: also read {0}, which marks the round as a pilot and changes no instruction.', matrix.pilot_section) || '' }}
 
             COURT_ID=${{ matrix.court }}
             DOCKET_ID=${{ matrix.docket }}
@@ -1262,7 +1261,7 @@ jobs:
           prompt: |
             Read ${{ matrix.prompt }}, then score every predictor's
             prediction for this cell against its outcome.json:
-            ${{ matrix.pilot_section && format('This is a pilot round: also read {0}, which amends the evaluate prompt for this round only.', matrix.pilot_section) || '' }}
+            ${{ matrix.pilot_section && format('This is a pilot round: also read {0}, which marks the round as a pilot and changes no instruction.', matrix.pilot_section) || '' }}
 
             COURT_ID=${{ matrix.court }}
             DOCKET_ID=${{ matrix.docket }}
@@ -1358,7 +1357,7 @@ jobs:
           PROMPT: |
             Read ${{ matrix.prompt }}, then score every predictor's
             prediction for this cell against its outcome.json:
-            ${{ matrix.pilot_section && format('This is a pilot round: also read {0}, which amends the evaluate prompt for this round only.', matrix.pilot_section) || '' }}
+            ${{ matrix.pilot_section && format('This is a pilot round: also read {0}, which marks the round as a pilot and changes no instruction.', matrix.pilot_section) || '' }}
 
             COURT_ID=${{ matrix.court }}
             DOCKET_ID=${{ matrix.docket }}
@@ -1913,7 +1912,7 @@ jobs:
           fi
           uv run fedcourts reasoning-pilot-report pilot-round/data \
             --sample pilot-sample --round-id "$ROUND_ID" \
-            --prompt .github/prompts/pilot/predicted-reasoning-quality.md \
+            --prompt .github/prompts/evaluate.md \
             --out pilot-report.json 2>report-stderr.txt \
             || { cat report-stderr.txt; exit 1; }
           {
@@ -1940,6 +1939,42 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+      # A pilot round commits nothing, so the usage.json its cells wrote never
+      # reaches the ledger and its spend is in no measured total. It leaves one
+      # priced off-ledger record instead, read from this round's own cells only
+      # (the artifacts also carry each event's committed evaluations), which
+      # run-ops sweeps onto the ops-metrics branch and reports apart; no budget
+      # counts it. Staged on its own so a round whose report failed is still
+      # recorded.
+      - name: Stage the round's own usage records
+        id: pilot_usage
+        if: ${{ always() }}
+        env:
+          ROUND_ID: ${{ needs.plan.outputs.run_id }}
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/pilot-usage/data"
+          rm -rf "$RUNNER_TEMP/pilot-usage"
+          if [ -d pilot-round/data/cases ]; then
+            (cd pilot-round/data && find cases -path "*/evaluations/*/${ROUND_ID}/usage.json" -type f) \
+              | while read -r rel; do
+                  mkdir -p "$root/$(dirname "$rel")"
+                  cp "pilot-round/data/$rel" "$root/$rel"
+                done
+          fi
+          echo "root=$root" >> "$GITHUB_OUTPUT"
+
+      - name: Record the round's model spend
+        if: ${{ always() && steps.pilot_usage.outputs.root != '' }}
+        uses: ./.github/actions/off-ledger-spend
+        with:
+          workflow: run-evaluate
+          lane: reasoning-pilot
+          leg: reasoning-pilot
+          selection: ${{ inputs.mode }}
+          conclusion: ${{ job.status }}
+          cell-usage-root: ${{ steps.pilot_usage.outputs.root }}
+
   collect:
     # Defence in depth only. Both attempts of a re-run share `run_id`, so this
     # groups them — but GitHub refuses to re-run a run that is still in
@@ -1960,8 +1995,9 @@ jobs:
     # PR per run (merged by this job when green) plus, if any cell left salvageable
     # partial output, one draft PR a maintainer finishes.
     #
-    # A pilot round never reaches it: its grades are unregistered, and the
-    # ledger refuses them (`predicted_reasoning_grade_awaits_registration`).
+    # A pilot round never reaches it: its cells re-grade events the ledger has
+    # already graded, or calibration events no ledger holds, and its output is
+    # the report the round uploads, never a committed grading.
     if: >-
       ${{ always() && needs.plan.outputs.has_jobs == 'true' && needs.approval.result == 'success'
       && needs.plan.outputs.pilot != 'true'

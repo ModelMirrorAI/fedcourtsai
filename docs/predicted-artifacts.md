@@ -59,7 +59,8 @@ fields that mean the same thing at every stage:
   predicted. The staged `documents/` hold the kinds provisioning gives cells,
   never one the corpus stores but withholds from every cell until a re-bless
   (`provision.WITHHELD_KINDS`, which holds the Court-appointed amicus's merits
-  brief and the two CourtListener kinds of the decision below now;
+  brief now; the two CourtListener kinds of the decision below are staged for
+  cert and merits cells only;
   [document-provisioning.md](document-provisioning.md)); the post-argument
   merits cell's `authorship-tally.json` is held back on the same rule
   (`provision.AUTHORSHIP_TALLY_WITHHELD`). A forward cert cell's
@@ -1006,13 +1007,15 @@ in prose.
   published grade would have to travel with.
   `predicted_reasoning_quality` grades `predicted_reasoning.md` alone, 0–1,
   with `predicted_reasoning_review` listing the central claims it rests on (or,
-  beside a null grade, the record's ground for it). It is designed, awaiting
-  its pilot, and not registered, so it is null on every committed evaluation:
-  `validate`'s `predicted_reasoning_grade_awaits_registration` refuses a
-  committed one (*Grading the forecast document, design* in
+  beside a null grade, the record's ground for it). It is registered with
+  `proc-v16`: every evaluation stamped under it carries the grade, or a null
+  with its ground, for each candidate that has a forecast document, on every
+  stage. Evaluations stamped earlier carry none. No board reads it yet
+  (*Grading the forecast document, design* in
   `docs/outcome-decomposition.md`).
 - **`evaluation.md`** — free-form: what the prediction got right or wrong and
-  why, and what drove the `reasoning_quality` score.
+  why, what drove the `reasoning_quality` score, and a **Predicted reasoning**
+  section on what drove the forecast document's grade.
 
 Four things are worth knowing when reading a scored cell — one per stage, plus
 who writes the baseline on each:

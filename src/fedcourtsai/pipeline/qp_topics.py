@@ -71,20 +71,23 @@ from pathlib import Path
 from typing import Final, Literal, NamedTuple, Protocol, cast, get_args
 
 from ..corpus import scotus_application_term_year, scotus_term_year, strip_docket_annotation
-from ..planning_rates import LABEL_RATES_USD_PER_ROW, label_rate_usd_per_row
+from ..planning_rates import SIDE_CODE_FRAME, label_rate_usd_per_row, label_rates_for
 from ..schemas import (
     QP_TOPIC_LABELS,
     QpTopicAgreement,
+    QpTopicApplicationLabelEntry,
     QpTopicApplicationLabels,
     QpTopicApplicationPublishedEntry,
     QpTopicApplicationReference,
     QpTopicBatchEntry,
+    QpTopicKindAgreement,
     QpTopicLabel,
     QpTopicLabelAgreement,
     QpTopicLabelEntry,
     QpTopicLabels,
     QpTopicPublishedEntry,
     QpTopicReference,
+    QpTopicReplicate,
     QpTopicShadow,
     QpTopicTriangleRow,
 )
@@ -305,15 +308,31 @@ def run_spend_path(data_root: Path, run_id: str, run_attempt: int) -> Path:
     return run_spend_dir(data_root) / f"{run_id}-{run_attempt}.json"
 
 
+def rate_source(model: str, *, frame: str) -> str:
+    """Where a label round's per-row rate comes from.
+
+    ``measured`` for a topic-label model the table names, ``provisional`` for a
+    side-coder model the table names (that table is set ahead of any measured
+    run), and ``highest-rate fallback`` for a model its frame's table does not
+    name. Re-anchoring the side-coder table on a measured run moves its rows
+    to ``measured`` here too.
+    """
+    if model not in label_rates_for(frame):
+        return "highest-rate fallback"
+    return "provisional" if frame == SIDE_CODE_FRAME else "measured"
+
+
 def build_label_plan(*, frame: str, model: str, rows: int) -> dict[str, object]:
     """The plan document a topic-label round is held on.
 
     Priced at the batch's rows times the labeler's per-row planning rate, so
     the review hold reads one upper estimate the way it reads a summarize
-    plan's. A model the rate table does not name is priced at its highest rate
-    and the plan says so.
+    plan's. A model the frame's rate table does not name is priced at its
+    highest rate and the plan says so; the ``alignment-sides`` frame (the merits
+    side coder, :mod:`fedcourtsai.pipeline.alignment_side`) prices at the side
+    coder's own table.
     """
-    rate = label_rate_usd_per_row(model)
+    rate = label_rate_usd_per_row(model, frame=frame)
     return {
         "stage": "label",
         "frame": frame,
@@ -321,22 +340,29 @@ def build_label_plan(*, frame: str, model: str, rows: int) -> dict[str, object]:
         "labeler": f"claude-code/{model}",
         "rows": rows,
         "rate_usd_per_row": rate,
-        "rate_source": "measured" if model in LABEL_RATES_USD_PER_ROW else "highest-rate fallback",
+        "rate_source": rate_source(model, frame=frame),
         "estimated_cost_usd_high": round(rows * rate, 2),
         "basis": (
-            "rows x the labeler's per-row planning rate (fedcourtsai.planning_rates), set at "
-            "or above the measured ceiling-sized batches; one headless session, so a refused "
-            "or short run spends about what a published one does"
+            "rows x the side coder's provisional per-row rate (fedcourtsai.planning_rates), "
+            "three times the topic labeler's for the same model until a measured run "
+            "re-anchors it; one headless session, so a short run spends about what a "
+            "published one does"
+            if frame == SIDE_CODE_FRAME
+            else "rows x the labeler's per-row planning rate (fedcourtsai.planning_rates), "
+            "set at or above the measured ceiling-sized batches; one headless session, so a "
+            "refused or short run spends about what a published one does"
         ),
     }
 
 
 def render_label_plan(plan: Mapping[str, object]) -> str:
     """The plan's step-summary report: what the round labels and what it is priced at."""
-    fallback = (
-        " (a model the rate table does not name, so its highest rate)"
-        if plan.get("rate_source") != "measured"
-        else ""
+    fallback = {
+        "measured": "",
+        "provisional": " (a provisional rate, set ahead of any measured run)",
+    }.get(
+        str(plan.get("rate_source")),
+        " (a model the rate table does not name, so its highest rate)",
     )
     return (
         f"### qp-topic label plan ({plan['frame']} frame)\n\n"
@@ -465,6 +491,7 @@ def derive_label_batch(
     ceiling: int | None = None,
     stratum: Callable[[str], str] = petition_stratum_key,
     seed: str = BATCH_ORDER_SEED,
+    reference_only: bool = False,
 ) -> QpTopicBatch:
     """Choose the rows one labeling dispatch labels, from committed state alone.
 
@@ -506,6 +533,14 @@ def derive_label_batch(
     The application frame cuts its batches by the same rule against the
     application reference block, with ``stratum`` set to
     :func:`application_stratum_key` and its own ``seed``.
+
+    ``reference_only`` keeps clause 1 and drops clause 2: the batch is the
+    in-frame reference members alone, with no fill. That is a **replicate**
+    batch (``docs/qp-topic.md``): it measures the labeler against the reference
+    and publishes nothing, so repeat replicates read identical inputs and their
+    spread is the labeler's run-to-run variation. The pool and strata are still
+    counted, so the arithmetic printed beside a replicate names the frame it was
+    cut from.
     """
     # Resolved here rather than as a default argument, which would bind the
     # module value once at import and ignore any later reading of it.
@@ -537,7 +572,8 @@ def derive_label_batch(
     for rows in buckets.values():
         rows.sort(key=lambda case_id: _batch_order_key(case_id, seed))
     allocation = _apportion(
-        {key: len(rows) for key, rows in buckets.items()}, budget - len(in_reference)
+        {key: len(rows) for key, rows in buckets.items()},
+        0 if reference_only else budget - len(in_reference),
     )
     drawn = [case_id for key in sorted(buckets) for case_id in buckets[key][: allocation[key]]]
     return QpTopicBatch(
@@ -715,8 +751,13 @@ def measure_agreement(labels: Mapping[str, str], reference: _Reference) -> QpTop
     )
 
 
-def read_label_lines(path: Path) -> list[QpTopicLabelEntry]:
+def _read_lines[Line: QpTopicLabelEntry](path: Path, model: type[Line]) -> list[Line]:
     """Read the labeler's JSONL intermediate, one entry per line.
+
+    ``model`` is the line shape: the topic line, or on the application frame
+    :class:`~fedcourtsai.schemas.QpTopicApplicationLabelEntry`, which also
+    carries the policy area (:func:`read_label_lines`,
+    :func:`read_application_label_lines`).
 
     Every line validates against the vocabulary before anything is measured: an
     unknown label is a labeler that has drifted from ``docs/qp-topic.md``, and
@@ -724,12 +765,12 @@ def read_label_lines(path: Path) -> list[QpTopicLabelEntry]:
     The offending line is quoted back with its number, because the labeler that
     has to fix it reads a run log, not a traceback.
     """
-    entries: list[QpTopicLabelEntry] = []
+    entries: list[Line] = []
     for number, line in enumerate(path.read_text().splitlines(), start=1):
         if not line.strip():
             continue
         try:
-            entries.append(QpTopicLabelEntry.model_validate(json.loads(line)))
+            entries.append(model.model_validate(json.loads(line)))
         except (ValueError, TypeError) as exc:
             # Echo the head of the line only: a labeler that pasted petition
             # text into it would otherwise republish that text into a run log.
@@ -739,6 +780,16 @@ def read_label_lines(path: Path) -> list[QpTopicLabelEntry]:
     if not entries:
         raise QpTopicError(f"{path}: no label lines")
     return entries
+
+
+def read_label_lines(path: Path) -> list[QpTopicLabelEntry]:
+    """Read a topic labeler's JSONL, by :func:`_read_lines`'s rules."""
+    return _read_lines(path, QpTopicLabelEntry)
+
+
+def read_application_label_lines(path: Path) -> list[QpTopicApplicationLabelEntry]:
+    """Read an application labeler's JSONL, policy area included."""
+    return _read_lines(path, QpTopicApplicationLabelEntry)
 
 
 class QpText(NamedTuple):
@@ -827,7 +878,7 @@ def _check_reference_join(entries: Sequence[QpTopicLabelEntry], reference: _Refe
             )
 
 
-def _check_extract_join(entries: Sequence[QpTopicLabelEntry], texts: Mapping[str, QpText]) -> None:
+def check_extract_join(entries: Sequence[QpTopicLabelEntry], texts: Mapping[str, QpText]) -> None:
     """Fail unless the labels and the extract are the same cases, keyed the same way.
 
     The extract is the labeler's entire entitled input, so exact coverage is the
@@ -955,11 +1006,25 @@ def build_application_labels(
     if missing:
         raise QpTopicError(f"extract rows carry no input_kind: {missing[:3]}")
     block = {entry.case_id: entry.input_kind for entry in reference.entries}
+    standing = {entry.case_id: entry for entry in prior.entries} if prior is not None else {}
 
     def publish(row: dict[str, object]) -> QpTopicApplicationPublishedEntry:
         case_id = str(row["case_id"])
         kind = block[case_id] if row["source"] == "reference" else input_kinds[case_id]
-        return QpTopicApplicationPublishedEntry(**row, input_kind=kind)
+        # A row's policy area is accrued apart from its topic label
+        # (:mod:`.application_policy`), so a topic row rebuilt here keeps the
+        # area it already carries.
+        held = standing.get(case_id)
+        policy = (
+            {
+                "policy_area": held.policy_area,
+                "policy_source": held.policy_source,
+                "policy_batch": held.policy_batch,
+            }
+            if held is not None
+            else {}
+        )
+        return QpTopicApplicationPublishedEntry(**row, input_kind=kind, **policy)
 
     accrued = _accrue(
         entries=entries,
@@ -981,6 +1046,7 @@ def build_application_labels(
         cases=len(rows),
         agreement=accrued.agreement,
         shadow=accrued.shadow,
+        policy_agreement=prior.policy_agreement if prior is not None else None,
         batches=accrued.batches,
         entries=rows,
     )
@@ -1025,7 +1091,7 @@ def _accrue(
     if duplicates:
         raise QpTopicError(f"duplicate case_id in the labels: {', '.join(duplicates)}")
     _check_reference_join(entries, reference)
-    _check_extract_join(entries, texts)
+    check_extract_join(entries, texts)
 
     fired = 0
     disagreements = 0
@@ -1112,6 +1178,75 @@ def _accrue(
         batches=ledger,
         entries=sorted(published.values(), key=lambda row: row.case_id),
     )
+
+
+def measure_replicate(
+    *,
+    entries: Sequence[QpTopicLabelEntry],
+    texts: Mapping[str, QpText],
+    reference: QpTopicReference | QpTopicApplicationReference,
+    reference_sha256: str,
+    prompt_sha256: str,
+) -> tuple[QpTopicAgreement, QpTopicReplicate]:
+    """Measure one reference-only replicate, without accruing anything.
+
+    A replicate's extract is the frame's reference rows alone
+    (``qp-corpus --reference-only``), so the joins :func:`build_labels` makes
+    are made here too — duplicates, the two-key reference join, and the exact
+    extract join — and one more: every extract row is a reference row, since a
+    replicate that labeled anything else was handed a labeling batch. What comes
+    back is the pooled agreement (the gate figures, which the run record carries
+    and nothing enforces) and the item-level record
+    :class:`~fedcourtsai.schemas.QpTopicReplicate` holds: which reference rows
+    this run matched, how many it called ``unclassifiable``, and the per-kind
+    split on the application block. No labels artifact is built, so a replicate
+    cannot publish whatever it measures.
+    """
+    seen = Counter(entry.case_id for entry in entries)
+    duplicates = sorted(case_id for case_id, count in seen.items() if count > 1)
+    if duplicates:
+        raise QpTopicError(f"duplicate case_id in the labels: {', '.join(duplicates)}")
+    members = {entry.case_id for entry in reference.entries}
+    strays = sorted(set(texts) - members)
+    if strays:
+        raise QpTopicError(
+            f"a replicate extract holds reference rows alone; {len(strays)} row(s) are not in "
+            f"the reference (e.g. {strays[:3]}) — this is a labeling batch, not a replicate"
+        )
+    _check_reference_join(entries, reference)
+    check_extract_join(entries, texts)
+    labels = {entry.case_id: entry.label for entry in entries}
+    agreement = measure_agreement(labels, reference)
+    hand: Sequence[_ReferenceEntry] = reference.entries
+    ordered = sorted(hand, key=lambda entry: entry.case_id)
+    matches = "".join(
+        "-" if entry.case_id not in labels else "1" if labels[entry.case_id] == entry.label else "0"
+        for entry in ordered
+    )
+    per_kind: list[QpTopicKindAgreement] = []
+    if isinstance(reference, QpTopicApplicationReference):
+        for kind in get_args(InputKind):
+            rows = [
+                entry
+                for entry in reference.entries
+                if entry.input_kind == kind and entry.case_id in labels
+            ]
+            per_kind.append(
+                QpTopicKindAgreement(
+                    input_kind=kind,
+                    agree=sum(1 for entry in rows if labels[entry.case_id] == entry.label),
+                    n=len(rows),
+                )
+            )
+    replicate = QpTopicReplicate(
+        reference_sha256=reference_sha256,
+        prompt_sha256=prompt_sha256,
+        reference_entries=len(ordered),
+        matches=matches,
+        unclassifiable=sum(1 for entry in ordered if labels.get(entry.case_id) == "unclassifiable"),
+        per_input_kind=per_kind,
+    )
+    return agreement, replicate
 
 
 def render_input_kind_split(

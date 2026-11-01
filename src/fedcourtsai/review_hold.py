@@ -90,12 +90,12 @@ from .collect import AUTO_RELEASED_MARKER
 from .config import SpendConfig, load_spend_config
 from .pipeline.qp_topics import run_spend_dir
 from .planning_rates import price_cells
-from .schemas import QpTopicRunSpend
+from .schemas import QpTopicFrame, QpTopicRunSpend
 from .serialize import read_model
 from .spend import MeasuredSpend, iter_labeler_runs
 from .spend import measured_spend as _measured_spend
 
-__all__ = ["MeasuredSpend"]
+__all__ = ["SEAMS", "MeasuredSpend"]
 
 #: The lanes whose rounds the review hold may auto-release. The back-test is
 #: not one: its replay always waits on a maintainer's release.
@@ -271,7 +271,10 @@ def label_refusal(data_root: Path, frame: str, *, now: datetime | None = None) -
     extract job carried from the frame's open, unmerged PR): when the newest
     gated run of the frame — ``published`` or ``refused``, by ``recorded_at`` —
     was refused, a retry waits for a maintainer. An ``incomplete`` run was never
-    gated, so it neither sets nor clears the refusal. A record that will not
+    gated, so it neither sets nor clears the refusal, and neither does a
+    ``replicate``: it measured the reference block and published nothing by
+    design, so a replicate dispatched after a refusal cannot release the next
+    labeling round. A record that will not
     read keeps the hold, and so does one of the frame's records dated after
     ``now`` (this round's plan): a record from the future is not one a run
     wrote, and a forged ``published`` one would otherwise mask a refusal.
@@ -286,7 +289,7 @@ def label_refusal(data_root: Path, frame: str, *, now: datetime | None = None) -
             f"a {frame} labeling run record is dated after this round's plan, so the records "
             "cannot be trusted to name the last gated run"
         )
-    gated = [run for run in runs if run.frame == frame and run.outcome != "incomplete"]
+    gated = [run for run in runs if run.frame == frame and run.outcome in ("published", "refused")]
     if not gated:
         return None
     newest = max(gated, key=lambda run: (run.recorded_at, int(run.run_id), run.run_attempt))
@@ -738,7 +741,7 @@ def _label_refusal_for(
     (:func:`label_pending`), then a refusal (:func:`label_refusal`).
     """
     frame = plan.get("frame")
-    if frame not in ("petitions", "applications"):
+    if frame not in get_args(QpTopicFrame):
         return "the plan names no labeling frame"
     if carried_file is not None:
         try:

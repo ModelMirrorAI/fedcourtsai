@@ -97,6 +97,12 @@ frames' backlogs clear and most weeks stand down. A `claude-fable-5` dispatch
 of a full 1,200-row batch prices at $72, just under the $75 per-round cap, so
 it too can auto-release. Every run's spend is recorded
 under `data/qp-topics/spend/`, a run refused at the reference gate included.
+The same lane runs the merits side coder
+([merits-alignment-baseline.md](merits-alignment-baseline.md)) weekly over new
+merits grants, priced at a provisional $0.06 a row at the default model
+(three times the topic labeler's, since no side-coding run has been measured):
+its first run codes the backlog of about 300 grants, about $18 at that rate,
+and a later week codes the few new grants or stands down.
 
 **The merits replay and the grading pilot over it spend outside the ledger
 too** ([pipeline.md](pipeline.md), *The predict/evaluate matrix*, for the
@@ -117,15 +123,47 @@ the topic labeler's runs are what that window counts.)
   the briefed moment's kept forecasts for up to 15 cases, one grading run per
   evaluator per event. At the table's evaluate rows ($5.92 + $1.30 + $1.29,
   $8.51 an event) that is about $130. The round is always held for a release
-  and never auto-released. It reads every writing of the decision, not only
-  the majority opinion a ledger round stages, and the evaluate rows were
-  measured on cert-stage gradings that read no opinion at all, so the figure
+  and never auto-released. It reads every writing of the decision, as every
+  evaluate cell does, and the evaluate rows were measured on cert-stage
+  gradings that read no opinion and graded no forecast document, so the figure
   reads low.
 
 Together, a 20-case replay and its pilot round (grading 15 of those cases)
-come to roughly $460, once. Both rates come from the planning table, not a measurement, and neither
-round's cells reach the committed ledger, so `fedcourts usage-summary` never
-counts what they spent: the provider bills do.
+come to roughly $460, once. Both rates come from the planning table, not a
+measurement, and neither round's cells reach the committed ledger, so
+`fedcourts usage-summary` never counts what they spent. What they spent is
+measured apart, with the rest of the test and staging spend below.
+
+## Test and staging spend, reported separately
+
+Several lanes spend real tokens and commit nothing to `data/`: the integration
+suite's engine legs (`engine-smoke`, `engine-actions-smoke` and its daily boot
+canary, `codex-application-repro`, `qp-labeler-smoke`), and so the promotion
+gate's `gate` runs; the staging rehearsals of the topic labeler and the case
+summaries, whose publication is fenced to `main`; the cert and merits replays
+(`run-backtest` on a real engine, its gemini cells excepted: they write no
+log in the shared checkout to read, so their share goes unrecorded); and both reasoning-pilot rounds. Each such
+leg leaves one priced **off-ledger spend record** (`OffLedgerSpend`), failed
+legs included, read from the engine's own log or the cells' `usage.json` by the
+parsers `record-usage` uses and priced at the same rate table. The record rides
+an `off-ledger-spend-*` run artifact, so no leg holds a write credential, and
+the daily `run-ops` job sweeps the artifacts onto the `ops-metrics` branch,
+where they outlive the artifacts' retention ([pipeline.md](pipeline.md),
+*Operational analytics*).
+
+`fedcourts off-ledger-spend-report` gives the figure: the trailing 7 and 30
+days split by environment (`staging` keys or `prod` keys) and by lane, the six
+newest months with spend, and each promotion-gate run's cost, every recorded leg
+of every attempt summed. A leg whose record was lost (a runner that died before
+its recording step, a failed upload) is missing from that sum, so a gate figure
+is a lower bound. `run-ops` appends it to its run summary daily.
+
+**It is reported separately and counted nowhere.** Test traffic must never hold
+back a production round, so these records never
+join the total the `spend` backstop and the auto-release budget read; nothing
+that gates spend reads the `ops-metrics` branch. The lanes keep the bounds
+named beside each of them on this page instead. Records start with the first
+legs that run the recording steps, so the report has no history before then.
 
 ## Scenario 1: Bootstrapping
 
@@ -156,13 +194,16 @@ in `config/tracking.yaml` sits above the budget and stops minting outright
 ([pipeline.md](pipeline.md), *Auto-release*).
 
 One more unattended spend sits outside that budget: the promotion train's
-integration `gate` suite, about $8 of the staging environment's engine keys
-per promotion candidate, dispatched with no review hold. It is bounded on its
-own terms — once per candidate head, never re-dispatched by the train, and at
-most `max_gate_dispatches_per_day` suites a UTC day (`config/promotion-train.yaml`,
-code-owned like the review hold's caps) — so at the measured cadence of about
-one promotion a day it runs to roughly $250 a month ([pipeline.md](pipeline.md),
-*Promotion: staging → main*).
+integration `gate` suite, estimated at about $8 of the staging environment's
+engine keys per promotion candidate, dispatched with no review hold. It is
+bounded on its own terms — once per candidate head, never re-dispatched by the
+train, and at most `max_gate_dispatches_per_day` suites a UTC day
+(`config/promotion-train.yaml`, code-owned like the review hold's caps) — so at
+the measured cadence of about one promotion a day the estimate runs to roughly
+$250 a month ([pipeline.md](pipeline.md), *Promotion: staging → main*). Each
+gate run's measured cost is the report's promotion-gate table (*Test and
+staging spend, reported separately*, above), which is where to read this figure
+once gate runs are on record, and which counts toward no budget either.
 
 ## Scenario 2: Scaling
 
