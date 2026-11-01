@@ -75,6 +75,7 @@ from ..planning_rates import SIDE_CODE_FRAME, label_rate_usd_per_row, label_rate
 from ..schemas import (
     QP_TOPIC_LABELS,
     QpTopicAgreement,
+    QpTopicApplicationLabelEntry,
     QpTopicApplicationLabels,
     QpTopicApplicationPublishedEntry,
     QpTopicApplicationReference,
@@ -750,8 +751,13 @@ def measure_agreement(labels: Mapping[str, str], reference: _Reference) -> QpTop
     )
 
 
-def read_label_lines(path: Path) -> list[QpTopicLabelEntry]:
+def _read_lines[Line: QpTopicLabelEntry](path: Path, model: type[Line]) -> list[Line]:
     """Read the labeler's JSONL intermediate, one entry per line.
+
+    ``model`` is the line shape: the topic line, or on the application frame
+    :class:`~fedcourtsai.schemas.QpTopicApplicationLabelEntry`, which also
+    carries the policy area (:func:`read_label_lines`,
+    :func:`read_application_label_lines`).
 
     Every line validates against the vocabulary before anything is measured: an
     unknown label is a labeler that has drifted from ``docs/qp-topic.md``, and
@@ -759,12 +765,12 @@ def read_label_lines(path: Path) -> list[QpTopicLabelEntry]:
     The offending line is quoted back with its number, because the labeler that
     has to fix it reads a run log, not a traceback.
     """
-    entries: list[QpTopicLabelEntry] = []
+    entries: list[Line] = []
     for number, line in enumerate(path.read_text().splitlines(), start=1):
         if not line.strip():
             continue
         try:
-            entries.append(QpTopicLabelEntry.model_validate(json.loads(line)))
+            entries.append(model.model_validate(json.loads(line)))
         except (ValueError, TypeError) as exc:
             # Echo the head of the line only: a labeler that pasted petition
             # text into it would otherwise republish that text into a run log.
@@ -774,6 +780,16 @@ def read_label_lines(path: Path) -> list[QpTopicLabelEntry]:
     if not entries:
         raise QpTopicError(f"{path}: no label lines")
     return entries
+
+
+def read_label_lines(path: Path) -> list[QpTopicLabelEntry]:
+    """Read a topic labeler's JSONL, by :func:`_read_lines`'s rules."""
+    return _read_lines(path, QpTopicLabelEntry)
+
+
+def read_application_label_lines(path: Path) -> list[QpTopicApplicationLabelEntry]:
+    """Read an application labeler's JSONL, policy area included."""
+    return _read_lines(path, QpTopicApplicationLabelEntry)
 
 
 class QpText(NamedTuple):
@@ -862,7 +878,7 @@ def _check_reference_join(entries: Sequence[QpTopicLabelEntry], reference: _Refe
             )
 
 
-def _check_extract_join(entries: Sequence[QpTopicLabelEntry], texts: Mapping[str, QpText]) -> None:
+def check_extract_join(entries: Sequence[QpTopicLabelEntry], texts: Mapping[str, QpText]) -> None:
     """Fail unless the labels and the extract are the same cases, keyed the same way.
 
     The extract is the labeler's entire entitled input, so exact coverage is the
@@ -990,11 +1006,25 @@ def build_application_labels(
     if missing:
         raise QpTopicError(f"extract rows carry no input_kind: {missing[:3]}")
     block = {entry.case_id: entry.input_kind for entry in reference.entries}
+    standing = {entry.case_id: entry for entry in prior.entries} if prior is not None else {}
 
     def publish(row: dict[str, object]) -> QpTopicApplicationPublishedEntry:
         case_id = str(row["case_id"])
         kind = block[case_id] if row["source"] == "reference" else input_kinds[case_id]
-        return QpTopicApplicationPublishedEntry(**row, input_kind=kind)
+        # A row's policy area is accrued apart from its topic label
+        # (:mod:`.application_policy`), so a topic row rebuilt here keeps the
+        # area it already carries.
+        held = standing.get(case_id)
+        policy = (
+            {
+                "policy_area": held.policy_area,
+                "policy_source": held.policy_source,
+                "policy_batch": held.policy_batch,
+            }
+            if held is not None
+            else {}
+        )
+        return QpTopicApplicationPublishedEntry(**row, input_kind=kind, **policy)
 
     accrued = _accrue(
         entries=entries,
@@ -1016,6 +1046,7 @@ def build_application_labels(
         cases=len(rows),
         agreement=accrued.agreement,
         shadow=accrued.shadow,
+        policy_agreement=prior.policy_agreement if prior is not None else None,
         batches=accrued.batches,
         entries=rows,
     )
@@ -1060,7 +1091,7 @@ def _accrue(
     if duplicates:
         raise QpTopicError(f"duplicate case_id in the labels: {', '.join(duplicates)}")
     _check_reference_join(entries, reference)
-    _check_extract_join(entries, texts)
+    check_extract_join(entries, texts)
 
     fired = 0
     disagreements = 0
@@ -1183,7 +1214,7 @@ def measure_replicate(
             f"the reference (e.g. {strays[:3]}) — this is a labeling batch, not a replicate"
         )
     _check_reference_join(entries, reference)
-    _check_extract_join(entries, texts)
+    check_extract_join(entries, texts)
     labels = {entry.case_id: entry.label for entry in entries}
     agreement = measure_agreement(labels, reference)
     hand: Sequence[_ReferenceEntry] = reference.entries

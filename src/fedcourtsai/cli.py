@@ -309,6 +309,16 @@ from .pipeline import (
     watchlist_refresh,
 )
 from .pipeline.amicus_rederive import AmicusRederiveResult, rederive_amicus_briefs
+from .pipeline.application_policy import (
+    PolicyBatch,
+    accrue_policy,
+    derive_policy_rows,
+    label_prompt_sha256,
+    measure_policy,
+    policy_only_rows,
+    read_policy_rows,
+    render_policy,
+)
 from .pipeline.application_topics import (
     APPLICATION_EXTRACT_RULE,
     ApplicationExtractRow,
@@ -428,6 +438,7 @@ from .pipeline.party import (
     party_census,
 )
 from .pipeline.party_rates import DEFAULT_RATES_RULE, party_rates
+from .pipeline.policy_area import policy_areas, policy_source
 from .pipeline.pull import (
     BACKLOG_MAX_POLL_AGE_DAYS,
     CaseDisposition,
@@ -563,6 +574,7 @@ from .schemas import (
     QpTopicApplicationLabels,
     QpTopicApplicationReference,
     QpTopicFrame,
+    QpTopicLabelEntry,
     QpTopicLabels,
     QpTopicReference,
     QpTopicReplicate,
@@ -2266,6 +2278,12 @@ def executive_success_cmd(
             corpus_sha256=corpus_sha,
             scope_rule_version=scope_rule_version,
             reading="finer" if reading == "finer" else "registered",
+            policy=policy_source(
+                _read_best_effort(
+                    qp_topics.application_labels_path(settings.data_root),
+                    QpTopicApplicationLabels,
+                )
+            ),
         )
     pulled = result.latest_pull.isoformat() if result.latest_pull else "never pulled"
     snapshot = result.latest_snapshot.isoformat() if result.latest_snapshot else "none"
@@ -8053,7 +8071,50 @@ def _work_tree_root() -> Path | None:
     return None
 
 
-def _labeling_batch[Row: (QpExtractRow, ApplicationExtractRow)](  # noqa: PLR0912 - one refusal per state
+def _policy_batch(
+    frame: Sequence[QpExtractRow | ApplicationExtractRow],
+    topic_batch: Sequence[str],
+    artifact: QpTopicApplicationLabels | None,
+) -> PolicyBatch:
+    """The policy-only rows an application batch adds (:func:`derive_policy_rows`)."""
+    try:
+        return derive_policy_rows(
+            frame=[
+                (row.case_id, row.docket_number, getattr(row, "policy_row", False)) for row in frame
+            ],
+            topic_batch=topic_batch,
+            artifact=artifact,
+            hand=policy_areas(),
+            budget=qp_topics.LABEL_ROW_CEILING - len(topic_batch),
+            seed=qp_topics.APPLICATION_BATCH_ORDER_SEED,
+            prompt_sha256=label_prompt_sha256(),
+        )
+    except qp_topics.QpTopicError as exc:
+        typer.echo(f"qp-corpus: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+
+
+def _with_policy(
+    rows: Sequence[object], frame: Sequence[object], policy: PolicyBatch
+) -> list[ApplicationExtractRow]:
+    """The batch rows with the policy rows added, or every ``policy_row`` cleared.
+
+    A batch that asks for an area adds its rows (:func:`derive_policy_rows`)
+    flagged like every other policy row and in frame order, so nothing in the
+    extract, a row's position included, says which rows are measured. One that
+    asks for none clears the flag on every row, so the labeler gives no area
+    to measure.
+    """
+    batch = [row for row in rows if isinstance(row, ApplicationExtractRow)]
+    if policy.asks:
+        wanted = {row.case_id for row in batch} | set(policy.case_ids)
+        return [
+            row for row in frame if isinstance(row, ApplicationExtractRow) and row.case_id in wanted
+        ]
+    return [replace(row, policy_row=False) for row in batch]
+
+
+def _labeling_batch[Row: (QpExtractRow, ApplicationExtractRow)](  # noqa: PLR0912, PLR0915 - one refusal per state
     frame: Sequence[Row],
     *,
     data_root: Path,
@@ -8108,11 +8169,13 @@ def _labeling_batch[Row: (QpExtractRow, ApplicationExtractRow)](  # noqa: PLR091
         raise typer.Exit(code=1)
     reference: QpTopicReference | QpTopicApplicationReference
     labeled: set[str] = set()
+    application_labels: QpTopicApplicationLabels | None = None
     if applications:
         reference = read_model(reference_file, QpTopicApplicationReference)
         labels_file = qp_topics.application_labels_path(data_root)
         if labels_file.is_file():
-            labeled = {e.case_id for e in read_model(labels_file, QpTopicApplicationLabels).entries}
+            application_labels = read_model(labels_file, QpTopicApplicationLabels)
+            labeled = {e.case_id for e in application_labels.entries}
         stratum, seed = qp_topics.application_stratum_key, qp_topics.APPLICATION_BATCH_ORDER_SEED
     else:
         reference = read_model(reference_file, QpTopicReference)
@@ -8166,7 +8229,13 @@ def _labeling_batch[Row: (QpExtractRow, ApplicationExtractRow)](  # noqa: PLR091
             err=True,
         )
         raise typer.Exit(code=1)
-    if batch.converged and not reference_only:
+    policy = (
+        _policy_batch(frame, batch.case_ids, application_labels)
+        if applications and not reference_only
+        else None
+    )
+    policy_owed = policy is not None and policy.asks
+    if batch.converged and not reference_only and not policy_owed:
         # Loud, and non-zero: the frame is labeled out. Another dispatch would
         # re-grade the reference set, publish not one new row, and spend a
         # labeling run to do it. A pull that ingests new petitions is what makes
@@ -8181,7 +8250,7 @@ def _labeling_batch[Row: (QpExtractRow, ApplicationExtractRow)](  # noqa: PLR091
         if converged_ok:
             return None
         raise typer.Exit(code=1)
-    if not batch.fill and not reference_only:
+    if not batch.fill and not reference_only and not policy_owed:
         # Rows left to label, but no budget to label them with: the reference set
         # fills the ceiling on its own. The run would read a full extract and
         # publish nothing, repeatably — the converged waste without the converged
@@ -8198,14 +8267,25 @@ def _labeling_batch[Row: (QpExtractRow, ApplicationExtractRow)](  # noqa: PLR091
         if converged_ok:
             return None
         raise typer.Exit(code=1)
+    selected = set(batch.case_ids)
+    rows = [row for row in frame if row.case_id in selected]
+    metadata = qp_topics.batch_metadata(batch, seed=seed)
+    if policy is not None:
+        rows = cast(Any, _with_policy(rows, frame, policy))
+        # `rows` is the whole extract, the count the label step holds the
+        # labeler's lines to and the round is priced at.
+        metadata |= {
+            "rows": len(rows),
+            "policy_owed": policy.owed,
+            "policy_rows": len(policy.case_ids),
+            "policy_held": policy.held,
+        }
     # Beside the extract, never inside it: the extract is the labeler's whole
     # evidentiary input and the contract is text-only, so the selection rule and
     # its Term x fee-class counts stay out of the file the labeler reads. The run
     # mode uploads the extract by name, so this file does not travel to the
     # labeling job either.
-    write_raw_json(
-        out.with_name(out.stem + ".batch.json"), qp_topics.batch_metadata(batch, seed=seed)
-    )
+    write_raw_json(out.with_name(out.stem + ".batch.json"), metadata)
     typer.echo(f"qp-corpus: batch derived from committed state ({scope})", err=True)
     if reference_only:
         typer.echo(
@@ -8214,8 +8294,21 @@ def _labeling_batch[Row: (QpExtractRow, ApplicationExtractRow)](  # noqa: PLR091
             err=True,
         )
     typer.echo(qp_topics.render_batch(batch), err=True)
-    selected = set(batch.case_ids)
-    return [row for row in frame if row.case_id in selected]
+    if policy is not None and policy.held is not None:
+        typer.echo(
+            f"qp-corpus: policy areas owed on {policy.owed} row(s) but none asked for: "
+            f"{policy.held}",
+            err=True,
+        )
+    elif policy is not None and policy.asks:
+        typer.echo(
+            f"qp-corpus: policy areas owed on {policy.owed} row(s); adding "
+            f"{len(policy.case_ids)} row(s) for their area ({policy.backfill} backfill, the "
+            f"rest hand-labeled rows for the measurement), {policy.remaining} left for a "
+            "later batch",
+            err=True,
+        )
+    return rows
 
 
 @app.command("same-question-lists")
@@ -8683,6 +8776,10 @@ def _qp_corpus_applications(
     if rows is None:
         typer.echo("qp-corpus: nothing owed in this frame; standing down (--converged-ok)")
         return
+    if reference_only:
+        # A replicate measures the topic labeler alone, so its rows ask for no
+        # policy area and every replicate reads the same input.
+        rows = [replace(row, policy_row=False) for row in rows]
     write_raw_json(out, [row.as_json() for row in rows])
     typer.echo(f"qp-corpus: {len(rows)} application(s) -> {out}")
 
@@ -8876,22 +8973,64 @@ def _qp_topics_applications(
         raise typer.Exit(code=1)
     prior_path = qp_topics.application_labels_path(settings.data_root)
     prior = read_model(prior_path, QpTopicApplicationLabels) if prior_path.is_file() else None
+    policy_note: str | None = None
     try:
+        lines = qp_topics.read_application_label_lines(labels)
+        policy_rows = read_policy_rows(texts)
+        block = read_model(reference_path, QpTopicApplicationReference)
+        set_aside = policy_only_rows([entry.case_id for entry in lines], prior, block)
+        all_texts = qp_topics.read_texts(texts)
+        # A policy-only row is in the batch for its policy area alone: its topic
+        # is already published, so its topic line is neither measured nor
+        # published, and the topic accrual reads the rest exactly as before.
+        qp_topics.check_extract_join(lines, all_texts)
+        topic_lines = [
+            QpTopicLabelEntry.model_validate(entry.model_dump(exclude={"policy_area"}))
+            for entry in lines
+            if entry.case_id not in set_aside
+        ]
+        topic_ids = {entry.case_id for entry in topic_lines}
+        kinds = qp_topics.read_input_kinds(texts)
         artifact = qp_topics.build_application_labels(
-            entries=qp_topics.read_label_lines(labels),
-            texts=qp_topics.read_texts(texts),
-            input_kinds=qp_topics.read_input_kinds(texts),
+            entries=topic_lines,
+            texts={case_id: row for case_id, row in all_texts.items() if case_id in topic_ids},
+            input_kinds={case_id: kind for case_id, kind in kinds.items() if case_id in topic_ids},
             reference=read_model(reference_path, QpTopicApplicationReference),
             labeler=labeler,
             prior=prior,
             frame_rows=frame_rows,
         )
+        # Measured only when the topic gate passed: a refused run writes
+        # nothing, so a policy figure from it would never reach the ledger the
+        # refusal hold reads, and re-running until both gates pass would be a
+        # best-of-k policy gate.
+        measured = (
+            measure_policy(
+                entries=lines,
+                policy_rows=policy_rows,
+                hand=policy_areas(),
+                prompt_sha256=label_prompt_sha256(),
+            )
+            if artifact.agreement.gate_passed
+            else None
+        )
+        if measured is not None:
+            policy_agreement, areas = measured
+            artifact, published = accrue_policy(
+                artifact, agreement=policy_agreement, areas=areas, hand=policy_areas()
+            )
+            policy_note = render_policy(policy_agreement, published)
     except qp_topics.QpTopicError as exc:
         typer.echo(f"qp-topics: {exc}", err=True)
         raise typer.Exit(code=1) from exc
     reference = read_model(reference_path, QpTopicApplicationReference)
-    lines = {entry.case_id: entry.label for entry in qp_topics.read_label_lines(labels)}
-    typer.echo(qp_topics.render_input_kind_split(lines, reference))
+    typer.echo(
+        qp_topics.render_input_kind_split(
+            {entry.case_id: entry.label for entry in topic_lines}, reference
+        )
+    )
+    if policy_note is not None:
+        typer.echo(policy_note)
     if agreement_out is not None:
         write_json(agreement_out, artifact.agreement)
     _report_labels_run(artifact, reference_name="the application reference block")

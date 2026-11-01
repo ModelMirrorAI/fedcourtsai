@@ -9336,6 +9336,25 @@ class AlignmentSideCodes(_Strict):
         return self
 
 
+PolicyAreaLabel = Literal[
+    "immigration",
+    "federal-executions",
+    "foreign-affairs",
+    "elections-census",
+    "personnel-removal",
+    "education",
+    "health",
+    "environment-energy",
+    "firearms",
+    "other",
+]
+"""The executive policy-area vocabulary (``policy-area-v1``), in reporting order.
+
+Defined here so the application labels artifact can carry a policy area;
+:mod:`fedcourtsai.pipeline.policy_area` documents what each area covers.
+"""
+
+
 class QpTopicLabelEntry(_Strict):
     """One labeled question-presented text: a case, its primary topic, and its optional facets.
 
@@ -9368,6 +9387,21 @@ class QpTopicLabelEntry(_Strict):
         default=False,
         description="The petition asks for a GVR in light of a named decision; the label is "
         "the underlying subject. Recorded, unpublishable in v0",
+    )
+
+
+class QpTopicApplicationLabelEntry(QpTopicLabelEntry):
+    """One line of the labeler's JSONL on the application frame.
+
+    The topic line plus the executive policy area, which the labeler gives on
+    a row the extract marks ``policy_row`` and on no other (``docs/qp-topic.md``,
+    *Policy areas*).
+    """
+
+    policy_area: PolicyAreaLabel | None = Field(
+        default=None,
+        description="The executive policy area the application is about, under the "
+        "policy-area-v1 vocabulary; given only on a row the extract marks policy_row",
     )
 
 
@@ -9414,7 +9448,8 @@ class QpTopicBatchEntry(_Strict):
     different questions: ``published`` is what the batch added to the file, while
     ``measured`` is what its labeler actually read — larger by the reference rows
     it re-graded, which are the per-run cost of the measurement and publish
-    nothing new.
+    nothing new. The ``policy_*`` fields are the application frame's policy
+    measurement and stay empty on the petition frame.
 
     The measurement fields are kept per batch rather than only at the top level
     so a drifting labeler is visible as a series rather than as a single current
@@ -9477,6 +9512,31 @@ class QpTopicBatchEntry(_Strict):
         "extract counted them. The denominator that turns the labeled share of the frame "
         "from a bound into a measurement, at this batch's corpus vintage and no other's. "
         "None where the extract reported no count",
+    )
+    policy_agree: int | None = Field(
+        default=None,
+        ge=0,
+        description="Application frame: hand-labeled rows whose policy area the labeler "
+        "matched; null where the batch measured no policy area",
+    )
+    policy_n: int | None = Field(
+        default=None, ge=0, description="Hand-labeled rows compared on policy area"
+    )
+    policy_published: int | None = Field(
+        default=None,
+        ge=0,
+        description="Policy areas this batch published; 0 when its policy measurement was refused",
+    )
+    policy_gate_passed: bool | None = Field(
+        default=None,
+        description="Whether this batch's policy measurement passed its gate; null where the "
+        "batch measured no policy area",
+    )
+    policy_prompt_sha256: str | None = Field(
+        default=None,
+        pattern=r"^[0-9a-f]{64}$",
+        description="sha256 of the labeling prompt this batch's policy measurement read. After "
+        "a refusal, no later batch asks for policy areas until the prompt changes",
     )
 
     @model_validator(mode="after")
@@ -9709,6 +9769,130 @@ class QpTopicApplicationPublishedEntry(QpTopicPublishedEntry):
         description="Which extract shape the label was read from: with the stored "
         "application text, or from the caption, court below and docket entries alone"
     )
+    policy_area: PolicyAreaLabel | None = Field(
+        default=None,
+        description="The executive policy area (policy-area-v2), set once by the first batch "
+        "whose policy measurement passed its gate; null on a row with none",
+    )
+    policy_source: Literal["labeler", "reference"] | None = Field(
+        default=None,
+        description="Where the policy area came from: the labeler, or the policy-area-v1 hand "
+        "label for a row the hand set covers",
+    )
+    policy_batch: int | None = Field(
+        default=None, ge=1, description="The batch that published the policy area"
+    )
+
+    @model_validator(mode="after")
+    def _policy_fields_travel_together(self) -> QpTopicApplicationPublishedEntry:
+        present = [
+            field is not None for field in (self.policy_area, self.policy_source, self.policy_batch)
+        ]
+        if any(present) and not all(present):
+            raise ValueError(
+                f"{self.case_id}: policy_area, policy_source and policy_batch are set together"
+            )
+        return self
+
+
+class QpTopicPolicyAreaShare(_Strict):
+    """One hand-labeled policy area's agreement between the labeler and the hand labels."""
+
+    area: PolicyAreaLabel = Field(description="The hand label's area")
+    agree: int = Field(ge=0, description="Hand-labeled rows of this area the labeler matched")
+    n: int = Field(ge=0, description="Hand-labeled rows of this area compared")
+    labeled_other: int = Field(
+        default=0,
+        ge=0,
+        description="Hand-labeled rows of this area the labeler called `other`, the direction "
+        "a labeler that may not use its own knowledge of a case errs in",
+    )
+
+
+class QpTopicPolicyAgreement(_Strict):
+    """One batch's policy-area measurement against the ``policy-area-v1`` hand labels.
+
+    Agreement with hand labels whose raters were not blind to the outcome and
+    read their own knowledge of a public case, which the labeler may not, so
+    it is agreement with that reference and not accuracy.
+    """
+
+    reference_rule: Literal["policy-area-v1"] = Field(
+        default="policy-area-v1", description="The hand labels measured against"
+    )
+    batch: int | None = Field(
+        default=None,
+        ge=1,
+        description="The ledger batch that took this measurement; set when it becomes the "
+        "artifact's standing measurement",
+    )
+    reference_rows: int = Field(
+        ge=0, description="Hand-labeled rows in the batch, each a policy row"
+    )
+    reference_total: int = Field(ge=0, description="Hand-labeled rows in the committed set")
+    agree: int = Field(ge=0, description="Compared rows whose policy area matches the hand label")
+    n: int = Field(ge=0, description="Hand-labeled rows the labeler gave a policy area")
+    named_agree: int = Field(
+        default=0,
+        ge=0,
+        description="Of the compared rows whose hand label is a named area (not `other`), "
+        "those the labeler matched",
+    )
+    named_n: int = Field(
+        default=0, ge=0, description="Compared rows whose hand label is a named area"
+    )
+    certain_agree: int = Field(
+        default=0,
+        ge=0,
+        description="Of the compared rows the hand set does not flag uncertain, those matched",
+    )
+    certain_n: int = Field(
+        default=0, ge=0, description="Compared rows the hand set does not flag uncertain"
+    )
+    rate: float | None = Field(
+        default=None, ge=0, le=1, description="agree / n; null when nothing was compared"
+    )
+    floor: float | None = Field(
+        default=None,
+        ge=0,
+        le=1,
+        description="The rate a constant labeler would score: the commonest hand area's share",
+    )
+    uncovered: int = Field(
+        ge=0, description="Hand-labeled rows in the batch the labeler gave no policy area"
+    )
+    off_frame: int = Field(
+        default=0,
+        ge=0,
+        description="Lines that gave a policy area on a row not marked policy_row; dropped",
+    )
+    per_area: list[QpTopicPolicyAreaShare] = Field(
+        default_factory=list, description="Agreement per hand area, in vocabulary order"
+    )
+    gate_passed: bool = Field(
+        description="Whether the rate cleared the agreement gate and the constant-labeler "
+        "floor with the hand rows covered"
+    )
+    prompt_sha256: str | None = Field(
+        default=None,
+        pattern=r"^[0-9a-f]{64}$",
+        description="sha256 of the labeling prompt the measured run read, where it was found",
+    )
+
+    @model_validator(mode="after")
+    def _counts_hold(self) -> QpTopicPolicyAgreement:
+        if self.agree > self.n or self.n + self.uncovered != self.reference_rows:
+            raise ValueError(
+                "policy agreement counts do not hold: agree <= n and n + uncovered == "
+                "reference_rows"
+            )
+        if sum(share.n for share in self.per_area) != self.n:
+            raise ValueError("per-area n does not sum to the compared rows")
+        if self.named_agree > self.named_n or self.named_n > self.n:
+            raise ValueError("named-area counts do not hold")
+        if self.certain_agree > self.certain_n or self.certain_n > self.n:
+            raise ValueError("certain-row counts do not hold")
+        return self
 
 
 class QpTopicApplicationLabels(_Strict):
@@ -9751,6 +9935,12 @@ class QpTopicApplicationLabels(_Strict):
     )
     shadow: QpTopicShadow = Field(
         description="The most recent run's shadow-rule counts over the stored application text"
+    )
+    policy_agreement: QpTopicPolicyAgreement | None = Field(
+        default=None,
+        description="The most recent policy-area measurement that passed its gate, which the "
+        "standing policy areas were published under; null until one has. A refused policy "
+        "measurement is recorded on its batch's ledger row and leaves this unchanged",
     )
     batches: list[QpTopicBatchEntry] = Field(
         default_factory=list,
@@ -13087,6 +13277,12 @@ class ExecutivePolicyCell(_Strict):
     rows: int = Field(ge=0, description="In-scope applications in the cell, never-parsed aside")
     decided: int = Field(default=0, ge=0, description="Of those, substantively decided")
     wins: int = Field(default=0, ge=0, description="Of those decided, the executive's wins")
+    labeler_rows: int = Field(
+        default=0,
+        ge=0,
+        description="Of the rows, those whose area the application labeler gave rather than "
+        "the hand set (policy-area-v2 only)",
+    )
     success_rate: float | None = Field(
         default=None, description="wins / decided; null where none is decided"
     )
@@ -13149,6 +13345,11 @@ class ExecutiveSuccessRow(_Strict):
             "Whether the label's subject is in doubt: a rater was unsure of it "
             "or the raters differed"
         ),
+    )
+    policy_source: Literal["reference", "labeler"] | None = Field(
+        default=None,
+        description="Where the area came from: the hand set, or the application labeler under "
+        "policy-area-v2, whose areas are never flagged uncertain; null where unlabeled",
     )
 
 
@@ -13283,6 +13484,12 @@ class ExecutiveSuccess(_Strict):
     )
     policy_rule_version: str = Field(
         description="The vocabulary the policy cells are labeled under, e.g. policy-area-v1"
+    )
+    policy_measured_batch: int | None = Field(
+        default=None,
+        description="Under policy-area-v2, the application labels batch whose passing policy "
+        "measurement the cut reads; v2's labeler areas grow with later batches, so two v2 "
+        "cuts compare only beside this and the artifact they read",
     )
     policy_cells: list[ExecutivePolicyCell] = Field(
         default_factory=list,
