@@ -1151,9 +1151,9 @@ unchanged) is `caption-v2` with one check run first, ahead of every caption
 pattern: a petition whose **captioned petitioner** has the Solicitor General's
 office as **counsel of record** reads `federal`. The check reads the row's
 petitioner-side counsel entries, keeps one only where it is marked counsel of
-record, `sg-office-v1` places its attorney in the office on this docket
-(`pipeline.counsel.office_entries`, the annotation's own per-entry reading), and
-its party names the petitioner the caption names
+record, `sg-office-v1`'s roster places its attorney in the office on the
+docket's filing date (`pipeline.counsel.office_entries_at_filing`), and its
+party names the petitioner the caption names
 (`caption.names_captioned_petitioner`). The party match is lead against lead:
 each name up to its first comma or semicolon, the role suffix and "et al."
 dropped, case- and space-folded, the shorter lead's words the longer's trailing
@@ -1169,6 +1169,15 @@ only move a `private` or `state` read to `federal`, and every row it moves
 `caption-v3` moves too. A bare sovereign party ("United States") matches only
 a caption that is the sovereign itself, never one whose name merely ends in it.
 
+The roster test is at the filing date, narrower than the annotation's own
+per-entry reading, which places a name anywhere in the docket's life and admits
+a successor's late write on a federal party. The entry the rule reads is the one
+the petition's filing writes, so its attorney is either in the office the day
+the docket opens or in private practice: a private petition filed while its
+counsel of record was in private practice stays private after that attorney
+becomes Solicitor General, and a successor the office substitutes on a pending
+federal petition does not move the class either.
+
 The rule's recall gaps, declared: an office entry whose party is generic
 ("Federal Parties") names no captioned petitioner, so it moves nothing (the
 caption-v2 patterns read 26-104, whose office entry is listed so); and
@@ -1181,9 +1190,12 @@ that set `sal-v5` aside enter the petitioner block under a party other than the
 captioned petitioner: a supporting amicus as "United States", and a government
 petition consolidated at the grant under the government's own name. On the
 census frame `caption-v3` moves 21 live-slice scored-segment rows off their
-`caption-v2` class and `caption-v4` moves 16; the 5 it does not are exactly the
-5 rows the 2026-10-30 entry of [freeze-record.md](freeze-record.md) names as
-carrying post-outcome information (19-1257, 25-840, 18-1587, 24-20, 24-422).
+`caption-v2` class and `caption-v4` moves 15. Of the 6 it does not, 5 are
+exactly the rows the 2026-10-30 entry of [freeze-record.md](freeze-record.md)
+names as carrying post-outcome information (19-1257, 25-840, 18-1587, 24-20,
+24-422); the sixth, 19-546, lists the office for its captioned petitioner only
+under an acting Solicitor General who took office after the docket was filed,
+a successor's entry the filing-date roster test leaves out.
 
 **When the reading exists.** The entry `caption-v4` reads is the one the
 petition's own filing writes: the block for the captioned petitioner is set at
@@ -1191,10 +1203,11 @@ docketing from the petition's cover, so on a pending row the class is what the
 docket showed at filing. The stored snapshots say so where they can: the entry
 is on the earliest stored snapshot of all 5 pending moved rows and of the 2
 resolved moved rows that have a snapshot from before their outcome (25-1103,
-26-48). The other 9 resolved moved rows have no stored snapshot from before
+26-48). The other 8 resolved moved rows have no stored snapshot from before
 their outcome, so their entry cannot be dated. The residual those 9 carry is
 the office **substituting** for a captioned petitioner after the grant, such as
-a federal officer represented privately at the cert stage. No stored record of a
+a federal officer represented privately at the cert stage, by an attorney
+already in the office when the docket was filed. No stored record of a
 historical row can separate that from an entry written at filing, so it is a
 declared gap rather than a measured zero. The same premise is what the reachable
 ladder needs: the class is fixed at filing apart from that residual.
@@ -1205,30 +1218,32 @@ only Terms with no unresolved row):
 
 | class | `caption-v2` | `caption-v4` |
 | --- | --: | --: |
-| federal | 75.76% (125/165) | 75.44% (129/171) |
+| federal | 75.76% (125/165) | 75.29% (128/170) |
 | state | 23.24% (79/340) | 23.24% (79/340) |
-| private | 5.27% (524/9,947) | 5.23% (520/9,941) |
+| private | 5.27% (524/9,947) | 5.24% (521/9,942) |
 
-Six complete-Term rows migrate, all from `private` (19-71, 19-546, 20-1044,
-20-1478, 23-411, 24-1246), four of them grant-family. The evidential weight is
-on the migrated rows' outcome-free precision, not on that rate: 12 of the 16
+Five complete-Term rows migrate, all from `private` (19-71, 20-1044, 20-1478,
+23-411, 24-1246), three of them grant-family. The evidential weight is
+on the migrated rows' outcome-free precision, not on that rate: 12 of the 15
 moved rows' captions name a federal agency or an officer's title, and the other
-4 (19-71, 19-546, 25-952, 26-111) carry a personal name only, read `federal` by
+3 (19-71, 25-952, 26-111) carry a personal name only, read `federal` by
 the office's appearance alone. The shapes were surfaced by forecasts flagged on
 petitions that went on to be granted, so the migrated rows' grant record is
-partly outcome-selected, in the direction that lifts the `federal` pool. On six
-rows of 171 that effect is small, but it is the reason no recall gain may be
+partly outcome-selected, in the direction that lifts the `federal` pool. On five
+rows of 170 that effect is small, but it is the reason no recall gain may be
 quoted from this table.
 
-**What `sal-v7` would move.** Every moved row moves into `federal`. Of the 16,
+**What `sal-v7` would move.** Every moved row moves into `federal`. Of the 15,
 5 are pending: 25-952 (from `elevated`), 26-111 and 26-145 (from `baseline`),
 and 26-146 and 26-379 (from `state`). 25-952, 26-145 and 26-146 are already
-selected; 26-111 and 26-379 are not. The 11 resolved moves are 6 from
-`baseline`, 3 from `elevated` and 2 from `high`.
+selected; 26-111 and 26-379 are not. The 10 resolved moves are 6 from
+`baseline`, 2 from `elevated` and 2 from `high`.
 `uv run python scripts/checks/caption_v4_band_census.py` lists them, with the
-corpus vintage. The figures in this section are on blob `3ddb381f…c41a05`
-(newest pull 2026-10-31, newest stored snapshot row 2026-07-13), with the
-per-case content store read the same day.
+corpus vintage. The census and band figures in this section are on blob
+`f6beb2e3…4d502` (newest pull 2026-11-01, newest stored snapshot row
+2026-07-13); the snapshot dating under *When the reading exists* was read on
+blob `3ddb381f…c41a05` (newest pull 2026-10-31) with the per-case content
+store read the same day.
 
 **The frozen cell band and the replay projection.** Every reader that bands a
 projected row rather than a stored one — the frozen cell band
@@ -1246,8 +1261,9 @@ they are about to redact, then redact the snapshot as before. So forward and
 replay cells band on one rule. The function reads the `Petitioner` block only,
 an entry only where it is marked counsel of record and its party names the
 captioned petitioner, and an attorney only where `sg-office-v1`'s roster places
-them in the office at some point between the payload's `DocketedDate` and the
-cell's cut (`counsel.office_entries_at_cut`).
+them in the office on the payload's `DocketedDate`
+(`counsel.office_entries_at_filing`), the roster test a stored row is read
+under too.
 
 The fact is **knowable at the cut** by two guarantees, both enforced in that
 function. It is read only off a payload the docket served by the cut: a forward
@@ -1256,14 +1272,27 @@ cell's stored snapshot (`as-stored`) or a stored snapshot from before the cutoff
 blocks are undated and so are the later pull's, and a `blind` one is the same
 pull with its proceedings removed; neither is the record at the cut, so on either
 the fact is false and the class is `caption-v2`'s. And the roster test admits no
-one who took office after the cut: the late-write reading `sg-office-v1` applies
-to a stored row (a successor's name on a federal party) is left out, because a
-list served by the cut cannot hold a later write. The cost is declared: a
+one who was not in the office on the filing date, which precedes the cut, so no
+one who took office after the cut either: `sg-office-v1`'s late-write reading (a
+successor's name on a federal party) is never applied. The cost is declared: a
 replay or back-test cell reconstructed by truncation bands as `sal-v6` would on
 the class, so a `sal-v7` replay reading measures `caption-v4` on its `dated`
 cells only, and the provenance mix each replay cell reports says how many
 those are. Under the active `sal-v6` nothing reads the fact, and nothing a cell
 sees or freezes changes.
+
+**Two readings of one rule.** The census, the band census script and the
+statpack's `sal-v7` block band **stored** rows, so they read the row's whole
+counsel list as of its last write; a cell and the gate replay's projection read
+the list the docket **served by the cut**. Both apply the same three tests (the
+`Petitioner` side, counsel of record, the captioned party) and the same
+filing-date roster test, so they differ only in the list. The stored list can
+hold an entry for the captioned petitioner written after a cut — the
+substitution residual above — and a cell on a `truncated` or `blind` payload
+reads the fact as false whatever the stored list holds. So a stored-row figure
+in this section, and the statpack's `sal-v7` rates, can read a row `federal`
+that a cell cut on the same docket would not; the replay's `dated` cells are
+the reading a cell actually makes.
 
 **What activation still owes**, stated here so the flip does not rediscover it:
 the statistical bar `sal-v3`'s activation cleared, read on the census above, on

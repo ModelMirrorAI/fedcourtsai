@@ -520,41 +520,23 @@ def sg_office_annotations(row: corpus.CorpusRow, moment: date | None) -> Counsel
     )
 
 
-def office_entries(row: corpus.CorpusRow, moment: date | None) -> tuple[corpus.CounselEntry, ...]:
-    """The petitioner- and respondent-side entries ``sg-office-v1`` reads as the office.
-
-    The per-entry half of :func:`sg_office_annotations`, under the same roster,
-    the same docket life and the same side guard (``other`` is never read), for
-    a reader that needs to know *which* party the office appears for rather than
-    only on which side: an entry is returned exactly where the annotation's
-    per-entry reading is the office. Pure and total, in served order.
-    """
-    life = docket_life(row, moment)
-    found: list[corpus.CounselEntry] = []
-    for entry in row.counsel:
-        if entry.role not in _READ_ROLES:
-            continue
-        member = _ROSTER_BY_ALIAS.get(normalize_attorney(entry.attorney or ""))
-        if member is not None and _read_entry(member, entry.party, life) == "office":
-            found.append(entry)
-    return tuple(found)
-
-
-def office_entries_at_cut(
-    entries: Iterable[corpus.CounselEntry], *, filed: date | None, cut: date
+def office_entries_at_filing(
+    entries: Iterable[corpus.CounselEntry], *, filed: date | None
 ) -> tuple[corpus.CounselEntry, ...]:
-    """The petitioner- and respondent-side entries naming someone in the office by ``cut``.
+    """The petitioner- and respondent-side entries naming someone in the office at ``filed``.
 
-    The per-entry reading for a counsel list served at or before a cell's cut,
-    where :func:`office_entries` reads a row's list as it stands now. An entry
-    counts only where its attorney is a roster member one of whose spans
-    overlaps the docket's life from ``filed`` to ``cut``, both inclusive.
-    :func:`_read_entry`'s successor path is left out on purpose: it exists for
-    a name a list gained *after* the docket's life, and a list served by the cut
-    has no such name, so a member whose span opens after the cut was named
-    there before taking office, which is private practice whatever the party.
-    An undated docket (``filed`` is ``None``) reads no entry. ``other`` is never
-    read. Pure and total, in served order.
+    The per-entry reading caption-v4 turns on: an entry counts only where its
+    attorney is a roster member one of whose spans covers the docket's filing
+    date ``filed``, both ends inclusive. Narrower than :func:`_read_entry` on
+    purpose, which places a name anywhere in the docket's life and admits a
+    successor's late write on a federal party: the entry caption-v4 reads is the
+    one the petition's own filing writes, so the attorney on it is in office the
+    day the docket opens or is private practice, whatever the party and however
+    long the docket then runs. A name that took office after the filing — a
+    private petitioner's counsel who later became Solicitor General, or the
+    office's own successor substituted on a pending federal petition — is
+    therefore not read. An undated docket (``filed`` is ``None``) reads no
+    entry. ``other`` is never read. Pure and total, in served order.
     """
     if filed is None:
         return ()
@@ -564,7 +546,7 @@ def office_entries_at_cut(
             continue
         member = _ROSTER_BY_ALIAS.get(normalize_attorney(entry.attorney or ""))
         if member is not None and any(
-            (span.end is None or span.end >= filed) and span.start <= cut for span in member.spans
+            span.start <= filed and (span.end is None or span.end >= filed) for span in member.spans
         ):
             found.append(entry)
     return tuple(found)

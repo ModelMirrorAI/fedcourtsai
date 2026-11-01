@@ -3109,18 +3109,19 @@ def test_sal_v6_cells_never_read_the_counsel_fact(monkeypatch: pytest.MonkeyPatc
         assert contexts[0]["band"] == "state"
 
 
-def test_the_fact_admits_no_one_who_took_office_after_the_cut() -> None:
-    """Knowable at the cut: a roster member whose span opens after the cut was
-    named there before taking office, so the entry is not the office — on a
-    federal party too, where a stored row's late-write reading would admit it —
-    and an undated docket reads no entry."""
+def test_the_fact_admits_no_one_who_was_not_in_office_at_filing() -> None:
+    """The roster test is at the docket's filing date: a member whose span opens
+    after the filing was named there in private practice, so the entry is not
+    the office at any cut — on a federal party too, where `sg-office-v1`'s
+    late-write reading would admit it — and an undated docket reads no entry."""
     payload = {
         **_warden_payload(),
         "DocketedDate": "September 16, 2024",
     }
     args = {"caption_text": "Michael Smith, Warden", "provenance": "dated"}
-    assert caption.sg_counsel_of_record_at_cut(payload, cut=date(2025, 4, 4), **args) is True
-    assert caption.sg_counsel_of_record_at_cut(payload, cut=date(2025, 1, 1), **args) is False
+    for cut in (date(2025, 1, 1), date(2025, 4, 4), _CUT):
+        assert caption.sg_counsel_of_record_at_cut(payload, cut=cut, **args) is False
+    assert caption.sg_counsel_of_record_at_cut(_warden_payload(), cut=_CUT, **args) is True
     sovereign = {
         **payload,
         "PetitionerTitle": "United States, Petitioner",
@@ -3128,10 +3129,9 @@ def test_the_fact_admits_no_one_who_took_office_after_the_cut() -> None:
             {"PartyName": "United States", "Attorney": "D. John Sauer", "IsCounselofRecord": True}
         ],
     }
-    early = date(2025, 1, 1)
     assert (
         caption.sg_counsel_of_record_at_cut(
-            sovereign, caption_text="United States", cut=early, provenance="dated"
+            sovereign, caption_text="United States", cut=_CUT, provenance="dated"
         )
         is False
     )
@@ -3139,9 +3139,11 @@ def test_the_fact_admits_no_one_who_took_office_after_the_cut() -> None:
         case_id="scotus/100",
         court="scotus",
         date_filed=date(2024, 9, 16),
-        counsel=[_sg_for_petitioner("United States")],
+        petitioner_title="Michael Smith, Warden",
+        counsel=[_sg_for_petitioner("Michael Smith")],
     )
-    assert counsel_module.office_entries(stored, early)  # the late-write reading admits it
+    assert not caption.sg_counsel_of_record_for_petitioner(stored)
+    assert not counsel_module.office_entries_at_filing(stored.counsel, filed=stored.date_filed)
     undated = {key: value for key, value in payload.items() if key != "DocketedDate"}
     assert caption.sg_counsel_of_record_at_cut(undated, cut=_CUT, **args) is False
     for provenance in ("truncated", "blind"):
@@ -3154,3 +3156,37 @@ def test_the_fact_admits_no_one_who_took_office_after_the_cut() -> None:
             )
             is False
         )
+
+
+def test_a_private_petition_filed_before_its_counsel_took_office_never_reads_federal() -> None:
+    """A private petition filed in 2024 with D. John Sauer, then in private
+    practice, as counsel of record reads its caption class at every cut, on or
+    after the 2025-04-04 he took office included: the roster span must cover
+    the filing date, not merely overlap the docket's life. The stored-row
+    reading the census and statpack use agrees with the cell's."""
+    payload: dict[str, object] = {
+        "CaseNumber": "24-300",
+        "DocketedDate": "September 16, 2024",
+        "PetitionerTitle": "Acme Corp., Petitioner",
+        "Petitioner": [
+            {"PartyName": "Acme Corp.", "Attorney": "D. John Sauer", "IsCounselofRecord": True}
+        ],
+    }
+    for cut in (date(2025, 4, 4), date(2025, 4, 5), date(2025, 10, 2)):
+        assert (
+            caption.sg_counsel_of_record_at_cut(
+                payload, caption_text="Acme Corp.", cut=cut, provenance="dated"
+            )
+            is False
+        )
+    stored = corpus.CorpusRow(
+        case_id="scotus/2024300",
+        court="scotus",
+        docket_number="24-300",
+        petitioner_title="Acme Corp.",
+        date_filed=date(2024, 9, 16),
+        counsel=[_sg_for_petitioner("Acme Corp.")],
+    )
+    assert caption.petitioner_class_v4(stored) == "private"
+    filed_in_office = stored.model_copy(update={"date_filed": date(2025, 4, 4)})
+    assert caption.petitioner_class_v4(filed_in_office) == "federal"

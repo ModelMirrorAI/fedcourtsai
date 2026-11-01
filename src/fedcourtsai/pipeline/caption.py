@@ -511,9 +511,11 @@ def petitioner_class_v3(row: corpus.CorpusRow) -> PetitionerClass:
 # them, where v3 read any office entry on the petitioner side. The block an
 # entry for the captioned petitioner sits in is written when the petition is
 # docketed, from the petition's own cover, so on a pending row the class is
-# what the docket showed at filing. The residual is the office substituting
-# for a captioned petitioner after a grant (a federal officer represented
-# privately at the cert stage), which no stored record of a historical row
+# what the docket showed at filing, and the attorney on it counts as the office
+# only where the roster places them there on the filing date itself. The
+# residual is the office substituting for a captioned petitioner after a grant
+# (a federal officer represented privately at the cert stage) by an attorney
+# already in office at the filing, which no stored record of a historical row
 # can date; docs/salience.md states it with the census.
 #
 # The party match is lead against lead: each name up to its first comma or
@@ -591,22 +593,24 @@ def sg_counsel_of_record_for_petitioner(row: corpus.CorpusRow) -> bool:
     """Whether the office is counsel of record for the row's captioned petitioner.
 
     On a stored row: an entry on the petitioner side, marked counsel of record,
-    whose attorney ``sg-office-v1`` places in the office on this docket
-    (:func:`.counsel.office_entries`, the whole row, no cut), and whose party is
+    whose attorney ``sg-office-v1``'s roster places in the office on the row's
+    filing date (:func:`.counsel.office_entries_at_filing`), and whose party is
     the petitioner the caption names (:func:`names_captioned_petitioner`). On a
     :class:`CutRow`: the fact it carries, which the same three tests produced
     over the payload served at the cut (:func:`sg_counsel_of_record_at_cut`).
+    The two differ only in the list they read: a stored row's is the list as of
+    its last write, a cut row's the list the docket served by the cut.
     """
     if isinstance(row, CutRow):
         return row.sg_counsel_of_record_for_petitioner
-    from .counsel import office_entries  # noqa: PLC0415 - counsel<-party<-caption cycle
+    from .counsel import office_entries_at_filing  # noqa: PLC0415 - counsel<-party<-caption cycle
 
     title = petitioner_caption(row)
     return any(
         entry.role == corpus.CounselRole.petitioner
         and entry.counsel_of_record
         and names_captioned_petitioner(entry.party, title)
-        for entry in office_entries(row, None)
+        for entry in office_entries_at_filing(row.counsel, filed=row.date_filed)
     )
 
 
@@ -642,19 +646,23 @@ def sg_counsel_of_record_at_cut(
     (:data:`_SERVED_BY_THE_CUT`), and its ``Petitioner`` block lists, for the
     party ``caption_text`` names (:func:`names_captioned_petitioner`), an
     attorney marked counsel of record whom ``sg-office-v1``'s roster places in
-    the office at some point between the payload's ``DocketedDate`` and ``cut``
-    (:func:`.counsel.office_entries_at_cut`). Only the ``Petitioner`` block is
+    the office on the payload's ``DocketedDate``, itself on or before ``cut``
+    (:func:`.counsel.office_entries_at_filing`). Only the ``Petitioner`` block is
     read; the ``Respondent`` and ``Other`` blocks never are. False otherwise,
     including a payload with no ``DocketedDate`` to date the docket's life from
     and the REST shape, which carries no per-side blocks.
 
     Knowable at the cut by construction: the payload is the record as the
-    docket served it by then, and the roster test admits no one who took office
-    after it. Pure and total.
+    docket served it by then, and the roster test admits no one who was not in
+    office the day the docket opened. Pure and total.
     """
     if provenance not in _SERVED_BY_THE_CUT:
         return False
-    from .counsel import office_entries_at_cut  # noqa: PLC0415 - counsel<-party<-caption cycle
+    from .counsel import office_entries_at_filing  # noqa: PLC0415 - counsel<-party<-caption cycle
+
+    filed = _docketed(payload.get("DocketedDate"))
+    if filed is None or filed > cut:
+        return False
 
     blocks = payload.get("Petitioner")
     entries = [
@@ -669,9 +677,7 @@ def sg_counsel_of_record_at_cut(
     ]
     return any(
         entry.counsel_of_record and names_captioned_petitioner(entry.party, caption_text)
-        for entry in office_entries_at_cut(
-            entries, filed=_docketed(payload.get("DocketedDate")), cut=cut
-        )
+        for entry in office_entries_at_filing(entries, filed=filed)
     )
 
 
