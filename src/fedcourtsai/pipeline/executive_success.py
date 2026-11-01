@@ -54,7 +54,12 @@ the in-scope applications are grouped into controversies under
 ``controversy-v2`` (:mod:`.controversy`) and counted per administration and
 filer, so applications the record links weigh once. A
 controversy's result is its last decided application's; one with none decided
-is indeterminate and sits beside the rate. The same applications are counted
+is indeterminate and sits beside the rate. The controversies are counted a
+second time with the hand-labeled policy keys' joins added
+(:mod:`.policy_key`), so one policy challenged by different litigants weighs
+once; those keyed cells sit beside the rule's, which stay the headline, and
+``policy_key_joins`` says how many of the rule's controversies the keys
+merged away. The same applications are counted
 once more per policy area (:mod:`.policy_area`), under ``policy-area-v2`` once
 its measurement has passed and the hand-labeled ``policy-area-v1`` reference
 until then; an application the source does not label is counted beside those
@@ -112,6 +117,7 @@ from .interim_signals import ApplicationKind, InterimReading
 from .party import ADMINISTRATIONS, PARTY_AS_OF_FIELDS, administration_for, docket_stratum
 from .party_rates import docket_key
 from .policy_area import POLICY_AREAS, PolicySource, hand_source
+from .policy_key import POLICY_KEY_RULE_VERSION, policy_key
 from .prefetch import prefetch_by_case
 
 Filer = Literal["government", "challenger", "all"]
@@ -475,6 +481,7 @@ def _success(  # noqa: PLR0913 - one keyword per stamp the cut carries
     groups = _controversies(placed, payloads, fold.results)
     for review_row in fold.review:
         review_row.controversy_id = groups.ids.get(review_row.docket_number)
+        review_row.policy_controversy_id = groups.keyed_ids.get(review_row.docket_number)
         label = policies.label(review_row.docket_number)
         if label is not None:
             review_row.policy_area = label.area
@@ -511,6 +518,9 @@ def _success(  # noqa: PLR0913 - one keyword per stamp the cut carries
         controversy_rule_version=CONTROVERSY_RULE_VERSION,
         controversy_cells=groups.cells,
         controversy_unlinked=groups.unlinked,
+        policy_key_rule_version=POLICY_KEY_RULE_VERSION,
+        policy_controversy_cells=groups.keyed_cells,
+        policy_key_joins=groups.key_joins,
         policy_rule_version=policies.rule_version,
         policy_measured_batch=policies.measured_batch,
         policy_cells=policy_cells,
@@ -613,6 +623,9 @@ class _Groups:
     ids: dict[str, str]
     cells: list[ExecutiveControversyCell]
     unlinked: int
+    keyed_ids: dict[str, str]
+    keyed_cells: list[ExecutiveControversyCell]
+    key_joins: int
 
 
 def _controversies(
@@ -624,7 +637,7 @@ def _controversies(
         for item in placed
         if item.annotation.in_scope is True and item.row.docket_number in results
     }
-    ids = group_controversies(
+    links = [
         controversy_links(
             item.row,
             payloads.get(item.row.case_id),
@@ -634,7 +647,29 @@ def _controversies(
             resolved=item.resolution,
         )
         for item in members.values()
+    ]
+    ids = group_controversies(links)
+    keyed_ids = group_controversies(links, keyed=_policy_key_name)
+    unlinked = sum(payloads.get(item.row.case_id) is None for item in members.values())
+    return _Groups(
+        ids=ids,
+        cells=_controversy_cells(members, ids, results),
+        unlinked=unlinked,
+        keyed_ids=keyed_ids,
+        keyed_cells=_controversy_cells(members, keyed_ids, results),
+        key_joins=len(set(ids.values())) - len(set(keyed_ids.values())),
     )
+
+
+def _policy_key_name(docket_number: str) -> str | None:
+    found = policy_key(docket_number)
+    return found.key if found is not None else None
+
+
+def _controversy_cells(
+    members: Mapping[str, _Placed], ids: Mapping[str, str], results: Mapping[str, bool | None]
+) -> list[ExecutiveControversyCell]:
+    """Count one grouping's controversies per administration and filer."""
     grouped: dict[str, list[_Placed]] = {}
     for docket, group_id in ids.items():
         grouped.setdefault(group_id, []).append(members[docket])
@@ -675,8 +710,7 @@ def _controversies(
                 pooled.update(found)
         if pooled:
             cells.append(_controversy_cell(window, "all", pooled))
-    unlinked = sum(payloads.get(item.row.case_id) is None for item in members.values())
-    return _Groups(ids=ids, cells=cells, unlinked=unlinked)
+    return cells
 
 
 def _controversy_cell(

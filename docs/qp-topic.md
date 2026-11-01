@@ -1123,6 +1123,61 @@ share is per bucket because it is not uniform across them: the block holds every
 QP-bearing grant it could reach, so it inflates the grant-heavy topics most and
 no single factor de-biases a row.
 
+## Forecasts by topic
+
+`fedcourts topic-cut` joins every committed forecast to its case's topic and
+reports, per forecast moment (the `stage@moment` block every board aggregates
+on) and per topic, how many forecasts there are and how each predictor's record
+reads over them. It is the reader that answers "what are we forecasting, and
+how are we doing, by subject?" across the cert, interim and merits moments.
+
+- **The join key follows the stage.** A cert or merits forecast is a forecast of
+  a petition, so it takes the petition's `qp-topic-v0` label from
+  `qp-topics.json`. An interim forecast is a forecast of an application, so it
+  takes the `qp-topic-v1` label from `qp-topics-applications.json`. Both join
+  on `case_id`. A labels artifact whose recorded agreement is below the
+  publication gate is not read, just as the docket pack skips one.
+- **Nothing is dropped.** A forecast whose case carries no label is counted in
+  an `unlabeled` row beside the topics, so a moment's rows sum to its whole
+  forecast population, and the cut reports each moment's labeled share of its
+  forecast events beside the rows. A case goes unlabeled because it sits
+  outside the labeling frame (a docket newer than the frame's vintage, or
+  outside its scope), because its frame is not fully labeled yet, or because
+  its frame's artifact is missing or below the gate. The unlabeled row is
+  therefore not a random remainder: the newest forecasts are the likeliest to
+  be in it. A forecast cell is a predictor directory holding a committed
+  prediction; one holding only a failed attempt is not counted.
+- **Two populations per row.** `forecast_events` and `forecast_cells` count every
+  committed forecast, scored or not and whatever its process version.
+  `events_scored` counts events scored in any stratum, with the forward,
+  retrospective and procedural counts beside it. It and the records read the
+  scored cells alone, under the
+  leaderboard's process scope (frozen by default, `--all-versions` for every
+  version) and over the same stratify pass, skill terms, band facts and vote
+  scores the leaderboard is built from. Each record is the board's own
+  per-stratum aggregate (forward, retrospective, procedural) re-read over one
+  topic's cells, so its columns, denominators and null rules are the board's.
+- **Every row carries its frame's scope string.** The string states the labeled
+  count against the frame, that a label is agreement with the reference block
+  and not accuracy, that the unlabeled row is not a random remainder, that a
+  topic's share is a share of this salience-selected ledger, and that a
+  record's Brier skill is scored against the band's base rate. A figure lifted
+  out of the cut keeps that caveat with it. The application frame's string
+  also says that a docket-only label reads thin dockets as much as subject.
+
+The cut is **descriptive only**. Nothing is scored on topic, no board conditions
+on it, and it carries no rank, no paired comparison and no topic baseline. A
+topic row holds a handful of scored events, so a per-topic record is a split to
+read event by event, not a rate to compare across topics or predictors. No
+figure from it is published until the stats reviewer has read that figure.
+A record's Brier skill is scored against the band's base rate, not the
+topic's, and topic correlates with the outcome, so a constant base-rate
+forecaster shows nonzero per-topic skill: a per-topic skill figure measures
+how far the topic's rate sits from the band's as much as it measures the
+predictor, and is never published as skill. Topic is also not exogenous to
+which forecasts exist: salience selects what gets forecast, so a topic's share
+of forecasts describes this ledger, not the docket.
+
 ## What one labeling run can hold
 
 The extract is **bounded by what a dispatch can finish, not by how many texts
