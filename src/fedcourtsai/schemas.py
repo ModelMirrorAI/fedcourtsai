@@ -13134,6 +13134,12 @@ class ExecutiveSuccessRow(_Strict):
         "number, as spelled); null for an unknown-scope or never-parsed row, which is "
         "grouped with nothing",
     )
+    policy_controversy_id: str | None = Field(
+        default=None,
+        description="The controversy the row belongs to once the policy keys' joins are "
+        "added to the rule's (its first-docketed application's number, as spelled); null "
+        "where controversy_id is",
+    )
     policy_area: str | None = Field(
         default=None, description="The row's policy area; null where it is unlabeled"
     )
@@ -13260,6 +13266,20 @@ class ExecutiveSuccess(_Strict):
         default=0,
         description="Grouped applications with no live snapshot, so no case-below or "
         "decided-together link; they join on the caption alone",
+    )
+    policy_key_rule_version: str = Field(
+        description="The hand-labeled policy keys the keyed controversy cells add, "
+        "e.g. policy-key-v1"
+    )
+    policy_controversy_cells: list[ExecutiveControversyCell] = Field(
+        default_factory=list,
+        description="The controversies counted again with the policy keys' joins added "
+        "to the rule's, beside the rule's own cells; non-empty cells only",
+    )
+    policy_key_joins: int = Field(
+        default=0,
+        ge=0,
+        description="How many fewer controversies the keyed grouping counts than the rule's",
     )
     policy_rule_version: str = Field(
         description="The vocabulary the policy cells are labeled under, e.g. policy-area-v1"

@@ -55,7 +55,9 @@ joins too.
 
 Three things the rule does not do. It reads no text beyond the disposing
 order, so two challenges to one policy brought by different parties in
-different circuits, and decided separately, stay two controversies. An
+different circuits, and decided separately, stay two controversies; the
+policy keys (:mod:`.policy_key`) are the hand-labeled grouping the executive
+success cut counts beside the rule's for those. An
 officer's name changes on a transition, so a government caption that names
 the officer rather than the agency does not join across one. And groups are
 formed over the cut's rows whatever their dates, so a controversy can span a
@@ -80,7 +82,7 @@ computes it now, and the figures quoted under it are records of that rule.
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Any, Final
@@ -215,12 +217,17 @@ def _normalized(docket_number: str) -> str:
     return docket_number.strip().upper()
 
 
-def group_controversies(links: Iterable[ControversyLinks]) -> dict[str, str]:
+def group_controversies(
+    links: Iterable[ControversyLinks], *, keyed: Callable[[str], str | None] | None = None
+) -> dict[str, str]:
     """Each docket number's controversy id: the smallest docket number in its group.
 
     Keys and ids are the docket numbers as the rows spell them; they are
     compared case- and space-insensitively, and by Term and serial (``24A95``
     before ``24A105``), so an id names the group's first-docketed application.
+    ``keyed`` names a hand-labeled policy key per docket number
+    (:mod:`.policy_key`); applications under one key join as well, on top of
+    every link the rule draws.
     """
     items = list(links)
     spelled = {_normalized(item.docket_number): item.docket_number for item in items}
@@ -246,10 +253,7 @@ def group_controversies(links: Iterable[ControversyLinks]) -> dict[str, str]:
         own = _normalized(item.docket_number)
         for other in item.named:
             join(own, other)
-        keys: list[tuple[str, object]] = [("lower", case) for case in item.lower_cases]
-        if item.order is not None:
-            keys.append(("order", item.order))
-        for key in keys:
+        for key in _shared_keys(item, keyed):
             if key in by_key:
                 join(by_key[key], own)
             else:
@@ -262,6 +266,19 @@ def group_controversies(links: Iterable[ControversyLinks]) -> dict[str, str]:
                 if _caption_joins(first, second):
                     join(_normalized(first.docket_number), _normalized(second.docket_number))
     return {spelled[key]: spelled[find(key)] for key in spelled}
+
+
+def _shared_keys(
+    item: ControversyLinks, keyed: Callable[[str], str | None] | None
+) -> list[tuple[str, object]]:
+    """The keys joining an application to every other grouped holder of one."""
+    keys: list[tuple[str, object]] = [("lower", case) for case in item.lower_cases]
+    if item.order is not None:
+        keys.append(("order", item.order))
+    policy = keyed(item.docket_number) if keyed is not None else None
+    if policy is not None:
+        keys.append(("policy", policy))
+    return keys
 
 
 def docket_order(docket_number: str) -> tuple[int, int, str]:
