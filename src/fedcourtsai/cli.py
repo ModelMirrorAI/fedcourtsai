@@ -474,6 +474,7 @@ from .pipeline.scope_reconcile import reconcile_predict_scope
 from .planning_rates import PLANNING_RATES_USD_PER_CELL as _PLANNING_RATES_USD_PER_CELL
 from .planning_rates import PLANNING_USD_PER_CELL as _PLANNING_USD_PER_CELL
 from .planning_rates import price_cells
+from .prediction_slices import Population, load_slices
 from .pricing import DEFAULT_MODELS, MODEL_RATES, TokenCounts, estimate_cost_usd
 from .promotion_body import Batch, batch_prs, render, same_body, splice
 from .promotion_train import (
@@ -631,6 +632,7 @@ from .store import (
     scored_prediction_cell,
     stratify,
     unforecastable_listed_events,
+    unpopulated_cases,
 )
 from .supremecourt import (
     SupremeCourtClient,
@@ -734,9 +736,16 @@ def validate(
     the claim scorer will not silently void. The corpus-dependent referential
     checks need the remote, so they run scheduled via ``validate-corpus``
     rather than here.
+
+    A committed cell whose case is neither a SCOTUS docket nor a docket of an
+    enabled prediction slice is warned about (``::warning::``), not failed: no
+    figure reads it (``store.unpopulated_cases``), so it is either a slice
+    switched off after its cells landed or a stray write, and either is worth a
+    reader's eye without holding the ledger red.
     """
     result = validate_ledger(path)
     references = run_ledger_referential_checks(path)
+    _warn_unpopulated_cases(path)
     ref_failures = sum(c.failures for c in references)
     if not result.ok or ref_failures:
         for err in result.problems:
@@ -752,6 +761,21 @@ def validate(
         raise typer.Exit(code=1)
     refs_checked = sum(c.checked for c in references)
     typer.echo(f"OK: {result.checked} artifact(s) valid, {refs_checked} reference(s) consistent")
+
+
+def _warn_unpopulated_cases(data_root: Path) -> None:
+    """Warn on each committed case no population admits; never fail on it."""
+    config_root = get_settings().config_root
+    try:
+        slices = load_slices(config_root, load_predict_config(config_root).slices)
+    except (OSError, ValueError) as exc:
+        typer.echo(f"::warning::population: the enabled prediction slices did not load ({exc})")
+        slices = {}
+    for case_id in unpopulated_cases(data_root, slices):
+        typer.echo(
+            f"::warning::population: {case_id} has committed cells but is neither a SCOTUS "
+            "docket nor a docket of an enabled prediction slice, so no figure reads them"
+        )
 
 
 @app.command("validate-corpus")
@@ -15509,7 +15533,9 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
     scope: Literal["frozen", "all"] = "all" if all_versions else "frozen"
     # Same shared producer + default as the leaderboard, so the two surfaces
     # always agree on the frozen headline. The census (ledger_cell_counts) stays
-    # version-blind — it counts committed predictions, not scored cells. The
+    # version-blind — it counts committed predictions, not scored cells — and,
+    # like the stratified cells beside it, reads the SCOTUS population only, so
+    # both sides of the funnel count one population. The
     # stage the join also carries is dropped here: the substance funnel is
     # deliberately stage-blind throughput (a census over every scored cell,
     # like the prediction counts beside it), so its counts pool stages by
@@ -15540,8 +15566,10 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
         # Leakage grading is an all-versions diagnostic, like flags/tooling above
         # (which read the ledger directly): shakedown contamination is exactly
         # what it must surface, so it must NOT ride the frozen `stratified` stream
-        # — that would blank the leakage digest during the shakedown window.
-        evaluations=iter_evaluations(settings.data_root),
+        # — that would blank the leakage digest during the shakedown window. For
+        # the same reason it reads every population, a prediction slice's
+        # gradings included, as flags/tooling do.
+        evaluations=iter_evaluations(settings.data_root, population=None),
         substance=substance,
         data_health=data_health,
         open_triggers=open_triggers,
@@ -22485,7 +22513,7 @@ def _cohort_narrowing_reason(data_root: Path, court: str, docket: int, event_id:
     )
 
 
-def _scope_filtered(
+def _scope_filtered(  # noqa: PLR0913 - the matrix backstop's inputs, all keyword past the corpus
     cases: list[CaseRequest],
     scope: PredictScope,
     corpus_root: Path,
@@ -22495,6 +22523,7 @@ def _scope_filtered(
     data_root: Path | None = None,
     dropped_out: list[_DropRecord] | None = None,
     cohort_narrowed_out: list[_DropRecord] | None = None,
+    slices: Mapping[str, Population] | None = None,
 ) -> list[CaseRequest]:
     """Drop out-of-scope cases under ``scotus_docket``; the matrix backstop.
 
@@ -22513,6 +22542,13 @@ def _scope_filtered(
     visible note (to stderr, so the matrix JSON on stdout stays clean)
     explaining why a manual run produced an empty matrix. ``scope == all``
     passes every case through unchanged.
+
+    ``slices`` are the enabled prediction slices
+    (:func:`fedcourtsai.prediction_slices.load_slices`): a lower-court docket a
+    slice's committed list names is admitted past the court predicate, and no
+    other docket of its court is. The hard exclusions below still apply to it;
+    the salience drop does not, because a slice's list is its selection. With
+    no slice enabled (the default) the predicate is the court alone.
 
     A SCOTUS docket is still dropped when the shared exclusion reasoning
     matches it: the scope reconcile's ``predict_excluded`` latch, or any reason from
@@ -22580,9 +22616,15 @@ def _scope_filtered(
     kept: list[CaseRequest] = []
     with corpus.connect_readonly(db_path, backend=corpus_backend) as conn:
         for case in cases:
-            row = corpus.get_row(conn, ids.case_id(case.court, case.docket))
+            case_id = ids.case_id(case.court, case.docket)
+            row = corpus.get_row(conn, case_id)
             drop: str | None
-            if row is None or row.court != "scotus":
+            in_slice = (
+                row is not None
+                and row.court != "scotus"
+                and any(population.admits_case(case_id) for population in (slices or {}).values())
+            )
+            if row is None or (row.court != "scotus" and not in_slice):
                 drop = "out of prediction scope (predict.scope=scotus_docket, not a SCOTUS docket)."
             elif row.predict_excluded:
                 drop = "latched out of predict scope by the corpus reconcile."
@@ -22590,6 +22632,7 @@ def _scope_filtered(
                 drop = f"{reason}."
             elif (
                 not for_grading
+                and not in_slice
                 and corpus.is_salience_deferred(row)
                 and not corpus.has_open_merits_event(conn, row.case_id)
             ):
@@ -23839,6 +23882,7 @@ def _predict_fanout(
         data_root=settings.data_root,
         dropped_out=scope_dropped,
         cohort_narrowed_out=cohort_narrowed,
+        slices=load_slices(settings.config_root, predict_config.slices),
     )
     # One clock for the whole plan, so a fan-out that straddles midnight cannot
     # apply a different staleness bound to selection than to the re-check.
@@ -24145,17 +24189,18 @@ def _evaluate_fanout(
     hold the same cells.
     """
     settings = get_settings()
-    scope = load_predict_config(settings.config_root).scope
+    predict_config = load_predict_config(settings.config_root)
     scope_dropped: list[_DropRecord] = []
     resolution = _ResolveReport()
     cases = _resolve_cases(
         _scope_filtered(
             requested_cases,
-            scope,
+            predict_config.scope,
             settings.corpus_root,
             settings.corpus_backend,
             for_grading=True,
             dropped_out=scope_dropped,
+            slices=load_slices(settings.config_root, predict_config.slices),
         ),
         lambda c, d: resolved_events(
             corpus.corpus_db_path(settings.corpus_root), c, d, backend=settings.corpus_backend

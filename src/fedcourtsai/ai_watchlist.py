@@ -10,9 +10,12 @@ Every docket a listed case names, its own and each related one, is in the set
 :func:`tagged_case_ids` returns, the dockets a case-level surface tags ``ai``,
 so the tag follows a case to every court it reaches. The same set is what
 ``watchlist-refresh`` keeps current in the corpus, facts only: those dockets are
-admitted by name, not their courts, and the pull rotation leaves them out. None
-of this admits a case to prediction scope or changes SCOTUS selection, which is
-why a ``scotus`` docket is refused.
+admitted by name, not their courts, and the pull rotation leaves them out. The
+same set is the ``ai-watchlist`` prediction slice
+(:mod:`fedcourtsai.prediction_slices`), which admits these dockets to
+prediction scope only when ``predict.slices`` names it, as a population of its
+own. None of this changes SCOTUS selection, which is why a ``scotus`` docket is
+refused.
 """
 
 from __future__ import annotations

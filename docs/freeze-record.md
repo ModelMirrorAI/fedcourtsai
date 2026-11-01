@@ -15725,3 +15725,32 @@ freeze commit is recorded here.
     HARNESS_BOUNDARIES as H; n = {b.name for b in H};
     print({'decision-below-documents', 'context-band-refused'} <= n)"` prints
     `True` once the promotion record has stamped the rows.
+
+- **Every scored figure reads the SCOTUS population, and a prediction slice is
+  a population of its own; recorded 2026-10-31.** No freeze commit belongs to
+  this entry: no prompt text or other digest input changes, and `uv run
+  fedcourts process-digest --all` prints the same six `proc-v16` digests
+  before and after this change.
+
+  **What changes.** A membership rule. The ledger readers every scored and
+  published figure is built on (`store.stratify`, `store.iter_predictions`,
+  `store.iter_evaluations`, `store.iter_predicted_events`, and the
+  leaderboard's and window records' own ledger walks) read one population
+  (`store.in_population`): the SCOTUS docket, unless a caller names a
+  prediction slice (`fedcourtsai.prediction_slices`). A slice is a committed
+  list of lower-court dockets the predict scope admits by name when
+  `predict.slices` switches it on; one is registered, `ai-watchlist`, and none
+  is switched on. The ops report's ledger census reads the SCOTUS population,
+  like the stratified cells beside it; its leakage digest reads every
+  population. `fedcourts validate` warns, without failing, on a committed cell
+  whose case no population admits.
+
+  **What it moves.** Nothing. Every committed cell sits under
+  `data/cases/scotus/`. Over the ledger at `staging` `4443b9227`, `fedcourts
+  leaderboard`, `fedcourts claim-scores` and `fedcourts big-cases` write
+  byte-identical files under the code before and after this change.
+
+  **What a slice owes before it counts.** Its own process version, with its
+  own counting windows, registered on its own dated entry in the change that
+  switches it on, so no SCOTUS window ever holds a slice cell and two slices
+  never pool.

@@ -26,6 +26,14 @@ cert cell's, which conditions on seam and engine rather than on the moment — t
 (`src/fedcourtsai/cli.py`) — and its scoring contract is in
 [decision-model.md](decision-model.md).
 
+**A prediction slice sits outside the gate too.** A slice
+(`fedcourtsai.prediction_slices`; the *Scope* section of
+[data-pipeline.md](data-pipeline.md)) is a committed list of lower-court
+dockets, and the list is its selection: the matrix backstop never drops a slice
+docket as salience-deferred, and no salience score is computed for one. Its
+events are a population of their own, so nothing here — the score, the cap or
+the segment base rate — is read over them.
+
 ## Why salience
 
 The agentic stages cost one to two orders of magnitude more than ingestion, so

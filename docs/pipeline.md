@@ -2710,7 +2710,9 @@ still accept an explicit case list — a ` ```json ``` ` block by `--body-file`,
 workflow passes one, because a case list a round did not derive is a case list
 nothing authenticated. When prediction scope is gated
 (`predict.scope=scotus_docket`) the builder reads each case's corpus row (only a
-SCOTUS docket is in scope, minus the shared exclusion reasons), so `plan` first
+SCOTUS docket is in scope, minus the shared exclusion reasons, plus the dockets
+of any prediction slice `predict.slices` switches on; none is on, see the
+*Scope* section of [data-pipeline.md](data-pipeline.md)), so `plan` first
 pulls the corpus; with the gate on
 and no corpus on disk the build fails loud rather than emit an empty matrix.
 `fedcourts predict-plan` / `evaluate-plan` are the read-only rehearsal of this
