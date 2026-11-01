@@ -624,13 +624,13 @@ though the Court does not.
   storing in the access-gated content store, and staging into a cell are
   therefore permitted on the copyright question, under the same
   no-republication posture as the Court's own filings.
-- **One check before the first summary.** The RECAP terms above were read from
+- **The terms of use.** The RECAP terms above were first read from
   search-engine copies of Free Law Project's RECAP FAQ and the site licence
-  notice, because the live CourtListener terms of use and the `free.law` pages
-  are not reachable from the project's sessions. Before the first summary is
-  published, someone with access reads the live CourtListener terms of use and
-  copyright policy for any condition on RECAP documents downloaded through the
-  site; a condition found there narrows this rule.
+  notice, because the live CourtListener pages are not reachable from the
+  project's sessions. The maintainer read the live CourtListener terms of use
+  on 2026-11-01 and found no condition on the use of RECAP documents, so the
+  rule above stands as written. A condition added there later would narrow
+  it.
 
 **Model summaries of the AI watchlist's rulings** are an adopted public
 surface, not yet built. The AI-cases update will carry, beside an
