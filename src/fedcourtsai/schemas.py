@@ -9526,6 +9526,17 @@ class QpTopicBatchEntry(_Strict):
         ge=0,
         description="Policy areas this batch published; 0 when its policy measurement was refused",
     )
+    policy_gate_passed: bool | None = Field(
+        default=None,
+        description="Whether this batch's policy measurement passed its gate; null where the "
+        "batch measured no policy area",
+    )
+    policy_prompt_sha256: str | None = Field(
+        default=None,
+        pattern=r"^[0-9a-f]{64}$",
+        description="sha256 of the labeling prompt this batch's policy measurement read. After "
+        "a refusal, no later batch asks for policy areas until the prompt changes",
+    )
 
     @model_validator(mode="after")
     def _frame_holds_the_batch(self) -> QpTopicBatchEntry:
@@ -9789,6 +9800,12 @@ class QpTopicPolicyAreaShare(_Strict):
     area: PolicyAreaLabel = Field(description="The hand label's area")
     agree: int = Field(ge=0, description="Hand-labeled rows of this area the labeler matched")
     n: int = Field(ge=0, description="Hand-labeled rows of this area compared")
+    labeled_other: int = Field(
+        default=0,
+        ge=0,
+        description="Hand-labeled rows of this area the labeler called `other`, the direction "
+        "a labeler that may not use its own knowledge of a case errs in",
+    )
 
 
 class QpTopicPolicyAgreement(_Strict):
@@ -9808,6 +9825,23 @@ class QpTopicPolicyAgreement(_Strict):
     reference_total: int = Field(ge=0, description="Hand-labeled rows in the committed set")
     agree: int = Field(ge=0, description="Compared rows whose policy area matches the hand label")
     n: int = Field(ge=0, description="Hand-labeled rows the labeler gave a policy area")
+    named_agree: int = Field(
+        default=0,
+        ge=0,
+        description="Of the compared rows whose hand label is a named area (not `other`), "
+        "those the labeler matched",
+    )
+    named_n: int = Field(
+        default=0, ge=0, description="Compared rows whose hand label is a named area"
+    )
+    certain_agree: int = Field(
+        default=0,
+        ge=0,
+        description="Of the compared rows the hand set does not flag uncertain, those matched",
+    )
+    certain_n: int = Field(
+        default=0, ge=0, description="Compared rows the hand set does not flag uncertain"
+    )
     rate: float | None = Field(
         default=None, ge=0, le=1, description="agree / n; null when nothing was compared"
     )
@@ -9829,7 +9863,13 @@ class QpTopicPolicyAgreement(_Strict):
         default_factory=list, description="Agreement per hand area, in vocabulary order"
     )
     gate_passed: bool = Field(
-        description="Whether the rate cleared the agreement gate with the hand rows covered"
+        description="Whether the rate cleared the agreement gate and the constant-labeler "
+        "floor with the hand rows covered"
+    )
+    prompt_sha256: str | None = Field(
+        default=None,
+        pattern=r"^[0-9a-f]{64}$",
+        description="sha256 of the labeling prompt the measured run read, where it was found",
     )
 
     @model_validator(mode="after")
@@ -9841,6 +9881,10 @@ class QpTopicPolicyAgreement(_Strict):
             )
         if sum(share.n for share in self.per_area) != self.n:
             raise ValueError("per-area n does not sum to the compared rows")
+        if self.named_agree > self.named_n or self.named_n > self.n:
+            raise ValueError("named-area counts do not hold")
+        if self.certain_agree > self.certain_n or self.certain_n > self.n:
+            raise ValueError("certain-row counts do not hold")
         return self
 
 
@@ -13120,6 +13164,12 @@ class ExecutivePolicyCell(_Strict):
     rows: int = Field(ge=0, description="In-scope applications in the cell, never-parsed aside")
     decided: int = Field(default=0, ge=0, description="Of those, substantively decided")
     wins: int = Field(default=0, ge=0, description="Of those decided, the executive's wins")
+    labeler_rows: int = Field(
+        default=0,
+        ge=0,
+        description="Of the rows, those whose area the application labeler gave rather than "
+        "the hand set (policy-area-v2 only)",
+    )
     success_rate: float | None = Field(
         default=None, description="wins / decided; null where none is decided"
     )
@@ -13176,6 +13226,11 @@ class ExecutiveSuccessRow(_Strict):
             "Whether the label's subject is in doubt: a rater was unsure of it "
             "or the raters differed"
         ),
+    )
+    policy_source: Literal["reference", "labeler"] | None = Field(
+        default=None,
+        description="Where the area came from: the hand set, or the application labeler under "
+        "policy-area-v2, whose areas are never flagged uncertain; null where unlabeled",
     )
 
 

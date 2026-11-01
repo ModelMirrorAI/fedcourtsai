@@ -181,6 +181,19 @@
           "description": "Application frame: hand-labeled rows whose policy area the labeler matched; null where the batch measured no policy area",
           "title": "Policy Agree"
         },
+        "policy_gate_passed": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Whether this batch's policy measurement passed its gate; null where the batch measured no policy area",
+          "title": "Policy Gate Passed"
+        },
         "policy_n": {
           "anyOf": [
             {
@@ -194,6 +207,20 @@
           "default": null,
           "description": "Hand-labeled rows compared on policy area",
           "title": "Policy N"
+        },
+        "policy_prompt_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "sha256 of the labeling prompt this batch's policy measurement read. After a refusal, no later batch asks for policy areas until the prompt changes",
+          "title": "Policy Prompt Sha256"
         },
         "policy_published": {
           "anyOf": [

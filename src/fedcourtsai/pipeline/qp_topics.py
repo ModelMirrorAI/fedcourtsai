@@ -1006,11 +1006,25 @@ def build_application_labels(
     if missing:
         raise QpTopicError(f"extract rows carry no input_kind: {missing[:3]}")
     block = {entry.case_id: entry.input_kind for entry in reference.entries}
+    standing = {entry.case_id: entry for entry in prior.entries} if prior is not None else {}
 
     def publish(row: dict[str, object]) -> QpTopicApplicationPublishedEntry:
         case_id = str(row["case_id"])
         kind = block[case_id] if row["source"] == "reference" else input_kinds[case_id]
-        return QpTopicApplicationPublishedEntry(**row, input_kind=kind)
+        # A row's policy area is accrued apart from its topic label
+        # (:mod:`.application_policy`), so a topic row rebuilt here keeps the
+        # area it already carries.
+        held = standing.get(case_id)
+        policy = (
+            {
+                "policy_area": held.policy_area,
+                "policy_source": held.policy_source,
+                "policy_batch": held.policy_batch,
+            }
+            if held is not None
+            else {}
+        )
+        return QpTopicApplicationPublishedEntry(**row, input_kind=kind, **policy)
 
     accrued = _accrue(
         entries=entries,
@@ -1032,6 +1046,7 @@ def build_application_labels(
         cases=len(rows),
         agreement=accrued.agreement,
         shadow=accrued.shadow,
+        policy_agreement=prior.policy_agreement if prior is not None else None,
         batches=accrued.batches,
         entries=rows,
     )

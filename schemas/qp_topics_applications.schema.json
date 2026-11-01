@@ -349,6 +349,19 @@
           "description": "Application frame: hand-labeled rows whose policy area the labeler matched; null where the batch measured no policy area",
           "title": "Policy Agree"
         },
+        "policy_gate_passed": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Whether this batch's policy measurement passed its gate; null where the batch measured no policy area",
+          "title": "Policy Gate Passed"
+        },
         "policy_n": {
           "anyOf": [
             {
@@ -362,6 +375,20 @@
           "default": null,
           "description": "Hand-labeled rows compared on policy area",
           "title": "Policy N"
+        },
+        "policy_prompt_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "sha256 of the labeling prompt this batch's policy measurement read. After a refusal, no later batch asks for policy areas until the prompt changes",
+          "title": "Policy Prompt Sha256"
         },
         "policy_published": {
           "anyOf": [
@@ -475,6 +502,20 @@
           "title": "Agree",
           "type": "integer"
         },
+        "certain_agree": {
+          "default": 0,
+          "description": "Of the compared rows the hand set does not flag uncertain, those matched",
+          "minimum": 0,
+          "title": "Certain Agree",
+          "type": "integer"
+        },
+        "certain_n": {
+          "default": 0,
+          "description": "Compared rows the hand set does not flag uncertain",
+          "minimum": 0,
+          "title": "Certain N",
+          "type": "integer"
+        },
         "floor": {
           "anyOf": [
             {
@@ -491,7 +532,7 @@
           "title": "Floor"
         },
         "gate_passed": {
-          "description": "Whether the rate cleared the agreement gate with the hand rows covered",
+          "description": "Whether the rate cleared the agreement gate and the constant-labeler floor with the hand rows covered",
           "title": "Gate Passed",
           "type": "boolean"
         },
@@ -499,6 +540,20 @@
           "description": "Hand-labeled rows the labeler gave a policy area",
           "minimum": 0,
           "title": "N",
+          "type": "integer"
+        },
+        "named_agree": {
+          "default": 0,
+          "description": "Of the compared rows whose hand label is a named area (not `other`), those the labeler matched",
+          "minimum": 0,
+          "title": "Named Agree",
+          "type": "integer"
+        },
+        "named_n": {
+          "default": 0,
+          "description": "Compared rows whose hand label is a named area",
+          "minimum": 0,
+          "title": "Named N",
           "type": "integer"
         },
         "off_frame": {
@@ -515,6 +570,20 @@
           },
           "title": "Per Area",
           "type": "array"
+        },
+        "prompt_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "sha256 of the labeling prompt the measured run read, where it was found",
+          "title": "Prompt Sha256"
         },
         "rate": {
           "anyOf": [
@@ -594,6 +663,13 @@
           ],
           "title": "Area",
           "type": "string"
+        },
+        "labeled_other": {
+          "default": 0,
+          "description": "Hand-labeled rows of this area the labeler called `other`, the direction a labeler that may not use its own knowledge of a case errs in",
+          "minimum": 0,
+          "title": "Labeled Other",
+          "type": "integer"
         },
         "n": {
           "description": "Hand-labeled rows of this area compared",

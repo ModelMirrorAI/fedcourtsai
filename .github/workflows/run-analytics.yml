@@ -1772,6 +1772,10 @@ jobs:
         run: |
           set -euo pipefail
           mv data/qp-topics "$RUNNER_TEMP/qp-topics-oracle"
+          # The policy-area hand labels are the application frame's second
+          # measurement set, and they ship inside the package, so they leave
+          # the tree the same way.
+          mv src/fedcourtsai/policy_areas.json "$RUNNER_TEMP/policy-areas-oracle.json"
 
       # The rest of the committed record leaves the agent's tree too: the
       # docket records, the outcomes and gradings under `data/`, and the
@@ -2032,7 +2036,10 @@ jobs:
         if: ${{ !cancelled() }}
         run: |
           set -euo pipefail
-          rm -rf "$RUNNER_TEMP/qp-topics-oracle" "$RUNNER_TEMP/record-aside"
+          rm -rf "$RUNNER_TEMP/qp-topics-oracle" "$RUNNER_TEMP/record-aside" \
+            "$RUNNER_TEMP/policy-areas-oracle.json"
+          rm -f src/fedcourtsai/policy_areas.json
+          git checkout -- src/fedcourtsai/policy_areas.json
           # From the commit, not from the copy: whatever the agent did to the
           # tree, the files the gate measures against are the reviewed ones.
           # The rm before the checkout is load-bearing for the accrual base:
@@ -3111,19 +3118,28 @@ jobs:
             extends='. as [$a, $b] | (($a - $b) | length == 0) and (($b | length) > ($a | length))'
           else
             ledger_q='[.batches[] | {batch, labeler, published}]'
-            rows_q='[.entries[] | select(.source == "labeler")]'
+            # An application row's policy area is accrued apart from its
+            # topic label and lands on rows already published, so the topic
+            # containment reads each row without its policy fields, and the
+            # policy check below holds every labeler-sourced area main
+            # publishes immutable in turn.
+            rows_q='[.entries[] | select(.source == "labeler") | del(.policy_area, .policy_source, .policy_batch)]'
             extends='. as [$a, $b] | ($b[:($a | length)] == $a) and (($b | length) > ($a | length))'
           fi
+          areas_q='[.entries[] | select(.policy_source == "labeler") | {case_id, policy_area, policy_source, policy_batch}]'
           if git cat-file -e "origin/main:${LABELS_DIR}/${LABELS_NAME}" 2>/dev/null; then
             git show "origin/main:${LABELS_DIR}/${LABELS_NAME}" > "$RUNNER_TEMP/landed.json"
             jq -cS "$ledger_q" "$RUNNER_TEMP/landed.json" > "$RUNNER_TEMP/landed-ledger.json"
             jq -cS "$rows_q" "$RUNNER_TEMP/landed.json" > "$RUNNER_TEMP/landed-rows.json"
+            jq -cS "$areas_q" "$RUNNER_TEMP/landed.json" > "$RUNNER_TEMP/landed-areas.json"
           else
             echo '[]' > "$RUNNER_TEMP/landed-ledger.json"
             echo '[]' > "$RUNNER_TEMP/landed-rows.json"
+            echo '[]' > "$RUNNER_TEMP/landed-areas.json"
           fi
           jq -cS "$ledger_q" "$RUNNER_TEMP/qp-topics.json" > "$RUNNER_TEMP/incoming-ledger.json"
           jq -cS "$rows_q" "$RUNNER_TEMP/qp-topics.json" > "$RUNNER_TEMP/incoming-rows.json"
+          jq -cS "$areas_q" "$RUNNER_TEMP/qp-topics.json" > "$RUNNER_TEMP/incoming-areas.json"
           # Both checks read their operands from files, never from the
           # argument list. The row arrays are the artifact's whole
           # labeler-sourced content — hundreds of kilobytes from the second
@@ -3155,6 +3171,13 @@ jobs:
             echo "::error::rows main already publishes are missing or changed in this run's" \
               "artifact — pushing would rewrite published labels. The run accrued onto a" \
               "stale or divergent artifact; dispatch from the ref carrying main's newest copy."
+            exit 1
+          fi
+          if ! guard areas '. as [$a, $b] | ($a - $b) | length == 0' \
+                 "$RUNNER_TEMP/landed-areas.json" "$RUNNER_TEMP/incoming-areas.json"; then
+            echo "::error::policy areas main already publishes are missing or changed in this" \
+              "run's artifact — an area is set once. The run accrued onto a stale or" \
+              "divergent artifact; dispatch from the ref carrying main's newest copy."
             exit 1
           fi
           mkdir -p data/qp-topics/spend "$LABELS_DIR"

@@ -3668,15 +3668,22 @@ to it.
   policy area. A published per-policy grouping can be coarser, so a reader
   quotes `controversies`, `determinate` and `indeterminate` with the pair, and
   each review row's `controversy_id` shows the grouping.
-- **A policy area is a hand label, and a per-area cell is small.**
-  `policy_cells` count the in-scope applications per administration, filer
-  and policy area under the version `policy_rule_version` names, at the
-  application level. Under `policy-area-v2`, read once the application
-  labeler's policy areas have passed their measurement against these hand
-  labels (`docs/qp-topic.md`, *Policy areas*), a hand-labeled row keeps its
-  hand label and every other row carries the labeler's area, which is
-  agreement with this reference rather than accuracy. Under `policy-area-v1`
-  (`pipeline.policy_area`) every label is the hand set's. The labels are a committed reference, not a rule: two
+- **A policy area is a hand label or a measured labeler's area, and a
+  per-area cell is small.** `policy_cells` count the in-scope applications
+  per administration, filer and policy area under the version
+  `policy_rule_version` names, at the application level. Under
+  `policy-area-v2`, read once the application labeler's policy areas have
+  passed their measurement against these hand labels (`docs/qp-topic.md`,
+  *Policy areas*), a hand-labeled row keeps its hand label and every other
+  row carries the labeler's area, which is agreement with this reference
+  rather than accuracy; each cell's `labeler_rows` counts those rows and each
+  review row's `policy_source` names its source, so a quoted per-area pair
+  under `policy-area-v2` names its labeler count. The labeler reads the
+  docket alone and may not use its knowledge of a case, so it calls `other`
+  where a hand rater named the case's policy; the measurement counts that
+  direction per area (`labeled_other`). Under `policy-area-v1`
+(`pipeline.policy_area`) every label is the hand set's. The hand labels are
+  a committed reference, not a rule: two
   agent raters, each blind to the other but not to the outcome (the docket
   entries carry the orders), labeled every in-scope and unknown-scope
   application from its caption, court below and docket entries and from
@@ -3704,8 +3711,12 @@ to it.
   unsure (13 of them in scope), and 77 of the later 167, where a rater was
   unsure or the raters' areas differed. A quoted per-area pair names its
   uncertain count. An
-  application added after the labels is `policy_unlabeled`, outside every
-  cell, and a quoted per-area figure names that count. Most cells hold a few
+  application neither source labels is `policy_unlabeled`, outside every
+  cell, and a quoted per-area figure names that count: under
+  `policy-area-v1`, every application added after the hand labels; under
+  `policy-area-v2`, a policy row the labeler has not reached yet, so the
+  count can rise when the cut switches version and falls as later batches
+  backfill. Most cells hold a few
   rows: quote the pair.
 
 **Hand-coded check of the scope rule.** Measured under `exec-action-v1`,

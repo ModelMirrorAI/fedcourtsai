@@ -479,6 +479,7 @@ def _success(  # noqa: PLR0913 - one keyword per stamp the cut carries
         if label is not None:
             review_row.policy_area = label.area
             review_row.policy_uncertain = label.uncertain
+            review_row.policy_source = label.source
     policy_cells, unlabeled = _policy_cells(placed, fold.results, policies)
     order: dict[str, int] = {reason: index for index, reason in enumerate(SCOPE_REASONS)}
     return ExecutiveSuccess(
@@ -577,6 +578,7 @@ def _policy_cells(
         )
         tally = tallies.setdefault((administration_for(item.as_of), filer, label.area), Counter())
         tally["rows"] += 1
+        tally["labeler"] += label.source == "labeler"
         won = results[docket]
         if won is not None:
             tally["decided"] += 1
@@ -594,6 +596,7 @@ def _policy_cells(
             rows=tally["rows"],
             decided=tally["decided"],
             wins=tally["wins"],
+            labeler_rows=tally["labeler"],
             success_rate=tally["wins"] / tally["decided"] if tally["decided"] else None,
         )
         for (window, filer, area), tally in sorted(

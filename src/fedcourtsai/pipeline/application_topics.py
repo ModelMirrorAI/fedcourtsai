@@ -74,7 +74,6 @@ from .ingest import _date, _live_entries
 from .interim_signals import ApplicationKind, match_interim_disposition
 from .party import docket_stratum
 from .party_rates import docket_key
-from .policy_area import policy_label
 from .prefetch import prefetch_by_case
 
 #: This extract rule's version.
@@ -131,11 +130,9 @@ class ApplicationExtractRow:
     text: str
     entries: tuple[ApplicationEntry, ...]
     #: Whether the labeler also gives this row an executive policy area: the
-    #: federal government is a party (:func:`is_policy_row`).
+    #: federal government is a party (:func:`is_policy_row`). Cleared on a
+    #: batch that asks for no area.
     policy_row: bool = False
-    #: Whether the row is in the batch for its policy area alone: its topic is
-    #: already published, so its topic line is neither measured nor published.
-    policy_only: bool = False
 
     def as_json(self) -> dict[str, Any]:
         """The extract file's row shape."""
@@ -148,7 +145,6 @@ class ApplicationExtractRow:
             "text": self.text,
             "entries": [{"date": entry.date, "text": entry.text} for entry in self.entries],
             "policy_row": self.policy_row,
-            "policy_only": self.policy_only,
         }
 
 
@@ -263,11 +259,11 @@ def is_policy_row(row: corpus.CorpusRow) -> bool:
     (:func:`~fedcourtsai.pipeline.exec_action.exec_action_annotations`), which
     is the population the ``policy-area-v1`` hand labels were drawn from: every
     in-scope and unknown-scope application of that cut, and the federal-party
-    rows it reads out of scope. A hand-labeled docket is a policy row whatever
-    this reading says, so the measurement set never leaves the frame it grades.
+    rows it reads out of scope. The reading is the whole rule: a hand-labeled
+    docket gets no flag of its own, so the flag says nothing about which rows
+    are measured, and a hand row the reading misses is left out of the
+    measurement and counts against its coverage.
     """
-    if policy_label(row.docket_number) is not None:
-        return True
     return exec_action_annotations(row, None).government_side is not None
 
 

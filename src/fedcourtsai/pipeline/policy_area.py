@@ -3,8 +3,8 @@
 Read-side only and deliberately not a prediction input: the ``policy-area-v1``
 labels are a committed, hand-labeled reference (the package's
 ``policy_areas.json``), keyed by application docket number, and the one
-consumer is the executive success cut (:mod:`.executive_success`). No cell, outcome or score reads them,
-so a relabel moves no frozen input.
+consumer is the executive success cut (:mod:`.executive_success`). No cell,
+outcome or score reads them, so a relabel moves no frozen input.
 
 **Why a separate vocabulary.** The questions-presented topics
 (``docs/qp-topic.md``) label what a petition asks, and no application carries
@@ -74,7 +74,7 @@ from dataclasses import dataclass
 from functools import cache
 from importlib.resources import files
 from types import MappingProxyType
-from typing import Any, Final, cast, get_args
+from typing import Any, Final, Literal, cast, get_args
 
 from ..schemas import PolicyAreaLabel, QpTopicApplicationLabels
 
@@ -102,6 +102,8 @@ class PolicyLabel:
     area: PolicyArea
     note: str
     uncertain: bool
+    #: ``reference`` for a hand label, ``labeler`` for the application labeler's.
+    source: Literal["reference", "labeler"] = "reference"
 
 
 def parse_policy_areas(text: str) -> Mapping[str, PolicyLabel]:
@@ -170,36 +172,33 @@ def hand_source() -> PolicySource:
 def policy_source(artifact: QpTopicApplicationLabels | None) -> PolicySource:
     """The policy areas a cut reads: ``policy-area-v2`` once it is measured, else the hand set.
 
-    ``policy-area-v2`` is the policy area the application labels artifact
-    carries: the hand label on a row the hand set covers, and the labeler's on
-    every other ``policy_row`` (``docs/qp-topic.md``, *Policy areas*). It is read
-    only when the artifact records a policy measurement that passed its gate;
-    otherwise the hand set stands, so a cut never mixes the two versions. A row
-    the artifact gives no policy area is unlabeled under ``policy-area-v2``, and
-    the cut counts it beside its cells. A hand-sourced row keeps the hand set's
-    ``uncertain`` flag and note; a labeler row is never flagged, since the
-    labeler records no doubt.
+    ``policy-area-v2`` is every hand label, plus the labeler's area on every
+    other ``policy_row`` the application labels artifact carries one for
+    (``docs/qp-topic.md``, *Policy areas*). It is read only when the artifact
+    records a policy measurement that passed its gate; otherwise the hand set
+    stands. A row neither source labels is unlabeled, and the cut counts it
+    beside its cells. A hand label keeps its ``uncertain`` flag and note; a
+    labeler area is never flagged, since the labeler records no doubt, and
+    carries ``source`` ``labeler`` so a cut can count those rows apart.
     """
     if artifact is None or artifact.policy_agreement is None:
         return hand_source()
     if not artifact.policy_agreement.gate_passed:
         return hand_source()
-    hand = policy_areas()
-    labels: dict[str, PolicyLabel] = {}
+    # The hand set first, so a hand-labeled docket the labels artifact does not
+    # hold (one outside the application frame) keeps its hand label rather than
+    # going unlabeled when the cut switches version.
+    labels: dict[str, PolicyLabel] = dict(policy_areas())
     for entry in artifact.entries:
-        if entry.policy_area is None:
+        if entry.policy_area is None or entry.policy_source != "labeler":
             continue
         key = entry.docket_number.strip().upper()
-        standing = hand.get(key) if entry.policy_source == "reference" else None
-        labels[key] = (
-            standing
-            if standing is not None and standing.area == entry.policy_area
-            else PolicyLabel(
-                area=entry.policy_area,
-                note=f"labeled by {artifact.labeler}"
-                if entry.policy_source == "labeler"
-                else "policy-area-v1 hand label",
-                uncertain=False,
-            )
+        if key in labels:
+            continue
+        labels[key] = PolicyLabel(
+            area=entry.policy_area,
+            note=f"labeled in batch {entry.policy_batch}",
+            uncertain=False,
+            source="labeler",
         )
     return PolicySource(rule_version=POLICY_AREA_V2_RULE_VERSION, labels=MappingProxyType(labels))
