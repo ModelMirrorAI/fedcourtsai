@@ -490,7 +490,7 @@ def test_an_out_of_scope_newest_run_is_history_and_the_frozen_run_is_the_current
         "claude-baseline",
         "r-frozen",
         big_case_score=0.4,
-        stamped_at=datetime(2026, 11, 1, tzinfo=UTC),
+        stamped_at=(FROZEN_SINCE or _CLOCK) + timedelta(hours=1),
     )
     _write_read(
         tmp_path,
@@ -498,7 +498,7 @@ def test_an_out_of_scope_newest_run_is_history_and_the_frozen_run_is_the_current
         "claude-baseline",
         "r-retired",
         big_case_score=0.9,
-        stamped_at=datetime(2026, 12, 1, tzinfo=UTC),
+        stamped_at=(FROZEN_SINCE or _CLOCK) + timedelta(days=1),
         digest=_RETIRED,
     )
     board = _board(tmp_path, process_scope="frozen")

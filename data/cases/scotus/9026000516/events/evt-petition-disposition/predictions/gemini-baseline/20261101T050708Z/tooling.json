@@ -1,0 +1,26 @@
+{
+  "case_id": "scotus/9026000516",
+  "run_id": "20261101T050708Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_read_document",
+    "mcp_courtlistener_search_document",
+    "mcp_courtlistener_call_endpoint"
+  ],
+  "helpful": [
+    "Provisioned full text of the certiorari petition and appendix (including the Fourth Circuit opinion, district court Rule 29 order, and rehearing denial order) in record/documents/petition.txt",
+    "Pre-computed cert_anchor in record/context.json and detailed salience-band and relist/CVSG/circuit cuts in metrics/statpack.md",
+    "CourtListener MCP read_document and search_document tools for reading Abouammo v. United States, 608 U.S. 597 (2026), and subsequent lower-court decisions applying Abouammo to 26 U.S.C. § 7206 venue"
+  ],
+  "gaps": [
+    "A filter on fedcourts query for respondent waiver vs. response filed (or CFR status) on SCOTUS cert rows would help isolate first-distribution waiver petitions from first-distribution BIO petitions"
+  ],
+  "notes": "All provisioned inputs were complete and clean."
+}

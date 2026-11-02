@@ -69,8 +69,8 @@
     {
       "label": "proc-v16",
       "since": {
-        "at": null,
-        "merge": null,
+        "at": "2026-11-01T17:45:59Z",
+        "merge": "d8569e75e00e3500f6484884884a95f21d73c83a",
         "source": "merge"
       }
     }
@@ -82,8 +82,8 @@
       "actor_id": "claude-baseline",
       "label": "proc-v16",
       "blessed": {
-        "at": null,
-        "merge": null,
+        "at": "2026-11-01T17:45:59Z",
+        "merge": "d8569e75e00e3500f6484884884a95f21d73c83a",
         "source": "merge"
       }
     },
@@ -93,8 +93,8 @@
       "actor_id": "codex-baseline",
       "label": "proc-v16",
       "blessed": {
-        "at": null,
-        "merge": null,
+        "at": "2026-11-01T17:45:59Z",
+        "merge": "d8569e75e00e3500f6484884884a95f21d73c83a",
         "source": "merge"
       }
     },
@@ -104,8 +104,8 @@
       "actor_id": "gemini-baseline",
       "label": "proc-v16",
       "blessed": {
-        "at": null,
-        "merge": null,
+        "at": "2026-11-01T17:45:59Z",
+        "merge": "d8569e75e00e3500f6484884884a95f21d73c83a",
         "source": "merge"
       }
     },
@@ -115,8 +115,8 @@
       "actor_id": "claude-judge",
       "label": "proc-v16",
       "blessed": {
-        "at": null,
-        "merge": null,
+        "at": "2026-11-01T17:45:59Z",
+        "merge": "d8569e75e00e3500f6484884884a95f21d73c83a",
         "source": "merge"
       }
     },
@@ -126,8 +126,8 @@
       "actor_id": "codex-judge",
       "label": "proc-v16",
       "blessed": {
-        "at": null,
-        "merge": null,
+        "at": "2026-11-01T17:45:59Z",
+        "merge": "d8569e75e00e3500f6484884884a95f21d73c83a",
         "source": "merge"
       }
     },
@@ -137,8 +137,8 @@
       "actor_id": "gemini-judge",
       "label": "proc-v16",
       "blessed": {
-        "at": null,
-        "merge": null,
+        "at": "2026-11-01T17:45:59Z",
+        "merge": "d8569e75e00e3500f6484884884a95f21d73c83a",
         "source": "merge"
       }
     }
@@ -442,8 +442,8 @@
         "source": "merge"
       },
       "closes": {
-        "at": null,
-        "merge": null,
+        "at": "2026-11-01T17:45:59Z",
+        "merge": "d8569e75e00e3500f6484884884a95f21d73c83a",
         "source": "merge"
       },
       "revoked_at": null
@@ -458,8 +458,8 @@
         "source": "merge"
       },
       "closes": {
-        "at": null,
-        "merge": null,
+        "at": "2026-11-01T17:45:59Z",
+        "merge": "d8569e75e00e3500f6484884884a95f21d73c83a",
         "source": "merge"
       },
       "revoked_at": null
@@ -474,8 +474,8 @@
         "source": "merge"
       },
       "closes": {
-        "at": null,
-        "merge": null,
+        "at": "2026-11-01T17:45:59Z",
+        "merge": "d8569e75e00e3500f6484884884a95f21d73c83a",
         "source": "merge"
       },
       "revoked_at": null
@@ -485,8 +485,8 @@
       "digest": "sha256:6a7047b68d17cc856aeabec7b557db010e775081f4efa58af5e9bf7d53417b94",
       "predictor_id": "claude-baseline",
       "opens": {
-        "at": null,
-        "merge": null,
+        "at": "2026-11-01T17:45:59Z",
+        "merge": "d8569e75e00e3500f6484884884a95f21d73c83a",
         "source": "merge"
       },
       "closes": null,
@@ -497,8 +497,8 @@
       "digest": "sha256:bf956e358b5e31f3d72302c1b660d638ce16e4c4a0fa542887dd0c591c275e04",
       "predictor_id": "codex-baseline",
       "opens": {
-        "at": null,
-        "merge": null,
+        "at": "2026-11-01T17:45:59Z",
+        "merge": "d8569e75e00e3500f6484884884a95f21d73c83a",
         "source": "merge"
       },
       "closes": null,
@@ -509,8 +509,8 @@
       "digest": "sha256:758b95e861e1913da28900f558837a2fdbc0c1f4a4341ae130be83cd7e752164",
       "predictor_id": "gemini-baseline",
       "opens": {
-        "at": null,
-        "merge": null,
+        "at": "2026-11-01T17:45:59Z",
+        "merge": "d8569e75e00e3500f6484884884a95f21d73c83a",
         "source": "merge"
       },
       "closes": null,
@@ -864,16 +864,16 @@
     },
     {
       "name": "opposition-cut-by-brief",
-      "merge": null,
-      "at": null,
+      "merge": "d8569e75e00e3500f6484884884a95f21d73c83a",
+      "at": "2026-11-01T17:45:59Z",
       "predictors": null,
       "reach": "all",
       "gradual": false
     },
     {
       "name": "decision-below-documents",
-      "merge": null,
-      "at": null,
+      "merge": "d8569e75e00e3500f6484884884a95f21d73c83a",
+      "at": "2026-11-01T17:45:59Z",
       "predictors": null,
       "reach": "all",
       "gradual": true

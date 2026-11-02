@@ -3313,3 +3313,70 @@ def test_a_missing_sidecar_log_records_no_count_rather_than_zero(
     assert _written_gemini_log(fixture_corpus)["corpus_service"] is None
     _record_gemini_retrieval()
     assert _written_gemini_log(fixture_corpus)["corpus_service"] is None
+
+
+def _claude_tool_transcript(name: str, tool_input: dict[str, object]) -> list[dict[str, object]]:
+    return [
+        {
+            "type": "assistant",
+            "timestamp": "2026-07-10T12:00:01Z",
+            "message": {
+                "content": [
+                    {"type": "tool_use", "id": "toolu_1", "name": name, "input": tool_input}
+                ]
+            },
+        }
+    ]
+
+
+def test_a_long_write_keeps_its_target_ahead_of_the_content(tmp_path: Path) -> None:
+    # Claude's `Write` carries `content` and `file_path`; in sorted key order
+    # the content comes first and a long body pushes the target past the cut.
+    target = "data/cases/scotus/1/events/evt-x/predictions/claude-baseline/flags.json"
+    execution_file = tmp_path / "execution.json"
+    execution_file.write_text(
+        json.dumps(_claude_tool_transcript("Write", {"content": "x" * 2000, "file_path": target}))
+    )
+    (call,) = parse_claude_retrieval(execution_file)
+    assert call.query is not None
+    assert len(call.query) == 500
+    assert call.query.startswith(json.dumps({"file_path": target})[:-1] + ', "content": "xxx')
+
+
+def test_a_gemini_directory_listing_leads_with_its_directory(tmp_path: Path) -> None:
+    call = _gemini_tool_call(
+        tmp_path,
+        function_name="list_directory",
+        function_args={"ignore": ["*.pyc"], "dir_path": "data/cases/scotus/1"},
+    )
+    assert call.query == '{"dir_path": "data/cases/scotus/1", "ignore": ["*.pyc"]}'
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"b": {"z": 1, "a": [1, {"y": 2, "c": 3}]}, "a": None},
+        {"cmd": "ls", "workdir": "/w", "max_output_tokens": 10},
+    ],
+)
+def test_params_with_no_path_key_read_as_their_sorted_dump(
+    tmp_path: Path, params: dict[str, object]
+) -> None:
+    execution_file = tmp_path / "execution.json"
+    execution_file.write_text(json.dumps(_claude_tool_transcript("SomeTool", params)))
+    (call,) = parse_claude_retrieval(execution_file)
+    assert call.query == json.dumps(params, sort_keys=True)
+
+
+def test_path_keys_lead_in_their_own_order_and_nested_values_stay_sorted(tmp_path: Path) -> None:
+    params: dict[str, object] = {
+        "edits": [{"old_string": "a", "new_string": "b"}],
+        "path": "p",
+        "file_path": "f",
+    }
+    execution_file = tmp_path / "execution.json"
+    execution_file.write_text(json.dumps(_claude_tool_transcript("MultiEdit", params)))
+    (call,) = parse_claude_retrieval(execution_file)
+    assert call.query == (
+        '{"file_path": "f", "path": "p", "edits": [{"new_string": "b", "old_string": "a"}]}'
+    )
