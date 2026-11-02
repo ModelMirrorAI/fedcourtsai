@@ -1396,9 +1396,9 @@
       "last_live_polled": "2026-11-02",
       "next_conference": "2026-11-06",
       "response_due": {
-        "set_for": "2026-11-23",
+        "set_for": "2026-12-23",
         "stale_reason": null,
-        "upcoming": "2026-11-23"
+        "upcoming": "2026-12-23"
       },
       "stale_reason": null
     },
