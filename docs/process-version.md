@@ -123,6 +123,19 @@ The cert stage's own record changes author at a label rather than a digest:
 commit that sets `CURRENT_PROCESS_LABEL` to that label also switches a
 frozen-band cert grading's rate, Brier and skill from the evaluator's
 transcription to the stamp, and its freeze-record entry says so.
+`FINER_INTERIM_READING_FROM` names `proc-v17` the same way, but keyed on the **scored
+prediction's** label rather than the grading's: an interim cell whose
+prediction was stamped under it is scored on the finer interim reading
+(`Outcome.interim_granted` and the statpack's finer pool), because the predict
+prompt it answered stated that target, and an earlier cell keeps the
+registered reading through any re-grade.
+`HARNESS_TERMINAL_ANCHOR_FROM` names `proc-v17` the same way for the cert
+grading whose scored prediction froze no band: from that label the stamp
+pools its terminal-fallback anchor over the terminal band in the evaluate
+cell's own provisioned `record/context.json` instead of taking the
+evaluator's transcription of `metrics/statpack.md`. That record is
+agent-reachable like the predict cell's, and the stamp reads it as it reads
+the predict cell's `band`: the provisioned value, not a verified one.
 `PINNED_CERT_ANCHOR_FROM` names `proc-v15` the same way: from that label a
 grading whose scored prediction froze an anchor at provisioning
 (`context.cert_anchor`) stamps that anchor, pooled over the statpack in force

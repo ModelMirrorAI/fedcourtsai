@@ -381,6 +381,21 @@
       "title": "Scored",
       "type": "boolean"
     },
+    "scored_granted": {
+      "anyOf": [
+        {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The binary this prediction is scored against (`pipeline.evaluate.scored_granted`): `actual_granted`, except on an interim cell whose prediction takes the finer interim reading, which is scored against `interim_granted` \u2014 so null there on a moot dismissal or an outcome with no finer reading. Null while unresolved, and null on a `voided` row",
+      "title": "Scored Granted"
+    },
     "set_aside": {
       "description": "Whether the prediction is set aside from the scored figures: `voided`, `forward_claim_excluded`, or graded with every in-scope grading leakage-flagged",
       "title": "Set Aside",

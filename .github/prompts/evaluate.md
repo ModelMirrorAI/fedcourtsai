@@ -239,7 +239,9 @@ fails the cell.
     stage's own axis? On a cert or interim cell that is
     `predicted_disposition` against `actual_disposition`, exact match on the
     label: `gvr` (grant/vacate/remand) is distinct from `granted`, even
-    though both count as a grant on the binary axis. On a **merits** cell the
+    though both count as a grant on the binary axis. An interim cell whose
+    outcome records the finer reading takes the binary instead (the interim
+    rule below). On a **merits** cell the
     axis is the `judgment` instead — a merits outcome's `actual_disposition`
     is always the off-vocabulary `other`, so comparing dispositions there
     would score every cell against a constant. Route on the **outcome**: an
@@ -255,7 +257,9 @@ fails the cell.
     comparison.
   - `brier_score` — `(probability - actual_granted)**2`, 0–1 (`actual_granted` is 1
     for a `gvr` outcome — a GVR is a grant; on a merits outcome the same field
-    carries the disturbed binary, so one formula serves every stage).
+    carries the disturbed binary, so one formula serves every stage; an
+    interim cell whose outcome records the finer reading is the one exception,
+    below).
   - `vote_accuracy` — **merits-stage cells only**, and only where
     `outcome.vote_provenance` says `complete: true`: fraction of predicted
     per-Justice votes that matched, over the Justices the prediction and the
@@ -271,48 +275,50 @@ fails the cell.
     (`pipeline.moments.scores_votes`), and `validate` fails a committed
     `vote_accuracy` off a merits event, so a number written here does not
     quietly become a score — it fails the cell.
-  - `segment_base_rate` — **yours only on a cert cell whose scored prediction
-    froze no band.** Everywhere else the harness stamps it and you write
-    nothing (see the stage rules below): on an interim and a merits cell, and on
-    a **cert** cell whose scored prediction carries a frozen `context.band`.
-    There the anchor is mechanical — the risk set of that band, under the
-    salience version that assigned it, pooled over Terms strictly before the
-    prediction's own Term from the committed statpack by the scorer's own
-    pooler — so `stamp-cell` writes the rate, `base_rate_basis`,
-    `brier_skill_score` and the statpack build it read, and nulls all of them
-    together where the pack cannot support the pool (for example a band frozen
-    with no `salience_version`, or no prior Term carrying it). Leave
-    `segment_base_rate`, `brier_skill_score` and `base_rate_basis` null on such a
-    cell: anything you write there is overwritten. Do not pool or quote a rate
-    of your own for it in `evaluation.md` either, since the stamped record is the
-    only anchor the board reads and a second figure beside it is one a reader
-    cannot reconcile; where the comparison matters to your write-up, refer to
-    "the stamped segment base rate".
-    **The cert cell whose prediction froze no band** (an older cell, or one whose
-    snapshot disclosed no proceedings) is the one case left to you, because its
-    band has to be derived. Take the band you can derive from the docket — your
-    own cell's `record/context.json`, which is provisioned from the decided
-    docket and so carries the terminal band — and the **leading** figure for that
-    band in the per-Term "Segment base rate by salience band" table of committed
-    `metrics/statpack.md`, pooled resolved-weighted over Terms **strictly
-    before** this case's Term. Pool every Term row that table shows that
-    precedes the case's; its caption states how many of the pack's Terms are
-    rendered, and where that is fewer than the pack holds, the shown window *is*
-    your window. Record `base_rate_basis` `terminal` and say in `evaluation.md`
-    that you used the terminal fallback. Never record `risk_set`: that basis is
-    the harness's and needs a frozen band, so a `risk_set` you record **fails
-    the cell** at the harness stamp. A `terminal` recorded against a prediction
-    that froze a band is overwritten by the stamp and warned on. Omit the rate (and with it `brier_skill_score`), leaving
-    `base_rate_basis` null, when the case has no Term or no prior-Term band
-    resolved.
-  - `brier_skill_score` — `1 - brier_score / (segment_base_rate - actual_granted)**2`:
-    the forecast's skill over the naive baseline that always predicts the segment base
-    rate (positive beats it, ~0 merely parrots it, negative is worse). Omit when
-    `segment_base_rate` is omitted or the baseline is already exact.
+  - `segment_base_rate`, `brier_skill_score` and `base_rate_basis` — **never
+    yours, on any stage.** The harness stamps all three and you leave them
+    null (see the stage rules below for interim and merits). On a **cert** cell
+    the anchor is mechanical either way, so `stamp-cell` pools it from the
+    committed statpack by the scorer's own pooler, over Terms strictly before
+    the case's own Term, under the salience version that assigned the band:
+    - where the scored prediction carries a frozen `context.band`, over the
+      **risk set** of that band (`base_rate_basis` `risk_set`);
+    - where it froze no band (an older cell, or one whose snapshot disclosed no
+      proceedings), over the **terminal** band your own cell's
+      `record/context.json` carries — it is provisioned from the decided
+      docket — at the rate over petitions that ended in that band
+      (`base_rate_basis` `terminal`).
+
+    It writes the rate, the basis, `brier_skill_score` and the statpack build it
+    read, and nulls all of them together where the pack cannot support the pool
+    (a band frozen with no `salience_version`, a case with no Term or no band,
+    no prior Term carrying the band). Anything you write in these three fields
+    is overwritten. Do not pool or quote a rate of your own in `evaluation.md`
+    either: the stamped record is the only anchor the board reads, and a second
+    figure beside it is one a reader cannot reconcile. Where the comparison
+    matters to your write-up, refer to "the stamped segment base rate". The
+    skill it stamps is `1 - brier_score / (segment_base_rate -
+    actual_granted)**2`, the forecast's skill over the naive baseline that
+    always predicts the segment base rate (positive beats it, ~0 merely parrots
+    it, negative is worse), null where the rate is null or the baseline is
+    already exact.
   - **Interim-stage cells** (the event's stage is `interim` — a stay/injunction
-    application): `correct` and `brier_score` are computed identically —
-    `granted` there denotes the requested relief, and you read
-    `outcome.actual_granted` as recorded rather than re-deriving it. **Write
+    application): `granted` there denotes the requested relief, scored on the
+    finer interim reading wherever `outcome.json` records one. Where the
+    outcome carries `interim_reading`, read `outcome.interim_granted` as
+    recorded (a partial grant is 1; a moot dismissal is null): compute
+    `brier_score` against it, and set `correct` to 1 iff the prediction's
+    `predicted_disposition` falls on the same side of the granted/ungranted
+    line as `interim_granted` (`granted` and `granted-in-part` on one side;
+    `denied`, `withdrawn` and `dismissed` on the other). Where
+    `interim_granted` is null the cell is unscored: leave `brier_score` and
+    `correct` null. An outcome with no `interim_reading` is scored on
+    `actual_granted` and the label exactly as a cert cell is. Never re-derive
+    either from the order text. Which reading actually scores the cell is
+    decided by the stamp the scored prediction carries, which your copy does
+    not show you: `stamp-cell` recomputes both from the committed artifacts
+    under that reading and overwrites what you wrote, so a disagreement on a
+    prediction made before the finer reading was asked is expected. **Write
     neither `segment_base_rate` nor `brier_skill_score`, and leave
     `base_rate_basis` null.** The rate is not yours here: the interim baseline
     is the substantive slice's grant rate pooled over application-Terms
@@ -339,7 +345,7 @@ fails the cell.
     the stamped rate comes back null — what the pack could not support, since
     the reader cannot tell a thin pool from a missing section by looking at a
     null. `claim_scores`
-    is likewise not yours: every interim moment declares the `interim-v2`
+    is likewise not yours: every interim moment declares the `interim-v3`
     set (its four binary claims and the order-writers distribution claim),
     and the harness computes the block from the prediction's
     claims, the outcome's `interim_signals`, and the committed statpack. You
@@ -455,22 +461,15 @@ fails the cell.
     the field absent.
   - Do **not** write `base_rate_salience_version` — the harness derives it at
     the stamp from the basis and the scored prediction's frozen context, so
-    anything you put there is overwritten. On the terminal fallback record the
-    basis; on a frozen-band cert cell the stamp writes both halves. The version
-    half is never yours.
-  - Do **not** write `segment_base_rate` or `brier_skill_score` **on a merits
-    or an interim cell** — the harness pools both from the committed statpack
-    at the stamp and clears them where it declines the pool, so a number you
-    write there is overwritten rather than read (the stage rules above). The
-    same holds on a **cert** cell whose scored prediction froze a band: the
-    harness pools its risk-set anchor. Both are yours only on a cert cell whose
-    prediction froze **no** band, the terminal fallback above.
-  - `correct` and `brier_score` are **stamped over** too — `correct` on every
-    stage, cert included; `brier_score` on a merits or an interim cell and on a
-    cert cell whose prediction froze a band (on a **cert** cell whose
-    prediction froze no band the Brier stays yours) — each recomputed in code at the
-    stamp from the latest committed prediction and the outcome, so the
-    committed number is never your word. **Write them anyway, per their
+    anything you put there is overwritten. The stamp writes both halves of the
+    basis record on every cert cell.
+  - Do **not** write `segment_base_rate` or `brier_skill_score` on any stage —
+    the harness pools both from the committed statpack at the stamp and clears
+    them where it declines the pool, so a number you write there is
+    overwritten rather than read (the stage rules above).
+  - `correct` and `brier_score` are **stamped over** too, on every stage —
+    each recomputed in code at the stamp from the latest committed prediction
+    and the outcome, so the committed number is never your word. **Write them anyway, per their
     definitions above** — this is the one pair where the overwrite does not
     mean "leave it absent": your elicited value is the only independent read
     of the same quantity anywhere in the run, and the stamp compares the two,
@@ -478,7 +477,8 @@ fails the cell.
     systematic mis-read (the wrong binary axis, a stale probability) can
     surface at all. An elicited number the stamp overwrites is that check
     working, not wasted work; a null `correct` is a contract miss that costs
-    the stamped bit its only independent read.
+    the stamped bit its only independent read — except on an interim cell
+    the finer reading leaves unscored, where null is the answer.
   - `leakage` — the structured assessment from the leakage grading below
     (`mode`, `retrieved_outcome_material`, `influenced_prediction`, `notes`),
     and `leakage_suspected` kept in step with it (`true` iff
@@ -504,16 +504,9 @@ fails the cell.
   (`score_claims`: resolvers, strictly-prior baselines, and the availability
   mask) and are the harness's alone — you neither match nor approximate them, as
   are the merits and interim `segment_base_rate` / `brier_skill_score` pair
-  (`merits_base_rate`, `interim_base_rate`, stamped by `stamp-cell`). What is
-  left to you numerically is the rate on a cert cell whose prediction froze no
-  band (a frozen band's cert anchor is stamped by `stamp-cell` as well), and
-  there one exception is explicit: `segment_base_rate`'s in-code lookback is
-  `salience.base_rate_lookback_terms`, while yours is bounded by what the Term
-  table in `statpack.md` renders. Where the caption shows fewer Terms than the
-  pack holds, prefer the rendered window — it is the only one you can compute —
-  and record the divergence in `flags.json` (with the detail in `evaluation.md`),
-  since a baseline computed over a different window is a machine-collectable fact
-  about the run, not a remark. The **semantic** grades below are neither computed
+  (`merits_base_rate`, `interim_base_rate`, stamped by `stamp-cell`), and so is
+  every cert cell's anchor, frozen band or terminal fallback alike. The
+  **semantic** grades below are neither computed
   nor stamped: they are a reader's, which is what the family is.
 - **`evaluation.md`** — your qualitative write-up: what the prediction got right or
   wrong and why, and what drove your `reasoning_quality` score, with a short

@@ -323,6 +323,28 @@ def test_select_documents_application_arm_excludes_non_submissions(entry_text: s
     assert select_documents(_opening_payload(entry_text, _APPLICATION_LINK)) == []
 
 
+@pytest.mark.parametrize(
+    ("number", "selected"),
+    [("26A41", False), ("27A41", True), ("27A41 *** CAPITAL CASE ***", True)],
+)
+def test_the_application_arm_reads_the_ask_the_docket_term_stores(
+    number: str, selected: bool
+) -> None:
+    """From the OT2027 application Term the arm reads the widened ask, as ingest stores it.
+
+    So a `27Annn` "for stay" application, which the predict queue admits on the
+    widened kind, has its own filing fetched; an OT2026 one, which the queue
+    keeps out on the registered kind, does not.
+    """
+    payload = _opening_payload(
+        f"Application ({number.split(maxsplit=1)[0]}) for stay, submitted to Justice Kagan.",
+        _APPLICATION_LINK,
+    )
+    payload["CaseNumber"] = f"{number} "
+    refs = select_documents(payload)
+    assert [r.kind for r in refs] == ([KIND_APPLICATION] if selected else [])
+
+
 def test_select_documents_application_arm_takes_only_the_main_document() -> None:
     # An application entry posts its covering `Written Request` and `Proof of
     # Service` beside — or instead of — the filing. The any-link fallback the

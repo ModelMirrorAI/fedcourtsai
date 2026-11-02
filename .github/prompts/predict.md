@@ -32,8 +32,20 @@ below says how:
 - **`flags.json` is the channel that survives.** You run headless and nobody
   can answer a question; when blocked, write the note there, make the most
   conservative reasonable call, and finish (*Rules*).
-- **Validate before you finish.** `uv run fedcourts validate data` must pass
-  for your files.
+- **Validate your cell before you finish, and fix every line it reports.** Run
+  `uv run fedcourts validate data --cell
+  data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/predictions/$PREDICTOR_ID/$RUN_ID`
+  and repeat until it prints `OK`. It checks your files against the schemas
+  and checks that the cell is complete. A cell that does not pass is not merged,
+  and it is predicted again later. The files are `prediction.json`,
+  `reasoning.md`, `predicted_reasoning.md`, `prediction_summary.md`,
+  `retrieval.md` and `tooling.json`, with `flags.json` only when you have a note
+  (*Outputs*). In `prediction.json`, write only the keys in
+  `schemas/prediction.schema.json`, with no others. `engine` is the string
+  `claude-code`, `codex` or `gemini`, and `model` is a separate key. Name
+  `predicted_reasoning.md` in `predicted_reasoning_doc`. Write `claims` (and
+  `claim_distributions` and `semantic_claims` where your stage declares them)
+  for your own stage, not for another stage.
 - **Install nothing.** The cell's tooling is fixed before you start, and a
   package install (`pip install`, `uv pip`, `uv add`, `npm install`,
   `apt-get` and the like) is refused. To read a PDF, run
@@ -565,16 +577,21 @@ An interim cell predicts a substantive application — a stay, an injunction, a
 vacatur pending certiorari — and the event resolves as the **grant or denial
 of the requested relief**:
 
-- **`granted` / `probability`** — the interim resolver emits exactly four
-  labels: `granted`, `denied`, `withdrawn`, `dismissed`. Draw
-  `predicted_disposition` from those four only; `gvr`, `summary-reversal`, and
-  `granted-in-part` are cert-stage routes the interim vocabulary never
-  records. It matches denial language **first**, so a mixed
-  "granted in part and denied in part" order resolves as `denied` /
-  ungranted (a pre-registered collapse — `docs/salience.md`, *The interim
-  docket*). So `probability` is P(the disposing entry reads as an
-  **unqualified grant**), not P(any relief): scoring partial relief as a grant
-  would over-state your number on exactly the mixed shadow-docket shape.
+- **`granted` / `probability`** — `probability` is P(the Court grants the
+  requested relief **in whole or in part** | the application is not dismissed
+  or denied as moot). The outcome records the finer interim reading
+  (`outcome.interim_reading`): a partial grant ("granted in part and denied in
+  part", "granted as to …", "granted insofar as …") is `granted-in-part` and
+  scores as a grant; a denial, a withdrawal, and a dismissal that is not for
+  mootness score as ungranted; and an application dismissed or denied **as
+  moot** — including one "dismissed in light of" relief granted on a companion
+  application — leaves the scored set, because it decided nothing about its
+  ask. So do not discount your number for the chance the application goes
+  moot; price the relief conditional on a decision. Draw `predicted_disposition`
+  from `granted`, `granted-in-part`, `denied`, `withdrawn` or `dismissed`;
+  `gvr` and `summary-reversal` are cert-stage routes, and `correct` is scored
+  on which side of the granted/ungranted line your label falls, so
+  `granted-in-part` and `granted` score alike.
 - **What the record shows.** None of the cert signals exists here: an
   application is not distributed for conference, and a CVSG is a cert-stage
   act. Key on your **frozen conditioning, not on the docket's shape**: where
@@ -597,14 +614,27 @@ of the requested relief**:
   puts the application in scope, not a rung it climbs.
 - **The statpack's interim-docket section carries a scored base rate.** The
   yardstick an interim cell's skill is scored against is the **substantive
-  resolved slice's grant rate, pooled over application-Terms strictly before
-  your own** — the same leakage rule the cert band rate keeps, bounded to the
-  ten Terms before yours (`application_term - 10 <= T < application_term`)
-  exactly as the merits rate is, over the section's per-Term
-  `substantive_granted` / `substantive_resolved` counts, unweighted raw counts
-  because the application stream carries no denial sampling. It exists only
-  where that pooled sample reaches the pre-registered per-pool floor of **50**
-  resolved substantive applications (`INTERIM_BASE_RATE_MIN_RESOLVED`;
+  resolved slice's grant rate under the finer reading, pooled over
+  application-Terms strictly before your own** — the same leakage rule the
+  cert band rate keeps, bounded to the ten Terms before yours
+  (`application_term - 10 <= T < application_term`) exactly as the merits rate
+  is, over the section's per-Term `finer_granted` / `finer_resolved` counts
+  (partial grants counted as granted, moot dismissals out of both),
+  unweighted raw counts because the application stream carries no denial
+  sampling. The `substantive_granted` / `substantive_resolved` columns beside
+  them are the older registered reading; do not anchor on them. **From the
+  OT2027 application Term** (an application numbered `27Annn` or later) the
+  pool is narrower and wider at once: the **three** application-Terms before
+  yours (`application_term - 3 <= T < application_term`), over the widened
+  slice's `wide_finer_granted` / `wide_finer_resolved` counts — the widened ask
+  vocabulary, which reads a stay, an injunction or a recall of the mandate
+  however the application words it, and is what put your application in scope
+  — with `wide_unread` and `wide_finer_unread` zero in every pooled Term. The
+  rate exists only where that pooled sample reaches the pre-registered per-pool
+  floor of **50** resolved substantive applications, moot dismissals already
+  out, and where every pooled Term carries the counts it pools with their
+  unread count zero — `finer_unread` before OT2027, `wide_unread` and
+  `wide_finer_unread` from it (`INTERIM_BASE_RATE_MIN_RESOLVED`;
   `docs/salience.md`, *The interim docket*). Below the floor there is **no
   baseline and no substitute**: not the pack-level rate, which contains your
   own Term, not a single Term's, and not the cert band table, which is a
@@ -650,18 +680,19 @@ of the requested relief**:
   docket are procedural: whether a **response will be called for**, whether
   the application will be **referred** to the full Court, how many further
   **amicus briefs** arrive, and roughly **when** and how it will be disposed
-  of. Four of those five are the `interim-v2` claims below — the three
+  of. Four of those five are the `interim-v3` claims below — the three
   increments and the disposition itself — and this document is their
   human-readable form, so write the reasoning here and the numbers there and
   keep the two saying the same thing. The **timing** is the exception: nothing
   resolves a horizon claim at any stage, so forecast it because it disciplines
   the rest, not because it is scored. Merits-shaped content stays
   conditional, exactly as on the cert path.
-- **Four declared claims.** Every interim moment declares the `interim-v2`
+- **Four declared claims.** Every interim moment declares the `interim-v3`
   set, and you state a probability for each of its four claims — no additions,
   no declining, per the declared-set rule under `prediction.json` below:
-  - `interim-disposition` — P(the disposing entry reads as an **unqualified
-    grant**). It **must equal your top-level `probability`** exactly; the two
+  - `interim-disposition` — P(relief granted **in whole or in part** | not
+    dismissed or denied as moot), the target above. It **must equal your
+    top-level `probability`** exactly; the two
     are one belief written twice so the set is self-describing, and a divergent
     pair voids the whole block. It is a distinct claim from the cert set's
     `disposition`, deliberately: the two price different populations resolving
@@ -1017,7 +1048,36 @@ or the argument, was worth.
 Write to `data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/predictions/$PREDICTOR_ID/$RUN_ID/`:
 
 - **`prediction.json`** — must validate against `schemas/prediction.schema.json`
-  (the `Prediction` model). Key fields:
+  (the `Prediction` model). Its shape on a cert or interim cell is below. Each
+  `<…>` is a value you replace, and each `[…]` is a list the field notes below
+  describe. Leave out any key that is not shown, unless a note below adds it
+  for your stage. A merits cell also writes `judgment`, a filled `votes` list
+  and `semantic_claims` (*Stage: merits* above):
+
+  ```text
+  {
+    "schema_version": "1.0",
+    "case_id": "<COURT_ID>/<DOCKET_ID>",
+    "event_id": "<EVENT_ID>",
+    "predictor_id": "<PREDICTOR_ID>",
+    "engine": "<claude-code | codex | gemini>",
+    "model": "<MODEL_ID>",
+    "run_id": "<RUN_ID>",
+    "created_at": "<any UTC timestamp, e.g. 2026-01-01T00:00:00Z>",
+    "input_snapshot": "<YYYY-MM-DD>.json",
+    "granted": <1 or 0>,
+    "probability": <0 to 1>,
+    "predicted_disposition": "<a disposition label>",
+    "big_case_score": <0 to 1, or null>,
+    "big_case_rationale": "<one line; required when big_case_score is null>",
+    "claims": [<one {"claim_id", "probability"} per claim your stage declares>],
+    "claim_distributions": [<one {"claim_id", "probabilities"} per distribution claim>],
+    "reasoning_doc": "reasoning.md",
+    "predicted_reasoning_doc": "predicted_reasoning.md"
+  }
+  ```
+
+  Key fields:
   - `case_id` = `$COURT_ID/$DOCKET_ID`, `event_id` = `$EVENT_ID`,
     `predictor_id` = `$PREDICTOR_ID`, `run_id` = `$RUN_ID`.
   - `engine` — `claude-code`, `codex`, or `gemini` (whichever you are).
@@ -1146,7 +1206,7 @@ Write to `data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/predictions/$PREDICTO
     kind — every cert moment (the petition, the CVSG order, the arrival event,
     the SG's invited brief and the first relist) declares `cert-v3`, all
     three interim moments (arrival, the requested response, the filed
-    response) declare `interim-v2`, and all three merits moments (the
+    response) declare `interim-v3`, and all three merits moments (the
     judgment order, the respondent-brief re-predict and the post-argument
     re-predict) declare `merits-v2`. A **petition-kind event that is not one
     of those moments** — an entry-pinned filing, a legacy id — falls back to `cert-v1`'s
@@ -1397,5 +1457,6 @@ willing to be scored on, not a hedge.
   conservative reasonable call rather than guessing widely. `flags.json` is the
   channel that survives, so do not rely on issue comments.
 - **Do not commit, push, or open a PR** — the workflow handles git.
-- Before finishing, make sure `uv run fedcourts validate data` would pass for your
-  files (correct schema, well-formed JSON).
+- Before finishing, run `uv run fedcourts validate data --cell` on your cell's
+  directory (*Cell contract* above), fix every `INVALID`, `ORPHAN` and
+  `INCOMPLETE` line it prints, and run it again until it prints `OK`.

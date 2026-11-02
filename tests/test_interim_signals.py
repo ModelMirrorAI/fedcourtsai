@@ -9,14 +9,12 @@ from __future__ import annotations
 
 import ast
 import itertools
-import json
 from datetime import date
 from pathlib import Path
 
 import pytest
 
 from fedcourtsai.pipeline import ingest as ingest_module
-from fedcourtsai.pipeline import interim_signals as interim_signals_module
 from fedcourtsai.pipeline.ingest import default_event, from_live_record, map_live_docket
 from fedcourtsai.pipeline.interim_signals import (
     ApplicationKind,
@@ -29,6 +27,7 @@ from fedcourtsai.pipeline.interim_signals import (
     clause_reads_plain_grant,
     escalation_signals,
     interim_disposition_date,
+    interim_reading_granted,
     is_predictable_application,
     match_interim_disposition,
     read_interim_disposition,
@@ -297,30 +296,150 @@ def _moot_payload() -> dict[str, object]:
     }
 
 
+@pytest.mark.parametrize(
+    ("text", "registered", "finer"),
+    [
+        # The consolidated-docket mootness the Court words without "moot": the
+        # "granted" is the lead application's relief, which the registered scan
+        # latches as this application's grant.
+        (
+            "Application (21A247) dismissed in light of the relief granted in No. 21A244.",
+            Disposition.granted,
+            InterimReading.dismissed_moot,
+        ),
+        (
+            "The application is dismissed in light of the Court's grant of the application "
+            + "in No. 21A244.",
+            Disposition.dismissed,
+            InterimReading.dismissed_moot,
+        ),
+        # A side motion's denial no longer reads as the application's: the
+        # application's own clause grants.
+        (
+            "The application for stay is granted, and the motion to expedite is denied as moot.",
+            Disposition.denied,
+            InterimReading.granted,
+        ),
+        # A dismissal for another reason keeps its registered label.
+        (
+            "Application (24A12) dismissed pursuant to Rule 46.",
+            Disposition.dismissed,
+            InterimReading.dismissed,
+        ),
+    ],
+)
+def test_the_finer_reading_corrects_the_registered_scan(
+    text: str, registered: Disposition, finer: InterimReading
+) -> None:
+    """Where the two readings part, the registered label stays as it was."""
+    matched = match_interim_disposition(text)
+    assert matched is not None and matched[0] is registered
+    assert read_interim_disposition(text) is finer
+
+
+@pytest.mark.parametrize(
+    ("reading", "scored"),
+    [
+        (InterimReading.granted, 1),
+        (InterimReading.granted_in_part, 1),
+        (InterimReading.denied, 0),
+        (InterimReading.withdrawn, 0),
+        (InterimReading.dismissed, 0),
+        (InterimReading.dismissed_moot, None),
+        ("granted-in-part", 1),
+        (None, None),
+        ("vacated", None),
+    ],
+)
+def test_the_finer_binary(reading: InterimReading | str | None, scored: int | None) -> None:
+    """Partial relief is a grant; a moot dismissal and an unknown value are unscored."""
+    assert interim_reading_granted(reading) == scored
+
+
 @pytest.mark.parametrize("payload", [_both_shapes_payload(), _moot_payload()])
-def test_the_ingested_record_never_consults_the_finer_reading(
+def test_the_registered_label_never_depends_on_the_finer_reading(
     payload: dict[str, object], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The cell-facing and scored view is byte-identical with or without the finer
-    reading: the record ingest writes for a partial or moot application is the
-    same when the finer reader is made to fail, so nothing stored from it — and
-    nothing read from the store — can carry its labels."""
-    baseline = json.dumps(
-        map_live_docket(payload, 1, form="application"), sort_keys=True, default=str
-    )
+    """The registered `disposition` ingest writes is the same whatever the finer
+    reader says: the finer reading rides beside it in its own column and never
+    feeds it, so every cell scored on the registered reading keeps its label."""
+    baseline = map_live_docket(payload, 1, form="application")
 
-    def _refuse(_: str) -> None:
-        raise AssertionError("ingest consulted the finer interim reading")
+    def _always_granted(_: str) -> InterimReading:
+        return InterimReading.granted
 
-    monkeypatch.setattr(ingest_module, "read_interim_disposition", _refuse)
-    monkeypatch.setattr(interim_signals_module, "read_interim_disposition", _refuse)
-    again = json.dumps(map_live_docket(payload, 1, form="application"), sort_keys=True, default=str)
-    assert again == baseline
-    assert json.loads(baseline)["disposition"] in {"denied", "dismissed"}
+    monkeypatch.setattr(ingest_module, "read_interim_disposition", _always_granted)
+    again = map_live_docket(payload, 1, form="application")
+    assert {k: v for k, v in again.items() if k != "interim_reading"} == {
+        k: v for k, v in baseline.items() if k != "interim_reading"
+    }
+    assert baseline["disposition"] in {"denied", "dismissed"}
+    assert baseline["interim_reading"] in {"granted-in-part", "dismissed-moot"}
+    assert again["interim_reading"] == "granted"
 
 
-#: The finer reading's names: the reader, its vocabulary, ingest's wrapper, the
-#: clause helpers, and the census module that reads them.
+def test_a_cert_form_record_carries_no_finer_reading() -> None:
+    """Only the application branch writes the column."""
+    record = map_live_docket(_moot_payload(), 1, form="cert")
+    assert record["interim_reading"] is None
+
+
+#: The names that carry the finer reading's **scored** binary and pool, and the
+#: widened slice's pool counts. A module that names one is a scorer or a count of
+#: the scored population, and each is gated: the finer reading on the scored
+#: prediction's label (`process_version.FINER_INTERIM_READING_FROM`), the widened
+#: slice on the cell's application Term (`base_rates.INTERIM_WINDOW_FROM_TERM`).
+_FINER_SCORED_NAMES = frozenset(
+    {
+        "interim_granted",
+        "finer_granted",
+        "finer_resolved",
+        "wide_granted",
+        "wide_resolved",
+        "wide_finer_granted",
+        "wide_finer_resolved",
+    }
+)
+
+
+def _names_in(tree: ast.AST, names: frozenset[str]) -> set[str]:
+    """Every name in ``names`` a module references, by name or by attribute."""
+    found: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Name) and node.id in names:
+            found.add(node.id)
+        elif isinstance(node, ast.Attribute) and node.attr in names:
+            found.add(node.attr)
+    return found
+
+
+def test_the_finer_scored_fields_reach_only_the_label_gated_scorers() -> None:
+    """Parsed, not grepped, so a docstring mention neither trips nor hides it.
+
+    The finer binary and pool are defined in the schemas (the outcome builder
+    sets the binary by keyword, which is no read), counted by the statpack, and
+    read by the three scorers whose finer branch
+    is keyed on the scored prediction's label: the stage Brier and `correct`,
+    the claim block, and the interim pool. Any other module that names them is a
+    reader the registration has not gated, so it fails here.
+    """
+    src = Path(__file__).resolve().parents[1] / "src" / "fedcourtsai"
+    users = {
+        str(path.relative_to(src))
+        for path in sorted(src.rglob("*.py"))
+        if _names_in(ast.parse(path.read_text(encoding="utf-8")), _FINER_SCORED_NAMES)
+    }
+    assert users == {
+        "schemas.py",
+        "analytics.py",
+        "pipeline/evaluate.py",
+        "pipeline/claims.py",
+        "pipeline/base_rates.py",
+    }
+
+
+#: The finer reader's own names: the reader, its vocabulary, ingest's wrapper,
+#: and the clause helpers.
 _FINER_NAMES = frozenset(
     {
         "read_interim_disposition",
@@ -329,70 +448,26 @@ _FINER_NAMES = frozenset(
         "interim_disposing_text",
         "application_clauses",
         "clause_reads_plain_grant",
-        "interim_reading_census",
     }
 )
 
 
 def _finer_references(tree: ast.AST) -> set[str]:
-    """Every finer-reading name a module imports, references or reaches by attribute."""
+    """Every finer-reader name a function imports, references or reaches by attribute."""
     found: set[str] = set()
     for node in ast.walk(tree):
-        if isinstance(node, ast.ImportFrom):
-            if node.module and node.module.rsplit(".", 1)[-1] in _FINER_NAMES:
-                found.add(node.module.rsplit(".", 1)[-1])
-            found |= {alias.name for alias in node.names if alias.name in _FINER_NAMES}
-        elif isinstance(node, ast.Import):
-            found |= {
-                alias.name.rsplit(".", 1)[-1]
-                for alias in node.names
-                if alias.name.rsplit(".", 1)[-1] in _FINER_NAMES
-            }
-        elif isinstance(node, ast.Name) and node.id in _FINER_NAMES:
+        if isinstance(node, ast.Name) and node.id in _FINER_NAMES:
             found.add(node.id)
         elif isinstance(node, ast.Attribute) and node.attr in _FINER_NAMES:
             found.add(node.attr)
     return found
 
 
-def test_the_finer_reading_reaches_no_stored_scored_or_cell_facing_reader() -> None:
-    """Parsed, not grepped, so a docstring mention neither trips nor hides it.
-
-    Only the defining module, ingest's wrapper, the census module, `cli.py`
-    as the census's sole caller, and the executive success cut with its
-    controversy grouping may name the finer reading. The cut is an analytics
-    artifact that writes nothing and that no cell, outcome or score reads, and
-    it reaches the reading only through ingest's read-only wrappers. Any other
-    module that does is a reader the registration has not activated, so it
-    fails here.
-    """
-    src = Path(__file__).resolve().parents[1] / "src" / "fedcourtsai"
-    users = {
-        str(path.relative_to(src)): refs
-        for path in sorted(src.rglob("*.py"))
-        if (refs := _finer_references(ast.parse(path.read_text(encoding="utf-8"))))
-    }
-    assert set(users) == {
-        "cli.py",
-        "pipeline/ingest.py",
-        "pipeline/interim_reading_census.py",
-        "pipeline/interim_signals.py",
-        "pipeline/executive_success.py",
-        "pipeline/controversy.py",
-    }
-    # The CLI reaches the census and nothing else of the finer reading.
-    assert users["cli.py"] == {"interim_reading_census"}
-    # The analytics cut reaches the wrapper and the label vocabulary, never the
-    # reader itself or anything that writes.
-    assert users["pipeline/executive_success.py"] <= {"interim_reading", "InterimReading"}
-    # Its controversy grouping reads only the disposing order's text, for the
-    # application numbers it names, never a reading of what it disposed.
-    assert users["pipeline/controversy.py"] == {"interim_disposing_text"}
-
-
 def test_inside_ingest_only_the_wrappers_touch_the_finer_reading() -> None:
     """The ingest path that writes a row — `map_live_docket` and everything it
-    calls — never names the reader; only the two read-only wrappers do."""
+    calls — never names the reader; it reaches the finer reading only through
+    `stored_interim_reading`, which goes through the `interim_reading` wrapper,
+    so the column and the re-read pass share one function."""
     path = Path(__file__).resolve().parents[1] / "src" / "fedcourtsai" / "pipeline" / "ingest.py"
     tree = ast.parse(path.read_text(encoding="utf-8"))
     touching = {

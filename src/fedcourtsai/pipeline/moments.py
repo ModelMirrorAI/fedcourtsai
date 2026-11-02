@@ -44,6 +44,10 @@ CLAIM_SET_MERITS_V1 = "merits-v1"
 CLAIM_SET_CERT_V3 = "cert-v3"
 CLAIM_SET_INTERIM_V2 = "interim-v2"
 CLAIM_SET_MERITS_V2 = "merits-v2"
+#: The interim authorship set re-resolved on the finer interim reading: the same
+#: claims as ``interim-v2``, its ``interim-disposition`` claim resolving on
+#: ``Outcome.interim_granted`` (``pipeline.claims``).
+CLAIM_SET_INTERIM_V3 = "interim-v3"
 
 
 @dataclass(frozen=True)
@@ -200,7 +204,7 @@ DECLARED_MOMENTS: tuple[MomentSpec, ...] = (
         ordinal=0,
         decision_target="disposition",
         description="Disposition of the application for interim relief.",
-        claim_set_version=CLAIM_SET_INTERIM_V2,
+        claim_set_version=CLAIM_SET_INTERIM_V3,
     ),
     MomentSpec(
         event_id=ids.event_id(EventKind.order.value, "response-requested-disposition"),
@@ -212,7 +216,7 @@ DECLARED_MOMENTS: tuple[MomentSpec, ...] = (
         description=(
             "Disposition of the application, forecast after the Court called for a response."
         ),
-        claim_set_version=CLAIM_SET_INTERIM_V2,
+        claim_set_version=CLAIM_SET_INTERIM_V3,
     ),
     MomentSpec(
         event_id=ids.event_id(EventKind.brief.value, "response-disposition"),
@@ -222,7 +226,7 @@ DECLARED_MOMENTS: tuple[MomentSpec, ...] = (
         ordinal=2,
         decision_target="disposition",
         description=("Disposition of the application, forecast once a response has been filed."),
-        claim_set_version=CLAIM_SET_INTERIM_V2,
+        claim_set_version=CLAIM_SET_INTERIM_V3,
     ),
     MomentSpec(
         event_id=ids.event_id(EventKind.order.value, "judgment"),
