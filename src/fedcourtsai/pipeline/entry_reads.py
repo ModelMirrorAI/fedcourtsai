@@ -7,6 +7,7 @@ laying them over it by id, with a whole re-read on a day the docket's id picks.
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Iterable, Mapping
 from datetime import date, timedelta
 from typing import Any, Final
@@ -25,16 +26,25 @@ def full_read_due(docket_id: int, today: date, every_days: int) -> bool:
 
 
 def full_read_owed(docket_id: int, last_read: date, today: date, every_days: int) -> bool:
-    """Whether the docket's whole-read day fell after ``last_read`` and by ``today``.
+    """Whether this read of the docket should be whole rather than incremental.
 
-    For a reader that does not reach every docket every day (the pull rotation):
-    asking only whether today is the day would skip the whole read whenever the
-    rotation lands elsewhere, and for ever if its cycle is a multiple of the
-    period. A second read on the same day owes nothing.
+    For a reader that does not reach every docket every day (the pull rotation).
+    Within a period of the last read, the read is whole when the docket's
+    whole-read day fell after ``last_read`` and by ``today``: asking only
+    whether today is the day would skip it whenever the rotation lands
+    elsewhere, and for ever if its cycle is a multiple of the period. A second
+    read on the same day owes nothing.
+
+    Past a period, every read would be whole under that rule, and a rotation
+    whose cycle runs longer than the period would never read incrementally. So
+    a read after a longer gap is whole one time in ``every_days``, drawn from a
+    hash of the docket and the last read's date: each read draws afresh, so no
+    cycle length can keep a docket from its whole read.
     """
     gap = (today - last_read).days
     if gap >= every_days:
-        return True
+        draw = hashlib.sha256(f"{docket_id}:{last_read.isoformat()}".encode()).digest()
+        return int.from_bytes(draw[:8], "big") % every_days == 0
     return any(
         full_read_due(docket_id, last_read + timedelta(days=step), every_days)
         for step in range(1, gap + 1)

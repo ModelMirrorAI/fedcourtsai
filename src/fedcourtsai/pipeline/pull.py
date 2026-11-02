@@ -115,7 +115,9 @@ class IncrementalEntries:
     which catches what an incremental read cannot see: an entry deleted
     upstream, or one changed without moving its modification time. The pull
     rotation does not reach a docket every day, so the test is whether that
-    day passed, not whether it is today.
+    day passed, not whether it is today; past a period, one refresh in
+    ``full_read_every_days`` is whole, drawn by hash
+    (:func:`~.entry_reads.full_read_owed`).
     """
 
     overlap_days: int
