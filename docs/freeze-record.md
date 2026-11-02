@@ -15491,8 +15491,8 @@ freeze commit is recorded here.
   register-boundary`), stamped by the promotion record. No board reads it as a
   cut: the 3 cells it would split are one event's, too few to read a side.
 
-  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
-  commit `<FILL: merge sha>`, merged `<FILL: merged time utc>`).
+  Carried to `main` by the promotion tagged `promotion/2026-11-01` (merge
+  commit `d8569e75e00e3500f6484884884a95f21d73c83a`, merged `2026-11-01T17:45:59Z`).
 
   The runnable effect check once it is live:
   - `uv run python -c "from fedcourtsai.process_version import
@@ -15508,8 +15508,8 @@ freeze commit is recorded here.
 - **`proc-v16`: the forecast document is graded on every stage, cert and
   merits cells read the decision below, and the predict prompt names a refused
   band; recorded 2026-10-31.** Carried to `main` by the promotion tagged
-  `<FILL: promotion tag>` (merge commit `<FILL: merge sha>`, merged
-  `<FILL: merged time utc>`), to be tagged **`prereg/proc-v16`**. Registered
+  `promotion/2026-11-01` (merge commit `d8569e75e00e3500f6484884884a95f21d73c83a`, merged
+  `2026-11-01T17:45:59Z`), to be tagged **`prereg/proc-v16`**. Registered
   under the merge-stamped rule, so its counting instant, its six bless moments
   and every window edge it moves are the carrying merge's committer time. Both
   prompts change, so it takes the two supersession shapes `proc-v15` took
