@@ -97,7 +97,7 @@ from .cert_backtest import (
 )
 from .config import get_settings
 from .paths import CasePaths
-from .pipeline import moments
+from .pipeline import cell_context, moments
 from .pipeline.decision_record import assigned_by_term, rode_the_order
 from .pipeline.documents import (
     KIND_MERITS_BRIEF_RESPONDENT,
@@ -569,6 +569,15 @@ def provision_replay_cell(
         snapshot_date=snapshot_date,
         documents=documents,
     )
+    # caption-v4's one counsel fact, read off the placed payload before
+    # redaction strips its counsel blocks (`cell_context.counsel_fact`).
+    counsel = cell_context.counsel_fact(
+        case.case_id,
+        placement.payload,
+        snapshot_date=placement.snapshot_date,
+        provenance=placement.provenance,
+        cutoff=cut.cutoff,
+    )
     placement = replace(placement, payload=provision.redact_snapshot(placement.payload))
     court, _, docket = case.case_id.partition("/")
     shown = forward_leakage(placement.payload, court, cut.event_id)
@@ -597,6 +606,7 @@ def provision_replay_cell(
         mode="replay",
         cutoff=cut.cutoff,
         decided_before=_term_clock(case),
+        sg_counsel_of_record_for_petitioner=counsel,
     )
     return MeritsReplayCell(
         case_id=case.case_id,

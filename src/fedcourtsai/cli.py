@@ -87,6 +87,7 @@ from . import (
     summaries,
     tool_usage,
     window_records,
+    write_confinement,
 )
 from .agent_feedback import issue_bodies, open_issue_once, post_agent_feedback, post_once
 from .agent_flags import CellCoordinates, coordinates_from_path, normalise_flags
@@ -320,6 +321,7 @@ from .pipeline.application_policy import (
     read_policy_rows,
     render_policy,
 )
+from .pipeline.application_reread import reread_applications
 from .pipeline.application_topics import (
     APPLICATION_EXTRACT_RULE,
     ApplicationExtractRow,
@@ -335,6 +337,7 @@ from .pipeline.base_rates import (
     merits_base_rate,
     prediction_base_rate,
     statpack_digest,
+    terminal_base_rate,
 )
 from .pipeline.bulk_scrub import scrub_bulk_cluster_fields
 from .pipeline.caption import CAPTION_RULE_VERSION, CAPTION_RULES, caption_census
@@ -397,7 +400,13 @@ from .pipeline.documents import (
     holds_docket_documents,
     questions_presented_extract,
 )
-from .pipeline.evaluate import brier_score, brier_skill, is_correct
+from .pipeline.evaluate import (
+    brier_skill,
+    scored_granted,
+    scores_finer_reading,
+    stage_brier_score,
+    stage_correct,
+)
 from .pipeline.exec_action import EXEC_ACTION_RULES
 from .pipeline.executive_success import DEFAULT_SCOPE_RULE, READINGS, executive_success
 from .pipeline.filing_simulation import filing_simulation
@@ -474,6 +483,7 @@ from .pipeline.scope_reconcile import reconcile_predict_scope
 from .planning_rates import PLANNING_RATES_USD_PER_CELL as _PLANNING_RATES_USD_PER_CELL
 from .planning_rates import PLANNING_USD_PER_CELL as _PLANNING_USD_PER_CELL
 from .planning_rates import price_cells
+from .prediction_slices import Population, load_slices
 from .pricing import DEFAULT_MODELS, MODEL_RATES, TokenCounts, estimate_cost_usd
 from .promotion_body import Batch, batch_prs, render, same_body, splice
 from .promotion_train import (
@@ -631,6 +641,7 @@ from .store import (
     scored_prediction_cell,
     stratify,
     unforecastable_listed_events,
+    unpopulated_cases,
 )
 from .supremecourt import (
     SupremeCourtClient,
@@ -650,6 +661,7 @@ from .usage import (
     resolve_pipeline_sha,
 )
 from .validate import (
+    live_cell_problems,
     run_corpus_validation,
     run_ledger_referential_checks,
     run_scope_audit,
@@ -721,6 +733,16 @@ def _client(lane: str) -> CourtListenerClient:
 @app.command()
 def validate(
     path: Annotated[Path, typer.Argument(help="Directory to validate recursively.")] = Path("data"),
+    cell: Annotated[
+        Path | None,
+        typer.Option(
+            help="A predict cell's own output directory under PATH "
+            "(predictions/<predictor_id>/<run_id>/): also hold it to the live "
+            "contract — prediction.json present, naming its forecast document, "
+            "carrying every claim block its event declares and writing "
+            "big_case_score, beside a written prediction_summary.md.",
+        ),
+    ] = None,
 ) -> None:
     """Validate the git ledger under PATH: schema conformance + git-only references.
 
@@ -734,24 +756,62 @@ def validate(
     the claim scorer will not silently void. The corpus-dependent referential
     checks need the remote, so they run scheduled via ``validate-corpus``
     rather than here.
+
+    ``--cell`` is the predict cell's own pre-finish check: the directory it
+    names is held to the live contract as well
+    (:func:`fedcourtsai.validate.live_cell_problems`), which no ledger-wide
+    check can ask of an unstamped record. It must lie under PATH, so the cell's
+    files are also among those the schema and reference checks read.
+
+    A committed cell whose case is neither a SCOTUS docket nor a docket of an
+    enabled prediction slice is warned about (``::warning::``), not failed: no
+    figure reads it (``store.unpopulated_cases``), so it is either a slice
+    switched off after its cells landed or a stray write, and either is worth a
+    reader's eye without holding the ledger red.
     """
+    if cell is not None and not cell.resolve().is_relative_to(path.resolve()):
+        typer.echo(f"--cell {cell} is not under {path}; name the cell's directory there", err=True)
+        raise typer.Exit(code=2)
     result = validate_ledger(path)
     references = run_ledger_referential_checks(path)
+    _warn_unpopulated_cases(path)
     ref_failures = sum(c.failures for c in references)
-    if not result.ok or ref_failures:
+    incomplete = live_cell_problems(cell) if cell is not None else []
+    if not result.ok or ref_failures or incomplete:
         for err in result.problems:
             typer.echo(f"INVALID {err}", err=True)
         for check in references:
             for problem in check.problems:
                 typer.echo(f"ORPHAN {problem}", err=True)
+        for problem in incomplete:
+            typer.echo(f"INCOMPLETE {problem}", err=True)
         typer.echo(
             f"\n{result.invalid} invalid / {result.checked} checked; "
-            f"{ref_failures} referential problem(s)",
+            f"{ref_failures} referential problem(s)"
+            + (f"; {len(incomplete)} cell problem(s)" if cell is not None else ""),
             err=True,
         )
         raise typer.Exit(code=1)
     refs_checked = sum(c.checked for c in references)
-    typer.echo(f"OK: {result.checked} artifact(s) valid, {refs_checked} reference(s) consistent")
+    typer.echo(
+        f"OK: {result.checked} artifact(s) valid, {refs_checked} reference(s) consistent"
+        + ("; cell complete" if cell is not None else "")
+    )
+
+
+def _warn_unpopulated_cases(data_root: Path) -> None:
+    """Warn on each committed case no population admits; never fail on it."""
+    config_root = get_settings().config_root
+    try:
+        slices = load_slices(config_root, load_predict_config(config_root).slices)
+    except (OSError, ValueError) as exc:
+        typer.echo(f"::warning::population: the enabled prediction slices did not load ({exc})")
+        slices = {}
+    for case_id in unpopulated_cases(data_root, slices):
+        typer.echo(
+            f"::warning::population: {case_id} has committed cells but is neither a SCOTUS "
+            "docket nor a docket of an enabled prediction slice, so no figure reads them"
+        )
 
 
 @app.command("validate-corpus")
@@ -1446,6 +1506,130 @@ def rederive_amicus_briefs_cmd(
         raise typer.Exit(code=1)
 
 
+@app.command("reread-applications")
+def reread_applications_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Write the re-read columns; omit for a dry-run plan."),
+    ] = False,
+    max_changes: Annotated[
+        int | None,
+        typer.Option(
+            "--max-changes",
+            help="Blast-radius bound: refuse to apply more column writes (fills plus "
+            "moves, over both columns) than this. Required with --apply.",
+        ),
+        # No default: the dry run is where the number comes from.
+    ] = None,
+) -> None:
+    """Re-read stored resolved applications and fill `interim_reading` and `application_kind_wide`.
+
+    The live application branch stores the finer interim reading
+    (`pipeline.ingest.stored_interim_reading`) beside the registered
+    `disposition` at ingest, but the live rotation skips a resolved application,
+    so resolved history stays NULL. This pass re-reads every resolved,
+    application-parsed live-slice SCOTUS row from its latest live-shaped snapshot
+    with the same function and writes what ingest would have: a NULL is filled,
+    and a stored value that differs (a reading the code has since corrected) is
+    overwritten and listed. The registered `disposition` is never read into or
+    written. Corpus only: no committed outcome or prediction is opened.
+
+    It fills `application_kind_wide`, the ask under the widened vocabulary
+    (`pipeline.ingest.stored_application_kinds`), the same way, and never
+    writes `application_kind`.
+
+    The statpack's finer and wide interim counts and the pools that read them
+    refuse a rate over any Term with a resolved row left unread, so the apply is
+    what turns those pools on.
+
+    Prints the ledger — rows read, `unobservable`, `no_reading`, `unchanged`,
+    `filled`, `moved`, the filled readings and every read row's `registered ->
+    finer` pair, then the same counts and `registered -> wide` pairs for the
+    widened ask — then each move, then the `ApplicationRereadResult` as JSON.
+    **Read `unobservable` first**: against an index-only pull with no content
+    store addressed every row lands there. One pass per invocation (the plan is
+    the write set), the batch in one transaction. `--apply` requires an explicit
+    `--max-changes` and refuses above it. Idempotent: re-running after an apply
+    reports `total_changes = 0`. Run where the corpus is pulled (`run-repair`'s
+    `application-reread` pass in production; a dev checkout serves the dry run).
+    Exits 1 when the corpus is absent or the apply is refused.
+    """
+    settings = get_settings()
+    if apply and max_changes is None:
+        typer.echo(
+            "reread-applications: --apply requires an explicit --max-changes. "
+            "Read the dry run first and pass the total_changes you are approving.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before re-reading the applications.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    if settings.corpus_backend == "local":
+        corpus_sha, _ = corpus_remote.digest_file(db_path)
+    elif settings.corpus_pointer is None:
+        pointer_file = corpus_remote.pointer_path_for(db_path)
+        corpus_sha = (
+            corpus_ranged.read_index_pointer(pointer_file).sha256 if pointer_file.is_file() else ""
+        )
+    else:
+        corpus_sha = corpus.resolve_read_pointer(db_path).sha256
+        typer.echo(
+            "corpus provenance: out-of-band pointer override in effect — the "
+            "recorded corpus_sha256 names the override's blob",
+            err=True,
+        )
+    with corpus.connect_maintenance(db_path, apply=apply) as conn:
+        result = reread_applications(
+            conn, apply=apply, corpus_sha256=corpus_sha, max_changes=max_changes
+        )
+    verb = "refused to write" if result.refused else ("wrote" if apply else "would write")
+    typer.echo(
+        f"reread-applications ({'applied' if apply else 'dry-run'}): "
+        f"{result.eligible} resolved application row(s); {result.read} read, "
+        f"{result.unobservable} unobservable (untouched), {result.no_reading} with no "
+        "finer reading (untouched). Read `unobservable` first: against an index-only "
+        "pull every row lands there"
+    )
+    typer.echo(
+        f"  {verb} {result.total_changes}: {result.filled} NULL -> value, "
+        f"{result.moved} value -> other value; {result.unchanged} unchanged. "
+        f"filled readings: {result.filled_readings}; registered -> finer: "
+        f"{result.finer_vs_registered}"
+    )
+    typer.echo(
+        f"  widened ask: {result.kind_filled} NULL -> value, {result.kind_moved} value -> "
+        f"other value; {result.kind_unchanged} unchanged. registered -> wide: "
+        f"{result.wide_vs_registered}"
+    )
+    for move in result.moves:
+        typer.echo(f"  move {move.case_id} ({move.docket_number}): {move.was} -> {move.now}")
+    for move in result.kind_moves:
+        typer.echo(f"  move ask {move.case_id} ({move.docket_number}): {move.was} -> {move.now}")
+    if not apply and max_changes is not None and result.total_changes > max_changes:
+        typer.echo(
+            f"note: {result.total_changes} total changes is above --max-changes {max_changes}; "
+            "an apply would refuse.",
+            err=True,
+        )
+    typer.echo(result.model_dump_json())
+    if result.refused:
+        typer.echo(
+            f"reread-applications: refusing to apply {result.total_changes} change(s) "
+            f"(--max-changes {max_changes}). Nothing was written. A row the poll resolved "
+            "since the dry run is already written by ingest, so the total ordinarily "
+            "falls between the two dispatches; one above the dry run's means the "
+            "population widened — triage the ledger before raising the bound.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+
 @app.command("rederive-cert-amicus-briefs")
 def rederive_cert_amicus_briefs_cmd(
     apply: Annotated[
@@ -1691,8 +1875,8 @@ def interim_reading_census_cmd() -> None:
     ask. It also lists stored `denied` rows whose disposing entry holds an
     application clause that grants with no denial in it — the registered
     reading's known side-motion misreading — and the committed interim outcomes
-    on the named rows, which stay as recorded. Nothing stored, scored or
-    cell-facing moves. Run where the corpus is pulled with the content store
+    on the named rows, which stay as recorded. The census itself writes
+    nothing. Run where the corpus is pulled with the content store
     addressed; read `unobservable` first. Prints an `InterimReadingCensus`.
     Exits 1 when the corpus is absent.
     """
@@ -1851,7 +2035,7 @@ def caption_census_cmd(
     rule_version: str = typer.Option(
         CAPTION_RULE_VERSION,
         "--rule-version",
-        help="Which registered caption rule cuts the frame (caption-v1, caption-v2, caption-v3).",
+        help="Which registered caption rule cuts the frame (caption-v1 to caption-v4).",
     ),
 ) -> None:
     """The petitioner-class census: per-Term grant-family rates by caption class.
@@ -10571,9 +10755,10 @@ def segment_anchors_command(
     A cert cell's skill is computed against the ``segment_base_rate`` it
     records. From proc-v9 on, where the scored prediction froze a band, the
     stamp writes that rate through this same pooler, so it is the pool printed
-    here. On an earlier label's grading and on the terminal fallback it is the
-    evaluator's pooling of the rendered statpack table, which can sit up to
-    about 0.0005 from the exact pool.
+    here; from proc-v17 on, so is the terminal fallback's rate, pooled over the
+    evaluate cell's provisioned terminal band. On an earlier label's grading it
+    is the evaluator's pooling of the rendered statpack table, which can sit up
+    to about 0.0005 from the exact pool.
 
     Reads only the committed ``metrics/statpack.json`` (no corpus) and pools
     each band through the scorer's own pooler,
@@ -12355,11 +12540,14 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
     (``base_rate_statpack_digest``) — from
     :data:`fedcourtsai.process_version.PINNED_CERT_ANCHOR_FROM` on, the anchor
     the prediction's context froze at provisioning where it carries one, so the
-    build is the one in force when the forecast was placed. Every other cert
-    cell — an earlier label's grading, and a prediction that froze no band,
-    whose terminal fallback re-derives a band from the corpus row — keeps the
-    evaluator's three numbers, and the leaderboard's coherence check is what
-    holds that arithmetic to its record. The label is the stamp's own: the one this
+    build is the one in force when the forecast was placed. From
+    :data:`fedcourtsai.process_version.HARNESS_TERMINAL_ANCHOR_FROM` on, a cert
+    grading whose prediction froze no band takes the same treatment over the
+    **terminal** band the evaluate cell's own provisioned ``record/context.json``
+    carries, at the terminal rate, with ``base_rate_basis: terminal``. Every
+    other cert cell — an earlier label's grading — keeps the evaluator's three
+    numbers, and the leaderboard's coherence check is what holds that
+    arithmetic to its record. The label is the stamp's own: the one this
     invocation writes, or on a re-grade the one the record carries, so a
     re-grade never moves a grading onto a rule its label did not register.
 
@@ -12486,8 +12674,12 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
     # cannot be the agent's word. `record/` is gitignored, so `prediction.json` is
     # where it has to become durable. Absent when provisioning left nothing to
     # freeze — and the evaluator then falls back to the terminal band rather
-    # than inventing one.
-    provisioned = _read_cell_context(case_paths) if role == "predictor" else None
+    # than inventing one. On an evaluate cell the same file is the grader's own
+    # record, provisioned off the decided docket and so carrying the terminal
+    # band: the population a cert grading whose scored prediction froze no band
+    # is priced against (:func:`_terminal_skill_record_for`). Not read on a
+    # re-grade, which keeps every cert anchor as first stamped.
+    provisioned = _read_cell_context(case_paths) if not regrade else None
 
     graded = 0
     basis_records: dict[Path, tuple[str | None, str | None, Prediction | None]] = {}
@@ -12548,7 +12740,13 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
                 else process_version.CURRENT_PROCESS_LABEL
             )
             skill_fields, basis_records[path] = _skill_record_for(
-                event_paths, record, settings, label, regrade=regrade, anchor_refusals=refusals
+                event_paths,
+                record,
+                settings,
+                label,
+                regrade=regrade,
+                anchor_refusals=refusals,
+                terminal_context=provisioned,
             )
             cell_update.update(skill_fields)
         write_json(path, record.model_copy(update=cell_update))
@@ -13515,9 +13713,10 @@ def _require_reproducible_trio(
     ``brier_skill_score`` together, or commit a genuine re-derivation — after
     which the re-grade proceeds. A correction that leaves the binary alone (a
     disposition relabelled within the granted set, say) reproduces and passes.
-    A cert record the harness owns (:func:`_harness_owns_cert_record`, judged
-    on the label the record already carries, which a re-grade preserves) is
-    recomputed whole like a merits one, so it is never refused here.
+    A cert record the harness owns (:func:`_harness_owns_cert_record` or
+    :func:`_harness_owns_terminal_record`, judged on the label the record
+    already carries, which a re-grade preserves) is recomputed whole like a
+    merits one, so it is never refused here.
     """
     stage = _event_stage_and_opened(event_paths)[0]
     if stage in _HARNESS_SKILL_STAGES:
@@ -13525,7 +13724,9 @@ def _require_reproducible_trio(
     outcome = _outcome_for(event_paths)
     for path, record in records:
         label = record.process_version.label if record.process_version is not None else None
-        if _harness_owns_cert_record(stage, label, _scored_prediction_for(event_paths, record)):
+        if _harness_owns_cert_record(
+            stage, label, _scored_prediction_for(event_paths, record)
+        ) or _harness_owns_terminal_record(stage, label):
             continue
         recorded = record.brier_score
         if recorded is None:
@@ -13852,8 +14053,10 @@ def _statpack_for(settings: Settings) -> StatPack | None:
 #: evaluator recording it: both pool a Term-keyed ratio of the statpack's
 #: published integer counts, with no salience band to choose between and so no
 #: judgment for an evaluator to exercise. The cert stage is absent: its record
-#: is the harness's only from a label on and only over a frozen band
-#: (:func:`_harness_owns_cert_record`) — see :func:`stamp_cell`. It governs the
+#: is the harness's only from a label on — over a frozen band
+#: (:func:`_harness_owns_cert_record`), and from a later label over the
+#: terminal fallback too (:func:`_harness_owns_terminal_record`) — see
+#: :func:`stamp_cell`. It governs the
 #: *skill record* only: ``correct`` needs no pooled rate and so no band, and is
 #: stamped on every stage including cert.
 _HARNESS_SKILL_STAGES = (Stage.merits, Stage.interim)
@@ -13867,6 +14070,7 @@ def _skill_record_for(
     *,
     regrade: bool = False,
     anchor_refusals: list[str] | None = None,
+    terminal_context: PredictionContext | None = None,
 ) -> tuple[dict[str, object], tuple[str | None, str | None, Prediction | None]]:
     """This cell's ``correct`` and skill record as a stamp update, plus its basis trio.
 
@@ -13890,13 +14094,18 @@ def _skill_record_for(
     **cert** grading stamped under a label
     :func:`fedcourtsai.process_version.harness_stamps_cert_anchor` admits whose
     scored prediction froze a band, the whole record is the harness's
-    (:func:`_cert_skill_record_for`). On any other **cert** cell the Brier, the
-    rate, and the skill are the evaluator's — which band population the rate was taken
-    over is a judgment about the scored prediction's frozen band, and the
-    leaderboard's coherence check is what stands between that arithmetic and the
-    published column — so only the version half of the basis record is derived
-    here (:func:`_base_rate_salience_version_for`), exactly as ``claim_scores``
-    is: deterministically, and overwriting whatever the evaluator wrote.
+    (:func:`_cert_skill_record_for`); under a label
+    :func:`fedcourtsai.process_version.harness_stamps_terminal_anchor` admits,
+    so is the record of a cert grading whose scored prediction froze none,
+    priced against the terminal band in ``terminal_context``, the evaluate
+    cell's own provisioned record (:func:`_terminal_skill_record_for`). On any
+    other **cert** cell the Brier, the rate, and the skill are the evaluator's —
+    which band population the rate was taken over is a judgment about the
+    scored prediction's frozen band, and the leaderboard's coherence check is
+    what stands between that arithmetic and the published column — so only the
+    version half of the basis record is derived here
+    (:func:`_base_rate_salience_version_for`), exactly as ``claim_scores`` is:
+    deterministically, and overwriting whatever the evaluator wrote.
 
     On a stage of :data:`_HARNESS_SKILL_STAGES` the **whole** record is the
     harness's, and all five fields are assigned unconditionally. The Brier, the
@@ -13953,6 +14162,17 @@ def _skill_record_for(
                 anchor_refusals=anchor_refusals,
             )
             return {"correct": correct} | fields, (basis, version, latest)
+        if _harness_owns_terminal_record(stage, label):
+            fields, basis, version = _terminal_skill_record_for(
+                event_paths,
+                evaluation,
+                settings,
+                outcome,
+                latest,
+                terminal_context,
+                regrade=regrade,
+            )
+            return {"correct": correct} | fields, (basis, version, latest)
         context = latest.context if latest is not None else None
         version = _base_rate_salience_version_for(evaluation, context)
         return (
@@ -13973,7 +14193,9 @@ def _skill_record_for(
             "correct": correct,
             "brier_score": brier,
             "segment_base_rate": rate,
-            "brier_skill_score": _harness_skill_for(brier, outcome, rate),
+            "brier_skill_score": _harness_skill_for(
+                brier, _harness_target_for(event_paths, evaluation, outcome), rate
+            ),
             "base_rate_basis": None,
             "base_rate_salience_version": None,
             "base_rate_statpack_digest": None,
@@ -13994,9 +14216,10 @@ def _harness_owns_cert_record(
     the anchor mechanical: the population is the risk set of that band under
     the version that assigned it, keyed on the frozen docket Term, so nothing is
     left to judge. A cert prediction that froze **no** band takes the terminal
-    fallback, which re-derives a band from the corpus row — a read the stamp
-    does not make — so that record stays the evaluator's, under the evaluator path's
-    guards.
+    fallback instead: the harness's from
+    :data:`fedcourtsai.process_version.HARNESS_TERMINAL_ANCHOR_FROM` on
+    (:func:`_harness_owns_terminal_record`), the evaluator's under an earlier
+    label, under the evaluator path's guards.
     """
     return (
         stage == Stage.cert
@@ -14005,6 +14228,147 @@ def _harness_owns_cert_record(
         and scored.context is not None
         and scored.context.band is not None
     )
+
+
+def _harness_owns_terminal_record(stage: Stage | None, label: str | None) -> bool:
+    """Whether this cell's terminal-fallback cert skill record is the harness's.
+
+    Asked only of a cell :func:`_harness_owns_cert_record` declined: a cert
+    cell stamped under a label from
+    :data:`fedcourtsai.process_version.HARNESS_TERMINAL_ANCHOR_FROM` on whose
+    scored prediction froze no band, or that has no scored prediction at all.
+    The terminal band is no judgment either: it is the band the evaluate cell's
+    own ``record/context.json`` carries, which provisioning bands off the
+    decided docket with the same scorer that freezes a predict cell's band, so
+    nothing is left for the evaluator to choose.
+    """
+    return stage == Stage.cert and process_version.harness_stamps_terminal_anchor(label)
+
+
+def _warn_on_discarded_basis(evaluation: Evaluation, basis: str | None) -> None:
+    """Say when a stamped ``base_rate_basis`` replaces a different one the evaluator wrote.
+
+    Not a number, so :func:`_warn_on_discarded_number` cannot say it; a judge's
+    wrong basis would otherwise be corrected silently whenever the two tables'
+    rates happen to agree.
+    """
+    if evaluation.base_rate_basis is not None and evaluation.base_rate_basis != basis:
+        typer.echo(
+            f"::warning::stamp: {evaluation.evaluator_id}/{evaluation.predictor_id} "
+            + f"recorded base_rate_basis {evaluation.base_rate_basis!r} for a "
+            + f"harness-stamped field; the stamp wrote {basis!r}.",
+            err=True,
+        )
+
+
+def _terminal_skill_record_for(
+    event_paths: EventPaths,
+    evaluation: Evaluation,
+    settings: Settings,
+    outcome: Outcome | None,
+    scored: Prediction | None,
+    terminal_context: PredictionContext | None,
+    *,
+    regrade: bool,
+) -> tuple[dict[str, object], str | None, str | None]:
+    """The harness's whole cert skill record on the terminal fallback.
+
+    For a cell :func:`_harness_owns_terminal_record` admits. The anchor is
+    :func:`fedcourtsai.pipeline.base_rates.terminal_base_rate`: the scorer's
+    own pooler over the evaluate cell's provisioned ``(band, salience_version,
+    term)``, the **terminal** rate (``est_grant_rate``, over the petitions that
+    ended in the band), strictly-prior Terms inside
+    ``salience.base_rate_lookback_terms``. So it is the exact ``terminal`` pool
+    ``fedcourts segment-anchors`` prints rather than a transcription off the
+    rendered ``metrics/statpack.md``, and a band whose version the rendered
+    table no longer shows still pools from the Terms' ``alt_segments``. The
+    Brier and the skill are stamped beside it from the same committed
+    artifacts, as on the frozen-band path.
+
+    The basis is ``terminal`` and the version the provisioned one wherever the
+    pool yields a rate. Where it does not, rate, basis, version, build, window
+    and skill are all null, the omission the frozen-band path takes for the
+    same cases: no scored prediction to grade, no readable provisioned context
+    (said per cell), a context with no band (a snapshot that disclosed no
+    proceedings, or a row outside the active version's segment), no Term, no
+    readable statpack, or no prior Term carrying the band under its version.
+
+    **A re-grade keeps the anchor as stamped**, for the reason the frozen-band
+    path gives: a strictly-prior pool is not moved by an outcome correction.
+    """
+    brier = _harness_brier_for(event_paths, evaluation, outcome)
+    rate: float | None
+    digest: str | None
+    lookback: int | None
+    basis: str | None
+    version: str | None
+    if regrade:
+        rate = evaluation.segment_base_rate
+        digest = evaluation.base_rate_statpack_digest
+        lookback = evaluation.base_rate_lookback_terms
+        basis = evaluation.base_rate_basis
+        version = evaluation.base_rate_salience_version
+    else:
+        if scored is None:
+            rate, digest, lookback = None, None, None
+        else:
+            rate, digest, lookback = _pool_terminal_anchor(evaluation, terminal_context, settings)
+        _warn_on_discarded_number(
+            evaluation, "segment_base_rate", evaluation.segment_base_rate, rate
+        )
+        basis = "terminal" if rate is not None else None
+        # `terminal_base_rate` yields a rate only off a context carrying band,
+        # Term, and version, so a rate implies the version it was pooled under.
+        version = (
+            terminal_context.salience_version
+            if rate is not None and terminal_context is not None
+            else None
+        )
+        _warn_on_discarded_basis(evaluation, basis)
+    _warn_on_discarded_number(evaluation, "brier_score", evaluation.brier_score, brier)
+    fields: dict[str, object] = {
+        "brier_score": brier,
+        "segment_base_rate": rate,
+        "brier_skill_score": _harness_skill_for(
+            brier, _harness_target_for(event_paths, evaluation, outcome), rate
+        ),
+        "base_rate_basis": basis,
+        "base_rate_salience_version": version,
+        "base_rate_statpack_digest": digest,
+        "base_rate_lookback_terms": lookback,
+    }
+    return fields, basis, version
+
+
+def _pool_terminal_anchor(
+    evaluation: Evaluation, context: PredictionContext | None, settings: Settings
+) -> tuple[float | None, str | None, int | None]:
+    """The terminal cert anchor pooled now: ``(rate, statpack build, lookback window)``.
+
+    All three ``None`` where no rate pools, so a build and a window are only
+    ever named beside the rate they produced.
+    """
+    if context is None:
+        typer.echo(
+            f"::warning::stamp: {evaluation.evaluator_id}/{evaluation.predictor_id}: no "
+            + "provisioned record/context.json, so this terminal-fallback cert cell's "
+            + "segment base rate and skill are cleared rather than pooled.",
+            err=True,
+        )
+        return None, None, None
+    statpack = _statpack_for(settings)
+    if statpack is None:
+        typer.echo(
+            "::warning::stamp: no readable metrics/statpack.json — this cert cell's "
+            "segment base rate and skill are cleared rather than pooled.",
+            err=True,
+        )
+        return None, None, None
+    lookback = load_salience_config(settings.config_root).base_rate_lookback_terms
+    rate = terminal_base_rate(context, statpack, lookback_terms=lookback)
+    if rate is None:
+        return None, None, None
+    return rate, statpack_digest(statpack), lookback
 
 
 def _cert_skill_record_for(
@@ -14082,21 +14446,14 @@ def _cert_skill_record_for(
         # `prediction_base_rate` yields a rate only off a context carrying band,
         # Term, and version, so a rate implies the version it was pooled under.
         version = scored.context.salience_version if rate is not None and scored.context else None
-        if evaluation.base_rate_basis is not None and evaluation.base_rate_basis != basis:
-            # Not a number, so `_warn_on_discarded_number` cannot say it; a
-            # judge's wrong basis would otherwise be corrected silently whenever
-            # the two tables' rates happen to agree.
-            typer.echo(
-                f"::warning::stamp: {evaluation.evaluator_id}/{evaluation.predictor_id} "
-                + f"recorded base_rate_basis {evaluation.base_rate_basis!r} for a "
-                + f"harness-stamped field; the stamp wrote {basis!r}.",
-                err=True,
-            )
+        _warn_on_discarded_basis(evaluation, basis)
     _warn_on_discarded_number(evaluation, "brier_score", evaluation.brier_score, brier)
     fields: dict[str, object] = {
         "brier_score": brier,
         "segment_base_rate": rate,
-        "brier_skill_score": _harness_skill_for(brier, outcome, rate),
+        "brier_skill_score": _harness_skill_for(
+            brier, outcome.actual_granted if outcome is not None else None, rate
+        ),
         "base_rate_basis": basis,
         "base_rate_salience_version": version,
         "base_rate_statpack_digest": digest,
@@ -14334,7 +14691,8 @@ def _harness_correct_for(
     latest = _scored_prediction_for(event_paths, evaluation)
     if latest is None or outcome is None:
         return None
-    return is_correct(latest, outcome)
+    interim = _event_stage_and_opened(event_paths)[0] == Stage.interim
+    return stage_correct(latest, outcome, interim=interim)
 
 
 def _harness_brier_for(
@@ -14361,7 +14719,8 @@ def _harness_brier_for(
     latest = _scored_prediction_for(event_paths, evaluation)
     if latest is None or outcome is None:
         return None
-    return brier_score(latest, outcome)
+    interim = _event_stage_and_opened(event_paths)[0] == Stage.interim
+    return stage_brier_score(latest, outcome, interim=interim)
 
 
 def _harness_base_rate_for(
@@ -14410,11 +14769,16 @@ def _harness_base_rate_for(
     latest = _scored_prediction_for(event_paths, evaluation)
     if latest is None or latest.context is None or latest.context.term is None:
         return None
-    return interim_base_rate(latest.context.term, statpack, lookback_terms=lookback)
+    return interim_base_rate(
+        latest.context.term,
+        statpack,
+        lookback_terms=lookback,
+        reading="finer" if scores_finer_reading(latest) else "registered",
+    )
 
 
 def _harness_skill_for(
-    brier: float | None, outcome: Outcome | None, base_rate: float | None
+    brier: float | None, target: int | None, base_rate: float | None
 ) -> float | None:
     """The Brier skill of a stamped base rate against the *stamped* Brier.
 
@@ -14425,14 +14789,32 @@ def _harness_skill_for(
     construction end to end: nothing the evaluator wrote reaches the numerator
     or the denominator. ``None`` when any input is missing — no stamped Brier,
     no stamped rate, no committed outcome to score against — and where the
-    baseline is already exact, the ratio's undefined case. (The outcome guard is
-    redundant against the Brier's, which is ``None`` whenever the outcome is;
-    it is kept because it is what makes ``actual_granted`` reachable, and
-    because the two would have to be un-coupled by hand to make it wrong.)
+    baseline is already exact, the ratio's undefined case. ``target`` is the
+    binary the Brier was scored against (:func:`_harness_target_for`), so the
+    baseline is scored against the same one — ``outcome.actual_granted``, or an
+    interim cell's finer ``interim_granted`` — and is ``None`` exactly where the
+    Brier is.
     """
-    if brier is None or base_rate is None or outcome is None:
+    if brier is None or base_rate is None or target is None:
         return None
-    return brier_skill(brier, outcome.actual_granted, base_rate)
+    return brier_skill(brier, target, base_rate)
+
+
+def _harness_target_for(
+    event_paths: EventPaths, evaluation: Evaluation, outcome: Outcome | None
+) -> int | None:
+    """The binary the stamped Brier scores this evaluation against, or ``None``.
+
+    :func:`fedcourtsai.pipeline.evaluate.scored_granted` over the scored
+    prediction and the committed outcome, on the event's stage: the finer
+    interim reading's ``interim_granted`` for an interim cell whose prediction
+    takes it, ``actual_granted`` otherwise.
+    """
+    latest = _scored_prediction_for(event_paths, evaluation)
+    if latest is None or outcome is None:
+        return None
+    interim = _event_stage_and_opened(event_paths)[0] == Stage.interim
+    return scored_granted(latest, outcome, interim=interim)
 
 
 def _grant_term_for(event_paths: EventPaths) -> int | None:
@@ -15509,7 +15891,9 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
     scope: Literal["frozen", "all"] = "all" if all_versions else "frozen"
     # Same shared producer + default as the leaderboard, so the two surfaces
     # always agree on the frozen headline. The census (ledger_cell_counts) stays
-    # version-blind — it counts committed predictions, not scored cells. The
+    # version-blind — it counts committed predictions, not scored cells — and,
+    # like the stratified cells beside it, reads the SCOTUS population only, so
+    # both sides of the funnel count one population. The
     # stage the join also carries is dropped here: the substance funnel is
     # deliberately stage-blind throughput (a census over every scored cell,
     # like the prediction counts beside it), so its counts pool stages by
@@ -15540,8 +15924,10 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
         # Leakage grading is an all-versions diagnostic, like flags/tooling above
         # (which read the ledger directly): shakedown contamination is exactly
         # what it must surface, so it must NOT ride the frozen `stratified` stream
-        # — that would blank the leakage digest during the shakedown window.
-        evaluations=iter_evaluations(settings.data_root),
+        # — that would blank the leakage digest during the shakedown window. For
+        # the same reason it reads every population, a prediction slice's
+        # gradings included, as flags/tooling do.
+        evaluations=iter_evaluations(settings.data_root, population=None),
         substance=substance,
         data_health=data_health,
         open_triggers=open_triggers,
@@ -21029,6 +21415,147 @@ def restore_cell_record_cmd(
     typer.echo(f"restored {restored} file(s) from {stash_dir}")
 
 
+@app.command("record-write-baseline")
+def record_write_baseline_cmd(
+    stash_dir: Annotated[
+        Path,
+        typer.Option(
+            help="Where the baseline and its file copies are kept. Point it outside the "
+            "checkout, such as the runner temp dir."
+        ),
+    ],
+) -> None:
+    """Record what the data tree holds before a predict cell's agent starts.
+
+    The first half of the write confinement
+    (:mod:`fedcourtsai.write_confinement`): run after the hidden trees have been
+    moved out and before the engine starts, so the baseline is the tree the
+    agent is handed. ``confine-cell-writes`` compares against it once the agent
+    stops. Exits 1 when the stash already holds a baseline, since a second
+    recording would overwrite the first.
+    """
+    settings = get_settings()
+    try:
+        baseline = write_confinement.record_baseline(settings.data_root, stash_dir)
+    except (write_confinement.ConfinementError, OSError) as exc:
+        typer.echo(f"::error::recording the write baseline failed: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(f"recorded {len(baseline.entries)} data entr(ies) -> {stash_dir}")
+
+
+_WRITE_CONFINEMENT_PREFIX = "Harness check: this cell changed the data tree outside its own run"
+# How many paths of each kind the note quotes, and how much of each.
+_WRITE_CONFINEMENT_EXAMPLES = 3
+_WRITE_CONFINEMENT_PATH_CHARS = 160
+
+
+def _write_confinement_note(
+    report: write_confinement.ConfinementReport, event_id: str
+) -> AgentFlag:
+    def quoted(paths: list[str]) -> str:
+        shown = ", ".join(
+            ascii(path)[:_WRITE_CONFINEMENT_PATH_CHARS]
+            for path in paths[:_WRITE_CONFINEMENT_EXAMPLES]
+        )
+        more = (
+            f" and {len(paths) - _WRITE_CONFINEMENT_EXAMPLES} more"
+            if len(paths) > _WRITE_CONFINEMENT_EXAMPLES
+            else ""
+        )
+        return f"{shown}{more}"
+
+    parts = []
+    if report.removed:
+        parts.append(f"removed {len(report.removed)} added path(s) ({quoted(report.removed)})")
+    if report.restored:
+        parts.append(
+            f"restored {len(report.restored)} changed or deleted path(s) "
+            + f"({quoted(report.restored)})"
+        )
+    if report.failed:
+        parts.append(f"could not put back {len(report.failed)} path(s) ({quoted(report.failed)})")
+    return AgentFlag(
+        category=FlagCategory.other,
+        severity=FlagSeverity.blocker if report.failed else FlagSeverity.warning,
+        message=(
+            f"{_WRITE_CONFINEMENT_PREFIX} directory, so the harness put the tree back before "
+            + "anything read it: "
+            + "; ".join(parts)
+            + ". Paths are relative to data/; only this cell's predictions/<predictor_id>/"
+            + "<run_id>/ directory is the cell's to write."
+        )[:_FLAG_MESSAGE_LIMIT],
+        event_id=event_id,
+        source=FlagSource.harness,
+    )
+
+
+@app.command("confine-cell-writes")
+def confine_cell_writes_cmd(
+    court: Annotated[str, typer.Option()],
+    docket: Annotated[int, typer.Option()],
+    event: Annotated[str, typer.Option(help="Event id the cell acts on.")],
+    actor: Annotated[str, typer.Option(help="The cell's predictor_id.")],
+    run_id: Annotated[str, typer.Option(help="The fan-out run id (a UTC timestamp).")],
+    stash_dir: Annotated[
+        Path,
+        typer.Option(help="The stash `record-write-baseline` wrote; pass the same value."),
+    ],
+) -> None:
+    """Put the data tree back to its baseline everywhere outside the cell's run directory.
+
+    The second half of the write confinement
+    (:mod:`fedcourtsai.write_confinement`), run the moment the agent stops and
+    before the hidden trees come back, so nothing after it reads what the agent
+    wrote beside its own output. A file the baseline did not hold is removed, a
+    file it held that changed or went missing is restored from its copy, and a
+    directory the agent created is removed once empty. Anything put back is
+    noted in the cell's ``flags.json`` as a harness flag (normalised first, so
+    the note lands in a file that parses), and named in the run log.
+
+    Exits 1 when the baseline is missing or foreign, or when any path could not
+    be put back: the cell's tree is then not the one its output is judged
+    against, and the job says so rather than carrying it forward quietly.
+    """
+    settings = get_settings()
+    event_paths = CasePaths(settings.data_root, court, docket).event(event)
+    own = event_paths.prediction_dir(actor, run_id)
+    try:
+        report = write_confinement.confine_writes(settings.data_root, stash_dir, own)
+    except (write_confinement.ConfinementError, OSError) as exc:
+        typer.echo(f"::error::write confinement failed: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    case = ids.case_id(court, docket)
+    if not report.changed:
+        typer.echo(
+            f"write confinement: {case} {event} {actor}: data tree unchanged outside the run"
+        )
+        return
+    for label, paths in (
+        ("removed", report.removed),
+        ("restored", report.restored),
+        ("could not put back", report.failed),
+    ):
+        for path in paths:
+            typer.echo(
+                f"::warning::write confinement: {actor} {_one_line(case)} {label} "
+                + f"data/{_one_line(path)}",
+                err=True,
+            )
+    if own.is_dir():
+        where = CellCoordinates(
+            case_id=case, run_id=run_id, role=UsageRole.predictor, actor_id=actor
+        )
+        _normalise_cell_flags(event_paths, where)
+        _append_harness_notes(
+            event_paths.prediction_flags(actor, run_id),
+            where,
+            [_write_confinement_note(report, event)],
+            what="write-confinement note",
+        )
+    if report.failed:
+        raise typer.Exit(code=1)
+
+
 @app.command("corpus-integration-check")
 def corpus_integration_check(
     court: Annotated[str, typer.Option(help="Court id of the known case the read set targets.")],
@@ -22485,7 +23012,7 @@ def _cohort_narrowing_reason(data_root: Path, court: str, docket: int, event_id:
     )
 
 
-def _scope_filtered(
+def _scope_filtered(  # noqa: PLR0913 - the matrix backstop's inputs, all keyword past the corpus
     cases: list[CaseRequest],
     scope: PredictScope,
     corpus_root: Path,
@@ -22495,6 +23022,7 @@ def _scope_filtered(
     data_root: Path | None = None,
     dropped_out: list[_DropRecord] | None = None,
     cohort_narrowed_out: list[_DropRecord] | None = None,
+    slices: Mapping[str, Population] | None = None,
 ) -> list[CaseRequest]:
     """Drop out-of-scope cases under ``scotus_docket``; the matrix backstop.
 
@@ -22513,6 +23041,13 @@ def _scope_filtered(
     visible note (to stderr, so the matrix JSON on stdout stays clean)
     explaining why a manual run produced an empty matrix. ``scope == all``
     passes every case through unchanged.
+
+    ``slices`` are the enabled prediction slices
+    (:func:`fedcourtsai.prediction_slices.load_slices`): a lower-court docket a
+    slice's committed list names is admitted past the court predicate, and no
+    other docket of its court is. The hard exclusions below still apply to it;
+    the salience drop does not, because a slice's list is its selection. With
+    no slice enabled (the default) the predicate is the court alone.
 
     A SCOTUS docket is still dropped when the shared exclusion reasoning
     matches it: the scope reconcile's ``predict_excluded`` latch, or any reason from
@@ -22580,9 +23115,15 @@ def _scope_filtered(
     kept: list[CaseRequest] = []
     with corpus.connect_readonly(db_path, backend=corpus_backend) as conn:
         for case in cases:
-            row = corpus.get_row(conn, ids.case_id(case.court, case.docket))
+            case_id = ids.case_id(case.court, case.docket)
+            row = corpus.get_row(conn, case_id)
             drop: str | None
-            if row is None or row.court != "scotus":
+            in_slice = (
+                row is not None
+                and row.court != "scotus"
+                and any(population.admits_case(case_id) for population in (slices or {}).values())
+            )
+            if row is None or (row.court != "scotus" and not in_slice):
                 drop = "out of prediction scope (predict.scope=scotus_docket, not a SCOTUS docket)."
             elif row.predict_excluded:
                 drop = "latched out of predict scope by the corpus reconcile."
@@ -22590,6 +23131,7 @@ def _scope_filtered(
                 drop = f"{reason}."
             elif (
                 not for_grading
+                and not in_slice
                 and corpus.is_salience_deferred(row)
                 and not corpus.has_open_merits_event(conn, row.case_id)
             ):
@@ -23839,6 +24381,7 @@ def _predict_fanout(
         data_root=settings.data_root,
         dropped_out=scope_dropped,
         cohort_narrowed_out=cohort_narrowed,
+        slices=load_slices(settings.config_root, predict_config.slices),
     )
     # One clock for the whole plan, so a fan-out that straddles midnight cannot
     # apply a different staleness bound to selection than to the re-check.
@@ -24145,17 +24688,18 @@ def _evaluate_fanout(
     hold the same cells.
     """
     settings = get_settings()
-    scope = load_predict_config(settings.config_root).scope
+    predict_config = load_predict_config(settings.config_root)
     scope_dropped: list[_DropRecord] = []
     resolution = _ResolveReport()
     cases = _resolve_cases(
         _scope_filtered(
             requested_cases,
-            scope,
+            predict_config.scope,
             settings.corpus_root,
             settings.corpus_backend,
             for_grading=True,
             dropped_out=scope_dropped,
+            slices=load_slices(settings.config_root, predict_config.slices),
         ),
         lambda c, d: resolved_events(
             corpus.corpus_db_path(settings.corpus_root), c, d, backend=settings.corpus_backend

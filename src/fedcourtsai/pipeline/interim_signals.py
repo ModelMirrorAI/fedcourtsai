@@ -25,9 +25,10 @@ import cycle around it.
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import date
 from enum import StrEnum
+from typing import Final
 
 from ..schemas import Disposition
 from .cert_signals import entry_date
@@ -73,6 +74,78 @@ _SUBSTANTIVE_ASK_RE = re.compile(
 )
 
 
+# The widened ask vocabulary: every substantive wording the registered pattern
+# above misses, measured over the parsed Terms' `unknown` asks. A stay asked
+# without its article ("for stay", "for a partial stay", "for stays of
+# execution"), the recall-and-stay of a mandate, a writ of injunction or an
+# injunction pending appeal, the suspension of a denial's effect, a temporary
+# restraining order, interim relief, and a vacatur asked as a verb. Still
+# absent, and still `unknown`: bail and release asks, a certificate of
+# appealability, leave to file, and the page and word limit motions, none of
+# which asks the Court to suspend or undo a lower court's order.
+_SUBSTANTIVE_ASK_WIDE_RE = re.compile(
+    _SUBSTANTIVE_ASK_RE.pattern
+    + r"|\bfor\s+(?:an?\s+)?(?:(?:partial|emergency|administrative|temporary|immediate)\s+)*"
+    + r"stays?(?:or)?\b"  # "stayor": the Clerk's run-together "stay or"
+    + r"|\bto\s+(?:recall\s+and\s+)?stay\b"
+    + r"|\bto\s+recall\s+(?:the\s+)?(?:mandate|remittitur)\b"
+    + r"|\bfor\s+(?:an?\s+)?recall\b"
+    + r"|\bfor\s+(?:an?\s+)?(?:(?:writ\s+of|emergency|temporary)\s+)*injunction"
+    + r"|^\s*(?:writ\s+of\s+)?injunction"
+    + r"|\binjunctive\s+relief\b"
+    + r"|\bfor\s+(?:an?\s+)?temporary\s+restraining\s+order\b"
+    + r"|\bfor\s+interim\s+relief\b"
+    + r"|\bto\s+suspend\s+the\s+effect\b"
+    + r"|\bvacate\b",
+    re.I,
+)
+
+#: The first application Term whose ``application_kind`` is the widened reading
+#: (:func:`application_kind_wide`), so the predicted interim population and the
+#: pool it is scored against are counted on one vocabulary from that Term on.
+#: Keyed on the docket's own ``YYAnnn`` Term, never a clock, so an OT2026
+#: application keeps the registered reading however late it is polled.
+WIDE_APPLICATION_KIND_FROM_TERM: Final = 2027
+
+
+def _read_ask(entry_texts: list[str], substantive: re.Pattern[str]) -> ApplicationKind:
+    for text in entry_texts:
+        match = _ASK_RE.search(text)
+        if match is None:
+            continue
+        ask = match.group("ask")
+        if _EXTENSION_ASK_RE.search(ask):
+            return ApplicationKind.extension
+        if substantive.search(ask):
+            return ApplicationKind.substantive
+    return ApplicationKind.unknown
+
+
+def application_kind_wide(entry_texts: list[str]) -> ApplicationKind:
+    """:func:`application_kind` under the widened ask vocabulary.
+
+    The same ask clause, the same first-ask rule and the same extension check,
+    with a substantive pattern that is a superset of the registered one, so a
+    row the registered reading calls ``substantive`` or ``extension`` reads the
+    same here and only an ``unknown`` can move.
+    """
+    return _read_ask(entry_texts, _SUBSTANTIVE_ASK_WIDE_RE)
+
+
+def application_kind_for_term(entry_texts: list[str], term: int | None) -> ApplicationKind:
+    """The ask as stored for an application of ``term``: the reading every selector shares.
+
+    :func:`application_kind_wide` from :data:`WIDE_APPLICATION_KIND_FROM_TERM`
+    on, :func:`application_kind` before it and where the Term cannot be read.
+    Ingest stores it as ``application_kind`` and the document selector reads
+    its head filing with it, so the predict queue and the selector admit one
+    class on every Term.
+    """
+    if term is not None and term >= WIDE_APPLICATION_KIND_FROM_TERM:
+        return application_kind_wide(entry_texts)
+    return application_kind(entry_texts)
+
+
 def application_kind(entry_texts: list[str]) -> ApplicationKind:
     """What the application asks for, read from the clause that states it.
 
@@ -85,16 +158,7 @@ def application_kind(entry_texts: list[str]) -> ApplicationKind:
     carries a second `Application (...)` reference is reciting a companion
     matter, not changing its own.
     """
-    for text in entry_texts:
-        match = _ASK_RE.search(text)
-        if match is None:
-            continue
-        ask = match.group("ask")
-        if _EXTENSION_ASK_RE.search(ask):
-            return ApplicationKind.extension
-        if _SUBSTANTIVE_ASK_RE.search(ask):
-            return ApplicationKind.substantive
-    return ApplicationKind.unknown
+    return _read_ask(entry_texts, _SUBSTANTIVE_ASK_RE)
 
 
 # A request for leave to file a brief or petition longer than the rules allow:
@@ -218,8 +282,17 @@ _GRANT_VERB_RE = re.compile(r"\bgranted\b", re.I)
 # The application dismissed or denied **as moot** — "Application (25A1229)
 # denied as moot by Justice Thomas.", "The application … is dismissed as moot."
 # A short gap between the verb and "as moot" admits "denied without prejudice as
-# moot"; a comma ends it, so a later clause's mootness never reaches back.
-_MOOT_RE = re.compile(r"\b(?:denied|dismissed)\b[^,;]{0,40}?\bas\s+moot\b", re.I)
+# moot"; a comma ends it, so a later clause's mootness never reaches back. The
+# second form is the consolidated-docket mootness the Court words without the
+# word: "Application (21A247) dismissed in light of the relief granted in No.
+# 21A244." decides nothing about the application's own ask, whatever word
+# follows "in light of" — the "granted" there is the lead application's relief,
+# which is what the registered scan latches.
+_MOOT_RE = re.compile(
+    r"\b(?:denied|dismissed)\b[^,;]{0,40}?\bas\s+moot\b"
+    r"|\bdismissed\b[^,;]{0,40}?\bin\s+light\s+of\b",
+    re.I,
+)
 
 
 def application_clauses(text: str) -> list[str]:
@@ -322,20 +395,67 @@ def read_interim_disposition(text: str) -> InterimReading | None:
     both forms carry a word the registered reading latches the wrong way. A
     **partial grant** ("granted in part and denied in part", "granted as to …",
     "granted insofar as …") is ``granted-in-part``; a **moot dismissal**
-    ("denied as moot", "dismissed as moot") is ``dismissed-moot``. The partial
-    reading wins over the moot one, so "granted in part and otherwise dismissed
-    as moot" records the relief that was granted. Anything else is
-    :func:`match_interim_disposition`'s label, unchanged.
+    ("denied as moot", "dismissed as moot", "dismissed in light of …") is
+    ``dismissed-moot``. The partial reading wins over the moot one, so "granted
+    in part and otherwise dismissed as moot" records the relief that was
+    granted.
 
-    Descriptive only: nothing stored, scored or provisioned reads it.
+    Anything else is the registered vocabulary read **over the application's own
+    clauses** first — the first clause :func:`match_interim_disposition` reads
+    decides — so "The application for stay is granted, and the motion to
+    expedite is denied as moot." reads the application's ``granted`` rather than
+    the side motion's denial, which the registered scan, not clause-scoped,
+    takes. Only where no clause reads does the registered scan over the whole
+    entry stand, unchanged.
+
+    It is stored beside the registered label (the corpus ``interim_reading``
+    column, written by ingest on the same last-disposing-entry rule) and scored
+    for a cell stamped under
+    :data:`fedcourtsai.process_version.FINER_INTERIM_READING_FROM` or later
+    (:func:`interim_reading_granted`); a cell stamped earlier keeps the
+    registered reading.
     """
     clauses = application_clauses(text)
     if any(_partial_grant(clause) for clause in clauses):
         return InterimReading.granted_in_part
     if any(_MOOT_RE.search(clause) for clause in clauses):
         return InterimReading.dismissed_moot
+    for clause in clauses:
+        in_clause = match_interim_disposition(clause)
+        if in_clause is not None:
+            return InterimReading(in_clause[0].value)
     matched = match_interim_disposition(text)
     return None if matched is None else InterimReading(matched[0].value)
+
+
+#: The finer readings that decide the application's ask, and the binary each
+#: scores as. A partial grant is relief, so it scores as a grant; a withdrawal and
+#: a dismissal that is not for mootness stay ungranted, as the registered reading
+#: holds them. ``dismissed-moot`` is absent on purpose: it decided nothing about
+#: the ask, so it leaves the scored set and the base-rate denominator.
+_FINER_GRANTED: Final[Mapping[InterimReading, int]] = {
+    InterimReading.granted: 1,
+    InterimReading.granted_in_part: 1,
+    InterimReading.denied: 0,
+    InterimReading.withdrawn: 0,
+    InterimReading.dismissed: 0,
+}
+
+
+def interim_reading_granted(reading: InterimReading | str | None) -> int | None:
+    """The scored binary of one finer reading: ``1``, ``0``, or ``None`` for unscored.
+
+    ``None`` for ``dismissed-moot`` (the application leaves the scored set and
+    the base-rate denominator), for no reading at all, and for a string outside
+    the vocabulary — a stored value from a blob this code does not know is never
+    guessed into a grant or a denial.
+    """
+    if reading is None:
+        return None
+    try:
+        return _FINER_GRANTED.get(InterimReading(reading))
+    except ValueError:
+        return None
 
 
 def referral_posture(entry_texts: list[str]) -> ReferralPosture:

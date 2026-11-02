@@ -55,6 +55,27 @@ Two different scopes apply, and keeping them apart is what bounds the bill:
   predicted, and the lower-court link columns (`originating_court` /
   `originating_docket_number`) are retrieval context — never a scope trigger.
 
+  **Prediction slices** widen the court predicate by name, never by court. A
+  slice is a committed list of lower-court dockets, registered in
+  `fedcourtsai.prediction_slices.SLICES` with the file it reads. One is
+  registered, `ai-watchlist`, which reads `config/ai-watchlist.yaml` and admits
+  every docket that file names, each listed case's own and its related ones. A
+  slice is switched on by naming it in `predict.slices` (`config/tracking.yaml`);
+  the committed list is empty, so the scope is the SCOTUS docket alone. A
+  switched-on slice admits exactly its dockets at the matrix backstop (the
+  predict and evaluate matrices, and `predict-plan` / `evaluate-plan`, which
+  rehearse them) and no other docket of their courts. The hard exclusions and
+  the reconcile's `predict_excluded` latch still apply to a slice docket; the
+  salience gate does not, because the list is the slice's selection. An enabled
+  slice whose file is missing, a SCOTUS docket in a slice, and a docket two
+  enabled slices both name are each refused rather than read. Each slice is its
+  own **population** (`store.in_population`): the SCOTUS figures read the SCOTUS
+  population only, so a slice's events never pool with the Court's
+  ([metrics/README.md](../metrics/README.md)). Admission is only the scope half
+  of a slice. Its moments, prompts, decision model, pull-side queueing and its
+  own process version ([process-version.md](process-version.md)) are switched
+  on with it.
+
   Within this prediction scope, [salience.md](salience.md) describes a live
   **salience-ordered** gate — hard eligibility filters, then a deterministic
   ranking that spends the tournament on the most salient slice up to a fundable
@@ -1440,7 +1461,12 @@ or network.
   snapshot stored under the same case, a few snapshots deep. The docket is
   read whole instead once a day its id picks, one in every
   `full_read_every_days`, has passed since that read (the rotation does not
-  reach a docket daily, so the day itself is usually missed), which catches an
+  reach a docket daily, so the day itself is usually missed). A refresh that
+  comes a period or more after the last read is whole one time in
+  `full_read_every_days`, drawn from a hash of the docket and the two dates,
+  since the rotation's cycle can run longer than the period and the day rule
+  would then read every docket whole; whole reads are then spaced about that
+  many refreshes apart, with no upper bound. The whole read catches an
   entry deleted upstream or changed without moving its modification time. It
   is also read whole when its stored entries are not in upstream's order, so
   the first merge cannot read as a change, and when upstream returns a changed
@@ -1795,6 +1821,7 @@ passes, commits from the same record.
 | `amicus-rederive` | `rederive-amicus-briefs` | `--max-changes` | — | — |
 | `cert-amicus-rederive` | `rederive-cert-amicus-briefs` | `--max-changes` (rows written: the dry run's `total_changes`, fills plus raises) | — | — |
 | `salience-cert-backfill` | `backfill-salience-cert-columns` | `--max-fills` (column fills across the three columns: the dry run's `total_fills`, not rows) | — | — |
+| `application-reread` | `reread-applications` | `--max-changes` (column values written: the dry run's `total_changes`, fills plus moves over both columns) | — | — |
 | `regrade-stale` | `stamp-cell --regrade` | — | cell list, **required in both modes** | — |
 | `opinion-votes` | `stamp-opinion-votes` (split: `--emit-corpus-projection`, `--projection --plan-out`, `--from-plan`) | `--max-stamps` (outcomes stamped, new records and replacements together) | — | `replace-differing` |
 | `order-votes` | `stamp-order-votes` (split, as above) | `--max-stamps` (outcomes stamped, new records and replacements together) | — | `replace-differing` |
@@ -2381,6 +2408,18 @@ gh workflow run run-repair.yml --ref main \
   -f repair=salience-cert-backfill -f repair_mode=dry-run
 gh workflow run run-repair.yml --ref main \
   -f repair=salience-cert-backfill -f repair_mode=apply -f repair_bound=<the ledger's total_fills>
+
+# Fill the `interim_reading` column (the finer interim reading) on the resolved
+# application rows the poll no longer reaches, re-reading each row's newest live
+# snapshot with the function ingest calls. A NULL is filled and a differing
+# stored value overwritten (`moved`, each listed). Corpus only; no outcome moves.
+# Read `unobservable` first, then `no_reading` (rows the finer pool will count
+# `finer_unread`). The bound is the ledger's `total_changes`. Re-dispatching in
+# `dry-run` after the apply is the control: it must report `total_changes = 0`.
+gh workflow run run-repair.yml --ref main \
+  -f repair=application-reread -f repair_mode=dry-run
+gh workflow run run-repair.yml --ref main \
+  -f repair=application-reread -f repair_mode=apply -f repair_bound=<the ledger's total_changes>
 
 # The vote writer stamps committed outcomes from the Court's documents; each
 # pass's bound is the dry run's "would stamp N", in the handoff-parse job's

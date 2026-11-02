@@ -25,10 +25,12 @@ from fedcourtsai.pipeline.caption import (
     caption_rule,
     classify_petitioner,
     classify_petitioner_v2,
+    names_captioned_petitioner,
     petitioner_caption,
     petitioner_class,
     petitioner_class_v2,
     petitioner_class_v3,
+    petitioner_class_v4,
 )
 from fedcourtsai.schemas import Disposition
 
@@ -228,7 +230,8 @@ def test_the_registry_serves_each_rule_and_raises_on_an_unregistered_one() -> No
     assert caption_rule("caption-v1") is petitioner_class
     assert caption_rule("caption-v2") is petitioner_class_v2
     assert caption_rule("caption-v3") is petitioner_class_v3
-    assert set(CAPTION_RULES) == {"caption-v1", "caption-v2", "caption-v3"}
+    assert caption_rule("caption-v4") is petitioner_class_v4
+    assert set(CAPTION_RULES) == {"caption-v1", "caption-v2", "caption-v3", "caption-v4"}
     with pytest.raises(KeyError):
         caption_rule("caption-v0")
 
@@ -564,3 +567,233 @@ def test_caption_v3_census_moves_only_the_rows_the_office_appears_on(tmp_path: P
     assert v2_cells == {"federal": 0, "state": 1, "private": 1}
     assert v3_cells == {"federal": 1, "state": 0, "private": 1}
     assert v3.rule_version == "caption-v3"
+
+
+# --- caption-v4: the office as counsel of record for the captioned petitioner ----
+
+_FILED_UNDER_SAUER = date(2026, 7, 31)
+
+
+def _v4_row(
+    title: str | None,
+    *counsel: corpus.CounselEntry,
+    case_name: str = "",
+    case_id: str = "scotus/9026000145",
+    docket_number: str = "26-145",
+    filed: date = _FILED_UNDER_SAUER,
+    disposition: Disposition | None = None,
+    denied: date | None = None,
+) -> corpus.CorpusRow:
+    return corpus.CorpusRow(
+        case_id=case_id,
+        court="scotus",
+        docket_number=docket_number,
+        case_name=case_name,
+        petitioner_title=title,
+        date_filed=filed,
+        date_cert_denied=denied,
+        disposition=disposition,
+        last_live_polled=date(2026, 10, 29),
+        counsel=list(counsel),
+    )
+
+
+def _counsel(
+    party: str,
+    attorney: str = "D. John Sauer",
+    *,
+    role: corpus.CounselRole = corpus.CounselRole.petitioner,
+    of_record: bool = True,
+) -> corpus.CounselEntry:
+    return corpus.CounselEntry(
+        party=party, attorney=attorney, role=role, counsel_of_record=of_record
+    )
+
+
+#: The federal petitions caption-v2 misses: each caption, the counsel block's own
+#: party string for the office's entry (the corpus's renderings: the block
+#: abbreviates the caption's officer title and drops a given name), and the
+#: caption's v2 read.
+SG_FILED = [
+    ("U.S. DOGE Service, et al.", "U.S. Doge Service, et al.", "private"),
+    (
+        "Warden, Moshannon Valley Correctional Center, et al.",
+        "Warden, Moshannon Valley Correctional Center, et al.",
+        "private",
+    ),
+    ("Juan Baltazar, Warden, et al.", "Baltazar, Warden, et al.", "state"),
+    (
+        "Markwayne Mullin, Secretary, Department of Homeland Security, et al.",
+        "Markwayne Mullin, et al.",
+        "private",
+    ),
+    (
+        "Kenneth Genalo, Director of the New York Field Office of U.S. Immigration and "
+        + "Customs Enforcement, et al.",
+        "Kenneth Genalo, et al.",
+        "state",
+    ),
+    ("Vivek H. Murthy, Surgeon General, et al.", "Vivek H. Murthy , et al.", "private"),
+    ("Pension Benefit Guaranty Corporation", "Pension Benefit Guaranty Corporation", "private"),
+]
+
+
+@pytest.mark.parametrize(("title", "party", "v2"), SG_FILED)
+def test_caption_v4_reads_the_office_for_the_captioned_petitioner_as_federal(
+    title: str, party: str, v2: str
+) -> None:
+    """The office as counsel of record for the party the caption names reads
+    federal, ahead of the Warden fallback and the qualified state markers alike;
+    without that entry each caption keeps its v2 read."""
+    row = _v4_row(title, _counsel(party))
+    assert petitioner_class_v2(row) == v2
+    assert petitioner_class_v4(row) == "federal"
+    assert petitioner_class_v3(row) == "federal"
+    assert petitioner_class_v4(_v4_row(title)) == v2
+
+
+def test_caption_v4_reads_the_joined_case_name_where_no_structured_caption_is_stored() -> None:
+    row = _v4_row(
+        None,
+        _counsel("Pension Benefit Guaranty Corporation"),
+        case_name="Pension Benefit Guaranty Corporation v. Smith",
+    )
+    assert petitioner_class_v4(row) == "federal"
+
+
+@pytest.mark.parametrize(
+    ("title", "v2"),
+    [
+        ("International Partners for Ethical Care, Inc., et al.", "private"),
+        ("Mark Brnovich, Attorney General of Arizona, et al.", "state"),
+        ("Atlantic Coast Pipeline, LLC", "private"),
+        ("Miriam Fuld, et al.", "private"),
+    ],
+)
+def test_caption_v4_never_reads_a_supporting_amicus_or_a_consolidation(title: str, v2: str) -> None:
+    """The two post-outcome shapes caption-v3 admits: the office listed under the
+    petitioner for "United States" (a supporting amicus, or a government petition
+    consolidated at the grant) beside the captioned petitioner's own counsel.
+    v3 reads them federal; v4 reads each as v2."""
+    row = _v4_row(
+        title,
+        _counsel(title, "Jane Roe"),
+        _counsel("United States"),
+        _counsel("united states", "Noel John Francisco"),
+        filed=date(2019, 6, 27),
+        disposition=Disposition.granted,
+    )
+    assert petitioner_class_v3(row) == "federal"
+    assert petitioner_class_v4(row) == v2
+
+
+def test_caption_v4_keeps_a_state_petitioner_and_a_state_solicitor_general_state() -> None:
+    """A state's own counsel is no roster name, and a future Solicitor General
+    appearing as a state's solicitor general before taking office reads as
+    private practice under the dated roster: both state petitions stay state."""
+    texas = _v4_row("Texas", _counsel("Texas", "Aaron L. Nielson"))
+    assert petitioner_class_v4(texas) == "state"
+    missouri = _v4_row(
+        "Eric S. Schmitt, Attorney General of Missouri, et al.",
+        _counsel("Eric S. Schmitt, Attorney General of Missouri, et al."),
+        case_id="scotus/2",
+        docket_number="19-500",
+        filed=date(2019, 10, 1),
+        disposition=Disposition.denied,
+        denied=date(2020, 1, 13),
+    )
+    assert petitioner_class_v2(missouri) == "state"
+    assert petitioner_class_v4(missouri) == "state"
+
+
+def test_caption_v4_keeps_a_warden_with_state_counsel_state() -> None:
+    row = _v4_row("Michael Smith, Warden", _counsel("Michael Smith, Warden", "Jane Roe"))
+    assert petitioner_class_v4(row) == "state"
+
+
+@pytest.mark.parametrize("attorney", ["Noel J. Francisco", "Elizabeth B. Prelogar"])
+def test_caption_v4_reads_a_former_solicitor_general_in_private_practice_as_private(
+    attorney: str,
+) -> None:
+    """The dated roster, not the name: a former Solicitor General as counsel of
+    record for a private petitioner, on a docket filed after the span ended, is
+    private practice, though the party match holds."""
+    row = _v4_row("Acme Corp., et al.", _counsel("Acme Corp., et al.", attorney))
+    assert petitioner_class_v4(row) == "private"
+
+
+def test_caption_v4_reads_only_counsel_of_record_on_the_petitioner_side() -> None:
+    """The office opposing cert, listed as `other`, or listed for the petitioner
+    but not as counsel of record moves nothing."""
+    title = "Warden, Moshannon Valley Correctional Center, et al."
+    for entry in (
+        _counsel(title, role=corpus.CounselRole.respondent),
+        _counsel(title, role=corpus.CounselRole.other),
+        _counsel(title, of_record=False),
+    ):
+        assert petitioner_class_v4(_v4_row(title, entry)) == "private", entry
+
+
+@pytest.mark.parametrize("title", FEDERAL + STATE + PRIVATE)
+def test_caption_v4_is_caption_v2_on_a_row_without_the_office(title: str) -> None:
+    row = _v4_row(title)
+    assert petitioner_class_v4(row) == petitioner_class_v2(row)
+
+
+@pytest.mark.parametrize(
+    ("party", "caption_text", "expected"),
+    [
+        ("Baltazar, Warden, et al.", "Juan Baltazar, Warden, et al.", True),
+        ("U.S. Doge Service, et al.", "U.S. DOGE Service, et al.", True),
+        ("Vivek H. Murthy , et al.", "Vivek H. Murthy, Surgeon General, et al.", True),
+        ("Kenneth Genalo, et al.", "Kenneth Genalo, in His Official Capacity as Director", True),
+        ("United States", "International Partners for Ethical Care, Inc., et al.", False),
+        ("United States", "Mark Brnovich, Attorney General of Arizona, et al.", False),
+        ("Smith", "Michael Smithson, Warden", False),
+        ("United States", "Chamber of Commerce of the United States", False),
+        ("United States", "United States, et al.", True),
+        ("", "John Doe", False),
+        ("John Doe", "", False),
+    ],
+)
+def test_the_party_match_is_lead_against_lead(
+    party: str, caption_text: str, expected: bool
+) -> None:
+    assert names_captioned_petitioner(party, caption_text) is expected
+
+
+def test_caption_v4_census_moves_only_the_office_filed_rows(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    warden = "Juan Baltazar, Warden, et al."
+    amicus = "International Partners for Ethical Care, Inc., et al."
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                _v4_row(
+                    warden,
+                    _counsel("Baltazar, Warden, et al."),
+                    case_id="scotus/1",
+                    docket_number="24-100",
+                    disposition=Disposition.granted,
+                ),
+                _v4_row(
+                    amicus,
+                    _counsel(amicus, "Jane Roe"),
+                    _counsel("United States"),
+                    case_id="scotus/2",
+                    docket_number="24-101",
+                    disposition=Disposition.granted,
+                ),
+            ],
+        )
+        censuses = [
+            caption_census(conn, rule_version=version)
+            for version in ("caption-v2", "caption-v3", "caption-v4")
+        ]
+    cells = {
+        census.rule_version: {c.petitioner_class: c.n for c in census.pooled} for census in censuses
+    }
+    assert cells["caption-v2"] == {"federal": 0, "state": 1, "private": 1}
+    assert cells["caption-v3"] == {"federal": 2, "state": 0, "private": 0}
+    assert cells["caption-v4"] == {"federal": 1, "state": 0, "private": 1}

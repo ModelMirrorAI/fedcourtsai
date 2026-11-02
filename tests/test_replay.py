@@ -26,6 +26,7 @@ from fedcourtsai.pipeline.runner import (
     RunRequest,
     get_runner,
 )
+from fedcourtsai.prediction_slices import Population
 from fedcourtsai.schemas import (
     Disposition,
     Evaluation,
@@ -231,8 +232,11 @@ def test_leaderboard_rolls_up_recorded_evaluations(
         engine="replay",
         run_id=ids.run_id(),
     )
+    # The fixture case is a court-of-appeals docket, so the roll-up reads it as
+    # a population of its own; the SCOTUS default would read nothing.
+    fixture = Population(key="fixture", case_ids=frozenset({"ca9/101"}))
     board = build_leaderboard(
-        iter_stratified_evaluations(fixture_corpus.data_root, frozen_only=False)
+        iter_stratified_evaluations(fixture_corpus.data_root, frozen_only=False, population=fixture)
     )
     # A rank needs a forward cell to pair, and the fixture's dates may land the
     # cell retrospective, so the roll-up under test is the entry itself.

@@ -511,6 +511,37 @@ def _sal_v6_band(row: corpus.CorpusRow) -> str:
     return trajectory
 
 
+# sal-v7: sal-v6 with the petitioner class read through caption-v4. The relist
+# count, the writ scope, the parse pin, the cutpoints, the band vocabulary and
+# the arrival draw are sal-v6's, as the same callables. caption-v4 keeps v3's
+# Solicitor General reading only where the office is counsel of record for the
+# party the caption names — the entry the petition's own filing writes — so the
+# two post-outcome shapes that set sal-v5 aside (a supporting amicus listed
+# under the petitioner, a consolidation at the grant) never move a class
+# (docs/salience.md). Registered inactive: SALIENCE_VERSION still names sal-v6.
+
+
+def _sal_v7_band(row: corpus.CorpusRow) -> str:
+    """sal-v6's band rule, read through ``caption-v4``."""
+    trajectory = _sal_v5_trajectory(row)
+    cls = caption.petitioner_class_v4(row)
+    if cls == "federal":
+        return "federal"
+    if cls == "state" and trajectory not in ("high",):
+        return "state"
+    return trajectory
+
+
+def _sal_v7_reachable(row: corpus.CorpusRow) -> tuple[str, ...]:
+    """``sal-v7``'s reachable ladder: the caption partition read through ``caption-v4``."""
+    return _caption_reachable_bands(caption.petitioner_class_v4(row))
+
+
+def _sal_v7_carve_out(row: corpus.CorpusRow, score: float, floor: float) -> bool:
+    """sal-v1's rule, plus the federal arrival carve-in read through ``caption-v4``."""
+    return _sal_v1_carve_out(row, score, floor) or caption.petitioner_class_v4(row) == "federal"
+
+
 @dataclass(frozen=True)
 class SalienceScorer:
     """One frozen salience version: everything that makes a ranking reproducible.
@@ -698,6 +729,22 @@ _SAL_V6 = SalienceScorer(
     admits=_sal_v5_admits,  # sal-v5's segment: Rule 20 writs out
 )
 
+# sal-v7: registered, inactive. sal-v6's relist rule, writ scope and parse pin
+# as the same callables, with the band, carve-in and reachable ladder read
+# through caption-v4 (docs/salience.md). Its bands are published in the
+# statpack's `alt_segments` and scored in every gate replay from the next render.
+_SAL_V7 = SalienceScorer(
+    version="sal-v7",
+    score=_sal_v5_score,  # sal-v6's score, unchanged; the caption never weights it
+    band=_sal_v7_band,
+    bands=_SAL_V2_BAND_ORDER,  # the same band vocabulary, in the same order
+    carve_out=_sal_v7_carve_out,
+    selects_arrivals=True,
+    reachable=_sal_v7_reachable,  # caption-v4's partition
+    distribution_parse="dist-v2",
+    admits=_sal_v5_admits,  # sal-v6's segment: Rule 20 writs out
+)
+
 # Every registered version, keyed by label. A past ranking replays against the
 # function that produced it, so a version is only ever added here — never edited
 # and never removed, whatever the live pass currently scores with.
@@ -709,6 +756,7 @@ SCORERS: Mapping[str, SalienceScorer] = MappingProxyType(
         _SAL_V4.version: _SAL_V4,
         _SAL_V5.version: _SAL_V5,
         _SAL_V6.version: _SAL_V6,
+        _SAL_V7.version: _SAL_V7,
     }
 )
 

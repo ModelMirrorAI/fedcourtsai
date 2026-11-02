@@ -15725,3 +15725,664 @@ freeze commit is recorded here.
     HARNESS_BOUNDARIES as H; n = {b.name for b in H};
     print({'decision-below-documents', 'context-band-refused'} <= n)"` prints
     `True` once the promotion record has stamped the rows.
+
+- **`proc-v17`, the interim reading and the interim window: an interim cell
+  stamped under `proc-v17` or later is scored on the finer interim reading,
+  where partial relief is a grant and a moot dismissal leaves the scored set;
+  and from the OT2027 application Term the interim pool is a three-Term window
+  over a widened ask vocabulary, which also selects that Term's applications;
+  recorded 2026-10-31.**
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge sha>`, merged `<FILL: merged time utc>`), to be tagged
+  **`prereg/proc-v17`**. Registered under the merge-stamped rule, so its
+  counting instant, its bless moments and every window edge it moves are the
+  carrying merge's committer time. This entry registers the terms the
+  2026-10-16 interim partial-grant and moot entry said the next label's own
+  entry must settle. The label's digests, its window supersessions and their
+  census are the `register-process` run's, made once `proc-v16` was on `main`,
+  and are listed at the end of this entry. The label carries two more
+  changes, each with its own entry below: the stamped terminal-fallback cert
+  anchor and the predict cell's self-check. Both prompts change, so every
+  digest moves. No harness boundary is registered: the change is keyed on the
+  scored prediction's label, and a label's cells sit in their own counting
+  window.
+
+  **The reading.** `pipeline.interim_signals.read_interim_disposition`, as the
+  2026-10-16 entry describes it, with two corrections:
+  - "dismissed" followed within 40 characters, with no comma or semicolon, by
+    "in light of" is `dismissed-moot`, whatever word follows. "Application
+    (21A247) dismissed in light of the relief granted in No. 21A244." decided
+    nothing about its own ask, while the registered scan reads the lead
+    application's "granted" as this one's grant.
+  - Where neither the partial nor the moot form reads, the registered
+    vocabulary is read over the application's own clauses first, and the
+    first clause that reads decides. "The application for stay is granted,
+    and the motion to expedite is denied as moot." reads `granted`. Only
+    where no clause reads does the registered scan over the whole entry
+    stand.
+
+  **Where it lives.** Beside the registered reading, never in its place:
+  - the corpus `interim_reading` column, written by the live application
+    branch on the last-disposing-entry rule
+    (`pipeline.ingest.stored_interim_reading`) and filled for stored history
+    by run-repair's `application-reread` pass (`fedcourts
+    reread-applications`), which calls the same function;
+  - `Outcome.interim_reading` and its binary `Outcome.interim_granted`,
+    copied from the column when an interim outcome is written. Outcomes are
+    written once, so no committed `outcome.json` gains or changes a field;
+  - the statpack interim section's per-Term `finer_resolved`,
+    `finer_granted`, `finer_moot` and `finer_unread`.
+
+  The corpus `disposition` column, `actual_disposition`, `actual_granted` and
+  `disposition_basis` are unchanged for every outcome, so every cell stamped
+  before this label keeps its registered reading through any re-grade.
+
+  **The settled questions.**
+  1. *Separate outcome fields:* `interim_reading` and `interim_granted`, as
+     above.
+  2. *The reader is keyed on the scored prediction's label*
+     (`process_version.FINER_INTERIM_READING_FROM = "proc-v17"`,
+     `pipeline.evaluate.scores_finer_reading`), never the grading's. A
+     prediction stamped under an earlier label, an unstamped one, or a label
+     that is not a `proc-vN` keeps the registered reading. The key reaches
+     the Brier (`stage_brier_score`), `correct` (`stage_correct`), the claim
+     block (`score_claims`), the skill stamped beside them, and
+     `segment_base_rate` (`interim_base_rate(..., reading="finer")`) in
+     `stamp-cell`. `validate`'s `evaluation_correct_agrees` compares stamped
+     bits, so it needs no key.
+  3. *A moot dismissal is unscored, not scored in an unranked stratum.* Its
+     Brier, `correct` and skill are null, and its `interim-disposition` claim
+     is masked with the reason `dismissed-moot`. An outcome that records no
+     finer reading is unscored the same way, with the claim masked
+     `finer-reading-absent`. Neither mask is the vacuous one: both are
+     conditioned on the outcome. The three increment claims resolve on the
+     escalation signals, which the reading does not touch, so they score as
+     before.
+  4. *The probability target* is P(the requested relief is granted in whole
+     or in part | the application is not dismissed or denied as moot).
+  5. *`correct` follows the binary:* 1 iff the predicted disposition falls on
+     the same side of the granted line as `interim_granted`, so a predicted
+     `granted` against a `granted-in-part` reading is correct.
+  6. *The vocabulary:* no `Disposition` member is added. `dismissed-moot`
+     stays an `InterimReading` value and is no predictable label, because a
+     moot outcome is unscored. `granted-in-part`, already a `Disposition`
+     member on the granted side, becomes a label an interim prediction may
+     state.
+  7. *A withdrawn application, and one dismissed other than as moot, stay
+     ungranted*, as `docs/salience.md` registers them.
+  8. *The per-pool floor* stays 50 and applies to the finer denominator, moot
+     dismissals already out. The finer pool also refuses (no baseline) while
+     any pooled Term predates the finer counts or holds a resolved row with
+     no stored finer reading (`finer_unread`), so it waits for the
+     `application-reread` apply rather than pool a partial census.
+  9. *Skill across the label change:* a `proc-v17` interim cell's skill is
+     against the finer pool and an earlier cell's against the registered
+     one. They are different targets over different denominators. The
+     leaderboard's interim block pools a predictor's windows as every default
+     figure does (*The registered reading pools windows*, `metrics/README.md`),
+     so a pooled interim figure spanning the change pools the two readings;
+     its stated composition names each window by label, and the by-protocol
+     cut reads each reading alone. The leaderboard pairs each cell's skill
+     baseline with the binary its Brier was taken against
+     (`pipeline.evaluate.scored_granted`), so no cell is re-based across the
+     readings. No claim surface publishes an interim block yet, and the set
+     versions keep the two apart for the one that will: the interim moments
+     declare `interim-v3`, whose `interim-disposition` claim resolves on the
+     finer reading, and a cell stamped before this label is scored under
+     `interim-v2` (`pipeline.claims.declared_claim_set_for`). The dataset
+     export carries `scored_granted` beside `actual_granted`, so a
+     recomputation from the bundle uses the right target. The same pooled
+     figure spans two more changes at the OT2027 application Term: its
+     cells' population is selected on the widened ask, and their baseline is
+     the three-Term window. A pooled interim figure quoted across OT2026 and
+     OT2027 cells names both.
+
+  **The measurement**, read 2026-10-31 from a dev checkout of this change
+  over blob
+  `3ddb381fd12cd67f71ec68e98c9d82d876c1ac0bbdfc61ef8bce966f53c41a05`
+  (`freshness: latest pull 2026-10-31, latest snapshot 2026-07-13`, the
+  pointer matching `origin/main`'s), with the content store addressed.
+  - The `reread-applications` dry run read all 11,808 resolved application
+    rows: 0 unobservable and 0 with no finer reading. It would fill all
+    11,808. Beside the registered label: 2,085 `denied` stay `denied`, 9,641
+    `granted` stay `granted` and 31 `withdrawn` stay `withdrawn`. Where they
+    part: `denied` to `dismissed-moot` 16, `denied` to `granted-in-part` 9,
+    `denied` to `granted` 1, `dismissed` to `dismissed-moot` 5, `granted` to
+    `dismissed-moot` 14, and `granted` to `granted-in-part` 6.
+  - Over the substantive slice, after a local apply to a scratch copy of the
+    blob, the per-Term counts are as follows (registered granted over
+    resolved, then finer granted over resolved, then moot):
+
+    | Term | Registered | Finer | Moot |
+    | --- | --- | --- | --- |
+    | OT2016 | 9/107 | 9/107 | 0 |
+    | OT2017 | 12/124 | 13/124 | 0 |
+    | OT2018 | 12/113 | 14/113 | 0 |
+    | OT2019 | 12/119 | 13/119 | 0 |
+    | OT2020 | 25/133 | 27/133 | 0 |
+    | OT2021 | 30/120 | 17/107 | 13 |
+    | OT2022 | 9/103 | 9/103 | 0 |
+    | OT2023 | 18/127 | 17/124 | 3 |
+    | OT2024 | 16/194 | 18/189 | 5 |
+    | OT2025 | 17/226 | 19/218 | 8 |
+    | OT2026 | 10/99 | 10/97 | 2 |
+
+    OT2021's 13 are the OSHA applications dismissed in light of the relief
+    granted in the lead application, which the registered reading counts as
+    grants. Every Term's `finer_unread` is 0. The table's 31 moot rows are
+    the substantive slice's; the re-read's 35 include four rows outside it.
+    OT2026 is Term to date at the snapshot vintage, and outside the OT2026
+    pool in any case.
+  - The pool an OT2026 interim cell is scored against, at the registered
+    lookback of 10: **160/1366 = 11.71%** registered and **156/1337 =
+    11.67%** finer.
+  - The committed interim outcomes on rows the finer reading names
+    `dismissed-moot` are the six on `scotus/9526000139` and
+    `scotus/9526000477`. They keep `denied` and every prediction under them
+    predates this label, so none is scored on the finer reading.
+
+  **The interim window and the widened ask, from the OT2027 application
+  Term.** Decided by the maintainer on 2026-10-30, before any OT2027
+  application exists, and keyed on the application's own `YYAnnn` Term rather
+  than the label, because each changes which rows the pool counts and the
+  lookback rule forbids that part-way through a Term:
+  - *The widened ask vocabulary*
+    (`pipeline.interim_signals.application_kind_wide`): the registered
+    substantive pattern plus a stay asked without its article or with a
+    qualifier ("for stay", "for a partial stay", "for stays of execution",
+    "for stay of removal"), "to stay", "to recall and stay", "to recall the
+    mandate" or remittitur, "for a recall", an injunction asked as "for
+    injunction", "for writ of injunction" or bare "Injunction", "injunctive
+    relief", "for temporary restraining order", "for interim relief", "to
+    suspend the effect", and "vacate". Bail and release asks stay `unknown`,
+    as do a certificate of appealability, leave to file, page and word limit
+    motions and "to issue the judgment forthwith": none asks the Court to
+    suspend or undo a lower court's order. The extension check still runs
+    first, so the widened reading is a superset that moves only `unknown`
+    asks. It is stored in `application_kind_wide` beside `application_kind`
+    (filled for history by the same `application-reread` pass), and for an
+    application numbered in OT2027 or later
+    (`interim_signals.WIDE_APPLICATION_KIND_FROM_TERM = 2027`)
+    `application_kind` itself stores it, so the reserve's scope, the party
+    rates and every other reader of the kind follow it from that Term.
+  - *The interim window* (`pipeline.base_rates.INTERIM_LOOKBACK_TERMS = 3`,
+    `INTERIM_WINDOW_FROM_TERM = 2027`): an interim cell on an OT2027 or later
+    application is scored against the three application Terms strictly before
+    its own, whatever `salience.base_rate_lookback_terms` says, over the
+    statpack's widened counts (`wide_granted` / `wide_resolved`, or
+    `wide_finer_granted` / `wide_finer_resolved` on the finer reading). It
+    keeps the floor of 50 and refuses while any pooled Term predates the
+    widened counts or holds a resolved row with no stored widened ask
+    (`wide_unread`) or, on the finer reading, no stored finer reading
+    (`wide_finer_unread`).
+  - *Why three Terms.* The ten-Term pool for an OT2027 cell reaches back to
+    OT2016 and carries the OT2020 and OT2021 grant spike (18.8% and 25.0% on
+    the registered counts) into a docket that has since moved; the three Terms
+    before OT2027 resolve several times the floor. A break-point rule was
+    considered and not taken, because its date would be chosen against the
+    per-Term rates. The width of three was itself chosen with those rates in
+    view, on the OT2024 to OT2026 counts the 2026-10-30 decision read; that
+    is disclosed here rather than avoided, and the alternatives are stated
+    below so the window's effect can be read apart from the vocabulary's.
+  - *Not changed.* An OT2026 cell keeps the ten-Term pool over the registered
+    slice, and an OT2026 application keeps the registered kind however late it
+    is polled.
+
+  Measured over the same blob as above, after a local apply of the widened
+  ask to the scratch copy: the re-read reads 180 resolved `unknown` asks as
+  `substantive` and leaves 350 `unknown`, with no `extension` or
+  `substantive` row moving. 178 of the 180 are in OT2016 to OT2026 and
+  machine-readable, so they enter the per-Term counts below; the other two
+  do not. Per Term, the widened slice's registered granted
+  over resolved (then finer) is OT2016 9/120 (9/120), OT2017 12/132 (13/132),
+  OT2018 13/123 (15/123), OT2019 13/132 (14/132), OT2020 26/141 (28/141),
+  OT2021 31/130 (18/117), OT2022 10/127 (10/127), OT2023 18/145 (17/142),
+  OT2024 22/226 (24/221), OT2025 17/253 (19/245) and OT2026 10/114 (10/112),
+  with `wide_unread` and `wide_finer_unread` 0 in every Term. At this vintage
+  an OT2027 cell's pool reads **49/593 = 8.26%** registered and **53/578 =
+  9.17%** finer. Against it: three Terms of the registered slice read 43/519
+  and 47/504; ten Terms of the widened slice read 172/1523 = 11.29% and
+  168/1492 = 11.26%; ten of the registered slice read 161/1358 and 157/1327.
+  So the window, not the vocabulary, moves the rate. OT2026 is Term to date
+  at the 2026-07-13 snapshot, so its row and the OT2027 pool grow before the
+  first OT2027 cell is graded, and the rate it is scored against is the one
+  the statpack carries then. The OT2026 pools above do not move.
+
+  **Order of operations.**
+  - The change merges to `staging` only after the `proc-v16` promotion
+    branch is cut, and registers this label pending.
+  - The `application-reread` apply runs from `main` after the carrying
+    promotion, and before the first `proc-v17` interim cell is graded. Until
+    it does, the finer pool refuses and such a cell is stamped with no
+    baseline. The pass is re-runnable: a row a writer resolves later without
+    the column (any channel but the live application branch) counts
+    `finer_unread` and holds the finer pool off its Term until the next
+    apply fills it, so the steady state is a pass after each such write.
+  - An outcome is written once, so a `proc-v17` cell whose outcome was
+    recorded from a row with no finer reading is masked
+    `finer-reading-absent` for good. The live application branch writes the
+    column in the same ingest that resolves the row, so a forward cell is not
+    expected to reach that mask; any that does names it in its stamped claim
+    block's `mask_reason`, so it can be counted.
+
+  **Evidence for the change other than a score.** The 2026-10-16 census and
+  the replication record on the executive-action emergency docket, which
+  found the OSHA cluster. No interim cell has a resolved `proc-v16` or later
+  forecast that motivates it.
+
+  The runnable effect check once it is live:
+  - `uv run python -c "from fedcourtsai.process_version import
+    CURRENT_PROCESS_LABEL as L, FINER_INTERIM_READING_FROM as F; print(L,
+    F)"` prints `proc-v17 proc-v17`;
+  - `gh workflow run run-repair.yml --ref main -f repair=application-reread
+    -f repair_mode=dry-run` reports 0 unobservable and about 11,800 fills of
+    each column, so about 23,600 `total_changes`. After the apply, the same
+    dry run reports `total_changes = 0`;
+  - after the next `metrics-refresh`, `jq '[.interim.terms[] | {term,
+    finer_granted, finer_resolved, finer_moot, finer_unread, wide_resolved,
+    wide_unread, wide_finer_unread}]' metrics/statpack.json` shows
+    `finer_unread`, `wide_unread` and `wide_finer_unread` 0 in every Term,
+    `wide_resolved` at or above `substantive_resolved` in each, and OT2021's
+    `finer_moot` at 13 or more;
+  - `uv run python -c "from fedcourtsai.pipeline.base_rates import
+    INTERIM_LOOKBACK_TERMS as N, INTERIM_WINDOW_FROM_TERM as T; print(T, N)"`
+    prints `2027 3`, and on the first poll of a `27Annn` application its
+    corpus row's `application_kind` equals its `application_kind_wide`;
+  - on the first interim evaluate collect PR after a `proc-v17` interim cell
+    resolves, its `outcome.json` carries `interim_reading` and the stamped
+    `segment_base_rate` equals the finer pool.
+
+  **The registration** (`uv run fedcourts register-process --label proc-v17`,
+  run 2026-11-02 over `staging` with `proc-v16` stamped). All six digests move:
+  the predict prompt changes for the finer interim target, the OT2027 window
+  and the cell self-check, and the evaluate prompt for the finer interim
+  reading and the stamped terminal-fallback anchor.
+
+  | Actor | Before (`proc-v16`) | `proc-v17` |
+  | --- | --- | --- |
+  | `claude-baseline` | `sha256:6a7047b68d17cc856aeabec7b557db010e775081f4efa58af5e9bf7d53417b94` | `sha256:33a3f9f8f53a2f6cb53967a60d836c3ba29f0078c12306fb8696e15d7c674978` (new) |
+  | `codex-baseline` | `sha256:bf956e358b5e31f3d72302c1b660d638ce16e4c4a0fa542887dd0c591c275e04` | `sha256:5b6efbbb2270718377da537c3ea04c727a2a855ffdae684da2a313c003699593` (new) |
+  | `gemini-baseline` | `sha256:758b95e861e1913da28900f558837a2fdbc0c1f4a4341ae130be83cd7e752164` | `sha256:1389c40a89d22cb951b25dad96d18d307cef26db4f6b66cdd425ea8fcf0f49b6` (new) |
+  | `claude-judge` | `sha256:2c24c01085a75e5634388510595476ca4887c51bb5c4ca0d0bb348bd5c572f5c` | `sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf` (new) |
+  | `codex-judge` | `sha256:4956b4db47514393d6455c004579fb5aec3f5ab4f37ab4765fb2ad38ef080316` | `sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a` (new) |
+  | `gemini-judge` | `sha256:829805f636d9b0baefd2fb39970ce83a430f3225384b724101975a06750c1a6c` | `sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9` (new) |
+
+  **What was made under the retiring digests.** At `origin/main` `33509ad60`
+  (`2026-11-02T13:03:41Z`), **0** committed predictions and **0** committed
+  evaluations name any of the six `proc-v16` digests: no predict or evaluate
+  round has collected since `proc-v16` went live.
+
+  **Step 0.** At the same commit, the count of committed files under
+  `data/cases` naming `sha256:<digest>` is **0** for each of the six newly
+  blessed digests, and **3344** files there carry a `process_version` stamp.
+
+  **Windows** (`COUNTING_WINDOWS`, once the carrying merge stamps them):
+
+  | Predictor | Label | Opens | Closes |
+  | --- | --- | --- | --- |
+  | `claude-baseline` (`6a7047b6…`) | `proc-v16` | `2026-11-01T17:45:59Z` | this label's instant (was open) |
+  | `codex-baseline` (`bf956e35…`) | `proc-v16` | `2026-11-01T17:45:59Z` | this label's instant (was open) |
+  | `gemini-baseline` (`758b95e8…`) | `proc-v16` | `2026-11-01T17:45:59Z` | this label's instant (was open) |
+  | `claude-baseline` (`33a3f9f8…`) | `proc-v17` | this label's instant | open (new) |
+  | `codex-baseline` (`5b6efbbb…`) | `proc-v17` | this label's instant | open (new) |
+  | `gemini-baseline` (`1389c40a…`) | `proc-v17` | this label's instant | open (new) |
+
+  Earlier windows keep the closes earlier labels gave them.
+
+- **The terminal-fallback cert anchor is harness-stamped from `proc-v17`;
+  recorded 2026-10-31.** A scoring-baseline change keyed on a label, the shape
+  `HARNESS_CERT_ANCHOR_FROM` took at `proc-v9`: no harness boundary is
+  registered, and the edge is the `proc-v17` window's own, at the carrying
+  merge's instant. Carried to `main` by the promotion tagged `<FILL: promotion
+  tag>` (merge commit `<FILL: merge hash>`, merged `<FILL: merged-at>`), with
+  the rest of `proc-v17`.
+
+  **What changes.** `HARNESS_TERMINAL_ANCHOR_FROM` in `process_version.py`
+  names `proc-v17`. A cert grading stamped under that label or later whose
+  scored prediction froze no band (an older cell, or one whose snapshot
+  disclosed no proceedings) takes its whole skill record from `stamp-cell
+  --role evaluator`, as a frozen-band grading has since `proc-v9`. The rate is
+  `pipeline.base_rates.terminal_base_rate`: the scorer's own pooler,
+  `_pooled_band_rate`, over the band, salience version and docket-number Term
+  in the evaluate cell's own provisioned `record/context.json`, which
+  `provision-snapshot` builds from the decided docket, so its band is the
+  terminal one. It pools the **terminal** rate (`est_grant_rate`, over
+  petitions that ended in the band), over Terms strictly before the case's,
+  inside `salience.base_rate_lookback_terms`. That is the `terminal` figure
+  `fedcourts segment-anchors` prints. Beside it the stamp writes the Brier,
+  the skill, `base_rate_basis: terminal`, the band's salience version, the
+  statpack build (`base_rate_statpack_digest`) and the window
+  (`base_rate_lookback_terms`). Where no rate pools, all of them are null
+  together and the Brier still stamps. That covers no scored prediction, no
+  readable provisioned context, a context with no band or no Term, no
+  readable statpack, and no prior Term carrying the band under its version:
+  the omission the frozen-band path takes for the same cases. A re-grade
+  keeps the anchor as first stamped. The evaluate prompt no longer has the
+  judge pool the rendered `metrics/statpack.md` table, record `terminal`, or
+  note the fallback. It writes none of the three fields on any stage.
+
+  **Why.** The judges transcribed this anchor inconsistently. On the one
+  ranked cert event, scotus/73281619, the three gradings recorded 0.172242
+  (the exact pool), 0.172379 (the rendered percentages times `n`) and 0.1722.
+  On evaluate run `20261007T185906Z` all three judges left the rate, skill
+  and basis null on seven arrival cells whose band was read under `sal-v3`,
+  because the rendered table shows only the active version. The pooler reads
+  a Term's `alt_segments`, so it pools those bands.
+
+  **The trust boundary.** The evaluate cell's `record/context.json` is
+  reachable from the judge's workspace, as the predict cell's is from the
+  predictor's, and the stamp reads its band the way it reads a predict cell's
+  provisioned `band`: as provisioned, not verified. Under the registered
+  reading the judge wrote the rate directly, so this narrows what the judge
+  controls to the file the rate is pooled from.
+
+  **What scored figures move.** None at once: no committed grading is
+  re-scored. At `origin/main` `34aa5ef8b`, 24 committed evaluations on 3
+  cases record `base_rate_basis: terminal`, and each keeps the record its
+  own label registered through any re-grade. From `proc-v17` gradings on, a
+  terminal-fallback cert cell carries the exact pool under the configured
+  window. The rendered table's window was the judge's, and today the two
+  agree, since the table renders 10 of 10 Terms and the configured window is
+  10. A cert skill figure that spans the label pools two authors of the
+  terminal anchor, which differ by the transcription spread alone, and reads
+  per label where that spread matters.
+
+  **Digests.** The evaluate prompt changes, so the three evaluator digests
+  move with `proc-v17`. The predictor digests do not move for this change.
+  The `proc-v17` registration records the digests once every `proc-v17`
+  change has landed.
+
+  The runnable effect check once it is live:
+  - `uv run python -c "from fedcourtsai.process_version import
+    CURRENT_PROCESS_LABEL as L, HARNESS_TERMINAL_ANCHOR_FROM as T; print(L,
+    T)"` prints `proc-v17 proc-v17`;
+  - on the first evaluate run's collect PR after the carrying merge, every
+    cert `evaluation.json` stamped `proc-v17` whose scored prediction froze
+    no band carries `base_rate_basis` `terminal` beside a non-null
+    `base_rate_statpack_digest` and `base_rate_lookback_terms`, or all of
+    `segment_base_rate`, `base_rate_basis` and `brier_skill_score` null, and
+    its `segment_base_rate` equals the `terminal` rate `uv run fedcourts
+    segment-anchors --term <docket Term>` prints for that band to six decimals.
+
+- **A predict cell validates itself against the live contract before it
+  finishes, from `proc-v17`; recorded 2026-11-01.** A prompt change that
+  moves the predict digest of all three predictors. It changes no scoring
+  rule, no harness boundary and no committed record. Carried to `main` by the
+  promotion tagged `<FILL: promotion tag>` (merge commit `<FILL: merge hash>`,
+  merged `<FILL: merged-at>`), with the rest of `proc-v17`.
+
+  **What changes.** `fedcourts validate data --cell <dir>`
+  (`validate.live_cell_problems`) holds the named predict cell to what no
+  ledger-wide check can ask of an unstamped record: a `prediction.json` that
+  names its forecast document, carries every claim block its event declares
+  (`claims`, `claim_distributions`, `semantic_claims`) and writes
+  `big_case_score`, beside a non-empty `prediction_summary.md`. Its findings
+  print as `INCOMPLETE` lines. Plain `validate` is unchanged. The predict prompt
+  names that command near its top, inside the part of the prompt a
+  context-truncating engine keeps, says to repeat it until it prints `OK`, and
+  shows the `prediction.json` shape of a cert or interim cell under
+  *Outputs*.
+
+  **Why.** Gemini predict cells finished on a passing ledger-wide `validate`
+  and then failed after the stamp, so their partial PRs were closed and the
+  cells predicted again. The ledger holds unstamped records with a null
+  forecast pointer and no claims block, so the cell's own ledger-wide run
+  could not see either miss.
+
+  **What scored figures move.** None. The change adds a pre-finish check and
+  touches no scoring path. Over every `proc-v14`, `proc-v15` and `proc-v16`
+  stamped predict cell on the authoring checkout (claude 69, codex 69, gemini
+  67), the new check found nothing beyond 2 gemini cells with no
+  `prediction_summary.md`.
+
+  **Digests.** The predict prompt changes, so the three predictor digests move
+  with `proc-v17`. The evaluator digests do not move for this change.
+
+  The runnable effect check once it is live:
+  - `uv run fedcourts validate data --help` lists `--cell`;
+  - on the first predict run after the carrying merge, the gemini-baseline
+    cells' `retrieval_log.json` records a `validate data --cell` call, and the
+    run opens fewer `-partial` PRs than the proc-v16 runs did.
+
+- **Every scored figure reads the SCOTUS population, and a prediction slice is
+  a population of its own; recorded 2026-10-31.** No freeze commit belongs to
+  this entry: no prompt text or other digest input changes, and `uv run
+  fedcourts process-digest --all` prints the same six `proc-v16` digests
+  before and after this change.
+
+  **What changes.** A membership rule. The ledger readers every scored and
+  published figure is built on (`store.stratify`, `store.iter_predictions`,
+  `store.iter_evaluations`, `store.iter_predicted_events`, and the
+  leaderboard's and window records' own ledger walks) read one population
+  (`store.in_population`): the SCOTUS docket, unless a caller names a
+  prediction slice (`fedcourtsai.prediction_slices`). A slice is a committed
+  list of lower-court dockets the predict scope admits by name when
+  `predict.slices` switches it on; one is registered, `ai-watchlist`, and none
+  is switched on. The ops report's ledger census reads the SCOTUS population,
+  like the stratified cells beside it; its leakage digest reads every
+  population. `fedcourts validate` warns, without failing, on a committed cell
+  whose case no population admits.
+
+  **What it moves.** Nothing. Every committed cell sits under
+  `data/cases/scotus/`. Over the ledger at `staging` `4443b9227`, `fedcourts
+  leaderboard`, `fedcourts claim-scores` and `fedcourts big-cases` write
+  byte-identical files under the code before and after this change.
+
+  **What a slice owes before it counts.** Its own process version, with its
+  own counting windows, registered on its own dated entry in the change that
+  switches it on, so no SCOTUS window ever holds a slice cell and two slices
+  never pool.
+
+- **`caption-v4` and `sal-v7` registered, inactive; recorded 2026-11-01.** No
+  freeze commit belongs to this entry, on the `sal-v6` registration's pattern:
+  the salience version sits outside the process digest (`pipeline_sha` is not
+  an input), carries its own data-visible boundary
+  (`context.salience_version`), and a registration re-blesses nothing.
+  `SALIENCE_VERSION` stays `sal-v6`, so nothing the live pass selects, latches
+  or stamps moves; `statpack.json` and `salience-replay.json` carry a seventh
+  version's bands from their next render. No prompt text or other digest input
+  changes.
+
+  **What `caption-v4` is.** `caption-v2` with one check run ahead of every
+  caption pattern: a petition whose captioned petitioner has the Solicitor
+  General's office as counsel of record reads `federal`. The entry must be on
+  the petitioner side, marked counsel of record, name an attorney
+  `sg-office-v1`'s roster places in the office on the docket's filing date
+  (`counsel.office_entries_at_filing`), and carry a party whose lead (the name
+  up to its first comma, folded) is the caption's lead or its trailing words.
+  `caption-v1` to `caption-v3` are unchanged.
+
+  **What `sal-v7` is.** `sal-v6`'s score, writ scope, `dist-v2` pin,
+  cutpoints, band vocabulary and arrival draw, as the same callables, with
+  the band, the carve-in and the reachable ladder read through `caption-v4`.
+
+  **Why the party match answers `sal-v5`'s exclusion.** The two post-outcome
+  shapes the 2026-10-30 entry names, a supporting United States amicus and a
+  government petition consolidated at the grant, are listed under a party
+  other than the captioned petitioner. On the census frame (live-slice, paid,
+  modern-cert scored segment) `caption-v3` moves 21 rows off their `caption-v2`
+  class and `caption-v4` moves 15, every one of them among `caption-v3`'s 21.
+  Of the 6 it does not move, 5 are the 5 that entry names: 19-1257, 25-840,
+  18-1587, 24-20 and 24-422. The sixth, 19-546, lists the office for its
+  captioned petitioner only under an acting Solicitor General who took office
+  after the docket was filed, which the filing-date roster test leaves out.
+
+  **When the entry exists.** The office's entry for the captioned petitioner
+  is on the earliest stored snapshot of each of the 5 pending moved rows
+  (25-952, 26-111, 26-145, 26-146, 26-379), and on a snapshot from before the
+  outcome of the 2 resolved moved rows that have one (25-1103, on 2026-07-16
+  against its 2026-10-13 grant; 26-48, on 2026-08-13 against its 2026-10-05
+  GVR). The other 8 resolved moved rows (19-71, 20-1044, 20-1478,
+  23-411, 24-1246, 25-1083, 25-701, 25-886) have no stored snapshot from
+  before their outcome, so their entry cannot be dated. The declared residual
+  is the office substituting for a captioned petitioner after the grant, by an
+  attorney already in the office at the filing.
+
+  **The census.** `uv run fedcourts caption-census --rule-version <v>`,
+  pooled over the complete Terms OT2018–OT2024:
+
+  | class | `caption-v2` | `caption-v4` |
+  | --- | --: | --: |
+  | federal | 125/165 | 128/170 |
+  | state | 79/340 | 79/340 |
+  | private | 524/9,947 | 521/9,942 |
+
+  Per Term the moves are OT2019 +1 `federal` (1 grant-family), OT2020 +2
+  (0), OT2023 +1 (1) and OT2024 +1 (1), each from `private`. The incomplete
+  Terms move OT2025 +4 (3 grant-family; one of the four from `state`) and OT2026 +1
+  (1). Of the 15 moved rows' captions, 12 name a federal agency or an
+  officer's title; 19-71, 25-952 and 26-111 carry a personal name only. The shapes were surfaced by forecasts flagged on petitions later
+  granted, so the migrated rows' grant record is partly outcome-selected and
+  no recall gain may be quoted from the `federal` cell's rate.
+
+  **The band moves.** `uv run python scripts/checks/caption_v4_band_census.py`,
+  `sal-v6` against `sal-v7` over the same frame inside `sal-v6`'s segment:
+
+  | status | `sal-v6` band | `sal-v7` band | rows |
+  | --- | --- | --- | --: |
+  | pending | baseline | federal | 2 |
+  | pending | elevated | federal | 1 |
+  | pending | state | federal | 2 |
+  | resolved | baseline | federal | 6 |
+  | resolved | elevated | federal | 2 |
+  | resolved | high | federal | 2 |
+
+  Of the 5 pending rows, 25-952, 26-145 and 26-146 are already selected under
+  `sal-v6`; 26-111 and 26-379 are not.
+
+  The census and band figures are on production index blob `f6beb2e3…4d502`
+  (newest pull 2026-11-01, newest stored snapshot row 2026-07-13). The
+  snapshot dating above was read on blob `3ddb381f…c41a05` (newest pull
+  2026-10-31) with the per-case content store read the same day.
+
+  **The cell band and the replay projection, as decided.** The maintainer
+  decided on 2026-11-01 how a projected row reads `caption-v4`: through one
+  fact only, whether the captioned petitioner's counsel of record is the
+  Solicitor General's office, read off the payload as served and before any
+  redaction, for forward and replay cells alike, and carried the same way by
+  the gate replay's projection. The base row of the frozen cell band
+  (`cell_context.build`) and the replay's projected row (`asof.project_row`)
+  are a `caption.CutRow`, which carries that boolean and refuses any counsel
+  entry, party or attorney list; the cell's `context.json` gains no field.
+  The replay and back-test provisioners (`cert_backtest`, `merits_backtest`,
+  `salience_replay`) read the fact off the snapshot before redacting it, and
+  the redaction is unchanged. The fact is knowable at the cut because it is
+  read only off a payload the docket served by the cut (`as-stored` or
+  `dated`; a `truncated` or `blind` payload is a later pull, so the fact is
+  false there) and the roster test admits only an attorney in the office on
+  the payload's `DocketedDate` (`counsel.office_entries_at_filing`, without
+  `sg-office-v1`'s late-write reading). So a `sal-v7` replay cell measures
+  `caption-v4` on its `dated` rows only. The census, the band census and the
+  statpack's `sal-v7` block read the same rule over a stored row's whole
+  counsel list as of its last write, where a cell reads the list served by
+  the cut, so a stored-row figure can read `federal` a row a cell cut on the
+  same docket would not (`docs/salience.md`, *Two readings of one rule*). Under the active `sal-v6` nothing reads the fact: on a grid of
+  forward and replay payloads (an office-represented Warden, the same
+  without the office, a Rule 20 writ, a personal-name petitioner, a
+  supporting United States amicus; forward `as-stored` and `dated`, replay
+  `dated` and `truncated`, each served and redacted)
+  and the gate replay's test corpus, every frozen context and every `sal-v6`
+  replay cell is byte-identical before and after the change.
+
+  **Not owed by this registration, owed by an activation.** A reviewed
+  census, the statistical bar `sal-v3`'s activation cleared on a statpack
+  carrying a `sal-v7` block, and a replay comparison at matched recall over
+  the `dated` cells are the flip's prerequisites (`docs/salience.md`, the
+  `sal-v7` section).
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - on `main`, `uv run python -c "from fedcourtsai.pipeline.salience import
+    SALIENCE_VERSION, SCORERS; from fedcourtsai.pipeline.caption import
+    CAPTION_RULES; print(SALIENCE_VERSION, 'sal-v7' in SCORERS, 'caption-v4'
+    in CAPTION_RULES)"` prints `sal-v6 True True`;
+  - after the first post-promotion metrics refresh, `jq -r
+    '[.terms[].alt_segments[].salience_version] | unique | join(" ")'
+    metrics/statpack.json` includes `sal-v7`, and `.terms[].salience_version`
+    stays `sal-v6`;
+  - where the corpus is pulled, `CHECK_SUMMARY=<file> uv run python
+    scripts/checks/caption_v4_band_census.py` lists the moves above, with any
+    petition docketed since added to the pending rows.
+
+- **A file tool's retrieval-log row leads with its target, and a predict
+  cell's writes are held to its run directory by the tree; recorded
+  2026-10-31.** No freeze commit belongs to this entry: no prompt text or
+  other digest input changes, and `uv run fedcourts process-digest --all`
+  prints the same six `proc-v16` digests before and after this change.
+
+  **Capture.** A **capture** change of the masking-surface class. A call whose
+  params carry none of capture's query keys (`q`, `query`, `search`,
+  `citation`, `prompt`, `command`, `url`, `endpoint`) is kept as its whole
+  params object, and that object was serialized in sorted key order. It is
+  now serialized with its path key first, in the order `file_path`, `path`,
+  `absolute_path`, `notebook_path`, `dir_path`, and every other key after it
+  in sorted order; a call carrying no path key reads byte for byte as before.
+  The 500-character cut is unchanged. In sorted order a write's `content`
+  sorts ahead of `file_path`, so a long write lost its target. On `staging`
+  at `4443b9227` the 1,917 committed predict logs hold 1,083 claude `Write`
+  rows and 2,517 gemini `write_file` rows cut with no path key left in the
+  slice, and 710 more gemini `write_file` rows that keep the path after the
+  content. Gemini's 1,798 `read_file` rows that open with `end_line`, its
+  `replace` rows that open with another key, and any file search that opens
+  with its pattern keep the same keys in a new order.
+  - **What it reaches.** The slice passes `mask_retrieval_log` unrespelled,
+    so every evaluator reading a claude or gemini candidate's staged log on
+    the leakage grading's reading path now sees the target of each long
+    write, under unchanged evaluator digests. The predict lane audit
+    (`fedcourtsai.cell_access`) reads the same slice, so its `write` hits,
+    and the harness notes they raise, rise for claude and gemini logs
+    captured after the carrying merge: a count of those notes across the
+    merge compares two capture regimes. No scored figure reads a file tool's
+    slice; the self-provisioning count excludes file tools.
+  - **Why no label bump and no harness-boundary row.** No predict cell reads
+    anything different. Capture runs after the engine, on its own log, so it
+    is not a `process_version.HARNESS_BOUNDARIES` change, which registers
+    changes to what a predict cell reads. The exact side of a row is
+    `pipeline_sha` ancestry against the carrying merge; a row opening with a
+    path key is a strong hint only, since many read rows already did.
+  - **What stays blind.** Rows captured before the carrying merge keep their
+    cut: the transcripts are gone, so no re-capture can recover a target.
+
+  **Write confinement.** Before the agent starts, `run-predict` records every
+  entry under `data/` (after the hidden trees are out) and copies its files to
+  the runner temp directory (`fedcourts record-write-baseline`). The moment
+  the agent stops, ahead of the restore of the hidden trees, `fedcourts
+  confine-cell-writes` removes what the agent added and restores what it
+  changed or deleted anywhere under `data/` outside the cell's own
+  `predictions/<predictor_id>/<run_id>/`, and adds one harness note to the
+  cell's `flags.json` (`fedcourtsai.write_confinement`): a `warning` listing
+  what it put back, or a `blocker`, with the step failed, naming what it could
+  not. The cell artifact uploads its whole event directory and the collect
+  union adds any file `main` lacks, so a stray write beside the run
+  directory — gemini-baseline's `predictions/gemini-baseline/flags.json` on
+  scotus/9526000560, run `20261029T212853Z`, one level above its run
+  directory, is the observed case — could otherwise reach the ledger, and an
+  edit to the case `record/` would change what the stamp reads. The lane
+  audit finds 9 write hits on committed gemini logs at `4443b9227` and none
+  on claude or codex logs. No cell reads anything different, and a cell that
+  writes only its own run directory lands exactly as before, so this is not
+  a harness boundary either. What it contains is a careless write: a claude
+  or gemini agent runs as the runner's own user and can reach the baseline,
+  as `SECURITY.md` records for every runner-local signal.
+
+  **Audit.** The lane audit no longer reads codex's `spawn_agent`,
+  `send_input` and `send_message` calls, as it already did not read claude's
+  `Agent` and `Task`: their text is a subagent's instructions, which named the
+  hidden paths to forbid them in 30 of the audit's 63 hits on committed codex
+  logs at `4443b9227`. The subagent's own calls are audited as calls.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live, on the first predict round after
+  the carrying merge:
+  - every cell's job log shows the "Confine the cell's writes to its
+    run directory" step printing `data tree unchanged outside the run` or a
+    `::warning::write confinement:` line per path it put back, and no cell's
+    event directory in the run PR holds a file under `predictions/<id>/`
+    outside a run directory;
+  - across that round's claude and gemini `retrieval_log.json` files, `jq -r
+    '.calls[] | select(.tool=="Write" or .tool=="write_file") | .query |
+    select(. != null) | .[0:13]'` prints `{"file_path":` on every row.

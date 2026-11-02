@@ -1866,6 +1866,16 @@ class InterimResolutionSignals(_Strict):
     )
 
 
+#: The finer interim reading's vocabulary, spelled as
+#: :class:`fedcourtsai.pipeline.interim_signals.InterimReading` spells it (a test
+#: pins the two equal). Five values share a spelling with a :class:`Disposition`
+#: member; ``dismissed-moot`` is the one that does not, and it is no predictable
+#: label.
+InterimReadingLabel = Literal[
+    "granted", "granted-in-part", "denied", "dismissed-moot", "withdrawn", "dismissed"
+]
+
+
 class Outcome(_Strict):
     """``outcome.json`` — realized ground truth, written once an event resolves."""
 
@@ -1987,6 +1997,29 @@ class Outcome(_Strict):
         "which is what keeps the merits population and every disposition figure "
         "fixed across the field's introduction",
     )
+    interim_reading: InterimReadingLabel | None = Field(
+        default=None,
+        description="The finer interim reading of the application's disposing "
+        "entry, recorded beside `actual_disposition` and never in its place "
+        "(`pipeline.interim_signals.read_interim_disposition`): a partial grant "
+        "is `granted-in-part` and a dismissal or denial as moot is "
+        "`dismissed-moot`. Interim outcomes only, copied from the corpus "
+        "`interim_reading` column at resolution. A prediction stamped under "
+        "`process_version.FINER_INTERIM_READING_FROM` or later is scored on "
+        "`interim_granted`; an earlier one keeps `actual_granted`. Null where no "
+        "finer reading was taken; omitted from the file while null",
+    )
+    interim_granted: int | None = Field(
+        default=None,
+        ge=0,
+        le=1,
+        description="The binary the finer interim reading scores: 1 for "
+        "`granted` or `granted-in-part` (relief in whole or in part), 0 for "
+        "`denied`, `withdrawn` or `dismissed`, null for `dismissed-moot` — a "
+        "moot application decided nothing about its ask and leaves the scored "
+        "set — and wherever `interim_reading` is null. Omitted from the file "
+        "while null",
+    )
     noted_dissent_from_denial: bool | None = Field(
         default=None,
         description="Whether the denied petition's order text records any noted "
@@ -1996,6 +2029,21 @@ class Outcome(_Strict):
         "ledger carries no payload, and reading absence as 'nobody dissented' "
         "would invent an observation, exactly as an absent `signals` block does",
     )
+
+    @model_validator(mode="after")
+    def _interim_granted_follows_reading(self) -> Outcome:
+        """`interim_granted` is the finer reading's binary, so the two never disagree."""
+        expected = (
+            None
+            if self.interim_reading in (None, "dismissed-moot")
+            else int(self.interim_reading in ("granted", "granted-in-part"))
+        )
+        if self.interim_granted != expected:
+            raise ValueError(
+                f"`interim_granted` is {self.interim_granted!r} but `interim_reading` "
+                f"{self.interim_reading!r} scores as {expected!r}"
+            )
+        return self
 
     @model_validator(mode="after")
     def _decision_method_is_merits_only(self) -> Outcome:
@@ -2066,9 +2114,13 @@ class Outcome(_Strict):
 
     @model_serializer(mode="wrap")
     def _omit_unclassified_method(self, handler: SerializerFunctionWrapHandler) -> Any:
-        """Drop the decision fields while null, so an older outcome reads as before."""
+        """Drop the decision and finer-reading fields while null; older outcomes read as before."""
         payload = handler(self)
         if isinstance(payload, dict):
+            if self.interim_reading is None:
+                payload.pop("interim_reading", None)
+            if self.interim_granted is None:
+                payload.pop("interim_granted", None)
             if self.merits_decision_method is None:
                 payload.pop("merits_decision_method", None)
             if self.merits_author is None:
@@ -2186,17 +2238,25 @@ class ClaimScore(_Strict):
         "relist-increment claim is vacuous. Also None, with `mask_reason` saying so, "
         "where the run-timing mask applies",
     )
-    mask_reason: Literal["signal-before-run"] | None = Field(
-        default=None,
-        description="Set where the claim is masked for a reason the frozen record alone "
-        "does not carry, which every other mask does. `signal-before-run`: an increment "
-        "claim (`response-requested-increment`, `referral-increment`, `cvsg-increment`) "
-        "on a forward cell whose signal was already on the docket before the cell ran — "
-        "the cell's pre-mint poll read it present, or, with no usable poll (or one that "
-        "recorded no reading of that signal), its docket date is strictly before the "
-        "cell's run day in Court time (`set_aside.increment_timing`). Conditioned on when "
-        "the cell ran rather than on what it was provisioned, so it is not the vacuous "
-        "mask. Omitted otherwise",
+    mask_reason: Literal["signal-before-run", "dismissed-moot", "finer-reading-absent"] | None = (
+        Field(
+            default=None,
+            description="Set where the claim is masked for a reason the frozen record alone "
+            "does not carry, which every other mask does. `dismissed-moot` and "
+            "`finer-reading-absent` mask the `interim-disposition` claim of a cell whose "
+            "scored prediction takes the finer interim reading "
+            "(`process_version.FINER_INTERIM_READING_FROM`), and are conditioned on the "
+            "outcome: the application was dismissed or denied as moot, which decided nothing "
+            "about its ask, or the outcome records no finer reading to resolve it against. "
+            "`signal-before-run`: an increment "
+            "claim (`response-requested-increment`, `referral-increment`, `cvsg-increment`) "
+            "on a forward cell whose signal was already on the docket before the cell ran — "
+            "the cell's pre-mint poll read it present, or, with no usable poll (or one that "
+            "recorded no reading of that signal), its docket date is strictly before the "
+            "cell's run day in Court time (`set_aside.increment_timing`). Conditioned on when "
+            "the cell ran rather than on what it was provisioned, so it is not the vacuous "
+            "mask. Omitted otherwise",
+        )
     )
     score: float | None = Field(
         default=None,
@@ -2521,8 +2581,14 @@ class Evaluation(_Strict):
         "to null where either committed artifact is missing — no prediction "
         "from this predictor, or no outcome — so a hand-written bit never "
         "survives that refusal; an unstamped or pre-existing record keeps "
-        "whatever it was written with. The leaderboard's accuracy column is its "
-        "mean over the cells where it is non-null.",
+        "whatever it was written with. On an interim cell whose scored "
+        "prediction takes the finer interim reading (`proc-v17` on) it follows "
+        "the binary instead, through `pipeline.evaluate.stage_correct`: 1 iff "
+        "the predicted label falls on the same side of the granted line as "
+        "`Outcome.interim_granted`, and null where that is null (a moot "
+        "dismissal, or an outcome recorded with no finer reading). The "
+        "leaderboard's accuracy column is its mean over the cells where it is "
+        "non-null.",
     )
     brier_score: float | None = Field(
         default=None,
@@ -2535,13 +2601,17 @@ class Evaluation(_Strict):
         "`event.yaml` names that stage it is harness-stamped **at stamp time** by "
         "`stamp-cell --role evaluator` from the scored prediction's committed "
         "`probability` and the outcome's `actual_granted`, never the evaluator's "
-        "word, and cleared where either artifact is missing — so the "
+        "word — against `Outcome.interim_granted` instead on an interim cell "
+        "whose scored prediction takes the finer interim reading "
+        "(`pipeline.evaluate.stage_brier_score`; null where that is null) — and "
+        "cleared where either artifact is missing — so the "
         "`segment_base_rate` and `brier_skill_score` stamped beside it share "
         "one source and the skill ratio is verifiable rather than merely "
         "self-consistent. An unstamped cell keeps whatever it was written with. "
         "On a **cert** grading stamped under proc-v9 or later whose scored prediction "
         "froze a band it is harness-stamped the same way, beside the stamped cert "
-        "anchor; on any other cert cell it is the evaluator's, and the "
+        "anchor, and under proc-v17 or later beside the stamped terminal-fallback "
+        "anchor too; on any other cert cell it is the evaluator's, and the "
         "leaderboard's coherence check holds it to the skill recorded against it. "
         "Null where the cell scored no probability and on records written before the "
         "field existed.",
@@ -2634,10 +2704,12 @@ class Evaluation(_Strict):
         "band, the rate is harness-stamped by `stamp-cell --role evaluator`: the "
         "risk-set rate pooled through the scorer's own pooler over the prediction's "
         "frozen band, salience version, and Term, from the statpack build named in "
-        "base_rate_statpack_digest, and cleared where that pool is empty. On an "
-        "earlier label's cert grading, and on a cert cell whose prediction froze no "
-        "band (the terminal fallback, which re-derives a band from the corpus row), "
-        "the rate is the evaluator's to record. On a merits cell it is instead the "
+        "base_rate_statpack_digest, and cleared where that pool is empty. On a "
+        "cert grading stamped under proc-v17 or later whose prediction froze no band "
+        "(the terminal fallback), it is harness-stamped the same way over the "
+        "terminal band the evaluate cell's own provisioned record/context.json "
+        "carries, at the terminal rate. On an earlier label's cert grading the rate "
+        "is the evaluator's to record. On a merits cell it is instead the "
         "statpack merits section's disturbed rate pooled over grant Terms strictly "
         "before the case's (`pipeline.base_rates.merits_base_rate`), keyed on the "
         "Term certiorari was granted in and harness-stamped by `stamp-cell --role "
@@ -2690,7 +2762,8 @@ class Evaluation(_Strict):
         "the basis names (never the evaluator's word, and an evaluator-written "
         "value does not survive the stamp): on the `risk_set` path it is the "
         "scored prediction's frozen `context.salience_version`, on the "
-        "`terminal` path the live scorer's version. Null when no basis is "
+        "`terminal` path the live scorer's version (from proc-v17, the version the "
+        "evaluate cell's provisioned terminal band was read under). Null when no basis is "
         "recorded, and cleared outright on every merits and every interim cell, "
         "whose harness-stamped baseline is not a salience-band product and so has "
         "no scorer version to pin; null too on records written before the field "
@@ -2702,14 +2775,15 @@ class Evaluation(_Strict):
         "`sha256:` over the parsed statpack's canonical JSON) of the statpack build a "
         "harness-stamped cert segment_base_rate was pooled from. Written by "
         "`stamp-cell --role evaluator` beside every cert anchor it stamps (proc-v9 "
-        "and later, where the scored prediction froze a band). From proc-v15, where "
+        "and later, where the scored prediction froze a band; proc-v17 and later on "
+        "the terminal fallback too). From proc-v15, where "
         "the scored prediction's context carries a cert_anchor, it is that anchor's "
         "build — the statpack in force when the forecast was placed — and the "
         "leaderboard drops a cell that does not record its pin; otherwise the "
         "leaderboard re-pools the anchor wherever its own statpack carries the same "
         "digest and drops a cell whose recorded rate does not reproduce. Null wherever the rate "
         "is not a harness-stamped cert anchor — every merits and interim cell, an "
-        "earlier label's cert grading, a cert cell on the terminal fallback — and "
+        "earlier label's cert grading — and "
         "on records written before the field existed.",
     )
     base_rate_lookback_terms: int | None = Field(
@@ -2733,7 +2807,8 @@ class Evaluation(_Strict):
         "all three off one set of committed artifacts, so the ratio is correct by "
         "construction rather than merely reproducible from the record — and so is a "
         "cert cell's wherever segment_base_rate is the harness-stamped anchor "
-        "(proc-v9 and later, frozen band); on any other cert cell it is the "
+        "(proc-v9 and later, frozen band; proc-v17 and later, terminal fallback); "
+        "on any other cert cell it is the "
         "evaluator's, computed against the band rate it recorded. Null "
         "when `segment_base_rate` is null, when the baseline is already exact (the "
         "base rate matched the outcome), and on records written before the field "
@@ -10941,7 +11016,11 @@ class _StatPackInterimCounts(_Strict):
         "disposition — the raw denominator behind `substantive_grant_rate`. An "
         "application whose disposing entry the interim vocabulary never matched "
         "stays out of the denominator, visibly unresolved, so the resolved set "
-        "is selected for machine-matchable resolution text",
+        "is selected for machine-matchable resolution text. Counted on the stored "
+        "`application_kind`, which is the registered ask vocabulary before the "
+        "OT2027 application Term and the widened one from it, so a series of "
+        "these counts across that Term changes vocabulary there; the `wide_*` "
+        "counts are the widened vocabulary on every Term",
     )
     substantive_granted: int = Field(
         default=0,
@@ -10986,12 +11065,110 @@ class _StatPackInterimCounts(_Strict):
         "counted rows, so absent reads as unknown, never as zero",
     )
 
+    finer_resolved: int | None = Field(
+        default=None,
+        ge=0,
+        description="The resolved substantive applications the **finer** interim "
+        "reading scores (the corpus `interim_reading` column, "
+        "`interim_signals.interim_reading_granted`): `substantive_resolved` less "
+        "the moot dismissals (`finer_moot`) and the rows with no stored finer "
+        "reading (`finer_unread`). The denominator of the pool a cell stamped "
+        "under `process_version.FINER_INTERIM_READING_FROM` or later is scored "
+        "against. Absent from a pack built before the finer reading was stored, "
+        "so absent reads as unknown, never as zero",
+    )
+    finer_granted: int | None = Field(
+        default=None,
+        ge=0,
+        description="Of `finer_resolved`, the applications the finer reading "
+        "grants in whole or in part (`granted`, `granted-in-part`). Absent with "
+        "`finer_resolved`",
+    )
+    finer_moot: int | None = Field(
+        default=None,
+        ge=0,
+        description="Resolved substantive applications the finer reading names "
+        "`dismissed-moot` — out of the finer pool's numerator and denominator, "
+        "because a moot application decided nothing about its ask. Absent with "
+        "`finer_resolved`",
+    )
+    finer_unread: int | None = Field(
+        default=None,
+        ge=0,
+        description="Resolved substantive applications with no stored finer "
+        "reading (a NULL or out-of-vocabulary `interim_reading`). Non-zero means "
+        "the `reread-applications` pass has not reached them, and a finer pool "
+        "over this Term refuses a rate rather than count a partial Term. Absent "
+        "with `finer_resolved`",
+    )
+    wide_resolved: int | None = Field(
+        default=None,
+        ge=0,
+        description="The resolved applications the **widened** ask vocabulary "
+        "reads `substantive` (the corpus `application_kind_wide` column, "
+        "`interim_signals.application_kind_wide`), under the registered reading's "
+        "machine-readable rule — `substantive_resolved` plus the asks only the "
+        "widened vocabulary reads. The registered denominator of the interim pool "
+        "from `interim_signals.WIDE_APPLICATION_KIND_FROM_TERM`. Absent from a pack "
+        "built before the column was stored",
+    )
+    wide_granted: int | None = Field(
+        default=None,
+        ge=0,
+        description="Of `wide_resolved`, the applications the registered reading "
+        "grants. Absent with `wide_resolved`",
+    )
+    wide_finer_resolved: int | None = Field(
+        default=None,
+        ge=0,
+        description="`finer_resolved` over the widened slice: the widened slice's "
+        "resolved applications less its moot dismissals and its rows with no stored "
+        "finer reading (`wide_finer_unread`). The denominator of the interim pool "
+        "from `interim_signals.WIDE_APPLICATION_KIND_FROM_TERM` for a cell scored on "
+        "the finer reading. Absent with `wide_resolved`",
+    )
+    wide_finer_granted: int | None = Field(
+        default=None,
+        ge=0,
+        description="Of `wide_finer_resolved`, the applications the finer reading "
+        "grants in whole or in part. Absent with `wide_resolved`",
+    )
+    wide_finer_unread: int | None = Field(
+        default=None,
+        ge=0,
+        description="The widened slice's resolved applications with no stored "
+        "finer reading — `finer_unread` over the widened slice. Absent with "
+        "`wide_resolved`",
+    )
+    wide_unread: int | None = Field(
+        default=None,
+        ge=0,
+        description="Resolved, application-parsed rows with no stored widened ask "
+        "(a NULL or out-of-vocabulary `application_kind_wide`). Non-zero means the "
+        "`reread-applications` pass has not reached them, and a pool over this Term "
+        "that reads the widened slice refuses a rate. Absent with `wide_resolved`",
+    )
+
     @model_serializer(mode="wrap")
     def _omit_unset_duplicate_rows(self, handler: SerializerFunctionWrapHandler) -> Any:
-        """Drop ``duplicate_rows`` while unset, so a pack built before it reads as before."""
+        """Drop the counts added later while unset, so a pack built before them reads as before."""
         payload = handler(self)
-        if isinstance(payload, dict) and self.duplicate_rows is None:
-            payload.pop("duplicate_rows", None)
+        if isinstance(payload, dict):
+            for name in (
+                "duplicate_rows",
+                "finer_resolved",
+                "finer_granted",
+                "finer_moot",
+                "finer_unread",
+                "wide_resolved",
+                "wide_granted",
+                "wide_finer_resolved",
+                "wide_finer_granted",
+                "wide_finer_unread",
+                "wide_unread",
+            ):
+                if getattr(self, name) is None:
+                    payload.pop(name, None)
         return payload
 
 
@@ -15060,6 +15237,17 @@ class ExportPredictionRow(_Strict):
     actual_granted: int | None = Field(
         description="The realized binary outcome: 1 positive, 0 not; null while "
         "unresolved, and null on a `voided` row"
+    )
+    scored_granted: int | None = Field(
+        default=None,
+        ge=0,
+        le=1,
+        description="The binary this prediction is scored against "
+        "(`pipeline.evaluate.scored_granted`): `actual_granted`, except on an "
+        "interim cell whose prediction takes the finer interim reading, which "
+        "is scored against `interim_granted` — so null there on a moot "
+        "dismissal or an outcome with no finer reading. Null while unresolved, "
+        "and null on a `voided` row",
     )
     disposition_basis: Literal["standard", "mootness"] | None = Field(
         description="Whether the disposition rests on the ordinary standard or on "

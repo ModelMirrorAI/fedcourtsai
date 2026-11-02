@@ -4,11 +4,13 @@
 starts: ``data/qp-topics/``, whose membership encodes cert outcomes, and the
 committed ``predictions/`` and ``evaluations/`` trees, which carry every other
 predictor's forecasts and their gradings. Both stay reachable on purpose
-through git history, and a cell's own writes are confined by its prompt rather
-than by the tree. So the witness to a cell that went looking — or wrote
-beside its own output — is its ``retrieval_log.json``, read twice: by this
-check, which leaves a harness note in the cell's ``flags.json``, and by the
-judges who grade the cell.
+through git history. A write the cell makes under ``data/`` outside its own
+run directory is put back once the agent stops
+(:mod:`fedcourtsai.write_confinement`), so it never reaches a later step or the
+ledger, but the put-back says only what changed, not how. So the witness to a
+cell that went looking — or wrote beside its own output — is its
+``retrieval_log.json``, read twice: by this check, which leaves a harness note
+in the cell's ``flags.json``, and by the judges who grade the cell.
 
 :func:`audit_cell_access` is that check. It reads the captured query slice of
 each call the cell could have touched its tree with (a shell, a file tool, or a
@@ -28,10 +30,11 @@ exclusion: it filters output a command already opened, which is the evaluate
 prompt's reading too.
 
 What it cannot see bounds what a clean audit means. The query slice is cut at
-capture, so a path past the cut is missed — and capture serializes a file
-tool's params in sorted key order, so a long ``content`` pushes a write
-tool's target past the cut on most such calls, leaving those writes seen
-only where the path survives; a relative path is matched as
+capture, so a path past the cut is missed. Capture puts a file tool's target
+key ahead of the rest of its params, so a long ``content`` does not hide a
+write's target; a log captured before that ordering serialized the params in
+sorted key order, where ``content`` sorts first, and on most such writes the
+target sits past the cut. A relative path is matched as
 written, so a write after a ``cd`` into the case directory names no ``data/``;
 a call that reads through an indirection (a variable, a script file) or a
 glob over the hidden name itself (``qp-top*``) names nothing the patterns
@@ -55,7 +58,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from .blinding import neutral_tool_class
-from .retrieval import QUERY_CAP
+from .retrieval import PATH_KEYS, QUERY_CAP
 from .schemas import RetrievalCall
 
 
@@ -79,9 +82,12 @@ class AccessHit:
 # The calls that never touch the cell's tree: a hosted search or fetch, and an
 # MCP tool, whose arguments are a query against someone else's server.
 _REMOTE_CLASSES = frozenset({"web-search", "web-fetch"})
-# A subagent's prompt is instructions, not access — and names a hidden path
-# chiefly to forbid it; the subagent's own calls are logged as calls.
-_PROMPT_TOOLS = frozenset({"agent", "task"})
+# A subagent's prompt, or a message sent to a running one, is instructions, not
+# access — and names a hidden path chiefly to forbid it; the subagent's own
+# calls are logged as calls. Claude spells the spawn ``Agent`` or ``Task``;
+# codex spells it ``spawn_agent`` and its follow-ups ``send_input`` and
+# ``send_message``.
+_PROMPT_TOOLS = frozenset({"agent", "task", "spawn_agent", "send_input", "send_message"})
 
 # One shell argument, quoted or bare.
 _ARG = r"""(?:'[^']*'|"[^"]*"|[^\s'"]+)"""
@@ -115,10 +121,10 @@ _HISTORY = re.compile(r"\bgit\s+(?:-C\s+\S+\s+)?(?:log|show|diff|grep|ls-tree|ca
 _PREDICTIONS = re.compile(r"(?:^|[^\w-])predictions/([^/\s'\"`;|&)\\]*)(?:/([^/\s'\"`;|&)\\]*))?")
 _GLOB = re.compile(r"[*?\[{]")
 
-# Where a file tool's target sits in its captured slice, when the slice is JSON.
-_PATH_KEYS = ("file_path", "path", "absolute_path", "notebook_path")
-# The slice may be cut mid-object, so a target key is also looked for as text.
-_PATH_FIELD = re.compile(rf'"(?:{"|".join(_PATH_KEYS)})"\s*:\s*"([^"]+)"')
+# Where a file tool's target sits in its captured slice, when the slice is JSON
+# (capture's own :data:`~fedcourtsai.retrieval.PATH_KEYS`). The slice may be cut
+# mid-object, so a target key is also looked for as text.
+_PATH_FIELD = re.compile(rf'"(?:{"|".join(PATH_KEYS)})"\s*:\s*"([^"]+)"')
 # codex's apply_patch names each file it touches on a header line.
 _PATCH_TARGET = re.compile(r"\*\*\* (?:Add|Update|Delete) File: (\S+)")
 # A shell redirection's or tee's target. `2>&1` and `>&2` are not files.
@@ -195,7 +201,7 @@ def _write_targets(call: RetrievalCall) -> list[str]:
         except ValueError:
             parsed = None
         if isinstance(parsed, dict):
-            targets += [str(parsed[key]) for key in _PATH_KEYS if isinstance(parsed.get(key), str)]
+            targets += [str(parsed[key]) for key in PATH_KEYS if isinstance(parsed.get(key), str)]
         elif not targets:
             targets += _PATH_FIELD.findall(text)
         return targets

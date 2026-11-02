@@ -38,6 +38,7 @@ from .ids import parse_run_id
 from .integrity import cell_clock, latest_evaluation_runs
 from .leaderboard import build_leaderboard, cell_facts, skill_components, vote_scores
 from .paths import CasePaths
+from .prediction_slices import SCOTUS_POPULATION
 from .process_version import co_current, graded_in_window, window_of
 from .schemas import (
     CountingWindow,
@@ -51,6 +52,7 @@ from .store import (
     EvaluationKey,
     LedgerPrediction,
     evaluation_key,
+    in_population,
     iter_predictions,
     ledger_counts,
     prediction_counts,
@@ -366,8 +368,11 @@ def _evaluator_digests(
         return []
     scoped: list[Evaluation] = []
     for path in sorted(cases_dir.glob("*/*/events/*/evaluations/*/*/*/evaluation.json")):
-        evaluation = read_model(path, Evaluation)
         event_dir = path.parents[4]
+        # The SCOTUS population only: a prediction slice's gradings are its own record.
+        if not in_population(event_dir, SCOTUS_POPULATION):
+            continue
+        evaluation = read_model(path, Evaluation)
         scored = scored_prediction(event_dir, evaluation.predictor_id, evaluation.prediction_run_id)
         if scored is None or window_of(scored.process_version) not in closed:
             continue

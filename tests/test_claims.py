@@ -34,7 +34,7 @@ from fedcourtsai.pipeline.claims import (
     CLAIM_SET_CERT_V2,
     CLAIM_SET_CERT_V3,
     CLAIM_SET_INTERIM_V1,
-    CLAIM_SET_INTERIM_V2,
+    CLAIM_SET_INTERIM_V3,
     CLAIM_SET_MERITS_V1,
     CLAIM_SET_MERITS_V2,
     CLAIM_SUMMARY_ROUTE,
@@ -955,7 +955,7 @@ def test_the_interim_set_is_exactly_the_four_claims_in_stable_order() -> None:
     declared = declared_claim_set(_INTERIM_EVENT)
     assert declared is not None
     version, claim_ids = declared
-    assert version == CLAIM_SET_INTERIM_V2
+    assert version == CLAIM_SET_INTERIM_V3
     assert claim_ids == (
         CLAIM_INTERIM_DISPOSITION,
         CLAIM_RESPONSE_REQUESTED_INCREMENT,

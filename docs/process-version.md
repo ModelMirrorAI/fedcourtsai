@@ -123,6 +123,19 @@ The cert stage's own record changes author at a label rather than a digest:
 commit that sets `CURRENT_PROCESS_LABEL` to that label also switches a
 frozen-band cert grading's rate, Brier and skill from the evaluator's
 transcription to the stamp, and its freeze-record entry says so.
+`FINER_INTERIM_READING_FROM` names `proc-v17` the same way, but keyed on the **scored
+prediction's** label rather than the grading's: an interim cell whose
+prediction was stamped under it is scored on the finer interim reading
+(`Outcome.interim_granted` and the statpack's finer pool), because the predict
+prompt it answered stated that target, and an earlier cell keeps the
+registered reading through any re-grade.
+`HARNESS_TERMINAL_ANCHOR_FROM` names `proc-v17` the same way for the cert
+grading whose scored prediction froze no band: from that label the stamp
+pools its terminal-fallback anchor over the terminal band in the evaluate
+cell's own provisioned `record/context.json` instead of taking the
+evaluator's transcription of `metrics/statpack.md`. That record is
+agent-reachable like the predict cell's, and the stamp reads it as it reads
+the predict cell's `band`: the provisioned value, not a verified one.
 `PINNED_CERT_ANCHOR_FROM` names `proc-v15` the same way: from that label a
 grading whose scored prediction froze an anchor at provisioning
 (`context.cert_anchor`) stamps that anchor, pooled over the statpack in force
@@ -249,6 +262,27 @@ record cannot show to be forward leaves the default figures by a named reason
 count and each moved figure recomputed with the cell counted, so the rule's
 boundary is published together with what the figure reads on its other side. A
 new reason is one more value in that vocabulary and its own dated entry.
+
+The **population guard** is a membership rule of the same kind. Every figure
+reader (`store.stratify`, `store.iter_predictions`, `store.iter_evaluations`,
+`store.iter_predicted_events`, and the leaderboard's and window records' own
+ledger walks) reads one population, the SCOTUS docket unless a caller names a
+prediction slice (`fedcourtsai.prediction_slices`), so a slice's cells never
+enter a SCOTUS figure; the ops report's ledger census (`store.ledger_cell_counts`)
+keeps to the SCOTUS population too, so its funnel counts one population. The
+ops report's leakage digest is a diagnostic and reads every population. While
+no slice is switched on and every committed cell
+sits under `data/cases/scotus/`, the guard moves no figure.
+
+**A prediction slice is its own process.** A slice runs its own moments and
+its own prompt text (the circuit's panel rules, the trial court's motion-level
+outcomes), so its cells carry digests no SCOTUS cell carries, under a label of
+the slice's own that opens counting windows of its own. That is what keeps a
+slice from moving a SCOTUS figure: switching one on re-blesses no SCOTUS
+digest, and a SCOTUS window never holds a slice cell. Two slices never share a
+label, so they never pool either. No slice process is registered yet. The
+first is registered in the change that switches its slice on, with a dated
+freeze-record entry like any other label.
 
 ## The stamp is the harness's word, not the agent's
 
@@ -835,7 +869,7 @@ third offers a frozen build alongside, and says why that build is not the one
 published:
 
 - The **prediction census** (`ledger_cell_counts` — how many predictions and
-  events the funnel has) counts everything committed. A frozen scope showing many
+  events the funnel has) counts everything committed on the SCOTUS docket. A frozen scope showing many
   predictions but zero frozen evaluations is the honest shakedown state, and the
   ops report labels that divergence rather than hiding it.
 - The **leakage digest** counts every evaluation carrying a leakage grade,
