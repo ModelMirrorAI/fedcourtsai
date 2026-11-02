@@ -35,15 +35,21 @@ def full_read_owed(docket_id: int, last_read: date, today: date, every_days: int
     elsewhere, and for ever if its cycle is a multiple of the period. A second
     read on the same day owes nothing.
 
-    Past a period, every read would be whole under that rule, and a rotation
-    whose cycle runs longer than the period would never read incrementally. So
-    a read after a longer gap is whole one time in ``every_days``, drawn from a
-    hash of the docket and the last read's date: each read draws afresh, so no
-    cycle length can keep a docket from its whole read.
+    A period or more after the last read, every read would be whole under that
+    rule, and a rotation whose cycle runs a period or longer would never read
+    incrementally. So such a read is whole one time in ``every_days``, drawn
+    from a hash of the docket, the last read's date and today's: each read draws
+    afresh, even when the last read's date does not move, so no cycle length can
+    keep a docket from its whole read. The spacing of whole reads is then
+    about ``every_days`` refreshes, not days, and has no upper bound: the
+    chance a docket goes ``n`` such refreshes without one is
+    ``(1 - 1/every_days) ** n``.
     """
     gap = (today - last_read).days
     if gap >= every_days:
-        draw = hashlib.sha256(f"{docket_id}:{last_read.isoformat()}".encode()).digest()
+        draw = hashlib.sha256(
+            f"{docket_id}:{last_read.isoformat()}:{today.isoformat()}".encode()
+        ).digest()
         return int.from_bytes(draw[:8], "big") % every_days == 0
     return any(
         full_read_due(docket_id, last_read + timedelta(days=step), every_days)

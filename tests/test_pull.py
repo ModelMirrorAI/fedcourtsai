@@ -980,6 +980,13 @@ def test_after_a_long_gap_one_read_in_a_period_is_whole() -> None:
     assert full_read_owed(owed[0], last, today, 7)
     later = [last + timedelta(days=k) for k in range(1, 60)]
     assert {full_read_owed(5, d, d + timedelta(days=40), 7) for d in later} == {True, False}
+    # Even with the last read's date stuck (a live snapshot displaced the newer
+    # CourtListener one), a later read draws afresh.
+    stuck = {full_read_owed(5, last, today + timedelta(days=k), 7) for k in range(60)}
+    assert stuck == {True, False}
+    # The draw starts at exactly one period.
+    at_period = [d for d in range(700) if full_read_owed(d, today - timedelta(days=7), today, 7)]
+    assert 50 < len(at_period) < 150
     # A period of one reads every refresh whole.
     assert all(full_read_owed(d, last, today, 1) for d in range(50))
 
