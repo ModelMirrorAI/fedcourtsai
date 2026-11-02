@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000210",
+  "run_id": "20261102T130502Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "record/same-question.json has cutoff 2026-11-03, one day after both the 2026-11-02 snapshot date and this cell's current date. Its petitions list is empty, and no substantive inference or forecast adjustment was drawn from the index. This is a metadata consistency note, not outcome leakage or a blocker."
+    }
+  ]
+}

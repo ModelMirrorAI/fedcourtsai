@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000210",
+  "run_id": "20261102T130502Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts paths", "fedcourts query", "committed statpack", "CourtListener MCP search", "CourtListener MCP search_document", "web search and open", "fedcourts validate"],
+  "helpful": ["Frozen cert anchor and explicit distribution count", "Provisioned opposing briefs and reply", "Paid-segment base-rate cuts", "MCP primary-opinion snippets"],
+  "gaps": ["Default uv cache directory was read-only; a temporary cache resolved this", "Structured corpus retrieval provides no substantive free-text matching", "Sparse corpus reporter citations did not retrieve Finley"],
+  "notes": "No package installation. The petition appendix was explicitly truncated, but the main argument, appellate opinion material, BIO, and reply were available. Same-question cutoff metadata was one day ahead of the cell date and was not used substantively."
+}

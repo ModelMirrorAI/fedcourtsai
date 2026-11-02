@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000193",
+  "run_id": "20261102T130502Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["shell", "fedcourts paths", "fedcourts query", "CourtListener MCP search", "CourtListener MCP search_document", "web search/open", "fedcourts validate"],
+  "helpful": ["Frozen cert_anchor avoids terminal-band anchoring errors.", "Provisioned BIO and reply expose the central dispute over Carson's preservation of Locke.", "CourtListener opinion search and in-document excerpts successfully verified historical precedent."],
+  "gaps": ["Default uv cache directory was read-only; a /tmp cache override and no-sync resolved it.", "Corpus reporter-citation coverage was sparse and broad grant filters did not produce subject-matched comparators.", "Web attempts returned no usable content."],
+  "notes": "No installs, live target-docket retrieval, or disposition lookup. The reschedule makes another distribution likely without implying a substantive relist. No durable case-quality or leakage flag was warranted."
+}
