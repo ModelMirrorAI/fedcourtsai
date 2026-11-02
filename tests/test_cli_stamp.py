@@ -1121,6 +1121,10 @@ def test_stamp_leaves_a_cert_cells_recorded_base_rate_alone(
     check on the board is what stands behind the cert column's arithmetic.
     """
     monkeypatch.setenv("FEDCOURTS_METRICS_ROOT", str(tmp_path / "metrics"))
+    # A terminal-basis cert cell from proc-v17 is harness-stamped
+    # (tests/test_cert_anchor_stamp.py); this pins the label before it, whose
+    # evaluator owns the trio.
+    monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v16")
     event = "evt-petition-writ-of-certiorari"
     event_paths = CasePaths(_data_root, "scotus", 10).event(event)
     write_yaml(
@@ -1727,6 +1731,10 @@ def test_stamp_recomputes_correct_on_a_cert_cell(
     the stamp writes the 0, says so, and leaves the cert trio alone.
     """
     monkeypatch.setenv("FEDCOURTS_METRICS_ROOT", str(tmp_path / "metrics"))
+    # A terminal-basis cert cell from proc-v17 is harness-stamped
+    # (tests/test_cert_anchor_stamp.py); this pins the label before it, whose
+    # evaluator owns the trio.
+    monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v16")
     event = "evt-petition-writ-of-certiorari"
     event_paths = CasePaths(_data_root, "scotus", 13).event(event)
     write_yaml(
@@ -2728,6 +2736,10 @@ def test_regrade_fails_the_mispaired_basis_after_the_graded_fields_land(
     pins down, and that stays true when the numbers beside it are recomputed
     rather than first written: the recompute lands, and the cell still fails."""
     monkeypatch.setenv("FEDCOURTS_METRICS_ROOT", str(tmp_path / "metrics"))
+    # A terminal-basis cert cell from proc-v17 is harness-stamped
+    # (tests/test_cert_anchor_stamp.py); this pins the label before it, whose
+    # evaluator owns the trio.
+    monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v16")
     event_paths = _seed_cert_cell(_data_root, 27, actual=Disposition.granted, basis="risk_set")
     eval_path = event_paths.evaluation("claude-judge", "claude-baseline", "RID")
 
@@ -2764,6 +2776,10 @@ def test_regrade_refuses_a_cert_trio_the_correction_invalidated(
     nothing written.
     """
     monkeypatch.setenv("FEDCOURTS_METRICS_ROOT", str(tmp_path / "metrics"))
+    # A terminal-basis cert cell from proc-v17 is harness-stamped
+    # (tests/test_cert_anchor_stamp.py); this pins the label before it, whose
+    # evaluator owns the trio.
+    monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v16")
     event_paths = _seed_cert_cell(_data_root, 29, actual=Disposition.denied)
     eval_path = event_paths.evaluation("claude-judge", "claude-baseline", "RID")
     # The evaluator's own trio, correct against the outcome as first committed:

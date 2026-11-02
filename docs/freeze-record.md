@@ -15739,8 +15739,10 @@ freeze commit is recorded here.
   carrying merge's committer time. This entry registers the terms the
   2026-10-16 interim partial-grant and moot entry said the next label's own
   entry must settle. The label's digests, its window supersessions and their
-  census are the `register-process` run's, made once `proc-v16` is on `main`,
-  and are added to the change before it merges. Both prompts change, so every
+  census are the `register-process` run's, made once `proc-v16` was on `main`,
+  and are listed at the end of this entry. The label carries two more
+  changes, each with its own entry below: the stamped terminal-fallback cert
+  anchor and the predict cell's self-check. Both prompts change, so every
   digest moves. No harness boundary is registered: the change is keyed on the
   scored prediction's label, and a label's cells sit in their own counting
   window.
@@ -15989,6 +15991,43 @@ freeze commit is recorded here.
   - on the first interim evaluate collect PR after a `proc-v17` interim cell
     resolves, its `outcome.json` carries `interim_reading` and the stamped
     `segment_base_rate` equals the finer pool.
+
+  **The registration** (`uv run fedcourts register-process --label proc-v17`,
+  run 2026-11-02 over `staging` with `proc-v16` stamped). All six digests move:
+  the predict prompt changes for the finer interim target, the OT2027 window
+  and the cell self-check, and the evaluate prompt for the finer interim
+  reading and the stamped terminal-fallback anchor.
+
+  | Actor | Before (`proc-v16`) | `proc-v17` |
+  | --- | --- | --- |
+  | `claude-baseline` | `sha256:6a7047b68d17cc856aeabec7b557db010e775081f4efa58af5e9bf7d53417b94` | `sha256:33a3f9f8f53a2f6cb53967a60d836c3ba29f0078c12306fb8696e15d7c674978` (new) |
+  | `codex-baseline` | `sha256:bf956e358b5e31f3d72302c1b660d638ce16e4c4a0fa542887dd0c591c275e04` | `sha256:5b6efbbb2270718377da537c3ea04c727a2a855ffdae684da2a313c003699593` (new) |
+  | `gemini-baseline` | `sha256:758b95e861e1913da28900f558837a2fdbc0c1f4a4341ae130be83cd7e752164` | `sha256:1389c40a89d22cb951b25dad96d18d307cef26db4f6b66cdd425ea8fcf0f49b6` (new) |
+  | `claude-judge` | `sha256:2c24c01085a75e5634388510595476ca4887c51bb5c4ca0d0bb348bd5c572f5c` | `sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf` (new) |
+  | `codex-judge` | `sha256:4956b4db47514393d6455c004579fb5aec3f5ab4f37ab4765fb2ad38ef080316` | `sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a` (new) |
+  | `gemini-judge` | `sha256:829805f636d9b0baefd2fb39970ce83a430f3225384b724101975a06750c1a6c` | `sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9` (new) |
+
+  **What was made under the retiring digests.** At `origin/main` `33509ad60`
+  (`2026-11-02T13:03:41Z`), **0** committed predictions and **0** committed
+  evaluations name any of the six `proc-v16` digests: no predict or evaluate
+  round has collected since `proc-v16` went live.
+
+  **Step 0.** At the same commit, the count of committed files under
+  `data/cases` naming `sha256:<digest>` is **0** for each of the six newly
+  blessed digests, and **3344** files there carry a `process_version` stamp.
+
+  **Windows** (`COUNTING_WINDOWS`, once the carrying merge stamps them):
+
+  | Predictor | Label | Opens | Closes |
+  | --- | --- | --- | --- |
+  | `claude-baseline` (`6a7047b6…`) | `proc-v16` | `2026-11-01T17:45:59Z` | this label's instant (was open) |
+  | `codex-baseline` (`bf956e35…`) | `proc-v16` | `2026-11-01T17:45:59Z` | this label's instant (was open) |
+  | `gemini-baseline` (`758b95e8…`) | `proc-v16` | `2026-11-01T17:45:59Z` | this label's instant (was open) |
+  | `claude-baseline` (`33a3f9f8…`) | `proc-v17` | this label's instant | open (new) |
+  | `codex-baseline` (`5b6efbbb…`) | `proc-v17` | this label's instant | open (new) |
+  | `gemini-baseline` (`1389c40a…`) | `proc-v17` | this label's instant | open (new) |
+
+  Earlier windows keep the closes earlier labels gave them.
 
 - **The terminal-fallback cert anchor is harness-stamped from `proc-v17`;
   recorded 2026-10-31.** A scoring-baseline change keyed on a label, the shape
