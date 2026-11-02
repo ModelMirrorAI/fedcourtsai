@@ -1,10 +1,10 @@
 {
-  "cases": 350,
+  "cases": 353,
   "cases_out_of_scope": 0,
   "cases_without_score": 1,
   "coverage": [
     {
-      "cases": 316,
+      "cases": 319,
       "n": 3
     },
     {
@@ -16,18 +16,18 @@
       "n": 1
     }
   ],
-  "current_reads": 1048,
+  "current_reads": 1057,
   "declared_no_view": 23,
   "frozen_process": {
     "digests": [
-      "sha256:11ddd73ac5e4ef4d883f51997f00822dd737df2c9d52b0f8f599a27aa3dde31a",
-      "sha256:274fea05cdeb0d3b004926de218364183603bbf331e3a2a5cdfcf7fe4909ec07",
-      "sha256:3df3d7aa2267e392cf047493c336737c9ea5a30b310919e027eeb3a850027990",
-      "sha256:e481306013cbb61ab29747a4eafd2d8d55c7694d196fe470ce14c78d2663310c",
-      "sha256:ede964258702cee0803a5255106a9ddc542164c017dd5e56ce47813c8b028388",
-      "sha256:fb4db8c6b28902554a44e42078039dd467afe47bd986a4aa40ba4435307f60c0"
+      "sha256:1389c40a89d22cb951b25dad96d18d307cef26db4f6b66cdd425ea8fcf0f49b6",
+      "sha256:33a3f9f8f53a2f6cb53967a60d836c3ba29f0078c12306fb8696e15d7c674978",
+      "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+      "sha256:5b6efbbb2270718377da537c3ea04c727a2a855ffdae684da2a313c003699593",
+      "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+      "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9"
     ],
-    "since": "2026-10-30T16:38:43Z",
+    "since": "2026-11-02T17:51:42Z",
     "windows": [
       {
         "closes": "2026-10-11T12:00:00Z",
@@ -174,7 +174,7 @@
         "revoked_at": null
       },
       {
-        "closes": null,
+        "closes": "2026-11-01T17:45:59Z",
         "digest": "sha256:11ddd73ac5e4ef4d883f51997f00822dd737df2c9d52b0f8f599a27aa3dde31a",
         "label": "proc-v15",
         "opens": "2026-10-30T16:38:43Z",
@@ -182,7 +182,7 @@
         "revoked_at": null
       },
       {
-        "closes": null,
+        "closes": "2026-11-01T17:45:59Z",
         "digest": "sha256:3df3d7aa2267e392cf047493c336737c9ea5a30b310919e027eeb3a850027990",
         "label": "proc-v15",
         "opens": "2026-10-30T16:38:43Z",
@@ -190,10 +190,58 @@
         "revoked_at": null
       },
       {
-        "closes": null,
+        "closes": "2026-11-01T17:45:59Z",
         "digest": "sha256:274fea05cdeb0d3b004926de218364183603bbf331e3a2a5cdfcf7fe4909ec07",
         "label": "proc-v15",
         "opens": "2026-10-30T16:38:43Z",
+        "predictor_id": "gemini-baseline",
+        "revoked_at": null
+      },
+      {
+        "closes": "2026-11-02T17:51:42Z",
+        "digest": "sha256:6a7047b68d17cc856aeabec7b557db010e775081f4efa58af5e9bf7d53417b94",
+        "label": "proc-v16",
+        "opens": "2026-11-01T17:45:59Z",
+        "predictor_id": "claude-baseline",
+        "revoked_at": null
+      },
+      {
+        "closes": "2026-11-02T17:51:42Z",
+        "digest": "sha256:bf956e358b5e31f3d72302c1b660d638ce16e4c4a0fa542887dd0c591c275e04",
+        "label": "proc-v16",
+        "opens": "2026-11-01T17:45:59Z",
+        "predictor_id": "codex-baseline",
+        "revoked_at": null
+      },
+      {
+        "closes": "2026-11-02T17:51:42Z",
+        "digest": "sha256:758b95e861e1913da28900f558837a2fdbc0c1f4a4341ae130be83cd7e752164",
+        "label": "proc-v16",
+        "opens": "2026-11-01T17:45:59Z",
+        "predictor_id": "gemini-baseline",
+        "revoked_at": null
+      },
+      {
+        "closes": null,
+        "digest": "sha256:33a3f9f8f53a2f6cb53967a60d836c3ba29f0078c12306fb8696e15d7c674978",
+        "label": "proc-v17",
+        "opens": "2026-11-02T17:51:42Z",
+        "predictor_id": "claude-baseline",
+        "revoked_at": null
+      },
+      {
+        "closes": null,
+        "digest": "sha256:5b6efbbb2270718377da537c3ea04c727a2a855ffdae684da2a313c003699593",
+        "label": "proc-v17",
+        "opens": "2026-11-02T17:51:42Z",
+        "predictor_id": "codex-baseline",
+        "revoked_at": null
+      },
+      {
+        "closes": null,
+        "digest": "sha256:1389c40a89d22cb951b25dad96d18d307cef26db4f6b66cdd425ea8fcf0f49b6",
+        "label": "proc-v17",
+        "opens": "2026-11-02T17:51:42Z",
         "predictor_id": "gemini-baseline",
         "revoked_at": null
       }
@@ -217,10 +265,10 @@
     "leakage_note": "A leakage-flagged read is worse here than on a board that drops it. A stakes read is partly a read of the disposition, so a predictor that saw its own outcome may have read the stakes off it too \u2014 and on this board that cell is not one point inside a coefficient, it is the published number. Every read and every row carries `leakage_suspected`, set where any committed grading of that run recorded the bit. Read a marked row as evidence about the cell, not about the case. The **row** mark is moment-scoped like every other row figure: it covers the reads the row publishes, so a flagged read on an earlier moment leaves the row unmarked while staying visible, and marked, under its own event.",
     "no_time_series": "The committed ledger spans a boundary at which `big_case_score` became required with an explicit null escape (`docs/freeze-record.md`). Cells either side of it are two populations \u2014 the ask changed, so which cells carry a read changed with it \u2014 and **this build spans it**, so the board publishes no trend and no history. Nor is a movement between two consecutive builds a measurement: a row's mean, `n` and rank also move when its `moment` does, which is the **docket** advancing and the whole panel switching question at once, not a predictor changing its mind. A movement across any of these boundaries measures nothing.",
     "population": "Every case in the committed ledger carrying at least one **in-scope** scored read on its current moment, pending and decided alike. `cases_without_score` counts the predicted cases whose in-scope reads carry no number at all and which are therefore absent \u2014 including a case whose current moment drew only declining reads whilst an earlier moment carried scores, which are history here and never promoted back into a row. The list is the predictions', never the corpus's \u2014 and the predictions' list is the salience gate's deliberately non-representative selection (`docs/salience.md`), so the board inherits that gate and is **not** a sample of the docket or of any conference. `status` says only whether a committed `outcome.json` sits on the case's predicted events: `pending` means the ledger records no outcome, which is not a statement about what the Court has done.",
-    "process_label": "proc-v15",
+    "process_label": "proc-v17",
     "rank_resolution": "The `#` column is a coarse band, never an ordering. Neighbouring rows sit far closer together than the predictors inside a single row sit to each other, so the difference between two adjacent ranks is smaller than the disagreement the ranks are built from. `median_adjacent_gap` and `median_score_range` are published beside each other so that comparison can be made rather than assumed. The moment-first collapse sharpens this rather than settling it: each row is one moment, so a row's mean **is** comparable across its own predictors, but two rows on different moments are not comparable to each other and the `#` column orders across moments anyway. The panel reads stakes systematically higher at later moments, so a row's position reflects which question its panel answered as well as how big its case is.",
     "reading_rule": "A stakes read is neither scored nor ranked: it resolves against nothing, so no **stakes** figure here is an accuracy, a calibration or an ordering of predictors, and none may be quoted as one. The per-cell `probability` carried beside it **is** a forecast \u2014 the cell's raw value, unstratified, unexcluded and unscored \u2014 and it is not a claimable one either; scored forecast performance lives on the leaderboard and nowhere else. Like the leaderboard's big-case views, this board reads the ledger directly, so neither the forward-claim exclusion nor the leakage exclusion applies; it is wider still than those, since it also reads cells no judge has graded and every process version. A wider population than the scored boards, deliberately, and a caveat that has to travel with a quoted number. The mean is a panel opinion about which cases matter, and it says nothing about how likely any of them is to be granted.",
-    "schedule_rule": "`scheduled` is joined by case id from the committed `data/schedule/schedule.json`, which the live poll writes from the conference each pending public docket's newest 'DISTRIBUTED for Conference of ...' entry names. It is null where the case is not on the schedule (decided, never distributed, or not read by the live channel) and where the conference had already passed on the day the schedule was built. The row carries no build day, so the board moves only when a case's date does; a reader rendering on a later day drops a date that has since passed rather than show it as upcoming. A schedule moves on every relist, so the field is display-only and never a ledger record: nothing predicts, evaluates or scores on it, and no cell is provisioned with it.",
+    "schedule_rule": "`schedule` and `scheduled` are joined by case id from the committed `data/schedule/schedule.json`, which the live poll writes from what each pending public docket's entries name: the conference its newest 'DISTRIBUTED for Conference of ...' entry names while it is undecided, the day its newest 'SET FOR ARGUMENT on ...' entry names while a granted case awaits decision and has not been argued on or after that day, and the newest stated response deadline while the docket is undecided and no response or waiver has followed it. `schedule` lists each such date still ahead on the day the schedule was built, earliest first; `scheduled` is its conference entry alone, or null. The row carries no build day, so the board moves only when a case's date does; a reader rendering on a later day drops a date that has since passed rather than show it as upcoming. A schedule moves on every relist, reschedule and extension, so the fields are display-only and never a ledger record: nothing predicts, evaluates or scores on them, and no cell is provisioned with them.",
     "short_caption_rule": "`short_caption` is derived from `caption` by a fixed rule and is null wherever the rule is not sure, because a null costs a reader nothing (the full caption stands) while a wrong short form misnames a case. Each side of the single ` v. ` (an `In re` caption has one side) is reduced to its first-named party \u2014 the text before the first comma, everything after it being description. `United States` and a state or territory stand as written. An organisation \u2014 a corporate form, an institutional noun, an alias segment (`dba`, `fka`, `aka`), or any name not shaped like a person's \u2014 keeps its name with a leading `The`, a parenthetical and trailing corporate forms dropped (kept where the rest is initials only); a federal agency the Court's own case names abbreviate takes that acronym (CFPB, EEOC, EPA, FBI, FCC, FDA, FEC, FERC, FTC, NLRB, SEC), and a federal trial or appellate court named with its seat keeps the court's name. An organisation name still longer than 6 words is null, since its conventional short form is an acronym or phrase only a reader knows. A person is their surname, the last word; a name of initials only stands whole, and so does a name of exactly 3 full words, whose last two may be one surname; a name with a surname particle or longer than 3 words is null, since the caption cannot say where the surname starts. Either side null makes the short caption null. Display-only: nothing predicts, evaluates or scores on it.",
     "version_scope": "`process_scope: \"all\"` \u2014 **version-blind, and that is the default**: every committed run is eligible as a current read, shakedown, pre-freeze, de-counted-digest and unstamped cells included, because the board is a census of what the panel said rather than a measurement of how well it said it, and a stakes read resolves against nothing for a partition to protect. `--process-scope frozen` rebuilds it as the **comparison build**, admitting only runs that are their predictor's counted forecast of their event \u2014 a harness stamp inside a counting window (the predicate the performance boards scope on; the record it keys on is published in `frozen_process` on every build, this one included). That build is not this board with fewer rows: it holds out a systematically different population \u2014 see *Population*, the `population` field. `process_label` is what a prediction minted today would stamp and is a filter on nothing here; `process_scope` is the filter. **No count, mean, rate or spread statistic is differenced across a scope change.** A row's own mean and `n` move when a predictor's read falls outside the scope, and every denominator moves at once, so a coverage rate that rises at `frozen` rises by construction \u2014 the older cells the rate's numerator was missing are the cells the scope removed \u2014 and is never the pre-registered coverage rise `docs/freeze-record.md` describes."
   },
@@ -340,6 +388,7 @@
           "side": "disturbed"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.97,
       "score_min": 0.94,
@@ -457,6 +506,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.96,
       "score_min": 0.95,
@@ -674,6 +724,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.97,
       "score_min": 0.94,
@@ -796,6 +847,7 @@
           "side": "disturbed"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.97,
       "score_min": 0.93,
@@ -913,6 +965,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.95,
       "score_min": 0.95,
@@ -1030,6 +1083,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.97,
       "score_min": 0.9,
@@ -1186,6 +1240,12 @@
       "n": 3,
       "other_party": null,
       "outcome_lines": null,
+      "schedule": [
+        {
+          "date": "2026-11-06",
+          "kind": "conference"
+        }
+      ],
       "scheduled": {
         "date": "2026-11-06",
         "kind": "conference"
@@ -1395,6 +1455,7 @@
       "n": 2,
       "other_party": null,
       "outcome_lines": null,
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.94,
       "score_min": 0.92,
@@ -1512,128 +1573,12 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.95,
       "score_min": 0.9,
       "score_range": 0.05,
       "short_caption": "Duncan v. Bonta",
-      "status": "pending"
-    },
-    {
-      "asking_declined": null,
-      "asking_party": "Trump",
-      "caption": "Donald J. Trump, President of the United States, et al. v. Neeta Thakur, Individually and on Behalf of All Others Similarly Situated, et al.",
-      "caption_event_id": "evt-petition-arrival-disposition",
-      "case_id": "scotus/9026000210",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "A Solicitor General petition asking whether the First Amendment constrains viewpoint-based termination of competitive federal grants \u2014 the constitutional core of the administration's mass grant-termination program, with a claimed ~$200B/year in competitive grantmaking and dozens of parallel suits riding on the answer.",
-          "big_case_score": 0.9,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20260820T181919Z"
-        },
-        {
-          "big_case_rationale": "A nationwide First Amendment dispute over federal research-grant policy could affect many agencies, billions of dollars in competitive funding, and the Executive's ability to redirect spending priorities.",
-          "big_case_score": 0.92,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20260820T181919Z"
-        },
-        {
-          "big_case_rationale": "High-profile First Amendment challenge to the administration's DEI executive orders affecting federal research grants.",
-          "big_case_score": 0.95,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20260820T181919Z"
-        }
-      ],
-      "docket_id": 9026000210,
-      "docket_number": "26-210",
-      "docket_number_source": "case_id",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-210.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-petition-arrival-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "A Solicitor General petition asking whether the First Amendment constrains viewpoint-based termination of competitive federal grants \u2014 the constitutional core of the administration's mass grant-termination program, with a claimed ~$200B/year in competitive grantmaking and dozens of parallel suits riding on the answer.",
-              "big_case_score": 0.9,
-              "cell_path": "data/cases/scotus/9026000210/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260820T181919Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000210/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260820T181919Z",
-              "confidence": 0.65,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "claude-baseline",
-              "probability": 0.8,
-              "run_id": "20260820T181919Z"
-            },
-            {
-              "big_case_rationale": "A nationwide First Amendment dispute over federal research-grant policy could affect many agencies, billions of dollars in competitive funding, and the Executive's ability to redirect spending priorities.",
-              "big_case_score": 0.92,
-              "cell_path": "data/cases/scotus/9026000210/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260820T181919Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000210/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260820T181919Z",
-              "confidence": 0.79,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "codex-baseline",
-              "probability": 0.78,
-              "run_id": "20260820T181919Z"
-            },
-            {
-              "big_case_rationale": "High-profile First Amendment challenge to the administration's DEI executive orders affecting federal research grants.",
-              "big_case_score": 0.95,
-              "cell_path": "data/cases/scotus/9026000210/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260820T181919Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000210/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260820T181919Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.85,
-              "run_id": "20260820T181919Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Donald J. Trump, President of the United States, et al. v. Neeta Thakur, Individually and on Behalf of All Others Similarly Situated, et al."
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.9233,
-      "moment": "evt-petition-arrival-disposition",
-      "moment_opened_at": "2026-08-19",
-      "n": 3,
-      "other_party": "Thakur",
-      "outcome_lines": [
-        {
-          "action": "granted",
-          "line": "The Court takes up Trump's case. A grant alone decides nothing yet about who is right.",
-          "side": "granted"
-        },
-        {
-          "action": "denied",
-          "line": "Trump's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
-          "side": "not-granted"
-        }
-      ],
-      "scheduled": null,
-      "score_max": 0.95,
-      "score_min": 0.9,
-      "score_range": 0.05,
-      "short_caption": "Trump v. Thakur",
       "status": "pending"
     },
     {
@@ -1751,6 +1696,7 @@
           "side": "disturbed"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.95,
       "score_min": 0.9,
@@ -1973,6 +1919,7 @@
           "side": "disturbed"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.95,
       "score_min": 0.89,
@@ -2095,6 +2042,7 @@
           "side": "disturbed"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.9,
       "score_min": 0.9,
@@ -2212,6 +2160,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.95,
       "score_min": 0.85,
@@ -2429,6 +2378,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.9,
       "score_min": 0.88,
@@ -2601,6 +2551,7 @@
           "side": "disturbed"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.9,
       "score_min": 0.85,
@@ -2718,6 +2669,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.95,
       "score_min": 0.78,
@@ -2885,6 +2837,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.95,
       "score_min": 0.8,
@@ -3002,6 +2955,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.9,
       "score_min": 0.85,
@@ -3169,6 +3123,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.94,
       "score_min": 0.78,
@@ -3291,6 +3246,7 @@
           "side": "disturbed"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.9,
       "score_min": 0.75,
@@ -3408,11 +3364,188 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.95,
       "score_min": 0.7,
       "score_range": 0.25,
       "short_caption": "Petersen v. Mi Familia Vota",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Trump",
+      "caption": "Donald J. Trump, President of the United States, et al. v. Neeta Thakur, Individually and on Behalf of All Others Similarly Situated, et al.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000210",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Solicitor General petition on whether the First Amendment bars viewpoint-based termination of competitive federal research grants; governs a wave of grant-termination suits and large sums across agencies.",
+          "big_case_score": 0.8,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261102T130502Z"
+        },
+        {
+          "big_case_rationale": "The constitutional boundary between federal research-funding discretion and viewpoint discrimination has national consequences for academic freedom, scientific research, and successive administrations' spending policies.",
+          "big_case_score": 0.9,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261102T130502Z"
+        },
+        {
+          "big_case_rationale": "A merits ruling on whether the First Amendment bars the executive branch from terminating or selecting competitive research grants based on project viewpoints would govern billions of dollars in federal science and humanities funding and clarify the boundary between NEA v. Finley and Rosenberger.",
+          "big_case_score": 0.85,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261102T130502Z"
+        }
+      ],
+      "docket_id": 9026000210,
+      "docket_number": "26-210",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-210.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-arrival-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A Solicitor General petition asking whether the First Amendment constrains viewpoint-based termination of competitive federal grants \u2014 the constitutional core of the administration's mass grant-termination program, with a claimed ~$200B/year in competitive grantmaking and dozens of parallel suits riding on the answer.",
+              "big_case_score": 0.9,
+              "cell_path": "data/cases/scotus/9026000210/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260820T181919Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000210/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260820T181919Z",
+              "confidence": 0.65,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "claude-baseline",
+              "probability": 0.8,
+              "run_id": "20260820T181919Z"
+            },
+            {
+              "big_case_rationale": "A nationwide First Amendment dispute over federal research-grant policy could affect many agencies, billions of dollars in competitive funding, and the Executive's ability to redirect spending priorities.",
+              "big_case_score": 0.92,
+              "cell_path": "data/cases/scotus/9026000210/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260820T181919Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000210/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260820T181919Z",
+              "confidence": 0.79,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "codex-baseline",
+              "probability": 0.78,
+              "run_id": "20260820T181919Z"
+            },
+            {
+              "big_case_rationale": "High-profile First Amendment challenge to the administration's DEI executive orders affecting federal research grants.",
+              "big_case_score": 0.95,
+              "cell_path": "data/cases/scotus/9026000210/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260820T181919Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000210/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260820T181919Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.85,
+              "run_id": "20260820T181919Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Donald J. Trump, President of the United States, et al. v. Neeta Thakur, Individually and on Behalf of All Others Similarly Situated, et al."
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Solicitor General petition on whether the First Amendment bars viewpoint-based termination of competitive federal research grants; governs a wave of grant-termination suits and large sums across agencies.",
+              "big_case_score": 0.8,
+              "cell_path": "data/cases/scotus/9026000210/events/evt-petition-disposition/predictions/claude-baseline/20261102T130502Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000210/events/evt-petition-disposition/predictions/claude-baseline/20261102T130502Z",
+              "confidence": 0.6,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "claude-baseline",
+              "probability": 0.72,
+              "run_id": "20261102T130502Z"
+            },
+            {
+              "big_case_rationale": "The constitutional boundary between federal research-funding discretion and viewpoint discrimination has national consequences for academic freedom, scientific research, and successive administrations' spending policies.",
+              "big_case_score": 0.9,
+              "cell_path": "data/cases/scotus/9026000210/events/evt-petition-disposition/predictions/codex-baseline/20261102T130502Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000210/events/evt-petition-disposition/predictions/codex-baseline/20261102T130502Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "codex-baseline",
+              "probability": 0.8,
+              "run_id": "20261102T130502Z"
+            },
+            {
+              "big_case_rationale": "A merits ruling on whether the First Amendment bars the executive branch from terminating or selecting competitive research grants based on project viewpoints would govern billions of dollars in federal science and humanities funding and clarify the boundary between NEA v. Finley and Rosenberger.",
+              "big_case_score": 0.85,
+              "cell_path": "data/cases/scotus/9026000210/events/evt-petition-disposition/predictions/gemini-baseline/20261102T130502Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000210/events/evt-petition-disposition/predictions/gemini-baseline/20261102T130502Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.56,
+              "run_id": "20261102T130502Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Donald J. Trump, President of the United States, et al. v. Neeta Thakur, Individually and on Behalf of All Others Similarly Situated, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.85,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-08-19",
+      "n": 3,
+      "other_party": "Thakur",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Trump's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Trump's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-11-13",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-11-13",
+        "kind": "conference"
+      },
+      "score_max": 0.9,
+      "score_min": 0.8,
+      "score_range": 0.1,
+      "short_caption": "Trump v. Thakur",
       "status": "pending"
     },
     {
@@ -3525,6 +3658,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.94,
       "score_min": 0.7,
@@ -3692,6 +3826,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.88,
       "score_min": 0.8,
@@ -3864,6 +3999,7 @@
           "side": "disturbed"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.82,
@@ -4036,6 +4172,7 @@
           "side": "disturbed"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.86,
       "score_min": 0.8,
@@ -4153,6 +4290,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.86,
       "score_min": 0.8,
@@ -4320,6 +4458,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.9,
       "score_min": 0.75,
@@ -4437,6 +4576,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.9,
       "score_min": 0.75,
@@ -4554,6 +4694,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.9,
       "score_min": 0.75,
@@ -4671,6 +4812,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.75,
@@ -4843,6 +4985,7 @@
           "side": "disturbed"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.8,
@@ -4960,6 +5103,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.84,
       "score_min": 0.8,
@@ -5132,6 +5276,7 @@
           "side": "disturbed"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.82,
       "score_min": 0.8,
@@ -5249,6 +5394,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.75,
@@ -5405,6 +5551,7 @@
       "n": 3,
       "other_party": null,
       "outcome_lines": null,
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.92,
       "score_min": 0.6,
@@ -5522,6 +5669,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.9,
       "score_min": 0.72,
@@ -5739,6 +5887,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.75,
@@ -5856,6 +6005,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.91,
       "score_min": 0.7,
@@ -6023,6 +6173,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.72,
@@ -6145,6 +6296,7 @@
           "side": "disturbed"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.8,
       "score_min": 0.78,
@@ -6262,6 +6414,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.9,
       "score_min": 0.7,
@@ -6368,6 +6521,7 @@
       "n": 3,
       "other_party": null,
       "outcome_lines": null,
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.9,
       "score_min": 0.72,
@@ -6485,6 +6639,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.75,
@@ -6602,6 +6757,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.7,
@@ -6819,12 +6975,139 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.95,
       "score_min": 0.55,
       "score_range": 0.4,
       "short_caption": "National Republican Congressional Committee v. Brown",
       "status": "resolved"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Hall",
+      "caption": "Bethany M. Hall v. A. Scott Fleming, Director, Virginia State Counsel of Higher Education",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000193",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "A grant would put overruling Locke v. Davey squarely before the Court, reshaping how dozens of state aid programs treat religious study; 22 States and 13 other amicus filings signal broad stakes.",
+          "big_case_score": 0.72,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261102T130502Z"
+        },
+        {
+          "big_case_rationale": "A direct request to overrule Locke v. Davey could change nationwide constitutional rules for religious vocational education funding; fourteen petition-stage amicus briefs show substantial institutional interest.",
+          "big_case_score": 0.84,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261102T130502Z"
+        },
+        {
+          "big_case_rationale": "Direct challenge asking the Court to overrule Locke v. Davey (2004) on whether States may exclude devotional theology/ministry majors from generally available college tuition grants after Trinity Lutheran, Espinoza, and Carson.",
+          "big_case_score": 0.78,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261102T130502Z"
+        }
+      ],
+      "docket_id": 9026000193,
+      "docket_number": "26-193",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-193.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A grant would put overruling Locke v. Davey squarely before the Court, reshaping how dozens of state aid programs treat religious study; 22 States and 13 other amicus filings signal broad stakes.",
+              "big_case_score": 0.72,
+              "cell_path": "data/cases/scotus/9026000193/events/evt-petition-disposition/predictions/claude-baseline/20261102T130502Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000193/events/evt-petition-disposition/predictions/claude-baseline/20261102T130502Z",
+              "confidence": 0.6,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.27,
+              "run_id": "20261102T130502Z"
+            },
+            {
+              "big_case_rationale": "A direct request to overrule Locke v. Davey could change nationwide constitutional rules for religious vocational education funding; fourteen petition-stage amicus briefs show substantial institutional interest.",
+              "big_case_score": 0.84,
+              "cell_path": "data/cases/scotus/9026000193/events/evt-petition-disposition/predictions/codex-baseline/20261102T130502Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000193/events/evt-petition-disposition/predictions/codex-baseline/20261102T130502Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.4,
+              "run_id": "20261102T130502Z"
+            },
+            {
+              "big_case_rationale": "Direct challenge asking the Court to overrule Locke v. Davey (2004) on whether States may exclude devotional theology/ministry majors from generally available college tuition grants after Trinity Lutheran, Espinoza, and Carson.",
+              "big_case_score": 0.78,
+              "cell_path": "data/cases/scotus/9026000193/events/evt-petition-disposition/predictions/gemini-baseline/20261102T130502Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000193/events/evt-petition-disposition/predictions/gemini-baseline/20261102T130502Z",
+              "confidence": 0.72,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.25,
+              "run_id": "20261102T130502Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Bethany M. Hall v. A. Scott Fleming, Director, Virginia State Counsel of Higher Education"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.78,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-08-14",
+      "n": 3,
+      "other_party": "Fleming",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Hall's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Hall's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-11-13",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-11-13",
+        "kind": "conference"
+      },
+      "score_max": 0.84,
+      "score_min": 0.72,
+      "score_range": 0.12,
+      "short_caption": "Hall v. Fleming",
+      "status": "pending"
     },
     {
       "asking_declined": null,
@@ -6936,6 +7219,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.7,
@@ -7108,6 +7392,7 @@
           "side": "disturbed"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.9,
       "score_min": 0.6,
@@ -7225,6 +7510,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.65,
@@ -7392,6 +7678,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.82,
       "score_min": 0.68,
@@ -7609,6 +7896,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.95,
       "score_min": 0.55,
@@ -7726,6 +8014,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.7,
@@ -7893,6 +8182,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.8,
       "score_min": 0.72,
@@ -8010,6 +8300,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.88,
       "score_min": 0.5,
@@ -8127,6 +8418,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.65,
@@ -8344,6 +8636,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.6,
@@ -8561,6 +8854,12 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [
+        {
+          "date": "2026-11-06",
+          "kind": "conference"
+        }
+      ],
       "scheduled": {
         "date": "2026-11-06",
         "kind": "conference"
@@ -8681,6 +8980,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.6,
@@ -8898,6 +9198,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.79,
       "score_min": 0.62,
@@ -9015,6 +9316,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.6,
@@ -9232,6 +9534,16 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [
+        {
+          "date": "2026-11-06",
+          "kind": "conference"
+        },
+        {
+          "date": "2026-11-27",
+          "kind": "response_due"
+        }
+      ],
       "scheduled": {
         "date": "2026-11-06",
         "kind": "conference"
@@ -9402,6 +9714,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.45,
@@ -9569,6 +9882,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.72,
       "score_min": 0.7,
@@ -9686,6 +10000,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.75,
       "score_min": 0.68,
@@ -9842,6 +10157,7 @@
       "n": 3,
       "other_party": null,
       "outcome_lines": null,
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.55,
@@ -10009,6 +10325,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.86,
       "score_min": 0.6,
@@ -10176,6 +10493,12 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [
+        {
+          "date": "2026-11-13",
+          "kind": "conference"
+        }
+      ],
       "scheduled": {
         "date": "2026-11-13",
         "kind": "conference"
@@ -10296,6 +10619,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.5,
@@ -10413,6 +10737,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.78,
       "score_min": 0.55,
@@ -10580,6 +10905,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.73,
       "score_min": 0.6,
@@ -10747,6 +11073,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.75,
       "score_min": 0.62,
@@ -10864,6 +11191,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.76,
       "score_min": 0.6,
@@ -11036,6 +11364,7 @@
           "side": "disturbed"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.73,
       "score_min": 0.65,
@@ -11153,6 +11482,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.45,
@@ -11259,6 +11589,7 @@
       "n": 3,
       "other_party": null,
       "outcome_lines": null,
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.82,
       "score_min": 0.55,
@@ -11481,6 +11812,7 @@
           "side": "disturbed"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.82,
       "score_min": 0.59,
@@ -11598,6 +11930,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.5,
@@ -11715,6 +12048,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.45,
@@ -11932,6 +12266,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.79,
       "score_min": 0.55,
@@ -12049,6 +12384,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.75,
       "score_min": 0.55,
@@ -12166,6 +12502,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.45,
@@ -12333,11 +12670,138 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.8,
       "score_min": 0.52,
       "score_range": 0.28,
       "short_caption": "AstraZeneca Pharmaceuticals v. Mosaic Health",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Custodia Bank",
+      "caption": "Custodia Bank, Inc. v. Federal Reserve Board of Governors, et al.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000062",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Whether Reserve Banks may deny master accounts to state-chartered nonmember banks matters to the whole fintech/crypto banking sector and to state chartering power, but the question presented is a narrow statutory one.",
+          "big_case_score": 0.55,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261102T130502Z"
+        },
+        {
+          "big_case_rationale": "Access to Federal Reserve payment accounts affects financial innovation and the federal-state banking balance, with potential implications for Reserve Bank accountability; the presented question is statutory, not a direct challenge to the Fed's constitutional structure.",
+          "big_case_score": 0.7,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261102T130502Z"
+        },
+        {
+          "big_case_rationale": "Whether regional Federal Reserve Banks have discretionary authority to deny master accounts to state-chartered depository institutions (and whether that authority raises Appointments Clause and presidential removal questions) has major implications for the dual-banking system, digital-asset banking, and the structure of the Federal Reserve System, as reflected by eleven cert-stage amicus briefs from States, Members of Congress, and banking/crypto trade groups.",
+          "big_case_score": 0.72,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261102T130502Z"
+        }
+      ],
+      "docket_id": 9026000062,
+      "docket_number": "26-62",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-62.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Whether Reserve Banks may deny master accounts to state-chartered nonmember banks matters to the whole fintech/crypto banking sector and to state chartering power, but the question presented is a narrow statutory one.",
+              "big_case_score": 0.55,
+              "cell_path": "data/cases/scotus/9026000062/events/evt-petition-disposition/predictions/claude-baseline/20261102T130502Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000062/events/evt-petition-disposition/predictions/claude-baseline/20261102T130502Z",
+              "confidence": 0.75,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.08,
+              "run_id": "20261102T130502Z"
+            },
+            {
+              "big_case_rationale": "Access to Federal Reserve payment accounts affects financial innovation and the federal-state banking balance, with potential implications for Reserve Bank accountability; the presented question is statutory, not a direct challenge to the Fed's constitutional structure.",
+              "big_case_score": 0.7,
+              "cell_path": "data/cases/scotus/9026000062/events/evt-petition-disposition/predictions/codex-baseline/20261102T130502Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000062/events/evt-petition-disposition/predictions/codex-baseline/20261102T130502Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.12,
+              "run_id": "20261102T130502Z"
+            },
+            {
+              "big_case_rationale": "Whether regional Federal Reserve Banks have discretionary authority to deny master accounts to state-chartered depository institutions (and whether that authority raises Appointments Clause and presidential removal questions) has major implications for the dual-banking system, digital-asset banking, and the structure of the Federal Reserve System, as reflected by eleven cert-stage amicus briefs from States, Members of Congress, and banking/crypto trade groups.",
+              "big_case_score": 0.72,
+              "cell_path": "data/cases/scotus/9026000062/events/evt-petition-disposition/predictions/gemini-baseline/20261102T130502Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000062/events/evt-petition-disposition/predictions/gemini-baseline/20261102T130502Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.08,
+              "run_id": "20261102T130502Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Custodia Bank, Inc. v. Federal Reserve Board of Governors, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.6567,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-07-14",
+      "n": 3,
+      "other_party": "Federal Reserve Board of Governors",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Custodia Bank's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Custodia Bank's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-11-13",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-11-13",
+        "kind": "conference"
+      },
+      "score_max": 0.72,
+      "score_min": 0.55,
+      "score_range": 0.17,
+      "short_caption": "Custodia Bank v. Federal Reserve Board of Governors",
       "status": "pending"
     },
     {
@@ -12500,6 +12964,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.72,
       "score_min": 0.6,
@@ -12615,6 +13080,12 @@
           "action": "denied",
           "line": "AstraZeneca UK Limited's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
           "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-11-06",
+          "kind": "conference"
         }
       ],
       "scheduled": {
@@ -12737,6 +13208,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.7,
       "score_min": 0.55,
@@ -12852,6 +13324,12 @@
           "action": "denied",
           "line": "GEO Group's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
           "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-11-06",
+          "kind": "conference"
         }
       ],
       "scheduled": {
@@ -13029,6 +13507,7 @@
           "side": "disturbed"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.7,
       "score_min": 0.6,
@@ -13196,6 +13675,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.75,
       "score_min": 0.55,
@@ -13311,6 +13791,12 @@
           "action": "denied",
           "line": "Palestine Liberation Organization's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
           "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-11-13",
+          "kind": "conference"
         }
       ],
       "scheduled": {
@@ -13433,6 +13919,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.7,
       "score_min": 0.55,
@@ -13550,6 +14037,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.72,
       "score_min": 0.5,
@@ -13717,6 +14205,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.7,
       "score_min": 0.55,
@@ -13834,6 +14323,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.7,
       "score_min": 0.55,
@@ -13951,6 +14441,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.7,
       "score_min": 0.55,
@@ -14118,6 +14609,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.7,
       "score_min": 0.55,
@@ -14340,6 +14832,7 @@
           "side": "disturbed"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.65,
       "score_min": 0.6,
@@ -14507,6 +15000,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.45,
@@ -14722,6 +15216,12 @@
           "action": "denied",
           "line": "Roybal's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
           "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-11-06",
+          "kind": "conference"
         }
       ],
       "scheduled": {
@@ -14949,6 +15449,7 @@
           "side": "disturbed"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.7,
       "score_min": 0.55,
@@ -15066,6 +15567,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.67,
       "score_min": 0.55,
@@ -15183,6 +15685,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.7,
       "score_min": 0.55,
@@ -15350,6 +15853,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.72,
       "score_min": 0.55,
@@ -15517,6 +16021,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.7,
       "score_min": 0.55,
@@ -15739,6 +16244,7 @@
           "side": "disturbed"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.66,
       "score_min": 0.55,
@@ -15856,6 +16362,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.65,
       "score_min": 0.55,
@@ -16012,6 +16519,7 @@
       "n": 3,
       "other_party": null,
       "outcome_lines": null,
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.35,
@@ -16229,6 +16737,12 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [
+        {
+          "date": "2026-11-06",
+          "kind": "conference"
+        }
+      ],
       "scheduled": {
         "date": "2026-11-06",
         "kind": "conference"
@@ -16338,6 +16852,7 @@
       "n": 3,
       "other_party": null,
       "outcome_lines": null,
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.7,
       "score_min": 0.5,
@@ -16455,6 +16970,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.68,
       "score_min": 0.55,
@@ -16622,6 +17138,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.75,
       "score_min": 0.45,
@@ -16789,6 +17306,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.7,
       "score_min": 0.55,
@@ -16956,6 +17474,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.72,
       "score_min": 0.55,
@@ -17062,6 +17581,7 @@
       "n": 3,
       "other_party": null,
       "outcome_lines": null,
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.65,
       "score_min": 0.55,
@@ -17179,6 +17699,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.78,
       "score_min": 0.4,
@@ -17294,6 +17815,12 @@
           "action": "denied",
           "line": "Nielsen's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
           "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-11-13",
+          "kind": "conference"
         }
       ],
       "scheduled": {
@@ -17416,6 +17943,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.65,
       "score_min": 0.45,
@@ -17533,6 +18061,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.9,
       "score_min": 0.25,
@@ -17639,6 +18168,7 @@
       "n": 3,
       "other_party": null,
       "outcome_lines": null,
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.64,
       "score_min": 0.55,
@@ -17756,6 +18286,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.8,
       "score_min": 0.35,
@@ -17873,6 +18404,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.7,
       "score_min": 0.4,
@@ -17990,6 +18522,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.7,
       "score_min": 0.4,
@@ -18162,6 +18695,7 @@
           "side": "disturbed"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.65,
       "score_min": 0.45,
@@ -18334,6 +18868,7 @@
           "side": "disturbed"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.65,
       "score_min": 0.42,
@@ -18451,6 +18986,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.7,
       "score_min": 0.42,
@@ -18618,6 +19154,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.7,
       "score_min": 0.45,
@@ -18840,6 +19377,7 @@
           "side": "disturbed"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.66,
       "score_min": 0.5,
@@ -18957,6 +19495,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.65,
       "score_min": 0.5,
@@ -19124,6 +19663,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.65,
       "score_min": 0.45,
@@ -19241,6 +19781,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.68,
       "score_min": 0.45,
@@ -19358,6 +19899,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.65,
       "score_min": 0.45,
@@ -19464,6 +20006,7 @@
       "n": 3,
       "other_party": null,
       "outcome_lines": null,
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.72,
       "score_min": 0.4,
@@ -19581,6 +20124,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.6,
       "score_min": 0.45,
@@ -19698,6 +20242,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.6,
       "score_min": 0.45,
@@ -19865,6 +20410,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.58,
       "score_min": 0.52,
@@ -20032,6 +20578,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.65,
       "score_min": 0.45,
@@ -20212,6 +20759,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.55,
       "score_min": 0.55,
@@ -20384,6 +20932,7 @@
           "side": "disturbed"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.65,
       "score_min": 0.42,
@@ -20501,6 +21050,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.67,
       "score_min": 0.4,
@@ -20618,6 +21168,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.7,
       "score_min": 0.4,
@@ -20735,6 +21286,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.7,
       "score_min": 0.35,
@@ -20852,6 +21404,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.65,
       "score_min": 0.4,
@@ -21019,6 +21572,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.66,
       "score_min": 0.4,
@@ -21125,6 +21679,7 @@
       "n": 2,
       "other_party": null,
       "outcome_lines": null,
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.62,
       "score_min": 0.45,
@@ -21242,6 +21797,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.65,
       "score_min": 0.4,
@@ -21407,6 +21963,16 @@
           "action": "denied",
           "line": "Southern Company Services' petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
           "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-11-06",
+          "kind": "conference"
+        },
+        {
+          "date": "2026-12-18",
+          "kind": "response_due"
         }
       ],
       "scheduled": {
@@ -21579,6 +22145,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.6,
       "score_min": 0.4,
@@ -21746,6 +22313,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.62,
       "score_min": 0.42,
@@ -21968,6 +22536,7 @@
           "side": "disturbed"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.61,
       "score_min": 0.45,
@@ -22135,6 +22704,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.58,
       "score_min": 0.45,
@@ -22357,6 +22927,7 @@
           "side": "disturbed"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.56,
       "score_min": 0.45,
@@ -22563,6 +23134,16 @@
       "n": 3,
       "other_party": null,
       "outcome_lines": null,
+      "schedule": [
+        {
+          "date": "2026-11-06",
+          "kind": "conference"
+        },
+        {
+          "date": "2026-12-28",
+          "kind": "response_due"
+        }
+      ],
       "scheduled": {
         "date": "2026-11-06",
         "kind": "conference"
@@ -22783,6 +23364,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.64,
       "score_min": 0.35,
@@ -22905,6 +23487,7 @@
           "side": "disturbed"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.6,
       "score_min": 0.35,
@@ -23022,6 +23605,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.6,
       "score_min": 0.35,
@@ -23239,6 +23823,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.62,
       "score_min": 0.3,
@@ -23406,6 +23991,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.63,
       "score_min": 0.42,
@@ -23573,6 +24159,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.65,
       "score_min": 0.3,
@@ -23745,6 +24332,7 @@
           "side": "disturbed"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.58,
       "score_min": 0.42,
@@ -23917,6 +24505,7 @@
           "side": "disturbed"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.6,
       "score_min": 0.3,
@@ -24034,6 +24623,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.63,
       "score_min": 0.4,
@@ -24201,6 +24791,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.57,
       "score_min": 0.45,
@@ -24318,6 +24909,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.57,
       "score_min": 0.4,
@@ -24433,6 +25025,12 @@
           "action": "denied",
           "line": "Jack Rabbit's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
           "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-11-13",
+          "kind": "conference"
         }
       ],
       "scheduled": {
@@ -24605,6 +25203,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.58,
       "score_min": 0.35,
@@ -24772,6 +25371,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.55,
       "score_min": 0.4,
@@ -24889,6 +25489,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.65,
       "score_min": 0.38,
@@ -25006,6 +25607,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.75,
       "score_min": 0.2,
@@ -25123,6 +25725,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.57,
       "score_min": 0.35,
@@ -25290,6 +25893,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.6,
       "score_min": 0.4,
@@ -25407,6 +26011,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.66,
       "score_min": 0.35,
@@ -25522,6 +26127,12 @@
           "action": "denied",
           "line": "Radiall USA's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
           "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-11-06",
+          "kind": "conference"
         }
       ],
       "scheduled": {
@@ -25644,6 +26255,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.65,
       "score_min": 0.3,
@@ -25809,6 +26421,12 @@
           "action": "denied",
           "line": "ON24's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
           "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-11-06",
+          "kind": "conference"
         }
       ],
       "scheduled": {
@@ -25979,6 +26597,12 @@
           "action": "denied",
           "line": "Samsung Electronics America's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
           "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-11-13",
+          "kind": "conference"
         }
       ],
       "scheduled": {
@@ -26156,6 +26780,7 @@
           "side": "disturbed"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.59,
       "score_min": 0.38,
@@ -26262,6 +26887,7 @@
       "n": 3,
       "other_party": null,
       "outcome_lines": null,
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.57,
       "score_min": 0.35,
@@ -26379,6 +27005,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.46,
       "score_min": 0.4,
@@ -26496,6 +27123,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.72,
       "score_min": 0.15,
@@ -26613,6 +27241,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.6,
       "score_min": 0.2,
@@ -26780,6 +27409,12 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [
+        {
+          "date": "2026-11-06",
+          "kind": "conference"
+        }
+      ],
       "scheduled": {
         "date": "2026-11-06",
         "kind": "conference"
@@ -26900,6 +27535,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.58,
       "score_min": 0.3,
@@ -27017,6 +27653,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.68,
       "score_min": 0.2,
@@ -27184,6 +27821,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.55,
       "score_min": 0.35,
@@ -27301,6 +27939,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.57,
       "score_min": 0.3,
@@ -27418,6 +28057,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.57,
       "score_min": 0.3,
@@ -27540,6 +28180,7 @@
           "side": "disturbed"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.65,
       "score_min": 0.3,
@@ -27707,6 +28348,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.57,
       "score_min": 0.25,
@@ -27874,6 +28516,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.56,
       "score_min": 0.25,
@@ -28041,6 +28684,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.56,
       "score_min": 0.35,
@@ -28158,6 +28802,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.65,
       "score_min": 0.2,
@@ -28323,6 +28968,12 @@
           "action": "denied",
           "line": "Eric Alan Isaacson's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
           "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-11-06",
+          "kind": "conference"
         }
       ],
       "scheduled": {
@@ -28495,6 +29146,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.54,
       "score_min": 0.35,
@@ -28660,6 +29312,12 @@
           "action": "denied",
           "line": "Granado's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
           "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-11-06",
+          "kind": "conference"
         }
       ],
       "scheduled": {
@@ -28830,6 +29488,12 @@
           "action": "denied",
           "line": "Indian Harbor Insurance's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
           "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-11-06",
+          "kind": "conference"
         }
       ],
       "scheduled": {
@@ -29052,6 +29716,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.58,
       "score_min": 0.3,
@@ -29169,6 +29834,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.56,
       "score_min": 0.3,
@@ -29286,6 +29952,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.45,
       "score_min": 0.35,
@@ -29403,6 +30070,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.5,
       "score_min": 0.3,
@@ -29559,6 +30227,12 @@
       "n": 3,
       "other_party": null,
       "outcome_lines": null,
+      "schedule": [
+        {
+          "date": "2026-11-13",
+          "kind": "conference"
+        }
+      ],
       "scheduled": {
         "date": "2026-11-13",
         "kind": "conference"
@@ -29729,6 +30403,12 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [
+        {
+          "date": "2026-11-06",
+          "kind": "conference"
+        }
+      ],
       "scheduled": {
         "date": "2026-11-06",
         "kind": "conference"
@@ -29849,6 +30529,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.49,
       "score_min": 0.35,
@@ -30014,6 +30695,12 @@
           "action": "denied",
           "line": "The City of North Las Vegas' petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
           "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-11-06",
+          "kind": "conference"
         }
       ],
       "scheduled": {
@@ -30186,6 +30873,12 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [
+        {
+          "date": "2026-11-06",
+          "kind": "conference"
+        }
+      ],
       "scheduled": {
         "date": "2026-11-06",
         "kind": "conference"
@@ -30306,6 +30999,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.46,
       "score_min": 0.3,
@@ -30412,6 +31106,7 @@
       "n": 3,
       "other_party": null,
       "outcome_lines": null,
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.56,
       "score_min": 0.3,
@@ -30527,6 +31222,12 @@
           "action": "denied",
           "line": "Brookins' petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
           "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-11-13",
+          "kind": "conference"
         }
       ],
       "scheduled": {
@@ -30649,6 +31350,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.55,
       "score_min": 0.2,
@@ -30766,6 +31468,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.45,
       "score_min": 0.3,
@@ -30883,6 +31586,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.58,
       "score_min": 0.2,
@@ -30998,6 +31702,12 @@
           "action": "denied",
           "line": "Sprint's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
           "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-11-06",
+          "kind": "conference"
         }
       ],
       "scheduled": {
@@ -31120,6 +31830,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.57,
       "score_min": 0.1,
@@ -31237,6 +31948,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.46,
       "score_min": 0.3,
@@ -31354,6 +32066,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.55,
       "score_min": 0.2,
@@ -31521,6 +32234,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.58,
       "score_min": 0.22,
@@ -31638,6 +32352,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.44,
       "score_min": 0.25,
@@ -31755,6 +32470,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.43,
       "score_min": 0.25,
@@ -31861,6 +32577,7 @@
       "n": 3,
       "other_party": null,
       "outcome_lines": null,
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.52,
       "score_min": 0.25,
@@ -31978,6 +32695,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.42,
       "score_min": 0.25,
@@ -32150,6 +32868,7 @@
           "side": "disturbed"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.46,
       "score_min": 0.25,
@@ -32317,6 +33036,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.48,
       "score_min": 0.28,
@@ -32434,6 +33154,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.6,
       "score_min": 0.15,
@@ -32551,6 +33272,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.55,
       "score_min": 0.2,
@@ -32718,6 +33440,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.4,
       "score_min": 0.3,
@@ -32885,6 +33608,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.4,
       "score_min": 0.3,
@@ -33002,6 +33726,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.48,
       "score_min": 0.2,
@@ -33169,6 +33894,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.42,
       "score_min": 0.3,
@@ -33286,6 +34012,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.42,
       "score_min": 0.3,
@@ -33453,6 +34180,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.47,
       "score_min": 0.25,
@@ -33559,6 +34287,7 @@
       "n": 3,
       "other_party": null,
       "outcome_lines": null,
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.55,
       "score_min": 0.2,
@@ -33676,6 +34405,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.43,
       "score_min": 0.25,
@@ -33832,6 +34562,7 @@
       "n": 3,
       "other_party": null,
       "outcome_lines": null,
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.4,
       "score_min": 0.28,
@@ -33949,6 +34680,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.45,
       "score_min": 0.2,
@@ -34066,6 +34798,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.45,
       "score_min": 0.1,
@@ -34183,6 +34916,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.32,
       "score_min": 0.3,
@@ -34350,6 +35084,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.52,
       "score_min": 0.2,
@@ -34517,6 +35252,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.42,
       "score_min": 0.2,
@@ -34634,6 +35370,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.46,
       "score_min": 0.15,
@@ -34801,6 +35538,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.36,
       "score_min": 0.2,
@@ -34918,6 +35656,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.45,
       "score_min": 0.1,
@@ -35085,6 +35824,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.4,
       "score_min": 0.2,
@@ -35202,6 +35942,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.48,
       "score_min": 0.1,
@@ -35319,6 +36060,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.4,
       "score_min": 0.1,
@@ -35436,6 +36178,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.4,
       "score_min": 0.2,
@@ -35530,6 +36273,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.36,
       "score_min": 0.2,
@@ -35697,6 +36441,12 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [
+        {
+          "date": "2026-11-06",
+          "kind": "conference"
+        }
+      ],
       "scheduled": {
         "date": "2026-11-06",
         "kind": "conference"
@@ -35817,6 +36567,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.57,
       "score_min": 0.1,
@@ -35982,6 +36733,12 @@
           "action": "denied",
           "line": "Justin Paul Dreiling's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
           "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-11-06",
+          "kind": "conference"
         }
       ],
       "scheduled": {
@@ -36154,6 +36911,12 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [
+        {
+          "date": "2026-11-13",
+          "kind": "conference"
+        }
+      ],
       "scheduled": {
         "date": "2026-11-13",
         "kind": "conference"
@@ -36322,6 +37085,12 @@
           "action": "denied",
           "line": "Casarez's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
           "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-11-13",
+          "kind": "conference"
         }
       ],
       "scheduled": {
@@ -36494,6 +37263,12 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [
+        {
+          "date": "2026-11-06",
+          "kind": "conference"
+        }
+      ],
       "scheduled": {
         "date": "2026-11-06",
         "kind": "conference"
@@ -36612,6 +37387,12 @@
           "action": "denied",
           "line": "Jabateh's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
           "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-11-13",
+          "kind": "conference"
         }
       ],
       "scheduled": {
@@ -36734,6 +37515,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.39,
       "score_min": 0.15,
@@ -36851,6 +37633,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.45,
       "score_min": 0.15,
@@ -37018,6 +37801,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.4,
       "score_min": 0.18,
@@ -37185,6 +37969,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.31,
       "score_min": 0.2,
@@ -37302,6 +38087,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.43,
       "score_min": 0.12,
@@ -37419,6 +38205,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.35,
       "score_min": 0.2,
@@ -37536,6 +38323,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.4,
       "score_min": 0.15,
@@ -37653,6 +38441,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.45,
       "score_min": 0.15,
@@ -37770,6 +38559,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.34,
       "score_min": 0.15,
@@ -37937,6 +38727,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.35,
       "score_min": 0.15,
@@ -38104,6 +38895,12 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [
+        {
+          "date": "2026-11-06",
+          "kind": "conference"
+        }
+      ],
       "scheduled": {
         "date": "2026-11-06",
         "kind": "conference"
@@ -38224,6 +39021,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.35,
       "score_min": 0.12,
@@ -38341,6 +39139,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.45,
       "score_min": 0.1,
@@ -38458,6 +39257,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.38,
       "score_min": 0.08,
@@ -38625,6 +39425,12 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [
+        {
+          "date": "2026-11-13",
+          "kind": "conference"
+        }
+      ],
       "scheduled": {
         "date": "2026-11-13",
         "kind": "conference"
@@ -38745,6 +39551,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.35,
       "score_min": 0.1,
@@ -38862,6 +39669,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.4,
       "score_min": 0.1,
@@ -39029,6 +39837,12 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [
+        {
+          "date": "2026-11-06",
+          "kind": "conference"
+        }
+      ],
       "scheduled": {
         "date": "2026-11-06",
         "kind": "conference"
@@ -39149,6 +39963,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.4,
       "score_min": 0.1,
@@ -39305,6 +40120,12 @@
       "n": 3,
       "other_party": null,
       "outcome_lines": null,
+      "schedule": [
+        {
+          "date": "2026-11-06",
+          "kind": "conference"
+        }
+      ],
       "scheduled": {
         "date": "2026-11-06",
         "kind": "conference"
@@ -39425,6 +40246,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.45,
       "score_min": 0.01,
@@ -39542,6 +40364,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.35,
       "score_min": 0.1,
@@ -39659,6 +40482,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.45,
       "score_min": 0.05,
@@ -39776,6 +40600,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.45,
       "score_min": 0.0,
@@ -39893,6 +40718,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.34,
       "score_min": 0.08,
@@ -40008,6 +40834,12 @@
           "action": "denied",
           "line": "Gengshu Scott He's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
           "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-11-06",
+          "kind": "conference"
         }
       ],
       "scheduled": {
@@ -40180,6 +41012,12 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [
+        {
+          "date": "2026-11-06",
+          "kind": "conference"
+        }
+      ],
       "scheduled": {
         "date": "2026-11-06",
         "kind": "conference"
@@ -40300,6 +41138,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.32,
       "score_min": 0.08,
@@ -40417,6 +41256,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.32,
       "score_min": 0.1,
@@ -40534,6 +41374,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.42,
       "score_min": 0.0,
@@ -40651,6 +41492,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.26,
       "score_min": 0.1,
@@ -40768,12 +41610,139 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.3,
       "score_min": 0.1,
       "score_range": 0.2,
       "short_caption": "Rogne v. City of Catoosa",
       "status": "resolved"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Catherine Elizabeth Chollet",
+      "caption": "Catherine Elizabeth Chollet, aka Liza Chollet, and Michael Elliot Kohn v. United States",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000516",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "A fact-bound GVR request applying Abouammo's venue rule to one tax-preparer prosecution; consequential for two defendants, little reach beyond them.",
+          "big_case_score": 0.1,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261101T050708Z"
+        },
+        {
+          "big_case_rationale": "Criminal venue protects an important constitutional right and the challenged convictions affect substantial prison sentences, but this petition seeks a narrow, case-specific remand applying an existing decision to tax-preparer offenses.",
+          "big_case_score": 0.28,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261101T050708Z"
+        },
+        {
+          "big_case_rationale": "Narrow, fact-intensive GVR petition seeking application of Abouammo v. United States, 608 U.S. 597 (2026), to multi-district venue in a 26 U.S.C. \u00a7 7206(2) false-tax-return prosecution; limited doctrinal reach and low public salience beyond the parties.",
+          "big_case_score": 0.12,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261101T050708Z"
+        }
+      ],
+      "docket_id": 9026000516,
+      "docket_number": "26-516",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-516.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A fact-bound GVR request applying Abouammo's venue rule to one tax-preparer prosecution; consequential for two defendants, little reach beyond them.",
+              "big_case_score": 0.1,
+              "cell_path": "data/cases/scotus/9026000516/events/evt-petition-disposition/predictions/claude-baseline/20261101T050708Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000516/events/evt-petition-disposition/predictions/claude-baseline/20261101T050708Z",
+              "confidence": 0.9,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.1,
+              "run_id": "20261101T050708Z"
+            },
+            {
+              "big_case_rationale": "Criminal venue protects an important constitutional right and the challenged convictions affect substantial prison sentences, but this petition seeks a narrow, case-specific remand applying an existing decision to tax-preparer offenses.",
+              "big_case_score": 0.28,
+              "cell_path": "data/cases/scotus/9026000516/events/evt-petition-disposition/predictions/codex-baseline/20261101T050708Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000516/events/evt-petition-disposition/predictions/codex-baseline/20261101T050708Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.12,
+              "run_id": "20261101T050708Z"
+            },
+            {
+              "big_case_rationale": "Narrow, fact-intensive GVR petition seeking application of Abouammo v. United States, 608 U.S. 597 (2026), to multi-district venue in a 26 U.S.C. \u00a7 7206(2) false-tax-return prosecution; limited doctrinal reach and low public salience beyond the parties.",
+              "big_case_score": 0.12,
+              "cell_path": "data/cases/scotus/9026000516/events/evt-petition-disposition/predictions/gemini-baseline/20261101T050708Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000516/events/evt-petition-disposition/predictions/gemini-baseline/20261101T050708Z",
+              "confidence": 0.88,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.03,
+              "run_id": "20261101T050708Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Catherine Elizabeth Chollet, aka Liza Chollet, and Michael Elliot Kohn v. United States"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.1667,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-10-16",
+      "n": 3,
+      "other_party": "United States",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Catherine Elizabeth Chollet's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Catherine Elizabeth Chollet's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-11-13",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-11-13",
+        "kind": "conference"
+      },
+      "score_max": 0.28,
+      "score_min": 0.1,
+      "score_range": 0.18,
+      "short_caption": "Catherine Elizabeth Chollet v. United States",
+      "status": "pending"
     },
     {
       "asking_declined": null,
@@ -40885,6 +41854,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.28,
       "score_min": 0.05,
@@ -41002,6 +41972,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.27,
       "score_min": 0.1,
@@ -41119,6 +42090,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.35,
       "score_min": 0.01,
@@ -41236,6 +42208,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.28,
       "score_min": 0.1,
@@ -41353,6 +42326,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.3,
       "score_min": 0.05,
@@ -41520,6 +42494,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.32,
       "score_min": 0.05,
@@ -41637,6 +42612,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.28,
       "score_min": 0.08,
@@ -41754,6 +42730,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.3,
       "score_min": 0.05,
@@ -41921,6 +42898,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.25,
       "score_min": 0.05,
@@ -42038,6 +43016,12 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [
+        {
+          "date": "2026-11-16",
+          "kind": "response_due"
+        }
+      ],
       "scheduled": null,
       "score_max": 0.26,
       "score_min": 0.08,
@@ -42153,6 +43137,12 @@
           "action": "denied",
           "line": "Stevens-Reynolds' petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
           "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-11-06",
+          "kind": "conference"
         }
       ],
       "scheduled": {
@@ -42275,6 +43265,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.3,
       "score_min": 0.05,
@@ -42392,6 +43383,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.2,
       "score_min": 0.04,
@@ -42509,6 +43501,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.22,
       "score_min": 0.05,
@@ -42676,6 +43669,12 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [
+        {
+          "date": "2026-11-06",
+          "kind": "conference"
+        }
+      ],
       "scheduled": {
         "date": "2026-11-06",
         "kind": "conference"
@@ -42785,6 +43784,7 @@
       "n": 3,
       "other_party": null,
       "outcome_lines": null,
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.35,
       "score_min": 0.02,
@@ -42902,6 +43902,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.25,
       "score_min": 0.01,
@@ -43019,6 +44020,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.25,
       "score_min": 0.05,
@@ -43186,6 +44188,12 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [
+        {
+          "date": "2026-11-06",
+          "kind": "conference"
+        }
+      ],
       "scheduled": {
         "date": "2026-11-06",
         "kind": "conference"
@@ -43306,6 +44314,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.22,
       "score_min": 0.03,
@@ -43423,6 +44432,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.22,
       "score_min": 0.03,
@@ -43540,6 +44550,12 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [
+        {
+          "date": "2026-11-06",
+          "kind": "conference"
+        }
+      ],
       "scheduled": {
         "date": "2026-11-06",
         "kind": "conference"
@@ -43649,6 +44665,7 @@
       "n": 3,
       "other_party": null,
       "outcome_lines": null,
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.3,
       "score_min": 0.01,
@@ -43766,6 +44783,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.24,
       "score_min": 0.05,
@@ -43933,6 +44951,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.24,
       "score_min": 0.05,
@@ -44050,6 +45069,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.23,
       "score_min": 0.05,
@@ -44165,6 +45185,12 @@
           "action": "denied",
           "line": "Ekladyous' petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
           "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-11-06",
+          "kind": "conference"
         }
       ],
       "scheduled": {
@@ -44287,6 +45313,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.24,
       "score_min": 0.04,
@@ -44404,6 +45431,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.2,
       "score_min": 0.05,
@@ -44521,6 +45549,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.18,
       "score_min": 0.04,
@@ -44638,6 +45667,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.22,
       "score_min": 0.03,
@@ -44755,6 +45785,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.25,
       "score_min": 0.02,
@@ -44872,6 +45903,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.22,
       "score_min": 0.01,
@@ -45039,6 +46071,12 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [
+        {
+          "date": "2026-11-06",
+          "kind": "conference"
+        }
+      ],
       "scheduled": {
         "date": "2026-11-06",
         "kind": "conference"
@@ -45159,6 +46197,12 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [
+        {
+          "date": "2026-11-13",
+          "kind": "conference"
+        }
+      ],
       "scheduled": {
         "date": "2026-11-13",
         "kind": "conference"
@@ -45277,6 +46321,12 @@
           "action": "denied",
           "line": "Sohilbhai Shaukatali Momin's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
           "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-11-06",
+          "kind": "conference"
         }
       ],
       "scheduled": {
@@ -45449,6 +46499,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.22,
       "score_min": 0.01,
@@ -45564,6 +46615,12 @@
           "action": "denied",
           "line": "Scroggins' petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
           "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-11-13",
+          "kind": "conference"
         }
       ],
       "scheduled": {
@@ -45686,6 +46743,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.16,
       "score_min": 0.03,
@@ -45853,6 +46911,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.2,
       "score_min": 0.01,
@@ -45970,6 +47029,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.2,
       "score_min": 0.0,
@@ -46087,6 +47147,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.18,
       "score_min": 0.01,
@@ -46204,6 +47265,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.18,
       "score_min": 0.0,
@@ -46321,6 +47383,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.18,
       "score_min": 0.01,
@@ -46438,6 +47501,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.18,
       "score_min": 0.0,
@@ -46555,6 +47619,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.12,
       "score_min": 0.03,
@@ -46722,6 +47787,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.18,
       "score_min": 0.0,
@@ -46839,6 +47905,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.15,
       "score_min": 0.01,
@@ -46956,6 +48023,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.15,
       "score_min": 0.0,
@@ -47071,6 +48139,12 @@
           "action": "denied",
           "line": "Wray's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
           "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-11-13",
+          "kind": "conference"
         }
       ],
       "scheduled": {
@@ -47193,6 +48267,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.15,
       "score_min": 0.0,
@@ -47310,6 +48385,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.13,
       "score_min": 0.01,
@@ -47427,6 +48503,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.05,
       "score_min": 0.02,
@@ -47544,6 +48621,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.05,
       "score_min": 0.02,
@@ -47661,6 +48739,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.08,
       "score_min": 0.0,
@@ -47778,6 +48857,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.03,
       "score_min": 0.03,
@@ -47884,6 +48964,7 @@
       "n": 2,
       "other_party": null,
       "outcome_lines": null,
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.04,
       "score_min": 0.02,
@@ -48001,6 +49082,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.03,
       "score_min": 0.01,
@@ -48118,6 +49200,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.03,
       "score_min": 0.01,
@@ -48235,6 +49318,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.03,
       "score_min": 0.01,
@@ -48352,6 +49436,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.02,
       "score_min": 0.02,
@@ -48469,6 +49554,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.02,
       "score_min": 0.02,
@@ -48575,6 +49661,7 @@
       "n": 2,
       "other_party": null,
       "outcome_lines": null,
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.02,
       "score_min": 0.01,
@@ -48692,6 +49779,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.03,
       "score_min": 0.0,
@@ -48809,6 +49897,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.02,
       "score_min": 0.01,
@@ -48915,6 +50004,7 @@
       "n": 2,
       "other_party": null,
       "outcome_lines": null,
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.02,
       "score_min": 0.01,
@@ -49032,6 +50122,7 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.02,
       "score_min": 0.0,
@@ -49041,6 +50132,6 @@
     }
   ],
   "rows_with_leakage_flag": 4,
-  "schema_version": "1.3",
-  "scored_reads": 1014
+  "schema_version": "1.4",
+  "scored_reads": 1023
 }
