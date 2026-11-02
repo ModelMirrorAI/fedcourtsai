@@ -551,17 +551,36 @@ directory read from git history); and a file tool, shell redirection or `tee`
 writing under `data/` or a case `record/` outside that directory, which a path
 naming another case or event is, even under the same run id. A path named only
 to exclude it (`-not -path`, `--exclude`, a `!` glob or an `:(exclude)`
-pathspec) does not count, nor does a search, a fetch, an MCP call or a
-subagent's prompt. A `grep -v` over output a command already opened does
+pathspec) does not count, nor does a search, a fetch, an MCP call, or a
+subagent's prompt or a message sent to one (claude's `Agent`/`Task`, codex's
+`spawn_agent`, `send_input` and `send_message`). A `grep -v` over output a command already opened does
 count, as the evaluate prompt grades it. The log records that a call *named* a
 path, not what it returned, and it sees only the captured query slice: a path
 past the capture cut, a relative path after a `cd`, a path reached through a
 variable or a glob over the hidden name itself (`qp-top*`), a write made by
-`cp`, `mv`, `sed -i` or an interpreter, and a file tool's write whose target
-the capture cut off behind a long `content` are all missed. Read the note as a
-pointer to the transcript, not as a finding of a read. What a call's slice
+`cp`, `mv`, `sed -i` or an interpreter, and, on a log captured before the
+path-first slice rule the freeze record dates, a file tool's write whose target
+sorted behind a long `content` and past the cut, are all missed. Read the note
+as a pointer to the transcript, not as a finding of a read. What a call's slice
 shows depends on how its engine logs it, so the note is engine-shaped: counts
 of it per engine compare logging as much as behaviour.
+
+The **write confinement** note is the other half, and it rests on the tree
+rather than the log. Before the agent starts, `run-predict` records every
+entry under `data/` and keeps a copy of each file (`fedcourts
+record-write-baseline`); the moment the agent stops, `fedcourts
+confine-cell-writes` puts the tree back to that baseline everywhere outside the
+cell's own `predictions/<predictor_id>/<run_id>/` directory — an added file,
+link or directory is removed, a changed or deleted one is restored — before
+the hidden trees come back and before anything else reads the tree
+(`fedcourtsai.write_confinement`). So a stray write it puts back never reaches
+the stamp, `validate`, the cell artifact or the ledger, whatever tool made it.
+Anything put back is one harness note in the cell's `flags.json`, a `warning` listing what
+was removed and restored, or a `blocker` naming what could not be put back, in
+which case the step fails. The note says what changed, not which call changed
+it; the lane audit's write hits and the transcript say that. Like the hide, it
+contains a careless write and not a hostile one: a claude or gemini agent runs
+as the runner's own user and can reach the baseline too.
 
 The roll-up groups flags by case, event, source and theme. The theme is the
 tracked theme a flag cites by `issue` or its message matches in
@@ -812,7 +831,10 @@ directory without knowing which part is which invites trusting the wrong half.
   same 500-character cut, so the slice names the address the cell asked for
   and still carries the instruction the leakage grading reads a fetch's
   *intent* from; a long prompt loses its tail, never the target. Every other
-  call keeps the first params key capture finds. Excluded on other
+  call keeps the first params key capture finds, and a call carrying none of
+  them is kept as its whole params object with its path key (`file_path`,
+  `path`, `absolute_path`, `notebook_path`, `dir_path`) first and the rest in
+  sorted order, so a long write keeps its target inside the cut. Excluded on other
   grounds are the tools that can only have written the URL down — a file write,
   read or search — and a shell row naming no HTTP client, which is what a patch
   applying the cell's own note about a *failed* fetch looks like. Unlike the two
