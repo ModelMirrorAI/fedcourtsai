@@ -1459,6 +1459,28 @@ forecastable, and with no baseline to subtract the *whole* of the grade is
 retrievable rather than an increment over one. The backtest-as-iteration
 doctrine below applies to them in full.
 
+**Every figure here is a SCOTUS figure.** A prediction slice — a committed
+list of lower-court dockets the predict scope can admit
+(`fedcourtsai.prediction_slices`; the *Scope* section of
+[docs/data-pipeline.md](../docs/data-pipeline.md)) — is a population of its
+own, beside the forward and retrospective strata and orthogonal to them. The
+readers every artifact here is built on (`store.stratify`,
+`store.iter_predictions`, `store.iter_evaluations`,
+`store.iter_predicted_events`, and the leaderboard's and window records' own
+ledger walks) read the SCOTUS population only, so `leaderboard.json`,
+`claim-scores.json`, `big-cases.json` and the rest never pool a slice's events
+with the Court's. No slice is subject to the salience gate: its committed list
+is its selection. The ops report's substance funnel counts the SCOTUS population
+on both sides, its ledger census (`store.ledger_cell_counts`) as well as the
+stratified cells beside it. Its leakage digest is the exception by design: it
+reads every population, since contamination in a slice's cell is as much its
+subject as in the Court's, and it is not a performance figure. `fedcourts
+validate` warns on a committed cell whose case no population admits, since no
+figure reads it. No slice is
+switched on, so no artifact's shape or figures change. A slice's figures, once
+it has cells, are built over its own population, under its own process
+version, and are never differenced against or pooled into a SCOTUS figure.
+
 **Forward vs retrospective.** Snapshotting controls what a predictor can *read*,
 but not what its model already *knows*: a prediction over an event that resolved
 before the model's training cutoff has the outcome inside the model's weights —
@@ -2406,9 +2428,9 @@ the rendered table) and
   `selected_rank_fill` each cell publishes. A bare precision delta between
   versions is not a claim this artifact supports.
 
-  **The active `sal-v6` and the never-activated `sal-v5`.** Their cells and
-  their statpack blocks cover a narrower population than every
-  other version's: Rule 20 writs are outside their segment, so their
+  **The active `sal-v6`, the never-activated `sal-v5` and the registered
+  `sal-v7`.** Their cells and their statpack blocks cover a narrower population
+  than every other version's: Rule 20 writs are outside their segment, so their
   `eligible`, recall and band pools leave them out, and a cross-version
   comparison spans that population change as well as the scoring. `sal-v6` is
   `sal-v5` with the petitioner class read through `caption-v2` rather than
@@ -2418,12 +2440,21 @@ the rendered table) and
   lists under "Petitioner"). `sal-v5`'s statpack `alt_segments` block measures that
   leak; the replay cells do not. `sal-v5`'s replay cells measure the
   call-for-response relist rule and the writ scope but never `caption-v3`,
-  since the projection carries no counsel. Either block over past Terms is
+  since the projection carries no counsel entry. `sal-v7` is `sal-v6` with
+  the class read through `caption-v4`, which keeps the office only as counsel
+  of record for the captioned petitioner; it is registered and not active. Its
+  statpack block reads that class. Its replay cells read it through the one
+  counsel fact the projection carries, read off the served snapshot before
+  redaction, and only on a `dated` projection: a petition reconstructed by
+  truncating a later pull, or projected blind, reads `caption-v2`'s class
+  there. So a `sal-v7` replay cell measures `caption-v4` on its `dated` rows
+  alone, and its `provenance` mix says how many those are; a difference from
+  `sal-v6`'s cell is never a reading over the whole frame. Any of these blocks over past Terms is
   **not that version's pool** on a pack rendered before the run-repair
   back-fill filled `distributed_after_call` and `opening_writ` on the decided
   rows: on such a pack those rows read as `sal-v4` reads them, mixed with the
   rows the live poll has re-read, and no figure from the block may be quoted
-  (`docs/salience.md`, the `sal-v5` and `sal-v6` sections).
+  (`docs/salience.md`, the `sal-v5`, `sal-v6` and `sal-v7` sections).
 
   **What may not.** Nothing here is predictor skill — no model
   ran — and nothing is ex-ante: every replayed petition had resolved before

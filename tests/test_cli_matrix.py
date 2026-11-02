@@ -24,6 +24,7 @@ from fedcourtsai.review_hold import decide as decide_hold
 from fedcourtsai.schemas import Disposition, Engine, EventKind, ModelUsage, Stage, UsageRole
 from fedcourtsai.serialize import write_json
 from tests.conftest import MERITS_EVENT, seed_evaluation, seed_merits_outcome, seed_prediction
+from tests.test_dataset_export import _event, _prediction
 
 runner = CliRunner()
 
@@ -44,6 +45,49 @@ _BATCH_BODY = """Long conference.
 """
 
 
+#: A one-case watchlist for the slice tests: ``cand/101`` with its appeal ``ca9/202``.
+_SLICE_WATCHLIST = """\
+categories:
+  copyright: Protected works.
+cases:
+  - name: Doe v. Model Co.
+    court: cand
+    docket_id: 101
+    docket_number: "3:26-cv-00001"
+    category: copyright
+    why: Training on protected works.
+    developers: [Model Co.]
+    added: 2026-10-30
+    related:
+      - {court: ca9, docket_id: 202, docket_number: "26-1", relation: appeal}
+"""
+
+#: Two SCOTUS petitions, the watchlist's two dockets, and an unlisted docket of
+#: each lower court, so a slice's admission and its limit show in one plan.
+_SLICE_BODY = """Slice scope.
+
+```json
+[
+  {"court": "scotus", "docket": 24001, "events": ["evt-petition-cert"]},
+  {"court": "scotus", "docket": 24002, "events": ["evt-petition-cert"]},
+  {"court": "cand", "docket": 101, "events": ["evt-petition-cert"]},
+  {"court": "ca9", "docket": 202, "events": ["evt-petition-cert"]},
+  {"court": "cand", "docket": 999, "events": ["evt-petition-cert"]},
+  {"court": "ca9", "docket": 998, "events": ["evt-petition-cert"]}
+]
+```
+"""
+
+_SLICE_CASES = (
+    "scotus/24001",
+    "scotus/24002",
+    "cand/101",
+    "ca9/202",
+    "cand/999",
+    "ca9/998",
+)
+
+
 def _cells(stdout: str) -> list[dict[str, object]]:
     cells: list[dict[str, object]] = json.loads(stdout)["include"]
     return cells
@@ -57,6 +101,7 @@ def _env(
     max_cells: int | None = None,
     seed_predictions: bool = True,
     spend_ceiling_usd: float | None = None,
+    slices: tuple[str, ...] | None = None,
 ) -> dict[str, str]:
     """A hermetic config + corpus for a matrix run.
 
@@ -72,6 +117,10 @@ def _env(
     gate needs it (nothing to score = no cell), but the *predict* per-predictor
     skip would then drop the seeded engine's cell, so predict fan-out/cap tests
     that assert full cell counts pass ``seed_predictions=False``.
+
+    ``slices`` writes ``predict.slices`` (left out, the key is absent, as in a
+    config that predates it) beside :data:`_SLICE_WATCHLIST`, the hermetic
+    watchlist the ``ai-watchlist`` slice reads.
     """
     config_root = tmp_path / "config"
     config_root.mkdir(exist_ok=True)
@@ -80,6 +129,9 @@ def _env(
     tracking = f"predict:\n  scope: {scope}\n"
     if max_cells is not None:
         tracking += f"  max_predict_cells_per_run: {max_cells}\n"
+    if slices is not None:
+        tracking += f"  slices: [{', '.join(slices)}]\n"
+        (config_root / "ai-watchlist.yaml").write_text(_SLICE_WATCHLIST)
     if spend_ceiling_usd is not None:
         tracking += f"spend:\n  ceiling_usd: {spend_ceiling_usd}\n"
     (config_root / "tracking.yaml").write_text(tracking)
@@ -3453,3 +3505,158 @@ def test_the_backlog_is_never_a_pilot(tmp_path: Path) -> None:
     )
     assert result.exit_code == 1
     assert "the backlog is never a pilot" in result.output
+
+
+def _slice_env(
+    tmp_path: Path, *, slices: tuple[str, ...] | None, seed_predictions: bool = False
+) -> dict[str, str]:
+    """:func:`_env` over :data:`_SLICE_CASES`, with :data:`_SLICE_BODY` as the request."""
+    (tmp_path / "issue-body.md").write_text(_SLICE_BODY)
+    return _env(
+        tmp_path,
+        scope="scotus_docket",
+        cases=_SLICE_CASES,
+        seed_predictions=seed_predictions,
+        slices=slices,
+    )
+
+
+def _slice_invoke(tmp_path: Path, env: dict[str, str], command: str) -> Any:
+    body = tmp_path / "issue-body.md"
+    return runner.invoke(app, [command, "--run-id", "RID", "--body-file", str(body)], env=env)
+
+
+@pytest.mark.parametrize("slices", [None, ()])
+def test_predict_matrix_with_no_slice_enabled_plans_the_scotus_docket_alone(
+    tmp_path: Path, slices: tuple[str, ...] | None
+) -> None:
+    # The off state, either spelling: no `slices` key, or an empty list. A
+    # listed watchlist docket is dropped exactly as any lower-court docket is.
+    env = _slice_env(tmp_path, slices=slices)
+    result = _slice_invoke(tmp_path, env, "predict-matrix")
+    assert result.exit_code == 0, result.output
+    assert {(c["court"], c["docket"]) for c in _cells(result.stdout)} == {
+        ("scotus", 24001),
+        ("scotus", 24002),
+    }
+    for case_id in ("cand/101", "ca9/202", "cand/999", "ca9/998"):
+        assert (
+            f"Skipping {case_id}: out of prediction scope "
+            "(predict.scope=scotus_docket, not a SCOTUS docket)."
+        ) in result.stderr
+
+
+def test_predict_plan_is_byte_identical_with_the_slices_key_absent_or_empty(
+    tmp_path: Path,
+) -> None:
+    # The groundwork changes nothing until a slice is named: the plan, drop
+    # records included, is the same output with the key absent and empty.
+    outputs = []
+    for slices, root in ((None, tmp_path / "absent"), ((), tmp_path / "empty")):
+        root.mkdir()
+        result = _slice_invoke(root, _slice_env(root, slices=slices), "predict-plan")
+        assert result.exit_code == 0, result.output
+        outputs.append(result.stdout)
+    assert outputs[0] == outputs[1]
+    plan = json.loads(outputs[0])
+    assert {d["case_id"] for d in plan["dropped_out_of_scope"]} == {
+        "cand/101",
+        "ca9/202",
+        "cand/999",
+        "ca9/998",
+    }
+
+
+def test_predict_matrix_admits_exactly_an_enabled_slices_listed_dockets(tmp_path: Path) -> None:
+    env = _slice_env(tmp_path, slices=("ai-watchlist",))
+    result = _slice_invoke(tmp_path, env, "predict-matrix")
+    assert result.exit_code == 0, result.output
+    # The listed case and its related docket are admitted; the same courts'
+    # unlisted dockets are not, because a slice widens by name, never by court.
+    assert {(c["court"], c["docket"]) for c in _cells(result.stdout)} == {
+        ("scotus", 24001),
+        ("scotus", 24002),
+        ("cand", 101),
+        ("ca9", 202),
+    }
+    assert "Skipping cand/999" in result.stderr
+    assert "Skipping ca9/998" in result.stderr
+
+
+def test_predict_matrix_never_salience_defers_a_slice_docket(tmp_path: Path) -> None:
+    # A slice's list is its selection: a salience stamp on a listed docket's row
+    # does not drop it, while the same stamp still defers a SCOTUS docket.
+    env = _slice_env(tmp_path, slices=("ai-watchlist",))
+    with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
+        conn.execute(
+            "UPDATE cases SET salience_version = 'sal-v1', salience_selected = 0 "
+            "WHERE case_id IN ('cand/101', 'scotus/24002')"
+        )
+        conn.commit()
+    result = _slice_invoke(tmp_path, env, "predict-matrix")
+    assert result.exit_code == 0, result.output
+    assert {(c["court"], c["docket"]) for c in _cells(result.stdout)} == {
+        ("scotus", 24001),
+        ("cand", 101),
+        ("ca9", 202),
+    }
+
+
+def test_predict_matrix_still_latches_a_slice_docket_out(tmp_path: Path) -> None:
+    # The hard exclusions hold inside a slice: the reconcile's latch drops it.
+    env = _slice_env(tmp_path, slices=("ai-watchlist",))
+    with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
+        conn.execute("UPDATE cases SET predict_excluded = 1 WHERE case_id = 'cand/101'")
+        conn.commit()
+    result = _slice_invoke(tmp_path, env, "predict-matrix")
+    assert result.exit_code == 0, result.output
+    assert ("cand", 101) not in {(c["court"], c["docket"]) for c in _cells(result.stdout)}
+    assert "Skipping cand/101: latched out of predict scope" in result.stderr
+
+
+def test_evaluate_matrix_grades_an_enabled_slices_dockets_only(tmp_path: Path) -> None:
+    env = _slice_env(tmp_path, slices=("ai-watchlist",), seed_predictions=True)
+    result = _slice_invoke(tmp_path, env, "evaluate-matrix")
+    assert result.exit_code == 0, result.output
+    assert {(c["court"], c["docket"]) for c in _cells(result.stdout)} == {
+        ("scotus", 24001),
+        ("scotus", 24002),
+        ("cand", 101),
+        ("ca9", 202),
+    }
+
+
+def test_predict_matrix_refuses_an_enabled_slice_whose_list_is_missing(tmp_path: Path) -> None:
+    env = _slice_env(tmp_path, slices=("ai-watchlist",))
+    (tmp_path / "config" / "ai-watchlist.yaml").unlink()
+    result = _slice_invoke(tmp_path, env, "predict-matrix")
+    assert result.exit_code != 0
+    assert isinstance(result.exception, FileNotFoundError)
+
+
+@pytest.mark.parametrize(
+    ("slices", "stray"),
+    [
+        (None, {"cand/101", "ca9/202", "cand/999", "ca9/998"}),
+        (("ai-watchlist",), {"cand/999", "ca9/998"}),
+    ],
+)
+def test_validate_warns_on_a_committed_cell_no_population_admits(
+    tmp_path: Path, slices: tuple[str, ...] | None, stray: set[str]
+) -> None:
+    # A cell outside every population is read by no figure: `validate` names
+    # its case as a warning and still passes the ledger it would otherwise pass.
+    env = _slice_env(tmp_path, slices=slices)
+    data_root = Path(env["FEDCOURTS_DATA_ROOT"])
+    for case_id in _SLICE_CASES:
+        _event(data_root, case_id)
+        _prediction(data_root, case_id, docs=True)
+    result = runner.invoke(app, ["validate", env["FEDCOURTS_DATA_ROOT"]], env=env)
+    warned = {
+        line.split()[1]
+        for line in result.output.splitlines()
+        if line.startswith("::warning::population: ")
+    }
+    assert warned == stray
+    assert not any(case_id.startswith("scotus/") for case_id in warned)
+    assert result.exit_code == 0, result.output
