@@ -1461,7 +1461,12 @@ or network.
   snapshot stored under the same case, a few snapshots deep. The docket is
   read whole instead once a day its id picks, one in every
   `full_read_every_days`, has passed since that read (the rotation does not
-  reach a docket daily, so the day itself is usually missed), which catches an
+  reach a docket daily, so the day itself is usually missed). A refresh that
+  comes a period or more after the last read is whole one time in
+  `full_read_every_days`, drawn from a hash of the docket and the two dates,
+  since the rotation's cycle can run longer than the period and the day rule
+  would then read every docket whole; whole reads are then spaced about that
+  many refreshes apart, with no upper bound. The whole read catches an
   entry deleted upstream or changed without moving its modification time. It
   is also read whole when its stored entries are not in upstream's order, so
   the first merge cannot read as a change, and when upstream returns a changed
