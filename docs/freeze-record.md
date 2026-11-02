@@ -15732,8 +15732,8 @@ freeze commit is recorded here.
   and from the OT2027 application Term the interim pool is a three-Term window
   over a widened ask vocabulary, which also selects that Term's applications;
   recorded 2026-10-31.**
-  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
-  commit `<FILL: merge sha>`, merged `<FILL: merged time utc>`), to be tagged
+  Carried to `main` by the promotion tagged `promotion/2026-11-02` (merge
+  commit `9b1139f042258266a54bed4fd1b3d74948cfb2ae`, merged `2026-11-02T17:51:42Z`), to be tagged
   **`prereg/proc-v17`**. Registered under the merge-stamped rule, so its
   counting instant, its bless moments and every window edge it moves are the
   carrying merge's committer time. This entry registers the terms the
@@ -16033,8 +16033,7 @@ freeze commit is recorded here.
   recorded 2026-10-31.** A scoring-baseline change keyed on a label, the shape
   `HARNESS_CERT_ANCHOR_FROM` took at `proc-v9`: no harness boundary is
   registered, and the edge is the `proc-v17` window's own, at the carrying
-  merge's instant. Carried to `main` by the promotion tagged `<FILL: promotion
-  tag>` (merge commit `<FILL: merge hash>`, merged `<FILL: merged-at>`), with
+  merge's instant. Carried to `main` by the promotion tagged `promotion/2026-11-02` (merge commit `9b1139f042258266a54bed4fd1b3d74948cfb2ae`, merged `2026-11-02T17:51:42Z`), with
   the rest of `proc-v17`.
 
   **What changes.** `HARNESS_TERMINAL_ANCHOR_FROM` in `process_version.py`
@@ -16108,8 +16107,8 @@ freeze commit is recorded here.
   finishes, from `proc-v17`; recorded 2026-11-01.** A prompt change that
   moves the predict digest of all three predictors. It changes no scoring
   rule, no harness boundary and no committed record. Carried to `main` by the
-  promotion tagged `<FILL: promotion tag>` (merge commit `<FILL: merge hash>`,
-  merged `<FILL: merged-at>`), with the rest of `proc-v17`.
+  promotion tagged `promotion/2026-11-02` (merge commit `9b1139f042258266a54bed4fd1b3d74948cfb2ae`,
+  merged `2026-11-02T17:51:42Z`), with the rest of `proc-v17`.
 
   **What changes.** `fedcourts validate data --cell <dir>`
   (`validate.live_cell_problems`) holds the named predict cell to what no
@@ -16290,8 +16289,8 @@ freeze commit is recorded here.
   the `dated` cells are the flip's prerequisites (`docs/salience.md`, the
   `sal-v7` section).
 
-  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
-  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by the promotion tagged `promotion/2026-11-02` (merge
+  commit `9b1139f042258266a54bed4fd1b3d74948cfb2ae`, merged `2026-11-02T17:51:42Z`).
 
   The runnable effect check once it is live:
   - on `main`, `uv run python -c "from fedcourtsai.pipeline.salience import
@@ -16373,8 +16372,8 @@ freeze commit is recorded here.
   hidden paths to forbid them in 30 of the audit's 63 hits on committed codex
   logs at `4443b9227`. The subagent's own calls are audited as calls.
 
-  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
-  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by the promotion tagged `promotion/2026-11-02` (merge
+  commit `9b1139f042258266a54bed4fd1b3d74948cfb2ae`, merged `2026-11-02T17:51:42Z`).
 
   The runnable effect check once it is live, on the first predict round after
   the carrying merge:

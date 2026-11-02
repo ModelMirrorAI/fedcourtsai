@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000193",
+  "run_id": "20261102T130502Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "provisioned documents"],
+  "helpful": ["Provisioned petition/BIO/reply text", "statpack amicus-count cut"],
+  "gaps": ["No subject/QP-topic filter in corpus query for finding prior Locke-overrule petitions", "Amicus entries are marked VIDED but no related docket was staged"],
+  "notes": "context.amicus_briefs was null although the snapshot shows 14 amicus briefs."
+}

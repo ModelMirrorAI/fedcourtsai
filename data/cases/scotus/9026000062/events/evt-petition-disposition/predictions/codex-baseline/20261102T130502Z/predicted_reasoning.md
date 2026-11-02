@@ -1,0 +1,13 @@
+# Forecast of the Court's action
+
+The Court will most likely **deny the petition**, leaving the lower-court judgment in place without endorsing its reasoning. The absence of an actual circuit conflict and the limitations on the constitutional arguments will outweigh the importance of the underlying banking-access dispute.
+
+The docket currently shows **one distribution**, for the November 13, 2026 conference, and **no CVSG**. The modal forecast is **zero additional distributions**, followed by denial in the orders following that conference, likely November 16. There is a **30% chance of at least one additional distribution**; on that path, one or two more distributions are more likely than a long sequence, putting the likely disposition later in November or in December 2026. These timing estimates are not firm deadlines.
+
+The Court will almost certainly **not call for the Solicitor General's views**: the Solicitor General has already opposed review on the Board's behalf. The probability of a new CVSG is **0.5%**. If one nevertheless issues, it would most plausibly follow the initial conference or a short relist sequence and delay the petition's disposition into 2027.
+
+**If review is granted**, the Court will most likely take the single statutory QP substantially as presented: whether the Monetary Control Act's requirement that services be available to eligible nonmember institutions eliminates Reserve Banks' discretion to deny master accounts. The Court is less likely to recast the case as a direct Appointments Clause or presidential-removal challenge, given the preservation problem below. Any merits examination would most likely focus on reconciling sections 248a(c)(2) and 342 and the related statutory scheme; this is conditional on a grant, not a prediction that a merits opinion will issue.
+
+Conditional on a grant, **plenary briefing and argument are 94% likely**, versus **6% for a disposition in the cert order itself**. A summary reversal would require resolving a contested statutory issue without argument. A GVR would require a clearer intervening basis than the record currently supplies; possible regulatory changes alone are not established mootness.
+
+**If the petition is denied**, the modal outcome is no noted dissent or statement. The probability of at least one such notation or writing is **12% conditional on denial**. If a Justice writes, Thomas or Gorsuch is the likelier source, with Alito a further possibility; no separate writing is individually more likely than not. A denial will produce no majority merits opinion, and no majority author or merits vote split is forecast.
