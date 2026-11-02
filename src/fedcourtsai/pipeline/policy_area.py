@@ -192,9 +192,9 @@ def policy_source(artifact: QpTopicApplicationLabels | None) -> PolicySource:
     # hold (one outside the application frame) keeps its hand label rather than
     # going unlabeled when the cut switches version.
     labels: dict[str, PolicyLabel] = dict(policy_areas())
-    # Under policy-gate-v2 a labeler's `other` is an abstention, measured apart
+    # From policy-gate-v2 a labeler's `other` is an abstention, measured apart
     # from its named calls, so it reads as unlabeled rather than as the area.
-    abstains = artifact.policy_agreement.gate_rule == "policy-gate-v2"
+    abstains = artifact.policy_agreement.gate_rule != "policy-gate-v1"
     for entry in artifact.entries:
         if entry.policy_area is None or entry.policy_source != "labeler":
             continue

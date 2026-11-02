@@ -552,10 +552,12 @@ soon as the lane labels it (`pipeline.application_policy`).
   name no policy, where a hand rater named the case's from their own
   knowledge. The gate therefore reads the labeler's named calls (an area other
   than `other`): at least 80% of them must match the hand label (`precision`),
-  above the share a labeler naming one area on every row would score
-  (`precision_floor`); it must name an area on at least half the hand rows
-  whose hand label names one (`answer_rate`); and at least 90% of the hand set
-  must be compared. The overall agreement still prints beside it, and under
+  above the share a labeler naming one area on every row it answered would
+  score on those rows (`precision_floor`); it must name an area on at least
+  half the hand rows whose hand label names one (`answer_rate`); and at least
+  90% of the hand set must be compared. So a passing labeler may leave up to
+  half the rows whose policy a hand rater named without an area, and the
+  measurement prints the answer rate it reached beside the floor. The overall agreement still prints beside it, and under
   `policy-gate-v1` it was the gate: at least 80% over every compared row, which
   scores each abstention as an error. The hand
   raters were not blind to the outcome and read their own knowledge of a public
@@ -585,8 +587,9 @@ soon as the lane labels it (`pipeline.application_policy`).
   that, so one cut never mixes the two. `policy-area-v2` is every hand label,
   including dockets outside the application frame, plus the labeler's area on
   every other policy row that carries one. Under `policy-gate-v2` a labeler
-  `other` is published (so the row is not asked again) but reads as unlabeled
-  in the cut, since the gate measured it as an abstention. The cut stamps `policy_rule_version`
+  `other` is published (so the row is not asked again, and a later prompt
+  revision does not re-answer it) but reads as unlabeled in the cut, since the
+  gate measured it as an abstention. The cut stamps `policy_rule_version`
   either way, and counts the rows whose area came from the labeler
   (`labeler_rows` on each cell, `policy_source` on each review row). The cut
   switches when the measurement passes, before backfill has reached every

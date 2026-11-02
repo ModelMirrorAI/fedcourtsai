@@ -675,7 +675,7 @@
             }
           ],
           "default": null,
-          "description": "The precision a labeler naming one area on every row would score: the commonest named hand area's share of the compared rows",
+          "description": "The precision a labeler naming one area on every row it answered would score on those rows: the commonest hand area's share of the answered rows",
           "title": "Precision Floor"
         },
         "prompt_sha256": {

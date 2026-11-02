@@ -34,6 +34,7 @@ from fedcourtsai.schemas import (
     PolicyAreaLabel,
     QpTopicApplicationLabelEntry,
     QpTopicApplicationLabels,
+    QpTopicPolicyAgreement,
 )
 from fedcourtsai.serialize import read_model, write_json
 from tests.test_qp_topic_application_labels import (
@@ -570,7 +571,7 @@ def test_an_abstention_is_scored_apart_from_a_wrong_call() -> None:
     assert (agreement.answered_agree, agreement.answered, agreement.answered_named) == (7, 8, 8)
     assert agreement.precision == 7 / 8
     assert agreement.answer_rate == 0.8
-    assert agreement.precision_floor == 0.5
+    assert agreement.precision_floor == 5 / 8
     assert agreement.gate_passed
 
 
@@ -601,3 +602,52 @@ def test_a_labeler_other_reads_as_unlabeled_in_the_cut() -> None:
 
     assert source.label(_FRESH[0][1]) is None
     assert source.label(_FRESH[1][1]) is not None
+
+
+def _lines_with(areas: dict[int, PolicyAreaLabel]) -> list[QpTopicApplicationLabelEntry]:
+    """The hand-row lines with the area at each index overridden, the rest correct."""
+    return [
+        line.model_copy(update={"policy_area": areas[index]}) if index in areas else line
+        for index, line in enumerate(_policy_lines())
+    ]
+
+
+def test_the_one_area_floor_refuses_a_labeler_that_answers_only_one_area() -> None:
+    # It names immigration on the immigration rows alone: perfect precision, half answered.
+    lines = _lines_with({index: "other" for index in range(5, 10)})
+    measured = measure_policy(entries=lines, policy_rows=_all_rows(), hand=_HAND)
+    assert measured is not None
+    agreement = measured[0]
+    assert (agreement.precision, agreement.precision_floor) == (1.0, 1.0)
+    assert agreement.answer_rate == 0.5
+    assert not agreement.gate_passed
+
+
+def test_an_answer_rate_of_exactly_one_half_passes() -> None:
+    lines = _lines_with({index: "other" for index in (0, 1, 5, 6, 7)})
+    measured = measure_policy(entries=lines, policy_rows=_all_rows(), hand=_HAND)
+    assert measured is not None
+    agreement = measured[0]
+    assert agreement.answer_rate == 0.5
+    assert agreement.precision_floor == 0.6
+    assert agreement.gate_passed
+
+
+def test_a_named_call_on_a_hand_other_row_counts_against_precision() -> None:
+    hand = {**_HAND, _REFERENCE[0][1].upper(): PolicyLabel("other", "hand", False)}
+    lines = _lines_with({0: "health"})
+    measured = measure_policy(entries=lines, policy_rows=_all_rows(), hand=hand)
+    assert measured is not None
+    agreement = measured[0]
+    assert (agreement.answered_agree, agreement.answered) == (9, 10)
+    assert agreement.answered_named == 9
+
+
+def test_the_stored_ratios_must_match_their_counts() -> None:
+    measured = measure_policy(entries=_policy_lines(), policy_rows=_all_rows(), hand=_HAND)
+    assert measured is not None
+    record = measured[0].model_dump()
+    with pytest.raises(ValueError, match="precision does not match"):
+        QpTopicPolicyAgreement.model_validate({**record, "precision": 0.5})
+    with pytest.raises(ValueError, match="no named-call figures"):
+        QpTopicPolicyAgreement.model_validate({**record, "gate_rule": "policy-gate-v1"})

@@ -311,6 +311,7 @@ def measure_policy(
     # names no policy, so it is an abstention, scored apart from the calls.
     answered = [0, 0]
     answered_named = 0
+    answered_by_area: Counter[str] = Counter()
     uncovered = 0
     for case_id in in_batch:
         expected = hand[_key(numbers[case_id])]
@@ -325,6 +326,7 @@ def measure_policy(
         if given != "other":
             answered[0] += hit
             answered[1] += 1
+            answered_by_area[expected.area] += 1
         if expected.area != "other":
             named[0] += hit
             named[1] += 1
@@ -337,8 +339,9 @@ def measure_policy(
     rate = matched / n if n else None
     floor = max(compared.values()) / n if n else None
     precision = answered[0] / answered[1] if answered[1] else None
-    named_counts = [count for area, count in compared.items() if area != "other"]
-    precision_floor = max(named_counts) / n if n and named_counts else None
+    # The precision a labeler naming one area on every row it answered would
+    # score on those same rows: the commonest hand area among them.
+    precision_floor = max(answered_by_area.values()) / answered[1] if answered[1] else None
     answer_rate = answered_named / named[1] if named[1] else None
     gate = (
         precision is not None
@@ -459,7 +462,8 @@ def render_policy(agreement: QpTopicPolicyAgreement, published: int) -> str:
         "dropped",
         f"  gate ({agreement.gate_rule}): named calls "
         f"{share(agreement.answered_agree, agreement.answered)} "
-        f"right against the {AGREEMENT_GATE:.0%} gate and a {pfloor} constant-labeler floor; "
+        f"right against the {AGREEMENT_GATE:.0%} gate and a {pfloor} one-area floor on those "
+        "rows; "
         f"an area named on {share(agreement.answered_named, agreement.named_n)} of the hand "
         f"rows with a named area against a {ANSWER_FLOOR:.0%} answer floor; "
         f"{'passed' if agreement.gate_passed else 'refused'}; {published} area(s) published",

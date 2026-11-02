@@ -9976,8 +9976,8 @@ class QpTopicPolicyAgreement(_Strict):
         default=None,
         ge=0,
         le=1,
-        description="The precision a labeler naming one area on every row would score: the "
-        "commonest named hand area's share of the compared rows",
+        description="The precision a labeler naming one area on every row it answered would "
+        "score on those rows: the commonest hand area's share of the answered rows",
     )
     answer_rate: float | None = Field(
         default=None,
@@ -10013,6 +10013,19 @@ class QpTopicPolicyAgreement(_Strict):
             raise ValueError("named-call counts do not hold")
         if self.answered_named > self.named_n or self.answered_named > self.answered:
             raise ValueError("answered named-area counts do not hold")
+        if self.gate_rule == "policy-gate-v1" and (
+            self.answered or self.precision is not None or self.answer_rate is not None
+        ):
+            raise ValueError("a policy-gate-v1 measurement carries no named-call figures")
+        for value, numerator, denominator, name in (
+            (self.precision, self.answered_agree, self.answered, "precision"),
+            (self.answer_rate, self.answered_named, self.named_n, "answer_rate"),
+        ):
+            expected = numerator / denominator if denominator else None
+            if (value is None) != (expected is None) or (
+                value is not None and expected is not None and abs(value - expected) > 1e-9
+            ):
+                raise ValueError(f"{name} does not match its counts")
         return self
 
 
