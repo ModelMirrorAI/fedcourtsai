@@ -148,6 +148,65 @@ def _find_claude_usage(doc: Any) -> dict[str, Any] | None:
     return None
 
 
+_CLAUDE_USAGE_FIELDS = (
+    "input_tokens",
+    "output_tokens",
+    "cache_read_input_tokens",
+    "cache_creation_input_tokens",
+)
+
+
+def parse_claude_transcripts_usage(projects_dir: Path) -> dict[str, TokenCounts] | None:
+    """Token counts by model from the Claude Code CLI's own session transcripts.
+
+    The headless ``claude -p`` the pipeline runner launches (a cascade cell, a
+    back-test cell) writes no ``execution_file``; the CLI keeps its session
+    transcripts as JSONL under ``~/.claude/projects/``, one ``assistant`` line
+    per content block of each API response, every line repeating that
+    response's ``usage``. So each response is counted once, by its message
+    ``id``, at the largest figure any of its lines reports, and subagent
+    transcripts under the same tree are counted beside the main thread's, as a
+    subagent bills beside its parent. Grouped by the model each response names
+    (Claude Code's ``<synthetic>`` placeholder, which no model served, is
+    left out). Returns ``None`` when the tree holds no usage at all.
+    """
+    if not projects_dir.is_dir():
+        return None
+    by_message: dict[str, tuple[str, dict[str, int]]] = {}
+    for transcript in sorted(projects_dir.rglob("*.jsonl")):
+        for record in _jsonl_records(transcript):
+            if record.get("type") != "assistant":
+                continue
+            message = record.get("message")
+            if not isinstance(message, dict):
+                continue
+            model = message.get("model")
+            usage = message.get("usage")
+            if not isinstance(model, str) or model == _CLAUDE_SYNTHETIC_MODEL:
+                continue
+            if not isinstance(usage, dict):
+                continue
+            key = str(message.get("id") or record.get("requestId") or "")
+            if not key:
+                continue
+            counts = {field: _as_int(usage.get(field)) for field in _CLAUDE_USAGE_FIELDS}
+            if key in by_message:
+                _, known = by_message[key]
+                counts = {field: max(counts[field], known[field]) for field in counts}
+            by_message[key] = (model, counts)
+    totals: dict[str, dict[str, int]] = {}
+    for model, counts in by_message.values():
+        bucket = totals.setdefault(model, dict.fromkeys(_CLAUDE_USAGE_FIELDS, 0))
+        for field, value in counts.items():
+            bucket[field] += value
+    result = {
+        model: TokenCounts(**bucket)
+        for model, bucket in sorted(totals.items())
+        if sum(bucket.values()) > 0
+    }
+    return result or None
+
+
 def parse_codex_usage(sessions_dir: Path) -> TokenCounts | None:
     """Token counts from the cell's Codex rollouts under ``sessions_dir``.
 
@@ -163,10 +222,38 @@ def parse_codex_usage(sessions_dir: Path) -> TokenCounts | None:
     cached tokens are split out into ``cache_read_input_tokens`` and subtracted
     from fresh input. Returns ``None`` when no rollout or usage event is found.
     """
+    return _sum_codex_rollouts(codex_cell_rollouts(sessions_dir))
+
+
+def parse_codex_usage_all(sessions_dir: Path) -> TokenCounts | None:
+    """Token counts from **every** Codex session under ``sessions_dir``, summed.
+
+    For a sessions tree that several cells shared — a back-test's or a
+    cascade's runner-chosen ``CODEX_HOME`` — where :func:`parse_codex_usage`
+    would read one cell. Top-level sessions are read before subagent sessions,
+    so a forked subagent's inherited leading totals are already seen when its
+    own rollout is read and only what it added is counted, exactly as for one
+    cell. Returns ``None`` when no rollout or usage event is found.
+    """
+    if not sessions_dir.is_dir():
+        return None
+    rollouts = sorted(sessions_dir.rglob("rollout-*.jsonl"))
+    metas = {rollout: _codex_session_meta(rollout) for rollout in rollouts}
+
+    def is_child(rollout: Path) -> bool:
+        meta = metas[rollout]
+        return meta is not None and (_codex_parent_id(meta) is not None or _codex_is_subagent(meta))
+
+    ordered = [r for r in rollouts if not is_child(r)] + [r for r in rollouts if is_child(r)]
+    return _sum_codex_rollouts(ordered)
+
+
+def _sum_codex_rollouts(rollouts: list[Path]) -> TokenCounts | None:
+    """Sum the rollouts' own cumulative usage, leaving out inherited leading totals."""
     seen: set[str] = set()
     found = False
     total_input = cached = output = 0
-    for rollout in codex_cell_rollouts(sessions_dir):
+    for rollout in rollouts:
         history = _codex_token_usages(rollout)
         if not history:
             continue
@@ -562,6 +649,23 @@ def _load_json_objects(path: Path) -> list[Any]:
             break
         objects.append(obj)
     return objects
+
+
+def _jsonl_records(path: Path) -> list[dict[str, Any]]:
+    """The JSON objects of a JSONL file, one per line; an unreadable line is skipped."""
+    try:
+        lines = path.read_text().splitlines()
+    except OSError:
+        return []
+    records: list[dict[str, Any]] = []
+    for raw in lines:
+        try:
+            record = json.loads(raw)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(record, dict):
+            records.append(record)
+    return records
 
 
 def _load_json(path: Path) -> Any:

@@ -113,6 +113,9 @@ source.
 | `opening_writ` | text | the writ a cert-form docket's opening "Petition for a writ of … filed" entry names, read past an extension application (`pipeline.cert_signals.opening_writ`): `certiorari` (certiorari before judgment included), `rule-20` (mandamus, prohibition or habeas corpus, and no certiorari), `ambiguous` (both) or `other` (neither); classified by the entry text, never by an "In re" caption, which a sealed certiorari petition carries too; the `sal-v5` scope input (`corpus.is_rule_20_writ`); written by the live poll's cert branch at ingest, fill-in latched; withheld from the `query` retrieval rows; null = no opening petition entry disclosed, or not parsed — on a row the poll has not read since the column existed, until `run-repair`'s `salience-cert-backfill` pass (`fedcourts backfill-salience-cert-columns`) reads its stored snapshot |
 | `merits_brief_on_lead` | date | a consolidated member's own respondent brief on the merits as filed on the group's lead docket — the first lead entry after both the member's grant and the lead's that the member attribution reads as filed for it (`pipeline.documents.member_respondent_brief_date`); consolidation moves the member's later filings to the lead, so its own `merits_brief_filed` stays null; written by the live poll from the lead's newest stored live snapshot (no request), fill-in latched; read by no mint (the briefed moment still opens on `merits_brief_filed` alone); withheld from the `query` retrieval rows; null = not a consolidated member, not yet filed, the lead not stored, or a member that left the poll rotation before the column existed |
 | `argument_transcript_at` | date | the argument day of the first oral argument transcript stored for the docket — the date the Court's per-Term transcript list gives beside the transcript link (`supremecourt.parse_transcript_listing`); opens the merits post-argument moment; written by the live poll's transcript pass (`pipeline.live.fetch_argument_transcripts`) when the transcript it stores carries text, fill-in latched, so a reargument never moves it; withheld from the `query` retrieval rows; null = not argued, no transcript listed yet, or not read |
+| `argument_set_for` | date | the day the docket's newest "SET FOR ARGUMENT on …" entry names (`pipeline.schedule_signals.argument_set_date`), passed or not; a rescheduled argument reads its new day; display data for the published schedule (`data/schedule/schedule.json`); written by the live poll's cert branch at ingest, fill-in latched; withheld from the `query` retrieval rows; null = never set for argument, or not parsed |
+| `response_due` | date | the newest response deadline the proceedings state (`pipeline.schedule_signals.response_deadline`): the docketing entry's "(Response due …)", a call for response's "(Due …)", a granted extension's "extended to and including …", or a Justice's request for a response to an application; display data for the published schedule; written by the live poll at ingest on either form, latched as a pair with `response_due_state`; withheld from the `query` retrieval rows; null = no deadline stated, or not parsed |
+| `response_due_state` | text | whether that response is still owed: `due`, `filed` (a respondent's response or brief in opposition followed the newest deadline) or `waived` (a waiver of the right to respond did); the key of the `response_due` pair latch; withheld from the `query` retrieval rows; null = not parsed |
 | `sg_brief_filed`      | date            | when the Solicitor General filed the brief the CVSG invited — the first United States amicus brief after the invitation and before any disposition (`pipeline.cert_signals.sg_brief_date`); opens the cert sg-brief moment; written by the live poll at ingest, fill-in latched; withheld from the `query` retrieval rows; null = not yet filed, or not parsed |
 | `originating_court_name` | text         | raw `LowerCourt` name — keeps state courts identifiable where `originating_court` is null |
 | `sample_weight`       | integer         | inverse inclusion probability (1 where the corpus can show the row stands only for itself; 10 on a denial the earlier sampled walk kept whose block is still stored one row in ten); null = no channel weighted the row |
@@ -217,8 +220,8 @@ cut at the petition's first disposition entry — and `application_kind` gets th
 `unknown`, which only ever fills a genuine gap. The dated signals beside these
 families (`response_requested_at`, `response_filed_at`, `merits_brief_filed`,
 `sg_brief_filed`, `call_for_response_at`, `relisted_at`, `merits_brief_on_lead`,
-`argument_transcript_at`), the opening petition's `opening_writ`, the
-`distributed_after_call` count,
+`argument_transcript_at`, `argument_set_for`), the opening petition's
+`opening_writ`, the `distributed_after_call` count,
 and the merits decision record (`merits_argued`, `merits_decision_method`),
 fill-in latch for `cvsg_date`'s reason instead: a missing parse leaves each null
 rather than a confident sentinel, so no other writer may blank a reading the live
@@ -232,7 +235,12 @@ walk keeps every decided petition, but what it writes is a reading of the corpus
 rather than its own certainty: `ingest_live_payload` re-derives an asserted
 weight of 1 through `legacy_denial_sample_weight`, so a legacy row regresses only
 once a re-walk has enumerated the block it stands for — re-serving the kept
-serial alone leaves the nine petitions behind it represented by nobody. The merits pair (`merits_judgment`, `merits_decided`) moves as
+serial alone leaves the nine petitions behind it represented by nobody. The
+response deadline (`response_due`, `response_due_state`) is a pair on the same
+terms, keyed on the incoming state: a writer with no reading keeps both, and a
+fresh reading takes both, because the reading that matters most is the one that
+ends a deadline — a filed response must replace a stored `due`, which a fill-in
+latch would never let it do. The merits pair (`merits_judgment`, `merits_decided`) moves as
 a **pair**, written by two writers through one parser: the live poll latches it
 at ingest on a granted cert docket, and `backfill-merits-judgments` reconciles
 offline over stored snapshots. The upsert keys both columns on the incoming

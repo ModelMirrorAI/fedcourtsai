@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000420",
+  "run_id": "20261031T173439Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "mcp_courtlistener_search",
+    "metrics/statpack.md"
+  ],
+  "helpful": [
+    "fedcourts query --docket-number",
+    "metrics/statpack.md",
+    "record/context.json cert_anchor"
+  ],
+  "gaps": [
+    "No --originating-docket-number filter on fedcourts query to check for companion petitions from the same lower-court appeal"
+  ],
+  "notes": "fedcourts query --docket-number quickly confirmed that Sunoco v. Cline (No. 26-1), highlighted by petitioner as a pending companion vehicle on the Rule 23 standing split, was denied certiorari on October 5, 2026."
+}

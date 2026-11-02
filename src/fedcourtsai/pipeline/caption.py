@@ -47,8 +47,12 @@ petition whose petitioner-side counsel is the Solicitor General's office
 (``sg-office-v1``, :func:`.counsel.sg_office_annotations`) reads ``federal``,
 and that check runs ahead of every caption pattern — the sub-national officer
 fallback included — so a warden's caption the Solicitor General files for is
-federal rather than state. Every
-rule is therefore registered as a predicate on a **row**
+federal rather than state. ``caption-v4`` narrows that check to the entry a
+petition's own filing writes — the office as counsel of record *for the party
+the caption names* — which drops the supporting amicus and the consolidation
+the v3 reading admits, since both enter the petitioner block under a party
+other than the captioned petitioner. Every rule is therefore registered as a
+predicate on a **row**
 (:data:`CAPTION_RULES`); v1 and v2 read only the row's caption
 (:func:`petitioner_caption`) through their string predicates, which are
 unchanged.
@@ -62,11 +66,16 @@ this file did not produce (``docs/salience.md``).
 
 from __future__ import annotations
 
+import html
 import re
+import unicodedata
 from collections import defaultdict
 from collections.abc import Callable, Mapping
+from datetime import date, datetime
 from types import MappingProxyType
-from typing import Final, Literal
+from typing import Any, Final, Literal
+
+from pydantic import Field, model_validator
 
 from .. import corpus
 from ..schemas import (
@@ -91,6 +100,10 @@ CAPTION_RULE_VERSION_V2 = "caption-v2"
 #: petitioner-side counsel read as a federal petitioner ahead of the
 #: sub-national officer fallback.
 CAPTION_RULE_VERSION_V3 = "caption-v3"
+
+#: caption-v3 narrowed to the entry the petition itself writes: the office as
+#: counsel of record for the party the caption names.
+CAPTION_RULE_VERSION_V4 = "caption-v4"
 
 #: Class labels in reporting order (strongest measured grant rate first).
 PETITIONER_CLASSES: Final[tuple[PetitionerClass, ...]] = ("federal", "state", "private")
@@ -451,8 +464,9 @@ def petitioner_class_v2(row: corpus.CorpusRow) -> PetitionerClass:
 #   same amicus can join it later, so the class is not fixed at filing.
 #
 # The rule stays registered so the census and the pools published under it
-# replay; the salience version a flip would activate reads v2
-# (docs/salience.md, the sal-v5 and sal-v6 sections).
+# replay; caption-v4 below is the reading that keeps the office as counsel
+# while dropping both post-outcome shapes (docs/salience.md, the sal-v5,
+# sal-v6 and sal-v7 sections).
 #
 # The check runs first, ahead of every caption pattern and so ahead of v1's
 # Warden/Sheriff/Superintendent fallback: that tail is an inference about who
@@ -486,6 +500,202 @@ def petitioner_class_v3(row: corpus.CorpusRow) -> PetitionerClass:
     return petitioner_class_v2(row)
 
 
+# --- caption-v4: the office as counsel of record for the captioned petitioner --
+#
+# v3's reading, narrowed to the one entry a petition's own filing writes: the
+# Solicitor General's office as counsel of record for the party the caption
+# names. Both post-outcome shapes v3 admits enter the petitioner block under a
+# party other than the captioned petitioner — a supporting amicus as "United
+# States", a petition consolidated at the grant under the government's own
+# name — so requiring the entry's party to BE the captioned petitioner drops
+# them, where v3 read any office entry on the petitioner side. The block an
+# entry for the captioned petitioner sits in is written when the petition is
+# docketed, from the petition's own cover, so on a pending row the class is
+# what the docket showed at filing, and the attorney on it counts as the office
+# only where the roster places them there on the filing date itself. The
+# residual is the office substituting for a captioned petitioner after a grant
+# (a federal officer represented privately at the cert stage) by an attorney
+# already in office at the filing, which no stored record of a historical row
+# can date; docs/salience.md states it with the census.
+#
+# The party match is lead against lead: each name up to its first comma or
+# semicolon, role suffix and "et al." dropped, case- and space-folded, the
+# shorter lead's words the longer's trailing words ("Baltazar" for "Juan
+# Baltazar"). The counsel block abbreviates the caption's officer title and
+# drops given names, never the surname or the agency's own name, so the lead
+# carries the identity both renderings keep.
+_LEAD_SPLIT_RE: Final = re.compile(r"[,;]")
+_ET_AL_TAIL_RE: Final = re.compile(r"\s+et\s+al\.?\s*$", re.IGNORECASE)
+_SOVEREIGN_LEADS: Final[frozenset[tuple[str, ...]]] = frozenset(
+    {("united", "states"), ("united", "states", "of", "america"), ("u.s",), ("usa",)}
+)
+
+
+def _party_lead(text: str) -> tuple[str, ...]:
+    """A party name's lead as folded words: up to the first comma or semicolon."""
+    folded = unicodedata.normalize("NFKC", html.unescape(text))
+    folded = _ROLE_SUFFIX_RE.sub("", folded.strip()).strip()
+    lead = _ET_AL_TAIL_RE.sub("", _LEAD_SPLIT_RE.split(folded, maxsplit=1)[0])
+    return tuple(word.strip(".") for word in lead.casefold().split() if word.strip("."))
+
+
+def names_captioned_petitioner(party: str, caption_text: str) -> bool:
+    """Whether a counsel entry's ``party`` names the petitioner the caption names.
+
+    Lead against lead (the comment above): equal, or the shorter lead's words
+    are the longer's trailing words. An empty lead on either side never
+    matches, so a row with no caption reads no counsel entry as its petitioner.
+    A bare sovereign party ("United States") matches only a caption that is
+    the sovereign itself, never one whose name merely ends in it ("Chamber of
+    Commerce of the United States"): that party string is the supporting
+    amicus's and the consolidated government petition's, the two shapes the
+    match exists to keep out.
+    """
+    a, b = _party_lead(party), _party_lead(caption_text)
+    if not a or not b:
+        return False
+    if a in _SOVEREIGN_LEADS:
+        return a == b
+    short, long_ = (a, b) if len(a) <= len(b) else (b, a)
+    return long_[len(long_) - len(short) :] == short
+
+
+class CutRow(corpus.CorpusRow):
+    """A row projected to a cell's cut, carrying caption-v4's one counsel fact and no counsel.
+
+    The base row a frozen cell band and the gate replay's projection read
+    (:func:`.asof.project_row`) holds no counsel entry: a replay or back-test
+    snapshot has its counsel blocks redacted, and an entry list is far more than
+    the band needs. The single fact caption-v4 turns on rides here instead,
+    read off the served payload before any redaction by
+    :func:`sg_counsel_of_record_at_cut`, so forward and replay cells band on one
+    rule. Every other counsel field must stay empty, and the validator refuses a
+    row that carries one, so nothing else about counsel reaches a band through
+    this type. Never written to the corpus: a projection, not a stored row.
+    """
+
+    sg_counsel_of_record_for_petitioner: bool = Field(
+        default=False,
+        description="Whether the payload served at or before the cut lists the "
+        "Solicitor General's office as counsel of record for the captioned "
+        "petitioner (`sg_counsel_of_record_at_cut`). The only counsel fact a "
+        "projected row carries.",
+    )
+
+    @model_validator(mode="after")
+    def _carries_no_other_counsel(self) -> CutRow:
+        if self.counsel or self.parties or self.attorneys:
+            raise ValueError("a cut row carries one counsel fact and no counsel entry")
+        return self
+
+
+def sg_counsel_of_record_for_petitioner(row: corpus.CorpusRow) -> bool:
+    """Whether the office is counsel of record for the row's captioned petitioner.
+
+    On a stored row: an entry on the petitioner side, marked counsel of record,
+    whose attorney ``sg-office-v1``'s roster places in the office on the row's
+    filing date (:func:`.counsel.office_entries_at_filing`), and whose party is
+    the petitioner the caption names (:func:`names_captioned_petitioner`). On a
+    :class:`CutRow`: the fact it carries, which the same three tests produced
+    over the payload served at the cut (:func:`sg_counsel_of_record_at_cut`).
+    The two differ only in the list they read: a stored row's is the list as of
+    its last write, a cut row's the list the docket served by the cut.
+    """
+    if isinstance(row, CutRow):
+        return row.sg_counsel_of_record_for_petitioner
+    from .counsel import office_entries_at_filing  # noqa: PLC0415 - counsel<-party<-caption cycle
+
+    title = petitioner_caption(row)
+    return any(
+        entry.role == corpus.CounselRole.petitioner
+        and entry.counsel_of_record
+        and names_captioned_petitioner(entry.party, title)
+        for entry in office_entries_at_filing(row.counsel, filed=row.date_filed)
+    )
+
+
+#: The provenances whose payload the docket served at or before the cut: the
+#: forward cell's stored snapshot and a stored snapshot from before the cutoff.
+#: A ``truncated`` payload is a later pull cut down by date, and its counsel
+#: blocks are undated, so they are the later pull's; a ``blind`` one is the
+#: same later pull with its proceedings removed. Neither is the record at the
+#: cut, so neither is read.
+_SERVED_BY_THE_CUT: Final[frozenset[str]] = frozenset({"as-stored", "dated"})
+
+#: How the Court's docket JSON writes ``DocketedDate`` ("September 16, 2025").
+_DOCKETED_FORMATS: Final[tuple[str, ...]] = ("%B %d, %Y", "%b %d, %Y", "%m/%d/%Y")
+
+
+def _docketed(value: object) -> date | None:
+    """A live payload's ``DocketedDate``, or ``None`` when it is not one."""
+    text = str(value or "").strip()
+    for fmt in _DOCKETED_FORMATS:
+        try:
+            return datetime.strptime(text, fmt).date()
+        except ValueError:
+            continue
+    return None
+
+
+def sg_counsel_of_record_at_cut(
+    payload: Mapping[str, Any], *, caption_text: str, cut: date, provenance: str
+) -> bool:
+    """caption-v4's one counsel fact, read off a payload before any redaction.
+
+    True where the payload is one the docket served at or before the cut
+    (:data:`_SERVED_BY_THE_CUT`), and its ``Petitioner`` block lists, for the
+    party ``caption_text`` names (:func:`names_captioned_petitioner`), an
+    attorney marked counsel of record whom ``sg-office-v1``'s roster places in
+    the office on the payload's ``DocketedDate``, itself on or before ``cut``
+    (:func:`.counsel.office_entries_at_filing`). Only the ``Petitioner`` block is
+    read; the ``Respondent`` and ``Other`` blocks never are. False otherwise,
+    including a payload with no ``DocketedDate`` to date the docket's life from
+    and the REST shape, which carries no per-side blocks.
+
+    Knowable at the cut by construction: the payload is the record as the
+    docket served it by then, and the roster test admits no one who was not in
+    office the day the docket opened. Pure and total.
+    """
+    if provenance not in _SERVED_BY_THE_CUT:
+        return False
+    from .counsel import office_entries_at_filing  # noqa: PLC0415 - counsel<-party<-caption cycle
+
+    filed = _docketed(payload.get("DocketedDate"))
+    if filed is None or filed > cut:
+        return False
+
+    blocks = payload.get("Petitioner")
+    entries = [
+        corpus.CounselEntry(
+            party=str(block.get("PartyName") or "").strip(),
+            attorney=str(block.get("Attorney") or "").strip() or None,
+            role=corpus.CounselRole.petitioner,
+            counsel_of_record=block.get("IsCounselofRecord") is True,
+        )
+        for block in (blocks if isinstance(blocks, list) else [])
+        if isinstance(block, Mapping)
+    ]
+    return any(
+        entry.counsel_of_record and names_captioned_petitioner(entry.party, caption_text)
+        for entry in office_entries_at_filing(entries, filed=filed)
+    )
+
+
+def petitioner_class_v4(row: corpus.CorpusRow) -> PetitionerClass:
+    """The row's ``caption-v4`` petitioner class: the office for the captioned party, then v2.
+
+    A petition whose captioned petitioner has the Solicitor General's office as
+    counsel of record (:func:`sg_counsel_of_record_for_petitioner`) reads
+    ``federal`` before any caption pattern runs, the sub-national officer
+    fallback and the qualified state markers included. Every other row reads
+    its ``caption-v2`` class, so v4 can only move a v2 ``private`` or ``state``
+    read to ``federal``, and every row it moves v3 moves too.
+    """
+    if sg_counsel_of_record_for_petitioner(row):
+        return "federal"
+    return petitioner_class_v2(row)
+
+
 #: Every registered caption rule, keyed by version label, as a predicate on a
 #: corpus row. A rule is only ever added here — never edited and never removed —
 #: because a frozen selection constant names the census it came from, and that
@@ -498,6 +708,7 @@ CAPTION_RULES: Final[Mapping[str, Callable[[corpus.CorpusRow], PetitionerClass]]
             CAPTION_RULE_VERSION: petitioner_class,
             CAPTION_RULE_VERSION_V2: petitioner_class_v2,
             CAPTION_RULE_VERSION_V3: petitioner_class_v3,
+            CAPTION_RULE_VERSION_V4: petitioner_class_v4,
         }
     )
 )

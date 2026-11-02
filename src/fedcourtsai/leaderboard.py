@@ -113,6 +113,7 @@ from .integrity import (
 from .pipeline.base_rates import prediction_base_rate, realized_band_rate, statpack_digest
 from .pipeline.evaluate import bench_vote_accuracy, brier_score, is_correct
 from .pipeline.moments import first_moment, scores_votes
+from .prediction_slices import SCOTUS_POPULATION
 from .process_version import (
     HARNESS_BOUNDARIES,
     BoundaryHistoryError,
@@ -187,6 +188,7 @@ from .store import (
     EvaluationKey,
     SetAsideCell,
     evaluation_key,
+    in_population,
     prediction_counts,
     scored_prediction,
     scored_prediction_cell,
@@ -528,6 +530,24 @@ def _aggregate(
         **_floor_fields(evals, skills, facts),
         **_in_sample_fields(evals, facts),
     )
+
+
+def aggregate_stratum(
+    evals: Sequence[Evaluation],
+    skills: Mapping[EvaluationKey, CellSkill],
+    facts: Mapping[EvaluationKey, CellFacts] | None = None,
+    *,
+    vote_scores: Mapping[EvaluationKey, float] | None = None,
+) -> LeaderboardStratum | None:
+    """One stratum's record by the board's own rule, for a reader that cuts the cells.
+
+    The aggregate every board entry carries (:func:`_aggregate`), exposed so a
+    descriptive cut — the per-topic forecast cut in
+    :mod:`fedcourtsai.topic_cut` — reports a predictor's record under exactly
+    the columns, denominators and null rules the board publishes, and never a
+    re-derivation of them.
+    """
+    return _aggregate(evals, skills, facts, vote_scores=vote_scores)
 
 
 def _in_sample_fields(
@@ -1055,6 +1075,9 @@ def _scoped_evaluations(
     """
     scoped: list[Evaluation] = []
     for path in sorted(cases_dir.glob("*/*/events/*/evaluations/*/*/*/evaluation.json")):
+        # The SCOTUS population only (`store.in_population`), as `store.stratify` reads.
+        if not in_population(path.parents[4], SCOTUS_POPULATION):
+            continue
         evaluation = read_model(path, Evaluation)
         if voided_reason(evaluation) is None and in_scope(evaluation):
             scoped.append(evaluation)

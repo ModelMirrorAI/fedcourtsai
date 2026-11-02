@@ -1,0 +1,22 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/9026000370",
+  "gaps": [],
+  "helpful": [
+    "Provisioned petition.txt and appendix.txt with full Second Circuit and SDNY opinions",
+    "Pre-computed cert_anchor in context.json and committed statpack.md tables",
+    "CourtListener MCP docket lookup to verify status of related Second Circuit enforcement appeal No. 26-2516"
+  ],
+  "notes": "All provisioned files were clean and complete.",
+  "role": "predictor",
+  "run_id": "20261031T141655Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_call_endpoint"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

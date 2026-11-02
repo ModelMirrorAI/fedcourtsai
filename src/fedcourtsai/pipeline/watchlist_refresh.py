@@ -55,10 +55,22 @@ from ..courtlistener import (
     RateBudgetExceeded,
     is_transient,
 )
+from .entry_reads import ENTRIES_PER_PAGE, full_read_due, merge_entries
 from .ingest import from_api_docket, upsert_to_corpus
 
-#: Entries upstream serves on one page of ``docket-entries/``.
-ENTRIES_PER_PAGE = 20
+__all__ = [
+    "ENTRIES_PER_PAGE",
+    "PlannedRefresh",
+    "ReadMode",
+    "Refreshed",
+    "WatchlistRefreshReport",
+    "full_read_due",
+    "merge_entries",
+    "plan_refresh",
+    "refresh_docket",
+    "refresh_watchlist",
+    "refreshed_on",
+]
 
 
 class ReadMode(StrEnum):
@@ -85,15 +97,6 @@ class PlannedRefresh:
     @property
     def case_id(self) -> str:
         return ids.case_id(self.court, self.docket_id)
-
-
-def full_read_due(docket_id: int, today: date, every_days: int) -> bool:
-    """Whether ``today`` is the docket's day for a whole re-read.
-
-    The docket id picks the day, so the period's full reads spread across its
-    days rather than all falling on one.
-    """
-    return (docket_id + today.toordinal()) % every_days == 0
 
 
 def refreshed_on(plan: Iterable[PlannedRefresh], day: date) -> bool:
@@ -148,15 +151,6 @@ def plan_refresh(
         )
     )
     return planned
-
-
-def merge_entries(
-    stored: Iterable[Mapping[str, Any]], changed: Iterable[Mapping[str, Any]]
-) -> list[dict[str, Any]]:
-    """The stored entries with the changed ones laid over them by id, newest id first."""
-    by_id: dict[int, dict[str, Any]] = {int(e["id"]): dict(e) for e in stored}
-    by_id.update({int(e["id"]): dict(e) for e in changed})
-    return [by_id[key] for key in sorted(by_id, reverse=True)]
 
 
 @dataclass(frozen=True)

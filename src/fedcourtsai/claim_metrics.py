@@ -241,11 +241,14 @@ def agreement_summary(agreement: ClaimJudgeAgreement | None) -> str:
     """
     if agreement is None:
         return "no cells"
+    # `pairs` counts cells, and every evaluator of one prediction contributes a
+    # tied-x replicate, so the distinct events travel beside it.
+    n = f"n={agreement.pairs} cell(s) over {agreement.pair_events} event(s)"
     if agreement.suppressed:
-        return f"suppressed (n={agreement.pairs} < {AGREEMENT_MIN_PAIRS})"
+        return f"suppressed ({n}; minimum {AGREEMENT_MIN_PAIRS} cells)"
     if agreement.rank_agreement is None:
-        return f"undefined over n={agreement.pairs}"
-    return f"tau-b {agreement.rank_agreement:+.2f} (n={agreement.pairs})"
+        return f"undefined ({n})"
+    return f"tau-b {agreement.rank_agreement:+.2f} ({n})"
 
 
 def build_claim_scores(

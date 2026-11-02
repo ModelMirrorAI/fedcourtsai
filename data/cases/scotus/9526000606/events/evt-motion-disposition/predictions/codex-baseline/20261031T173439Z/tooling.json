@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000606",
+  "run_id": "20261031T173439Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts paths", "fedcourts query", "CourtListener MCP search", "CourtListener MCP search_document", "web.run", "fedcourts validate"],
+  "helpful": ["Frozen arrival-position context", "Per-Term interim base-rate counts", "CourtListener precedent snippets"],
+  "gaps": ["No provisioned application text or lower-court reasoning", "Corpus filters did not supply close removal-application comparators", "Web calls supplied no usable content"],
+  "notes": "The default uv cache was read-only; UV_CACHE_DIR=/tmp/uv-cache allowed existing tooling to run without installation. An invalid era token was corrected to 2020s. The empty citation query carried an appropriate sparse-coverage warning. Prediction rests on the frozen docket skeleton and interim base rate, not target-case live retrieval."
+}

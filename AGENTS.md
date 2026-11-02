@@ -13,7 +13,8 @@ development** (change the Python package, workflows, docs, schemas, or prompts
 — in an interactive session on the branch-and-PR flow below, like any
 contributor; do **not** touch `data/`) or **data production** (a `run-pull`,
 `run-predict`, `run-evaluate` or `run-backtest` round, and the dispatched
-`qp-topic-label`, `qp-topic-label-applications` and `alignment-side-code` labeling runs — produce or update the corpus
+`qp-topic-label`, `qp-topic-label-applications`, `qp-topic-replicate`,
+`qp-topic-replicate-applications` and `alignment-side-code` labeling runs — produce or update the corpus
 and/or the derived artifacts under `data/`; do **not** change pipeline code to
 make your task easier, and never weaken validation, CI, lint, type, or
 security checks). A cell never reads this file: its job takes `AGENTS.md`,
@@ -599,6 +600,7 @@ task-specific instructions: the prompt file named in your run
 | How many votes decide this, and what can I ever observe? (merits scoring registered and wired; vote accuracy scored, merits-gated and completeness-gated, and recomputed over the whole bench for the leaderboard's `mean_vote_accuracy` — the orders vote source (cert and interim, banked unscored) is stamped on committed outcomes, while the opinions source (merits) is registered with a dispatch-only writer and not yet populated; margins pre-registered only) | `docs/decision-model.md` |
 | What must a merits vote forecast beat before its accuracy means anything? (majority alignment and unanimity built, with a read-only readout over the corpus's merits lineups; the side coder's prompt, extract, append-only codes artifact and run mode built, and the score baselines' read-only readout, with positions estimated from the lineups; the first fits and scoring beside the models owed) | `docs/merits-alignment-baseline.md` |
 | Who can reach what, and why is a token scoped that way? | `SECURITY.md` (invariants), `docs/security.md` (setup) |
+| What is a district-court forecast, and how does it resolve? (the court-agnostic trial stage designed, not registered; its resolver built as library code and wired into nothing) | `docs/trial-stage.md` |
 | What does one prediction actually consist of, file by file? | `docs/predicted-artifacts.md` |
 | What does a cell agent have to produce? | `.github/prompts/` |
 | What are the plain-language case summaries, which cases get one, and who writes them? | `docs/case-summaries.md` |

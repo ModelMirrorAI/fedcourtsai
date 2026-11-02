@@ -1,0 +1,11 @@
+# Forecast — Jack Rabbit, LLC v. Visa Inc., No. 26-420
+
+**Disposition: denied at the November 13, 2026 conference, without a called-for response.**
+
+- **Distributions so far:** one (DISTRIBUTED Oct 28, 2026 for the 11/13/2026 conference). Never relisted. Both respondents (Visa, Mastercard) waived their right to respond.
+- **Relist / further distribution:** unlikely (~8%). The main way to get another distribution is if a Justice asks for a response after the waivers. That happens for a minority of paid petitions, and nothing here (a solo objector's counsel, an unpublished summary order, a fact-bound question about what the settling parties intended) suggests a Justice will want one. I expect zero further distributions before a denial on November 16.
+- **CVSG:** no. This is a private class-settlement allocation dispute with no federal-government interest, and no response is on file. CVSG ≈ 0.3%.
+- **Question the Court would take, if any:** QP 1 narrowed to whether a court may distribute a Rule 23(b)(3) settlement fund to class members without finding that they have a statutory claim (here, whether payment-facilitator sub-merchants are direct purchasers under *Illinois Brick*). QP 2, about the court of appeals declining to decide that question, would go away.
+- **Summary disposition:** very unlikely in absolute terms. If the Court grants anything, a hold-and-GVR tied to a pending uninjured-class-member vehicle (e.g., *City of Cleveland v. Pickett*, No. 25-677, which has been distributed four times and is still pending) is a real share of that small mass (~25% conditional on any grant). Sunoco v. Cline (No. 26-1), the petition this one offered itself as a "natural companion" to, was denied on Oct 5, 2026.
+- **Dissent from denial:** not expected (~1.5%). No Justice has a track record of writing on settlement-allocation orders, and the vehicle is weak.
+- **If granted (conditional):** the Court would probably frame the question as whether Article III/Rule 23 constrains a post-judgment interpretation of a class definition that adds claimants to a fixed fund. The petition's own posture (an objector, a summary order resting on contract intent reviewed for clear error) makes that unlikely.

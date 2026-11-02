@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000602",
+  "run_id": "20261031T173439Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "capture-gap",
+      "severity": "warning",
+      "event_id": "evt-motion-disposition",
+      "message": "The application manifest reports a 12-page filing with empty_text=true and ocr_derived=false; application.txt contains only blank lines. The filing is present, not absent, but the legal grounds, precise relief, threatened injury, and underlying orders cannot be assessed. Forecast completed from the arrival snapshot and strictly prior interim counts; stakes score left null with rationale."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-motion-disposition",
+      "message": "Snapshot 2026-10-21.json retains DocketedDate October 28, 2026 although its only proceeding is submission on October 20 and context freezes an October 21 arrival-position boundary. Event opened_at is October 20. This appears to be later docket metadata retained with truncated proceedings. I used the declared event and frozen procedural state, not the later docketing date as escalation evidence; no outcome material surfaced."
+    }
+  ]
+}

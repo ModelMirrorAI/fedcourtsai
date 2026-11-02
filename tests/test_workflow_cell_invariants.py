@@ -371,6 +371,35 @@ def _gemini_allowlist(name: str) -> set[str]:
     return set(allowed)
 
 
+#: The largest prompt template a gemini cell reads in one tool call. gemini-cli
+#: cuts every tool result older than the latest down to
+#: ``tools.truncateToolOutputThreshold`` characters (first fifth, last four
+#: fifths), so a threshold below the template's size drops its middle from the
+#: agent's context once the next call lands.
+GEMINI_CELL_PROMPTS = (
+    Path(".github/prompts/predict.md"),
+    Path(".github/prompts/evaluate.md"),
+)
+
+
+def test_every_gemini_settings_writer_keeps_the_whole_prompt_in_context() -> None:
+    """Each workflow that writes gemini's settings sets a tool-output threshold
+    at least twice the largest cell prompt, so a template read whole stays
+    whole in the agent's context and has room to grow."""
+    floor = 2 * max(len(path.read_text(encoding="utf-8")) for path in GEMINI_CELL_PROMPTS)
+    for name, _ in GEMINI_ALLOWLIST_WORKFLOWS:
+        text = (WORKFLOWS / name).read_text(encoding="utf-8")
+        settings = [
+            json.loads(match)
+            for match in re.findall(r"printf '%s\\n' '(\{.*?\})'", text)
+            if "environmentVariableRedaction" in match
+        ]
+        assert len(settings) == 1, f"expected exactly one gemini settings writer in {name}"
+        threshold = settings[0].get("tools", {}).get("truncateToolOutputThreshold")
+        assert isinstance(threshold, int), f"{name}: no tools.truncateToolOutputThreshold"
+        assert threshold >= floor, f"{name}: threshold {threshold} is under {floor}"
+
+
 def test_every_gemini_allowlist_covers_its_own_cell_env_contract() -> None:
     """Gemini's sanitizer strips every custom var, so the allowlist *is* the cell
     env contract for that engine — and a variable missing from it is silent.
@@ -1680,12 +1709,17 @@ def test_the_qp_labeling_run_publishes_on_its_count_not_on_the_agents_verdict() 
     # its frame, so its success carries the codes file exactly as the measure
     # step's carries the labels.
     assert _norm(stage["if"]) == (
-        "${{ !cancelled() && (steps.measure.outcome == 'success' "
+        "${{ !cancelled() && ((steps.measure.outcome == 'success' "
+        "&& needs.qp-topic-resolve.outputs.replicate != 'true') "
         "|| steps.side_codes.outcome == 'success' || steps.spend.outcome == 'success') }}"
     )
     assert 'if [ "$MEASURED" = success ]; then' in stage["run"]
+    # A replicate's measure step succeeds without writing labels, so its
+    # success is not a published measurement.
     published = (
-        "${{ (steps.measure.outcome == 'success' || steps.side_codes.outcome == 'success') "
+        "${{ ((steps.measure.outcome == 'success' "
+        "&& needs.qp-topic-resolve.outputs.replicate != 'true') "
+        "|| steps.side_codes.outcome == 'success') "
         "&& 'success' || 'unpublished' }}"
     )
     assert _norm(stage["env"]["MEASURED"]) == published
@@ -1977,6 +2011,7 @@ SOURCING_OPS_STEPS = (
     "Collect recent workflow runs",
     "Collect issues wearing a stale fan-out label",
     "Escalate a failing data-validation verdict",
+    "Sweep the off-ledger spend records",
 )
 # `(workflow, job, step name)` for the record-keeping writes that source the
 # script: each runs after its own job's checkout, in a workspace no agent has
@@ -3475,7 +3510,7 @@ ACTIONS_SMOKE_IF = "${{ matrix.scenario == 'engine-actions-smoke' }}"
 ACTIONS_SMOKE_ENGINES = ("claude-code", "codex", "gemini")
 
 
-_GEMINI_SETTINGS = re.compile(r"(\{\"context\":\{\"fileFiltering\".*?\}\}\})")
+_GEMINI_SETTINGS = re.compile(r"(\{\"tools\":\{[^}]*\},\"context\":\{\"fileFiltering\".*?\]\}\}\})")
 
 
 def _gemini_settings_literal(name: str) -> str:
@@ -5264,6 +5299,58 @@ def test_the_application_labeling_mode_reads_its_frame_off_the_mode_alone() -> N
     assert "needs.qp-topic-resolve.outputs.frame == 'applications'" in branch
 
 
+def test_a_replicate_mode_labels_the_reference_alone_and_publishes_no_labels() -> None:
+    """The two replicate modes reuse the labeling lane with one switch, `replicate`.
+
+    The resolve job maps each to its frame with ``replicate=true``; the extract
+    then cuts the reference rows alone, the measure step records the run instead
+    of writing a labels file, and neither the spend record nor the hand-off
+    counts the replicate's successful measurement as a published one — so the
+    publish job lands the spend record alone.
+    """
+    wf = _load("run-analytics.yml")
+    triggers = wf.get("on") or wf.get(True) or {}
+    modes = triggers["workflow_dispatch"]["inputs"]["mode"]["options"]
+    assert {"qp-topic-replicate", "qp-topic-replicate-applications"} <= set(modes)
+    resolve = wf["jobs"]["qp-topic-resolve"]
+    assert (
+        "inputs.mode == 'qp-topic-replicate' || inputs.mode == 'qp-topic-replicate-applications'"
+        in _norm(resolve["if"])
+    )
+    run = next(s for s in resolve["steps"] if s.get("id") == "resolve")["run"]
+    assert "qp-topic-replicate) frame=petitions; labels=qp-topics.json; replicate=true ;;" in run
+    assert (
+        "qp-topic-replicate-applications) frame=applications; "
+        "labels=qp-topics-applications.json; replicate=true ;;" in run
+    )
+    # No cron resolves to a replicate.
+    assert "replicate=false" in run
+    assert resolve["outputs"]["replicate"] == "${{ steps.resolve.outputs.replicate }}"
+    extract = next(s for s in wf["jobs"]["qp-topic-extract"]["steps"] if s.get("id") == "extract")
+    assert extract["env"]["REPLICATE"] == "${{ needs.qp-topic-resolve.outputs.replicate }}"
+    assert 'if [ "$REPLICATE" = true ]; then' in extract["run"]
+    assert "cut_args+=(--reference-only)" in extract["run"]
+    label_steps = wf["jobs"]["qp-topic-label"]["steps"]
+    measure = next(s for s in label_steps if s.get("id") == "measure")
+    assert "outputs.replicate == 'true'" in _norm(measure["with"]["replicate-out"])
+    for step_id in ("spend", "stage_publish"):
+        step = next(s for s in label_steps if s.get("id") == step_id)
+        assert "needs.qp-topic-resolve.outputs.replicate != 'true'" in _norm(
+            step["env"]["MEASURED"]
+        ), step_id
+    spend = next(s for s in label_steps if s.get("id") == "spend")
+    assert '--replicate-file "$RUNNER_TEMP/qp-replicate.json"' in spend["run"]
+    assert measure["with"]["prompt-file"] == "${{ needs.qp-topic-resolve.outputs.prompt }}"
+    # The publish runner, which no agent held, refuses labels in a replicate's hand-off.
+    revalidate = next(
+        s for s in wf["jobs"]["qp-topic-publish"]["steps"] if s.get("id") == "revalidate"
+    )
+    assert revalidate["env"]["REPLICATE"] == "${{ needs.qp-topic-resolve.outputs.replicate }}"
+    assert "a replicate's hand-off carries a labels file" in revalidate["run"]
+    action = (REPO_ROOT / ".github" / "actions" / "qp-topic-measure" / "action.yml").read_text()
+    assert '--replicate-out "$REPLICATE_OUT" --prompt-file "$PROMPT_FILE"' in action
+
+
 def test_a_scheduled_label_run_takes_the_dispatch_default_model() -> None:
     """A schedule carries no inputs, so the resolve job supplies the model.
 
@@ -5287,7 +5374,7 @@ def test_a_scheduled_label_run_stands_down_on_a_converged_frame() -> None:
     extract = wf["jobs"]["qp-topic-extract"]
     step = next(s for s in extract["steps"] if s.get("id") == "extract")
     assert step["env"]["SCHEDULED"] == "${{ needs.qp-topic-resolve.outputs.scheduled }}"
-    assert 'if [ "$SCHEDULED" = true ]; then\n  standdown=(--converged-ok)' in step["run"]
+    assert 'if [ "$SCHEDULED" = true ]; then\n  cut_args=(--converged-ok)' in step["run"]
     assert 'echo "owed=false" >> "$GITHUB_OUTPUT"' in step["run"]
     assert extract["outputs"]["owed"] == "${{ steps.extract.outputs.owed }}"
     assert _norm(wf["jobs"]["qp-topic-approval"]["if"]).startswith(

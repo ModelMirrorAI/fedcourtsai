@@ -146,9 +146,10 @@ CourtListener budget.
 
 What the step adds:
 
-- **A district stage.** Court-agnostic trial-court moments, each opening when a
-  motion is fully briefed: a motion to dismiss, class certification, summary
-  judgment, and final disposition. Outcomes include ruling *in part*, which is
+- **A district stage** ([trial-stage.md](trial-stage.md)). Court-agnostic
+  trial-court moments: a motion to dismiss, class certification and summary
+  judgment, each opening when the motion is fully briefed, and the final
+  disposition, forecast when a case enters the slice. Outcomes include ruling *in part*, which is
   the usual result, and *no merits decision* for a settlement or voluntary
   dismissal. Nothing is voided: a settlement or a mooted motion is something
   forecasts price in.

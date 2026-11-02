@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000606",
+  "run_id": "20261031T173439Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-motion-disposition",
+      "message": "Snapshot 2026-10-17.json has DocketedDate October 28, 2026, later than its snapshot/context date and the October 16 opening submission. This is inconsistent header chronology, not observed disposition leakage. Forecast uses the authoritative arrival event and sole frozen submission entry, does not treat the later header date as a procedural signal, and retains uncertainty about timing. No target-case outcome or later proceedings were retrieved."
+    }
+  ]
+}

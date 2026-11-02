@@ -1,0 +1,251 @@
+{
+  "$defs": {
+    "Engine": {
+      "description": "Agentic coding engine that produced an artifact.",
+      "enum": [
+        "claude-code",
+        "codex",
+        "gemini"
+      ],
+      "title": "Engine",
+      "type": "string"
+    },
+    "OffLedgerSpendLine": {
+      "additionalProperties": false,
+      "description": "One engine log's (or one group of priced records') share of an off-ledger leg.",
+      "properties": {
+        "cache_creation_input_tokens": {
+          "description": "Cache-write tokens",
+          "minimum": 0,
+          "title": "Cache Creation Input Tokens",
+          "type": "integer"
+        },
+        "cache_read_input_tokens": {
+          "description": "Cached input tokens read",
+          "minimum": 0,
+          "title": "Cache Read Input Tokens",
+          "type": "integer"
+        },
+        "engine": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Engine"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The engine that spent; null for case summaries, which are direct Messages API calls with no engine"
+        },
+        "estimated_cost_usd": {
+          "description": "The line's on-demand cost at `pricing.MODEL_RATES`",
+          "minimum": 0.0,
+          "title": "Estimated Cost Usd",
+          "type": "number"
+        },
+        "input_tokens": {
+          "description": "Fresh input tokens",
+          "minimum": 0,
+          "title": "Input Tokens",
+          "type": "integer"
+        },
+        "model": {
+          "description": "The model the line is priced at",
+          "minLength": 1,
+          "title": "Model",
+          "type": "string"
+        },
+        "output_tokens": {
+          "description": "Output tokens",
+          "minimum": 0,
+          "title": "Output Tokens",
+          "type": "integer"
+        },
+        "priced_as": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The `pricing.MODEL_RATES` entry the line was priced at when `model` has none: the one that prices these token counts dearest; null when priced at `model`'s own rate, or when the line's records were priced where they were written",
+          "title": "Priced As"
+        },
+        "records": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How many priced records the line sums (usage.json files or case summaries); null for a line read from an engine log",
+          "title": "Records"
+        },
+        "source": {
+          "description": "What the line was read from: an engine's own log, the usage.json records a pilot round's cells wrote, or the front matter of case summaries",
+          "enum": [
+            "claude-execution-file",
+            "claude-transcripts",
+            "codex-sessions",
+            "gemini-telemetry",
+            "cell-usage",
+            "case-summaries"
+          ],
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source",
+        "engine",
+        "model",
+        "input_tokens",
+        "output_tokens",
+        "cache_read_input_tokens",
+        "cache_creation_input_tokens",
+        "estimated_cost_usd"
+      ],
+      "title": "OffLedgerSpendLine",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "One leg's model spend from a run that commits nothing to the ledger.\n\nIntegration smokes, the promotion gate, staging rehearsals and the replay\nand pilot rounds spend real tokens on runs whose outputs never reach\n``data/``, so neither :func:`fedcourtsai.spend.measured_spend` nor the\nreview hold sees them. Each such leg writes one of these and uploads it as\nan ``off-ledger-spend-*`` run artifact; the daily ``run-ops`` job sweeps the\nartifacts onto the ``ops-metrics`` branch as\n``off-ledger-spend/<run_id>-<run_attempt>-<leg>.json`` and reports them\n(``fedcourts off-ledger-spend-report``). The figure is **reported\nseparately and counted nowhere**: it never joins the total the spend\nbackstop and the auto-release budget read, so test traffic cannot hold\nback a production round. Lines are priced by the rule every cell's\n``usage.json`` is (:func:`fedcourtsai.pricing.estimate_cost_usd`).",
+  "properties": {
+    "conclusion": {
+      "description": "The leg's job status when the record was written; a failed leg spends too, so it is recorded",
+      "enum": [
+        "success",
+        "failure",
+        "cancelled"
+      ],
+      "title": "Conclusion",
+      "type": "string"
+    },
+    "environment": {
+      "description": "The deployment environment whose engine keys paid for the leg",
+      "enum": [
+        "prod",
+        "staging"
+      ],
+      "title": "Environment",
+      "type": "string"
+    },
+    "estimated_cost_usd": {
+      "description": "The sum of the lines' costs",
+      "minimum": 0.0,
+      "title": "Estimated Cost Usd",
+      "type": "number"
+    },
+    "lane": {
+      "description": "Which off-ledger lane the leg belongs to",
+      "enum": [
+        "engine-smoke",
+        "engine-actions-smoke",
+        "codex-application-repro",
+        "qp-labeler-smoke",
+        "qp-topic-label",
+        "summarize",
+        "cert-replay",
+        "merits-replay",
+        "reasoning-pilot"
+      ],
+      "title": "Lane",
+      "type": "string"
+    },
+    "leg": {
+      "description": "The leg's name, unique within its run attempt (e.g. `engine-smoke-codex`); it names the record's file",
+      "pattern": "^[a-z0-9][a-z0-9.-]{0,79}$",
+      "title": "Leg",
+      "type": "string"
+    },
+    "lines": {
+      "description": "The leg's spend, one line per engine log or record group",
+      "items": {
+        "$ref": "#/$defs/OffLedgerSpendLine"
+      },
+      "minItems": 1,
+      "title": "Lines",
+      "type": "array"
+    },
+    "recorded_at": {
+      "description": "When the record was written, timezone-aware; the report windows read it",
+      "format": "date-time",
+      "title": "Recorded At",
+      "type": "string"
+    },
+    "ref": {
+      "description": "The branch the run was dispatched from",
+      "minLength": 1,
+      "title": "Ref",
+      "type": "string"
+    },
+    "run_attempt": {
+      "description": "The run attempt",
+      "minimum": 1,
+      "title": "Run Attempt",
+      "type": "integer"
+    },
+    "run_id": {
+      "description": "The Actions run id",
+      "pattern": "^[0-9]+$",
+      "title": "Run Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "selection": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "What the run was dispatched to do \u2014 the integration suite's scenario selection (`gate` for a promotion-gate run), or the lane's mode; null where the lane has none",
+      "title": "Selection"
+    },
+    "workflow": {
+      "description": "The workflow whose run spent",
+      "enum": [
+        "integration-test",
+        "run-analytics",
+        "summarize",
+        "run-backtest",
+        "run-evaluate"
+      ],
+      "title": "Workflow",
+      "type": "string"
+    }
+  },
+  "required": [
+    "workflow",
+    "lane",
+    "leg",
+    "environment",
+    "ref",
+    "run_id",
+    "run_attempt",
+    "conclusion",
+    "recorded_at",
+    "lines",
+    "estimated_cost_usd"
+  ],
+  "title": "OffLedgerSpend",
+  "type": "object"
+}

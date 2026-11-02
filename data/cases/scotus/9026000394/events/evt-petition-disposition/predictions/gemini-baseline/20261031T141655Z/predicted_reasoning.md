@@ -1,0 +1,28 @@
+# Predicted Court Reasoning and Procedural Trajectory: *Michael Herlihy, et al. v. DBMP, LLC* (No. 26-394)
+
+## 1. Procedural Trajectory: Further Distributions and CVSG
+
+- **Current Docket State and Further Distributions (`relist-increment: 0.96`):**
+  The docket currently shows **one distribution** (`distribution_count: 1`, distributed on October 28, 2026, for the Conference of November 13, 2026) following Respondent DBMP, LLC's October 22, 2026 waiver of its right to respond. However, on October 30, 2026, the Court requested a response, currently due November 30, 2026 (subject to routine extensions). Because the Court called for a response after the initial waiver-list distribution, the petition will be redistributed for a subsequent conference once the Brief in Opposition is filed and Petitioners' cert reply is submitted. Barring a rare pre-distribution Rule 46 settlement or withdrawal, the petition is virtually certain (`0.96`) to record at least one additional distribution beyond the single distribution currently on the snapshot. Once redistributed with the Brief in Opposition in hand, the most likely trajectory is either denial at that first post-BIO conference or one additional conference relist before denial.
+
+- **Call for the Views of the Solicitor General (`cvsg-increment: 0.05`):**
+  No CVSG has been issued to date, and the Court is unlikely (`0.05`) to invite the Solicitor General's views after the Brief in Opposition arrives. Although the case involves Chapter 11 of the Bankruptcy Code and 11 U.S.C. §§ 362(d) and 524(g), the dispute is between private tort claimants and a private debtor, no federal agency is a party, and the Court declined to issue a CVSG in any of the three prior *Bestwall* certiorari petitions raising the legitimacy of the Fourth Circuit's Texas Two-Step asbestos bankruptcies (Nos. 23-675, 23-702, and 25-1013).
+
+## 2. Disposition and Vehicle Assessment (`disposition: 0.14`)
+
+The Court will most likely **deny** the petition for a writ of certiorari (`probability: 0.14` of a grant).
+
+Once Respondent DBMP files its Brief in Opposition, the Court will confront two decisive obstacles to plenary review:
+1. **Collateral, Interlocutory § 362(d) Lift-Stay Posture:** Unlike *In re LTL Management, LLC*, 64 F.4th 84 (3d Cir. 2023), where the Official Committee of Talc Claimants moved at the threshold to dismiss the debtor's Chapter 11 case under 11 U.S.C. § 1112(b), no party here ever moved to dismiss DBMP's Chapter 11 petition under § 1112(b). Instead, four years into the bankruptcy—while the Official Committee is litigating adversary proceedings challenging the divisional merger inside the bankruptcy court—two individual claimants out of 60,000+ moved under 11 U.S.C. § 362(d) for individual relief from the automatic stay to liquidate their state-law claims in California and Washington.
+2. **Independent Discretionary Ground Under *In re Robbins*:** Both the bankruptcy court and the Fourth Circuit relied on the traditional discretionary balancing factors of *In re Robbins*, 964 F.2d 342 (4th Cir. 1992), holding that lifting the automatic stay for two claimants in an undismissed § 524(g) reorganization would trigger thousands of copycat lift-stay motions and prejudice the estate. Because the Court recently denied certiorari on June 1, 2026 in *Official Committee of Asbestos Claimants of Bestwall LLC v. Bestwall LLC*, No. 25-1013, despite nearly identical amicus support, the Court will conclude that this interlocutory lift-stay appeal is not an appropriate vehicle to resolve the broader circuit conflict over Chapter 11 good-faith dismissal standards.
+
+## 3. Conditional Merits Scope and Summary-Disposition Route
+
+- **Question Presented If Granted:**
+  If the Court were to grant certiorari, it would take the petition's single question presented as written—whether a debtor's pursuit of Chapter 11 bankruptcy via a Texas Two-Step divisional merger without financial distress lacks good faith such that "cause" exists to lift the automatic stay under 11 U.S.C. § 362(d)(1)—and would likely hold that the Fourth Circuit erred in treating a debtor's lack of financial distress as legally irrelevant under *Carolin Corp. v. Miller*, 886 F.2d 693 (4th Cir. 1989), vacating and remanding for the bankruptcy court to evaluate good faith under a standard requiring genuine financial distress.
+- **Summary-Disposition Route Conditional on Grant (`summary-disposition-route: 0.03`):**
+  Conditional on a grant, summary disposition (GVR or summary reversal) is very unlikely (`0.03`). Both *Truck Insurance Exchange v. Kaiser Gypsum Co.*, 602 U.S. 268 (2024), and *Harrington v. Purdue Pharma L.P.*, 603 U.S. 204 (2024), were decided in June 2024—well before the Fourth Circuit's February 2026 decision—and no pending Supreme Court merits case addresses the question presented. Any grant would therefore proceed to plenary merits briefing and oral argument.
+
+## 4. Separate Writings on Denial (`dissent-from-denial: 0.08`)
+
+If the Court denies certiorari, the order will most likely issue without a separate writing, just as the Court denied certiorari without noted dissent in *Bestwall* (No. 25-1013) in June 2026. There is a modest (`0.08`) chance that one or more Justices who have closely scrutinized mass-tort bankruptcy abuses or non-consensual liability shields—most plausibly Justice Gorsuch (`0.025`), Justice Thomas (`0.020`), Justice Sotomayor (`0.015`), or Justice Jackson (`0.015`)—authors a brief dissent from or statement respecting the denial of certiorari highlighting the tension between the Third and Fourth Circuits on Texas Two-Step filings while noting the case's interlocutory § 362(d) posture.

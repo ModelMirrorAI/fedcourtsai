@@ -37,7 +37,10 @@ from fedcourtsai.schemas import (
     LeaderboardStage,
     LeaderboardStageEntry,
     LeaderboardStratum,
+    PairedEngine,
+    PairedEvents,
     ScopeManifest,
+    ScopeManifestEntry,
     StatPack,
     StatPackCoverage,
     StatPackSection,
@@ -63,6 +66,23 @@ def _metrics_dir(tmp_path: Path) -> Path:
             events_scored=6,
             forward_evaluations=4,
             retrospective_evaluations=8,
+            paired=PairedEvents(
+                predictors=["claude-baseline", "codex-baseline"],
+                events=6,
+                entries=[
+                    PairedEngine(
+                        predictor_id=pid,
+                        rank=rank,
+                        unpaired_events=0,
+                        forward=LeaderboardStratum(
+                            events_scored=6, evaluations=6, accuracy=accuracy
+                        ),
+                    )
+                    for rank, (pid, accuracy) in enumerate(
+                        [("claude-baseline", 0.8), ("codex-baseline", 0.7)], start=1
+                    )
+                ],
+            ),
             entries=[
                 LeaderboardEntry(
                     predictor_id="claude-baseline",
@@ -163,7 +183,8 @@ def test_pr_names_the_artifacts_and_reads_headlines(tmp_path: Path) -> None:
     assert pr.commit_message == pr.title
     # Headlines come from the regenerated artifacts themselves.
     assert (
-        "[frozen] 2 predictor(s) ranked from 12 cert-stage evaluation(s) "
+        "[frozen] 2 predictor(s) ranked over 6 paired event(s) from 12 cert-stage "
+        "evaluation(s) "
         "(4 forward / 8 retrospective / 0 procedural)" in pr.body
     )
     assert "2 predictor(s) over 1500 resolved event(s) (retrospective by construction)" in pr.body
@@ -195,7 +216,102 @@ def test_the_leaderboard_headline_flags_a_regrade_and_uneven_coverage(tmp_path: 
     assert "2 superseded grading(s) collapsed away" in pr.body
     # The magnitude travels with the flag: this is the line most likely to be
     # quoted out of the body, and a flag without an `n` cannot be read.
-    assert "unequal scored-set coverage (codex-baseline 4/6)" in pr.body
+    assert "unequal scored-set coverage: codex-baseline 4/6 in `cert board`" in pr.body
+
+
+def test_a_board_with_no_pairing_says_nothing_was_ranked(tmp_path: Path) -> None:
+    """Ranks exist only over paired events, so an unpaired board reads as no
+    ranking, its scored-event count stated as its own fact."""
+    metrics = _metrics_dir(tmp_path)
+    board = read_model(metrics / "leaderboard.json", Leaderboard)
+    board.paired = None
+    board.predictors_ranked = 0
+    write_json(metrics / "leaderboard.json", board)
+
+    pr = render_refresh_pr(["metrics/leaderboard.json"], metrics.parent, "RID")
+
+    assert pr is not None
+    assert (
+        "[frozen] 0 predictor(s) ranked (no paired events; 6 cert-stage event(s) scored) "
+        "from 12 cert-stage evaluation(s)"
+    ) in pr.body
+
+
+def test_the_coverage_clause_names_every_gap_with_its_block(tmp_path: Path) -> None:
+    """A gap in a stage block is not the ranked board's, so the block key travels
+    with it, and every block with a gap is named rather than only the worst."""
+    metrics = _metrics_dir(tmp_path)
+    board = read_model(metrics / "leaderboard.json", Leaderboard)
+    board.entries[1].events_scored = 5
+    board.stages = {
+        "interim@arrival": LeaderboardStage(
+            evaluations_total=13,
+            events_scored=7,
+            entries=[
+                LeaderboardStageEntry(
+                    predictor_id="claude-baseline", evaluators=1, events_scored=7
+                ),
+                LeaderboardStageEntry(
+                    predictor_id="gemini-baseline", evaluators=1, events_scored=6
+                ),
+            ],
+        )
+    }
+    write_json(metrics / "leaderboard.json", board)
+
+    pr = render_refresh_pr(["metrics/leaderboard.json"], metrics.parent, "RID")
+
+    assert pr is not None
+    assert (
+        "unequal scored-set coverage: codex-baseline 5/6 in `cert board`, "
+        "gemini-baseline 6/7 in `interim@arrival` — not a cross-engine comparison"
+    ) in pr.body
+
+
+def test_the_leaderboard_headline_names_a_tie_on_the_rank_keys(tmp_path: Path) -> None:
+    """Engines equal on forward accuracy and Brier hold distinct ranks only by id,
+    so the line names them as tied; distinct keys add no clause."""
+    metrics = _metrics_dir(tmp_path)
+    board = read_model(metrics / "leaderboard.json", Leaderboard)
+
+    def engine(pid: str, rank: int, accuracy: float, brier: float) -> PairedEngine:
+        return PairedEngine(
+            predictor_id=pid,
+            rank=rank,
+            unpaired_events=0,
+            forward=LeaderboardStratum(
+                events_scored=6, evaluations=6, accuracy=accuracy, mean_brier_score=brier
+            ),
+        )
+
+    board.paired = PairedEvents(
+        predictors=["claude-baseline", "codex-baseline", "gemini-baseline"],
+        events=6,
+        entries=[
+            engine("claude-baseline", 1, 0.8, 0.49),
+            engine("codex-baseline", 2, 0.8, 0.49),
+            engine("gemini-baseline", 3, 0.8, 0.52),
+        ],
+    )
+    write_json(metrics / "leaderboard.json", board)
+
+    pr = render_refresh_pr(["metrics/leaderboard.json"], metrics.parent, "RID")
+
+    assert pr is not None
+    assert "ranked over 6 paired event(s)" in pr.body
+    assert (
+        "; tied on both rank keys, ordered by id: `claude-baseline`, `codex-baseline` "
+        "at accuracy 0.800 / Brier 0.490"
+    ) in pr.body
+    assert "gemini-baseline`" not in pr.body
+
+    board.paired.entries[1].forward = LeaderboardStratum(
+        events_scored=6, evaluations=6, accuracy=0.8, mean_brier_score=0.5
+    )
+    write_json(metrics / "leaderboard.json", board)
+    untied = render_refresh_pr(["metrics/leaderboard.json"], metrics.parent, "RID")
+    assert untied is not None
+    assert "tied" not in untied.body
 
 
 def test_the_leaderboard_headline_flags_the_leakage_exclusion(tmp_path: Path) -> None:
@@ -297,7 +413,8 @@ def test_pr_carries_the_claim_score_surface_with_a_sensible_suppressed_headline(
     assert pr.title == "metrics: refresh claim-scores"
     assert (
         "[frozen] 0 of 9 evaluation(s) carry claim scores; "
-        "forward judge agreement: suppressed (n=0 < 10)" in pr.body
+        "forward judge agreement: suppressed (n=0 cell(s) over 0 event(s); minimum 10 cells)"
+        in pr.body
     )
 
 
@@ -780,15 +897,46 @@ def test_the_refresh_carries_the_scope_manifest(tmp_path: Path) -> None:
     display order to appear in a refresh PR at all.
     """
     _metrics_dir(tmp_path)
-    write_json(
-        tmp_path / "data" / "scope" / "scope.json",
-        ScopeManifest(cases=3102, eligible=2900, excluded=202),
-    )
+    write_json(tmp_path / "data" / "scope" / "scope.json", _scope_manifest(eligible=3, latched=1))
     pr = render_refresh_pr(["data/scope/scope.json"], tmp_path, "RID")
     assert pr is not None
     assert "`data/scope/scope.json`" in pr.body
-    assert "3102 public case(s)" in pr.body
-    assert "2900 eligible" in pr.body
+    # The counts nest — latched-out is a subset of eligible, eligible of the
+    # public set — so the line says so and states the in-scope remainder,
+    # rather than "eligible / excluded", which reads as a partition.
+    assert (
+        "4 public case(s) (3 eligible), 1 eligible case(s) latched out → 2 in prediction scope"
+        in pr.body
+    )
+    assert "excluded" not in pr.body.split("`data/scope/scope.json`")[1].split("\n")[0]
+
+    write_json(tmp_path / "data" / "scope" / "scope.json", _scope_manifest(eligible=4, latched=2))
+    pr = render_refresh_pr(["data/scope/scope.json"], tmp_path, "RID")
+    assert pr is not None
+    assert (
+        "4 public case(s) (all eligible), 2 eligible case(s) latched out → 2 in prediction scope"
+        in pr.body
+    )
+
+
+def _scope_manifest(*, eligible: int, latched: int, cases: int = 4) -> ScopeManifest:
+    """A manifest of ``cases`` public cases, the first ``eligible`` in the gate and
+    the first ``latched`` of those latched out; the last ineligible case carries
+    the latch bit too, which the in-scope count must not subtract twice."""
+    entries = [
+        ScopeManifestEntry(
+            case_id=f"scotus/{i}",
+            predict_eligible=i < eligible,
+            predict_excluded=i < latched or (i >= eligible and i == cases - 1),
+        )
+        for i in range(cases)
+    ]
+    return ScopeManifest(
+        cases=cases,
+        eligible=sum(e.predict_eligible for e in entries),
+        excluded=sum(e.predict_excluded for e in entries),
+        entries=entries,
+    )
 
 
 def test_a_skipped_scope_manifest_says_so_rather_than_reporting_zero(tmp_path: Path) -> None:

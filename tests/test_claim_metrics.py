@@ -428,19 +428,31 @@ def test_agreement_summary_states_every_state() -> None:
     suppressed = build_claim_scores(
         _cells((_evaluation("alpha"), FORWARD)), process_scope="all"
     ).forward_agreement
-    assert agreement_summary(suppressed) == f"suppressed (n=0 < {AGREEMENT_MIN_PAIRS})"
+    assert (
+        agreement_summary(suppressed)
+        == f"suppressed (n=0 cell(s) over 0 event(s); minimum {AGREEMENT_MIN_PAIRS} cells)"
+    )
     computed = build_claim_scores(
         _pair_cells("alpha", FORWARD, [(i / 10, i / 20) for i in range(AGREEMENT_MIN_PAIRS)]),
         process_scope="all",
     ).forward_agreement
-    assert agreement_summary(computed) == f"tau-b +1.00 (n={AGREEMENT_MIN_PAIRS})"
+    assert agreement_summary(computed) == (
+        f"tau-b +1.00 (n={AGREEMENT_MIN_PAIRS} cell(s) over {AGREEMENT_MIN_PAIRS} event(s))"
+    )
     # Every pair tied on one axis: defined n, undefined tau — not suppressed.
     tied = build_claim_scores(
         _pair_cells("alpha", FORWARD, [(0.4, i / 20) for i in range(AGREEMENT_MIN_PAIRS)]),
         process_scope="all",
     ).forward_agreement
     assert tied is not None and tied.rank_agreement is None and tied.suppressed is False
-    assert agreement_summary(tied) == f"undefined over n={AGREEMENT_MIN_PAIRS}"
+    assert agreement_summary(tied) == (
+        f"undefined (n={AGREEMENT_MIN_PAIRS} cell(s) over {AGREEMENT_MIN_PAIRS} event(s))"
+    )
+    # Evaluator multiplicity: three judges of one prediction are three pairs on
+    # one event, so the event count is what tells the replicates apart.
+    assert computed is not None
+    replicated = computed.model_copy(update={"pairs": 27, "pair_events": 9})
+    assert agreement_summary(replicated) == "tau-b +1.00 (n=27 cell(s) over 9 event(s))"
 
 
 def _write_cell(
@@ -507,7 +519,7 @@ def test_cli_writes_a_valid_deterministic_board(tmp_path: Path) -> None:
     )
     assert result.exit_code == 0, result.output
     assert "1 of 2 evaluation(s) carry a claim block" in result.output
-    assert "suppressed (n=1 < 10)" in result.output
+    assert "suppressed (n=1 cell(s) over 1 event(s); minimum 10 cells)" in result.output
     board = read_model(out, ClaimScoreBoard)
     assert board.process_scope == "all"
     assert [e.predictor_id for e in board.entries] == ["alpha"]

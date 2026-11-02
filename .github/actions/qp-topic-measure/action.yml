@@ -5,10 +5,12 @@ description: >
   `fedcourts qp-topics` command (which owns the whole publication decision and
   refuses to write below the agreement/coverage gate), render the measured
   block into the step summary, and re-validate the data root the artifact was
-  written into.
+  written into. With `replicate-out` set it measures a reference-only
+  replicate instead: the run is recorded, no artifact is written, and the
+  command exits 0 on either side of the gate.
 
-  Shared verbatim by the production labeling job (`run-analytics.yml`,
-  `qp-topic-label` mode) and the token-free `qp-topic` integration-test
+  Shared verbatim by the production labeling job (`run-analytics.yml`, the
+  topic-label and replicate modes) and the token-free `qp-topic` integration-test
   scenario, so the scenario exercises the exact steps the paid run depends on
   rather than a copy that can drift. The caller keeps everything upstream of
   the labels file — the extract, the model call, the oracle fence, and the
@@ -52,6 +54,21 @@ inputs:
       the gate figures — on either side of the gate, so a refused run's
       measurement survives into its spend record. Empty writes none (the
       integration-test scenario records no spend).
+    required: false
+    default: ''
+  replicate-out:
+    description: >
+      Set for a reference-only replicate: `qp-topics --replicate-out` writes the
+      run's item-level record here, writes no labels artifact, and exits 0 on
+      either side of the gate, since a replicate measures the labeler and
+      publishes nothing. Empty (the default) is an ordinary labeling run.
+    required: false
+    default: ''
+  prompt-file:
+    description: >
+      The labeling prompt the labeler read. Required with `replicate-out`: the
+      replicate record carries its sha256, so replicates are pooled under one
+      prompt. Unread otherwise.
     required: false
     default: ''
   data-root:
@@ -117,6 +134,8 @@ runs:
         FRAME_ROWS: ${{ inputs.frame-rows }}
         QP_FRAME: ${{ inputs.frame }}
         AGREEMENT_OUT: ${{ inputs.agreement-out }}
+        REPLICATE_OUT: ${{ inputs.replicate-out }}
+        PROMPT_FILE: ${{ inputs.prompt-file }}
         DATA_ROOT: ${{ inputs.data-root }}
         # The measure command reads the reference set and writes the artifact
         # under the settings data root, while `validate` takes the path as an
@@ -129,7 +148,8 @@ runs:
         # every label against the vocabulary, joins on both keys, measures
         # agreement against the hand reference set, and REFUSES to write below
         # the agreement/coverage gate (exit non-zero, no artifact, no override
-        # flag). Capture rather than fail fast, because a refusal is a result
+        # flag). A replicate (`--replicate-out`) writes no artifact on either
+        # side of the gate and exits 0, since it publishes nothing. Capture rather than fail fast, because a refusal is a result
         # to report: the measured block reaches the step summary either way.
         status=0
         # Passed only when the caller has one: the flag is optional, and an
@@ -140,6 +160,9 @@ runs:
         fi
         if [ -n "$AGREEMENT_OUT" ]; then
           extra+=(--agreement-out "$AGREEMENT_OUT")
+        fi
+        if [ -n "$REPLICATE_OUT" ]; then
+          extra+=(--replicate-out "$REPLICATE_OUT" --prompt-file "$PROMPT_FILE")
         fi
         case "$QP_FRAME" in
           petitions|applications) ;;
@@ -162,7 +185,13 @@ runs:
         # later, into the PR body rendered from the same file.
         tr -d '\140' < "$RUNNER_TEMP/measured.txt" > "$RUNNER_TEMP/measured-safe.txt"
         {
-          if [ "$QP_FRAME" = applications ]; then
+          if [ -n "$REPLICATE_OUT" ]; then
+            echo "### qp-topic ${QP_FRAME} replicate (reference rows only, nothing published)"
+            echo
+            echo "One reference-only replicate: agreement with the frame's reference,"
+            echo "not accuracy, recorded for the run-to-run spread and gated on nothing"
+            echo "(see the replicate section of docs/qp-topic.md)."
+          elif [ "$QP_FRAME" = applications ]; then
             echo "### qp-topic-v1 application labeling run"
             echo
             echo "Agreement with the application reference block's adjudicated"

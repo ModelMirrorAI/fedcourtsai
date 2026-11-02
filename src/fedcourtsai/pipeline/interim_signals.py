@@ -97,6 +97,41 @@ def application_kind(entry_texts: list[str]) -> ApplicationKind:
     return ApplicationKind.unknown
 
 
+# A request for leave to file a brief or petition longer than the rules allow:
+#   "Application (23A55) for leave to file briefs on the merits in excess of the
+#    word limits, submitted to Justice Alito."
+#   "Application (17A212) to file petition for a writ of certiorari in excess of
+#    page limits, submitted to Justice Kagan."
+_OVERLENGTH_RE = re.compile(
+    r"\bin\s+excess\s+of\s+(?:the\s+)?(?:word|page)s?\s+limits?\b"
+    r"|\bexceed\w*\s+(?:the\s+)?(?:word|page)s?\s+limits?\b",
+    re.I,
+)
+
+
+def is_overlength_request(entry_texts: list[str]) -> bool:
+    """Whether the application only asks leave to file over the word or page limit.
+
+    Read from the application's own submission entry — the first entry that
+    states an ask after its docket number — as a whole, not from the clause
+    :func:`application_kind` reads, because a filer's name can sit between the
+    number and the ask ("Application (17A132) of Donald J. Trump, President of
+    the United States, et al. to file ... in excess of the word limits") and the
+    clause stops at the first comma. An entry that asks anywhere for a stay, an
+    injunction or a vacatur is never one, whatever else it asks. Such a request is
+    procedural: granting it decides nothing about the case. :func:`application_kind`
+    leaves it ``unknown``, and the stored kind is not changed; a read-side cut
+    that needs the distinction asks this.
+    """
+    for text in entry_texts:
+        if _ASK_RE.search(text) is None:
+            continue
+        if _SUBSTANTIVE_ASK_RE.search(text):
+            return False
+        return _OVERLENGTH_RE.search(text) is not None
+    return False
+
+
 class ReferralPosture(StrEnum):
     """Which bench decided an application.
 

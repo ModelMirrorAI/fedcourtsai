@@ -15,6 +15,7 @@ from fedcourtsai.pipeline.policy_area import (
     POLICY_AREA_RULE_VERSION,
     POLICY_AREAS,
     PolicyLabel,
+    PolicySource,
     parse_policy_areas,
     policy_areas,
     policy_label,
@@ -85,7 +86,9 @@ def test_the_cut_counts_in_scope_rows_by_area(monkeypatch: pytest.MonkeyPatch) -
         "24A104": PolicyLabel("personnel-removal", "service rule", False),
     }
     monkeypatch.setattr(
-        executive_success_module, "policy_label", lambda docket: labels.get(docket.strip())
+        executive_success_module,
+        "hand_source",
+        lambda: PolicySource(rule_version=POLICY_AREA_RULE_VERSION, labels=labels),
     )
     rows = [
         _app("scotus/1", noem, "24A900", date(2025, 3, 1), Disposition.granted),

@@ -1,0 +1,165 @@
+name: Record off-ledger model spend
+description: >-
+  Price one leg's model spend from the engine logs (or priced records) it left
+  and upload the record as an `off-ledger-spend-<leg>-<attempt>` run artifact, for a leg
+  whose run commits nothing to `data/`: an integration smoke, a promotion-gate
+  leg, a staging rehearsal, a replay or a pilot round. The daily `run-ops`
+  sweep moves the artifact onto the `ops-metrics` branch and reports it
+  (`fedcourts off-ledger-spend-report`). The record is reported separately and
+  counted nowhere: no spend backstop or auto-release budget reads it.
+  Best-effort by design. It never fails the job (a leg's verdict is its own),
+  records nothing when no source holds usage, and records nothing on a ref
+  that binds no environment with engine keys. The environment is read off the
+  ref the way every spending job here resolves it: `main` is `prod`, and
+  `staging` and `promote/*` are `staging`. Needs the job's Python env
+  (`setup-python-env`) and no token or credential of any kind.
+
+inputs:
+  workflow:
+    description: The workflow whose run spent (an `OffLedgerWorkflow` value).
+    required: true
+  lane:
+    description: The off-ledger lane (an `OffLedgerLane` value).
+    required: true
+  leg:
+    description: >-
+      The leg's name, unique within the run attempt (lowercase letters, digits,
+      dots and hyphens). It names the record file and the artifact.
+    required: true
+  selection:
+    description: The dispatched selection or mode (`gate` for a promotion-gate run); empty for none.
+    required: false
+    default: ""
+  conclusion:
+    description: The leg's job status when this runs (`job.status`).
+    required: true
+  claude-execution-file:
+    description: A claude-code-action execution_file.
+    required: false
+    default: ""
+  claude-transcripts-dir:
+    description: >-
+      The Claude CLI's own session transcripts (`~/.claude/projects`), for a
+      runner-launched `claude -p`; a leading `~/` is the runner user's home.
+    required: false
+    default: ""
+  codex-sessions-dir:
+    description: A Codex sessions dir; every session under it is summed.
+    required: false
+    default: ""
+  gemini-telemetry-file:
+    description: A Gemini CLI telemetry.log.
+    required: false
+    default: ""
+  cell-usage-root:
+    description: A data root holding the usage.json records the leg's cells wrote.
+    required: false
+    default: ""
+  case-summaries-root:
+    description: A data root holding only the case summaries the leg wrote.
+    required: false
+    default: ""
+  scanner-python:
+    description: >-
+      For a job an agent held with write access to the checkout: a runner-owned
+      interpreter outside it (the labeler's transcript scanner), run as
+      `-E -s -P -m fedcourtsai.cli` from `scanner-dir`, so no code the agent
+      could have planted in the checkout runs here. Empty runs `uv run
+      fedcourts` in the checkout.
+    required: false
+    default: ""
+  scanner-dir:
+    description: The working directory `scanner-python` runs from (its own pipeline checkout).
+    required: false
+    default: ""
+  claude-model:
+    description: Price the execution file at this model (default the model the log names).
+    required: false
+    default: ""
+  codex-model:
+    description: Price the Codex sessions at this model (default the engine's default model).
+    required: false
+    default: ""
+  gemini-model:
+    description: Price the Gemini telemetry at this model (default the model the log names).
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Price the leg's model spend
+      id: record
+      shell: bash
+      continue-on-error: true
+      env:
+        SPEND_WORKFLOW: ${{ inputs.workflow }}
+        SPEND_LANE: ${{ inputs.lane }}
+        SPEND_LEG: ${{ inputs.leg }}
+        SPEND_SELECTION: ${{ inputs.selection }}
+        SPEND_CONCLUSION: ${{ inputs.conclusion }}
+        CLAUDE_EXECUTION_FILE: ${{ inputs.claude-execution-file }}
+        CLAUDE_TRANSCRIPTS_DIR: ${{ inputs.claude-transcripts-dir }}
+        CODEX_SESSIONS_DIR: ${{ inputs.codex-sessions-dir }}
+        GEMINI_TELEMETRY_FILE: ${{ inputs.gemini-telemetry-file }}
+        CELL_USAGE_ROOT: ${{ inputs.cell-usage-root }}
+        CASE_SUMMARIES_ROOT: ${{ inputs.case-summaries-root }}
+        CLAUDE_MODEL: ${{ inputs.claude-model }}
+        CODEX_MODEL: ${{ inputs.codex-model }}
+        GEMINI_MODEL: ${{ inputs.gemini-model }}
+        SCANNER: ${{ inputs.scanner-python }}
+        SCANNER_DIR: ${{ inputs.scanner-dir }}
+      run: |
+        set -euo pipefail
+        case "$GITHUB_REF_NAME" in
+          main) environment=prod ;;
+          staging | promote/*) environment=staging ;;
+          *)
+            echo "off-ledger spend: ref '${GITHUB_REF_NAME}' binds no environment with engine keys; nothing to record"
+            exit 0
+            ;;
+        esac
+        CLAUDE_TRANSCRIPTS_DIR="${CLAUDE_TRANSCRIPTS_DIR/#\~\//$HOME/}"
+        out="$RUNNER_TEMP/off-ledger-spend-${SPEND_LEG}"
+        rm -rf "$out"
+        args=(--workflow "$SPEND_WORKFLOW" --lane "$SPEND_LANE" --leg "$SPEND_LEG"
+          --selection "$SPEND_SELECTION" --environment "$environment"
+          --ref "$GITHUB_REF_NAME" --run-id "$GITHUB_RUN_ID" --run-attempt "$GITHUB_RUN_ATTEMPT"
+          --conclusion "$SPEND_CONCLUSION" --out-dir "$out"
+          --claude-model "$CLAUDE_MODEL" --codex-model "$CODEX_MODEL" --gemini-model "$GEMINI_MODEL")
+        [ -n "$CLAUDE_EXECUTION_FILE" ] && args+=(--claude-execution-file "$CLAUDE_EXECUTION_FILE")
+        [ -n "$CLAUDE_TRANSCRIPTS_DIR" ] && args+=(--claude-transcripts-dir "$CLAUDE_TRANSCRIPTS_DIR")
+        [ -n "$CODEX_SESSIONS_DIR" ] && args+=(--codex-sessions-dir "$CODEX_SESSIONS_DIR")
+        [ -n "$GEMINI_TELEMETRY_FILE" ] && args+=(--gemini-telemetry-file "$GEMINI_TELEMETRY_FILE")
+        [ -n "$CELL_USAGE_ROOT" ] && args+=(--cell-usage-root "$CELL_USAGE_ROOT")
+        [ -n "$CASE_SUMMARIES_ROOT" ] && args+=(--case-summaries-root "$CASE_SUMMARIES_ROOT")
+        code=0
+        if [ -n "$SCANNER" ]; then
+          (
+            unset PYTHONPATH PYTHONHOME PYTHONSTARTUP PYTHONUSERBASE
+            unset LD_PRELOAD LD_AUDIT LD_LIBRARY_PATH
+            cd "$SCANNER_DIR"
+            "$SCANNER" -E -s -P -m fedcourtsai.cli off-ledger-spend "${args[@]}"
+          ) || code=$?
+        else
+          uv run fedcourts off-ledger-spend "${args[@]}" || code=$?
+        fi
+        case "$code" in
+          0)
+            echo "dir=$out" >> "$GITHUB_OUTPUT"
+            echo "- Off-ledger spend recorded for \`${SPEND_LEG}\` (${environment}); reported apart, counted in no budget." >> "$GITHUB_STEP_SUMMARY"
+            ;;
+          3) echo "off-ledger spend: the leg left no model usage; nothing to record" ;;
+          *) echo "::warning::off-ledger spend for ${SPEND_LEG} was not recorded (exit ${code})" ;;
+        esac
+
+    - name: Upload the leg's spend record
+      if: ${{ steps.record.outputs.dir != '' }}
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      continue-on-error: true
+      with:
+        name: off-ledger-spend-${{ inputs.leg }}-${{ github.run_attempt }}
+        path: ${{ steps.record.outputs.dir }}
+        if-no-files-found: ignore
+        # Swept daily by run-ops; the margin covers a fortnight of missed sweeps.
+        retention-days: 30

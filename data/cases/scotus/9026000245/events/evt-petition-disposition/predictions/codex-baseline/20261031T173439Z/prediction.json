@@ -1,0 +1,100 @@
+{
+  "big_case_rationale": "Potentially substantial consequences for terrorism victims, multinational businesses, and humanitarian operations in conflict zones, but the questions concern statutory liability and pleading rather than a broad constitutional rule.",
+  "big_case_score": 0.64,
+  "case_id": "scotus/9026000245",
+  "claim_distributions": [
+    {
+      "claim_id": "order-writers",
+      "probabilities": {
+        "Alito": 0.016,
+        "Barrett": 0.004,
+        "Gorsuch": 0.009,
+        "Jackson": 0.006,
+        "Kagan": 0.004,
+        "Kavanaugh": 0.006,
+        "Roberts": 0.003,
+        "Sotomayor": 0.008,
+        "Thomas": 0.022
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.24
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.44
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.22
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.12
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.06
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "baseline",
+    "band_refused": null,
+    "cert_anchor": {
+      "lookback_terms": 10,
+      "rate": 0.0518752467429925,
+      "statpack_digest": "sha256:a059cb872f890b63515d8e2ac6ef798347ae7231a62d08543a5b7431bd941faa"
+    },
+    "cut_anchor_index": null,
+    "cut_kind": null,
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 1,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v6",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_contact_scrub": {
+      "blocks": 0,
+      "fields": 0,
+      "sides": []
+    },
+    "snapshot_date": "2026-10-31",
+    "snapshot_provenance": "as-stored",
+    "snapshot_uptake": "read",
+    "term": 2026,
+    "vide_links": []
+  },
+  "created_at": "2026-10-31T17:48:06.323386Z",
+  "engine": "codex",
+  "event_id": "evt-petition-disposition",
+  "granted": 0,
+  "input_snapshot": "2026-10-31.json",
+  "judgment": null,
+  "model": "gpt-6.1-sol",
+  "predicted_disposition": "denied",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.24,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:3df3d7aa2267e392cf047493c336737c9ea5a30b310919e027eeb3a850027990",
+    "label": "proc-v15",
+    "pipeline_sha": "f0612aefc0a77201436e21a145a34e92828ccf24",
+    "stamped_at": "2026-10-31T17:48:06.323386Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261031T173439Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

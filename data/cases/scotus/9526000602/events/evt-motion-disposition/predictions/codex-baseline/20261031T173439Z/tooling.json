@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000602",
+  "run_id": "20261031T173439Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["shell", "fedcourts paths", "fedcourts query", "committed statpack", "jq", "web open", "web search", "fedcourts validate"],
+  "helpful": ["Frozen arrival-position context clearly separates initial state from later escalation.", "Interim per-Term substantive counts support an exact prior-ten-Term baseline."],
+  "gaps": ["The scanned application has no extracted text or staged OCR.", "Structured corpus query returned cert denials rather than interim analogues.", "Web context calls returned no usable content."],
+  "notes": "Default uv cache was read-only; /tmp cache and no-sync mode worked without installing packages. Missing application content materially limits the forecast. No case outcome was sought."
+}

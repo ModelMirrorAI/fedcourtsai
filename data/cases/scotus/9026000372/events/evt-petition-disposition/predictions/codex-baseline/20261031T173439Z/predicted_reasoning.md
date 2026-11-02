@@ -1,0 +1,13 @@
+# Forecast of the Court's action
+
+The Court will **deny certiorari**, most likely in the order list following the November 13, 2026 conference, without an explanatory opinion. The record already shows **one distribution**, entered October 28. The modal path is **zero additional distributions** and no response request; a later denial after a requested response or one further conference is a smaller alternative. I assign **12%** to at least one further distribution from this starting count, including redistribution after a response request.
+
+There will be **no new CVSG**; its probability is **0.5%**. The Solicitor General already represents the federal respondents and has waived a response. Any request for that party to respond would not itself be a CVSG.
+
+The expected denial will leave the Second Circuit's judgment undisturbed without endorsing its reasoning. The unusual history of mandate recall, intervening legislation, and prior Supreme Court review will make this look like a narrow follow-on dispute rather than a developed inter-circuit conflict demanding another merits proceeding.
+
+**If review is granted**, the Court will most likely take the petition's single question in a narrower formulation: whether an appellate court may recall a mandate and reinstate a judgment previously vacated for lack of personal jurisdiction when the PSJVTA and post-enactment conduct subsequently supply that jurisdiction. The Court will not reopen the broader Fifth Amendment validity of the statute already addressed in *Fuld*, and it will not use this petition to resolve the trial-expert evidentiary issues discussed below. The focus will be the difference between curing jurisdiction during active review and reviving a completed case, including whether discretionary judicial recall avoids the finality principle petitioners draw from *Plaut*.
+
+Conditional on any grant, **plenary briefing and argument are more likely than disposition in the grant order**: **85% plenary versus 15% summary**. There is no identified intervening decision furnishing a straightforward GVR instruction. If a summary route is used, a corrective summary reversal is more plausible than a routine hold-and-GVR based on the already-applied *Fuld* ruling.
+
+Conditional on denial, **no dissent or statement respecting denial is expected**; I assign **2.5%** to any such writing. If a Justice writes, Gorsuch or Thomas is a somewhat more plausible author than the others, but no particular author is the modal forecast. This forecast makes no claim that a denial supplies a majority merits rationale or a publicly observable nine-Justice vote lineup.

@@ -565,6 +565,39 @@ jobs:
           # they exist (docs/case-summaries.md) — so a week, not longer.
           retention-days: 7
 
+      # A rehearsal off `main` publishes nothing, so the usage in its
+      # summaries' front matter never reaches the ledger. It is recorded
+      # off-ledger and reported apart: run-ops sweeps it onto the ops-metrics
+      # branch, and no budget counts it. Read from the summary files this run
+      # added to the checkout (untracked, so never a committed summary),
+      # staged on their own so a run whose jail or scan failed after spending
+      # is still recorded. No agent ran in this job: the harness alone wrote
+      # the tree.
+      - name: Stage the summaries this run wrote
+        id: written_summaries
+        if: ${{ always() && github.ref_name != 'main' }}
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/written-summaries/data"
+          rm -rf "$RUNNER_TEMP/written-summaries"
+          git ls-files --others --exclude-standard -- data/cases \
+            | { grep -E '^data/cases/[^/]+/[^/]+/summaries/[^/]+\.md$' || true; } \
+            | while read -r path; do
+                mkdir -p "$root/$(dirname "${path#data/}")"
+                cp "$path" "$root/${path#data/}"
+              done
+          echo "root=$root" >> "$GITHUB_OUTPUT"
+
+      - name: Record a rehearsal's spend off-ledger
+        if: ${{ always() && steps.written_summaries.outputs.root != '' }}
+        uses: ./.github/actions/off-ledger-spend
+        with:
+          workflow: summarize
+          lane: summarize
+          leg: summarize
+          conclusion: ${{ job.status }}
+          case-summaries-root: ${{ steps.written_summaries.outputs.root }}
+
       - name: Note the rehearsal boundary (publish fenced off this ref)
         if: ${{ !cancelled() && github.ref != 'refs/heads/main' }}
         run: |

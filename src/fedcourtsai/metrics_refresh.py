@@ -90,7 +90,14 @@ class MetricsRefreshPr(BaseModel):
 # The rendered companions carry no headline of their own: the figures live in
 # the JSON sibling listed beside them.
 def _scope_headline(path: Path) -> str:
-    """The scope manifest's line: the public set and how it splits.
+    """The scope manifest's line: the public set, the gate, and what is left in scope.
+
+    The three counts nest rather than partition — eligible is a subset of the
+    public set and the latched-out cases a subset of the eligible ones — so the
+    line states the nesting and the in-scope remainder it implies, rather than
+    printing two counts side by side that read as halves of one whole. Both the
+    latched-out and in-scope counts are read off the entries, eligible ones
+    only, since the latch bit alone does not say the case was in the gate.
 
     A `skipped` manifest is called out rather than reported as zero cases — the
     command writes one when the corpus is not on disk, and "0 public cases" would
@@ -99,9 +106,14 @@ def _scope_headline(path: Path) -> str:
     manifest = read_model(path, ScopeManifest)
     if manifest.skipped:
         return "skipped (no corpus on disk at refresh time)"
+    eligible = [entry for entry in manifest.entries if entry.predict_eligible]
+    latched = sum(1 for entry in eligible if entry.predict_excluded)
+    gate = (
+        "all eligible" if manifest.eligible == manifest.cases else f"{manifest.eligible} eligible"
+    )
     return (
-        f"{manifest.cases} public case(s): {manifest.eligible} eligible / "
-        f"{manifest.excluded} excluded"
+        f"{manifest.cases} public case(s) ({gate}), {latched} eligible case(s) latched out "
+        f"→ {len(eligible) - latched} in prediction scope"
     )
 
 
@@ -165,14 +177,13 @@ def _leaderboard_headline(path: Path, roster: Sequence[str] | None = None) -> st
         (key, block.events_scored, block.entries) for key, block in board.stages.items()
     ]
     shortfalls = [
-        (entry.events_scored - against, entry_name(entry, entries), entry.events_scored, against)
-        for _label, covered, entries in populations
+        f"{entry_name(entry, entries)} {entry.events_scored}/{against} in `{label}`"
+        for label, covered, entries in populations
         for entry, against in coverage_shortfalls(covered, entries)
     ]
     if shortfalls:
-        _gap, predictor_id, scored, covered = min(shortfalls)
         notes += (
-            f"; unequal scored-set coverage ({predictor_id} {scored}/{covered}) "
+            f"; unequal scored-set coverage: {', '.join(shortfalls)} "
             "— not a cross-engine comparison"
         )
     if roster:
@@ -195,21 +206,57 @@ def _leaderboard_headline(path: Path, roster: Sequence[str] | None = None) -> st
             f"; {stage_evaluations} evaluation(s) over {stage_events} scored "
             f"event(s) in {len(board.stages)} unranked stage block(s)" + notes
         )
-    paired = f" over {board.paired.events} paired event(s)" if board.paired is not None else ""
+    # Ranks exist only over paired events, so with no pairing the line says no
+    # ranking happened and gives the scored-event count as its own fact.
+    over = (
+        f" over {board.paired.events} paired event(s)"
+        if board.paired is not None
+        else f" (no paired events; {board.events_scored} cert-stage event(s) scored)"
+    )
     return (
-        f"[{board.process_scope}] {board.predictors_ranked} predictor(s) ranked{paired} from "
+        f"[{board.process_scope}] {board.predictors_ranked} predictor(s) ranked{over} from "
         f"{board.evaluations_total} cert-stage evaluation(s) "
         f"({board.forward_evaluations} forward / "
         f"{board.retrospective_evaluations} retrospective / "
         f"{board.procedural_evaluations} procedural)"
-        f"{notes}"
+        f"{_rank_ties(board)}{notes}"
     )
 
 
+def _rank_ties(board: Leaderboard) -> str:
+    """The clause naming ranked engines the board's rank keys cannot separate.
+
+    The paired ranking orders on forward accuracy, then forward mean Brier, then
+    ``predictor_id``; engines equal on both scored keys hold distinct ranks only
+    by id, which is an ordering rather than a finding. Each such group is named
+    as a tie, every member listed, the way the cert-backtest headline names a
+    tie at its top. Empty when nothing ties or no paired ranking exists.
+    """
+    if board.paired is None:
+        return ""
+    groups: dict[tuple[float, float], list[str]] = {}
+    for engine in board.paired.entries:
+        forward = engine.forward
+        if engine.rank is None or forward is None:
+            continue
+        if forward.accuracy is None or forward.mean_brier_score is None:
+            continue
+        key = (forward.accuracy, forward.mean_brier_score)
+        groups.setdefault(key, []).append(engine.predictor_id)
+    ties = [
+        f"{', '.join(f'`{pid}`' for pid in members)} at accuracy {accuracy:.3f} / Brier {brier:.3f}"
+        for (accuracy, brier), members in groups.items()
+        if len(members) > 1
+    ]
+    if not ties:
+        return ""
+    return f"; tied on both rank keys, ordered by id: {'; '.join(ties)}"
+
+
 def _claim_scores_headline(path: Path) -> str:
-    """The claim-score surface's line. The scope and the suppression state are
-    the headline while the ledger carries no blocks: "0 of 0 ... no cells" is
-    the honest empty state."""
+    """The claim-score surface's line: the scope, the cells carrying a block, and
+    the judge agreement with its cell and event counts. An empty ledger reads
+    "0 of 0 ... no cells", the honest empty state."""
     claims = read_model(path, ClaimScoreBoard)
     return (
         f"[{claims.process_scope}] {claims.cells_with_claims} of "

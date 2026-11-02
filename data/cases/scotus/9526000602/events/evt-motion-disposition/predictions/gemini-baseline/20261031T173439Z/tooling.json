@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000602",
+  "run_id": "20261031T173439Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_call_endpoint"
+  ],
+  "helpful": [
+    "metrics/statpack.md interim-docket per-Term substantive base rates",
+    "CourtListener MCP docket-entries endpoint for S.D. Fla. No. 1:26-cv-25796",
+    "fedcourts query for recent 2020s SCOTUS substantive application priors"
+  ],
+  "gaps": [
+    "OCR text extraction for scanned application PDFs (record/documents/application.txt had empty_text: true)"
+  ],
+  "notes": "Although record/documents/application.txt had empty_text: true (scanned 12-page PDF without a text layer), CourtListener MCP lookup of the originating S.D. Fla. docket (1:26-cv-25796) provided the full procedural timeline (removal of state-court complaint, summary remand order the next day, and denial of stay below)."
+}

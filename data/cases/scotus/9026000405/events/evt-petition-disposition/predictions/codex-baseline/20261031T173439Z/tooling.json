@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000405",
+  "run_id": "20261031T173439Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell text inspection and jq",
+    "fedcourts paths",
+    "committed metrics/statpack.md",
+    "CourtListener MCP search",
+    "CourtListener MCP read_document",
+    "CourtListener MCP search_document",
+    "web search",
+    "fedcourts validate"
+  ],
+  "helpful": [
+    "Frozen reached-band cert anchor makes the calibration population explicit.",
+    "Complete petition with bound lower-court appendices permitted assessment of the actual challenged order.",
+    "Citation-specific MCP searches checked the alleged split without searching the petition's outcome."
+  ],
+  "gaps": [
+    "Default uv cache was read-only; UV_CACHE_DIR=/tmp/uv-cache was needed.",
+    "Web searches returned no visible results; CourtListener supplied the usable precedent text."
+  ],
+  "notes": "Forward-mode forecast from the staged snapshot. No response brief appears because the federal respondents waived a response. No corpus query, own-case live docket retrieval, or outcome retrieval was attempted."
+}

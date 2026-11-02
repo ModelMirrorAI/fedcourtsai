@@ -250,6 +250,27 @@ count and each moved figure recomputed with the cell counted, so the rule's
 boundary is published together with what the figure reads on its other side. A
 new reason is one more value in that vocabulary and its own dated entry.
 
+The **population guard** is a membership rule of the same kind. Every figure
+reader (`store.stratify`, `store.iter_predictions`, `store.iter_evaluations`,
+`store.iter_predicted_events`, and the leaderboard's and window records' own
+ledger walks) reads one population, the SCOTUS docket unless a caller names a
+prediction slice (`fedcourtsai.prediction_slices`), so a slice's cells never
+enter a SCOTUS figure; the ops report's ledger census (`store.ledger_cell_counts`)
+keeps to the SCOTUS population too, so its funnel counts one population. The
+ops report's leakage digest is a diagnostic and reads every population. While
+no slice is switched on and every committed cell
+sits under `data/cases/scotus/`, the guard moves no figure.
+
+**A prediction slice is its own process.** A slice runs its own moments and
+its own prompt text (the circuit's panel rules, the trial court's motion-level
+outcomes), so its cells carry digests no SCOTUS cell carries, under a label of
+the slice's own that opens counting windows of its own. That is what keeps a
+slice from moving a SCOTUS figure: switching one on re-blesses no SCOTUS
+digest, and a SCOTUS window never holds a slice cell. Two slices never share a
+label, so they never pool either. No slice process is registered yet. The
+first is registered in the change that switches its slice on, with a dated
+freeze-record entry like any other label.
+
 ## The stamp is the harness's word, not the agent's
 
 The agent writes `prediction.json` / `evaluation.json`; a post-agent step
@@ -835,7 +856,7 @@ third offers a frozen build alongside, and says why that build is not the one
 published:
 
 - The **prediction census** (`ledger_cell_counts` — how many predictions and
-  events the funnel has) counts everything committed. A frozen scope showing many
+  events the funnel has) counts everything committed on the SCOTUS docket. A frozen scope showing many
   predictions but zero frozen evaluations is the honest shakedown state, and the
   ops report labels that divergence rather than hiding it.
 - The **leakage digest** counts every evaluation carrying a leakage grade,

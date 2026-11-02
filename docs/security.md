@@ -678,6 +678,14 @@ this policy.
   corpus-writer path (`run-pull`, `run-seed` and `run-repair`, via the `publish-corpus-verdict`
   action) publishes
   the data-validation verdict and live-frontier snapshot for `run-ops` to present.
+  `run-ops` also keeps the off-ledger spend records there, swept from
+  `off-ledger-spend-*` run artifacts. Artifacts are uploaded by any run, a fork
+  PR's included, so the sweep reads only those uploaded by a run of one of the
+  five recording workflows from this repository on `main`, `staging` or
+  `promote/*`, keeps only records that name that run, workflow and branch, and
+  parses them as data in a directory of their own. The records are reported
+  and gate nothing: no spend backstop or review-hold budget reads them, so a
+  forged one could misstate a report and nothing more.
   Every writer only ever does a normal append push (never a force-push), so the rule
   does not impede them; it guards the metrics history from accidental or malicious
   rewrite once the repo is public. No required PR (the jobs push directly) and no

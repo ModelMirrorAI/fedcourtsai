@@ -291,8 +291,8 @@ read past an extension application that precedes it, classified `certiorari`
 (certiorari before judgment included), `rule-20` (mandamus, prohibition or
 habeas corpus with no certiorari), `ambiguous` (both) or `other`. The entry
 text decides, never the caption: a Rule 20 petition is captioned "In re …", and
-so is a sealed certiorari petition. It is the scope input of `sal-v5` and
-`sal-v6` ([salience.md](salience.md)). Cert branch only, fill-in latched, withheld from
+so is a sealed certiorari petition. It is the scope input of `sal-v5`,
+`sal-v6` and `sal-v7` ([salience.md](salience.md)). Cert branch only, fill-in latched, withheld from
 the `query` rows, and null on a row polled before the column existed.
 
 `distributed_after_call` counts the conferences a petition was first
@@ -301,9 +301,27 @@ distributed for after the Court called for a response
 by petition distributions (the entry-initial `dist-v2` reading) filed after the
 first `Response Requested` entry, less any conference a distribution filed on or
 before the call, or undated, also names. It is the relist-count input of
-`sal-v5` and `sal-v6`.
+`sal-v5`, `sal-v6` and `sal-v7`.
 Cert branch only, fill-in latched, withheld from the `query` rows, and null where
 the docket shows no dated call or on a row polled before the column existed.
+
+Two more readings serve the published schedule (`data/schedule/schedule.json`)
+and nothing else (`pipeline/schedule_signals.py`). `argument_set_for` is the
+day the newest "SET FOR ARGUMENT on …" entry names, so a rescheduled argument
+reads its new day; cert branch only, fill-in latched. `response_due` is the
+newest response deadline the proceedings state — the docketing entry's
+"(Response due …)", a call for response's "(Due …)", a granted extension's
+"extended to and including …", a Justice's request for a response to an
+application — and `response_due_state` says whether it is still owed: the
+entries are walked in docket order, a stated deadline makes it `due`, a
+respondent's response or brief in opposition makes it `filed`, and a waiver of
+the right to respond makes it `waived`, until a later entry states a new
+deadline. `response_due` is read on both the cert and application forms and
+latched as a pair keyed on `response_due_state`. All three are
+withheld from the `query` rows and are never a cell input, and a row polled
+before the columns existed carries none until its next poll. A removal from the
+argument calendar is not read: the setting stands until it passes, when the
+schedule marks it `passed`.
 
 On a granted docket the same parse also lands the **merits decision record**
 (`pipeline/decision_record.py`), over every grant — the GVR and the summary

@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000394",
+  "run_id": "20261031T141655Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "mcp_courtlistener_search"
+  ],
+  "helpful": [
+    "fedcourts query --docket-number for related Bestwall petitions (25-1013, 23-675, 23-702)",
+    "metrics/statpack.md salience band and amicus base-rate tables",
+    "provisioned petition.txt and appendix.txt with full Fourth Circuit opinions"
+  ],
+  "gaps": [],
+  "notes": "Provisioned petition and appendix texts were complete; fedcourts query by docket number immediately confirmed the June 2026 cert denial in Bestwall (No. 25-1013) and its overlapping amicus coalition."
+}
