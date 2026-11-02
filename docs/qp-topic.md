@@ -529,12 +529,15 @@ soon as the lane labels it (`pipeline.application_policy`).
   labeler did, as the topic frame's coverage refusal reads it at extract time.
   When the hand-labeled rows do not fit under the labeling ceiling beside the
   topic batch, a batch carrying only some of them would measure a different
-  set. And while the newest batch that
-  measured policy areas was refused and the labeling prompt's digest has not
-  changed since, a re-run would measure the same labeler on the same rows
-  again, and a run of tries until one passes is a best-of-k gate rather than
-  the gate. Each ledger row records the prompt digest it measured under
-  (`policy_prompt_sha256`), so revising the prompt releases the hold. The
+  set. And while the newest batch that measured policy areas was refused, the
+  labeling prompt's digest has not changed since and neither has the gate rule,
+  a re-run would measure the same labeler on the same rows against the same
+  gate, and a run of tries until one passes is a best-of-k gate rather than the
+  gate. Each ledger row records the prompt digest and the gate rule it measured
+  under (`policy_prompt_sha256`, `policy_gate_rule`, null meaning
+  `policy-gate-v1`), so revising the prompt or registering a new gate rule
+  releases the hold. A new gate rule is a reviewed change to this document and
+  the code, landed before the run it judges. The
   digest is of the file's bytes, so any committed edit releases it; the edit
   goes through review like every prompt change. A run whose topic gate is
   refused writes nothing, so its policy areas are not measured at all, and it
@@ -543,18 +546,26 @@ soon as the lane labels it (`pipeline.application_policy`).
   compared with the hand labels, overall and per area, beside the share a
   constant labeler would score, and over two narrower sets: the rows whose hand
   label is a named area (not `other`), and the rows the hand set does not flag
-  uncertain. Each area also counts the rows the labeler called `other`. The gate
-  is the topic gate plus the floor: agreement of at least 80%, above the
-  constant-labeler share, with at least 90% of the hand set compared. The hand
+  uncertain. Each area also counts the rows the labeler called `other`. The
+  gate rule is `policy-gate-v2`. A labeler `other` is an abstention: the
+  labeler reads the docket alone, so most of its `other` calls are rows that
+  name no policy, where a hand rater named the case's from their own
+  knowledge. The gate therefore reads the labeler's named calls (an area other
+  than `other`): at least 80% of them must match the hand label (`precision`),
+  above the share a labeler naming one area on every row would score
+  (`precision_floor`); it must name an area on at least half the hand rows
+  whose hand label names one (`answer_rate`); and at least 90% of the hand set
+  must be compared. The overall agreement still prints beside it, and under
+  `policy-gate-v1` it was the gate: at least 80% over every compared row, which
+  scores each abstention as an error. The hand
   raters were not blind to the outcome and read their own knowledge of a public
   case. The labeler reads the row alone, under the same rule that a recognized
   caption is not evidence, and the label step moves the hand labels file out of
   the checkout while it runs. So the rate is agreement with that reference, not
   accuracy, and a docket that names no policy is `other` for the labeler where
-  a hand rater may have named the case's policy. Most policy rows are
-  `docket-only`, so a refused measurement is an expected result: the cut keeps
-  reading `policy-area-v1`, and the next attempt is a revised prompt, not a
-  re-run.
+  a hand rater may have named the case's policy. A refused measurement leaves
+  the cut reading `policy-area-v1`, and the next attempt is a revised prompt or
+  gate rule, not a re-run.
 - **What publishes.** A batch whose policy measurement passed publishes areas
   onto the application labels artifact. Each row records `policy_area`,
   `policy_source` (`reference` for a hand-labeled row, which publishes its hand
@@ -563,7 +574,7 @@ soon as the lane labels it (`pipeline.application_policy`).
   touched, and a later topic batch carries every published area forward. A
   refused policy measurement publishes nothing. It is recorded on its batch's
   ledger row (`policy_agree`, `policy_n`, `policy_published`,
-  `policy_gate_passed`) and leaves the artifact's `policy_agreement`, the most
+  `policy_gate_passed`, `policy_gate_rule`) and leaves the artifact's `policy_agreement`, the most
   recent passing measurement, as it stands. The batch's topic labels still
   publish under their own gate, and a refused topic gate refuses the whole
   batch, its policy areas included. The standing measurement records the
@@ -573,7 +584,9 @@ soon as the lane labels it (`pipeline.application_policy`).
   the artifact records a passing policy measurement, and the hand set before
   that, so one cut never mixes the two. `policy-area-v2` is every hand label,
   including dockets outside the application frame, plus the labeler's area on
-  every other policy row that carries one. The cut stamps `policy_rule_version`
+  every other policy row that carries one. Under `policy-gate-v2` a labeler
+  `other` is published (so the row is not asked again) but reads as unlabeled
+  in the cut, since the gate measured it as an abstention. The cut stamps `policy_rule_version`
   either way, and counts the rows whose area came from the labeler
   (`labeler_rows` on each cell, `policy_source` on each review row). The cut
   switches when the measurement passes, before backfill has reached every

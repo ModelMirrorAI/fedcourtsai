@@ -180,7 +180,9 @@ def policy_source(artifact: QpTopicApplicationLabels | None) -> PolicySource:
     stands. A row neither source labels is unlabeled, and the cut counts it
     beside its cells. A hand label keeps its ``uncertain`` flag and note; a
     labeler area is never flagged, since the labeler records no doubt, and
-    carries ``source`` ``labeler`` so a cut can count those rows apart.
+    carries ``source`` ``labeler`` so a cut can count those rows apart. Under
+    ``policy-gate-v2`` a labeler's ``other`` is an abstention, so that row
+    reads as unlabeled.
     """
     if artifact is None or artifact.policy_agreement is None:
         return hand_source()
@@ -190,8 +192,13 @@ def policy_source(artifact: QpTopicApplicationLabels | None) -> PolicySource:
     # hold (one outside the application frame) keeps its hand label rather than
     # going unlabeled when the cut switches version.
     labels: dict[str, PolicyLabel] = dict(policy_areas())
+    # Under policy-gate-v2 a labeler's `other` is an abstention, measured apart
+    # from its named calls, so it reads as unlabeled rather than as the area.
+    abstains = artifact.policy_agreement.gate_rule == "policy-gate-v2"
     for entry in artifact.entries:
         if entry.policy_area is None or entry.policy_source != "labeler":
+            continue
+        if abstains and entry.policy_area == "other":
             continue
         key = entry.docket_number.strip().upper()
         if key in labels:

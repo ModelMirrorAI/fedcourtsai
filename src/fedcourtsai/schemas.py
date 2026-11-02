@@ -9611,7 +9611,12 @@ class QpTopicBatchEntry(_Strict):
         default=None,
         pattern=r"^[0-9a-f]{64}$",
         description="sha256 of the labeling prompt this batch's policy measurement read. After "
-        "a refusal, no later batch asks for policy areas until the prompt changes",
+        "a refusal, no later batch asks for policy areas until the prompt or the gate rule changes",
+    )
+    policy_gate_rule: Literal["policy-gate-v1", "policy-gate-v2"] | None = Field(
+        default=None,
+        description="The gate rule this batch's policy measurement was judged under; null on a "
+        "measured row means policy-gate-v1. A refusal holds only while the rule is unchanged",
     )
 
     @model_validator(mode="after")
@@ -9944,9 +9949,46 @@ class QpTopicPolicyAgreement(_Strict):
     per_area: list[QpTopicPolicyAreaShare] = Field(
         default_factory=list, description="Agreement per hand area, in vocabulary order"
     )
+    gate_rule: Literal["policy-gate-v1", "policy-gate-v2"] = Field(
+        default="policy-gate-v1",
+        description="The gate the measurement is judged under: policy-gate-v1 reads `rate` "
+        "over every compared row; policy-gate-v2 reads `precision` on the labeler's named "
+        "calls and `answer_rate`, scoring a labeler `other` as an abstention",
+    )
+    answered_agree: int = Field(
+        default=0, ge=0, description="Named calls (an area other than `other`) the hand set matches"
+    )
+    answered: int = Field(
+        default=0, ge=0, description="Compared rows the labeler gave an area other than `other`"
+    )
+    answered_named: int = Field(
+        default=0,
+        ge=0,
+        description="Compared rows with a named hand area that the labeler named an area on",
+    )
+    precision: float | None = Field(
+        default=None,
+        ge=0,
+        le=1,
+        description="answered_agree / answered; null when the labeler named no area",
+    )
+    precision_floor: float | None = Field(
+        default=None,
+        ge=0,
+        le=1,
+        description="The precision a labeler naming one area on every row would score: the "
+        "commonest named hand area's share of the compared rows",
+    )
+    answer_rate: float | None = Field(
+        default=None,
+        ge=0,
+        le=1,
+        description="answered_named / named_n: how often the labeler names an area where the "
+        "hand set does",
+    )
     gate_passed: bool = Field(
-        description="Whether the rate cleared the agreement gate and the constant-labeler "
-        "floor with the hand rows covered"
+        description="Whether the measurement cleared its gate rule (`gate_rule`) with the hand "
+        "rows covered"
     )
     prompt_sha256: str | None = Field(
         default=None,
@@ -9967,6 +10009,10 @@ class QpTopicPolicyAgreement(_Strict):
             raise ValueError("named-area counts do not hold")
         if self.certain_agree > self.certain_n or self.certain_n > self.n:
             raise ValueError("certain-row counts do not hold")
+        if self.answered_agree > self.answered or self.answered > self.n:
+            raise ValueError("named-call counts do not hold")
+        if self.answered_named > self.named_n or self.answered_named > self.answered:
+            raise ValueError("answered named-area counts do not hold")
         return self
 
 

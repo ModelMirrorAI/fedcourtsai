@@ -194,6 +194,23 @@
           "description": "Whether this batch's policy measurement passed its gate; null where the batch measured no policy area",
           "title": "Policy Gate Passed"
         },
+        "policy_gate_rule": {
+          "anyOf": [
+            {
+              "enum": [
+                "policy-gate-v1",
+                "policy-gate-v2"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The gate rule this batch's policy measurement was judged under; null on a measured row means policy-gate-v1. A refusal holds only while the rule is unchanged",
+          "title": "Policy Gate Rule"
+        },
         "policy_n": {
           "anyOf": [
             {
@@ -219,7 +236,7 @@
             }
           ],
           "default": null,
-          "description": "sha256 of the labeling prompt this batch's policy measurement read. After a refusal, no later batch asks for policy areas until the prompt changes",
+          "description": "sha256 of the labeling prompt this batch's policy measurement read. After a refusal, no later batch asks for policy areas until the prompt or the gate rule changes",
           "title": "Policy Prompt Sha256"
         },
         "policy_published": {
