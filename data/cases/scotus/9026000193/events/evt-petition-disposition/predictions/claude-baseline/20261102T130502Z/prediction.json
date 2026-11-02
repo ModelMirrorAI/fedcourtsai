@@ -1,0 +1,100 @@
+{
+  "big_case_rationale": "A grant would put overruling Locke v. Davey squarely before the Court, reshaping how dozens of state aid programs treat religious study; 22 States and 13 other amicus filings signal broad stakes.",
+  "big_case_score": 0.72,
+  "case_id": "scotus/9026000193",
+  "claim_distributions": [
+    {
+      "claim_id": "order-writers",
+      "probabilities": {
+        "Alito": 0.07,
+        "Barrett": 0.02,
+        "Gorsuch": 0.12,
+        "Jackson": 0.01,
+        "Kagan": 0.005,
+        "Kavanaugh": 0.03,
+        "Roberts": 0.005,
+        "Sotomayor": 0.015,
+        "Thomas": 0.19
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.27
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.55
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.02
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.03
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.33
+    }
+  ],
+  "confidence": 0.6,
+  "context": {
+    "amicus_briefs": null,
+    "band": "baseline",
+    "band_refused": null,
+    "cert_anchor": {
+      "lookback_terms": 10,
+      "rate": 0.0518752467429925,
+      "statpack_digest": "sha256:a059cb872f890b63515d8e2ac6ef798347ae7231a62d08543a5b7431bd941faa"
+    },
+    "cut_anchor_index": null,
+    "cut_kind": null,
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 1,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v6",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_contact_scrub": {
+      "blocks": 0,
+      "fields": 0,
+      "sides": []
+    },
+    "snapshot_date": "2026-11-02",
+    "snapshot_provenance": "as-stored",
+    "snapshot_uptake": "read",
+    "term": 2026,
+    "vide_links": []
+  },
+  "created_at": "2026-11-02T13:16:37.676078Z",
+  "engine": "claude-code",
+  "event_id": "evt-petition-disposition",
+  "granted": 0,
+  "input_snapshot": "2026-11-02.json",
+  "judgment": null,
+  "model": "claude-opus-5-5",
+  "predicted_disposition": "denied",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.27,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:6a7047b68d17cc856aeabec7b557db010e775081f4efa58af5e9bf7d53417b94",
+    "label": "proc-v16",
+    "pipeline_sha": "33509ad6055f756a95dc0b7c531bfb1f74c2f600",
+    "stamped_at": "2026-11-02T13:16:37.676078Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261102T130502Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}
