@@ -3749,7 +3749,15 @@ to it.
   under `policy-area-v2` names its labeler count. The labeler reads the
   docket alone and may not use its knowledge of a case, so it calls `other`
   where a hand rater named the case's policy; the measurement counts that
-  direction per area (`labeled_other`). A v2 cut reads the newest *passing*
+  direction per area (`labeled_other`). The gate treats that `other` as an
+  abstention (`policy-gate-v2`), so a labeler `other` reads as unlabeled in
+  the cut and counts in `policy_unlabeled`, not in the `other` cell. A
+  per-area cell under `policy-area-v2` therefore holds only the rows a source
+  named, and its labeler rows are the ones the docket alone names, not a
+  random draw of the policy rows: the unlabeled rows are the dockets that name
+  no policy. The `other` cell holds hand `other` labels alone, since a correct
+  labeler `other` is unlabeled too, so `other` reads low and the named areas
+  high beside it. A quoted pair names `policy_unlabeled` beside it. A v2 cut reads the newest *passing*
   measurement, which `policy_measured_batch` names: a later refused
   measurement leaves it standing, and the labeler areas grow with every
   passing batch after it, so two v2 cuts compare only beside that batch and

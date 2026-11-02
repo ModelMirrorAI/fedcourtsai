@@ -16385,3 +16385,23 @@ freeze commit is recorded here.
   - across that round's claude and gemini `retrieval_log.json` files, `jq -r
     '.calls[] | select(.tool=="Write" or .tool=="write_file") | .query |
     select(. != null) | .[0:13]'` prints `{"file_path":` on every row.
+
+- **Policy areas are judged on the labeler's named calls (`policy-gate-v2`);
+  recorded 2026-11-02.** A **measurement-rule** entry; no digest moves and no
+  cell reads anything different. The application labeler's first policy
+  measurement (run 41513891748, batch 3 of the application labels, prompt
+  digest `policy_prompt_sha256` on that ledger row) was refused under
+  `policy-gate-v1`: 190 of 263 compared hand rows (72.2%) against the 80%
+  gate. 72 of its 73 misses were the labeler answering `other` on a row the
+  hand set names, and its named calls matched 120 of 121, naming an area on
+  121 of the 193 hand rows that name one. The rule this entry registers was
+  written after that result and in view of it: a labeler `other` is an
+  abstention, the gate reads precision on the named calls (at least 80%,
+  above the one-area floor on the answered rows) with an answer floor of half
+  the named hand rows, and the 90% coverage floor stands. The answer floor of
+  one half was chosen with the observed 62.7% in view. The refused batch is
+  never re-scored under `policy-gate-v2`: its ledger row stays a
+  `policy-gate-v1` refusal, and the rule is judged first on the next
+  labeling run after this entry reaches `main`. Carried to `main` by the
+  promotion tagged `<FILL: promotion tag>` (merge commit `<FILL: merge sha>`,
+  merged `<FILL: merged time utc>`).
