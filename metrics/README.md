@@ -507,9 +507,13 @@ stays outside the gate:
   re-pool stands down for nearly every cell: it verifies an off-cycle build,
   and what holds the committed figure is the stamp itself. A re-grade keeps
   the anchor it was first stamped with. An
-  earlier label's cert grading, and a cert cell on the terminal fallback (no
-  frozen band, so the band is re-derived from the corpus row), keep the
-  evaluator's transcription, held by the coherence check alone.
+  earlier label's cert grading keeps the evaluator's transcription, held by
+  the coherence check alone, and so does a cert cell on the terminal fallback
+  (no frozen band) graded before `proc-v17`. From `proc-v17` the stamp writes
+  the terminal fallback's record too, pooled over the terminal band in the
+  evaluate cell's own provisioned record. That band is in no committed
+  record, so the board does not re-pool it, and the coherence check is what
+  holds it there as well.
 
   **One grading per cell per judge.** A re-graded cell commits a second
   `evaluation.json` beside the first, and both describe one observation, so
@@ -1168,7 +1172,7 @@ stays outside the gate:
 
   **Counts and comparability.** The population is the **cert stage's first
   moment's** cells: the board never blends stages or moments, so although the
-  other two stages declare their own sets (`interim-v2` on every interim
+  other two stages declare their own sets (`interim-v3` on every interim
   moment, `merits-v2` on every merits moment), a non-cert cell's block sits
   outside this surface (and
   outside its absence counts) entirely until a per-stage claim surface exists. The reporting unit is the **event**: every
@@ -1454,6 +1458,28 @@ never claimable: its opinion is public, so the claim is retrievable rather than
 forecastable, and with no baseline to subtract the *whole* of the grade is
 retrievable rather than an increment over one. The backtest-as-iteration
 doctrine below applies to them in full.
+
+**Every figure here is a SCOTUS figure.** A prediction slice — a committed
+list of lower-court dockets the predict scope can admit
+(`fedcourtsai.prediction_slices`; the *Scope* section of
+[docs/data-pipeline.md](../docs/data-pipeline.md)) — is a population of its
+own, beside the forward and retrospective strata and orthogonal to them. The
+readers every artifact here is built on (`store.stratify`,
+`store.iter_predictions`, `store.iter_evaluations`,
+`store.iter_predicted_events`, and the leaderboard's and window records' own
+ledger walks) read the SCOTUS population only, so `leaderboard.json`,
+`claim-scores.json`, `big-cases.json` and the rest never pool a slice's events
+with the Court's. No slice is subject to the salience gate: its committed list
+is its selection. The ops report's substance funnel counts the SCOTUS population
+on both sides, its ledger census (`store.ledger_cell_counts`) as well as the
+stratified cells beside it. Its leakage digest is the exception by design: it
+reads every population, since contamination in a slice's cell is as much its
+subject as in the Court's, and it is not a performance figure. `fedcourts
+validate` warns on a committed cell whose case no population admits, since no
+figure reads it. No slice is
+switched on, so no artifact's shape or figures change. A slice's figures, once
+it has cells, are built over its own population, under its own process
+version, and are never differenced against or pooled into a SCOTUS figure.
 
 **Forward vs retrospective.** Snapshotting controls what a predictor can *read*,
 but not what its model already *knows*: a prediction over an event that resolved
@@ -1759,7 +1785,10 @@ practice) or a dismissal as moot — segments into a third, `procedural` stratum
 regardless of timing (the outcome's `disposition_basis` marks it at
 resolution). Its aggregates are reported per predictor but never enter the
 ranking: scoring them as merits calls would conflate cert-worthiness
-calibration with vacatur-practice prediction.
+calibration with vacatur-practice prediction. An interim cell whose scored
+prediction takes the finer interim reading (`proc-v17` on) is not scored at
+all when its application was dismissed or denied as moot: its Brier,
+`correct` and skill are null, so it lands in this stratum with no score.
 
 **The stage axis.** Orthogonal to the strata runs the event's decision
 **stage** (cert / interim / merits — the `event.yaml` vocabulary), and within a
@@ -1782,7 +1811,13 @@ decision standards and support no cross-cell claim. Skill scores appear only
 where a scored base rate exists for the stage. All three now have one. The
 **interim stage's** is the statpack interim section's substantive grant rate,
 pooled over application Terms strictly before the case's own
-(`pipeline.base_rates.interim_base_rate`), subject to its own per-pool floor and
+(`pipeline.base_rates.interim_base_rate`) — over the finer counts
+(`finer_granted` / `finer_resolved`) for a cell whose scored prediction takes
+the finer interim reading, each cell's baseline paired with the binary its
+Brier was taken against, and a pooled figure spanning the change naming both
+windows in its composition; from the OT2027 application Term, the three Terms
+before the cell's own over the widened ask vocabulary
+(`base_rates.INTERIM_LOOKBACK_TERMS`, `docs/salience.md`) — subject to its own per-pool floor and
 carrying the selection caveats registered in
 [`docs/salience.md`](../docs/salience.md) — notably that the pool is the whole
 substantive slice while the scored cells are reserve-selected on the escalation
@@ -2393,9 +2428,9 @@ the rendered table) and
   `selected_rank_fill` each cell publishes. A bare precision delta between
   versions is not a claim this artifact supports.
 
-  **The active `sal-v6` and the never-activated `sal-v5`.** Their cells and
-  their statpack blocks cover a narrower population than every
-  other version's: Rule 20 writs are outside their segment, so their
+  **The active `sal-v6`, the never-activated `sal-v5` and the registered
+  `sal-v7`.** Their cells and their statpack blocks cover a narrower population
+  than every other version's: Rule 20 writs are outside their segment, so their
   `eligible`, recall and band pools leave them out, and a cross-version
   comparison spans that population change as well as the scoring. `sal-v6` is
   `sal-v5` with the petitioner class read through `caption-v2` rather than
@@ -2405,12 +2440,21 @@ the rendered table) and
   lists under "Petitioner"). `sal-v5`'s statpack `alt_segments` block measures that
   leak; the replay cells do not. `sal-v5`'s replay cells measure the
   call-for-response relist rule and the writ scope but never `caption-v3`,
-  since the projection carries no counsel. Either block over past Terms is
+  since the projection carries no counsel entry. `sal-v7` is `sal-v6` with
+  the class read through `caption-v4`, which keeps the office only as counsel
+  of record for the captioned petitioner; it is registered and not active. Its
+  statpack block reads that class. Its replay cells read it through the one
+  counsel fact the projection carries, read off the served snapshot before
+  redaction, and only on a `dated` projection: a petition reconstructed by
+  truncating a later pull, or projected blind, reads `caption-v2`'s class
+  there. So a `sal-v7` replay cell measures `caption-v4` on its `dated` rows
+  alone, and its `provenance` mix says how many those are; a difference from
+  `sal-v6`'s cell is never a reading over the whole frame. Any of these blocks over past Terms is
   **not that version's pool** on a pack rendered before the run-repair
   back-fill filled `distributed_after_call` and `opening_writ` on the decided
   rows: on such a pack those rows read as `sal-v4` reads them, mixed with the
   rows the live poll has re-read, and no figure from the block may be quoted
-  (`docs/salience.md`, the `sal-v5` and `sal-v6` sections).
+  (`docs/salience.md`, the `sal-v5`, `sal-v6` and `sal-v7` sections).
 
   **What may not.** Nothing here is predictor skill — no model
   ran — and nothing is ex-ante: every replayed petition had resolved before

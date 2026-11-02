@@ -1,0 +1,11 @@
+# Forecast of the Court's action
+
+The Court will most likely **grant the petition for plenary review**, rather than dispose of the constitutional dispute summarily. The snapshot records one distribution and no relists: the first conference is scheduled for November 13, 2026. From that state, I expect **one or two additional distributions** before the petition is resolved; the probability of at least one additional distribution is 0.66. A grant without any further distribution remains a substantial alternative.
+
+The Court will not call for the Solicitor General's views. The Solicitor General has already presented the federal petitioners' position in the petition and reply; a new invitation is extremely unlikely (0.002).
+
+If review is granted, the Court will most likely take the petition's single question substantially as written: whether the First Amendment prohibits the government from considering viewpoints furthered by academic research in awarding or terminating competitive grants. The actual dispute will focus on terminating existing grants, rather than reviewing the wisdom of the underlying research or adjudicating every statutory objection to the terminations. The Court will take the case to clarify the boundary between permissible selection of subsidized activities and impermissible discrimination against private viewpoints. This is conditional forecast content, not a prediction that any particular merits holding is already settled.
+
+Conditional on a grant, I assign **0.12** to a disposition in the cert order itself and **0.88** to full merits proceedings. No identified intervening decision supplies an obvious GVR instruction. The competing applications of the funding precedents make summary reversal less likely than briefing and argument.
+
+If the Court instead denies review, the most likely order will contain no noted dissent or statement (0.80 conditional on denial). If a denial does draw a writing, Thomas or Alito is a plausible author criticizing the refusal to review limits on federal funding discretion; this is not the central forecast. The unconditional `order-writers` probabilities also allow writings by Sotomayor or Jackson on the less likely route of a summary disposition for the government. No merits vote split or majority author is forecast at this stage.

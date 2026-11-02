@@ -119,7 +119,7 @@ def _moment_for(stage: Stage | None, moment: Moment | None) -> Moment | None:
 
 def _evaluation(predictor_id: str, **kw: object) -> Evaluation:
     base: dict[str, object] = dict(
-        case_id="ca9/123",
+        case_id="scotus/123",
         event_id="evt-motion-stay",
         predictor_id=predictor_id,
         evaluator_id="eval-a",
@@ -1517,15 +1517,38 @@ def test_evaluator_agreement_is_positive_when_the_panel_orders_alike(
     bless_process(monkeypatch, "sha256:blessed")
     root = tmp_path / "data"
     for case, (a, b, c) in {
-        "ca9/1": (0.9, 0.8, 0.85),
-        "ca9/2": (0.5, 0.6, 0.55),
-        "ca9/3": (0.1, 0.2, 0.15),
+        "scotus/1": (0.9, 0.8, 0.85),
+        "scotus/2": (0.5, 0.6, 0.55),
+        "scotus/3": (0.1, 0.2, 0.15),
     }.items():
         _big_case_cell(root, case=case, evaluator="eval-a", score=a)
         _big_case_cell(root, case=case, evaluator="eval-b", score=b)
         _big_case_cell(root, case=case, evaluator="eval-c", score=c)
     agreement = evaluator_agreement(root)
     assert set(agreement) == {"eval-a", "eval-b", "eval-c"}
+    assert all(v.events == 3 for v in agreement.values())
+    assert all(v.rank_agreement == 1.0 for v in agreement.values())
+
+
+def test_the_agreement_views_read_the_scotus_population_only(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A prediction slice's big-case reads never enter a SCOTUS agreement panel.
+
+    The lower-court case carries a read that inverts the panel's ordering, so
+    were it pooled the agreement would leave 1.0 and the case count would rise.
+    """
+    bless_process(monkeypatch, "sha256:blessed")
+    root = tmp_path / "data"
+    for case, (a, b) in {
+        "scotus/1": (0.9, 0.8),
+        "scotus/2": (0.5, 0.6),
+        "scotus/3": (0.1, 0.2),
+        "cand/101": (0.95, 0.05),
+    }.items():
+        _big_case_cell(root, case=case, evaluator="eval-a", score=a)
+        _big_case_cell(root, case=case, evaluator="eval-b", score=b)
+    agreement = evaluator_agreement(root)
     assert all(v.events == 3 for v in agreement.values())
     assert all(v.rank_agreement == 1.0 for v in agreement.values())
 
@@ -1548,9 +1571,9 @@ def test_one_inverting_grader_drags_the_whole_small_panel_negative(
     bless_process(monkeypatch, "sha256:blessed")
     root = tmp_path / "data"
     for case, (a, b, c) in {
-        "ca9/1": (0.9, 0.8, 0.1),
-        "ca9/2": (0.5, 0.6, 0.5),
-        "ca9/3": (0.1, 0.2, 0.9),
+        "scotus/1": (0.9, 0.8, 0.1),
+        "scotus/2": (0.5, 0.6, 0.5),
+        "scotus/3": (0.1, 0.2, 0.9),
     }.items():
         _big_case_cell(root, case=case, evaluator="eval-a", score=a)
         _big_case_cell(root, case=case, evaluator="eval-b", score=b)
@@ -1578,7 +1601,7 @@ def test_an_evaluator_is_never_scored_against_a_panel_containing_itself(
     completely would still post positive agreement. They must post -1.
     """
     root = tmp_path / "data"
-    for case, (a, b) in {"ca9/1": (0.9, 0.1), "ca9/2": (0.1, 0.9)}.items():
+    for case, (a, b) in {"scotus/1": (0.9, 0.1), "scotus/2": (0.1, 0.9)}.items():
         _big_case_cell(root, case=case, evaluator="eval-a", score=a)
         _big_case_cell(root, case=case, evaluator="eval-b", score=b)
     agreement = evaluator_agreement(root)
@@ -1593,11 +1616,11 @@ def test_an_event_only_one_evaluator_read_contributes_nothing(
     # Agreement needs a peer. A solo read is not a disagreement, and counting it
     # would let a single-grader event dilute the correlation toward zero.
     root = tmp_path / "data"
-    _big_case_cell(root, case="ca9/1", evaluator="eval-a", score=0.9)
-    _big_case_cell(root, case="ca9/2", evaluator="eval-a", score=0.2)
-    _big_case_cell(root, case="ca9/2", evaluator="eval-b", score=0.3)
+    _big_case_cell(root, case="scotus/1", evaluator="eval-a", score=0.9)
+    _big_case_cell(root, case="scotus/2", evaluator="eval-a", score=0.2)
+    _big_case_cell(root, case="scotus/2", evaluator="eval-b", score=0.3)
     agreement = evaluator_agreement(root)
-    assert agreement["eval-a"].events == 1  # only ca9/2 had a peer
+    assert agreement["eval-a"].events == 1  # only scotus/2 had a peer
     # One shared event cannot support a correlation.
     assert agreement["eval-a"].rank_agreement is None
 
@@ -1606,7 +1629,7 @@ def test_evaluator_agreement_honours_the_frozen_partition(tmp_path: Path) -> Non
     # Same partition as the predictor-side view, keyed on the prediction's stamp,
     # so the two agreement blocks always describe the same cells.
     root = tmp_path / "data"
-    for case in ("ca9/1", "ca9/2"):
+    for case in ("scotus/1", "scotus/2"):
         for ev, score in (("eval-a", 0.9), ("eval-b", 0.8)):
             _write_cell(
                 root,
@@ -1819,7 +1842,7 @@ def test_a_voided_event_leaves_every_stratum_and_denominator(
         predicted_at=datetime(2026, 6, 20, tzinfo=UTC),
         resolved_at=date(2026, 6, 23),
     )
-    _void(monkeypatch, ("ca9/123", "evt-a"))
+    _void(monkeypatch, ("scotus/123", "evt-a"))
 
     run = stratify(data_root, frozen_only=False)
 
@@ -1870,17 +1893,17 @@ def test_both_boards_publish_the_voided_events_and_name_each_dropped_grading(
         predicted_at=datetime(2026, 6, 20, tzinfo=UTC),
         resolved_at=date(2026, 6, 23),
     )
-    _void(monkeypatch, ("ca9/123", "evt-a"))
+    _void(monkeypatch, ("scotus/123", "evt-a"))
     env = {"FEDCOURTS_DATA_ROOT": str(data_root)}
 
     out = tmp_path / "leaderboard.json"
     result = runner.invoke(app, ["leaderboard", "--out", str(out), "--all-versions"], env=env)
     assert result.exit_code == 0, result.output
-    assert "::warning::voided-event exclusion: ca9/123 evt-a alpha" in result.output
+    assert "::warning::voided-event exclusion: scotus/123 evt-a alpha" in result.output
     board = read_model(out, Leaderboard)
     assert board.voided_events is not None
     assert board.voided_events.excluded == 1
-    assert board.voided_events.events == ["ca9/123 evt-a"]
+    assert board.voided_events.events == ["scotus/123 evt-a"]
     assert board.voided_events.by_predictor == {"alpha": 1}
     assert board.voided_events.correct_by_predictor == {"alpha": 1}
     assert board.voided_events.mean_brier_by_predictor == {"alpha": 0.1}
@@ -2115,7 +2138,7 @@ def test_the_cli_publishes_the_leakage_block_and_names_each_dropped_cell(
     )
 
     assert result.exit_code == 0, result.output
-    assert "::warning::leakage exclusion: ca9/123 evt-a alpha" in result.output
+    assert "::warning::leakage exclusion: scotus/123 evt-a alpha" in result.output
     # The denominator rides with the count: a bare number cannot be read,
     # because a null bit is "not assessed" rather than "clean".
     assert "(1 of 2 assessed cell(s) excluded as leakage-suspected)" in result.output
@@ -2146,7 +2169,7 @@ def test_the_claim_scores_cli_publishes_the_same_block(tmp_path: Path) -> None:
     )
 
     assert result.exit_code == 0, result.output
-    assert "::warning::leakage exclusion: ca9/123 evt-a alpha" in result.output
+    assert "::warning::leakage exclusion: scotus/123 evt-a alpha" in result.output
     board = read_model(out, ClaimScoreBoard)
     assert board.leakage_exclusion is not None
     assert board.leakage_exclusion.excluded == 1
@@ -2451,11 +2474,11 @@ def test_a_decounted_predictions_grading_cannot_ride_a_frozen_rerun(
             process_version=None,
         )
         # The frozen re-run, later on the harness clock than p1's authored date.
-        event = CasePaths(data_root, "ca9", 123).event(f"evt-{predictor}")
+        event = CasePaths(data_root, "scotus", 123).event(f"evt-{predictor}")
         write_json(
             event.prediction(predictor, "p2"),
             Prediction(
-                case_id="ca9/123",
+                case_id="scotus/123",
                 event_id=f"evt-{predictor}",
                 predictor_id=predictor,
                 engine=Engine.claude_code,
@@ -2780,7 +2803,7 @@ def test_the_agreement_views_collapse_inside_the_scope_they_are_read_under(
     """
     bless_process(monkeypatch, "sha256:blessed", since=datetime(2026, 1, 1, tzinfo=UTC))
     data_root = tmp_path / "data"
-    for case_id, score in (("ca9/1", 0.9), ("ca9/2", 0.1)):
+    for case_id, score in (("scotus/1", 0.9), ("scotus/2", 0.1)):
         _write_cell(
             data_root,
             _evaluation(
@@ -2798,7 +2821,7 @@ def test_the_agreement_views_collapse_inside_the_scope_they_are_read_under(
         data_root,
         _evaluation(
             "alpha",
-            case_id="ca9/1",
+            case_id="scotus/1",
             run_id="r2",
             big_case=BigCaseAssessment(evaluator_score=0.0),
         ),
@@ -2909,7 +2932,7 @@ def test_by_band_keys_on_the_scored_predictions_frozen_band(tmp_path: Path) -> N
     """
     ev = _evaluation("alpha", event_id="evt-a", prediction_run_id="p1")
     _write_cell(tmp_path, ev, context=_band_context("low"))
-    event = CasePaths(tmp_path, "ca9", 123).event("evt-a")
+    event = CasePaths(tmp_path, "scotus", 123).event("evt-a")
     later = read_model(event.prediction("alpha", "p1"), Prediction).model_copy(
         update={
             "run_id": "p2",
@@ -2944,7 +2967,7 @@ def test_a_gvr_is_a_miss_for_always_deny_and_for_a_granted_call(tmp_path: Path) 
         predicted_disposition=Disposition.granted,
         actual_disposition=Disposition.gvr,
     )
-    event = CasePaths(tmp_path, "ca9", 123).event("evt-a")
+    event = CasePaths(tmp_path, "scotus", 123).event("evt-a")
     outcome = read_model(event.outcome, Outcome)
     assert is_correct(read_model(event.prediction("alpha", "p1"), Prediction), outcome) == 0
     run = stratify(tmp_path, frozen_only=False)
@@ -3535,7 +3558,7 @@ def test_a_pooled_entry_and_a_paired_engine_list_the_boundaries_inside_their_cel
 def _write_log(data_root: Path, ev: Evaluation, calls: Sequence[tuple[str, str]]) -> None:
     """A predict retrieval log in the ``p1`` run directory ``_write_cell`` writes."""
     write_json(
-        CasePaths(data_root, "ca9", 123)
+        CasePaths(data_root, "scotus", 123)
         .event(ev.event_id)
         .prediction_retrieval_log(ev.predictor_id, "p1"),
         RetrievalLog(
@@ -3569,7 +3592,7 @@ def test_each_cell_reads_its_self_provisioning_off_its_own_scored_log(tmp_path: 
         if calls is not None:
             _write_log(tmp_path, ev, calls)
         cells.append(_forward(ev))
-    event = CasePaths(tmp_path, "ca9", 123).event("evt-motion-stay")
+    event = CasePaths(tmp_path, "scotus", 123).event("evt-motion-stay")
     # An unreadable log is as unknown as a missing one.
     event.prediction_retrieval_log("epsilon", "p1").write_text("{not json", encoding="utf-8")
     # alpha's prediction document names a run other than the directory it sits

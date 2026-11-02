@@ -902,7 +902,6 @@ def test_full_read_owed_counts_the_days_since_the_last_read() -> None:
     )
     assert full_read_owed(9, due_day - timedelta(days=1), today, 7)
     assert not full_read_owed(9, due_day, due_day, 7)
-    assert full_read_owed(9, today - timedelta(days=7), today, 7)
     if due_day != today:
         assert not full_read_owed(9, due_day, today, 7)
 
@@ -967,3 +966,40 @@ def test_pull_cases_counts_each_kind_of_entry_read(tmp_path: Path) -> None:
     second = pull_cases(client, db, tmp_path / "data", [("ca9", 64512345)], incremental=policy)
     assert first.entry_reads == {"full": 1}
     assert second.entry_reads == {"incremental": 1}
+
+
+def test_after_a_long_gap_one_read_in_a_period_is_whole() -> None:
+    # The rotation can come back months later; the day rule would then read
+    # every docket whole, so a long gap draws a whole read one time in seven.
+    today = date(2026, 11, 2)
+    last = today - timedelta(days=40)
+    owed = [d for d in range(7000) if full_read_owed(d, last, today, 7)]
+    assert 800 < len(owed) < 1200
+    # The draw is fixed for a read, and a later read draws afresh, so no cycle
+    # length can keep one docket from its whole read.
+    assert full_read_owed(owed[0], last, today, 7)
+    later = [last + timedelta(days=k) for k in range(1, 60)]
+    assert {full_read_owed(5, d, d + timedelta(days=40), 7) for d in later} == {True, False}
+    # Even with the last read's date stuck (a live snapshot displaced the newer
+    # CourtListener one), a later read draws afresh.
+    stuck = {full_read_owed(5, last, today + timedelta(days=k), 7) for k in range(60)}
+    assert stuck == {True, False}
+    # The draw starts at exactly one period.
+    at_period = [d for d in range(700) if full_read_owed(d, today - timedelta(days=7), today, 7)]
+    assert 50 < len(at_period) < 150
+    # A period of one reads every refresh whole.
+    assert all(full_read_owed(d, last, today, 1) for d in range(50))
+
+
+def test_a_docket_last_read_long_ago_is_read_incrementally(tmp_path: Path) -> None:
+    today = date.today()
+    last = next(
+        today - timedelta(days=gap)
+        for gap in range(30, 200)
+        if not full_read_owed(DOCKET["id"], today - timedelta(days=gap), today, WEEK)
+    )
+    _store(tmp_path, last, {**DOCKET, "docket_entries": STORED})
+    refresh = IncrementalFakeClient(DOCKET, [], changed=[])
+    result = _incremental_pull(refresh, tmp_path, every_days=WEEK)
+    assert refresh.reads == [("since", last - timedelta(days=2))]
+    assert result.entry_read == "incremental" and result.changed is False

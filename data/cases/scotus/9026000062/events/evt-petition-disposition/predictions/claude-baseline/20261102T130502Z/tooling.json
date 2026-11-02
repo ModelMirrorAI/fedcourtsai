@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000062",
+  "run_id": "20261102T130502Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "provisioned record documents"],
+  "helpful": ["Frozen cert_anchor in context.json", "Full BIO and reply text"],
+  "gaps": ["Structured filters cannot surface subject-matter priors (e.g., Fed / banking-regulation petitions)"],
+  "notes": "Era vocabulary is decade tokens; an intuitive 'roberts' token errors."
+}

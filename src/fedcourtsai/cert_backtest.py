@@ -1334,6 +1334,18 @@ def replay_predictors(
             "replay",
             provenance=provenance,
             cutoff=cutoff,
+            # caption-v4's one counsel fact, read off the payload as served,
+            # before redaction stripped its counsel blocks: the fact a forward
+            # cell reads off the same snapshot, so the two band on one rule.
+            # Read only on a `dated` payload; a truncated or blind one is a
+            # later pull whose undated blocks are not the record at the cut.
+            sg_counsel_of_record_for_petitioner=cell_context.counsel_fact(
+                item.features.case_id,
+                payload,
+                snapshot_date=snapshot_date,
+                provenance=provenance,
+                cutoff=cutoff,
+            ),
             # The plain date rule, stated rather than left null: this
             # provisioner replays the cert baseline, whose trigger is a
             # conference rather than a docket entry, so there is no intra-day

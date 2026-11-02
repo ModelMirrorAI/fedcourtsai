@@ -15,7 +15,7 @@ from fedcourtsai.pipeline.claims import (
     CLAIM_INTERIM_DISPOSITION,
     CLAIM_REFERRAL_INCREMENT,
     CLAIM_RESPONSE_REQUESTED_INCREMENT,
-    CLAIM_SET_INTERIM_V2,
+    CLAIM_SET_INTERIM_V3,
     declared_claim_set,
 )
 from fedcourtsai.pipeline.ingest import CorpusRow, default_event
@@ -543,14 +543,14 @@ def test_the_interim_response_moments_are_distinct_events() -> None:
 
 
 def test_every_interim_moment_declares_the_same_interim_set() -> None:
-    """All three interim moments declare `interim-v2`, with the same four ids.
+    """All three interim moments declare `interim-v3`, with the same four ids.
 
     The claims do not change because the forecast was taken later — only the
     information set does, and that lives on the aggregation key — so the three
     moments must agree exactly, order included.
     """
     expected = (
-        CLAIM_SET_INTERIM_V2,
+        CLAIM_SET_INTERIM_V3,
         (
             CLAIM_INTERIM_DISPOSITION,
             CLAIM_RESPONSE_REQUESTED_INCREMENT,

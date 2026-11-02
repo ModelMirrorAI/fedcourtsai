@@ -1,15 +1,16 @@
-"""Census what the finer interim reading names, and confirm nothing moves now.
+"""Census what the finer interim reading names beside the registered one.
 
 The registered interim reading
 (:func:`fedcourtsai.pipeline.interim_signals.match_interim_disposition`)
 collapses a mixed partial disposition denial-first and reads a dismissal or
-denial as moot by its verb. That reading is what the corpus stores, what
-outcomes record, what claims and base rates score against and what a cell can
-retrieve, and it is unchanged. The finer reading
+denial as moot by its verb. That reading is the corpus ``disposition`` column
+and every outcome's ``actual_disposition``, and a cell stamped before
+``proc-v17`` is scored on it. The finer reading
 (:func:`~fedcourtsai.pipeline.interim_signals.read_interim_disposition`) names
 the two collapsed forms — ``granted-in-part`` and ``dismissed-moot`` — and is
-descriptive only (``docs/freeze-record.md``, the 2026-10-16 interim
-partial-grant and moot entry).
+stored beside it (the ``interim_reading`` column) and scored from ``proc-v17``
+on (``docs/freeze-record.md``, the 2026-10-16 interim partial-grant and moot
+entry and the ``proc-v17`` entry).
 
 This census is that entry's measurement, and it writes nothing. It reports two
 populations, and keeps them apart because they are different:

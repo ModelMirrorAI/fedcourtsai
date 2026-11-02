@@ -124,7 +124,15 @@ def test_writes_inside_the_lane_or_off_the_tree_are_not_hits(tool: str, query: s
 
 @pytest.mark.parametrize(
     "tool",
-    ["mcp__courtlistener__search", "WebSearch", "web_fetch", "Agent"],
+    [
+        "mcp__courtlistener__search",
+        "WebSearch",
+        "web_fetch",
+        "Agent",
+        "spawn_agent",
+        "send_input",
+        "send_message",
+    ],
 )
 def test_calls_that_cannot_touch_the_tree_are_not_audited(tool: str) -> None:
     """A search query, a fetched page or a subagent's instructions may name the
@@ -181,3 +189,27 @@ def test_another_case_under_the_same_run_is_not_this_cells_own() -> None:
 )
 def test_a_quoted_or_dotted_write_target_is_still_seen(command: str) -> None:
     assert _kinds(("Bash", command)) == [AccessKind.write]
+
+
+def test_a_codex_subagent_brief_forbidding_the_hidden_paths_is_not_a_hit() -> None:
+    """The shape codex's read-only reviewers are briefed in: the prohibition names
+    every hidden path, and the subagent's own calls are audited as calls."""
+    brief = json.dumps(
+        {
+            "agent_type": "default",
+            "message": "Read-only task. Do NOT read any predictions/evaluations/outcomes "
+            + "or data/qp-topics.",
+        }
+    )
+    assert _audit(("spawn_agent", brief)) == []
+    assert _kinds(("exec_command", "cat data/qp-topics/a.json")) == [AccessKind.oracle]
+
+
+def test_a_path_first_write_slice_is_caught_however_long_its_content() -> None:
+    """Capture leads a file tool's slice with its target, so the cut takes content."""
+    query = json.dumps({"file_path": f"{CASE_DIR}/events/{EVENT}/predictions/{ACTOR}/flags.json"})
+    query = query[:-1] + ', "content": "' + "x" * 600
+    assert AccessKind.write in _kinds(("write_file", query[:500]))
+    # The same write in sorted key order, content first, leaves no target to see.
+    sorted_order = json.dumps({"content": "x" * 600, "file_path": "data/x.json"})[:500]
+    assert _kinds(("write_file", sorted_order)) == []

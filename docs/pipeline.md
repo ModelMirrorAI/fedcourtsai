@@ -1562,6 +1562,23 @@ call differently from the stored `call_for_response_at` is reported as
 swept for the same reason: every poll writes the three columns on the row it
 reads, so the class does not regrow once the history is filled.
 
+`application-reread` is corpus-only as well: it fills the `application_kind_wide`
+column (the ask under the widened vocabulary the OT2027 interim pool counts on)
+and the `interim_reading` column, the finer interim reading the live application branch stores beside the
+registered `disposition` (`fedcourts reread-applications`), on the resolved
+application rows the live rotation no longer polls. Each row is re-read from its
+newest live-shaped snapshot with the function ingest calls; a NULL is filled,
+and a stored value that differs is overwritten and listed in the ledger, since
+the same function reading the same snapshot can only differ by a corrected
+reading. The registered `disposition` is never written, and no committed
+`outcome.json` moves. The statpack's finer interim counts read the column, and
+the finer interim pool refuses a rate over any Term with a resolved row left
+unread (`finer_unread`), so the apply is what gives a cell scored on the finer
+reading its baseline. Dispatched rather than swept for the reason the cert
+amicus back-fill is: every poll writes the column on the row it reads, so the
+class regrows only where a channel other than the live application branch
+resolves a row, and a re-run fills that.
+
 A scored relabel is half a repair: the labels move there, and the grades taken
 under the old label catch up through `regrade-stale`, which recomputes an
 evaluator cell's graded fields under the cell's original stamp and rewrites
@@ -2710,7 +2727,9 @@ still accept an explicit case list — a ` ```json ``` ` block by `--body-file`,
 workflow passes one, because a case list a round did not derive is a case list
 nothing authenticated. When prediction scope is gated
 (`predict.scope=scotus_docket`) the builder reads each case's corpus row (only a
-SCOTUS docket is in scope, minus the shared exclusion reasons), so `plan` first
+SCOTUS docket is in scope, minus the shared exclusion reasons, plus the dockets
+of any prediction slice `predict.slices` switches on; none is on, see the
+*Scope* section of [data-pipeline.md](data-pipeline.md)), so `plan` first
 pulls the corpus; with the gate on
 and no corpus on disk the build fails loud rather than emit an empty matrix.
 `fedcourts predict-plan` / `evaluate-plan` are the read-only rehearsal of this
@@ -3344,6 +3363,21 @@ cell's `data/` *add-only* onto a freshly fetched clean `origin/main` checkout �
 a file the checkout already carries is never overwritten, and a differing copy
 is refused with the checkout's kept — and `assert-paths` rejects any
 non-addition that slips past.
+
+A predict cell's writes are held to its own run directory by the tree as well
+as by its prompt. After the hide, `fedcourts record-write-baseline` records
+every entry under `data/` and copies its files to the runner temp directory;
+the first step after the watchdog's disarm, ahead of the restore, is `fedcourts
+confine-cell-writes`, which removes what the agent added and restores what it
+changed or deleted anywhere under `data/` outside
+`predictions/<predictor_id>/<run_id>/`, and notes it in the cell's `flags.json`
+([predicted-artifacts.md](predicted-artifacts.md)). The cell artifact uploads
+the whole event directory and the collect union adds any file `main` lacks, so
+without it a stray file beside the run directory, or an edited `event.yaml` for
+an event first materialized this run, would reach the run PR. It runs under
+`!cancelled()`, like the restore, and fails the step when a path cannot be put
+back. The scope is `data/` alone: the engine state, sidecar logs and watchdog
+bundle the harness writes at the workspace root are outside it.
 
 The same step in both cells, and a step of its own in every other job that
 starts an engine in a checkout (the back-test, the qp-topic labeler and the

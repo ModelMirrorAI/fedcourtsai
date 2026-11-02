@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000193",
+  "run_id": "20261102T130502Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts validate",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_call_endpoint"
+  ],
+  "helpful": [
+    "Provisioned full text of petition.txt (including 4th Cir. and E.D. Va. opinions), brief-in-opposition.txt, cert-reply.txt, and questions-presented.txt",
+    "cert_anchor and salience band in context.json plus metrics/statpack.md cuts",
+    "fedcourts query --docket-number 26-240 and CourtListener MCP docket-entries lookup on CA4 No. 26-1437 to determine the exact posture of the VIDED companion case"
+  ],
+  "gaps": [
+    "vide_links in context.json was empty even though six amicus briefs on the docket were filed VIDED with No. 26-240",
+    "fedcourts query filter by originating_court or counsel"
+  ],
+  "notes": "Combining fedcourts query (--docket-number 26-240) with CourtListener MCP (docket-entries on CA4 26-1437) was very effective for verifying that the companion petition is a cert-before-judgment filing whose underlying Fourth Circuit appeal is calendared for January 2027 oral argument."
+}

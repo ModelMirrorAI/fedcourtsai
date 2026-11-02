@@ -44,7 +44,7 @@ from .pipeline import moments as moment_registry
 from .pipeline.authorship_rates import authorship_section
 from .pipeline.base_rates import INTERIM_BASE_RATE_MIN_RESOLVED
 from .pipeline.cert_signals import DEFAULT_DISTRIBUTION_PARSE
-from .pipeline.interim_signals import ApplicationKind
+from .pipeline.interim_signals import ApplicationKind, InterimReading, interim_reading_granted
 from .pipeline.judgment import judgment_disturbed, judgment_rode_the_grant_order
 from .pipeline.justice_priors import justice_votes_section
 from .pipeline.outcome import granted_flag, is_machine_readable
@@ -1466,12 +1466,22 @@ class _InterimAcc:
     __slots__ = (
         "applications",
         "duplicate_rows",
+        "finer_granted",
+        "finer_moot",
+        "finer_resolved",
+        "finer_unread",
         "kinds",
         "referred_to_court",
         "response_requested",
         "substantive_granted",
         "substantive_resolved",
         "unparsed",
+        "wide_finer_granted",
+        "wide_finer_resolved",
+        "wide_finer_unread",
+        "wide_granted",
+        "wide_resolved",
+        "wide_unread",
         "with_amicus",
     )
 
@@ -1482,6 +1492,16 @@ class _InterimAcc:
         self.unparsed = 0
         self.substantive_resolved = 0
         self.substantive_granted = 0
+        self.finer_resolved = 0
+        self.finer_granted = 0
+        self.finer_moot = 0
+        self.finer_unread = 0
+        self.wide_resolved = 0
+        self.wide_granted = 0
+        self.wide_finer_resolved = 0
+        self.wide_finer_granted = 0
+        self.wide_finer_unread = 0
+        self.wide_unread = 0
         self.response_requested = 0
         self.referred_to_court = 0
         self.with_amicus = 0
@@ -1491,6 +1511,7 @@ class _InterimAcc:
         if row.application_kind is None:
             self.unparsed += 1
             return
+        self._add_wide(row)
         # The blob is external input to this pure function: a kind string
         # outside the vocabulary counts with the unreadable asks rather than
         # vanishing, so the kind split always sums to `applications`.
@@ -1515,12 +1536,60 @@ class _InterimAcc:
             if is_machine_readable(disposition):
                 self.substantive_resolved += 1
                 self.substantive_granted += granted_flag(disposition)
+                self._add_finer(row.interim_reading)
         if row.response_requested:
             self.response_requested += 1
         if row.referred_to_court:
             self.referred_to_court += 1
         if row.amicus_briefs is not None and row.amicus_briefs > 0:
             self.with_amicus += 1
+
+    def _add_wide(self, row: CorpusRow) -> None:
+        """Count one application-parsed row under the widened ask vocabulary.
+
+        Beside the registered kind tally and never in place of it: the widened
+        slice is the stored ``application_kind_wide`` column, counted on the same
+        machine-readable resolution rule, and a resolved row with no stored
+        widened ask is counted ``wide_unread`` rather than guessed onto a side.
+        """
+        if row.disposition is None:
+            return
+        disposition = Disposition(row.disposition)
+        if not is_machine_readable(disposition):
+            return
+        if row.application_kind_wide not in _APPLICATION_KINDS:
+            self.wide_unread += 1
+            return
+        if row.application_kind_wide != ApplicationKind.substantive.value:
+            return
+        self.wide_resolved += 1
+        self.wide_granted += granted_flag(disposition)
+        if row.interim_reading == InterimReading.dismissed_moot.value:
+            return
+        scored = interim_reading_granted(row.interim_reading)
+        if scored is None:
+            self.wide_finer_unread += 1
+            return
+        self.wide_finer_resolved += 1
+        self.wide_finer_granted += scored
+
+    def _add_finer(self, reading: str | None) -> None:
+        """Count one resolved substantive row under the finer interim reading.
+
+        Beside the registered counts and never in place of them: the finer
+        reading is the stored ``interim_reading`` column, a moot dismissal leaves
+        the finer pool altogether, and a row with no stored reading is counted
+        ``finer_unread`` rather than guessed onto either side.
+        """
+        if reading == InterimReading.dismissed_moot.value:
+            self.finer_moot += 1
+            return
+        scored = interim_reading_granted(reading)
+        if scored is None:
+            self.finer_unread += 1
+            return
+        self.finer_resolved += 1
+        self.finer_granted += scored
 
     def skip_duplicate(self) -> None:
         """Tally a second row for a number already counted; it joins no count."""
@@ -1534,6 +1603,16 @@ class _InterimAcc:
         self.unparsed += other.unparsed
         self.substantive_resolved += other.substantive_resolved
         self.substantive_granted += other.substantive_granted
+        self.finer_resolved += other.finer_resolved
+        self.finer_granted += other.finer_granted
+        self.finer_moot += other.finer_moot
+        self.finer_unread += other.finer_unread
+        self.wide_resolved += other.wide_resolved
+        self.wide_granted += other.wide_granted
+        self.wide_finer_resolved += other.wide_finer_resolved
+        self.wide_finer_granted += other.wide_finer_granted
+        self.wide_finer_unread += other.wide_finer_unread
+        self.wide_unread += other.wide_unread
         self.response_requested += other.response_requested
         self.referred_to_court += other.referred_to_court
         self.with_amicus += other.with_amicus
@@ -1563,6 +1642,16 @@ def _interim_counts(acc: _InterimAcc) -> dict[str, Any]:
         "referred_to_court": acc.referred_to_court,
         "with_amicus": acc.with_amicus,
         "duplicate_rows": acc.duplicate_rows,
+        "finer_resolved": acc.finer_resolved,
+        "finer_granted": acc.finer_granted,
+        "finer_moot": acc.finer_moot,
+        "finer_unread": acc.finer_unread,
+        "wide_resolved": acc.wide_resolved,
+        "wide_granted": acc.wide_granted,
+        "wide_finer_resolved": acc.wide_finer_resolved,
+        "wide_finer_granted": acc.wide_finer_granted,
+        "wide_finer_unread": acc.wide_finer_unread,
+        "wide_unread": acc.wide_unread,
     }
 
 

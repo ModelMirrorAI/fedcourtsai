@@ -67,10 +67,18 @@ from .integrity import cell_clock, latest_evaluation_runs
 from .paths import CasePaths
 from .pipeline import moments
 from .pipeline.base_rates import PER_CURIAM_LABEL
-from .pipeline.claims import claim_block_problems
+from .pipeline.claims import (
+    claim_block_problems,
+    declared_claim_set,
+    declared_distribution_claims,
+)
 from .pipeline.interim_signals import ApplicationKind
 from .pipeline.justices import bench_on, resolve_surname
-from .pipeline.semantic import semantic_claim_problems, semantic_grade_problems
+from .pipeline.semantic import (
+    declared_semantic_claim_set,
+    semantic_claim_problems,
+    semantic_grade_problems,
+)
 from .pipeline.vote_sources import REGISTERED_VOTE_SOURCES, VoteSource
 from .process_version import EVALUATE_BLESSING_LABELS, label_ordinal, resolvable_runs
 from .schemas import (
@@ -1357,6 +1365,101 @@ def check_prediction_docs(data_root: Path) -> CorpusCheck:
             elif not (path.parent / doc).is_file():
                 problems.append(f"prediction {path}: {field_name} {doc!r} does not exist")
     return _check(CHECK_PREDICTION_DOCS, problems, checked=checked)
+
+
+#: The lay summary's filename, as ``EventPaths.prediction_summary`` writes it.
+_SUMMARY_DOC = "prediction_summary.md"
+
+
+def live_cell_problems(cell_dir: Path) -> list[str]:
+    """What a predict cell still owes before it finishes, beyond the ledger checks.
+
+    The ledger checks cannot hold an unstamped prediction to the live contract:
+    the process stamp lands only after the engine exits, and the committed ledger
+    holds unstamped records from before ``predicted_reasoning_doc``, the claim
+    blocks and the summary existed, so a cell that leaves any of them out reads
+    exactly like one of those records while the agent can still fix it. The agent
+    knows its own directory, though, and naming it (``validate --cell``) says the
+    prediction there is live. For that one directory this adds what the prompt
+    contracts and the ledger checks cannot ask of every record:
+
+    * a ``prediction.json`` is there at all;
+    * it names its forecast document (``predicted_reasoning_doc`` is not null) —
+      the miss the stamp later turns into a ledger failure, which routes the
+      cell to the partial PR;
+    * it carries every block its event declares: ``claims`` where the event
+      declares a claim set, ``claim_distributions`` where it declares
+      distribution claims, ``semantic_claims`` where it declares a semantic set.
+      The ledger check skips an absent block as legitimate, so a stripped
+      prediction would land with none of its claims scored;
+    * it writes ``big_case_score``, as a number or an explicit ``null``: the
+      prompt makes the key required, and once parsed an omitted key and a null
+      are the same value, so only the file as written can tell them apart;
+    * a non-empty ``prediction_summary.md`` sits beside it. The stamp only warns
+      on a missing summary, so the cell still lands without one; here it fails
+      the agent's own run, the last point at which it can still be written.
+
+    Whether a named document exists, whether a block that is present is
+    coherent, and whether ``prediction.json`` matches its schema stay the ledger
+    checks' (``check_prediction_docs``, ``check_prediction_claims``,
+    ``validate_ledger``), so nothing is reported twice; a prediction that does
+    not parse is left to them here.
+    """
+    prediction_path = cell_dir / "prediction.json"
+    if not prediction_path.is_file():
+        return [
+            f"cell {cell_dir}: no prediction.json; every predict cell writes one "
+            "(schemas/prediction.schema.json)"
+        ]
+    problems: list[str] = []
+    with suppress(OSError, ValueError, ValidationError):
+        raw = json.loads(prediction_path.read_text())
+        prediction = Prediction.model_validate(raw)
+        problems.extend(f"cell {cell_dir}: {p}" for p in _live_prediction_problems(raw, prediction))
+    summary = cell_dir / _SUMMARY_DOC
+    text = summary.read_text(encoding="utf-8") if summary.is_file() else ""
+    if not text.strip():
+        problems.append(
+            f"cell {cell_dir}: no {_SUMMARY_DOC}; write the one-paragraph "
+            "plain-language summary the prompt contracts beside every prediction"
+        )
+    return problems
+
+
+def _live_prediction_problems(raw: Mapping[str, object], prediction: Prediction) -> list[str]:
+    """The live-contract misses in one parsed ``prediction.json`` (:func:`live_cell_problems`)."""
+    problems: list[str] = []
+    if prediction.predicted_reasoning_doc is None:
+        problems.append(
+            f"prediction.json names no forecast document; write {_FORECAST_DOC} and "
+            f'set predicted_reasoning_doc to "{_FORECAST_DOC}" (a live cell must not '
+            "leave it null or out)"
+        )
+    event_id = prediction.event_id
+    claim_set = declared_claim_set(event_id)
+    if claim_set is not None and prediction.claims is None:
+        problems.append(
+            f"prediction.json has no claims block; {event_id} declares "
+            f"{claim_set[0]}, so state one probability for each of: " + ", ".join(claim_set[1])
+        )
+    distributions = declared_distribution_claims(event_id)
+    if distributions and prediction.claim_distributions is None:
+        problems.append(
+            f"prediction.json has no claim_distributions block; {event_id} declares "
+            + ", ".join(distributions)
+        )
+    semantic = declared_semantic_claim_set(event_id)
+    if semantic is not None and prediction.semantic_claims is None:
+        problems.append(
+            f"prediction.json has no semantic_claims block; {event_id} declares "
+            f"{semantic[0]}: " + ", ".join(spec.claim_id for spec in semantic[1])
+        )
+    if "big_case_score" not in raw:
+        problems.append(
+            "prediction.json omits big_case_score; write a number in [0, 1], or null "
+            "with a one-line big_case_rationale"
+        )
+    return problems
 
 
 def check_prediction_claims(data_root: Path) -> CorpusCheck:

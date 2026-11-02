@@ -13,8 +13,9 @@ declared but neither pre-registered nor producing anything; and the grade of
 `predicted_reasoning.md` itself (*Grading the forecast document, design*),
 registered and collected on every stage, and published by no board yet.** The scoring rule is `pipeline.base_rates.claim_score`; the
 declared sets — `cert-v3` on every declared cert moment (`cert-v2`'s five
-binary claims and the `order-writers` distribution claim), `interim-v2` on every
-interim moment (`interim-v1`'s four binary claims and `order-writers`), and
+binary claims and the `order-writers` distribution claim), `interim-v3` on every
+interim moment (`interim-v1`'s four binary claims and `order-writers`, its
+disposition claim resolving on the finer interim reading), and
 `merits-v2` on every declared merits moment (the one binary claim,
 `judgment-disturbed`, and the `majority-author` and `separate-writers`
 distribution claims) — live
@@ -914,17 +915,23 @@ and carry the pool guard's count on every Term inside the window
 affirmance resolve 0 (undisturbed) and sit in the baseline's denominator the
 same way; `docs/decision-model.md` is the registered design.
 
-**The declared interim set: `interim-v1`, carried by `interim-v2`.** All three
-interim moments — the application on arrival, after the Court called for a
-response, and once one was filed — name `interim-v2`, which declares
-`interim-v1`'s four binary claims beside `order-writers`, so they answer the
-same four, reached through the moment table like the
-merits set. The claims do not change because the forecast was taken later; only
+**The declared interim set: `interim-v1`, carried by `interim-v2` and
+`interim-v3`.** All three interim moments — the application on arrival, after
+the Court called for a response, and once one was filed — name `interim-v3`,
+which declares `interim-v1`'s four binary claims beside `order-writers`, so
+they answer the same four, reached through the moment table like the merits
+set. `interim-v3` differs from `interim-v2` in one resolution only: its
+`interim-disposition` claim resolves on the finer interim reading. A cell
+stamped before `proc-v17` (`process_version.FINER_INTERIM_READING_FROM`) was
+asked `interim-v2` and is scored under it, and one stamped before `proc-v12`
+under `interim-v1` (`pipeline.claims.declared_claim_set_for`), so the two
+resolutions of the disposition claim never share a set version on a claim
+board. The claims do not change because the forecast was taken later; only
 the information set does, and that lives on the aggregation key.
 
 | Claim | Resolver | Baseline |
 | --- | --- | --- |
-| `interim-disposition` | `Outcome.actual_granted` — the interim binary (relief granted), restating the headline `probability` so the set is self-describing, and voiding the block on a divergent pair exactly as its two siblings do. It reads the same committed field the cert `disposition` claim reads and reuses the same resolver; the id is distinct because baseline routing is keyed on it, and pooling the two under one id would average a cert grant rate with an interim one over populations resolving on different standards | The substantive slice's grant rate pooled over **application**-Terms strictly before the case's own (`base_rates.interim_base_rate`), read from the frozen context's Term. Version-free and band-free — an application freezes no salience band by rule, so there is nothing for the cert set's frozen-band pairing to condition on. `None` below the pooled floor, and its registered limitation travels with it: the pool is the whole substantive slice while the scored cells are reserve-selected in escalation-ladder order, so it is not conditioned as the predictor is (`docs/salience.md`) |
+| `interim-disposition` | `Outcome.actual_granted` — the interim binary (relief granted) — for a prediction stamped before `proc-v17`; from `proc-v17` on (`process_version.FINER_INTERIM_READING_FROM`, keyed on the scored prediction's label) `Outcome.interim_granted`, the finer reading's binary, under which partial relief is granted and a moot dismissal masks the claim `dismissed-moot` (an outcome recorded with no finer reading masks it `finer-reading-absent`). The increment claims beside it resolve on the escalation signals, which the reading does not touch. It restates the headline `probability` so the set is self-describing, and voiding the block on a divergent pair exactly as its two siblings do. Under `interim-v2` it reads the same committed field the cert `disposition` claim reads and reuses the same resolver; the id is distinct because baseline routing is keyed on it, and pooling the two under one id would average a cert grant rate with an interim one over populations resolving on different standards | The substantive slice's grant rate pooled over **application**-Terms strictly before the case's own (`base_rates.interim_base_rate`), read from the frozen context's Term — over the finer counts (`finer_granted` / `finer_resolved`, moot dismissals out of both) for a `proc-v17` or later prediction. Version-free and band-free — an application freezes no salience band by rule, so there is nothing for the cert set's frozen-band pairing to condition on. `None` below the pooled floor, and its registered limitation travels with it: the pool is the whole substantive slice while the scored cells are reserve-selected in escalation-ladder order, so it is not conditioned as the predictor is (`docs/salience.md`) |
 | `response-requested-increment` | 1 iff `Outcome.interim_signals.response_requested`, given false — and observable — at prediction; masked as **vacuous** where the Court had already called for one, the flag being max-latched so there is nothing left to forecast. The CVSG increment's shape, over the interim docket's analogue of it | None yet. The pack's `response_requested` column is an **unconditional** count over the whole substantive slice — every application that had drawn a request as at the build, pending ones included. The claim needs the arrival-conditioned hazard: among prior-Term applications that had not yet drawn one at the disclosed posture, the rate that went on to. An unconditional level fails test 3 above; and because the column's denominator is the whole slice while the resolved counts beside it are the machine-matched-resolved subset, it is also **right-censored** — a still-pending application contributes a "no" it may yet reverse — which is test 5 |
 | `referral-increment` | 1 iff `Outcome.interim_signals.referred_to_court`, given false — and observable — at prediction; vacuous-masked on an application already referred, a referral never being undone | None yet, the same two gaps over `referred_to_court`: unconditional across the slice rather than the rate at which an unreferred application becomes a referred one, and censored by the same pending tail |
 | `amicus-increment` | 1 iff `Outcome.interim_signals.amicus_briefs` rose strictly past `Prediction.context.amicus_briefs`; masked where either end is undisclosed, and with **no** vacuity arm — the count is unbounded above, so a docket already carrying briefs can always carry another. The relist increment's shape rather than the CVSG's. The two ends are cut differently — the resolution end at the end of the disposition day, the prediction end at its own moment — and on an `arrival-position` cell that asymmetry biases this claim upward; the paragraphs below Test 6 state both | None yet, and the gap is sharper. `with_amicus` *is* published per Term, so coverage is not the problem: it counts applications carrying *at least one* brief, collapsing the conditioning variable itself to a flag while the claim is a rise past a specific count — test 3 at its sharpest — and it carries the same pending-tail censoring |
@@ -1241,8 +1248,8 @@ moment predicts.
 One probability cannot carry a forecast over the bench, so these are
 **distribution claims** (`Prediction.claim_distributions`): a claim id with a
 probability per label, a label being a Justice's name as the roster spells it.
-They are declared beside a set's binary claims, under `merits-v2`, `cert-v3` and
-`interim-v2`, which carry their predecessors' binary claims unchanged and in the
+They are declared beside a set's binary claims, under `merits-v2`, `cert-v3`,
+`interim-v2` and `interim-v3`, which carry their predecessors' binary claims unchanged and in the
 same order (`pipeline.claims`). Every declared moment names its stage's version,
 and the predict prompt elicits the forecast: the declaration and the prompt move
 together, as the paragraph above requires. A cell stamped under a process label
@@ -1258,7 +1265,7 @@ block is, and never guessed.
 | --- | --- | --- | --- | --- |
 | `majority-author` | `merits-v2` | Categorical over the bench and `per-curiam`, summing to 1 | `merits_author`, the author the opinions listing prints on the decision's row, which the opinions writer stamps for every decision it finds, signed or per curiam (*Why the author resolves from its own stamp*); the label set is the Justices in the outcome's `writing_roles` where observed, else the author alone, and the score is the same either way, since a label the outcome leaves out resolves 0 | No stamped author (no listing row dated the outcome's resolution, or a row whose author code is not on the roster), an unclassified decision method, a method that disagrees with the stamp or falls outside the argued population (a stamped Justice off `argued-signed`, a stamped `per-curiam` off `argued-per-curiam`), so a summary opinion and a decision with no deciding opinion (a DIG, a summary order), or observed roles that contradict the stamp (the stamped Justice missing from them, holding a role other than the lead or a mixed one, or another Justice holding a lead) |
 | `separate-writers` | `merits-v2` | Per Justice, each probability on its own | Whether each participating Justice wrote anything but the lead opinion: a concurrence, a dissent, either in part, or a writing of mixed role | Unobserved roles, which covers every per curiam the opinion record derives no lineup for, and a signed decision whose roles name no single lead writer (a null role there may be the lead opinion in part) |
-| `order-writers` | `cert-v3`, `interim-v2` | Per Justice | Whether each participating Justice wrote on the order, off the orders source's observed roles | Unobserved roles, and any merits outcome |
+| `order-writers` | `cert-v3`, `interim-v2`, `interim-v3` | Per Justice | Whether each participating Justice wrote on the order, off the orders source's observed roles | Unobserved roles, and any merits outcome |
 
 **Scoring.** The rule above, `(b - y)^2 - (p - y)^2`, is applied once per
 label, and the claim's kind fixes how the terms combine before any outcome

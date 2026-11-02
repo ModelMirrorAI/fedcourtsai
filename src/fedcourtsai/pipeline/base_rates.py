@@ -31,6 +31,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Sequence
+from typing import Final, Literal
 
 from ..schemas import (
     CERT_ORDER_DISPOSITIONS,
@@ -40,9 +41,11 @@ from ..schemas import (
     PredictionContext,
     StatPack,
     StatPackAuthorshipTerm,
+    StatPackInterimTerm,
     StatPackTerm,
     StatPackTermSegment,
 )
+from .interim_signals import WIDE_APPLICATION_KIND_FROM_TERM
 
 
 def _version_segments(entry: StatPackTerm, band_version: str) -> list[StatPackTermSegment] | None:
@@ -193,6 +196,43 @@ def prediction_base_rate(
         statpack,
         lookback_terms=lookback_terms,
         risk_set=True,
+    )
+
+
+def terminal_base_rate(
+    context: PredictionContext | None, statpack: StatPack, *, lookback_terms: int = 0
+) -> float | None:
+    """The terminal-fallback band rate for a cert cell whose prediction froze no band.
+
+    ``context`` is the **evaluate** cell's provisioned record, built from the
+    decided docket, so its band is the petition's *terminal* band, and the rate
+    pooled is ``est_grant_rate`` — over petitions that ended in the band — the
+    pairing :func:`prediction_base_rate`'s docstring sets out. Version-pinned
+    and strictly prior like every band pool: the band's own
+    ``salience_version``, Terms before ``context.term``, inside
+    ``lookback_terms``. The harness-side twin of
+    :func:`fedcourtsai.pipeline.evaluate.segment_base_rate`, which bands a
+    corpus row rather than reading a provisioned context.
+
+    ``None`` where the context carries no band, Term or version — a snapshot
+    that disclosed no proceedings, an application docket, a row outside the
+    active version's segment — or no prior Term carries the band under that
+    version: no baseline, as on the frozen-band path.
+    """
+    if (
+        context is None
+        or context.band is None
+        or context.term is None
+        or context.salience_version is None
+    ):
+        return None
+    return _pooled_band_rate(
+        context.band,
+        context.salience_version,
+        context.term,
+        statpack,
+        lookback_terms=lookback_terms,
+        risk_set=False,
     )
 
 
@@ -619,8 +659,38 @@ def summary_route_base_rate(
 INTERIM_BASE_RATE_MIN_RESOLVED = 50
 
 
+#: The first application Term whose interim pool is the **interim window**: the
+#: :data:`INTERIM_LOOKBACK_TERMS` application Terms strictly before the cell's
+#: own, counted on the widened ask vocabulary (the statpack's ``wide_*``
+#: counts), in place of the caller's lookback and the registered slice. The
+#: Term the widened vocabulary starts selecting the predicted population on
+#: (:data:`~fedcourtsai.pipeline.interim_signals.WIDE_APPLICATION_KIND_FROM_TERM`),
+#: so from that Term the pool and the scored cells are read on one vocabulary.
+#: Keyed on the cell's application Term, which moves between Terms only, as the
+#: lookback knob's own rule requires (``docs/salience.md``, *The interim docket*).
+INTERIM_WINDOW_FROM_TERM: Final = WIDE_APPLICATION_KIND_FROM_TERM
+
+#: The interim window's width in application Terms. Shorter than the cert
+#: baseline's ``salience.base_rate_lookback_terms`` because the interim docket
+#: moved more within ten Terms than the cert docket did — a pool reaching back
+#: to OT2016 carries the OT2020 and OT2021 spike into an OT2027 cell's baseline — and
+#: still several times the floor (:data:`INTERIM_BASE_RATE_MIN_RESOLVED`) on
+#: the measurement the ``proc-v17`` freeze-record entry states.
+INTERIM_LOOKBACK_TERMS: Final = 3
+
+
+#: Which interim counts a pool reads: the registered collapse, or the finer
+#: reading a cell stamped under ``process_version.FINER_INTERIM_READING_FROM`` or
+#: later is scored on (:func:`interim_base_rate`).
+InterimPoolReading = Literal["registered", "finer"]
+
+
 def interim_base_rate(
-    application_term: int, statpack: StatPack, *, lookback_terms: int = 0
+    application_term: int,
+    statpack: StatPack,
+    *,
+    lookback_terms: int = 0,
+    reading: InterimPoolReading = "registered",
 ) -> float | None:
     """The historical grant rate an interim cell's skill is scored against.
 
@@ -667,9 +737,17 @@ def interim_base_rate(
     resolution clock and cohort-mates are scored against the same pool.
 
     ``lookback_terms`` bounds the pool as a Term-year band exactly as the two
-    siblings do (``0`` = unbounded). The window is the caller's — the shipped
-    value is the cert baseline's ``salience.base_rate_lookback_terms``, applied
-    here unchanged, which is a stated choice and not a separate registration.
+    siblings do (``0`` = unbounded). Before :data:`INTERIM_WINDOW_FROM_TERM` the
+    window is the caller's — the shipped value is the cert baseline's
+    ``salience.base_rate_lookback_terms``, applied here unchanged. From that
+    application Term the pool is the registered **interim window** instead: the
+    :data:`INTERIM_LOOKBACK_TERMS` Terms strictly before the cell's own, whatever
+    the caller passes, over the widened ask vocabulary's counts (``wide_granted``
+    / ``wide_resolved``, or ``wide_finer_granted`` / ``wide_finer_resolved`` on
+    the finer reading), so the pool counts the same vocabulary that selects the
+    cell. It refuses while any pooled Term predates those counts or holds a row
+    the ``reread-applications`` pass has not read (``wide_unread``, and on the
+    finer reading ``wide_finer_unread``).
     ``None`` when the pack carries no interim
     section, when no prior Term resolved anything substantive, or when the pooled
     sample is below :data:`INTERIM_BASE_RATE_MIN_RESOLVED` — the already-contracted
@@ -677,6 +755,20 @@ def interim_base_rate(
     ride the number wherever it is quoted, both pre-registered in
     ``docs/salience.md``: withdrawn and dismissed resolutions count as ungranted,
     and a mixed partial disposition reads denial-first.
+
+    ``reading`` picks which counts are pooled. ``"registered"`` (the default)
+    pools ``substantive_granted`` over ``substantive_resolved`` under the two
+    collapses above. ``"finer"`` pools ``finer_granted`` over ``finer_resolved``
+    — a partial grant counts as granted, and an application dismissed or denied
+    as moot leaves numerator and denominator — and is the pool for a cell whose
+    scored prediction takes the finer reading
+    (:func:`fedcourtsai.pipeline.evaluate.scores_finer_reading`). The floor
+    applies to the finer denominator, moot dismissals already out. A finer pool
+    refuses (``None``) wherever a pooled Term was built before the finer counts
+    existed or still holds a resolved row with no stored finer reading
+    (``finer_unread``): a Term counted partly would understate its denominator
+    by exactly the rows the ``reread-applications`` pass has not reached, so the
+    pool waits for the pass rather than quote a rate over a partial census.
 
     No pool-integrity guard corresponds to :func:`merits_base_rate`'s
     ``cert_order_excluded`` refusal, and none is missing: that guard exists
@@ -686,6 +778,9 @@ def interim_base_rate(
     """
     if statpack.interim is None:
         return None
+    windowed = application_term >= INTERIM_WINDOW_FROM_TERM
+    if windowed:
+        lookback_terms = INTERIM_LOOKBACK_TERMS
     oldest = application_term - lookback_terms if lookback_terms > 0 else None
     granted = 0
     resolved = 0
@@ -694,11 +789,44 @@ def interim_base_rate(
             continue  # leakage guard: the case's own and later Terms never contribute
         if oldest is not None and entry.term < oldest:
             continue  # outside the configured lookback window
-        granted += entry.substantive_granted
-        resolved += entry.substantive_resolved
+        if windowed:
+            counts = _wide_counts(entry, reading)
+            if counts is None:
+                return None  # a pooled Term the widened counts do not yet cover in full
+            granted += counts[0]
+            resolved += counts[1]
+            continue
+        if reading == "registered":
+            granted += entry.substantive_granted
+            resolved += entry.substantive_resolved
+            continue
+        if entry.finer_resolved is None or entry.finer_granted is None or entry.finer_unread:
+            return None  # a pooled Term the finer counts do not yet cover in full
+        granted += entry.finer_granted
+        resolved += entry.finer_resolved
     if resolved < INTERIM_BASE_RATE_MIN_RESOLVED:
         return None
     return granted / resolved
+
+
+def _wide_counts(entry: StatPackInterimTerm, reading: InterimPoolReading) -> tuple[int, int] | None:
+    """One Term's ``(granted, resolved)`` over the widened slice, or ``None`` if unread.
+
+    ``None`` where the Term predates the widened counts, holds a resolved row with
+    no stored widened ask (``wide_unread``), or — on the finer reading — holds a
+    widened-slice row with no stored finer reading (``wide_finer_unread``).
+    """
+    if entry.wide_resolved is None or entry.wide_granted is None or entry.wide_unread:
+        return None
+    if reading == "registered":
+        return entry.wide_granted, entry.wide_resolved
+    if (
+        entry.wide_finer_resolved is None
+        or entry.wide_finer_granted is None
+        or entry.wide_finer_unread
+    ):
+        return None
+    return entry.wide_finer_granted, entry.wide_finer_resolved
 
 
 #: The ``majority-author`` label for a decision no Justice signs.

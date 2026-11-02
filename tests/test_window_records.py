@@ -110,6 +110,21 @@ def test_the_successor_disclosures(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     assert (judge.evaluator_id, judge.gradings, judge.graded_after_instant) == ("e1", 2, 1)
 
 
+def test_the_evaluator_digests_read_the_scotus_population_only(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A prediction slice's graded cell in the closed window is not a SCOTUS grading."""
+    set_windows(monkeypatch, CLOSED, SUCCESSOR, BETA)
+    data = tmp_path / "data"
+    _ledger(data)
+    _cell(data, "cand/101", "alpha", A, T1 + timedelta(days=1))
+    _outcome(data, "cand/101", resolved_at=(T1 + timedelta(days=30)).date())
+    _grade(data, "cand/101", "e1", predictor_id="alpha", stamped=T2 + timedelta(days=1))
+    report = successor_disclosures(data, closed_label="proc-a", successor_label="proc-b")
+    (judge,) = report.evaluator_digests
+    assert (judge.evaluator_id, judge.gradings, judge.graded_after_instant) == ("e1", 2, 1)
+
+
 def test_a_split_event_is_counted(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """beta's process changes too: an event with alpha's closed-window cell and
     beta's successor cell is split — those windows never ran together."""
