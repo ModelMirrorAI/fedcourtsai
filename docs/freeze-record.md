@@ -16405,3 +16405,44 @@ freeze commit is recorded here.
   labeling run after this entry reaches `main`. Carried to `main` by the
   promotion tagged `<FILL: promotion tag>` (merge commit `<FILL: merge sha>`,
   merged `<FILL: merged time utc>`).
+
+- **Merits vote floors beside `mean_vote_accuracy`: unanimity and majority
+  alignment; recorded 2026-11-03.** A **scoring-baseline** entry; no digest
+  moves and no cell reads anything different. Every leaderboard stratum that
+  publishes `mean_vote_accuracy` also publishes, over exactly its
+  `vote_cells_scored` gradings and with the same panel weights, two floors
+  scored under the same exact-vote rule on each cell's own committed outcome
+  (`pipeline.alignment_baseline.floor_vote_accuracy`,
+  `docs/merits-alignment-baseline.md`):
+  - `unanimity_vote_accuracy`: every sitting Justice called `majority`;
+  - `majority_alignment_vote_accuracy`: the Justices appointed by a
+    Republican president (`CONSERVATIVE_BLOC`) called `majority` and every
+    other sitting Justice `dissent`, whichever side wins;
+  - `vote_accuracy_lift`: `mean_vote_accuracy` minus the stronger of the two
+    on that stratum's own gradings.
+
+  A realized `concur-in-judgment` or vote in part is a miss for both floors,
+  as for the predictor. The floors are null, and omitted from the serialized
+  board, unless every vote-scored grading of the stratum carries both, so a
+  floor is never read over fewer gradings than the figure; an outcome seating
+  a Justice neither bloc holds has none. The rule is registered before any
+  figure it governs exists: at `origin/staging` `a5aaf30d7` and
+  `origin/main` `0bea3dc10`, none of the 14,139 committed outcomes carries a
+  complete vote record and none of the 1,827 committed evaluations is on a
+  merits moment, so every `mean_vote_accuracy` is null and no floor is
+  computed. The coded baselines (score outcome, score votes) are not in this
+  entry and score nothing on the board. Carried to `main` by the promotion
+  tagged `<FILL: promotion tag>` (merge commit `<FILL: merge sha>`, merged
+  `<FILL: merged time utc>`).
+
+  The runnable effect check once it is live: `uv run fedcourts leaderboard
+  --all-versions --out /tmp/lb.json && jq '[.. | objects |
+  select(has("unanimity_vote_accuracy"))] | length' /tmp/lb.json` prints `0`
+  until the first merits cell is graded against a complete vote record. From
+  then on, `jq '[.. | objects | select(.mean_vote_accuracy != null) |
+  select(has("vote_accuracy_lift") | not)] | length' /tmp/lb.json` prints `0`
+  unless a stratum's outcomes seat a Justice neither bloc holds, which leaves
+  that stratum with no floor fields at all. Each lift is read over its
+  stratum's `vote_events_scored` decisions, which the same entry adds: the
+  distinct (case, event) pairs among the vote-scored gradings, omitted while
+  none is.
