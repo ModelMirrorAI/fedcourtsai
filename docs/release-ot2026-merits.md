@@ -233,8 +233,9 @@ consolidated case enters the mean once per docket. The write-up states:
 - the scored count, ‹vote cells scored›;
 - the decided cases without a complete record, ‹incomplete›, each with its
   reason;
-- the naive floor the accuracy is read against (for example, every Justice
-  voting with the predicted majority), with the lift over it.
+- the naive floors the accuracy is read against, `unanimity_vote_accuracy`
+  and `majority_alignment_vote_accuracy`, with `vote_accuracy_lift` over the
+  stronger and the `vote_events_scored` decisions it rests on.
 
 **Evidence.** The opinions vote source stamps merits outcomes through the
 `opinion-votes` pass on `run-repair`. The maintainer runs it after each
@@ -250,10 +251,19 @@ gh workflow run run-repair.yml --ref main \
 
 `fedcourts granted-noted-check` cross-checks the stamped Terms.
 
-**Owed:** the stated naive floor for `mean_vote_accuracy`. The candidate floors are registered in
-[merits-alignment-baseline.md](merits-alignment-baseline.md), unanimity the
-stronger on the corpus's own lineups; computing them on the scored cells under
-the leaderboard's exact-vote rule is what remains.
+**The naive floor.** Every stratum carrying `mean_vote_accuracy` carries its
+two coding-free floors, computed on the same scored cells under the same
+exact-vote rule: `unanimity_vote_accuracy` and
+`majority_alignment_vote_accuracy`, with `vote_accuracy_lift` over the
+stronger of them ([merits-alignment-baseline.md](merits-alignment-baseline.md),
+*The leaderboard's floors*). The write-up states the figure beside both
+floors and the lift, never alone. Where a Term has a frozen fit committed
+before its decisions, it also states the coded baselines over their own
+gradings, each beside the forecasts' figure on those gradings:
+`alignment_score_brier` with `alignment_score_model_brier`,
+`alignment_vote_accuracy` with `alignment_vote_model_accuracy`, and the
+`alignment_fit_replay_share` of the fits they read (*The coded baselines on
+the board*, same doc).
 
 **Terminations.** The write-up also covers the forecast merits events that
 ended without a disposition: a voluntary dismissal, dismissal as moot,
@@ -321,7 +331,6 @@ long-conference public page.
 | Merits stage reading rule, accuracy floor and merits claim-score coverage | 3 |
 | Merits calibration and the paired equal-coverage comparison (or a stated absence) | 4 |
 | Smoothing rule, only if a cut is published | 5 |
-| Naive floor for `mean_vote_accuracy` | 6 |
 | Terminal record for terminated merits events | 6 |
 | Merits replay arm (or a stated absence) | 7 |
 | Public summary | 10 |

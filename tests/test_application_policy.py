@@ -34,6 +34,7 @@ from fedcourtsai.schemas import (
     PolicyAreaLabel,
     QpTopicApplicationLabelEntry,
     QpTopicApplicationLabels,
+    QpTopicPolicyAgreement,
 )
 from fedcourtsai.serialize import read_model, write_json
 from tests.test_qp_topic_application_labels import (
@@ -63,16 +64,21 @@ _HAND: dict[str, PolicyLabel] = {
 }
 
 
-def _policy_lines(miss: int = 0) -> list[QpTopicApplicationLabelEntry]:
-    """The topic lines, each carrying a policy area: ``miss`` hand rows say `other`."""
+def _policy_lines(miss: int = 0, abstain: int = 0) -> list[QpTopicApplicationLabelEntry]:
+    """The topic lines, each carrying a policy area.
+
+    The first ``abstain`` hand rows say `other`; the next ``miss`` name a wrong area.
+    """
     out: list[QpTopicApplicationLabelEntry] = []
     for index, line in enumerate(_lines(miss=0)):
         if line.case_id == _FRESH[1][0]:
             area: PolicyAreaLabel = "firearms"
-        elif line.case_id == _FRESH[0][0]:
+        elif line.case_id == _FRESH[0][0] or index < abstain:
             area = "other"
+        elif index < abstain + miss:
+            area = "education"
         else:
-            area = "other" if index < miss else _hand_area(index)
+            area = _hand_area(index)
         out.append(QpTopicApplicationLabelEntry(**line.model_dump(), policy_area=area))
     return out
 
@@ -91,9 +97,12 @@ def _artifact() -> QpTopicApplicationLabels:
     )
 
 
-def _accrued(miss: int, sha: str | None = _SHA) -> QpTopicApplicationLabels:
+def _accrued(miss: int = 0, abstain: int = 0, sha: str | None = _SHA) -> QpTopicApplicationLabels:
     measured = measure_policy(
-        entries=_policy_lines(miss=miss), policy_rows=_all_rows(), hand=_HAND, prompt_sha256=sha
+        entries=_policy_lines(miss=miss, abstain=abstain),
+        policy_rows=_all_rows(),
+        hand=_HAND,
+        prompt_sha256=sha,
     )
     assert measured is not None
     accrued, _ = accrue_policy(_artifact(), agreement=measured[0], areas=measured[1], hand=_HAND)
@@ -175,7 +184,7 @@ def test_a_refused_measurement_holds_until_the_prompt_changes() -> None:
     assert refusal_hold(refused, _SHA)
     assert refusal_hold(refused, None)
     assert not refusal_hold(refused, "b" * 64)
-    assert not refusal_hold(_accrued(miss=1), _SHA)
+    assert not refusal_hold(_accrued(abstain=1), _SHA)
     assert not refusal_hold(_artifact(), _SHA)
     held = derive_policy_rows(
         frame=_frame(),
@@ -204,7 +213,7 @@ def test_a_refused_measurement_holds_until_the_prompt_changes() -> None:
 def test_the_measurement_counts_agreement_per_area_and_drops_off_frame_areas() -> None:
     rows = _all_rows() - {_FRESH[0][0]}
     measured = measure_policy(
-        entries=_policy_lines(miss=1), policy_rows=rows, hand=_HAND, prompt_sha256=_SHA
+        entries=_policy_lines(abstain=1), policy_rows=rows, hand=_HAND, prompt_sha256=_SHA
     )
     assert measured is not None
     agreement, areas = measured
@@ -246,7 +255,7 @@ def test_the_gate_refuses_a_batch_short_of_the_hand_set() -> None:
 
 def test_a_passing_measurement_publishes_hand_and_labeler_areas_once() -> None:
     artifact = _artifact()
-    measured = measure_policy(entries=_policy_lines(miss=1), policy_rows=_all_rows(), hand=_HAND)
+    measured = measure_policy(entries=_policy_lines(abstain=1), policy_rows=_all_rows(), hand=_HAND)
     assert measured is not None
     agreement, areas = measured
 
@@ -289,7 +298,7 @@ def test_a_refused_measurement_publishes_nothing_and_keeps_the_standing_record()
 
 
 def test_a_later_topic_batch_keeps_the_published_areas_and_the_standing_measurement() -> None:
-    accrued = _accrued(miss=1)
+    accrued = _accrued(abstain=1)
 
     fresh = {case_id for case_id, _ in _FRESH}
     later = build_application_labels(
@@ -313,7 +322,7 @@ def test_the_cut_reads_v2_only_once_a_measurement_passed() -> None:
     assert policy_source(_artifact()).rule_version == POLICY_AREA_RULE_VERSION
     assert policy_source(_accrued(miss=3)).rule_version == POLICY_AREA_RULE_VERSION
 
-    source = policy_source(_accrued(miss=1))
+    source = policy_source(_accrued(abstain=1))
 
     assert source.rule_version == POLICY_AREA_V2_RULE_VERSION
     label = source.label(_FRESH[1][1].lower())
@@ -327,7 +336,7 @@ def test_v2_keeps_every_hand_label_including_dockets_outside_the_artifact(
     outside = PolicyLabel("elections-census", "hand", False)
     monkeypatch.setattr(policy_area_module, "policy_areas", lambda: {**_HAND, "19A9": outside})
 
-    source = policy_source(_accrued(miss=1))
+    source = policy_source(_accrued(abstain=1))
 
     label = source.label("19A9")
     assert label is not None
@@ -507,7 +516,7 @@ def test_an_unpublished_hand_row_the_topic_rule_did_not_choose_is_not_added() ->
 
 
 def test_the_standing_measurement_names_its_batch_and_the_cut_stamps_it() -> None:
-    accrued = _accrued(miss=1)
+    accrued = _accrued(abstain=1)
     assert accrued.policy_agreement is not None
     assert accrued.policy_agreement.batch == accrued.batches[-1].batch
     assert policy_source(accrued).measured_batch == accrued.batches[-1].batch
@@ -549,3 +558,96 @@ def test_a_topic_refused_run_measures_no_policy_area(
     assert result.exit_code == 1
     assert "policy areas" not in result.output
     assert not qp_topics.application_labels_path(data).exists()
+
+
+def test_an_abstention_is_scored_apart_from_a_wrong_call() -> None:
+    measured = measure_policy(
+        entries=_policy_lines(miss=1, abstain=2), policy_rows=_all_rows(), hand=_HAND
+    )
+    assert measured is not None
+    agreement = measured[0]
+    assert agreement.gate_rule == "policy-gate-v2"
+    assert (agreement.agree, agreement.n) == (7, 10)
+    assert (agreement.answered_agree, agreement.answered, agreement.answered_named) == (7, 8, 8)
+    assert agreement.precision == 7 / 8
+    assert agreement.answer_rate == 0.8
+    assert agreement.precision_floor == 5 / 8
+    assert agreement.gate_passed
+
+
+def test_the_gate_refuses_a_labeler_that_rarely_names_an_area() -> None:
+    measured = measure_policy(entries=_policy_lines(abstain=6), policy_rows=_all_rows(), hand=_HAND)
+    assert measured is not None
+    assert measured[0].precision == 1.0
+    assert measured[0].answer_rate == 0.4
+    assert not measured[0].gate_passed
+
+
+def test_a_refusal_under_the_earlier_gate_rule_does_not_hold_the_current_one() -> None:
+    refused = _accrued(miss=3)
+    ledger = list(refused.batches)
+    ledger[-1] = ledger[-1].model_copy(update={"policy_gate_rule": None})
+    earlier = refused.model_copy(update={"batches": ledger})
+    assert refusal_hold(refused, _SHA)
+    assert not refusal_hold(earlier, _SHA)
+    assert refusal_hold(earlier, _SHA, gate_rule="policy-gate-v1")
+
+
+def test_a_labeler_other_reads_as_unlabeled_in_the_cut() -> None:
+    accrued = _accrued(abstain=1)
+    abstained = {e.case_id: e for e in accrued.entries}[_FRESH[0][0]]
+    assert (abstained.policy_area, abstained.policy_source) == ("other", "labeler")
+
+    source = policy_source(accrued)
+
+    assert source.label(_FRESH[0][1]) is None
+    assert source.label(_FRESH[1][1]) is not None
+
+
+def _lines_with(areas: dict[int, PolicyAreaLabel]) -> list[QpTopicApplicationLabelEntry]:
+    """The hand-row lines with the area at each index overridden, the rest correct."""
+    return [
+        line.model_copy(update={"policy_area": areas[index]}) if index in areas else line
+        for index, line in enumerate(_policy_lines())
+    ]
+
+
+def test_the_one_area_floor_refuses_a_labeler_that_answers_only_one_area() -> None:
+    # It names immigration on the immigration rows alone: perfect precision, half answered.
+    lines = _lines_with({index: "other" for index in range(5, 10)})
+    measured = measure_policy(entries=lines, policy_rows=_all_rows(), hand=_HAND)
+    assert measured is not None
+    agreement = measured[0]
+    assert (agreement.precision, agreement.precision_floor) == (1.0, 1.0)
+    assert agreement.answer_rate == 0.5
+    assert not agreement.gate_passed
+
+
+def test_an_answer_rate_of_exactly_one_half_passes() -> None:
+    lines = _lines_with({index: "other" for index in (0, 1, 5, 6, 7)})
+    measured = measure_policy(entries=lines, policy_rows=_all_rows(), hand=_HAND)
+    assert measured is not None
+    agreement = measured[0]
+    assert agreement.answer_rate == 0.5
+    assert agreement.precision_floor == 0.6
+    assert agreement.gate_passed
+
+
+def test_a_named_call_on_a_hand_other_row_counts_against_precision() -> None:
+    hand = {**_HAND, _REFERENCE[0][1].upper(): PolicyLabel("other", "hand", False)}
+    lines = _lines_with({0: "health"})
+    measured = measure_policy(entries=lines, policy_rows=_all_rows(), hand=hand)
+    assert measured is not None
+    agreement = measured[0]
+    assert (agreement.answered_agree, agreement.answered) == (9, 10)
+    assert agreement.answered_named == 9
+
+
+def test_the_stored_ratios_must_match_their_counts() -> None:
+    measured = measure_policy(entries=_policy_lines(), policy_rows=_all_rows(), hand=_HAND)
+    assert measured is not None
+    record = measured[0].model_dump()
+    with pytest.raises(ValueError, match="precision does not match"):
+        QpTopicPolicyAgreement.model_validate({**record, "precision": 0.5})
+    with pytest.raises(ValueError, match="no named-call figures"):
+        QpTopicPolicyAgreement.model_validate({**record, "gate_rule": "policy-gate-v1"})

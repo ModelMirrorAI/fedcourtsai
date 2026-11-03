@@ -283,6 +283,7 @@ from .ops import (
 from .paths import CasePaths, EventPaths
 from .pipeline import (
     alignment_baseline,
+    alignment_fits,
     alignment_positions,
     alignment_score,
     alignment_side,
@@ -535,6 +536,8 @@ from .schemas import (
     AgentFlags,
     AgentToolingFeedback,
     AiCaseActivityEntry,
+    AlignmentFits,
+    AlignmentSideCode,
     AlignmentSideCodes,
     AuthorshipTally,
     Backtest,
@@ -6883,8 +6886,72 @@ def alignment_positions_cmd(
     typer.echo(table.model_dump_json())
 
 
+def _coded_merits_judgments(
+    conn: corpus.ReadConnection, codes: Sequence[AlignmentSideCode]
+) -> tuple[dict[str, tuple[Judgment, date]], int]:
+    """Each coded case's merits judgment and its date, with the count outside the vocabulary."""
+    coded = {c.case_id for c in codes}
+    judgments: dict[str, tuple[Judgment, date]] = {}
+    unread = 0
+    for row in corpus.iter_rows(conn, court="scotus"):
+        if row.case_id not in coded or row.merits_judgment is None or row.merits_decided is None:
+            continue
+        try:
+            judgment = Judgment(row.merits_judgment)
+        except ValueError:
+            # Re-validated rather than trusted, as every reader of the column does.
+            unread += 1
+            continue
+        judgments[row.case_id] = (judgment, row.merits_decided)
+    return judgments, unread
+
+
+def _echo_score_readout(readout: alignment_score.ScoreReadout, unread: int) -> None:
+    """Print the score readout's per-Term lines to stderr."""
+
+    def _num(value: float | None, spec: str) -> str:
+        return "-" if value is None else format(value, spec)
+
+    typer.echo(
+        f"alignment-score-baseline: {readout.codes} code(s), {readout.decided} decided, "
+        f"{unread} with a judgment outside the vocabulary left out; "
+        f"positions {readout.positions_source or 'not given'}",
+        err=True,
+    )
+    for term in readout.terms:
+        o = term.outcome
+        typer.echo(
+            f"OT{term.term}: {o.decisions} decided ({o.scored.contamination_risk} replay); "
+            f"call {o.call_hits}/{o.decisions}, Brier raw {_num(o.brier_raw, '.3f')}, "
+            f"calibrated out {_num(o.brier_calibrated_out_of_sample, '.3f')}, "
+            f"in {_num(o.brier_calibrated_in_sample, '.3f')}",
+            err=True,
+        )
+        for label, votes in (
+            ("out of sample", term.votes_out_of_sample),
+            ("in sample", term.votes_in_sample),
+        ):
+            if votes is None:
+                continue
+            typer.echo(
+                f"  votes {label}: k {_num(votes.k, 'g')}, {votes.decisions} of {term.lineups} "
+                f"lineups; justice {_num(votes.justice_accuracy, '.1%')}, exact split "
+                f"{_num(votes.exact_split_accuracy, '.1%')}, full coalition "
+                f"{_num(votes.full_coalition_accuracy, '.1%')}",
+                err=True,
+            )
+        for v in term.by_valence:
+            typer.echo(
+                f"  {v.valence.value}: call {v.call_hits}/{v.decisions}, Brier raw "
+                f"{_num(v.brier_raw, '.3f')}, calibrated out "
+                f"{_num(v.brier_calibrated_out_of_sample, '.3f')}; k out "
+                f"{_num(v.k_out_of_sample, 'g')}, in {_num(v.k_in_sample, 'g')}",
+                err=True,
+            )
+
+
 @app.command("alignment-score-baseline")
-def alignment_score_baseline_cmd(  # noqa: PLR0912 - a CLI entrypoint; each exit is one documented refusal
+def alignment_score_baseline_cmd(
     first_term: Annotated[
         int, typer.Option("--first-term", help="First decision Term to score.")
     ] = 2022,
@@ -6945,24 +7012,8 @@ def alignment_score_baseline_cmd(  # noqa: PLR0912 - a CLI entrypoint; each exit
             err=True,
         )
         raise typer.Exit(code=1)
-    coded = {c.case_id for c in codes}
-    judgments: dict[str, tuple[Judgment, date]] = {}
-    unread = 0
     with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
-        for row in corpus.iter_rows(conn, court="scotus"):
-            if (
-                row.case_id not in coded
-                or row.merits_judgment is None
-                or row.merits_decided is None
-            ):
-                continue
-            try:
-                judgment = Judgment(row.merits_judgment)
-            except ValueError:
-                # Re-validated rather than trusted, as every reader of the column does.
-                unread += 1
-                continue
-            judgments[row.case_id] = (judgment, row.merits_decided)
+        judgments, unread = _coded_merits_judgments(conn, codes)
         # From the first coded decision Term, not `--first-term`: out-of-sample
         # fits read every earlier Term's lineups whatever range is scored. The
         # estimated positions reach a window further back, for the prior Term's
@@ -6989,38 +7040,109 @@ def alignment_score_baseline_cmd(  # noqa: PLR0912 - a CLI entrypoint; each exit
         positions=table,
     )
 
-    def _num(value: float | None, spec: str) -> str:
-        return "-" if value is None else format(value, spec)
+    _echo_score_readout(readout, unread)
+    typer.echo(readout.model_dump_json())
 
-    typer.echo(
-        f"alignment-score-baseline: {readout.codes} code(s), {readout.decided} decided, "
-        f"{unread} with a judgment outside the vocabulary left out; "
-        f"positions {readout.positions_source or 'not given'}",
-        err=True,
-    )
-    for term in readout.terms:
-        o = term.outcome
+
+@app.command("alignment-fit")
+def alignment_fit_cmd(
+    term: Annotated[int, typer.Option("--term", help="The October Term to fit for.")],
+    out: Annotated[
+        Path | None,
+        typer.Option(
+            "--out",
+            help="Write the committed fits with this Term's entry added to this path; omit to "
+            "print the entry alone.",
+        ),
+    ] = None,
+) -> None:
+    """Compute one Term's frozen score-baseline fit, read-only against the corpus.
+
+    The fit baselines 3 and 4 score the Term's decisions by on the leaderboard
+    (`pipeline/alignment_fits.py`): the outcome transform and the spread `k`
+    fitted on every decision made before 1 October of `--term`, and the prior
+    Term's positions estimated from the corpus's merits lineups through the
+    Term before. Reads the committed side codes and fits, the corpus's merits
+    judgments and its merits lineups. Prints a summary to stderr; without
+    `--out`, the entry JSON to stdout, and with it, writes the committed fits
+    with the entry added to `--out`. A Term already in the committed fits is
+    refused (exit 2), since a fit is never revised; a missing corpus or codes
+    file exits 1.
+    """
+    settings = get_settings()
+    committed = alignment_side.codes_path(settings.data_root)
+    if not committed.is_file():
+        typer.echo(f"alignment-fit: no side codes at {committed}.", err=True)
+        raise typer.Exit(code=1)
+    codes = read_model(committed, AlignmentSideCodes).entries
+    fits_file = alignment_fits.fits_path(settings.data_root)
+    prior = read_model(fits_file, AlignmentFits) if fits_file.is_file() else None
+    if prior is not None and any(e.term == term for e in prior.entries):
+        typer.echo(f"alignment-fit: OT{term} is already fitted in {fits_file}.", err=True)
+        raise typer.Exit(code=2)
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if settings.corpus_backend != "ranged" and not db_path.exists():
         typer.echo(
-            f"OT{term.term}: {o.decisions} decided ({o.scored.contamination_risk} replay); "
-            f"call {o.call_hits}/{o.decisions}, Brier raw {_num(o.brier_raw, '.3f')}, "
-            f"calibrated out {_num(o.brier_calibrated_out_of_sample, '.3f')}, "
-            f"in {_num(o.brier_calibrated_in_sample, '.3f')}",
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before fitting the alignment baselines.",
             err=True,
         )
-        for label, votes in (
-            ("out of sample", term.votes_out_of_sample),
-            ("in sample", term.votes_in_sample),
-        ):
-            if votes is None:
-                continue
-            typer.echo(
-                f"  votes {label}: k {_num(votes.k, 'g')}, {votes.decisions} of {term.lineups} "
-                f"lineups; justice {_num(votes.justice_accuracy, '.1%')}, exact split "
-                f"{_num(votes.exact_split_accuracy, '.1%')}, full coalition "
-                f"{_num(votes.full_coalition_accuracy, '.1%')}",
-                err=True,
-            )
-    typer.echo(readout.model_dump_json())
+        raise typer.Exit(code=1)
+    with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
+        judgments, unread = _coded_merits_judgments(conn, codes)
+        # From the first coded decision Term, as the score readout reads, with
+        # a window further back for the positions that Term's prior bench is.
+        fit_from = min([term, *(october_term_year(on) for _, on in judgments.values())])
+        lineups = merits_lineups.merits_lineups(
+            conn, first_term=fit_from - alignment_positions.WINDOW_TERMS, last_term=term - 1
+        )
+    positions = alignment_positions.estimated_positions(
+        lineups, first_term=fit_from - 1, last_term=term - 1
+    )
+    fit = alignment_fits.frozen_fit(
+        codes,
+        judgments,
+        [lu for lu in lineups if lu.term >= fit_from],
+        positions,
+        term=term,
+        frozen_on=datetime.now(UTC).date(),
+    )
+    typer.echo(
+        f"alignment-fit: OT{term}: transform on {fit.transform_decisions} decision(s) "
+        f"({fit.contamination_risk} replay), k {'-' if fit.k is None else format(fit.k, 'g')} on "
+        f"{fit.k_decisions} lineup(s), positions for {len(fit.positions or {})} Justice(s); "
+        f"latest decision read {fit.latest_decision_read or '-'}; {unread} judgment(s) outside "
+        "the vocabulary left out",
+        err=True,
+    )
+    if out is None:
+        typer.echo(fit.model_dump_json())
+        return
+    write_json(out, alignment_fits.publish_fit(prior, fit))
+    typer.echo(f"alignment-fit: wrote {out}.", err=True)
+
+
+@app.command("assert-alignment-fits")
+def assert_alignment_fits_cmd(
+    after: Annotated[Path, typer.Option("--after", help="The fits file a writer would publish.")],
+    before: Annotated[
+        Path | None,
+        typer.Option("--before", help="The committed fits file it replaces; omit when none."),
+    ] = None,
+) -> None:
+    """Refuse a fits file that does more than add one Term's fit to the committed one.
+
+    The fit writer's check on its own output (`pipeline/alignment_fits.py`):
+    every committed entry carried unchanged and exactly one Term added. Prints
+    the added Term to stdout; a refusal or an unreadable file exits 1.
+    """
+    try:
+        prior = read_model(before, AlignmentFits) if before is not None else None
+        term = alignment_fits.assert_appended(prior, read_model(after, AlignmentFits))
+    except (OSError, ValueError) as exc:
+        typer.echo(f"assert-alignment-fits: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(str(term))
 
 
 @app.command("backfill-opinion-record")
@@ -22335,7 +22457,8 @@ def pull_all(
     """Refresh the stalest tracked cases within budget; write the downstream queues.
 
     The API-budget governor: rotation picks the oldest-``last_pulled``-first slice
-    of the active set (skipping closed/resolved cases), capped at
+    of the active set (skipping closed/resolved cases; ``pull.rotation_scope``
+    narrows that set to the live-channel SCOTUS rows and a recent-filing backfill), capped at
     ``pull.max_cases_per_run`` from ``config/tracking.yaml``. ``--limit`` may only
     lower that cap for a one-off run, never raise it, so a run provably stays
     within the CourtListener budget.
@@ -22380,6 +22503,14 @@ def pull_all(
             limit=cap,
             skip_closed=pull_cfg.skip_closed,
             eligible_reserve=pull_cfg.eligible_refresh_reserve,
+            live=(
+                corpus.LiveRotation(
+                    min_interval_days=pull_cfg.live_min_interval_days,
+                    backfill_filed_since=pull_cfg.backfill_filed_since,
+                )
+                if pull_cfg.rotation_scope == "live_polled"
+                else None
+            ),
             exclude=_watchlist_case_ids(settings),
         )
         queues = pull_cases(

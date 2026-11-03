@@ -110,6 +110,8 @@ from .integrity import (
     cell_clock,
     latest_evaluations,
 )
+from .pipeline import alignment_board
+from .pipeline.alignment_baseline import floor_vote_accuracy
 from .pipeline.base_rates import prediction_base_rate, realized_band_rate, statpack_digest
 from .pipeline.evaluate import bench_vote_accuracy, brier_score, is_correct, scored_granted
 from .pipeline.moments import first_moment, scores_votes
@@ -358,6 +360,11 @@ class CellSkill:
     brier: float
     prior_term_baseline: float | None = None
     realized_term_baseline: float | None = None
+    #: Baseline 3's Brier on a merits cell's own binary, where the reading is
+    #: pre-registered (:func:`fedcourtsai.pipeline.alignment_board.read_cell`).
+    alignment_baseline: float | None = None
+    #: The contamination-risk share of the fit that reading was made under.
+    alignment_fit_replay_share: float | None = None
 
 
 #: How far a stamped cert ``brier_score`` may sit from the Brier recomputed off
@@ -451,7 +458,7 @@ def _aggregate(
     skills: Mapping[EvaluationKey, CellSkill],
     facts: Mapping[EvaluationKey, CellFacts] | None = None,
     *,
-    vote_scores: Mapping[EvaluationKey, float] | None = None,
+    vote_scores: Mapping[EvaluationKey, VoteScore] | None = None,
 ) -> LeaderboardStratum | None:
     """One stratum's aggregates, or ``None`` when the stratum has no evaluations.
 
@@ -466,6 +473,9 @@ def _aggregate(
     ``accuracy_scored`` records. Entering it as a zero would score a missing
     artifact as a wrong call, and the board's first rank key is the last place
     that should happen.
+
+    The unanimity and majority-alignment floors, ``vote_accuracy_lift`` and
+    ``vote_events_scored`` come from the same scores (:func:`_vote_floor_fields`).
 
     ``mean_vote_accuracy`` averages ``vote_scores`` (:func:`vote_scores`), the
     participating-bench accuracy recomputed per cell from the scored prediction
@@ -506,11 +516,10 @@ def _aggregate(
         if cell is not None and cell.realized_term_baseline is not None
     ]
     scored_votes = vote_scores or {}
-    votes = [
-        scored_votes[key]
-        for ev in evals
-        if scores_votes(ev.event_id) and (key := _evaluation_key(ev)) in scored_votes
+    voted = [
+        ev for ev in evals if scores_votes(ev.event_id) and _evaluation_key(ev) in scored_votes
     ]
+    votes = [scored_votes[_evaluation_key(ev)] for ev in voted]
     return LeaderboardStratum(
         events_scored=len({(ev.case_id, ev.event_id) for ev in evals}),
         evaluations=len(evals),
@@ -521,8 +530,11 @@ def _aggregate(
         skill_scored=len(prior),
         population_realized_term_skill_score=_skill_of_means(realized),
         realized_term_skill_scored=len(realized),
-        mean_vote_accuracy=_mean(votes),
+        mean_vote_accuracy=_mean([v.model for v in votes]),
         vote_cells_scored=len(votes),
+        vote_events_scored=len({(ev.case_id, ev.event_id) for ev in voted}) or None,
+        **_vote_floor_fields(votes),
+        **_alignment_fields(evals, cells, voted, votes),
         mean_reasoning_quality=_mean(
             [ev.reasoning_quality for ev in evals if ev.reasoning_quality is not None]
         ),
@@ -537,7 +549,7 @@ def aggregate_stratum(
     skills: Mapping[EvaluationKey, CellSkill],
     facts: Mapping[EvaluationKey, CellFacts] | None = None,
     *,
-    vote_scores: Mapping[EvaluationKey, float] | None = None,
+    vote_scores: Mapping[EvaluationKey, VoteScore] | None = None,
 ) -> LeaderboardStratum | None:
     """One stratum's record by the board's own rule, for a reader that cuts the cells.
 
@@ -609,6 +621,78 @@ def _in_sample_fields(
         population_in_sample_skill_score=_skill_of_means(terms),
         in_sample_skill_scored=len(terms),
     )
+    return fields
+
+
+def _vote_floor_fields(votes: Sequence[VoteScore]) -> dict[str, float]:
+    """The two vote floors over exactly ``mean_vote_accuracy``'s gradings, and the lift.
+
+    Null unless **every** vote-scored grading carries both floors, so each
+    floor is read over the identical gradings, with the identical panel
+    weights, as the figure it is the floor of: a partial floor would be an
+    unpaired difference, which is not a lift. ``vote_accuracy_lift`` is the
+    figure minus the stronger of the two floors on these gradings, chosen
+    afresh in every stratum rather than carried over from another population;
+    taking the larger after the fact can only raise the floor, so it biases
+    the lift toward zero, against a claim of skill.
+    """
+    if not votes:
+        return {}
+    unanimity = [v.unanimity for v in votes if v.unanimity is not None]
+    alignment = [v.majority_alignment for v in votes if v.majority_alignment is not None]
+    if len(unanimity) != len(votes) or len(alignment) != len(votes):
+        return {}
+    model = sum(v.model for v in votes) / len(votes)
+    floors = (sum(unanimity) / len(votes), sum(alignment) / len(votes))
+    return {
+        "unanimity_vote_accuracy": floors[0],
+        "majority_alignment_vote_accuracy": floors[1],
+        "vote_accuracy_lift": model - max(floors),
+    }
+
+
+def _alignment_fields(
+    evals: Sequence[Evaluation],
+    cells: Sequence[CellSkill | None],
+    voted: Sequence[Evaluation],
+    votes: Sequence[VoteScore],
+) -> dict[str, float | int]:
+    """Baselines 3 and 4 over the gradings each reads, each paired with the forecasts' own figure.
+
+    Each baseline runs over its own population — the gradings with a
+    pre-registered reading (:func:`fedcourtsai.pipeline.alignment_board.read_cell`)
+    — and the forecasts' figure beside it is taken over exactly those gradings,
+    so the pair is a paired comparison wherever the population is a subset of
+    the stratum's. A decision graded at several moments or by several panels
+    carries one baseline reading per grading, so each population's sample size
+    is its distinct decisions, published beside it. Nothing while no grading
+    has a reading.
+    """
+    fields: dict[str, float | int] = {}
+    read = [
+        (ev, c)
+        for ev, c in zip(evals, cells, strict=True)
+        if c is not None and c.alignment_baseline is not None
+    ]
+    if read:
+        n = len(read)
+        fields.update(
+            alignment_score_cells=n,
+            alignment_score_events=len({(ev.case_id, ev.event_id) for ev, _ in read}),
+            alignment_score_brier=sum(c.alignment_baseline or 0.0 for _, c in read) / n,
+            alignment_score_model_brier=sum(c.brier for _, c in read) / n,
+            alignment_fit_replay_share=sum(c.alignment_fit_replay_share or 0.0 for _, c in read)
+            / n,
+        )
+    with_baseline = [(ev, v) for ev, v in zip(voted, votes, strict=True) if v.alignment is not None]
+    if with_baseline:
+        n = len(with_baseline)
+        fields.update(
+            alignment_vote_cells=n,
+            alignment_vote_events=len({(ev.case_id, ev.event_id) for ev, _ in with_baseline}),
+            alignment_vote_accuracy=sum(v.alignment or 0.0 for _, v in with_baseline) / n,
+            alignment_vote_model_accuracy=sum(v.model for _, v in with_baseline) / n,
+        )
     return fields
 
 
@@ -745,7 +829,7 @@ def _paired(  # noqa: PLR0913 - one keyword per per-cell reading the figure list
     *,
     frozen: bool,
     ranked: bool,
-    vote_scores: Mapping[EvaluationKey, float] | None = None,
+    vote_scores: Mapping[EvaluationKey, VoteScore] | None = None,
     sides: Mapping[EvaluationKey, CellSides] | None = None,
     provisioning: Mapping[EvaluationKey, Provisioning] | None = None,
 ) -> PairedEvents | None:
@@ -844,7 +928,7 @@ def _common_record(
     entries: Sequence[PairedEngine],
     skills: Mapping[EvaluationKey, CellSkill],
     facts: Mapping[EvaluationKey, CellFacts] | None,
-    vote_scores: Mapping[EvaluationKey, float] | None,
+    vote_scores: Mapping[EvaluationKey, VoteScore] | None,
     provisioning: Mapping[EvaluationKey, Provisioning] | None,
 ) -> CommonRecordReading | None:
     """The paired figure over the events no engine's log shows a filing fetch on.
@@ -922,7 +1006,7 @@ def _by_band(
     skills: Mapping[EvaluationKey, CellSkill],
     facts: Mapping[EvaluationKey, CellFacts] | None,
     *,
-    vote_scores: Mapping[EvaluationKey, float] | None = None,
+    vote_scores: Mapping[EvaluationKey, VoteScore] | None = None,
 ) -> dict[str, LeaderboardStratum] | None:
     """The forward stratum cut by frozen salience band, or ``None``.
 
@@ -951,7 +1035,7 @@ def _by_link(
     skills: Mapping[EvaluationKey, CellSkill],
     facts: Mapping[EvaluationKey, CellFacts] | None,
     *,
-    vote_scores: Mapping[EvaluationKey, float] | None = None,
+    vote_scores: Mapping[EvaluationKey, VoteScore] | None = None,
 ) -> dict[str, LeaderboardStratum] | None:
     """The forward stratum cut by frozen ``Vide`` link, or ``None``.
 
@@ -1420,6 +1504,7 @@ def skill_components(
     outcomes: dict[tuple[str, str], Outcome] = {}
     components: dict[EvaluationKey, CellSkill] = {}
     pack_digest = statpack_digest(statpack) if statpack is not None else None
+    inputs = alignment_board.load_inputs(data_root)
     for evaluation, _stratum, stage, _moment in cells:
         if evaluation.brier_score is None:
             continue
@@ -1435,14 +1520,44 @@ def skill_components(
         realized = _baseline_brier(
             _realized_rate(cases_dir, evaluation, stage, outcome, statpack), target
         )
-        if prior is None and realized is None:
+        reading = (
+            alignment_board.read_cell(inputs, outcome, votes_complete=False)
+            if inputs is not None
+            and stage == Stage.merits
+            and scores_votes(evaluation.event_id)
+            and _brier_reproduces(cases_dir, evaluation, outcome)
+            else None
+        )
+        if prior is None and realized is None and reading is None:
             continue
         components[_evaluation_key(evaluation)] = CellSkill(
             brier=evaluation.brier_score,
             prior_term_baseline=prior,
             realized_term_baseline=realized,
+            alignment_baseline=None if reading is None else reading.brier,
+            alignment_fit_replay_share=None if reading is None else reading.fit_replay_share,
         )
     return components
+
+
+def _brier_reproduces(cases_dir: Path, evaluation: Evaluation, outcome: Outcome) -> bool:
+    """Whether the grading's stamped Brier reproduces from its scored prediction on ``outcome``.
+
+    Within :data:`BRIER_REPRODUCTION_TOLERANCE`, as :attr:`CellFacts.brier_reproduces`
+    reads it: a baseline recomputed off the current outcome is paired with the
+    stamped Brier only where both were taken against the same binary.
+    """
+    scored = _scored_prediction(cases_dir, evaluation)
+    return (
+        scored is not None
+        and evaluation.brier_score is not None
+        and math.isclose(
+            brier_score(scored, outcome),
+            evaluation.brier_score,
+            rel_tol=0.0,
+            abs_tol=BRIER_REPRODUCTION_TOLERANCE,
+        )
+    )
 
 
 def _skill_target(
@@ -1715,8 +1830,25 @@ def _provisioning_count(
     )
 
 
-def vote_scores(cells: Iterable[StratifiedCell], data_root: Path) -> dict[EvaluationKey, float]:
-    """Each vote-scored cell's participating-bench accuracy.
+@dataclass(frozen=True)
+class VoteScore:
+    """One vote-scored cell's participating-bench accuracy, and the two floors' on its outcome.
+
+    ``unanimity`` and ``majority_alignment`` are the coding-free merits
+    alignment baselines read under the same exact-vote rule on the same
+    outcome (:func:`fedcourtsai.pipeline.alignment_baseline.floor_vote_accuracy`);
+    either is None where the outcome seats a Justice neither bloc holds.
+    """
+
+    model: float
+    unanimity: float | None
+    majority_alignment: float | None
+    #: Baseline 4 on the same outcome, where the reading is pre-registered.
+    alignment: float | None = None
+
+
+def vote_scores(cells: Iterable[StratifiedCell], data_root: Path) -> dict[EvaluationKey, VoteScore]:
+    """Each vote-scored cell's participating-bench accuracy, and both vote floors' on its outcome.
 
     :func:`fedcourtsai.pipeline.evaluate.bench_vote_accuracy` over the scored
     prediction (the run the evaluation names, as every board reads it) and the
@@ -1728,8 +1860,9 @@ def vote_scores(cells: Iterable[StratifiedCell], data_root: Path) -> dict[Evalua
     readable scored prediction has no score.
     """
     cases_dir = data_root / "cases"
+    inputs = alignment_board.load_inputs(data_root)
     outcomes: dict[tuple[str, str], Outcome] = {}
-    scores: dict[EvaluationKey, float] = {}
+    scores: dict[EvaluationKey, VoteScore] = {}
     for evaluation, _stratum, _stage, _moment in cells:
         if not scores_votes(evaluation.event_id):
             continue
@@ -1741,7 +1874,17 @@ def vote_scores(cells: Iterable[StratifiedCell], data_root: Path) -> dict[Evalua
             continue
         score = bench_vote_accuracy(scored, outcome)
         if score is not None:
-            scores[_evaluation_key(evaluation)] = score
+            reading = (
+                alignment_board.read_cell(inputs, outcome, votes_complete=True)
+                if inputs is not None
+                else None
+            )
+            scores[_evaluation_key(evaluation)] = VoteScore(
+                model=score,
+                unanimity=floor_vote_accuracy("unanimity", outcome),
+                majority_alignment=floor_vote_accuracy("majority-alignment", outcome),
+                alignment=None if reading is None else reading.vote_accuracy,
+            )
     return scores
 
 
@@ -2048,7 +2191,7 @@ def _stage_entry(  # noqa: PLR0913 - one argument per per-cell reading the entry
     skills: Mapping[EvaluationKey, CellSkill],
     facts: Mapping[EvaluationKey, CellFacts] | None,
     cell_windows: Mapping[EvaluationKey, CountingWindow],
-    vote_scores: Mapping[EvaluationKey, float] | None,
+    vote_scores: Mapping[EvaluationKey, VoteScore] | None,
     sides: Mapping[EvaluationKey, CellSides] | None,
     *,
     provisioning: Mapping[EvaluationKey, Provisioning] | None = None,
@@ -2095,7 +2238,7 @@ def _stage_board(
     cell_windows: Mapping[EvaluationKey, CountingWindow],
     *,
     frozen: bool,
-    vote_scores: Mapping[EvaluationKey, float] | None = None,
+    vote_scores: Mapping[EvaluationKey, VoteScore] | None = None,
     sides: Mapping[EvaluationKey, CellSides] | None = None,
     provisioning: Mapping[EvaluationKey, Provisioning] | None = None,
 ) -> LeaderboardStage:
@@ -2173,7 +2316,7 @@ def build_leaderboard(  # noqa: PLR0913 - one keyword per stratify-pass input th
     voided_events: VoidedEventsRecord | None = None,
     superseded_gradings: int = 0,
     facts: Mapping[EvaluationKey, CellFacts] | None = None,
-    vote_scores: Mapping[EvaluationKey, float] | None = None,
+    vote_scores: Mapping[EvaluationKey, VoteScore] | None = None,
     cell_windows: Mapping[EvaluationKey, CountingWindow] | None = None,
     boundaries: Mapping[EvaluationKey, CellSides] | None = None,
     provisioning: Mapping[EvaluationKey, Provisioning] | None = None,
@@ -2243,9 +2386,10 @@ def build_leaderboard(  # noqa: PLR0913 - one keyword per stratify-pass input th
         Unsupplied, no entry carries ``by_band`` and those fields are null.
 
     ``vote_scores`` (from :func:`vote_scores` over the same cells) is each
-        vote-scored cell's participating-bench accuracy — only cells whose
-        outcome carries a complete vote record have one — and is what
-        ``mean_vote_accuracy`` averages (``vote_cells_scored`` counts the cells).
+        vote-scored cell's participating-bench accuracy and its two floors' —
+        only cells whose outcome carries a complete vote record have one — and
+        is what ``mean_vote_accuracy`` and the floor fields average
+        (``vote_cells_scored`` counts the cells).
         Unsupplied, every vote mean is null and every count zero.
 
     ``cell_windows`` (``store.StratifiedRun.cell_windows`` from the same pass)

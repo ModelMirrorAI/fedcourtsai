@@ -43,6 +43,7 @@ from .integrity import FORWARD, PROCEDURAL, RETROSPECTIVE, StratifiedCell
 from .leaderboard import (
     CellFacts,
     CellSkill,
+    VoteScore,
     aggregate_stratum,
     stage_moment_key,
 )
@@ -227,7 +228,7 @@ def build_topic_cut(
     process_scope: Literal["frozen", "all"],
     skills: dict[EvaluationKey, CellSkill],
     facts: dict[EvaluationKey, CellFacts] | None = None,
-    vote_scores: dict[EvaluationKey, float] | None = None,
+    vote_scores: Mapping[EvaluationKey, VoteScore] | None = None,
 ) -> TopicCut:
     """The per-topic, per-moment forecast cut over ``cells`` (one stratify pass).
 

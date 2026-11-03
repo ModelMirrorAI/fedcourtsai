@@ -102,6 +102,7 @@ def cases_due_for_pull(
     limit: int,
     skip_closed: bool = True,
     eligible_reserve: int = 0,
+    live: corpus.LiveRotation | None = None,
     exclude: frozenset[str] = frozenset(),
 ) -> list[tuple[str, int]]:
     """The ``(court, docket)`` cases ``pull`` should refresh this run, stalest first.
@@ -112,9 +113,10 @@ def cases_due_for_pull(
     large active set rotates over successive days. ``eligible_reserve`` reserves
     up to that many slots for the stalest SCOTUS dockets so the in-scope
     set rotates ahead of the general active set (see
-    :func:`fedcourtsai.corpus.rotation_for_pull`); ``exclude`` names cases
-    another pass owns. Empty if the corpus does not exist yet (reading must not
-    create it).
+    :func:`fedcourtsai.corpus.rotation_for_pull`); ``live`` narrows
+    the rotation to the SCOTUS dockets in the live slice under a CourtListener
+    id, then a recent-filing backfill; ``exclude`` names cases another pass owns. Empty if the
+    corpus does not exist yet (reading must not create it).
     """
     if not corpus_db_path.exists():
         return []
@@ -126,6 +128,7 @@ def cases_due_for_pull(
             limit=limit,
             skip_closed=skip_closed,
             eligible_reserve=eligible_reserve,
+            live=live,
             exclude=exclude,
         )
     return [pair for row in rows if (pair := _case_pair(row.case_id)) is not None]

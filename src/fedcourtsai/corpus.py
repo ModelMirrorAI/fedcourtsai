@@ -34,6 +34,7 @@ import tempfile
 import threading
 from collections.abc import Callable, Collection, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import date, timedelta
 from enum import StrEnum
 from pathlib import Path
@@ -69,6 +70,7 @@ from .schemas import (
 )
 from .supremecourt import (
     IFP_SERIAL_BASE,
+    LIVE_DOCKET_ID_BASE,
     ArgumentSitting,
     parse_scotus_application_number,
     parse_scotus_docket_number,
@@ -5349,6 +5351,9 @@ def _rotation_rows(
     limit: int,
     skip_closed: bool,
     only_scotus: bool = False,
+    live_tier: Literal["live", "backfill"] | None = None,
+    pulled_before: date | None = None,
+    filed_since: date | None = None,
     exclude: frozenset[str] = frozenset(),
 ) -> list[CorpusRow]:
     """Stalest-first active cases: never-pulled first, then oldest ``last_pulled``.
@@ -5356,8 +5361,12 @@ def _rotation_rows(
     The shared query behind :func:`rotation_for_pull`. ``skip_closed`` drops cases
     carrying a realized ``disposition`` / ``date_decided`` (their outcome is known);
     ``only_scotus`` further restricts to SCOTUS dockets (the prediction scope);
-    ``exclude`` drops the named case ids. ``case_id`` breaks ties so the order is
-    deterministic.
+    ``live_tier`` keeps only SCOTUS dockets under a CourtListener docket id that
+    are in the live slice (``"live"``) or outside it (``"backfill"``), see
+    :func:`rotation_for_pull`; ``pulled_before`` drops cases pulled on or after
+    that date; ``filed_since`` keeps cases filed on or after that date;
+    ``exclude`` drops the named case ids. Among equally stale cases the newest
+    filing goes first, and ``case_id`` breaks ties so the order is deterministic.
     """
     if limit <= 0:
         return []
@@ -5365,19 +5374,44 @@ def _rotation_rows(
     params: list[object] = []
     if skip_closed:
         clauses.append("disposition IS NULL AND date_decided IS NULL")
-    if only_scotus:
+    if only_scotus or live_tier is not None:
         clauses.append("court = 'scotus'")
+    if live_tier is not None:
+        # A live-first docket's id is synthetic (at or above the reserved base),
+        # which CourtListener cannot fetch.
+        clauses.append("CAST(substr(case_id, instr(case_id, '/') + 1) AS INTEGER) < ?")
+        params.append(LIVE_DOCKET_ID_BASE)
+        clauses.append(LIVE_SLICE_SQL if live_tier == "live" else f"NOT ({LIVE_SLICE_SQL})")
+    if pulled_before is not None:
+        clauses.append("(last_pulled IS NULL OR last_pulled < ?)")
+        params.append(pulled_before.isoformat())
+    if filed_since is not None:
+        clauses.append("date_filed >= ?")
+        params.append(filed_since.isoformat())
     if exclude:
         clauses.append(f"case_id NOT IN ({', '.join('?' for _ in exclude)})")
         params.extend(sorted(exclude))
     where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
     cur = conn.execute(
         f"SELECT * FROM cases{where} "
-        "ORDER BY last_pulled IS NOT NULL, last_pulled ASC, case_id ASC "
+        "ORDER BY last_pulled IS NOT NULL, last_pulled ASC, date_filed DESC, case_id ASC "
         "LIMIT ?",
         (*params, limit),
     )
     return [_from_record(record) for record in cur]
+
+
+@dataclass(frozen=True)
+class LiveRotation:
+    """The live-scoped rotation's knobs (see :func:`rotation_for_pull`).
+
+    ``min_interval_days``: a live-slice docket pulled fewer days ago than this
+    waits, so its slot goes to the backfill. ``backfill_filed_since``: the
+    earliest filing date the backfill tier reaches; ``None`` turns it off.
+    """
+
+    min_interval_days: int = 0
+    backfill_filed_since: date | None = None
 
 
 def rotation_for_pull(
@@ -5386,6 +5420,8 @@ def rotation_for_pull(
     limit: int,
     skip_closed: bool = True,
     eligible_reserve: int = 0,
+    live: LiveRotation | None = None,
+    today: date | None = None,
     exclude: frozenset[str] = frozenset(),
 ) -> list[CorpusRow]:
     """The next ``limit`` cases ``pull`` should refresh, stalest first.
@@ -5409,12 +5445,51 @@ def rotation_for_pull(
     fall through to the general rotation, so the reserve never wastes budget; a
     case picked by the reserve is not picked again by the general fill.
 
+    ``live`` replaces both with two tiers over open SCOTUS dockets under a
+    CourtListener docket id (a live-first docket's synthetic id cannot be
+    fetched), with no general fall-through, so a run may refresh fewer than
+    ``limit``. First the dockets in the live slice (:data:`LIVE_SLICE_SQL`: the
+    supremecourt.gov channel has written them), stalest first, leaving out any
+    pulled within ``live.min_interval_days`` of ``today``: the live channel
+    keeps these current from the Court's own docket, so the pull is their
+    cross-check. The slots they leave go to the **backfill**: dockets outside
+    the live slice filed on or after ``live.backfill_filed_since``, never-pulled
+    first and the newest filing first, under the same spacing. The open SCOTUS
+    rows with no filing date or an older one are left out: they are mostly
+    bulk-loaded historical dockets left open for want of a recorded
+    disposition. ``eligible_reserve`` is ignored.
+
     ``exclude`` names cases another pass owns, so this rotation never reads them:
     the AI watchlist's dockets, which ``watchlist-refresh`` keeps current on its
     own share and without event extraction.
     """
     if limit <= 0:
         return []
+    if live is not None:
+        pulled_before = (
+            (today or date.today()) - timedelta(days=live.min_interval_days - 1)
+            if live.min_interval_days > 0
+            else None
+        )
+        live_picked = _rotation_rows(
+            conn,
+            limit=limit,
+            skip_closed=skip_closed,
+            live_tier="live",
+            pulled_before=pulled_before,
+            exclude=exclude,
+        )
+        if live.backfill_filed_since is not None:
+            live_picked += _rotation_rows(
+                conn,
+                limit=limit - len(live_picked),
+                skip_closed=skip_closed,
+                live_tier="backfill",
+                pulled_before=pulled_before,
+                filed_since=live.backfill_filed_since,
+                exclude=exclude,
+            )
+        return live_picked
     reserve = min(eligible_reserve, limit)
     picked: list[CorpusRow] = []
     seen: set[str] = set()

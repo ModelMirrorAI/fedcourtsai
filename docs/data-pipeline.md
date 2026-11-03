@@ -1444,12 +1444,23 @@ or network.
   [pipeline.md](pipeline.md).
 - **Budget governor:** a per-run cap (`max_cases_per_run`) with
   **oldest-`last_pulled`-first rotation** and skip-closed/resolved, sized to
-  the active CourtListener tier's ceilings; the run's slots
+  the active CourtListener tier's ceilings. With `rotation_scope: live_polled`
+  (the committed setting) the rotation reads two tiers of open SCOTUS dockets
+  under a CourtListener docket id (a live-first docket's synthetic id cannot
+  be fetched), with no general fall-through. First come the dockets the live
+  channel has written, stalest first, skipping any pulled within
+  `live_min_interval_days` (the backfill keeps the same spacing): the live channel keeps those current from the
+  Court's own docket, so the pull is their cross-check. The slots they leave
+  go to the backfill: dockets the live channel has not written, filed on or
+  after `backfill_filed_since`, never-pulled first and newest filing first,
+  where a refresh can find a disposition the corpus never recorded. The open
+  SCOTUS rows with no filing date or an older one are left out: they are
+  mostly bulk-loaded historical dockets left open for want of a recorded
+  disposition. With `rotation_scope: all` the run's slots
   (`eligible_refresh_reserve`, set to the whole cap) are reserved for the
-  stalest SCOTUS dockets, so the in-scope set rotates ahead of the much larger
-  active set and the general rotation takes only slots the SCOTUS-open pool
-  leaves empty. A refresh reads a docket's entries by following upstream's
-  cursor (`docket-entries/` ignores a page number), at most
+  stalest SCOTUS dockets, and the general rotation takes only slots the
+  SCOTUS-open pool leaves empty. A refresh reads a docket's entries by
+  following upstream's cursor (`docket-entries/` ignores a page number), at most
   `max_entry_pages_per_case` pages of twenty; a longer docket is recorded as
   failed with nothing written, so one bulk-loaded circuit docket with hundreds
   of entry pages cannot spend a window's hourly budget. A docket the corpus

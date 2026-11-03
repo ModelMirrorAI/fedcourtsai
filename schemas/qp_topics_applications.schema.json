@@ -362,6 +362,23 @@
           "description": "Whether this batch's policy measurement passed its gate; null where the batch measured no policy area",
           "title": "Policy Gate Passed"
         },
+        "policy_gate_rule": {
+          "anyOf": [
+            {
+              "enum": [
+                "policy-gate-v1",
+                "policy-gate-v2"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The gate rule this batch's policy measurement was judged under; null on a measured row means policy-gate-v1. A refusal holds only while the rule is unchanged",
+          "title": "Policy Gate Rule"
+        },
         "policy_n": {
           "anyOf": [
             {
@@ -387,7 +404,7 @@
             }
           ],
           "default": null,
-          "description": "sha256 of the labeling prompt this batch's policy measurement read. After a refusal, no later batch asks for policy areas until the prompt changes",
+          "description": "sha256 of the labeling prompt this batch's policy measurement read. After a refusal, no later batch asks for policy areas until the prompt or the gate rule changes",
           "title": "Policy Prompt Sha256"
         },
         "policy_published": {
@@ -502,6 +519,42 @@
           "title": "Agree",
           "type": "integer"
         },
+        "answer_rate": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "answered_named / named_n: how often the labeler names an area where the hand set does",
+          "title": "Answer Rate"
+        },
+        "answered": {
+          "default": 0,
+          "description": "Compared rows the labeler gave an area other than `other`",
+          "minimum": 0,
+          "title": "Answered",
+          "type": "integer"
+        },
+        "answered_agree": {
+          "default": 0,
+          "description": "Named calls (an area other than `other`) the hand set matches",
+          "minimum": 0,
+          "title": "Answered Agree",
+          "type": "integer"
+        },
+        "answered_named": {
+          "default": 0,
+          "description": "Compared rows with a named hand area that the labeler named an area on",
+          "minimum": 0,
+          "title": "Answered Named",
+          "type": "integer"
+        },
         "batch": {
           "anyOf": [
             {
@@ -546,9 +599,19 @@
           "title": "Floor"
         },
         "gate_passed": {
-          "description": "Whether the rate cleared the agreement gate and the constant-labeler floor with the hand rows covered",
+          "description": "Whether the measurement cleared its gate rule (`gate_rule`) with the hand rows covered",
           "title": "Gate Passed",
           "type": "boolean"
+        },
+        "gate_rule": {
+          "default": "policy-gate-v1",
+          "description": "The gate the measurement is judged under: policy-gate-v1 reads `rate` over every compared row; policy-gate-v2 reads `precision` on the labeler's named calls and `answer_rate`, scoring a labeler `other` as an abstention",
+          "enum": [
+            "policy-gate-v1",
+            "policy-gate-v2"
+          ],
+          "title": "Gate Rule",
+          "type": "string"
         },
         "n": {
           "description": "Hand-labeled rows the labeler gave a policy area",
@@ -584,6 +647,36 @@
           },
           "title": "Per Area",
           "type": "array"
+        },
+        "precision": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "answered_agree / answered; null when the labeler named no area",
+          "title": "Precision"
+        },
+        "precision_floor": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The precision a labeler naming one area on every row it answered would score on those rows: the commonest hand area's share of the answered rows",
+          "title": "Precision Floor"
         },
         "prompt_sha256": {
           "anyOf": [

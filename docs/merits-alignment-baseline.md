@@ -181,18 +181,18 @@ reported beside it because it is the paper's rule and the shape the paper's
 models overpredict.
 
 The readout below pools every complete lineup unconditionally. That is a
-description of the record, not yet a floor in the sense
+description of the record, not a floor in the sense
 [decision-model.md](decision-model.md) requires (*the floor must be
 conditioned the way the predictor is conditioned*): the floor a model's figure
 is read against is computed on the model's own scored decisions, which is
-part of *Scoring beside the models*, below.
+what *The leaderboard's floors*, below, does.
 
 Justice accuracy here is side-level, as the paper scores it. The leaderboard's
 `mean_vote_accuracy` (`pipeline.evaluate.bench_vote_accuracy`) instead matches
 the vote value exactly, so a concurrence in the judgment predicted as
-`majority` is a miss there and a hit here. The floor the leaderboard reads its
-figure against has to be computed under its own rule, on its own scored cells
-(*What remains owed*).
+`majority` is a miss there and a hit here. The floors the leaderboard reads its
+figure against are computed under its own rule, on its own scored cells
+(*The leaderboard's floors*, below).
 
 ## The fits, for baselines 3 and 4
 
@@ -263,6 +263,12 @@ uv run fedcourts alignment-score-baseline --first-term 2022 --last-term 2025
   the case's judgment Term is left out.
 - **What travels with each fit.** The codes it read, counted by the
   contamination-risk flag and by valence.
+- **The valence split.** Each Term is also read per valence (`by_valence`):
+  that valence's call and its raw and out-of-sample Brier, under the pooled
+  transform, and the spread `k` fitted on that valence's decisions alone,
+  out of sample and in sample, under the same floor. A pooled `k` well below
+  the `clear` cases' own is the forced-call drag *Valence in the fits*
+  describes.
 
 ## The positions
 
@@ -347,6 +353,142 @@ corpus's complete lineups, and it does not say how it treats a vote in part;
 the two are close, not the same measurement. These figures are a snapshot of a
 command's output on one corpus vintage: re-run the command for current ones.
 
+## The leaderboard's floors
+
+Baselines 1 and 2 are also read on the leaderboard itself, as the floors of
+its merits `mean_vote_accuracy` (`leaderboard.vote_scores`,
+`pipeline.alignment_baseline.floor_vote_accuracy`). For every cell the board
+vote-scores, it scores both baselines' calls against that cell's own committed
+outcome under the board's exact-vote rule: the denominator is every Justice
+the complete record shows sitting, and a hit is an exact vote-value match.
+Unanimity calls every sitting Justice `majority`; majority alignment calls the
+conservative bloc `majority` and every other Justice `dissent`. Neither calls
+`concur-in-judgment` or a vote in part, so either realized vote is a miss for
+both, which makes these floors lower than the side-level readout's on the same
+decisions.
+
+Every stratum carrying `mean_vote_accuracy` carries:
+
+- `unanimity_vote_accuracy` and `majority_alignment_vote_accuracy`, each the
+  mean over exactly the `vote_cells_scored` gradings, with the same panel
+  weights, so floor and figure are paired;
+- `vote_accuracy_lift`, the figure minus the stronger floor, chosen afresh on
+  that stratum's own gradings, as the reading rule requires; taking the larger
+  after the fact can only raise the floor, so it biases the lift toward zero;
+- `vote_events_scored`, the distinct decisions behind those gradings. The
+  lift's sample size is this count, not `vote_cells_scored`: a panel grades
+  one prediction more than once, and a decision's votes are clustered.
+
+All three are null, and omitted from the board, unless every vote-scored
+grading carries both floors, which an outcome seating a Justice neither bloc
+holds does not. The coded baselines, 3 and 4, are on the board by their own
+populations (*The coded baselines on the board*, below).
+
+## The frozen fits
+
+The board reads only committed records, so the fits baselines 3 and 4 score a
+Term's decisions by are committed records too:
+`data/merits-alignment/alignment-fits.json` (`AlignmentFits`), one entry per
+October Term (`pipeline.alignment_fits`). Each entry holds the outcome
+transform as its knots, the spread `k`, and the prior Term's positions, each
+fitted as the readout's out-of-sample reading fits them (*The fits*, above)
+on everything decided before 1 October of the Term, with one difference: the
+fit decides which code of a consolidated decision to read from lineups and
+judgments dated before the opening alone, where the readout reads every
+lineup it is handed. The positions are estimated as of the day the fit was
+made. Beside them it records that day, the latest
+decision date read, the decision counts, the consolidated codes left out,
+whether `k` sits at the grid's top, the contamination-risk count, and a
+sha256 of the codes the transform read, so the entry can be checked against
+the codes `main` held. A field below its fit floor is null, and then the
+baseline it serves has no reading for the Term.
+
+The schema enforces the decision-date bound. When the fit was made is a
+separate fact, since a fit can be made after some of its Term's decisions
+were handed down: a reading under a fit is pre-registered only for a
+decision dated after the fit's `frozen_on` whose own code was made before
+that decision, and every other reading under it is a backtest, kept apart
+from the pre-registered ones.
+
+Two asymmetries travel with the comparison. A forecast made mid-Term may read
+the Term's earlier decisions, while the frozen fit cannot; that favours the
+forecasts. And a transform fitted on replay codes, which may have been made
+knowing the outcome, can be sharper than grant-time scores warrant, so
+applied to forward codes it can score the baseline worse and make a
+forecast's lift over it look larger; the contamination-risk count says how
+much of each fit rests on such codes, and is quoted beside any figure read
+under it.
+
+```bash
+uv run fedcourts alignment-fit --term 2027                    # print the entry
+uv run fedcourts alignment-fit --term 2027 --out data/merits-alignment/alignment-fits.json
+```
+
+Each Term's entry reaches `main` through the `run-analytics` `alignment-fit`
+mode ([pipeline.md](pipeline.md)), dispatched once a Term after it opens and
+before its first merits decision: it runs the command on the day it is
+dispatched, so `frozen_on` is the writer's stamp, and lands the file as a
+reviewed PR after checking that it only adds that Term.
+
+The command reads the committed side codes and fits, the corpus's merits
+judgments and its merits lineups, and estimates the positions from the
+lineups through the Term before (*The positions*, above). The file is
+append-only: a Term already in it is refused, since its fit may already have
+scored a decision and a refit would re-score it. So a code or lineup added
+later for an earlier Term moves no figure already scored, and the schema
+refuses an entry that read a decision dated on or after its Term's opening,
+or a transform or spread fitted below the fit floor.
+
+## The coded baselines on the board
+
+Baselines 3 and 4 are read on the leaderboard's merits cells from the frozen
+fits and the committed side codes (`pipeline.alignment_board`,
+`leaderboard.skill_components` and `leaderboard.vote_scores`). A cell is
+read only where the reading is pre-registered: its case carries a clean code
+made before the decision, and the decision's October Term has a frozen fit
+with a transform, also made before the decision; and the grading's stamped
+Brier reproduces from its scored prediction on the current outcome, so the
+baseline and the forecast are scored against the same binary. The board has
+no argument date, so it reads a code as clean on its mode and its lag from
+the grant alone: its clean set holds the clean check's, plus any expedited
+case coded after an argument held inside the lag. Every other cell has no
+reading, and a backtest stays the readout's.
+
+- **Baseline 3** is the Brier, on the cell's own disturbed binary, of the
+  fit's transform of the code's score read as P(disturbed): the transformed
+  P(the conservative side prevails) where the conservative side is the
+  petitioner, and its complement where it is the respondent.
+- **Baseline 4** calls each Justice the outcome shows sitting from the fit's
+  spread and positions, `majority` when on the vote model's predicted
+  winner's side and `dissent` otherwise, with a tie going to the respondent.
+  It is scored under `mean_vote_accuracy`'s exact-vote rule, only on a cell
+  the board vote-scores, and not at all where the fit has no spread, a
+  sitting Justice has no position, or two of the outcome's rows name one
+  Justice. It reads the transformed score, as its spread was fitted at the
+  transform, so a Term with no transform has neither baseline.
+
+Every stratum carries, omitted while null:
+
+- `alignment_score_cells`, `alignment_score_brier`, and
+  `alignment_score_model_brier`: the gradings with a baseline-3 reading, the
+  baseline's mean Brier over them, and the forecasts' own mean Brier over
+  exactly them;
+- `alignment_score_events`: the distinct decisions behind those gradings,
+  which is the sample size, since a decision graded at three moments by two
+  panels carries six identical baseline readings;
+- `alignment_fit_replay_share`: the mean contamination-risk share of the
+  transform codes of the fits those readings used, quoted beside any figure
+  read under them. The spread is fitted on a subset of the same Terms' codes,
+  at that transform, so the share describes it too only roughly, and a
+  stratum spanning Terms pools them;
+- `alignment_vote_cells`, `alignment_vote_events`, `alignment_vote_accuracy`,
+  and `alignment_vote_model_accuracy`: the same for baseline 4, over the
+  vote-scored gradings with a reading.
+
+Each baseline's population is its own, so the forecasts' figure beside it is
+taken over that population and the pair is a paired comparison. Neither is a
+rank key. Registered in [freeze-record.md](freeze-record.md).
+
 ## What is built, and what remains owed
 
 Built: baselines 1 and 2, the bloc rule, the three vote readings, and the
@@ -356,8 +498,15 @@ committed artifact and its append-only publish step (`fedcourts
 alignment-side-codes`), and the run mode that executes them; and, for
 baselines 3 and 4, the outcome transform, the vote model, the fit of `k` and
 their read-only readout (`fedcourts alignment-score-baseline`, *The fits*,
-above), with positions estimated from the lineups (`fedcourts
-alignment-positions`, *The positions*, above).
+above) with its valence split, positions estimated from the lineups
+(`fedcourts alignment-positions`, *The positions*, above), and the first
+production run's codes on `main`; and baselines 1 and 2 as the
+leaderboard's floors of `mean_vote_accuracy` (*The leaderboard's floors*,
+above), registered in [freeze-record.md](freeze-record.md); and the
+frozen per-Term fit file, the command that computes an entry and the
+`alignment-fit` writer that lands it (*The frozen fits*, above); and baselines
+3 and 4 on the board, read from the frozen fits (*The coded baselines on the
+board*, above), registered in [freeze-record.md](freeze-record.md).
 
 The run mode is `run-analytics` `alignment-side-code`, the topic-labeling
 lane's third frame ([pipeline.md](pipeline.md)), dispatched or on a weekly
@@ -374,21 +523,13 @@ the labeling lane's spend ledger. The codes reach `main` as a reviewed PR on
 the fixed branch `merits-alignment/side-codes`, so the first run's 302 codes
 are read by a maintainer before any fit reads them.
 
+The first production run coded the whole frame, so its codes on decided
+cases are all replay codes, and its forward codes on the earlier grants were
+made past `CLEAN_LAG_DAYS`. Every figure the readout gives over them rests on
+contamination-risk codes, which the counts beside each fit show, so none is
+yet the baseline's grant-time strength.
+
 Owed, in order:
 
-- **The first run.** A rehearsal from `staging`, which publishes nothing,
-  then the production run on `main`; its spend record re-anchors the
-  provisional rate.
-- **Baselines 3 and 4: the first fits.** The fits split by valence, of which
-  the readout carries only the counts; the clean check, a
-  fit on clean codes only; and the first readout, once the first production
-  run's codes are on `main`, each with a `stats-reviewer` pass.
-- **Scoring beside the models.** Baseline records at the same merits moments
-  as the models, scored in the leaderboard's merits blocks under the
-  leaderboard's own vote rule and labeled as baselines, which also discharges
-  the naive floor for `mean_vote_accuracy` that
-  [release-ot2026-merits.md](release-ot2026-merits.md) owes. A change to the
-  shape of a committed record the public site reads needs its matching site
-  PR.
-- **Registration.** A dated entry in [freeze-record.md](freeze-record.md)
-  before the first merits block that scores a baseline.
+- **The clean check.** The readout restricted to clean codes, once enough of
+  them are decided, with a `stats-reviewer` pass.

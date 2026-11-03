@@ -460,6 +460,23 @@ queues behind the production run of the same mode. The modes:
   never-cancelled, ref-suffixed concurrency group keeps two runs of one ref
   from overlapping. As with `order-scan`, a staging dispatch stops at the
   no-token refusal, after pulling the staging pair.
+- **`alignment-fit`** (dispatch) freezes the current October Term's
+  score-baseline fit (`fedcourts alignment-fit`, *The frozen fits* in
+  [merits-alignment-baseline.md](merits-alignment-baseline.md)) and lands it
+  in `data/merits-alignment/alignment-fits.json` as a reviewed PR on the fixed
+  branch `merits-alignment/fits`, never auto-merged. The `alignment-fit` job
+  pulls the corpus with the read-only role and holds no write credential; the
+  `alignment-fit-publish` job, with the App token and no corpus role, refuses
+  a file that does more than add that one Term (`fedcourts
+  assert-alignment-fits`). The fit is stamped with the day the job runs, and
+  the board reads a decision under it only when the decision is dated after
+  that day, so it is dispatched once a Term, after 1 October and before the
+  Term's first merits decision, and its PR merged before that decision; a
+  dispatch before 1 October reads the Term still under way, which is already
+  fitted. A Term already fitted publishes nothing, and while its fit PR is
+  open a second dispatch is refused rather than replacing the fit the
+  maintainer is reading. A staging dispatch fits against the staging pair and
+  stops at the publish fence.
 - **`metrics-refresh`** (weekly schedule, or dispatch) keeps the committed metrics
   artifacts from drifting stale: `metrics/claim-scores.json` (input: the `data/`
   evaluations ledger), `metrics/leaderboard.json` (the same ledger plus the
@@ -2066,8 +2083,9 @@ The mechanics:
   lane (the collect run branches, the maintainer's cleanup sweep, the
   metrics-refresh, cert-backtest, merits-backtest and salience-replay PRs,
   the qp-topic labeling runs' `qp-topics/refresh` and
-  `qp-topics/applications-refresh` PRs and the side coder's
-  `merits-alignment/side-codes` PR, the case-summary lane's
+  `qp-topics/applications-refresh` PRs, the side coder's
+  `merits-alignment/side-codes` PR and the frozen fit's
+  `merits-alignment/fits` PR, the case-summary lane's
   `summaries/refresh` PR, the big-case board's
   `metrics/big-cases` PR and the update history's `metrics/public-updates`
   PR), or a `record-fill/…` PR, which the `paths` jail holds to in-place fills

@@ -4377,6 +4377,121 @@ class LeaderboardStratum(_Strict):
         "readable scored prediction, or resolves against a vote record that is "
         "absent or incomplete",
     )
+    vote_events_scored: int | None = Field(
+        default=None,
+        ge=1,
+        description="Distinct (case, event) pairs among the `vote_cells_scored` gradings: the "
+        "decisions `mean_vote_accuracy`, its floors and `vote_accuracy_lift` rest on, and the "
+        "sample size to read them by, since a decision's gradings and its Justices' votes are "
+        "not independent. A consolidated decision counts once per docket with a scored cell. "
+        "Omitted while no grading is vote-scored",
+    )
+    unanimity_vote_accuracy: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="The unanimity floor of `mean_vote_accuracy`: every sitting Justice called "
+        "`majority`, scored under the same exact-vote rule on the same outcome over exactly "
+        "the `vote_cells_scored` gradings, with the same weights "
+        "(`pipeline.alignment_baseline.floor_vote_accuracy`, specified in "
+        "`docs/merits-alignment-baseline.md`). A realized `concur-in-judgment` or vote in "
+        "part is a miss for it. Null unless every one of those gradings has the floor; "
+        "omitted while null. A baseline, never a rank key",
+    )
+    majority_alignment_vote_accuracy: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="The majority-alignment floor of `mean_vote_accuracy`: the conservative "
+        "bloc (the Justices appointed by a Republican president) called `majority` and every "
+        "other sitting Justice `dissent`, whichever side wins, read as "
+        "`unanimity_vote_accuracy` is. Null and omitted on the same terms. A baseline, never "
+        "a rank key",
+    )
+    vote_accuracy_lift: float | None = Field(
+        default=None,
+        ge=-1.0,
+        le=1.0,
+        description="`mean_vote_accuracy` minus the stronger of `unanimity_vote_accuracy` and "
+        "`majority_alignment_vote_accuracy`: the paired difference over the identical "
+        "gradings, the stronger floor chosen on this stratum's own gradings, which can only "
+        "raise the floor and so biases the lift toward zero. Its sample is "
+        "`vote_events_scored` decisions, not the gradings. Null exactly where the floors "
+        "are; omitted while null. Never a rank key",
+    )
+    alignment_score_cells: int | None = Field(
+        default=None,
+        ge=1,
+        description="Merits gradings with a pre-registered baseline-3 reading: the case's clean "
+        "side code and its decision Term's frozen fit, both made before the decision "
+        "(`pipeline.alignment_board`, specified in `docs/merits-alignment-baseline.md`). The "
+        "denominator of `alignment_score_brier` and `alignment_score_model_brier`; omitted "
+        "while none",
+    )
+    alignment_score_events: int | None = Field(
+        default=None,
+        ge=1,
+        description="The distinct decisions behind the `alignment_score_cells` gradings: the "
+        "baseline's sample size, since a decision graded at several moments or by several "
+        "panels carries one identical reading per grading; omitted while none",
+    )
+    alignment_score_brier: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Baseline 3's mean Brier on the disturbed binary over the "
+        "`alignment_score_cells` gradings: the frozen transform of the side code's score, "
+        "read as P(disturbed). A baseline, never a rank key; omitted while null",
+    )
+    alignment_score_model_brier: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="The forecasts' own mean Brier over exactly the `alignment_score_cells` "
+        "gradings, so it and `alignment_score_brier` are paired; omitted while null",
+    )
+    alignment_fit_replay_share: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Over the `alignment_score_cells` gradings, the mean share of their fits' "
+        "transform codes that carry the contamination-risk flag. A transform fitted on codes "
+        "made after their decisions can be sharper than grant-time scores warrant, which "
+        "scores the baseline worse and a forecast's lift over it larger. It covers the "
+        "transform's codes; the spread is fitted on a subset of the same Terms' codes, at that "
+        "transform. Pooled across Terms where the gradings span several; omitted while null",
+    )
+    alignment_vote_cells: int | None = Field(
+        default=None,
+        ge=1,
+        description="Of the `vote_cells_scored` gradings, those with a pre-registered "
+        "baseline-4 reading: a fitted spread and a position for every sitting Justice. The "
+        "denominator of `alignment_vote_accuracy` and `alignment_vote_model_accuracy`; "
+        "omitted while none",
+    )
+    alignment_vote_events: int | None = Field(
+        default=None,
+        ge=1,
+        description="The distinct decisions behind the `alignment_vote_cells` gradings, read "
+        "as `alignment_score_events` is; omitted while none",
+    )
+    alignment_vote_accuracy: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Baseline 4's exact-vote accuracy over the `alignment_vote_cells` "
+        "gradings, under `mean_vote_accuracy`'s rule: each sitting Justice called `majority` "
+        "when the vote model puts them on its predicted winner's side, `dissent` otherwise. "
+        "A baseline, never a rank key; omitted while null",
+    )
+    alignment_vote_model_accuracy: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="The forecasts' own participating-bench vote accuracy over exactly the "
+        "`alignment_vote_cells` gradings, paired with `alignment_vote_accuracy`; omitted "
+        "while null",
+    )
     mean_reasoning_quality: float | None = Field(
         default=None,
         ge=0.0,
@@ -4394,8 +4509,15 @@ class LeaderboardStratum(_Strict):
 
     @model_serializer(mode="wrap")
     def _omit_ungraded(self, handler: SerializerFunctionWrapHandler) -> Any:
-        """Drop ``reasoning_quality_rubrics`` while it lists nothing."""
-        return _omit_empty(handler(self), reasoning_quality_rubrics=self.reasoning_quality_rubrics)
+        """Drop the rubric readings while they list nothing, and the merits baselines while null."""
+        payload = _omit_empty(
+            handler(self), reasoning_quality_rubrics=self.reasoning_quality_rubrics
+        )
+        if isinstance(payload, dict):
+            for name in _MERITS_BASELINE_FIELDS:
+                if payload.get(name, 0) is None:
+                    payload.pop(name)
+        return payload
 
 
 class WindowCount(_Strict):
@@ -4456,6 +4578,25 @@ _MIXED_SIGNATURE_DESCRIPTION = (
     "points concentrate in cases read at several moments, the granted ones, so after a "
     "digest move a reading covers a population short of exactly the higher-stakes cases; "
     "compare each reading's `cases` with the figure's own count. Omitted at zero"
+)
+
+
+#: The merits baseline fields a stratum omits while null, so a board with no
+#: merits cell scored serializes without them.
+_MERITS_BASELINE_FIELDS: Final = (
+    "vote_events_scored",
+    "unanimity_vote_accuracy",
+    "majority_alignment_vote_accuracy",
+    "vote_accuracy_lift",
+    "alignment_score_cells",
+    "alignment_score_events",
+    "alignment_score_brier",
+    "alignment_score_model_brier",
+    "alignment_fit_replay_share",
+    "alignment_vote_cells",
+    "alignment_vote_events",
+    "alignment_vote_accuracy",
+    "alignment_vote_model_accuracy",
 )
 
 
@@ -9411,6 +9552,126 @@ class AlignmentSideCodes(_Strict):
         return self
 
 
+#: The fewest decisions a score-baseline fit is made on (``pipeline.alignment_score``'s
+#: ``MIN_FIT_DECISIONS``, which a test holds equal).
+ALIGNMENT_FIT_FLOOR: Final = 30
+
+
+class AlignmentTermFit(_Strict):
+    """The score baselines' fit for one October Term, made once and never revised.
+
+    Every part reads only what was decided before the Term opened (taken as
+    1 October): the outcome transform is fitted on earlier Terms' decided
+    codes, the spread ``k`` on their complete lineups, and the positions are
+    the prior Term's, estimated as of ``frozen_on`` from decisions dated
+    before the Term opened (``docs/merits-alignment-baseline.md``, *The
+    frozen fits*). The decision-date bound is what the schema enforces; when
+    the fit was made is recorded beside it, and a reading under the fit is
+    pre-registered only for a decision dated after ``frozen_on`` whose own
+    code was made before it. The leaderboard reads baselines 3 and 4 for
+    a Term's merits cells from this entry alone, so a later code or lineup for
+    an earlier Term never moves a figure already scored.
+    """
+
+    term: int = Field(ge=2000, description="The October Term whose decisions this fit scores")
+    opened: date = Field(description="1 October of `term`: nothing decided on or after it is read")
+    frozen_on: date = Field(
+        description="The day the fit was computed: a decision dated on or before it is read "
+        "under the fit as a backtest, never as a pre-registered baseline"
+    )
+    codes_digest: str = Field(
+        pattern=r"^[0-9a-f]{64}$",
+        description="sha256 of the decided codes the transform read, as the compact JSON list "
+        "of [case_id, conservative_side, score] sorted by case_id, so an entry can be checked "
+        "against the codes `main` held",
+    )
+    latest_decision_read: date | None = Field(
+        description="The latest merits judgment date among the decisions the fit read; "
+        "before `opened`. Null when it read none"
+    )
+    transform: list[tuple[float, float]] | None = Field(
+        description="The isotonic outcome transform as (lowest score in a block, the block's "
+        "Laplace-smoothed rate) knots in increasing score order: a score maps to the rate of "
+        "the last block starting at or below it, and a score below every block to the "
+        "first's. Null below the fit floor, and then neither baseline is scored for the Term"
+    )
+    transform_decisions: int = Field(ge=0, description="Decided codes the transform read")
+    k: float | None = Field(
+        ge=0.0,
+        description="The vote model's spread, fitted by likelihood on earlier Terms' coded "
+        "complete lineups at the transform; null below the fit floor or without a "
+        "transform or positions, and then baseline 4 is not scored for the Term",
+    )
+    k_decisions: int = Field(ge=0, description="Coded complete lineups the spread read")
+    k_at_grid_edge: bool = Field(
+        description="The spread sits at the grid's top, where the likelihood may peak beyond it"
+    )
+    consolidated: int = Field(
+        ge=0,
+        description="Codes left out because their consolidated decision is read under another",
+    )
+    positions: dict[str, float] | None = Field(
+        description="Each Justice's position for the prior Term, larger more conservative, "
+        "from the release published before `opened`; null where none was"
+    )
+    positions_source: str = Field(min_length=1, description="Where the positions come from")
+    contamination_risk: int = Field(
+        ge=0,
+        description="Of the `transform_decisions` codes, how many carry the contamination-risk "
+        "flag. A transform fitted on codes made after their decisions may be sharper than "
+        "grant-time scores warrant, so applied to forward codes it can make the baseline "
+        "score worse and a forecast's lift over it look larger",
+    )
+
+    @model_validator(mode="after")
+    def _reads_only_before_opening(self) -> AlignmentTermFit:
+        if self.opened != date(self.term, 10, 1):
+            raise ValueError("`opened` must be 1 October of `term`")
+        if self.transform is not None and self.transform_decisions < ALIGNMENT_FIT_FLOOR:
+            raise ValueError("a transform is fitted only on at least the fit floor's decisions")
+        if self.k is not None and self.k_decisions < ALIGNMENT_FIT_FLOOR:
+            raise ValueError("a spread is fitted only on at least the fit floor's lineups")
+        if self.k_at_grid_edge and self.k is None:
+            raise ValueError("`k_at_grid_edge` needs a fitted spread")
+        if self.latest_decision_read is not None and self.latest_decision_read >= self.opened:
+            raise ValueError("a fit may read only decisions made before its Term opened")
+        if self.transform is not None:
+            starts = [start for start, _ in self.transform]
+            if not starts or starts != sorted(set(starts)):
+                raise ValueError("`transform` knots must be non-empty and strictly increasing")
+            rates = [rate for _, rate in self.transform]
+            if rates != sorted(rates) or not all(0.0 < r < 1.0 for r in rates):
+                raise ValueError("`transform` rates must be non-decreasing and inside (0, 1)")
+        if self.k is not None and (self.transform is None or self.positions is None):
+            raise ValueError("a spread is fitted only with a transform and positions")
+        if self.contamination_risk > self.transform_decisions:
+            raise ValueError("`contamination_risk` cannot exceed `transform_decisions`")
+        return self
+
+
+class AlignmentFits(_Strict):
+    """``data/merits-alignment/alignment-fits.json`` — every Term's frozen score-baseline fit.
+
+    **Append-only**: a Term's fit is made once and never revised, so a publish
+    that would replace an entry is refused (``fedcourts alignment-fit``).
+    Entries are sorted by ``term``, one per Term.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    scheme: Literal["alignment-side-v1"] = Field(
+        default="alignment-side-v1",
+        description="The coding guide the fitted codes were made under",
+    )
+    entries: list[AlignmentTermFit] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _one_per_term_in_order(self) -> AlignmentFits:
+        terms = [entry.term for entry in self.entries]
+        if terms != sorted(set(terms)):
+            raise ValueError("entries must be one per Term, sorted by `term`")
+        return self
+
+
 PolicyAreaLabel = Literal[
     "immigration",
     "federal-executions",
@@ -9611,7 +9872,12 @@ class QpTopicBatchEntry(_Strict):
         default=None,
         pattern=r"^[0-9a-f]{64}$",
         description="sha256 of the labeling prompt this batch's policy measurement read. After "
-        "a refusal, no later batch asks for policy areas until the prompt changes",
+        "a refusal, no later batch asks for policy areas until the prompt or the gate rule changes",
+    )
+    policy_gate_rule: Literal["policy-gate-v1", "policy-gate-v2"] | None = Field(
+        default=None,
+        description="The gate rule this batch's policy measurement was judged under; null on a "
+        "measured row means policy-gate-v1. A refusal holds only while the rule is unchanged",
     )
 
     @model_validator(mode="after")
@@ -9944,9 +10210,46 @@ class QpTopicPolicyAgreement(_Strict):
     per_area: list[QpTopicPolicyAreaShare] = Field(
         default_factory=list, description="Agreement per hand area, in vocabulary order"
     )
+    gate_rule: Literal["policy-gate-v1", "policy-gate-v2"] = Field(
+        default="policy-gate-v1",
+        description="The gate the measurement is judged under: policy-gate-v1 reads `rate` "
+        "over every compared row; policy-gate-v2 reads `precision` on the labeler's named "
+        "calls and `answer_rate`, scoring a labeler `other` as an abstention",
+    )
+    answered_agree: int = Field(
+        default=0, ge=0, description="Named calls (an area other than `other`) the hand set matches"
+    )
+    answered: int = Field(
+        default=0, ge=0, description="Compared rows the labeler gave an area other than `other`"
+    )
+    answered_named: int = Field(
+        default=0,
+        ge=0,
+        description="Compared rows with a named hand area that the labeler named an area on",
+    )
+    precision: float | None = Field(
+        default=None,
+        ge=0,
+        le=1,
+        description="answered_agree / answered; null when the labeler named no area",
+    )
+    precision_floor: float | None = Field(
+        default=None,
+        ge=0,
+        le=1,
+        description="The precision a labeler naming one area on every row it answered would "
+        "score on those rows: the commonest hand area's share of the answered rows",
+    )
+    answer_rate: float | None = Field(
+        default=None,
+        ge=0,
+        le=1,
+        description="answered_named / named_n: how often the labeler names an area where the "
+        "hand set does",
+    )
     gate_passed: bool = Field(
-        description="Whether the rate cleared the agreement gate and the constant-labeler "
-        "floor with the hand rows covered"
+        description="Whether the measurement cleared its gate rule (`gate_rule`) with the hand "
+        "rows covered"
     )
     prompt_sha256: str | None = Field(
         default=None,
@@ -9967,6 +10270,23 @@ class QpTopicPolicyAgreement(_Strict):
             raise ValueError("named-area counts do not hold")
         if self.certain_agree > self.certain_n or self.certain_n > self.n:
             raise ValueError("certain-row counts do not hold")
+        if self.answered_agree > self.answered or self.answered > self.n:
+            raise ValueError("named-call counts do not hold")
+        if self.answered_named > self.named_n or self.answered_named > self.answered:
+            raise ValueError("answered named-area counts do not hold")
+        if self.gate_rule == "policy-gate-v1" and (
+            self.answered or self.precision is not None or self.answer_rate is not None
+        ):
+            raise ValueError("a policy-gate-v1 measurement carries no named-call figures")
+        for value, numerator, denominator, name in (
+            (self.precision, self.answered_agree, self.answered, "precision"),
+            (self.answer_rate, self.answered_named, self.named_n, "answer_rate"),
+        ):
+            expected = numerator / denominator if denominator else None
+            if (value is None) != (expected is None) or (
+                value is not None and expected is not None and abs(value - expected) > 1e-9
+            ):
+                raise ValueError(f"{name} does not match its counts")
         return self
 
 
@@ -15478,6 +15798,7 @@ FILENAME_MODELS: dict[str, type[_Strict]] = {
     "qp-topics.json": QpTopicLabels,
     "qp-topics-applications.json": QpTopicApplicationLabels,
     "alignment-side-codes.json": AlignmentSideCodes,
+    "alignment-fits.json": AlignmentFits,
 }
 
 EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
@@ -15523,6 +15844,7 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "qp_topic_run_spend": QpTopicRunSpend,
     "off_ledger_spend": OffLedgerSpend,
     "alignment_side_codes": AlignmentSideCodes,
+    "alignment_fits": AlignmentFits,
     "ai_case_activity": AiCaseActivity,
     "case_summary_front_matter": CaseSummaryFrontMatter,
     "summary_plan": SummaryPlan,

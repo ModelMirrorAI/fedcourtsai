@@ -578,6 +578,17 @@ over every merits decision. A consolidated case's opinion is stamped onto each
 of its dockets, so one decision enters the mean once for each of its dockets
 that carries a scored cell. The gates only ever turn a number null.
 
+**The figure is read against its floors.** Beside `mean_vote_accuracy`, every
+stratum carries the two coding-free floors scored on the same cells, under
+the same rule, against the same outcomes: `unanimity_vote_accuracy` and
+`majority_alignment_vote_accuracy`, with `vote_accuracy_lift` over the
+stronger of them. They are conditioned exactly as the predictor is, on the
+cells it was scored on, and are null unless every vote-scored grading carries
+both ([merits-alignment-baseline.md](merits-alignment-baseline.md), *The
+leaderboard's floors*). The coded vote baseline, `alignment_vote_accuracy`,
+rides beside them over its own pre-registered gradings, with the forecasts'
+accuracy over exactly those (*The coded baselines on the board*, same doc).
+
 **A check holds that prohibition, not the absence of a data source.**
 `pipeline.moments.scores_votes` is the gate, and it lives on the moments
 register because that table is the authority on an event's stage. It admits

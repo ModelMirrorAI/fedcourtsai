@@ -30,15 +30,21 @@ alone are the topic reference block, whose membership tracks disposition.
 **The measurement and its gate.** The labeler's area on each hand-labeled row
 is compared with the hand label. The hand raters were not blind to the outcome
 and read their own knowledge of a public case, which the labeler may not, so
-the rate is agreement with that reference, not accuracy. The gate is the topic
-gate's: the rate at least :data:`~fedcourtsai.pipeline.qp_topics.AGREEMENT_GATE`,
-above the constant-labeler floor, with the compared rows at least
-:data:`~fedcourtsai.pipeline.qp_topics.COVERAGE_FLOOR` of the hand set.
+the rate is agreement with that reference, not accuracy. Under the gate rule
+:data:`POLICY_GATE_RULE` a labeler ``other`` is an abstention, since a labeler
+reading the docket alone calls ``other`` where the row names no policy: the
+gate reads the labeler's named calls, at least
+:data:`~fedcourtsai.pipeline.qp_topics.AGREEMENT_GATE` of them matching, above
+the share a labeler naming one area on every row would score, with an area
+named on at least :data:`ANSWER_FLOOR` of the hand rows that name one and the
+compared rows at least :data:`~fedcourtsai.pipeline.qp_topics.COVERAGE_FLOOR`
+of the hand set.
 
-**A refusal holds until the prompt changes.** A labeler that does not answer
-the same way on every run would pass a re-measured gate by chance in the end,
-so after a refused policy measurement no batch asks for areas again until the
-labeling prompt's digest differs from the one the refused batch read.
+**A refusal holds until the prompt or the gate rule changes.** A labeler that
+does not answer the same way on every run would pass a re-measured gate by
+chance in the end, so after a refused policy measurement no batch asks for
+areas again until the labeling prompt's digest differs from the one the
+refused batch read, or the gate rule differs from the one it was judged by.
 
 **What publishes.** Only a batch whose policy measurement passed publishes
 areas, and it never touches a topic label. A hand-labeled row publishes its
@@ -62,6 +68,7 @@ from collections import Counter
 from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Final
 
 from ..schemas import (
     PolicyAreaLabel,
@@ -73,6 +80,12 @@ from ..schemas import (
 )
 from .policy_area import POLICY_AREAS, PolicyLabel
 from .qp_topics import AGREEMENT_GATE, COVERAGE_FLOOR, QpTopicError, _batch_order_key
+
+POLICY_GATE_RULE: Final = "policy-gate-v2"
+"""The policy measurement's gate rule: precision on the labeler's named calls."""
+
+ANSWER_FLOOR: Final = 0.5
+"""The share of hand rows with a named area the labeler must name an area on."""
 
 #: The labeling prompt, at its place in the checkout the package is installed from.
 LABEL_PROMPT: Path = Path(__file__).resolve().parents[3] / ".github/prompts/qp-topic-label.md"
@@ -122,17 +135,24 @@ def _key(docket_number: str) -> str:
     return docket_number.strip().upper()
 
 
-def refusal_hold(artifact: QpTopicApplicationLabels | None, prompt_sha256: str | None) -> bool:
+def refusal_hold(
+    artifact: QpTopicApplicationLabels | None,
+    prompt_sha256: str | None,
+    gate_rule: str = POLICY_GATE_RULE,
+) -> bool:
     """Whether a refused policy measurement still holds policy areas back.
 
-    It holds while the newest batch that measured policy areas was refused and
-    the prompt has not visibly changed since: the same digest, or either one
-    unknown.
+    It holds while the newest batch that measured policy areas was refused
+    under the current gate rule and the prompt has not visibly changed since:
+    the same digest, or either one unknown. A row that records no gate rule was
+    measured under ``policy-gate-v1``.
     """
     if artifact is None:
         return False
     measured = [row for row in artifact.batches if row.policy_gate_passed is not None]
     if not measured or measured[-1].policy_gate_passed:
+        return False
+    if (measured[-1].policy_gate_rule or "policy-gate-v1") != gate_rule:
         return False
     refused = measured[-1].policy_prompt_sha256
     return refused is None or prompt_sha256 is None or refused == prompt_sha256
@@ -286,6 +306,12 @@ def measure_policy(
     to_other: Counter[str] = Counter()
     named = [0, 0]
     certain = [0, 0]
+    # The labeler's named calls: rows it gave an area other than `other`.
+    # `other` from a labeler that reads the docket alone mostly means the row
+    # names no policy, so it is an abstention, scored apart from the calls.
+    answered = [0, 0]
+    answered_named = 0
+    answered_by_area: Counter[str] = Counter()
     uncovered = 0
     for case_id in in_batch:
         expected = hand[_key(numbers[case_id])]
@@ -297,9 +323,14 @@ def measure_policy(
         compared[expected.area] += 1
         agree[expected.area] += hit
         to_other[expected.area] += expected.area != "other" and given == "other"
+        if given != "other":
+            answered[0] += hit
+            answered[1] += 1
+            answered_by_area[expected.area] += 1
         if expected.area != "other":
             named[0] += hit
             named[1] += 1
+            answered_named += given != "other"
         if not expected.uncertain:
             certain[0] += hit
             certain[1] += 1
@@ -307,11 +338,18 @@ def measure_policy(
     matched = sum(agree.values())
     rate = matched / n if n else None
     floor = max(compared.values()) / n if n else None
+    precision = answered[0] / answered[1] if answered[1] else None
+    # The precision a labeler naming one area on every row it answered would
+    # score on those same rows: the commonest hand area among them.
+    precision_floor = max(answered_by_area.values()) / answered[1] if answered[1] else None
+    answer_rate = answered_named / named[1] if named[1] else None
     gate = (
-        rate is not None
-        and floor is not None
-        and rate >= AGREEMENT_GATE
-        and rate > floor
+        precision is not None
+        and precision_floor is not None
+        and answer_rate is not None
+        and precision >= AGREEMENT_GATE
+        and precision > precision_floor
+        and answer_rate >= ANSWER_FLOOR
         and bool(hand)
         and n / len(hand) >= COVERAGE_FLOOR
     )
@@ -327,6 +365,13 @@ def measure_policy(
             certain_n=certain[1],
             rate=rate,
             floor=floor,
+            gate_rule=POLICY_GATE_RULE,
+            answered_agree=answered[0],
+            answered=answered[1],
+            answered_named=answered_named,
+            precision=precision,
+            precision_floor=precision_floor,
+            answer_rate=answer_rate,
             uncovered=uncovered,
             off_frame=off_frame,
             per_area=[
@@ -386,6 +431,7 @@ def accrue_policy(
             "policy_published": published,
             "policy_gate_passed": agreement.gate_passed,
             "policy_prompt_sha256": agreement.prompt_sha256,
+            "policy_gate_rule": agreement.gate_rule,
         }
     )
     update: dict[str, object] = {"batches": ledger, "entries": entries}
@@ -405,6 +451,7 @@ def render_policy(agreement: QpTopicPolicyAgreement, published: int) -> str:
 
     rate = "n/a" if agreement.rate is None else f"{agreement.rate:.1%}"
     floor = "n/a" if agreement.floor is None else f"{agreement.floor:.1%}"
+    pfloor = "n/a" if agreement.precision_floor is None else f"{agreement.precision_floor:.1%}"
     lines = [
         f"policy areas (against {agreement.reference_rule} hand labels, not accuracy): "
         f"{agreement.agree}/{agreement.n} = {rate} against a {floor} constant-labeler floor; "
@@ -412,8 +459,14 @@ def render_policy(agreement: QpTopicPolicyAgreement, published: int) -> str:
         f"does not flag uncertain {share(agreement.certain_agree, agreement.certain_n)}; "
         f"{agreement.reference_rows} of {agreement.reference_total} hand row(s) in the batch, "
         f"{agreement.uncovered} given no area, {agreement.off_frame} area(s) off the frame "
-        f"dropped; gate {'passed' if agreement.gate_passed else 'refused'}; "
-        f"{published} area(s) published",
+        "dropped",
+        f"  gate ({agreement.gate_rule}): named calls "
+        f"{share(agreement.answered_agree, agreement.answered)} "
+        f"right against the {AGREEMENT_GATE:.0%} gate and a {pfloor} one-area floor on those "
+        "rows; "
+        f"an area named on {share(agreement.answered_named, agreement.named_n)} of the hand "
+        f"rows with a named area against a {ANSWER_FLOOR:.0%} answer floor; "
+        f"{'passed' if agreement.gate_passed else 'refused'}; {published} area(s) published",
     ]
     lines.extend(
         f"  {row.area}: {row.agree}/{row.n} ({row.labeled_other} called other)"

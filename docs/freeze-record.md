@@ -16385,3 +16385,115 @@ freeze commit is recorded here.
   - across that round's claude and gemini `retrieval_log.json` files, `jq -r
     '.calls[] | select(.tool=="Write" or .tool=="write_file") | .query |
     select(. != null) | .[0:13]'` prints `{"file_path":` on every row.
+
+- **Policy areas are judged on the labeler's named calls (`policy-gate-v2`);
+  recorded 2026-11-02.** A **measurement-rule** entry; no digest moves and no
+  cell reads anything different. The application labeler's first policy
+  measurement (run 41513891748, batch 3 of the application labels, prompt
+  digest `policy_prompt_sha256` on that ledger row) was refused under
+  `policy-gate-v1`: 190 of 263 compared hand rows (72.2%) against the 80%
+  gate. 72 of its 73 misses were the labeler answering `other` on a row the
+  hand set names, and its named calls matched 120 of 121, naming an area on
+  121 of the 193 hand rows that name one. The rule this entry registers was
+  written after that result and in view of it: a labeler `other` is an
+  abstention, the gate reads precision on the named calls (at least 80%,
+  above the one-area floor on the answered rows) with an answer floor of half
+  the named hand rows, and the 90% coverage floor stands. The answer floor of
+  one half was chosen with the observed 62.7% in view. The refused batch is
+  never re-scored under `policy-gate-v2`: its ledger row stays a
+  `policy-gate-v1` refusal, and the rule is judged first on the next
+  labeling run after this entry reaches `main`. Carried to `main` by the
+  promotion tagged `<FILL: promotion tag>` (merge commit `<FILL: merge sha>`,
+  merged `<FILL: merged time utc>`).
+
+- **Merits vote floors beside `mean_vote_accuracy`: unanimity and majority
+  alignment; recorded 2026-11-03.** A **scoring-baseline** entry; no digest
+  moves and no cell reads anything different. Every leaderboard stratum that
+  publishes `mean_vote_accuracy` also publishes, over exactly its
+  `vote_cells_scored` gradings and with the same panel weights, two floors
+  scored under the same exact-vote rule on each cell's own committed outcome
+  (`pipeline.alignment_baseline.floor_vote_accuracy`,
+  `docs/merits-alignment-baseline.md`):
+  - `unanimity_vote_accuracy`: every sitting Justice called `majority`;
+  - `majority_alignment_vote_accuracy`: the Justices appointed by a
+    Republican president (`CONSERVATIVE_BLOC`) called `majority` and every
+    other sitting Justice `dissent`, whichever side wins;
+  - `vote_accuracy_lift`: `mean_vote_accuracy` minus the stronger of the two
+    on that stratum's own gradings.
+
+  A realized `concur-in-judgment` or vote in part is a miss for both floors,
+  as for the predictor. The floors are null, and omitted from the serialized
+  board, unless every vote-scored grading of the stratum carries both, so a
+  floor is never read over fewer gradings than the figure; an outcome seating
+  a Justice neither bloc holds has none. The rule is registered before any
+  figure it governs exists: at `origin/staging` `a5aaf30d7` and
+  `origin/main` `0bea3dc10`, none of the 14,139 committed outcomes carries a
+  complete vote record and none of the 1,827 committed evaluations is on a
+  merits moment, so every `mean_vote_accuracy` is null and no floor is
+  computed. The coded baselines (score outcome, score votes) are not in this
+  entry and score nothing on the board. Carried to `main` by the promotion
+  tagged `<FILL: promotion tag>` (merge commit `<FILL: merge sha>`, merged
+  `<FILL: merged time utc>`).
+
+  The runnable effect check once it is live: `uv run fedcourts leaderboard
+  --all-versions --out /tmp/lb.json && jq '[.. | objects |
+  select(has("unanimity_vote_accuracy"))] | length' /tmp/lb.json` prints `0`
+  until the first merits cell is graded against a complete vote record. From
+  then on, `jq '[.. | objects | select(.mean_vote_accuracy != null) |
+  select(has("vote_accuracy_lift") | not)] | length' /tmp/lb.json` prints `0`
+  unless a stratum's outcomes seat a Justice neither bloc holds, which leaves
+  that stratum with no floor fields at all. Each lift is read over its
+  stratum's `vote_events_scored` decisions, which the same entry adds: the
+  distinct (case, event) pairs among the vote-scored gradings, omitted while
+  none is.
+
+- **Coded merits baselines on the board: score outcome and score votes, read
+  from the frozen fits; recorded 2026-11-03.** A **scoring-baseline** entry;
+  no digest moves and no cell reads anything different. Every leaderboard
+  stratum also publishes baselines 3 and 4 of
+  `docs/merits-alignment-baseline.md` (*The coded baselines on the board*),
+  each over the merits gradings with a pre-registered reading
+  (`pipeline.alignment_board.read_cell`): the case carries a clean side code
+  (forward, made within `CLEAN_LAG_DAYS` of its grant) made before the
+  decision, and the decision's October Term has a frozen fit in
+  `data/merits-alignment/alignment-fits.json` with a transform, made before
+  the decision; and the grading's stamped Brier reproduces, within
+  `BRIER_REPRODUCTION_TOLERANCE`, from its scored prediction on the current
+  outcome. Every other grading has no reading; a backtest is never read on
+  the board.
+  - `alignment_score_brier`: the Brier, on the cell's disturbed binary, of
+    the fit's transform of the code's score read as P(disturbed) (the
+    transformed P(the conservative side prevails) where the conservative side
+    is the petitioner, its complement where the respondent), beside
+    `alignment_score_model_brier`, the forecasts' own mean Brier over exactly
+    those `alignment_score_cells` gradings, `alignment_score_events`, their
+    distinct decisions and the baseline's sample size, and
+    `alignment_fit_replay_share`, the mean contamination-risk share of the
+    transform codes of the fits read;
+  - `alignment_vote_accuracy`: over the `vote_cells_scored` gradings whose
+    fit has a spread and places every sitting Justice, the exact-vote
+    accuracy of the vote model's calls (`majority` on its predicted winner's
+    side, `dissent` otherwise; a tie goes to the respondent), beside
+    `alignment_vote_model_accuracy` over exactly those `alignment_vote_cells`
+    gradings, with `alignment_vote_events`, their distinct decisions. An
+    outcome with two rows for one Justice has no reading.
+
+  Each baseline's population is its own, and the forecasts' figure beside it
+  is taken over that population, never the stratum's. No figure is a rank
+  key, and every field is omitted while null. The board reads the codes
+  without the argument date, which no committed record carries, so a code is
+  clean here on its mode and lag alone, a superset of the readout's clean
+  set. The rule is registered before any
+  figure it governs exists: at `origin/staging` `9773fca23` and `origin/main`
+  `d2514da92`, none of the 1,827 committed evaluations is on a merits
+  moment, none of the 14,139 committed outcomes carries a complete vote
+  record, and `main` holds no fits file. Carried to `main` by the promotion
+  tagged `<FILL: promotion tag>` (merge commit `<FILL: merge sha>`, merged
+  `<FILL: merged time utc>`).
+
+  The runnable effect check once it is live: `uv run fedcourts leaderboard
+  --all-versions --out /tmp/lb.json && jq '[.. | objects |
+  select(has("alignment_score_cells"))] | length' /tmp/lb.json` prints `0`
+  until a fit is committed and a merits cell on a clean-coded case of its
+  Term is graded; from then on, every object it counts also carries
+  `alignment_score_brier` and `alignment_score_model_brier`.
