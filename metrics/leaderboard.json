@@ -7013,14 +7013,14 @@
   "forward_evaluations": 1161,
   "frozen_process": {
     "digests": [
-      "sha256:11ddd73ac5e4ef4d883f51997f00822dd737df2c9d52b0f8f599a27aa3dde31a",
-      "sha256:274fea05cdeb0d3b004926de218364183603bbf331e3a2a5cdfcf7fe4909ec07",
-      "sha256:3df3d7aa2267e392cf047493c336737c9ea5a30b310919e027eeb3a850027990",
-      "sha256:e481306013cbb61ab29747a4eafd2d8d55c7694d196fe470ce14c78d2663310c",
-      "sha256:ede964258702cee0803a5255106a9ddc542164c017dd5e56ce47813c8b028388",
-      "sha256:fb4db8c6b28902554a44e42078039dd467afe47bd986a4aa40ba4435307f60c0"
+      "sha256:1389c40a89d22cb951b25dad96d18d307cef26db4f6b66cdd425ea8fcf0f49b6",
+      "sha256:33a3f9f8f53a2f6cb53967a60d836c3ba29f0078c12306fb8696e15d7c674978",
+      "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+      "sha256:5b6efbbb2270718377da537c3ea04c727a2a855ffdae684da2a313c003699593",
+      "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+      "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9"
     ],
-    "since": "2026-10-30T16:38:43Z",
+    "since": "2026-11-02T17:51:42Z",
     "windows": [
       {
         "closes": "2026-10-11T12:00:00Z",
@@ -7167,7 +7167,7 @@
         "revoked_at": null
       },
       {
-        "closes": null,
+        "closes": "2026-11-01T17:45:59Z",
         "digest": "sha256:11ddd73ac5e4ef4d883f51997f00822dd737df2c9d52b0f8f599a27aa3dde31a",
         "label": "proc-v15",
         "opens": "2026-10-30T16:38:43Z",
@@ -7175,7 +7175,7 @@
         "revoked_at": null
       },
       {
-        "closes": null,
+        "closes": "2026-11-01T17:45:59Z",
         "digest": "sha256:3df3d7aa2267e392cf047493c336737c9ea5a30b310919e027eeb3a850027990",
         "label": "proc-v15",
         "opens": "2026-10-30T16:38:43Z",
@@ -7183,10 +7183,58 @@
         "revoked_at": null
       },
       {
-        "closes": null,
+        "closes": "2026-11-01T17:45:59Z",
         "digest": "sha256:274fea05cdeb0d3b004926de218364183603bbf331e3a2a5cdfcf7fe4909ec07",
         "label": "proc-v15",
         "opens": "2026-10-30T16:38:43Z",
+        "predictor_id": "gemini-baseline",
+        "revoked_at": null
+      },
+      {
+        "closes": "2026-11-02T17:51:42Z",
+        "digest": "sha256:6a7047b68d17cc856aeabec7b557db010e775081f4efa58af5e9bf7d53417b94",
+        "label": "proc-v16",
+        "opens": "2026-11-01T17:45:59Z",
+        "predictor_id": "claude-baseline",
+        "revoked_at": null
+      },
+      {
+        "closes": "2026-11-02T17:51:42Z",
+        "digest": "sha256:bf956e358b5e31f3d72302c1b660d638ce16e4c4a0fa542887dd0c591c275e04",
+        "label": "proc-v16",
+        "opens": "2026-11-01T17:45:59Z",
+        "predictor_id": "codex-baseline",
+        "revoked_at": null
+      },
+      {
+        "closes": "2026-11-02T17:51:42Z",
+        "digest": "sha256:758b95e861e1913da28900f558837a2fdbc0c1f4a4341ae130be83cd7e752164",
+        "label": "proc-v16",
+        "opens": "2026-11-01T17:45:59Z",
+        "predictor_id": "gemini-baseline",
+        "revoked_at": null
+      },
+      {
+        "closes": null,
+        "digest": "sha256:33a3f9f8f53a2f6cb53967a60d836c3ba29f0078c12306fb8696e15d7c674978",
+        "label": "proc-v17",
+        "opens": "2026-11-02T17:51:42Z",
+        "predictor_id": "claude-baseline",
+        "revoked_at": null
+      },
+      {
+        "closes": null,
+        "digest": "sha256:5b6efbbb2270718377da537c3ea04c727a2a855ffdae684da2a313c003699593",
+        "label": "proc-v17",
+        "opens": "2026-11-02T17:51:42Z",
+        "predictor_id": "codex-baseline",
+        "revoked_at": null
+      },
+      {
+        "closes": null,
+        "digest": "sha256:1389c40a89d22cb951b25dad96d18d307cef26db4f6b66cdd425ea8fcf0f49b6",
+        "label": "proc-v17",
+        "opens": "2026-11-02T17:51:42Z",
         "predictor_id": "gemini-baseline",
         "revoked_at": null
       }
