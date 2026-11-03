@@ -283,6 +283,7 @@ from .ops import (
 from .paths import CasePaths, EventPaths
 from .pipeline import (
     alignment_baseline,
+    alignment_fits,
     alignment_positions,
     alignment_score,
     alignment_side,
@@ -535,6 +536,8 @@ from .schemas import (
     AgentFlags,
     AgentToolingFeedback,
     AiCaseActivityEntry,
+    AlignmentFits,
+    AlignmentSideCode,
     AlignmentSideCodes,
     AuthorshipTally,
     Backtest,
@@ -6883,6 +6886,26 @@ def alignment_positions_cmd(
     typer.echo(table.model_dump_json())
 
 
+def _coded_merits_judgments(
+    conn: corpus.ReadConnection, codes: Sequence[AlignmentSideCode]
+) -> tuple[dict[str, tuple[Judgment, date]], int]:
+    """Each coded case's merits judgment and its date, with the count outside the vocabulary."""
+    coded = {c.case_id for c in codes}
+    judgments: dict[str, tuple[Judgment, date]] = {}
+    unread = 0
+    for row in corpus.iter_rows(conn, court="scotus"):
+        if row.case_id not in coded or row.merits_judgment is None or row.merits_decided is None:
+            continue
+        try:
+            judgment = Judgment(row.merits_judgment)
+        except ValueError:
+            # Re-validated rather than trusted, as every reader of the column does.
+            unread += 1
+            continue
+        judgments[row.case_id] = (judgment, row.merits_decided)
+    return judgments, unread
+
+
 def _echo_score_readout(readout: alignment_score.ScoreReadout, unread: int) -> None:
     """Print the score readout's per-Term lines to stderr."""
 
@@ -6989,24 +7012,8 @@ def alignment_score_baseline_cmd(
             err=True,
         )
         raise typer.Exit(code=1)
-    coded = {c.case_id for c in codes}
-    judgments: dict[str, tuple[Judgment, date]] = {}
-    unread = 0
     with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
-        for row in corpus.iter_rows(conn, court="scotus"):
-            if (
-                row.case_id not in coded
-                or row.merits_judgment is None
-                or row.merits_decided is None
-            ):
-                continue
-            try:
-                judgment = Judgment(row.merits_judgment)
-            except ValueError:
-                # Re-validated rather than trusted, as every reader of the column does.
-                unread += 1
-                continue
-            judgments[row.case_id] = (judgment, row.merits_decided)
+        judgments, unread = _coded_merits_judgments(conn, codes)
         # From the first coded decision Term, not `--first-term`: out-of-sample
         # fits read every earlier Term's lineups whatever range is scored. The
         # estimated positions reach a window further back, for the prior Term's
@@ -7035,6 +7042,84 @@ def alignment_score_baseline_cmd(
 
     _echo_score_readout(readout, unread)
     typer.echo(readout.model_dump_json())
+
+
+@app.command("alignment-fit")
+def alignment_fit_cmd(
+    term: Annotated[int, typer.Option("--term", help="The October Term to fit for.")],
+    out: Annotated[
+        Path | None,
+        typer.Option(
+            "--out",
+            help="Write the committed fits with this Term's entry added to this path; omit to "
+            "print the entry alone.",
+        ),
+    ] = None,
+) -> None:
+    """Compute one Term's frozen score-baseline fit, read-only against the corpus.
+
+    The fit baselines 3 and 4 score the Term's decisions by on the leaderboard
+    (`pipeline/alignment_fits.py`): the outcome transform and the spread `k`
+    fitted on every decision made before 1 October of `--term`, and the prior
+    Term's positions estimated from the corpus's merits lineups through the
+    Term before. Reads the committed side codes and fits, the corpus's merits
+    judgments and its merits lineups. Prints a summary to stderr; without
+    `--out`, the entry JSON to stdout, and with it, writes the committed fits
+    with the entry added to `--out`. A Term already in the committed fits is
+    refused (exit 2), since a fit is never revised; a missing corpus or codes
+    file exits 1.
+    """
+    settings = get_settings()
+    committed = alignment_side.codes_path(settings.data_root)
+    if not committed.is_file():
+        typer.echo(f"alignment-fit: no side codes at {committed}.", err=True)
+        raise typer.Exit(code=1)
+    codes = read_model(committed, AlignmentSideCodes).entries
+    fits_file = alignment_fits.fits_path(settings.data_root)
+    prior = read_model(fits_file, AlignmentFits) if fits_file.is_file() else None
+    if prior is not None and any(e.term == term for e in prior.entries):
+        typer.echo(f"alignment-fit: OT{term} is already fitted in {fits_file}.", err=True)
+        raise typer.Exit(code=2)
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if settings.corpus_backend != "ranged" and not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before fitting the alignment baselines.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
+        judgments, unread = _coded_merits_judgments(conn, codes)
+        # From the first coded decision Term, as the score readout reads, with
+        # a window further back for the positions that Term's prior bench is.
+        fit_from = min([term, *(october_term_year(on) for _, on in judgments.values())])
+        lineups = merits_lineups.merits_lineups(
+            conn, first_term=fit_from - alignment_positions.WINDOW_TERMS, last_term=term - 1
+        )
+    positions = alignment_positions.estimated_positions(
+        lineups, first_term=fit_from - 1, last_term=term - 1
+    )
+    fit = alignment_fits.frozen_fit(
+        codes,
+        judgments,
+        [lu for lu in lineups if lu.term >= fit_from],
+        positions,
+        term=term,
+        frozen_on=datetime.now(UTC).date(),
+    )
+    typer.echo(
+        f"alignment-fit: OT{term}: transform on {fit.transform_decisions} decision(s) "
+        f"({fit.contamination_risk} replay), k {'-' if fit.k is None else format(fit.k, 'g')} on "
+        f"{fit.k_decisions} lineup(s), positions for {len(fit.positions or {})} Justice(s); "
+        f"latest decision read {fit.latest_decision_read or '-'}; {unread} judgment(s) outside "
+        "the vocabulary left out",
+        err=True,
+    )
+    if out is None:
+        typer.echo(fit.model_dump_json())
+        return
+    write_json(out, alignment_fits.publish_fit(prior, fit))
+    typer.echo(f"alignment-fit: wrote {out}.", err=True)
 
 
 @app.command("backfill-opinion-record")

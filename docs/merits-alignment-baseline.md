@@ -383,6 +383,55 @@ All three are null, and omitted from the board, unless every vote-scored
 grading carries both floors, which an outcome seating a Justice neither bloc
 holds does not. The coded baselines, 3 and 4, are not on the board.
 
+## The frozen fits
+
+The board reads only committed records, so the fits baselines 3 and 4 score a
+Term's decisions by are committed records too:
+`data/merits-alignment/alignment-fits.json` (`AlignmentFits`), one entry per
+October Term (`pipeline.alignment_fits`). Each entry holds the outcome
+transform as its knots, the spread `k`, and the prior Term's positions, each
+fitted as the readout's out-of-sample reading fits them (*The fits*, above)
+on everything decided before 1 October of the Term, with one difference: the
+fit decides which code of a consolidated decision to read from lineups and
+judgments dated before the opening alone, where the readout reads every
+lineup it is handed. The positions are estimated as of the day the fit was
+made. Beside them it records that day, the latest
+decision date read, the decision counts, the consolidated codes left out,
+whether `k` sits at the grid's top, the contamination-risk count, and a
+sha256 of the codes the transform read, so the entry can be checked against
+the codes `main` held. A field below its fit floor is null, and then the
+baseline it serves has no reading for the Term.
+
+The schema enforces the decision-date bound. When the fit was made is a
+separate fact, since a fit can be made after some of its Term's decisions
+were handed down: a reading under a fit is pre-registered only for a
+decision dated after the fit's `frozen_on` whose own code was made before
+that decision, and every other reading under it is a backtest, kept apart
+from the pre-registered ones.
+
+Two asymmetries travel with the comparison. A forecast made mid-Term may read
+the Term's earlier decisions, while the frozen fit cannot; that favours the
+forecasts. And a transform fitted on replay codes, which may have been made
+knowing the outcome, can be sharper than grant-time scores warrant, so
+applied to forward codes it can score the baseline worse and make a
+forecast's lift over it look larger; the contamination-risk count says how
+much of each fit rests on such codes, and is quoted beside any figure read
+under it.
+
+```bash
+uv run fedcourts alignment-fit --term 2027                    # print the entry
+uv run fedcourts alignment-fit --term 2027 --out data/merits-alignment/alignment-fits.json
+```
+
+The command reads the committed side codes and fits, the corpus's merits
+judgments and its merits lineups, and estimates the positions from the
+lineups through the Term before (*The positions*, above). The file is
+append-only: a Term already in it is refused, since its fit may already have
+scored a decision and a refit would re-score it. So a code or lineup added
+later for an earlier Term moves no figure already scored, and the schema
+refuses an entry that read a decision dated on or after its Term's opening,
+or a transform or spread fitted below the fit floor.
+
 ## What is built, and what remains owed
 
 Built: baselines 1 and 2, the bloc rule, the three vote readings, and the
@@ -396,7 +445,9 @@ above) with its valence split, positions estimated from the lineups
 (`fedcourts alignment-positions`, *The positions*, above), and the first
 production run's codes on `main`; and baselines 1 and 2 as the
 leaderboard's floors of `mean_vote_accuracy` (*The leaderboard's floors*,
-above), registered in [freeze-record.md](freeze-record.md).
+above), registered in [freeze-record.md](freeze-record.md); and the
+frozen per-Term fit file and the command that computes an entry (*The frozen
+fits*, above).
 
 The run mode is `run-analytics` `alignment-side-code`, the topic-labeling
 lane's third frame ([pipeline.md](pipeline.md)), dispatched or on a weekly
@@ -424,9 +475,11 @@ Owed, in order:
 - **The clean check.** The readout restricted to clean codes, once enough of
   them are decided, with a `stats-reviewer` pass.
 - **Baselines 3 and 4 beside the models.** Their readings at the same merits
-  moments as the models, on the board's own cells and labeled as baselines.
-  The board reads only committed records, so each Term's fitted transform,
-  spread and positions have to be committed before the board can read them,
-  with their own dated entry in [freeze-record.md](freeze-record.md) before
-  the first block that scores one. A change to the shape of a committed record
-  the public site reads needs its matching site PR.
+  moments as the models, on the board's own cells and labeled as baselines,
+  each read from its Term's frozen fit, with their own dated entry in
+  [freeze-record.md](freeze-record.md) before the first block that scores
+  one. A change to the shape of a committed record the public site reads
+  needs its matching site PR.
+- **The fit's writer.** A writer step that commits each Term's entry before
+  the Term's first merits decision, since no session can write `data/` on
+  `main` by hand.
