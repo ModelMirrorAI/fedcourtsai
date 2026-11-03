@@ -22380,6 +22380,7 @@ def pull_all(
             limit=cap,
             skip_closed=pull_cfg.skip_closed,
             eligible_reserve=pull_cfg.eligible_refresh_reserve,
+            live_polled_only=pull_cfg.rotation_scope == "live_polled",
             exclude=_watchlist_case_ids(settings),
         )
         queues = pull_cases(

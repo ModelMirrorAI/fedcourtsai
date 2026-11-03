@@ -2341,3 +2341,58 @@ def test_a_relist_cell_refuses_without_a_readable_payload(tmp_path: Path) -> Non
         conn.execute("DELETE FROM snapshots")
         offered = forecastable_event_ids(conn, "scotus", 91, today=date(2026, 10, 12))
     assert "evt-order-relist-disposition" not in offered
+
+
+def test_live_polled_rotation_takes_only_cl_id_dockets_the_live_channel_polls(
+    tmp_path: Path,
+) -> None:
+    db = corpus.corpus_db_path(tmp_path)
+    polled = date(2026, 11, 2)
+    rows = [
+        # Never pulled and stalest of all, but the live channel does not poll it:
+        # a bulk-loaded historical docket left open.
+        corpus.CorpusRow(case_id="scotus/1", court="scotus", last_pulled=None),
+        # Polled live, but under a synthetic live-first id CourtListener cannot fetch.
+        corpus.CorpusRow(
+            case_id="scotus/9000000001",
+            court="scotus",
+            last_pulled=None,
+            last_live_polled=polled,
+        ),
+        # A circuit docket never enters this rotation.
+        corpus.CorpusRow(case_id="ca9/2", court="ca9", last_pulled=None, last_live_polled=polled),
+        # Polled live and resolved: skip_closed still drops it.
+        corpus.CorpusRow(
+            case_id="scotus/3",
+            court="scotus",
+            last_live_polled=polled,
+            disposition=Disposition.denied,
+        ),
+        corpus.CorpusRow(
+            case_id="scotus/4",
+            court="scotus",
+            last_pulled=date(2026, 10, 20),
+            last_live_polled=polled,
+        ),
+        corpus.CorpusRow(
+            case_id="scotus/5", court="scotus", last_pulled=None, last_live_polled=polled
+        ),
+    ]
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, rows)
+    # Stalest first, with no fall-through: a run may refresh fewer than its limit.
+    assert cases_due_for_pull(db, limit=10, eligible_reserve=10, live_polled_only=True) == [
+        ("scotus", 5),
+        ("scotus", 4),
+    ]
+    assert cases_due_for_pull(db, limit=1, live_polled_only=True) == [("scotus", 5)]
+    assert cases_due_for_pull(
+        db, limit=10, live_polled_only=True, exclude=frozenset({"scotus/5"})
+    ) == [("scotus", 4)]
+
+
+def test_committed_pull_config_rotates_only_live_polled_dockets() -> None:
+    # The open SCOTUS rows the live channel never polls are mostly bulk-loaded
+    # historical dockets; refreshing them spends the share on no forecast.
+    cfg = load_pull_config(Path(__file__).resolve().parents[1] / "config")
+    assert cfg.rotation_scope == "live_polled"

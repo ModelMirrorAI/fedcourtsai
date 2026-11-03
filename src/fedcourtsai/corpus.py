@@ -69,6 +69,7 @@ from .schemas import (
 )
 from .supremecourt import (
     IFP_SERIAL_BASE,
+    LIVE_DOCKET_ID_BASE,
     ArgumentSitting,
     parse_scotus_application_number,
     parse_scotus_docket_number,
@@ -5349,6 +5350,7 @@ def _rotation_rows(
     limit: int,
     skip_closed: bool,
     only_scotus: bool = False,
+    live_polled_only: bool = False,
     exclude: frozenset[str] = frozenset(),
 ) -> list[CorpusRow]:
     """Stalest-first active cases: never-pulled first, then oldest ``last_pulled``.
@@ -5356,8 +5358,9 @@ def _rotation_rows(
     The shared query behind :func:`rotation_for_pull`. ``skip_closed`` drops cases
     carrying a realized ``disposition`` / ``date_decided`` (their outcome is known);
     ``only_scotus`` further restricts to SCOTUS dockets (the prediction scope);
-    ``exclude`` drops the named case ids. ``case_id`` breaks ties so the order is
-    deterministic.
+    ``live_polled_only`` keeps only SCOTUS dockets the live channel polls under a
+    CourtListener docket id (see :func:`rotation_for_pull`); ``exclude`` drops the
+    named case ids. ``case_id`` breaks ties so the order is deterministic.
     """
     if limit <= 0:
         return []
@@ -5365,8 +5368,14 @@ def _rotation_rows(
     params: list[object] = []
     if skip_closed:
         clauses.append("disposition IS NULL AND date_decided IS NULL")
-    if only_scotus:
+    if only_scotus or live_polled_only:
         clauses.append("court = 'scotus'")
+    if live_polled_only:
+        # A live-first docket's id is synthetic (at or above the reserved base),
+        # which CourtListener cannot fetch.
+        clauses.append("last_live_polled IS NOT NULL")
+        clauses.append("CAST(substr(case_id, instr(case_id, '/') + 1) AS INTEGER) < ?")
+        params.append(LIVE_DOCKET_ID_BASE)
     if exclude:
         clauses.append(f"case_id NOT IN ({', '.join('?' for _ in exclude)})")
         params.extend(sorted(exclude))
@@ -5386,6 +5395,7 @@ def rotation_for_pull(
     limit: int,
     skip_closed: bool = True,
     eligible_reserve: int = 0,
+    live_polled_only: bool = False,
     exclude: frozenset[str] = frozenset(),
 ) -> list[CorpusRow]:
     """The next ``limit`` cases ``pull`` should refresh, stalest first.
@@ -5409,12 +5419,25 @@ def rotation_for_pull(
     fall through to the general rotation, so the reserve never wastes budget; a
     case picked by the reserve is not picked again by the general fill.
 
+    ``live_polled_only`` replaces both with one pool: the open SCOTUS dockets the
+    live channel polls (``last_live_polled`` set) under a CourtListener docket
+    id, stalest first, with no fall-through. The live channel already keeps
+    these current from the Court's own docket, so the rotation is a
+    cross-check on the dockets in play; the open SCOTUS rows it never polls are
+    mostly bulk-loaded historical dockets left open for want of a recorded
+    disposition, and a live-first docket's synthetic id cannot be fetched.
+    ``eligible_reserve`` is ignored, and a run may refresh fewer than ``limit``.
+
     ``exclude`` names cases another pass owns, so this rotation never reads them:
     the AI watchlist's dockets, which ``watchlist-refresh`` keeps current on its
     own share and without event extraction.
     """
     if limit <= 0:
         return []
+    if live_polled_only:
+        return _rotation_rows(
+            conn, limit=limit, skip_closed=skip_closed, live_polled_only=True, exclude=exclude
+        )
     reserve = min(eligible_reserve, limit)
     picked: list[CorpusRow] = []
     seen: set[str] = set()

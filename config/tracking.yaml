@@ -31,6 +31,14 @@ pull:
   # SCOTUS-open pool cannot fill a run. That rotation leads with never-pulled
   # bulk-loaded circuit dockets, whose entry lists can run to hundreds of pages.
   eligible_refresh_reserve: 30
+  # Which open dockets the rotation refreshes. `live_polled` takes only the
+  # SCOTUS dockets the live channel polls under a CourtListener docket id,
+  # stalest first, with no fall-through, so the rotation cross-checks the
+  # dockets in play instead of reading bulk-loaded historical dockets left open
+  # for want of a recorded disposition; the reserve above is then unused and a
+  # window may refresh fewer than max_cases_per_run. `all` restores the
+  # reserve-then-general rotation.
+  rotation_scope: live_polled
   # Most pages of docket entries (twenty a page, one request each) one refresh
   # may read, following upstream's cursor. A longer docket is recorded as failed
   # with nothing written, so a single docket cannot spend a window's budget.
