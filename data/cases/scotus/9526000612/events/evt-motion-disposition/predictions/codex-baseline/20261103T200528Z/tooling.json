@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000612",
+  "run_id": "20261103T200528Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell local reads and jq", "fedcourts paths", "CourtListener MCP search", "web.run (no usable output)", "fedcourts validate"],
+  "helpful": ["Frozen arrival-position context", "Explicit empty_text application metadata", "Machine-readable finer-reading coverage counts"],
+  "gaps": ["Usable application text or OCR", "Populated finer-reading interim base-rate pool", "Matching lower-court record"],
+  "notes": "The default uv cache was read-only; UV_CACHE_DIR=/tmp/uv-cache allowed CLI execution without installing packages. Two bounded lower-court MCP queries found no matches. Three web attempts returned no usable content. Missing filing text materially limits the forecast; neither absence of a match nor failed retrieval was treated as negative merits evidence."
+}

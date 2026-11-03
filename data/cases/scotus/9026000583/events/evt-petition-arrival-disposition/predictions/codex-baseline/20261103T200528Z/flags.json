@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/9026000583",
+  "run_id": "20261103T200528Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "provisioning",
+      "severity": "warning",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "The provisioned case record has no documents directory, petition text, or questions presented; same-question.json has petitions=null. Exact questions, any asserted split, and petition-specific vehicle arguments could not be assessed. Forecast completed from the snapshot, frozen arrival anchor, and the matching pre-petition Eleventh Circuit opinion obtained through MCP."
+    }
+  ]
+}
