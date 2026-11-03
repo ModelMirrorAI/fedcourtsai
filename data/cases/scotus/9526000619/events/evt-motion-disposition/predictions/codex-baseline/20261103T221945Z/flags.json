@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000619",
+  "run_id": "20261103T221945Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "provisioning",
+      "severity": "warning",
+      "event_id": "evt-motion-disposition",
+      "message": "The 37-page application is provisioned but documents.json reports empty_text=true and ocr_derived=false; application.txt is whitespace-only. The grounds, precise order challenged, and irreparable-harm allegations are unavailable. Forecast completed from the docket skeleton without treating blank extracted text as silence in the filing."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-motion-disposition",
+      "message": "The committed interim pack's eligible application-Term window 2016–2025 has finer_resolved=0 and finer_unread=1366. It fails both the 50-resolved floor and unread-zero condition, so no contract-compliant finer-reading baseline is available. No older-reading, all-Term, or cert-rate substitute was used."
+    }
+  ]
+}

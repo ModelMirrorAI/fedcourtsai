@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9526000619",
+  "run_id": "20261103T221945Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {"category": "data-quality", "severity": "info", "event_id": "evt-motion-disposition",
+     "message": "application.txt is staged with empty_text: true (37-page PDF, no text layer, ocr_derived false). The forecast rests on the docket alone. OCR of scanned applications would help."},
+    {"category": "capture-gap", "severity": "warning", "event_id": "evt-motion-disposition",
+     "message": "statpack.json interim terms carry finer_resolved=0 with nonzero finer_unread in every Term 2016-2025, so the pooled strictly-prior finer-reading interim baseline cannot be formed. This cell has no published baseline."}
+  ]
+}
