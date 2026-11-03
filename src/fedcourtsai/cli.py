@@ -22336,7 +22336,7 @@ def pull_all(
 
     The API-budget governor: rotation picks the oldest-``last_pulled``-first slice
     of the active set (skipping closed/resolved cases; ``pull.rotation_scope``
-    narrows that set to the live-channel SCOTUS rows), capped at
+    narrows that set to the live-channel SCOTUS rows and a recent-filing backfill), capped at
     ``pull.max_cases_per_run`` from ``config/tracking.yaml``. ``--limit`` may only
     lower that cap for a one-off run, never raise it, so a run provably stays
     within the CourtListener budget.
@@ -22381,7 +22381,14 @@ def pull_all(
             limit=cap,
             skip_closed=pull_cfg.skip_closed,
             eligible_reserve=pull_cfg.eligible_refresh_reserve,
-            live_polled_only=pull_cfg.rotation_scope == "live_polled",
+            live=(
+                corpus.LiveRotation(
+                    min_interval_days=pull_cfg.live_min_interval_days,
+                    backfill_filed_since=pull_cfg.backfill_filed_since,
+                )
+                if pull_cfg.rotation_scope == "live_polled"
+                else None
+            ),
             exclude=_watchlist_case_ids(settings),
         )
         queues = pull_cases(

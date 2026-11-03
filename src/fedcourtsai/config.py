@@ -6,6 +6,7 @@ written to disk or committed.
 
 from __future__ import annotations
 
+from datetime import date
 from enum import StrEnum
 from pathlib import Path
 from typing import Literal, Self
@@ -297,9 +298,16 @@ class PullConfig(BaseModel):
     # normal stalest-first rotation, so it never wastes budget; 0 disables the bias.
     eligible_refresh_reserve: int = Field(default=0, ge=0)
     # Which open dockets the rotation refreshes: ``all`` (the reserve above, then
-    # the general active set) or ``live_polled`` (only the SCOTUS dockets the
-    # live channel has written, under a CourtListener docket id, no fall-through).
+    # the general active set) or ``live_polled`` (the SCOTUS dockets the live
+    # channel has written, under a CourtListener docket id, then the backfill
+    # below; no general fall-through).
     rotation_scope: Literal["all", "live_polled"] = "all"
+    # Under ``live_polled``: a docket pulled fewer days ago than this waits, so
+    # its slot goes to the backfill (0 never waits).
+    live_min_interval_days: int = Field(default=0, ge=0)
+    # Under ``live_polled``: the earliest filing date the backfill reaches among
+    # SCOTUS dockets the live channel has not written; null turns it off.
+    backfill_filed_since: date | None = None
     # Discover newly-filed dockets in the tracked courts since the last run.
     discover_new_filings: bool = True
     # Hard cap on new dockets onboarded per run (its own slice of the budget,

@@ -2382,14 +2382,77 @@ def test_live_polled_rotation_takes_only_cl_id_dockets_the_live_channel_polls(
     with corpus.connect(db) as conn:
         corpus.upsert_rows(conn, rows)
     # Stalest first, with no fall-through: a run may refresh fewer than its limit.
-    assert cases_due_for_pull(db, limit=10, eligible_reserve=10, live_polled_only=True) == [
+    live = corpus.LiveRotation()
+    assert cases_due_for_pull(db, limit=10, eligible_reserve=10, live=live) == [
         ("scotus", 5),
         ("scotus", 4),
     ]
-    assert cases_due_for_pull(db, limit=1, live_polled_only=True) == [("scotus", 5)]
-    assert cases_due_for_pull(
-        db, limit=10, live_polled_only=True, exclude=frozenset({"scotus/5"})
-    ) == [("scotus", 4)]
+    assert cases_due_for_pull(db, limit=1, live=live) == [("scotus", 5)]
+    assert cases_due_for_pull(db, limit=10, live=live, exclude=frozenset({"scotus/5"})) == [
+        ("scotus", 4)
+    ]
+
+
+def test_live_rotation_spaces_live_dockets_and_backfills_newest_filings(
+    tmp_path: Path,
+) -> None:
+    db = corpus.corpus_db_path(tmp_path)
+    polled = date(2026, 11, 2)
+    rows = [
+        # Live, pulled two days ago: inside a three-day interval, so it waits.
+        corpus.CorpusRow(
+            case_id="scotus/10",
+            court="scotus",
+            last_pulled=date(2026, 11, 8),
+            last_live_polled=polled,
+        ),
+        # Live, pulled three days ago: due again.
+        corpus.CorpusRow(
+            case_id="scotus/11",
+            court="scotus",
+            last_pulled=date(2026, 11, 7),
+            last_live_polled=polled,
+        ),
+        # Backfill candidates: not live, filed since the cutoff.
+        corpus.CorpusRow(case_id="scotus/20", court="scotus", date_filed=date(2018, 3, 1)),
+        corpus.CorpusRow(case_id="scotus/21", court="scotus", date_filed=date(2024, 5, 1)),
+        corpus.CorpusRow(
+            case_id="scotus/22",
+            court="scotus",
+            date_filed=date(2024, 6, 1),
+            last_pulled=date(2026, 10, 1),
+        ),
+        # Left out: filed before the cutoff, undated, synthetic id, or a circuit.
+        corpus.CorpusRow(case_id="scotus/30", court="scotus", date_filed=date(2015, 12, 31)),
+        corpus.CorpusRow(case_id="scotus/31", court="scotus"),
+        corpus.CorpusRow(case_id="scotus/9000000002", court="scotus", date_filed=date(2025, 1, 1)),
+        corpus.CorpusRow(case_id="ca9/40", court="ca9", date_filed=date(2025, 1, 1)),
+    ]
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, rows)
+        live = corpus.LiveRotation(min_interval_days=3, backfill_filed_since=date(2016, 1, 1))
+        picked = corpus.rotation_for_pull(conn, limit=10, live=live, today=date(2026, 11, 10))
+        # Live first; then never-pulled backfill, newest filing first; then the
+        # pulled backfill docket.
+        assert [r.case_id for r in picked] == ["scotus/11", "scotus/21", "scotus/20", "scotus/22"]
+        # The live tier takes its slots before the backfill gets any.
+        capped = corpus.rotation_for_pull(conn, limit=2, live=live, today=date(2026, 11, 10))
+        assert [r.case_id for r in capped] == ["scotus/11", "scotus/21"]
+        # With the backfill off, only the live tier is read.
+        no_backfill = corpus.rotation_for_pull(
+            conn, limit=10, live=corpus.LiveRotation(min_interval_days=3), today=date(2026, 11, 10)
+        )
+        assert [r.case_id for r in no_backfill] == ["scotus/11"]
+        # Once its interval has passed, the waiting live docket is due again,
+        # ahead of the backfill and picked once.
+        later = corpus.rotation_for_pull(conn, limit=10, live=live, today=date(2026, 11, 12))
+        assert [r.case_id for r in later] == [
+            "scotus/11",
+            "scotus/10",
+            "scotus/21",
+            "scotus/20",
+            "scotus/22",
+        ]
 
 
 def test_committed_pull_config_rotates_only_live_polled_dockets() -> None:
@@ -2397,3 +2460,4 @@ def test_committed_pull_config_rotates_only_live_polled_dockets() -> None:
     # historical dockets; refreshing them spends the share on no forecast.
     cfg = load_pull_config(Path(__file__).resolve().parents[1] / "config")
     assert cfg.rotation_scope == "live_polled"
+    assert cfg.backfill_filed_since is not None
