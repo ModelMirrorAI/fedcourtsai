@@ -257,7 +257,13 @@ exact-vote rule: `unanimity_vote_accuracy` and
 `majority_alignment_vote_accuracy`, with `vote_accuracy_lift` over the
 stronger of them ([merits-alignment-baseline.md](merits-alignment-baseline.md),
 *The leaderboard's floors*). The write-up states the figure beside both
-floors and the lift, never alone.
+floors and the lift, never alone. Where a Term has a frozen fit committed
+before its decisions, it also states the coded baselines over their own
+gradings, each beside the forecasts' figure on those gradings:
+`alignment_score_brier` with `alignment_score_model_brier`,
+`alignment_vote_accuracy` with `alignment_vote_model_accuracy`, and the
+`alignment_fit_replay_share` of the fits they read (*The coded baselines on
+the board*, same doc).
 
 **Terminations.** The write-up also covers the forecast merits events that
 ended without a disposition: a voluntary dismissal, dismissal as moot,
