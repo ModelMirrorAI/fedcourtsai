@@ -38,8 +38,10 @@ curiams and decisions the grammar could not seat are left out, which is
 selection rather than missing at random, so each Term's figure travels with its
 document count.
 
-Read-only, and a pure function of the lineups: nothing is stored, and no cell,
-score or board reads it.
+Read-only, and a pure function of the lineups: nothing is stored. The
+leaderboard reads both baselines a second way, as floors under its own
+exact-vote rule (:func:`floor_vote_accuracy`), on each scored cell's own
+outcome.
 """
 
 from __future__ import annotations
@@ -50,8 +52,8 @@ from typing import Final, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from ..schemas import VoteValue
-from .justices import SERVICE
+from ..schemas import Outcome, VoteValue
+from .justices import SERVICE, normalize_justice_name
 from .merits_lineups import MeritsLineup
 
 #: The Justices appointed by a Republican president, over every Justice in
@@ -248,3 +250,31 @@ def alignment_readout(
         terms=[_term(term, members) for term, members in by_term.items()],
         pooled=_term(last_term, in_range),
     )
+
+
+def floor_vote_accuracy(baseline: Baseline, outcome: Outcome) -> float | None:
+    """``baseline``'s participating-bench vote accuracy on one outcome, under the exact-vote rule.
+
+    The leaderboard's ``mean_vote_accuracy`` rule
+    (:func:`fedcourtsai.pipeline.evaluate.bench_vote_accuracy`), applied to the
+    baseline's calls: every Justice the outcome shows sitting is in the
+    denominator, and a hit is an exact vote-value match, so a realized
+    ``concur-in-judgment`` or vote in part is a miss for both baselines, which
+    call only ``majority`` and ``dissent``. Unanimity calls every sitting
+    Justice ``majority``; majority alignment calls the conservative bloc
+    ``majority`` and every other Justice ``dissent``. None when the outcome
+    shows nobody sitting or names a sitting Justice neither bloc holds, so a
+    roster change is refused rather than scored.
+    """
+    sitting = {v.justice: v.vote for v in outcome.votes if v.vote not in _ABSENT}
+    if not sitting:
+        return None
+    hits = 0
+    for raw, vote in sitting.items():
+        justice = normalize_justice_name(raw)
+        if justice is None or (justice not in CONSERVATIVE_BLOC and justice not in OTHER_BLOC):
+            return None
+        conservative = justice in CONSERVATIVE_BLOC
+        call = VoteValue.majority if baseline == "unanimity" or conservative else VoteValue.dissent
+        hits += vote == call
+    return hits / len(sitting)

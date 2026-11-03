@@ -28,6 +28,7 @@ from fedcourtsai.leaderboard import (
     CellSides,
     CellSkill,
     Provisioning,
+    VoteScore,
     _evaluation_key,
     _scored_prediction,
     big_case_agreement,
@@ -378,12 +379,17 @@ def test_the_vote_mean_averages_the_recomputed_scores_not_the_evaluators() -> No
     unscored = _evaluation("alpha", event_id=_MERITS_EVENT_ID, run_id="r2", vote_accuracy=1.0)
     cells = [_forward(scored, Stage.merits), _forward(unscored, Stage.merits)]
     key = stage_moment_key(Stage.merits, first_moment(Stage.merits))
-    board = build_leaderboard(cells, vote_scores={_evaluation_key(scored): 7 / 9})
+    board = build_leaderboard(cells, vote_scores={_evaluation_key(scored): _model_only(7 / 9)})
     stratum = board.stages[key].entries[0].forward
     assert stratum is not None
     assert stratum.evaluations == 2
     assert stratum.mean_vote_accuracy == pytest.approx(7 / 9)
     assert stratum.vote_cells_scored == 1
+
+
+def _model_only(model: float) -> VoteScore:
+    """A vote score with no floors, as on an outcome seating a Justice neither bloc holds."""
+    return VoteScore(model=model, unanimity=None, majority_alignment=None)
 
 
 def test_a_board_built_without_vote_scores_scores_no_votes() -> None:
@@ -490,11 +496,77 @@ def test_vote_scores_recompute_over_the_participating_bench(tmp_path: Path) -> N
     cert = _evaluation("alpha", case_id="scotus/9", event_id=_CERT_EVENT_ID, prediction_run_id="p1")
     cells = [_forward(ev, Stage.merits) for ev in evs.values()] + [_forward(cert)]
     scores = vote_scores(cells, data_root)
-    assert scores == {
+    assert {key: score.model for key, score in scores.items()} == {
         _evaluation_key(evs["full"]): 1.0,
         _evaluation_key(evs["trimmed"]): 1 / 8,
         _evaluation_key(evs["free"]): 1 / 8,
     }
+    # The floors read the same outcome: eight sitting, all with the judgment,
+    # six of them the conservative bloc.
+    for score in scores.values():
+        assert score.unanimity == 1.0
+        assert score.majority_alignment == pytest.approx(6 / 8)
+
+
+def test_the_vote_floors_pair_with_the_vote_mean_and_the_lift_takes_the_stronger() -> None:
+    """Both floors average over exactly the vote mean's gradings, and the lift is
+    the mean minus whichever floor is stronger on them."""
+    a = _evaluation("alpha", case_id="scotus/1", event_id=_MERITS_EVENT_ID, run_id="r1")
+    b = _evaluation("alpha", case_id="scotus/2", event_id=_MERITS_EVENT_ID, run_id="r2")
+    off = _evaluation("alpha", case_id="scotus/3", event_id=_MERITS_EVENT_ID, run_id="r3")
+    cells = [_forward(ev, Stage.merits) for ev in (a, b, off)]
+    key = stage_moment_key(Stage.merits, first_moment(Stage.merits))
+    scores = {
+        _evaluation_key(a): VoteScore(model=0.9, unanimity=1.0, majority_alignment=0.6),
+        _evaluation_key(b): VoteScore(model=0.7, unanimity=0.4, majority_alignment=0.8),
+    }
+    stratum = build_leaderboard(cells, vote_scores=scores).stages[key].entries[0].forward
+    assert stratum is not None
+    assert stratum.vote_cells_scored == 2
+    assert stratum.mean_vote_accuracy == pytest.approx(0.8)
+    assert stratum.unanimity_vote_accuracy == pytest.approx(0.7)
+    assert stratum.majority_alignment_vote_accuracy == pytest.approx(0.7)
+    assert stratum.vote_accuracy_lift == pytest.approx(0.1)
+
+
+def test_a_vote_floor_missing_on_any_grading_leaves_every_floor_null_and_unserialized() -> None:
+    """A floor over fewer gradings than the mean is an unpaired difference."""
+    a = _evaluation("alpha", case_id="scotus/1", event_id=_MERITS_EVENT_ID, run_id="r1")
+    b = _evaluation("alpha", case_id="scotus/2", event_id=_MERITS_EVENT_ID, run_id="r2")
+    cells = [_forward(ev, Stage.merits) for ev in (a, b)]
+    key = stage_moment_key(Stage.merits, first_moment(Stage.merits))
+    scores = {
+        _evaluation_key(a): VoteScore(model=0.9, unanimity=1.0, majority_alignment=0.6),
+        _evaluation_key(b): _model_only(0.7),
+    }
+    stratum = build_leaderboard(cells, vote_scores=scores).stages[key].entries[0].forward
+    assert stratum is not None
+    assert stratum.mean_vote_accuracy == pytest.approx(0.8)
+    assert stratum.unanimity_vote_accuracy is None
+    assert stratum.majority_alignment_vote_accuracy is None
+    assert stratum.vote_accuracy_lift is None
+    payload = stratum.model_dump(mode="json")
+    for name in (
+        "unanimity_vote_accuracy",
+        "majority_alignment_vote_accuracy",
+        "vote_accuracy_lift",
+    ):
+        assert name not in payload
+
+
+def test_a_zero_vote_lift_is_still_serialized() -> None:
+    """Only a null floor is omitted: a lift of exactly zero is a reading."""
+    a = _evaluation("alpha", event_id=_MERITS_EVENT_ID, run_id="r1")
+    key = stage_moment_key(Stage.merits, first_moment(Stage.merits))
+    scores = {_evaluation_key(a): VoteScore(model=1.0, unanimity=1.0, majority_alignment=0.5)}
+    stratum = (
+        build_leaderboard([_forward(a, Stage.merits)], vote_scores=scores)
+        .stages[key]
+        .entries[0]
+        .forward
+    )
+    assert stratum is not None
+    assert stratum.model_dump(mode="json")["vote_accuracy_lift"] == 0.0
 
 
 def test_cert_stage_vote_accuracy_never_enters_the_ranked_mean() -> None:
@@ -510,7 +582,7 @@ def test_cert_stage_vote_accuracy_never_enters_the_ranked_mean() -> None:
     """
     cert = _evaluation("alpha", event_id=_CERT_EVENT_ID, vote_accuracy=0.5)
     ranked = (
-        build_leaderboard([_forward(cert)], vote_scores={_evaluation_key(cert): 0.5})
+        build_leaderboard([_forward(cert)], vote_scores={_evaluation_key(cert): _model_only(0.5)})
         .entries[0]
         .forward
     )
@@ -520,9 +592,9 @@ def test_cert_stage_vote_accuracy_never_enters_the_ranked_mean() -> None:
 
     merits = _evaluation("alpha", event_id=_MERITS_EVENT_ID, vote_accuracy=0.5)
     merits_cells = [_forward(merits, Stage.merits)]
-    block = build_leaderboard(merits_cells, vote_scores={_evaluation_key(merits): 0.5}).stages[
-        stage_moment_key(Stage.merits, first_moment(Stage.merits))
-    ]
+    block = build_leaderboard(
+        merits_cells, vote_scores={_evaluation_key(merits): _model_only(0.5)}
+    ).stages[stage_moment_key(Stage.merits, first_moment(Stage.merits))]
     scored = block.entries[0].forward
     assert scored is not None
     assert scored.mean_vote_accuracy == 0.5
@@ -538,9 +610,9 @@ def test_the_vote_gate_reads_the_cell_not_the_block_it_landed_in() -> None:
     """
     stray = _evaluation("alpha", event_id="evt-motion-stay", vote_accuracy=0.5)
     stray_cells = [_forward(stray, Stage.merits)]
-    block = build_leaderboard(stray_cells, vote_scores={_evaluation_key(stray): 0.5}).stages[
-        stage_moment_key(Stage.merits, first_moment(Stage.merits))
-    ]
+    block = build_leaderboard(
+        stray_cells, vote_scores={_evaluation_key(stray): _model_only(0.5)}
+    ).stages[stage_moment_key(Stage.merits, first_moment(Stage.merits))]
     stratum = block.entries[0].forward
     assert stratum is not None
     assert stratum.evaluations == 1  # the cell aggregates; only its votes do not

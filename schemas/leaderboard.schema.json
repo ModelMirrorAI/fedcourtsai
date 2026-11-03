@@ -1057,6 +1057,21 @@
           "title": "In Sample Skill Scored",
           "type": "integer"
         },
+        "majority_alignment_vote_accuracy": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The majority-alignment floor of `mean_vote_accuracy`: the conservative bloc (the Justices appointed by a Republican president) called `majority` and every other sitting Justice `dissent`, whichever side wins, read as `unanimity_vote_accuracy` is. Null and omitted on the same terms. A baseline, never a rank key",
+          "title": "Majority Alignment Vote Accuracy"
+        },
         "mean_brier_score": {
           "anyOf": [
             {
@@ -1165,6 +1180,36 @@
           "minimum": 0,
           "title": "Skill Scored",
           "type": "integer"
+        },
+        "unanimity_vote_accuracy": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The unanimity floor of `mean_vote_accuracy`: every sitting Justice called `majority`, scored under the same exact-vote rule on the same outcome over exactly the `vote_cells_scored` gradings, with the same weights (`pipeline.alignment_baseline.floor_vote_accuracy`, specified in `docs/merits-alignment-baseline.md`). A realized `concur-in-judgment` or vote in part is a miss for it. Null unless every one of those gradings has the floor; omitted while null. A baseline, never a rank key",
+          "title": "Unanimity Vote Accuracy"
+        },
+        "vote_accuracy_lift": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": -1.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "`mean_vote_accuracy` minus the stronger of `unanimity_vote_accuracy` and `majority_alignment_vote_accuracy`: the paired difference over the identical gradings, the stronger floor chosen on this stratum's own gradings. Null exactly where the floors are; omitted while null. Never a rank key",
+          "title": "Vote Accuracy Lift"
         },
         "vote_cells_scored": {
           "default": 0,

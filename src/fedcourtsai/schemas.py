@@ -4377,6 +4377,37 @@ class LeaderboardStratum(_Strict):
         "readable scored prediction, or resolves against a vote record that is "
         "absent or incomplete",
     )
+    unanimity_vote_accuracy: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="The unanimity floor of `mean_vote_accuracy`: every sitting Justice called "
+        "`majority`, scored under the same exact-vote rule on the same outcome over exactly "
+        "the `vote_cells_scored` gradings, with the same weights "
+        "(`pipeline.alignment_baseline.floor_vote_accuracy`, specified in "
+        "`docs/merits-alignment-baseline.md`). A realized `concur-in-judgment` or vote in "
+        "part is a miss for it. Null unless every one of those gradings has the floor; "
+        "omitted while null. A baseline, never a rank key",
+    )
+    majority_alignment_vote_accuracy: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="The majority-alignment floor of `mean_vote_accuracy`: the conservative "
+        "bloc (the Justices appointed by a Republican president) called `majority` and every "
+        "other sitting Justice `dissent`, whichever side wins, read as "
+        "`unanimity_vote_accuracy` is. Null and omitted on the same terms. A baseline, never "
+        "a rank key",
+    )
+    vote_accuracy_lift: float | None = Field(
+        default=None,
+        ge=-1.0,
+        le=1.0,
+        description="`mean_vote_accuracy` minus the stronger of `unanimity_vote_accuracy` and "
+        "`majority_alignment_vote_accuracy`: the paired difference over the identical "
+        "gradings, the stronger floor chosen on this stratum's own gradings. Null exactly "
+        "where the floors are; omitted while null. Never a rank key",
+    )
     mean_reasoning_quality: float | None = Field(
         default=None,
         ge=0.0,
@@ -4394,8 +4425,15 @@ class LeaderboardStratum(_Strict):
 
     @model_serializer(mode="wrap")
     def _omit_ungraded(self, handler: SerializerFunctionWrapHandler) -> Any:
-        """Drop ``reasoning_quality_rubrics`` while it lists nothing."""
-        return _omit_empty(handler(self), reasoning_quality_rubrics=self.reasoning_quality_rubrics)
+        """Drop the rubric readings while they list nothing, and the vote floors while null."""
+        payload = _omit_empty(
+            handler(self), reasoning_quality_rubrics=self.reasoning_quality_rubrics
+        )
+        if isinstance(payload, dict):
+            for name in _VOTE_FLOOR_FIELDS:
+                if payload.get(name, 0) is None:
+                    payload.pop(name)
+        return payload
 
 
 class WindowCount(_Strict):
@@ -4456,6 +4494,15 @@ _MIXED_SIGNATURE_DESCRIPTION = (
     "points concentrate in cases read at several moments, the granted ones, so after a "
     "digest move a reading covers a population short of exactly the higher-stakes cases; "
     "compare each reading's `cases` with the figure's own count. Omitted at zero"
+)
+
+
+#: The vote-floor fields a stratum omits while null, so a board with no merits
+#: votes scored serializes as it did before they existed.
+_VOTE_FLOOR_FIELDS: Final = (
+    "unanimity_vote_accuracy",
+    "majority_alignment_vote_accuracy",
+    "vote_accuracy_lift",
 )
 
 

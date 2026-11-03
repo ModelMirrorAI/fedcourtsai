@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -11,11 +12,12 @@ from fedcourtsai.cli import app
 from fedcourtsai.pipeline.alignment_baseline import (
     CONSERVATIVE_BLOC,
     alignment_readout,
+    floor_vote_accuracy,
     predicted_sides,
     read_decision,
     roster_is_partitioned,
 )
-from fedcourtsai.schemas import VoteValue
+from fedcourtsai.schemas import Disposition, Judgment, JusticeVote, Outcome, VoteValue
 
 from .test_justice_priors import _lineup
 
@@ -156,3 +158,46 @@ def test_the_command(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     assert "majority-alignment: justice 83.3% (15/18)" in result.stderr
     backwards = ["merits-alignment-baseline", "--first-term", "2025", "--last-term", "2024"]
     assert runner.invoke(app, backwards).exit_code == 2
+
+
+def _merits_outcome(votes: dict[str, VoteValue]) -> Outcome:
+    return Outcome(
+        case_id="scotus/1",
+        event_id="evt-argument-judgment",
+        resolved_at=date(2026, 6, 23),
+        actual_disposition=Disposition.other,
+        actual_granted=1,
+        judgment=Judgment.reversed,
+        votes=[JusticeVote(justice=j, vote=v) for j, v in votes.items()],
+    )
+
+
+_OT2025 = ("Roberts", "Thomas", "Alito", "Gorsuch", "Kavanaugh", "Barrett")
+_OTHERS = ("Sotomayor", "Kagan", "Jackson")
+
+
+def test_the_floors_read_the_exact_vote_rule_on_the_sitting_bench() -> None:
+    six_three = {
+        **dict.fromkeys(_OT2025, VoteValue.majority),
+        **dict.fromkeys(_OTHERS, VoteValue.dissent),
+    }
+    outcome = _merits_outcome(six_three)
+    assert floor_vote_accuracy("majority-alignment", outcome) == 1.0
+    assert floor_vote_accuracy("unanimity", outcome) == pytest.approx(6 / 9)
+    # A concurrence in the judgment is a miss under the exact rule, where the
+    # side-level readout would credit it; a recusal leaves the denominator.
+    shifted = {
+        **six_three,
+        "Gorsuch": VoteValue.concur_in_judgment,
+        "Kagan": VoteValue.recused,
+    }
+    outcome = _merits_outcome(shifted)
+    assert floor_vote_accuracy("majority-alignment", outcome) == pytest.approx(7 / 8)
+    assert floor_vote_accuracy("unanimity", outcome) == pytest.approx(5 / 8)
+
+
+def test_the_floors_refuse_an_unknown_justice_and_an_empty_bench() -> None:
+    assert (
+        floor_vote_accuracy("unanimity", _merits_outcome({"Newcomer": VoteValue.majority})) is None
+    )
+    assert floor_vote_accuracy("unanimity", _merits_outcome({"Alito": VoteValue.recused})) is None

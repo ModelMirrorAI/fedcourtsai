@@ -190,9 +190,9 @@ part of *Scoring beside the models*, below.
 Justice accuracy here is side-level, as the paper scores it. The leaderboard's
 `mean_vote_accuracy` (`pipeline.evaluate.bench_vote_accuracy`) instead matches
 the vote value exactly, so a concurrence in the judgment predicted as
-`majority` is a miss there and a hit here. The floor the leaderboard reads its
-figure against has to be computed under its own rule, on its own scored cells
-(*What remains owed*).
+`majority` is a miss there and a hit here. The floors the leaderboard reads its
+figure against are computed under its own rule, on its own scored cells
+(*The leaderboard's floors*, below).
 
 ## The fits, for baselines 3 and 4
 
@@ -353,6 +353,32 @@ corpus's complete lineups, and it does not say how it treats a vote in part;
 the two are close, not the same measurement. These figures are a snapshot of a
 command's output on one corpus vintage: re-run the command for current ones.
 
+## The leaderboard's floors
+
+Baselines 1 and 2 are also read on the leaderboard itself, as the floors of
+its merits `mean_vote_accuracy` (`leaderboard.vote_scores`,
+`pipeline.alignment_baseline.floor_vote_accuracy`). For every cell the board
+vote-scores, it scores both baselines' calls against that cell's own committed
+outcome under the board's exact-vote rule: the denominator is every Justice
+the complete record shows sitting, and a hit is an exact vote-value match.
+Unanimity calls every sitting Justice `majority`; majority alignment calls the
+conservative bloc `majority` and every other Justice `dissent`. Neither calls
+`concur-in-judgment` or a vote in part, so either realized vote is a miss for
+both, which makes these floors lower than the side-level readout's on the same
+decisions.
+
+Every stratum carrying `mean_vote_accuracy` carries:
+
+- `unanimity_vote_accuracy` and `majority_alignment_vote_accuracy`, each the
+  mean over exactly the `vote_cells_scored` gradings, with the same panel
+  weights, so floor and figure are paired;
+- `vote_accuracy_lift`, the figure minus the stronger floor, chosen afresh on
+  that stratum's own gradings, as the reading rule requires.
+
+All three are null, and omitted from the board, unless every vote-scored
+grading carries both floors, which an outcome seating a Justice neither bloc
+holds does not. The coded baselines, 3 and 4, are not on the board.
+
 ## What is built, and what remains owed
 
 Built: baselines 1 and 2, the bloc rule, the three vote readings, and the
@@ -364,7 +390,9 @@ baselines 3 and 4, the outcome transform, the vote model, the fit of `k` and
 their read-only readout (`fedcourts alignment-score-baseline`, *The fits*,
 above) with its valence split, positions estimated from the lineups
 (`fedcourts alignment-positions`, *The positions*, above), and the first
-production run's codes on `main`.
+production run's codes on `main`; and baselines 1 and 2 as the
+leaderboard's floors of `mean_vote_accuracy` (*The leaderboard's floors*,
+above), registered in [freeze-record.md](freeze-record.md).
 
 The run mode is `run-analytics` `alignment-side-code`, the topic-labeling
 lane's third frame ([pipeline.md](pipeline.md)), dispatched or on a weekly
@@ -391,12 +419,10 @@ Owed, in order:
 
 - **The clean check.** The readout restricted to clean codes, once enough of
   them are decided, with a `stats-reviewer` pass.
-- **Scoring beside the models.** Baseline records at the same merits moments
-  as the models, scored in the leaderboard's merits blocks under the
-  leaderboard's own vote rule and labeled as baselines, which also discharges
-  the naive floor for `mean_vote_accuracy` that
-  [release-ot2026-merits.md](release-ot2026-merits.md) owes. A change to the
-  shape of a committed record the public site reads needs its matching site
-  PR.
-- **Registration.** A dated entry in [freeze-record.md](freeze-record.md)
-  before the first merits block that scores a baseline.
+- **Baselines 3 and 4 beside the models.** Their readings at the same merits
+  moments as the models, on the board's own cells and labeled as baselines.
+  The board reads only committed records, so each Term's fitted transform,
+  spread and positions have to be committed before the board can read them,
+  with their own dated entry in [freeze-record.md](freeze-record.md) before
+  the first block that scores one. A change to the shape of a committed record
+  the public site reads needs its matching site PR.
