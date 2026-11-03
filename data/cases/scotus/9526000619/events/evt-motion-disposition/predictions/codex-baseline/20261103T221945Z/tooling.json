@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000619",
+  "run_id": "20261103T221945Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts paths", "fedcourts query", "committed statpack", "CourtListener MCP search", "CourtListener MCP search_document", "web search/open", "fedcourts validate"],
+  "helpful": ["Arrival-position context clearly freezes the three escalation signals.", "Document metadata distinguishes extraction failure from an absent filing.", "Machine-readable interim counts expose unavailable finer-reading coverage.", "CourtListener supplied the primary stay-standard passage."],
+  "gaps": ["The 37-page application has no extracted text or OCR-derived text.", "All 1,366 older-reading resolutions in the eligible interim window remain finer-unread, so no contract-compliant baseline is available.", "Default uv cache is read-only; UV_NO_CACHE=1 is needed.", "Web calls returned no usable content."],
+  "notes": "Read the base-rate pack but did not use its older substantive rate as an estimator. The corpus query returned cert denials rather than usable interim comparators. Forecast completed conservatively from the arrival skeleton and verified legal standard, without retrieving this application's later history."
+}

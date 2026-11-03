@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000619",
+  "run_id": "20261103T221945Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "statpack.md",
+    "statpack.json",
+    "courtlistener_mcp:search",
+    "courtlistener_mcp:read_document",
+    "google_web_search",
+    "fedcourts validate"
+  ],
+  "helpful": [
+    "courtlistener_mcp:read_document",
+    "fedcourts query",
+    "statpack.md"
+  ],
+  "gaps": [
+    "OCR fallback for scanned SCOTUS application PDFs with empty_text: true (record/documents/application.txt had 37 pages but no extractable text layer)"
+  ],
+  "notes": "Although application.txt had empty_text: true, CourtListener RECAP search surfaced the October 5, 2026 District of Maryland Memorandum Opinion (Smith v. Nationstar Mortgage LLC, No. 8:25-cv-02817-TJS, Doc. 59), which provided a comprehensive procedural history of the underlying Maryland foreclosure and appellate proceedings."
+}
