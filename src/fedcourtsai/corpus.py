@@ -5358,7 +5358,7 @@ def _rotation_rows(
     The shared query behind :func:`rotation_for_pull`. ``skip_closed`` drops cases
     carrying a realized ``disposition`` / ``date_decided`` (their outcome is known);
     ``only_scotus`` further restricts to SCOTUS dockets (the prediction scope);
-    ``live_polled_only`` keeps only SCOTUS dockets the live channel polls under a
+    ``live_polled_only`` keeps only SCOTUS dockets in the live slice under a
     CourtListener docket id (see :func:`rotation_for_pull`); ``exclude`` drops the
     named case ids. ``case_id`` breaks ties so the order is deterministic.
     """
@@ -5373,7 +5373,7 @@ def _rotation_rows(
     if live_polled_only:
         # A live-first docket's id is synthetic (at or above the reserved base),
         # which CourtListener cannot fetch.
-        clauses.append("last_live_polled IS NOT NULL")
+        clauses.append(LIVE_SLICE_SQL)
         clauses.append("CAST(substr(case_id, instr(case_id, '/') + 1) AS INTEGER) < ?")
         params.append(LIVE_DOCKET_ID_BASE)
     if exclude:
@@ -5419,10 +5419,11 @@ def rotation_for_pull(
     fall through to the general rotation, so the reserve never wastes budget; a
     case picked by the reserve is not picked again by the general fill.
 
-    ``live_polled_only`` replaces both with one pool: the open SCOTUS dockets the
-    live channel polls (``last_live_polled`` set) under a CourtListener docket
-    id, stalest first, with no fall-through. The live channel already keeps
-    these current from the Court's own docket, so the rotation is a
+    ``live_polled_only`` replaces both with one pool: the open SCOTUS dockets in
+    the live slice (:data:`LIVE_SLICE_SQL`: the supremecourt.gov channel has
+    written them) under a CourtListener docket id, stalest first, with no
+    fall-through. The live channel already keeps these current from the Court's
+    own docket, so the rotation is a
     cross-check on the dockets in play; the open SCOTUS rows it never polls are
     mostly bulk-loaded historical dockets left open for want of a recorded
     disposition, and a live-first docket's synthetic id cannot be fetched.

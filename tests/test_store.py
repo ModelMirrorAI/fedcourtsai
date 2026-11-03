@@ -180,8 +180,9 @@ def test_eligible_reserve_respects_skip_closed(tmp_path: Path) -> None:
 def test_committed_pull_config_spends_every_slot_on_scotus(tmp_path: Path) -> None:
     # A refresh pages every docket entry, so one never-pulled bulk circuit docket
     # with hundreds of entry pages takes a whole window's hourly budget and never
-    # completes. The committed reserve must cover the whole cap, so while the
-    # SCOTUS-open pool can fill a run no general slot reaches such a docket.
+    # completes. Under `rotation_scope: all` the committed reserve must cover the
+    # whole cap, so while the SCOTUS-open pool can fill a run no general slot
+    # reaches such a docket.
     cfg = load_pull_config(Path(__file__).resolve().parents[1] / "config")
     assert cfg.eligible_refresh_reserve >= cfg.max_cases_per_run
     db = corpus.corpus_db_path(tmp_path)

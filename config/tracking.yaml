@@ -27,16 +27,16 @@ pull:
   # (the prediction scope), so the in-scope set rotates ahead of the much larger
   # general active set and new docket activity is caught before a case resolves.
   # Unused slots fall through to the normal rotation, so it never wastes budget.
-  # It equals max_cases_per_run, so the general rotation runs only when the
-  # SCOTUS-open pool cannot fill a run. That rotation leads with never-pulled
+  # Under rotation_scope `all` it equals max_cases_per_run, so the general
+  # rotation runs only when the SCOTUS-open pool cannot fill a run. That rotation leads with never-pulled
   # bulk-loaded circuit dockets, whose entry lists can run to hundreds of pages.
   eligible_refresh_reserve: 30
   # Which open dockets the rotation refreshes. `live_polled` takes only the
-  # SCOTUS dockets the live channel polls under a CourtListener docket id,
+  # SCOTUS dockets the live channel has written, under a CourtListener docket id,
   # stalest first, with no fall-through, so the rotation cross-checks the
   # dockets in play instead of reading bulk-loaded historical dockets left open
   # for want of a recorded disposition; the reserve above is then unused and a
-  # window may refresh fewer than max_cases_per_run. `all` restores the
+  # window may refresh fewer than max_cases_per_run. `all` selects the
   # reserve-then-general rotation.
   rotation_scope: live_polled
   # Most pages of docket entries (twenty a page, one request each) one refresh

@@ -298,7 +298,7 @@ class PullConfig(BaseModel):
     eligible_refresh_reserve: int = Field(default=0, ge=0)
     # Which open dockets the rotation refreshes: ``all`` (the reserve above, then
     # the general active set) or ``live_polled`` (only the SCOTUS dockets the
-    # live channel polls under a CourtListener docket id, no fall-through).
+    # live channel has written, under a CourtListener docket id, no fall-through).
     rotation_scope: Literal["all", "live_polled"] = "all"
     # Discover newly-filed dockets in the tracked courts since the last run.
     discover_new_filings: bool = True

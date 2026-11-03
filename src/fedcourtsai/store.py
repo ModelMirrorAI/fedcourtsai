@@ -114,8 +114,8 @@ def cases_due_for_pull(
     up to that many slots for the stalest SCOTUS dockets so the in-scope
     set rotates ahead of the general active set (see
     :func:`fedcourtsai.corpus.rotation_for_pull`); ``live_polled_only`` narrows
-    the rotation to the SCOTUS dockets the live channel polls under a
-    CourtListener id; ``exclude`` names cases another pass owns. Empty if the
+    the rotation to the SCOTUS dockets in the live slice under a CourtListener
+    id; ``exclude`` names cases another pass owns. Empty if the
     corpus does not exist yet (reading must not create it).
     """
     if not corpus_db_path.exists():

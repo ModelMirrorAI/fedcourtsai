@@ -1444,17 +1444,17 @@ or network.
   [pipeline.md](pipeline.md).
 - **Budget governor:** a per-run cap (`max_cases_per_run`) with
   **oldest-`last_pulled`-first rotation** and skip-closed/resolved, sized to
-  the active CourtListener tier's ceilings; the run's slots
+  the active CourtListener tier's ceilings. With `rotation_scope: live_polled`
+  (the committed setting) the rotation takes only the open SCOTUS dockets the
+  live channel has written, under a CourtListener docket id, with no
+  fall-through: the live channel keeps those current from the Court's own
+  docket, so the pull is their cross-check, while the open SCOTUS rows it
+  never wrote are mostly bulk-loaded historical dockets left open for want of
+  a recorded disposition, and a live-first docket's synthetic id cannot be
+  fetched. With `rotation_scope: all` the run's slots
   (`eligible_refresh_reserve`, set to the whole cap) are reserved for the
-  stalest SCOTUS dockets, so the in-scope set rotates ahead of the much larger
-  active set and the general rotation takes only slots the SCOTUS-open pool
-  leaves empty. With `rotation_scope: live_polled` (the committed setting) the
-  rotation instead takes only the open SCOTUS dockets the live channel polls
-  under a CourtListener docket id, with no fall-through: the live channel keeps
-  those current from the Court's own docket, so the pull is their
-  cross-check, while the open SCOTUS rows it never polls are mostly
-  bulk-loaded historical dockets left open for want of a recorded disposition,
-  and a live-first docket's synthetic id cannot be fetched. A refresh reads a docket's entries by following upstream's
+  stalest SCOTUS dockets, and the general rotation takes only slots the
+  SCOTUS-open pool leaves empty. A refresh reads a docket's entries by following upstream's
   cursor (`docket-entries/` ignores a page number), at most
   `max_entry_pages_per_case` pages of twenty; a longer docket is recorded as
   failed with nothing written, so one bulk-loaded circuit docket with hundreds
