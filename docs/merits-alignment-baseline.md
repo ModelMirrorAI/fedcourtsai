@@ -383,6 +383,32 @@ All three are null, and omitted from the board, unless every vote-scored
 grading carries both floors, which an outcome seating a Justice neither bloc
 holds does not. The coded baselines, 3 and 4, are not on the board.
 
+## The frozen fits
+
+The board reads only committed records, so the fits baselines 3 and 4 score a
+Term's decisions by are committed before that Term opens:
+`data/merits-alignment/alignment-fits.json` (`AlignmentFits`), one entry per
+October Term (`pipeline.alignment_fits`). Each entry holds the outcome
+transform as its knots, the spread `k`, and the prior Term's positions, each
+fitted as the readout's out-of-sample reading fits them (*The fits*, above)
+on everything decided before 1 October of the Term, with the latest decision
+date it read, its decision counts and its contamination-risk count beside it.
+A field below its fit floor is null, and then the baseline it serves has no
+reading for the Term.
+
+```bash
+uv run fedcourts alignment-fit --term 2026                    # print the entry
+uv run fedcourts alignment-fit --term 2026 --out data/merits-alignment/alignment-fits.json
+```
+
+The command reads the committed side codes and fits, the corpus's merits
+judgments and its merits lineups, and estimates the positions from the
+lineups through the Term before (*The positions*, above). The file is
+append-only: a Term already in it is refused, since its fit may already have
+scored a decision and a refit would re-score it. So a code or lineup added
+later for an earlier Term moves no figure already scored, and the schema
+refuses an entry that read a decision dated on or after its Term's opening.
+
 ## What is built, and what remains owed
 
 Built: baselines 1 and 2, the bloc rule, the three vote readings, and the
@@ -396,7 +422,9 @@ above) with its valence split, positions estimated from the lineups
 (`fedcourts alignment-positions`, *The positions*, above), and the first
 production run's codes on `main`; and baselines 1 and 2 as the
 leaderboard's floors of `mean_vote_accuracy` (*The leaderboard's floors*,
-above), registered in [freeze-record.md](freeze-record.md).
+above), registered in [freeze-record.md](freeze-record.md); and the
+frozen per-Term fit file and the command that computes an entry (*The frozen
+fits*, above).
 
 The run mode is `run-analytics` `alignment-side-code`, the topic-labeling
 lane's third frame ([pipeline.md](pipeline.md)), dispatched or on a weekly
@@ -424,9 +452,11 @@ Owed, in order:
 - **The clean check.** The readout restricted to clean codes, once enough of
   them are decided, with a `stats-reviewer` pass.
 - **Baselines 3 and 4 beside the models.** Their readings at the same merits
-  moments as the models, on the board's own cells and labeled as baselines.
-  The board reads only committed records, so each Term's fitted transform,
-  spread and positions have to be committed before the board can read them,
-  with their own dated entry in [freeze-record.md](freeze-record.md) before
-  the first block that scores one. A change to the shape of a committed record
-  the public site reads needs its matching site PR.
+  moments as the models, on the board's own cells and labeled as baselines,
+  each read from its Term's frozen fit, with their own dated entry in
+  [freeze-record.md](freeze-record.md) before the first block that scores
+  one. A change to the shape of a committed record the public site reads
+  needs its matching site PR.
+- **The fit's writer.** A writer step that commits each Term's entry before
+  the Term's first merits decision, since no session can write `data/` on
+  `main` by hand.

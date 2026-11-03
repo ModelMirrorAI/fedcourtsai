@@ -9470,6 +9470,94 @@ class AlignmentSideCodes(_Strict):
         return self
 
 
+class AlignmentTermFit(_Strict):
+    """The score baselines' fit for one October Term, frozen before any decision it scores.
+
+    Every part reads only what was decided before the Term opened (taken as
+    1 October): the outcome transform is fitted on earlier Terms' decided
+    codes, the spread ``k`` on their complete lineups, and the positions are
+    the prior Term's from the estimate published before the Term opened
+    (``docs/merits-alignment-baseline.md``, *The frozen fits*). The
+    leaderboard reads baselines 3 and 4 for a Term's merits cells from this
+    entry alone, so a later code or lineup for an earlier Term never moves a
+    figure already scored.
+    """
+
+    term: int = Field(ge=2000, description="The October Term whose decisions this fit scores")
+    opened: date = Field(description="1 October of `term`: nothing decided on or after it is read")
+    frozen_on: date = Field(description="The day the fit was computed")
+    latest_decision_read: date | None = Field(
+        description="The latest merits judgment date among the decisions the fit read; "
+        "before `opened`. Null when it read none"
+    )
+    transform: list[tuple[float, float]] | None = Field(
+        description="The isotonic outcome transform as (lowest score in a block, the block's "
+        "Laplace-smoothed rate) knots in increasing score order: a score maps to the rate of "
+        "the last block starting at or below it, and a score below every block to the "
+        "first's. Null below the fit floor, and then neither baseline is scored for the Term"
+    )
+    transform_decisions: int = Field(ge=0, description="Decided codes the transform read")
+    k: float | None = Field(
+        ge=0.0,
+        description="The vote model's spread, fitted by likelihood on earlier Terms' coded "
+        "complete lineups at the transform; null below the fit floor or without a "
+        "transform or positions, and then baseline 4 is not scored for the Term",
+    )
+    k_decisions: int = Field(ge=0, description="Coded complete lineups the spread read")
+    positions: dict[str, float] | None = Field(
+        description="Each Justice's position for the prior Term, larger more conservative, "
+        "from the release published before `opened`; null where none was"
+    )
+    positions_source: str = Field(min_length=1, description="Where the positions come from")
+    contamination_risk: int = Field(
+        ge=0,
+        description="Of the `transform_decisions` codes, how many carry the contamination-risk "
+        "flag: a fit resting on them is possibly optimistic",
+    )
+
+    @model_validator(mode="after")
+    def _reads_only_before_opening(self) -> AlignmentTermFit:
+        if self.opened != date(self.term, 10, 1):
+            raise ValueError("`opened` must be 1 October of `term`")
+        if self.latest_decision_read is not None and self.latest_decision_read >= self.opened:
+            raise ValueError("a fit may read only decisions made before its Term opened")
+        if self.transform is not None:
+            starts = [start for start, _ in self.transform]
+            if not starts or starts != sorted(set(starts)):
+                raise ValueError("`transform` knots must be non-empty and strictly increasing")
+            rates = [rate for _, rate in self.transform]
+            if rates != sorted(rates) or not all(0.0 < r < 1.0 for r in rates):
+                raise ValueError("`transform` rates must be non-decreasing and inside (0, 1)")
+        if self.k is not None and (self.transform is None or self.positions is None):
+            raise ValueError("a spread is fitted only with a transform and positions")
+        if self.contamination_risk > self.transform_decisions:
+            raise ValueError("`contamination_risk` cannot exceed `transform_decisions`")
+        return self
+
+
+class AlignmentFits(_Strict):
+    """``data/merits-alignment/alignment-fits.json`` — every Term's frozen score-baseline fit.
+
+    **Append-only**: a Term's fit is made once and never revised, so a publish
+    that would replace an entry is refused (``fedcourts alignment-fit``).
+    Entries are sorted by ``term``, one per Term.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    scheme: Literal["alignment-side-v1"] = Field(
+        default="alignment-side-v1",
+        description="The coding guide the fitted codes were made under",
+    )
+    entries: list[AlignmentTermFit] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _one_per_term_in_order(self) -> AlignmentFits:
+        terms = [entry.term for entry in self.entries]
+        if terms != sorted(set(terms)):
+            raise ValueError("entries must be one per Term, sorted by `term`")
+        return self
+
+
 PolicyAreaLabel = Literal[
     "immigration",
     "federal-executions",
@@ -15596,6 +15684,7 @@ FILENAME_MODELS: dict[str, type[_Strict]] = {
     "qp-topics.json": QpTopicLabels,
     "qp-topics-applications.json": QpTopicApplicationLabels,
     "alignment-side-codes.json": AlignmentSideCodes,
+    "alignment-fits.json": AlignmentFits,
 }
 
 EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
@@ -15641,6 +15730,7 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "qp_topic_run_spend": QpTopicRunSpend,
     "off_ledger_spend": OffLedgerSpend,
     "alignment_side_codes": AlignmentSideCodes,
+    "alignment_fits": AlignmentFits,
     "ai_case_activity": AiCaseActivity,
     "case_summary_front_matter": CaseSummaryFrontMatter,
     "summary_plan": SummaryPlan,

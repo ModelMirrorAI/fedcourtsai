@@ -1,0 +1,159 @@
+{
+  "$defs": {
+    "AlignmentTermFit": {
+      "additionalProperties": false,
+      "description": "The score baselines' fit for one October Term, frozen before any decision it scores.\n\nEvery part reads only what was decided before the Term opened (taken as\n1 October): the outcome transform is fitted on earlier Terms' decided\ncodes, the spread ``k`` on their complete lineups, and the positions are\nthe prior Term's from the estimate published before the Term opened\n(``docs/merits-alignment-baseline.md``, *The frozen fits*). The\nleaderboard reads baselines 3 and 4 for a Term's merits cells from this\nentry alone, so a later code or lineup for an earlier Term never moves a\nfigure already scored.",
+      "properties": {
+        "contamination_risk": {
+          "description": "Of the `transform_decisions` codes, how many carry the contamination-risk flag: a fit resting on them is possibly optimistic",
+          "minimum": 0,
+          "title": "Contamination Risk",
+          "type": "integer"
+        },
+        "frozen_on": {
+          "description": "The day the fit was computed",
+          "format": "date",
+          "title": "Frozen On",
+          "type": "string"
+        },
+        "k": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The vote model's spread, fitted by likelihood on earlier Terms' coded complete lineups at the transform; null below the fit floor or without a transform or positions, and then baseline 4 is not scored for the Term",
+          "title": "K"
+        },
+        "k_decisions": {
+          "description": "Coded complete lineups the spread read",
+          "minimum": 0,
+          "title": "K Decisions",
+          "type": "integer"
+        },
+        "latest_decision_read": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The latest merits judgment date among the decisions the fit read; before `opened`. Null when it read none",
+          "title": "Latest Decision Read"
+        },
+        "opened": {
+          "description": "1 October of `term`: nothing decided on or after it is read",
+          "format": "date",
+          "title": "Opened",
+          "type": "string"
+        },
+        "positions": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "number"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Each Justice's position for the prior Term, larger more conservative, from the release published before `opened`; null where none was",
+          "title": "Positions"
+        },
+        "positions_source": {
+          "description": "Where the positions come from",
+          "minLength": 1,
+          "title": "Positions Source",
+          "type": "string"
+        },
+        "term": {
+          "description": "The October Term whose decisions this fit scores",
+          "minimum": 2000,
+          "title": "Term",
+          "type": "integer"
+        },
+        "transform": {
+          "anyOf": [
+            {
+              "items": {
+                "maxItems": 2,
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The isotonic outcome transform as (lowest score in a block, the block's Laplace-smoothed rate) knots in increasing score order: a score maps to the rate of the last block starting at or below it, and a score below every block to the first's. Null below the fit floor, and then neither baseline is scored for the Term",
+          "title": "Transform"
+        },
+        "transform_decisions": {
+          "description": "Decided codes the transform read",
+          "minimum": 0,
+          "title": "Transform Decisions",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "term",
+        "opened",
+        "frozen_on",
+        "latest_decision_read",
+        "transform",
+        "transform_decisions",
+        "k",
+        "k_decisions",
+        "positions",
+        "positions_source",
+        "contamination_risk"
+      ],
+      "title": "AlignmentTermFit",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``data/merits-alignment/alignment-fits.json`` \u2014 every Term's frozen score-baseline fit.\n\n**Append-only**: a Term's fit is made once and never revised, so a publish\nthat would replace an entry is refused (``fedcourts alignment-fit``).\nEntries are sorted by ``term``, one per Term.",
+  "properties": {
+    "entries": {
+      "items": {
+        "$ref": "#/$defs/AlignmentTermFit"
+      },
+      "title": "Entries",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "scheme": {
+      "const": "alignment-side-v1",
+      "default": "alignment-side-v1",
+      "description": "The coding guide the fitted codes were made under",
+      "title": "Scheme",
+      "type": "string"
+    }
+  },
+  "title": "AlignmentFits",
+  "type": "object"
+}
