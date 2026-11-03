@@ -517,16 +517,19 @@ def test_the_vote_floors_pair_with_the_vote_mean_and_the_lift_takes_the_stronger
     cells = [_forward(ev, Stage.merits) for ev in (a, b, off)]
     key = stage_moment_key(Stage.merits, first_moment(Stage.merits))
     scores = {
-        _evaluation_key(a): VoteScore(model=0.9, unanimity=1.0, majority_alignment=0.6),
-        _evaluation_key(b): VoteScore(model=0.7, unanimity=0.4, majority_alignment=0.8),
+        _evaluation_key(a): VoteScore(model=0.9, unanimity=1.0, majority_alignment=0.8),
+        _evaluation_key(b): VoteScore(model=0.7, unanimity=0.6, majority_alignment=0.4),
     }
     stratum = build_leaderboard(cells, vote_scores=scores).stages[key].entries[0].forward
     assert stratum is not None
     assert stratum.vote_cells_scored == 2
+    assert stratum.vote_events_scored == 2
     assert stratum.mean_vote_accuracy == pytest.approx(0.8)
-    assert stratum.unanimity_vote_accuracy == pytest.approx(0.7)
-    assert stratum.majority_alignment_vote_accuracy == pytest.approx(0.7)
-    assert stratum.vote_accuracy_lift == pytest.approx(0.1)
+    assert stratum.unanimity_vote_accuracy == pytest.approx(0.8)
+    assert stratum.majority_alignment_vote_accuracy == pytest.approx(0.6)
+    # The stronger floor is unanimity's 0.8, so the lift is 0; the weaker
+    # would give 0.2.
+    assert stratum.vote_accuracy_lift == pytest.approx(0.0)
 
 
 def test_a_vote_floor_missing_on_any_grading_leaves_every_floor_null_and_unserialized() -> None:
@@ -552,6 +555,7 @@ def test_a_vote_floor_missing_on_any_grading_leaves_every_floor_null_and_unseria
         "vote_accuracy_lift",
     ):
         assert name not in payload
+    assert payload["vote_events_scored"] == 2
 
 
 def test_a_zero_vote_lift_is_still_serialized() -> None:

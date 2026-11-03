@@ -233,8 +233,9 @@ consolidated case enters the mean once per docket. The write-up states:
 - the scored count, ‹vote cells scored›;
 - the decided cases without a complete record, ‹incomplete›, each with its
   reason;
-- the naive floor the accuracy is read against (for example, every Justice
-  voting with the predicted majority), with the lift over it.
+- the naive floors the accuracy is read against, `unanimity_vote_accuracy`
+  and `majority_alignment_vote_accuracy`, with `vote_accuracy_lift` over the
+  stronger and the `vote_events_scored` decisions it rests on.
 
 **Evidence.** The opinions vote source stamps merits outcomes through the
 `opinion-votes` pass on `run-repair`. The maintainer runs it after each

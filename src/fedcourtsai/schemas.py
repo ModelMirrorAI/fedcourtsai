@@ -4377,6 +4377,15 @@ class LeaderboardStratum(_Strict):
         "readable scored prediction, or resolves against a vote record that is "
         "absent or incomplete",
     )
+    vote_events_scored: int | None = Field(
+        default=None,
+        ge=1,
+        description="Distinct (case, event) pairs among the `vote_cells_scored` gradings: the "
+        "decisions `mean_vote_accuracy`, its floors and `vote_accuracy_lift` rest on, and the "
+        "sample size to read them by, since a decision's gradings and its Justices' votes are "
+        "not independent. A consolidated decision counts once per docket with a scored cell. "
+        "Omitted while no grading is vote-scored",
+    )
     unanimity_vote_accuracy: float | None = Field(
         default=None,
         ge=0.0,
@@ -4405,8 +4414,10 @@ class LeaderboardStratum(_Strict):
         le=1.0,
         description="`mean_vote_accuracy` minus the stronger of `unanimity_vote_accuracy` and "
         "`majority_alignment_vote_accuracy`: the paired difference over the identical "
-        "gradings, the stronger floor chosen on this stratum's own gradings. Null exactly "
-        "where the floors are; omitted while null. Never a rank key",
+        "gradings, the stronger floor chosen on this stratum's own gradings, which can only "
+        "raise the floor and so biases the lift toward zero. Its sample is "
+        "`vote_events_scored` decisions, not the gradings. Null exactly where the floors "
+        "are; omitted while null. Never a rank key",
     )
     mean_reasoning_quality: float | None = Field(
         default=None,
@@ -4497,9 +4508,10 @@ _MIXED_SIGNATURE_DESCRIPTION = (
 )
 
 
-#: The vote-floor fields a stratum omits while null, so a board with no merits
-#: votes scored serializes as it did before they existed.
+#: The vote fields a stratum omits while null, so a board with no merits votes
+#: scored serializes as it did before they existed.
 _VOTE_FLOOR_FIELDS: Final = (
+    "vote_events_scored",
     "unanimity_vote_accuracy",
     "majority_alignment_vote_accuracy",
     "vote_accuracy_lift",

@@ -1208,7 +1208,7 @@
             }
           ],
           "default": null,
-          "description": "`mean_vote_accuracy` minus the stronger of `unanimity_vote_accuracy` and `majority_alignment_vote_accuracy`: the paired difference over the identical gradings, the stronger floor chosen on this stratum's own gradings. Null exactly where the floors are; omitted while null. Never a rank key",
+          "description": "`mean_vote_accuracy` minus the stronger of `unanimity_vote_accuracy` and `majority_alignment_vote_accuracy`: the paired difference over the identical gradings, the stronger floor chosen on this stratum's own gradings, which can only raise the floor and so biases the lift toward zero. Its sample is `vote_events_scored` decisions, not the gradings. Null exactly where the floors are; omitted while null. Never a rank key",
           "title": "Vote Accuracy Lift"
         },
         "vote_cells_scored": {
@@ -1217,6 +1217,20 @@
           "minimum": 0,
           "title": "Vote Cells Scored",
           "type": "integer"
+        },
+        "vote_events_scored": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Distinct (case, event) pairs among the `vote_cells_scored` gradings: the decisions `mean_vote_accuracy`, its floors and `vote_accuracy_lift` rest on, and the sample size to read them by, since a decision's gradings and its Justices' votes are not independent. A consolidated decision counts once per docket with a scored cell. Omitted while no grading is vote-scored",
+          "title": "Vote Events Scored"
         }
       },
       "required": [

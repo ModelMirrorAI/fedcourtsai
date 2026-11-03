@@ -53,6 +53,7 @@ from typing import Final, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from ..schemas import Outcome, VoteValue
+from .evaluate import NOT_SITTING
 from .justices import SERVICE, normalize_justice_name
 from .merits_lineups import MeritsLineup
 
@@ -264,9 +265,12 @@ def floor_vote_accuracy(baseline: Baseline, outcome: Outcome) -> float | None:
     Justice ``majority``; majority alignment calls the conservative bloc
     ``majority`` and every other Justice ``dissent``. None when the outcome
     shows nobody sitting or names a sitting Justice neither bloc holds, so a
-    roster change is refused rather than scored.
+    roster change is refused rather than scored. It reads no completeness
+    stamp: the leaderboard calls it only on an outcome
+    :func:`~fedcourtsai.pipeline.evaluate.bench_vote_accuracy` has already
+    vote-scored, which carries one.
     """
-    sitting = {v.justice: v.vote for v in outcome.votes if v.vote not in _ABSENT}
+    sitting = {v.justice: v.vote for v in outcome.votes if v.vote not in NOT_SITTING}
     if not sitting:
         return None
     hits = 0

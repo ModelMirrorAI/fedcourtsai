@@ -16438,6 +16438,11 @@ freeze commit is recorded here.
   The runnable effect check once it is live: `uv run fedcourts leaderboard
   --all-versions --out /tmp/lb.json && jq '[.. | objects |
   select(has("unanimity_vote_accuracy"))] | length' /tmp/lb.json` prints `0`
-  until the first merits cell is graded against a complete vote record, and
-  from then on every object carrying `mean_vote_accuracy` with a non-null
-  value carries all three floor fields.
+  until the first merits cell is graded against a complete vote record. From
+  then on, `jq '[.. | objects | select(.mean_vote_accuracy != null) |
+  select(has("vote_accuracy_lift") | not)] | length' /tmp/lb.json` prints `0`
+  unless a stratum's outcomes seat a Justice neither bloc holds, which leaves
+  that stratum with no floor fields at all. Each lift is read over its
+  stratum's `vote_events_scored` decisions, which the same entry adds: the
+  distinct (case, event) pairs among the vote-scored gradings, omitted while
+  none is.

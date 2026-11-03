@@ -468,6 +468,9 @@ def _aggregate(
     artifact as a wrong call, and the board's first rank key is the last place
     that should happen.
 
+    The unanimity and majority-alignment floors, ``vote_accuracy_lift`` and
+    ``vote_events_scored`` come from the same scores (:func:`_vote_floor_fields`).
+
     ``mean_vote_accuracy`` averages ``vote_scores`` (:func:`vote_scores`), the
     participating-bench accuracy recomputed per cell from the scored prediction
     and the committed outcome, never the evaluator's ``vote_accuracy``, and
@@ -507,11 +510,10 @@ def _aggregate(
         if cell is not None and cell.realized_term_baseline is not None
     ]
     scored_votes = vote_scores or {}
-    votes = [
-        scored_votes[key]
-        for ev in evals
-        if scores_votes(ev.event_id) and (key := _evaluation_key(ev)) in scored_votes
+    voted = [
+        ev for ev in evals if scores_votes(ev.event_id) and _evaluation_key(ev) in scored_votes
     ]
+    votes = [scored_votes[_evaluation_key(ev)] for ev in voted]
     return LeaderboardStratum(
         events_scored=len({(ev.case_id, ev.event_id) for ev in evals}),
         evaluations=len(evals),
@@ -524,6 +526,7 @@ def _aggregate(
         realized_term_skill_scored=len(realized),
         mean_vote_accuracy=_mean([v.model for v in votes]),
         vote_cells_scored=len(votes),
+        vote_events_scored=len({(ev.case_id, ev.event_id) for ev in voted}) or None,
         **_vote_floor_fields(votes),
         mean_reasoning_quality=_mean(
             [ev.reasoning_quality for ev in evals if ev.reasoning_quality is not None]
@@ -622,7 +625,9 @@ def _vote_floor_fields(votes: Sequence[VoteScore]) -> dict[str, float]:
     weights, as the figure it is the floor of: a partial floor would be an
     unpaired difference, which is not a lift. ``vote_accuracy_lift`` is the
     figure minus the stronger of the two floors on these gradings, chosen
-    afresh in every stratum rather than carried over from another population.
+    afresh in every stratum rather than carried over from another population;
+    taking the larger after the fact can only raise the floor, so it biases
+    the lift toward zero, against a claim of skill.
     """
     if not votes:
         return {}
@@ -1758,7 +1763,7 @@ class VoteScore:
 
 
 def vote_scores(cells: Iterable[StratifiedCell], data_root: Path) -> dict[EvaluationKey, VoteScore]:
-    """Each vote-scored cell's participating-bench accuracy.
+    """Each vote-scored cell's participating-bench accuracy, and both vote floors' on its outcome.
 
     :func:`fedcourtsai.pipeline.evaluate.bench_vote_accuracy` over the scored
     prediction (the run the evaluation names, as every board reads it) and the
@@ -2289,9 +2294,10 @@ def build_leaderboard(  # noqa: PLR0913 - one keyword per stratify-pass input th
         Unsupplied, no entry carries ``by_band`` and those fields are null.
 
     ``vote_scores`` (from :func:`vote_scores` over the same cells) is each
-        vote-scored cell's participating-bench accuracy — only cells whose
-        outcome carries a complete vote record have one — and is what
-        ``mean_vote_accuracy`` averages (``vote_cells_scored`` counts the cells).
+        vote-scored cell's participating-bench accuracy and its two floors' —
+        only cells whose outcome carries a complete vote record have one — and
+        is what ``mean_vote_accuracy`` and the floor fields average
+        (``vote_cells_scored`` counts the cells).
         Unsupplied, every vote mean is null and every count zero.
 
     ``cell_windows`` (``store.StratifiedRun.cell_windows`` from the same pass)

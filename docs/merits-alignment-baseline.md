@@ -181,11 +181,11 @@ reported beside it because it is the paper's rule and the shape the paper's
 models overpredict.
 
 The readout below pools every complete lineup unconditionally. That is a
-description of the record, not yet a floor in the sense
+description of the record, not a floor in the sense
 [decision-model.md](decision-model.md) requires (*the floor must be
 conditioned the way the predictor is conditioned*): the floor a model's figure
 is read against is computed on the model's own scored decisions, which is
-part of *Scoring beside the models*, below.
+what *The leaderboard's floors*, below, does.
 
 Justice accuracy here is side-level, as the paper scores it. The leaderboard's
 `mean_vote_accuracy` (`pipeline.evaluate.bench_vote_accuracy`) instead matches
@@ -373,7 +373,11 @@ Every stratum carrying `mean_vote_accuracy` carries:
   mean over exactly the `vote_cells_scored` gradings, with the same panel
   weights, so floor and figure are paired;
 - `vote_accuracy_lift`, the figure minus the stronger floor, chosen afresh on
-  that stratum's own gradings, as the reading rule requires.
+  that stratum's own gradings, as the reading rule requires; taking the larger
+  after the fact can only raise the floor, so it biases the lift toward zero;
+- `vote_events_scored`, the distinct decisions behind those gradings. The
+  lift's sample size is this count, not `vote_cells_scored`: a panel grades
+  one prediction more than once, and a decision's votes are clustered.
 
 All three are null, and omitted from the board, unless every vote-scored
 grading carries both floors, which an outcome seating a Justice neither bloc
