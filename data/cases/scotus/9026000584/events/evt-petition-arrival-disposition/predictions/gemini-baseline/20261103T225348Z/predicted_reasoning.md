@@ -1,0 +1,25 @@
+# Forecast: *Saundra M. Jack, Commissioner, Virginia Department of Motor Vehicles v. Curtis M. Whateley* (No. 26-584)
+
+## Procedural Trajectory from Arrival (`distribution_count: 0`)
+
+The docket currently sits at its arrival state (`distribution_count: 0`, no CVSG, response due December 3, 2026).
+
+1. **Future Conference Distributions (`relist-increment` = 0.97) and Relist Trajectory:**
+   - Measured from the arrival record's zero-distribution state (`context.distribution_count = 0`), the petition is virtually certain (97% probability) to be distributed for conference at least once (`Outcome.signals.distribution_count >= 1`) after the respondent files his brief in opposition or the response deadline passes, barring an unexpected pre-distribution Rule 46 dismissal or settlement.
+   - Looking beyond initial conference distribution, there is a substantial chance (approximately 45%) that the Court relists the petition at least once past its first conference (`distribution_count >= 2`, most likely 1 to 2 relists) before ultimately denying review. That trajectory would mirror *Gilliam v. Gerregano*, No. 25-107, which raised the identical vanity-plate government-speech question from the Tennessee Supreme Court and was distributed twice (one relist) before being denied on December 8, 2025.
+
+2. **Call for the Views of the Solicitor General (`cvsg-increment` = 0.02):**
+   - The Court will almost certainly not call for the views of the Solicitor General (2% probability). The dispute involves no federal statute, federal regulation, treaty, or federal agency program; it is a pure First Amendment government-speech challenge to a state DMV personalized license plate recall under Va. Code § 46.2-726. The United States has no distinct institutional stake at the certiorari stage.
+
+3. **Disposition (`disposition` = 0.18; `predicted_disposition` = `denied`):**
+   - The most likely disposition is denial of certiorari (82% probability of non-grant, 18% probability of grant). Although the Fourth Circuit's published decision creates a direct split with the Tennessee Supreme Court (*Gilliam v. Gerregano*, 737 S.W.3d 258 (Tenn. 2025)) and the Indiana Supreme Court (*Commissioner of Indiana Bureau of Motor Vehicles v. Vawter*, 45 N.E.3d 1200 (Ind. 2015)) on the vanity-plate question reserved in *Walker v. Texas Division, Sons of Confederate Veterans, Inc.*, 576 U.S. 200, 204 (2015), the petition arrives in an interlocutory Rule 12(b)(6) vacatur-and-remand posture. The Fourth Circuit left open whether Virginia's recall of respondent's `"FTP&ATF"` plate survives First Amendment scrutiny as a reasonable, viewpoint-neutral restriction in a nonpublic forum. The Court is likely to deny review now and allow either the remand proceedings to conclude or the Seventh Circuit to decide the pending appeal in *M J Nichols Co. v. Boardman*, No. 26-1043 (argued September 17, 2026).
+
+4. **Question Presented and Merits Scope (Conditional on Grant):**
+   - If granted, the Court would take the single Question Presented as framed in the petition—whether personalized alphanumeric character combinations on state-issued vanity license plates constitute government speech exempt from First Amendment scrutiny—without reaching the unaddressed downstream question of whether Virginia's recall satisfies public-forum and viewpoint-neutrality standards.
+   - If the Court grants plenary review, it is more likely to affirm the Fourth Circuit (holding under *Matal v. Tam*, 582 U.S. 218 (2017), and *Shurtleff v. City of Boston*, 596 U.S. 243 (2022), that unique driver-selected vanity combinations are private speech in a state-created forum rather than government speech) or remand for forum analysis than to extend the 5–4 holding of *Walker* from state-curated specialty plate designs to hundreds of thousands of individualized alphanumeric combinations.
+
+5. **Plenary Review vs. Summary Disposition (`summary-disposition-route` = 0.08 conditional on grant):**
+   - Conditional on a grant, the Court is overwhelmingly likely (92%) to set the case for full merits briefing and oral argument rather than disposing of it summarily in the cert order (8% conditional probability). There is no intervening Supreme Court decision warranting a GVR, and summary reversal is implausible given the acknowledged lower-court split and *Matal v. Tam*'s admonition that *Walker* marks the outer bounds of the government-speech doctrine.
+
+6. **Separate Writings on Denial (`dissent-from-denial` = 0.06 conditional on denial; `order-writers`):**
+   - Conditional on denial, the most likely outcome (94%) is an unadorned denial order with no separate writing, just as in *Gilliam v. Gerregano*, No. 25-107. There is a modest 6% conditional probability that a Justice writes a dissent from or statement respecting the denial—most plausibly Justice Thomas (`0.025`), Justice Alito (`0.020`), or Justice Gorsuch (`0.012`), or a brief statement by Justice Kavanaugh (`0.006`) noting the interlocutory posture and observing that the Court can address the vanity-plate conflict on a final judgment.
