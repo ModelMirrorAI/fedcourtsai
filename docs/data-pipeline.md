@@ -1449,7 +1449,7 @@ or network.
   under a CourtListener docket id (a live-first docket's synthetic id cannot
   be fetched), with no general fall-through. First come the dockets the live
   channel has written, stalest first, skipping any pulled within
-  `live_min_interval_days`: the live channel keeps those current from the
+  `live_min_interval_days` (the backfill keeps the same spacing): the live channel keeps those current from the
   Court's own docket, so the pull is their cross-check. The slots they leave
   go to the backfill: dockets the live channel has not written, filed on or
   after `backfill_filed_since`, never-pulled first and newest filing first,

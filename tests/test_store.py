@@ -2422,6 +2422,13 @@ def test_live_rotation_spaces_live_dockets_and_backfills_newest_filings(
             date_filed=date(2024, 6, 1),
             last_pulled=date(2026, 10, 1),
         ),
+        # A backfill docket pulled inside the interval waits too.
+        corpus.CorpusRow(
+            case_id="scotus/23",
+            court="scotus",
+            date_filed=date(2025, 6, 1),
+            last_pulled=date(2026, 11, 9),
+        ),
         # Left out: filed before the cutoff, undated, synthetic id, or a circuit.
         corpus.CorpusRow(case_id="scotus/30", court="scotus", date_filed=date(2015, 12, 31)),
         corpus.CorpusRow(case_id="scotus/31", court="scotus"),
@@ -2452,12 +2459,26 @@ def test_live_rotation_spaces_live_dockets_and_backfills_newest_filings(
             "scotus/21",
             "scotus/20",
             "scotus/22",
+            "scotus/23",  # its own interval has passed by now
         ]
 
 
-def test_committed_pull_config_rotates_only_live_polled_dockets() -> None:
+def test_committed_pull_config_rotates_live_dockets_then_recent_backfill() -> None:
     # The open SCOTUS rows the live channel never polls are mostly bulk-loaded
     # historical dockets; refreshing them spends the share on no forecast.
     cfg = load_pull_config(Path(__file__).resolve().parents[1] / "config")
     assert cfg.rotation_scope == "live_polled"
-    assert cfg.backfill_filed_since is not None
+    assert cfg.backfill_filed_since == date(2016, 1, 1)
+    assert cfg.live_min_interval_days == 3
+
+
+def test_rotation_breaks_staleness_ties_by_newest_filing(tmp_path: Path) -> None:
+    db = corpus.corpus_db_path(tmp_path)
+    rows = [
+        corpus.CorpusRow(case_id="ca9/1", court="ca9"),  # undated: sorts last
+        corpus.CorpusRow(case_id="ca9/2", court="ca9", date_filed=date(2019, 1, 1)),
+        corpus.CorpusRow(case_id="ca9/3", court="ca9", date_filed=date(2024, 1, 1)),
+    ]
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, rows)
+    assert cases_due_for_pull(db, limit=10) == [("ca9", 3), ("ca9", 2), ("ca9", 1)]

@@ -40,8 +40,8 @@ pull:
   # above is then unused and a window may refresh fewer than
   # max_cases_per_run. `all` selects the reserve-then-general rotation.
   rotation_scope: live_polled
-  # A live-channel docket pulled fewer days ago than this waits, so its slot
-  # goes to the backfill.
+  # A docket pulled fewer days ago than this waits, in either tier, so a
+  # live-channel docket's slot goes to the backfill.
   live_min_interval_days: 3
   # The backfill: open SCOTUS dockets the live channel has not written, filed
   # on or after this date, never-pulled first and newest filing first. A
