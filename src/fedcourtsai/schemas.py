@@ -9470,22 +9470,39 @@ class AlignmentSideCodes(_Strict):
         return self
 
 
+#: The fewest decisions a score-baseline fit is made on (``pipeline.alignment_score``'s
+#: ``MIN_FIT_DECISIONS``, which a test holds equal).
+ALIGNMENT_FIT_FLOOR: Final = 30
+
+
 class AlignmentTermFit(_Strict):
-    """The score baselines' fit for one October Term, frozen before any decision it scores.
+    """The score baselines' fit for one October Term, made once and never revised.
 
     Every part reads only what was decided before the Term opened (taken as
     1 October): the outcome transform is fitted on earlier Terms' decided
     codes, the spread ``k`` on their complete lineups, and the positions are
-    the prior Term's from the estimate published before the Term opened
-    (``docs/merits-alignment-baseline.md``, *The frozen fits*). The
-    leaderboard reads baselines 3 and 4 for a Term's merits cells from this
-    entry alone, so a later code or lineup for an earlier Term never moves a
-    figure already scored.
+    the prior Term's, estimated as of ``frozen_on`` from decisions dated
+    before the Term opened (``docs/merits-alignment-baseline.md``, *The
+    frozen fits*). The decision-date bound is what the schema enforces; when
+    the fit was made is recorded beside it, and a reading under the fit is
+    pre-registered only for a decision dated after ``frozen_on`` whose own
+    code was made before it. The leaderboard reads baselines 3 and 4 for
+    a Term's merits cells from this entry alone, so a later code or lineup for
+    an earlier Term never moves a figure already scored.
     """
 
     term: int = Field(ge=2000, description="The October Term whose decisions this fit scores")
     opened: date = Field(description="1 October of `term`: nothing decided on or after it is read")
-    frozen_on: date = Field(description="The day the fit was computed")
+    frozen_on: date = Field(
+        description="The day the fit was computed: a decision dated on or before it is read "
+        "under the fit as a backtest, never as a pre-registered baseline"
+    )
+    codes_digest: str = Field(
+        pattern=r"^[0-9a-f]{64}$",
+        description="sha256 of the decided codes the transform read, as the compact JSON list "
+        "of [case_id, conservative_side, score] sorted by case_id, so an entry can be checked "
+        "against the codes `main` held",
+    )
     latest_decision_read: date | None = Field(
         description="The latest merits judgment date among the decisions the fit read; "
         "before `opened`. Null when it read none"
@@ -9504,6 +9521,13 @@ class AlignmentTermFit(_Strict):
         "transform or positions, and then baseline 4 is not scored for the Term",
     )
     k_decisions: int = Field(ge=0, description="Coded complete lineups the spread read")
+    k_at_grid_edge: bool = Field(
+        description="The spread sits at the grid's top, where the likelihood may peak beyond it"
+    )
+    consolidated: int = Field(
+        ge=0,
+        description="Codes left out because their consolidated decision is read under another",
+    )
     positions: dict[str, float] | None = Field(
         description="Each Justice's position for the prior Term, larger more conservative, "
         "from the release published before `opened`; null where none was"
@@ -9512,13 +9536,21 @@ class AlignmentTermFit(_Strict):
     contamination_risk: int = Field(
         ge=0,
         description="Of the `transform_decisions` codes, how many carry the contamination-risk "
-        "flag: a fit resting on them is possibly optimistic",
+        "flag. A transform fitted on codes made after their decisions may be sharper than "
+        "grant-time scores warrant, so applied to forward codes it can make the baseline "
+        "score worse and a forecast's lift over it look larger",
     )
 
     @model_validator(mode="after")
     def _reads_only_before_opening(self) -> AlignmentTermFit:
         if self.opened != date(self.term, 10, 1):
             raise ValueError("`opened` must be 1 October of `term`")
+        if self.transform is not None and self.transform_decisions < ALIGNMENT_FIT_FLOOR:
+            raise ValueError("a transform is fitted only on at least the fit floor's decisions")
+        if self.k is not None and self.k_decisions < ALIGNMENT_FIT_FLOOR:
+            raise ValueError("a spread is fitted only on at least the fit floor's lineups")
+        if self.k_at_grid_edge and self.k is None:
+            raise ValueError("`k_at_grid_edge` needs a fitted spread")
         if self.latest_decision_read is not None and self.latest_decision_read >= self.opened:
             raise ValueError("a fit may read only decisions made before its Term opened")
         if self.transform is not None:

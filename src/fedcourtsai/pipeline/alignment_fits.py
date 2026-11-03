@@ -16,20 +16,27 @@ call that Term's decisions, fitted on what was decided before the Term opened.
   the Term opened (:meth:`.alignment_score.JusticePositions.prior_bench`).
 
 Each entry is made once and never revised (:func:`publish_fit`), so a code or
-a lineup added later for an earlier Term moves no figure already scored, and
-the fit a Term is scored by is on record before the first of its decisions.
+a lineup added later for an earlier Term moves no figure already scored. A
+fit reads nothing decided in its Term, but it may be made after some of the
+Term's decisions, so a reading under it is pre-registered only for a decision
+dated after its ``frozen_on`` whose own code was made before that decision;
+the rest are backtests.
 """
 
 from __future__ import annotations
 
+import hashlib
+import json
 from collections.abc import Mapping, Sequence
 from datetime import date
 from pathlib import Path
 
 from ..schemas import AlignmentFits, AlignmentSideCode, AlignmentTermFit, Judgment
 from .alignment_score import (
+    K_GRID,
     Calibration,
     JusticePositions,
+    OutcomeCase,
     _fit_rows,
     consolidated_duplicates,
     fit_calibration,
@@ -47,6 +54,12 @@ class AlignmentFitError(ValueError):
 def fits_path(data_root: Path) -> Path:
     """The committed frozen-fits artifact."""
     return data_root / "merits-alignment" / "alignment-fits.json"
+
+
+def codes_digest(cases: Sequence[OutcomeCase]) -> str:
+    """sha256 of the compact JSON list of [case_id, conservative_side, score], by case_id."""
+    rows = sorted([c.case_id, str(c.conservative_side), c.score] for c in cases)
+    return hashlib.sha256(json.dumps(rows, separators=(",", ":")).encode()).hexdigest()
 
 
 def frozen_fit(
@@ -84,11 +97,14 @@ def frozen_fit(
         term=term,
         opened=opened,
         frozen_on=frozen_on,
+        codes_digest=codes_digest(earlier),
         latest_decision_read=max(read) if read else None,
         transform=None if calibration is None else list(calibration.knots),
         transform_decisions=len(earlier),
         k=k,
         k_decisions=k_decisions,
+        k_at_grid_edge=k == K_GRID[-1],
+        consolidated=len(dropped),
         positions=bench,
         positions_source=positions.source,
         contamination_risk=sum(c.contamination_risk for c in earlier),

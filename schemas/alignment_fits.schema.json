@@ -2,16 +2,28 @@
   "$defs": {
     "AlignmentTermFit": {
       "additionalProperties": false,
-      "description": "The score baselines' fit for one October Term, frozen before any decision it scores.\n\nEvery part reads only what was decided before the Term opened (taken as\n1 October): the outcome transform is fitted on earlier Terms' decided\ncodes, the spread ``k`` on their complete lineups, and the positions are\nthe prior Term's from the estimate published before the Term opened\n(``docs/merits-alignment-baseline.md``, *The frozen fits*). The\nleaderboard reads baselines 3 and 4 for a Term's merits cells from this\nentry alone, so a later code or lineup for an earlier Term never moves a\nfigure already scored.",
+      "description": "The score baselines' fit for one October Term, made once and never revised.\n\nEvery part reads only what was decided before the Term opened (taken as\n1 October): the outcome transform is fitted on earlier Terms' decided\ncodes, the spread ``k`` on their complete lineups, and the positions are\nthe prior Term's, estimated as of ``frozen_on`` from decisions dated\nbefore the Term opened (``docs/merits-alignment-baseline.md``, *The\nfrozen fits*). The decision-date bound is what the schema enforces; when\nthe fit was made is recorded beside it, and a reading under the fit is\npre-registered only for a decision dated after ``frozen_on`` whose own\ncode was made before it. The leaderboard reads baselines 3 and 4 for\na Term's merits cells from this entry alone, so a later code or lineup for\nan earlier Term never moves a figure already scored.",
       "properties": {
+        "codes_digest": {
+          "description": "sha256 of the decided codes the transform read, as the compact JSON list of [case_id, conservative_side, score] sorted by case_id, so an entry can be checked against the codes `main` held",
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Codes Digest",
+          "type": "string"
+        },
+        "consolidated": {
+          "description": "Codes left out because their consolidated decision is read under another",
+          "minimum": 0,
+          "title": "Consolidated",
+          "type": "integer"
+        },
         "contamination_risk": {
-          "description": "Of the `transform_decisions` codes, how many carry the contamination-risk flag: a fit resting on them is possibly optimistic",
+          "description": "Of the `transform_decisions` codes, how many carry the contamination-risk flag. A transform fitted on codes made after their decisions may be sharper than grant-time scores warrant, so applied to forward codes it can make the baseline score worse and a forecast's lift over it look larger",
           "minimum": 0,
           "title": "Contamination Risk",
           "type": "integer"
         },
         "frozen_on": {
-          "description": "The day the fit was computed",
+          "description": "The day the fit was computed: a decision dated on or before it is read under the fit as a backtest, never as a pre-registered baseline",
           "format": "date",
           "title": "Frozen On",
           "type": "string"
@@ -28,6 +40,11 @@
           ],
           "description": "The vote model's spread, fitted by likelihood on earlier Terms' coded complete lineups at the transform; null below the fit floor or without a transform or positions, and then baseline 4 is not scored for the Term",
           "title": "K"
+        },
+        "k_at_grid_edge": {
+          "description": "The spread sits at the grid's top, where the likelihood may peak beyond it",
+          "title": "K At Grid Edge",
+          "type": "boolean"
         },
         "k_decisions": {
           "description": "Coded complete lineups the spread read",
@@ -117,11 +134,14 @@
         "term",
         "opened",
         "frozen_on",
+        "codes_digest",
         "latest_decision_read",
         "transform",
         "transform_decisions",
         "k",
         "k_decisions",
+        "k_at_grid_edge",
+        "consolidated",
         "positions",
         "positions_source",
         "contamination_risk"

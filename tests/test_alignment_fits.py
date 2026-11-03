@@ -16,9 +16,15 @@ from fedcourtsai.pipeline.alignment_fits import (
     frozen_fit,
     publish_fit,
 )
-from fedcourtsai.pipeline.alignment_score import fit_calibration, score_readout
+from fedcourtsai.pipeline.alignment_score import (
+    MIN_FIT_DECISIONS,
+    fit_calibration,
+    outcome_cases,
+    score_readout,
+)
 from fedcourtsai.pipeline.merits_lineups import MeritsLineup
 from fedcourtsai.schemas import (
+    ALIGNMENT_FIT_FLOOR,
     AlignmentFits,
     AlignmentSideCode,
     AlignmentSideCodes,
@@ -68,10 +74,43 @@ def test_the_fit_matches_the_readouts_out_of_sample_reading() -> None:
     assert fit.contamination_risk == 40
     assert fit.latest_decision_read == date(2023, 6, 1)
     assert fit.positions == BENCH
+    # Every OT2022 vote splits along the ordering, so the likelihood climbs to the grid's top.
+    assert fit.k_at_grid_edge
+    assert fit.consolidated == 0
+    ahead = frozen_fit(codes, judgments, lineups, POSITIONS, term=2023, frozen_on=date(2023, 9, 1))
+    assert ahead.k == fit.k and ahead.transform == fit.transform
+    assert ahead.codes_digest == fit.codes_digest
     calibration = calibration_of(fit)
     assert calibration is not None
     # The transform fitted on OT2022's 40 won codes maps 0.8 to 41/42.
     assert calibration.apply(0.8) == pytest.approx(41 / 42)
+
+
+def test_the_transform_matches_the_readouts_over_a_mixed_history() -> None:
+    codes, lineups, judgments = _history({2022: True, 2023: False})
+    # Mixed scores and outcomes, so the transform has more than one block.
+    for i, code in enumerate(codes):
+        if i % 3 == 0:
+            judgments[code.case_id] = (Judgment.affirmed, judgments[code.case_id][1])
+    codes = [c.model_copy(update={"score": 0.3 + (i % 5) / 10}) for i, c in enumerate(codes)]
+    fit = frozen_fit(codes, judgments, lineups, POSITIONS, term=2024, frozen_on=FROZEN_ON)
+    expected = fit_calibration(
+        [(c.score, c.conservative_prevailed) for c in outcome_cases(codes, judgments)]
+    )
+    calibration = calibration_of(fit)
+    assert expected is not None and calibration is not None
+    assert len(expected.knots) > 1
+    assert calibration.knots == expected.knots
+    readout = score_readout(
+        codes, judgments, lineups, first_term=2024, last_term=2024, positions=POSITIONS
+    )
+    [term] = readout.terms
+    assert term.votes_out_of_sample is not None
+    assert fit.k == term.votes_out_of_sample.k
+
+
+def test_the_schema_fit_floor_is_the_fitters() -> None:
+    assert ALIGNMENT_FIT_FLOOR == MIN_FIT_DECISIONS
 
 
 def test_nothing_decided_on_or_after_the_term_opening_moves_the_fit() -> None:
@@ -90,6 +129,14 @@ def test_nothing_decided_on_or_after_the_term_opening_moves_the_fit() -> None:
         frozen_on=FROZEN_ON,
     )
     assert after == before
+
+
+def test_the_digest_moves_with_any_code_the_transform_read() -> None:
+    codes, lineups, judgments = _history({2022: True})
+    fit = frozen_fit(codes, judgments, lineups, POSITIONS, term=2023, frozen_on=FROZEN_ON)
+    moved = [codes[0].model_copy(update={"score": 0.7}), *codes[1:]]
+    refit = frozen_fit(moved, judgments, lineups, POSITIONS, term=2023, frozen_on=FROZEN_ON)
+    assert refit.codes_digest != fit.codes_digest
 
 
 def test_below_the_fit_floor_neither_baseline_has_a_fit() -> None:
@@ -117,12 +164,15 @@ def _fit(term: int, **changes: object) -> AlignmentTermFit:
     fields: dict[str, object] = {
         "term": term,
         "opened": date(term, 10, 1),
-        "frozen_on": FROZEN_ON,
+        "frozen_on": date(term, 9, 1),
+        "codes_digest": "0" * 64,
         "latest_decision_read": date(term, 6, 30),
         "transform": [list(k) for k in calibration.knots],
         "transform_decisions": 40,
         "k": 1.5,
         "k_decisions": 40,
+        "k_at_grid_edge": False,
+        "consolidated": 0,
         "positions": BENCH,
         "positions_source": "test",
         "contamination_risk": 40,
@@ -149,6 +199,9 @@ def test_publishing_is_append_only() -> None:
         ({"transform": [[0.4, 1.0]]}, "inside"),
         ({"positions": None}, "a spread is fitted only"),
         ({"contamination_risk": 41}, "cannot exceed"),
+        ({"k": None, "k_at_grid_edge": True}, "needs a fitted spread"),
+        ({"transform_decisions": 29, "contamination_risk": 29}, "fit floor's decisions"),
+        ({"k_decisions": 29}, "fit floor's lineups"),
     ],
 )
 def test_the_schema_refuses_a_fit_that_reads_past_its_opening_or_is_malformed(
