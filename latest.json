@@ -1,13 +1,13 @@
 {
   "cost": {
     "actions_cost_usd": 0.0,
-    "actions_minutes": 1306.3,
+    "actions_minutes": 1401.9,
     "actions_monthly_usd": 0.0,
     "estimated_monthly_usd": 1477.19,
     "fixed_monthly_usd": 115.0,
     "model_cost_usd": 5074.079987,
     "model_monthly_usd": 1362.19,
-    "window_days": 2.5
+    "window_days": 3.4
   },
   "data_health": {
     "corpus": {
@@ -21,15 +21,15 @@
           "problems": []
         },
         {
-          "checked": 2153882,
-          "detail": "2153882 rows vs baseline 2153882",
+          "checked": 2153911,
+          "detail": "2153911 rows vs baseline 2153911",
           "failures": 0,
           "name": "row_count_monotonic",
           "passed": true,
           "problems": []
         },
         {
-          "checked": 4311171,
+          "checked": 4311225,
           "detail": "",
           "failures": 0,
           "name": "required_columns_non_empty",
@@ -37,7 +37,7 @@
           "problems": []
         },
         {
-          "checked": 2153882,
+          "checked": 2153911,
           "detail": "no marked docket numbers stored (1 ***-shaped string(s) are legitimate separators)",
           "failures": 0,
           "name": "docket_numbers_carry_no_capital_marking",
@@ -46,23 +46,23 @@
         },
         {
           "checked": 3073,
-          "detail": "as of 2026-11-02",
+          "detail": "as of 2026-11-03",
           "failures": 0,
           "name": "snapshot_not_future_dated",
           "passed": true,
           "problems": []
         },
         {
-          "checked": 661,
-          "detail": "granted before 2024-11-02 (730 days); 13 resolved by termination (1 abated, 1 grant-vacated, 2 judgment-issued, 9 voluntary-dismissal)",
+          "checked": 650,
+          "detail": "granted before 2024-11-03 (730 days); 13 resolved by termination (1 abated, 1 grant-vacated, 2 judgment-issued, 9 voluntary-dismissal)",
           "failures": 0,
           "name": "no_stale_unparsed_grants",
           "passed": true,
           "problems": []
         },
         {
-          "checked": 2153882,
-          "detail": "0 future-dated, 66 decided-before-filed (21 docket rows vs accepted baseline 30, 45 SCOTUS application rows vs accepted baseline 50; as of 2026-11-02); faithful upstream data \u2014 investigate the climb upstream before raising a baseline",
+          "checked": 2153911,
+          "detail": "0 future-dated, 66 decided-before-filed (21 docket rows vs accepted baseline 30, 45 SCOTUS application rows vs accepted baseline 50; as of 2026-11-03); faithful upstream data \u2014 investigate the climb upstream before raising a baseline",
           "failures": 66,
           "name": "case_dates_ordered",
           "passed": true,
@@ -90,7 +90,7 @@
           ]
         },
         {
-          "checked": 4308098,
+          "checked": 4308152,
           "detail": "",
           "failures": 0,
           "name": "domain_values_valid",
@@ -98,7 +98,7 @@
           "problems": []
         },
         {
-          "checked": 4311171,
+          "checked": 4311225,
           "detail": "",
           "failures": 0,
           "name": "no_duplicate_cases_or_events",
@@ -106,7 +106,7 @@
           "problems": []
         },
         {
-          "checked": 17904,
+          "checked": 17913,
           "detail": "",
           "failures": 0,
           "name": "ledger_references_exist",
@@ -122,7 +122,7 @@
           "problems": []
         },
         {
-          "checked": 29386,
+          "checked": 29392,
           "detail": "",
           "failures": 0,
           "name": "event_dirs_hold_only_ledger_entries",
@@ -146,7 +146,7 @@
           "problems": []
         },
         {
-          "checked": 3468,
+          "checked": 3486,
           "detail": "",
           "failures": 0,
           "name": "prediction_docs_exist",
@@ -154,7 +154,7 @@
           "problems": []
         },
         {
-          "checked": 1529,
+          "checked": 1538,
           "detail": "",
           "failures": 0,
           "name": "prediction_claims_scoreable",
@@ -226,14 +226,14 @@
           "problems": []
         }
       ],
-      "corpus_events": 2154216,
-      "corpus_rows": 2153882,
+      "corpus_events": 2154241,
+      "corpus_rows": 2153911,
       "ok": true,
       "schema_version": "1.0",
       "skipped": false
     },
     "ledger": {
-      "checked": 42245,
+      "checked": 42264,
       "invalid": 0,
       "ok": true,
       "problems": []
@@ -241,11 +241,11 @@
     "ok": true
   },
   "flags": {
-    "archived": 843,
+    "archived": 846,
     "blockers": 0,
-    "cells": 103,
+    "cells": 100,
     "harness": 54,
-    "infos": 64,
+    "infos": 63,
     "normalised_cells": 0,
     "recent": [
       {
@@ -672,72 +672,61 @@
         "schema_version": "1.0"
       }
     ],
-    "total": 136,
-    "warnings": 72,
+    "total": 133,
+    "warnings": 70,
     "window_days": 14
   },
-  "generated_at": "2026-11-02T17:47:26.477171+00:00",
+  "generated_at": "2026-11-03T15:48:06.953424+00:00",
   "health": [
     {
-      "failures": 1,
+      "failures": 2,
       "last_conclusion": "failure",
-      "last_run_at": "2026-11-02T15:46:07Z",
-      "median_seconds": 144,
+      "last_run_at": "2026-11-03T15:44:12Z",
+      "median_seconds": 141,
       "p95_seconds": 144,
-      "runs_considered": 1,
+      "runs_considered": 2,
       "success_rate": 0.0,
       "successes": 0,
       "workflow": "Dependabot Updates"
     },
     {
-      "failures": 0,
+      "failures": 12,
       "last_conclusion": "success",
-      "last_run_at": "2026-11-01T17:46:06Z",
-      "median_seconds": 69,
-      "p95_seconds": 69,
-      "runs_considered": 1,
-      "success_rate": 1.0,
-      "successes": 1,
-      "workflow": "Dependency Graph"
-    },
-    {
-      "failures": 23,
-      "last_conclusion": null,
-      "last_run_at": "2026-11-02T17:39:59Z",
-      "median_seconds": 103,
-      "p95_seconds": 419,
-      "runs_considered": 64,
-      "success_rate": 0.6349206349206349,
-      "successes": 40,
+      "last_run_at": "2026-11-03T15:24:54Z",
+      "median_seconds": 108,
+      "p95_seconds": 454,
+      "runs_considered": 60,
+      "success_rate": 0.8,
+      "successes": 48,
       "workflow": "ci"
     },
     {
-      "failures": 4,
+      "failures": 7,
       "last_conclusion": "success",
-      "last_run_at": "2026-11-02T14:45:17Z",
-      "median_seconds": 274,
-      "p95_seconds": 297,
-      "runs_considered": 60,
-      "success_rate": 0.9333333333333333,
-      "successes": 56,
+      "last_run_at": "2026-11-03T13:29:34Z",
+      "median_seconds": 271,
+      "p95_seconds": 308,
+      "runs_considered": 65,
+      "success_rate": 0.8923076923076924,
+      "successes": 58,
       "workflow": "codeql"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-11-02T15:54:43Z",
+      "last_run_at": "2026-11-03T11:56:02Z",
       "median_seconds": 29,
-      "p95_seconds": 43,
+      "p95_seconds": 42,
       "runs_considered": 48,
       "success_rate": 1.0,
-      "successes": 42,
+      "successes": 43,
       "workflow": "corpus-check"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-11-02T17:19:22Z",
-      "median_seconds": 289,
+      "last_run_at": "2026-11-03T14:53:29Z",
+      "median_seconds": 386,
       "p95_seconds": 492,
       "runs_considered": 3,
       "success_rate": 1.0,
@@ -747,63 +736,52 @@
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-11-02T14:45:17Z",
+      "last_run_at": "2026-11-03T13:23:08Z",
       "median_seconds": 22,
-      "p95_seconds": 28,
-      "runs_considered": 9,
+      "p95_seconds": 24,
+      "runs_considered": 5,
       "success_rate": 1.0,
-      "successes": 9,
+      "successes": 5,
       "workflow": "lint-actions"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-11-02T13:00:18Z",
-      "median_seconds": 48,
-      "p95_seconds": 48,
-      "runs_considered": 1,
-      "success_rate": 1.0,
-      "successes": 1,
-      "workflow": "post-public-update"
-    },
-    {
-      "failures": 0,
-      "last_conclusion": "success",
-      "last_run_at": "2026-11-02T17:15:11Z",
-      "median_seconds": 79,
+      "last_run_at": "2026-11-03T15:21:30Z",
+      "median_seconds": 83,
       "p95_seconds": 356,
-      "runs_considered": 8,
+      "runs_considered": 6,
       "success_rate": 1.0,
-      "successes": 8,
+      "successes": 6,
       "workflow": "promotion-prep"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-11-02T13:40:42Z",
-      "median_seconds": 19,
-      "p95_seconds": 88,
-      "runs_considered": 26,
+      "last_run_at": "2026-11-03T13:20:52Z",
+      "median_seconds": 23,
+      "p95_seconds": 44,
+      "runs_considered": 28,
       "success_rate": 1.0,
-      "successes": 26,
+      "successes": 28,
       "workflow": "promotion-record"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-11-02T13:04:58Z",
-      "median_seconds": 404,
-      "p95_seconds": 499,
-      "runs_considered": 3,
+      "last_run_at": "2026-11-03T13:19:46Z",
+      "median_seconds": 594,
+      "p95_seconds": 10062,
+      "runs_considered": 8,
       "success_rate": 1.0,
-      "successes": 3,
+      "successes": 8,
       "workflow": "run-analytics"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-11-02T17:03:51Z",
-      "median_seconds": 53,
+      "last_run_at": "2026-11-02T23:12:07Z",
+      "median_seconds": 65,
       "p95_seconds": 78,
       "runs_considered": 2,
       "success_rate": 1.0,
@@ -813,9 +791,9 @@
     {
       "failures": 0,
       "last_conclusion": null,
-      "last_run_at": "2026-11-02T17:45:43Z",
-      "median_seconds": 65,
-      "p95_seconds": 65,
+      "last_run_at": "2026-11-03T15:46:26Z",
+      "median_seconds": 152,
+      "p95_seconds": 152,
       "runs_considered": 2,
       "success_rate": 1.0,
       "successes": 1,
@@ -824,31 +802,31 @@
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-11-02T13:04:18Z",
-      "median_seconds": 1328,
+      "last_run_at": "2026-11-03T12:33:45Z",
+      "median_seconds": 154,
       "p95_seconds": 2199,
-      "runs_considered": 4,
+      "runs_considered": 5,
       "success_rate": 1.0,
-      "successes": 4,
+      "successes": 5,
       "workflow": "run-predict"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-11-02T12:52:18Z",
-      "median_seconds": 732,
-      "p95_seconds": 1147,
-      "runs_considered": 10,
+      "last_run_at": "2026-11-03T12:21:15Z",
+      "median_seconds": 916,
+      "p95_seconds": 3489,
+      "runs_considered": 7,
       "success_rate": 1.0,
-      "successes": 10,
+      "successes": 7,
       "workflow": "run-pull"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-11-02T09:47:37Z",
-      "median_seconds": 2523,
-      "p95_seconds": 2525,
+      "last_run_at": "2026-11-03T09:51:44Z",
+      "median_seconds": 2519,
+      "p95_seconds": 2776,
       "runs_considered": 4,
       "success_rate": 1.0,
       "successes": 4,
@@ -857,9 +835,9 @@
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-11-02T11:39:24Z",
-      "median_seconds": 458,
-      "p95_seconds": 458,
+      "last_run_at": "2026-11-03T11:17:51Z",
+      "median_seconds": 2028,
+      "p95_seconds": 2028,
       "runs_considered": 1,
       "success_rate": 1.0,
       "successes": 1,
@@ -868,21 +846,21 @@
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-11-02T11:05:28Z",
-      "median_seconds": 56,
-      "p95_seconds": 56,
-      "runs_considered": 1,
+      "last_run_at": "2026-11-03T10:51:51Z",
+      "median_seconds": 68,
+      "p95_seconds": 78,
+      "runs_considered": 2,
       "success_rate": 1.0,
-      "successes": 1,
+      "successes": 2,
       "workflow": "sync-staging"
     }
   ],
   "leakage": {
-    "assessed": 270,
+    "assessed": 108,
     "flagged": [],
     "likely": 0,
     "none": 0,
-    "not_applicable": 270,
+    "not_applicable": 108,
     "possible": 0,
     "window_days": 14
   },
@@ -906,8 +884,8 @@
     "calibration": {
       "accuracy": null,
       "accuracy_scored": 0,
-      "base_rate_cases": 44770,
-      "deny_base_rate": 0.951,
+      "base_rate_cases": 44905,
+      "deny_base_rate": 0.9512,
       "lift_over_always_deny": null,
       "mean_brier": null,
       "mean_brier_skill": null,
@@ -917,14 +895,14 @@
     },
     "cells": {
       "evaluations_forward": 1368,
-      "evaluations_forward_delta": 48,
+      "evaluations_forward_delta": 39,
       "evaluations_retrospective": 0,
       "evaluations_retrospective_delta": 0,
       "events_predicted": 513,
       "predicted_resolved": 198,
-      "predicted_resolved_delta": 4,
+      "predicted_resolved_delta": 1,
       "predictions": 1948,
-      "predictions_delta": 275
+      "predictions_delta": 255
     },
     "forward_claim": {
       "by_predictor": {},
@@ -1119,7 +1097,7 @@
         },
         {
           "conference": "2026-06-18",
-          "petitions": 8
+          "petitions": 6
         },
         {
           "conference": "2026-06-25",
@@ -1147,16 +1125,16 @@
         },
         {
           "conference": "2026-11-13",
-          "petitions": 105
+          "petitions": 114
         }
       ],
       "documents_provisioned": 152,
-      "generated_on": "2026-11-02",
+      "generated_on": "2026-11-03",
       "next_conference": "2026-11-06",
       "next_conference_petitions": 290,
       "schema_version": "1.0",
       "skipped": false,
-      "watchlist": 639
+      "watchlist": 646
     },
     "predictor_scores": [
       {
@@ -1713,7 +1691,7 @@
     }
   },
   "tooling": {
-    "base_rate_uses": 408,
+    "base_rate_uses": 401,
     "corpus_query_uses": 272,
     "gaps": [
       {
@@ -2014,7 +1992,7 @@
         "used_corpus_query": true
       }
     ],
-    "reports": 469,
+    "reports": 415,
     "window_days": 14
   }
 }
