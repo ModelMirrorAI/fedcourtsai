@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9526000612",
+  "run_id": "20261103T203422Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "metrics/statpack.json", "WebFetch supremecourt.gov"],
+  "helpful": ["docket-number lookup", "statpack interim per-Term counts"],
+  "gaps": ["application PDF had no text layer; OCR fallback would help", "finer_* interim counts are unread in every Term, so no interim baseline exists"],
+  "notes": "Interim cell anchored without a published baseline."
+}

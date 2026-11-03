@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000583",
+  "run_id": "20261103T203422Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "Provisioned snapshot_date and cutoff are 2026-11-04, one day after the authoritative run/current date 2026-11-03. Used the supplied 2026-11-04.json as required. Its sole proceeding is the 2026-10-16 petition filing, with docketing on 2026-11-03; no later substantive proceeding or own-case outcome was retrieved or used. This is a dating/provenance note, not observed outcome leakage."
+    }
+  ]
+}

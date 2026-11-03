@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000612",
+  "run_id": "20261103T203422Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "flags": [
+    {
+      "category": "provisioning",
+      "severity": "info",
+      "event_id": "evt-motion-disposition",
+      "message": "Provisioned record/documents/application.txt has empty_text=true (20 pages, 20 empty pages, ocr_derived=false, 19 form-feed bytes) because the scanned PDF lacked an embedded text layer and OCR was not run. Forecast relied on the arrival snapshot, statpack base rates, corpus priors, and CourtListener RECAP records for the underlying D.C. Circuit (No. 26-5131) and D.D.C. (No. 1:23-cv-02574) proceedings."
+    }
+  ]
+}

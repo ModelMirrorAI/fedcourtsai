@@ -1,0 +1,20 @@
+# Predicted Reasoning: *Ahmed Shaikh v. Fox News Network, LLC, et al.* (No. 26-583)
+
+## Procedural Posture and Conference Trajectory
+
+This petition is evaluated at the `arrival` moment (`evt-petition-arrival-disposition`), immediately upon docketing on November 3, 2026 (filed October 16, 2026), with a response due December 3, 2026. The provisioned snapshot (`2026-11-04.json`) records zero conference distributions (`distribution_count: 0`) and no call for the views of the Solicitor General (`cvsg_date: null`).
+
+1. **Distribution and Relist Forecast (`relist-increment: 0.97`)**:
+   Because this cell sits at the `arrival` moment with `distribution_count: 0`, the mechanical `relist-increment` claim resolves on whether the petition is distributed for conference at least once (`distribution_count >= 1`). Absent a rare voluntary dismissal under Rule 46 or procedural default prior to distribution, the Clerk will distribute the petition for conference after respondents either waive a response or the December 3, 2026 response deadline expires. Accordingly, the probability of advancing past zero distributions to at least one conference distribution is `0.97`. However, once distributed for its initial conference, the petition will almost certainly be denied on the first conference list without any true relist (a second conference distribution, `distribution_count >= 2`, has a probability below `0.005`), and the Court is very unlikely to call for a response if the media-company respondents waive.
+
+2. **Solicitor General Invitation (`cvsg-increment: 0.001`)**:
+   The Court will not call for the views of the Solicitor General. Although the complaint nominally invokes a federal statute—the Electronic Communications Privacy Act (ECPA)—alongside Florida tort and statutory claims against private media corporations, the Eleventh Circuit affirmed dismissal under Federal Rule of Civil Procedure 12(b)(1) because the factual allegations were patently frivolous under *Bell v. Hood*, 327 U.S. 678 (1946). No federal institutional or regulatory interest is implicated.
+
+3. **Questions Presented and Conditional Merits Path**:
+   No petition text was provisioned at arrival, but the Eleventh Circuit's published per curiam opinion in *Ahmed Shaikh v. Fox News Network, LLC*, No. 25-12004 (11th Cir. June 4, 2026), delineates the only issues litigated below: (a) whether the district court properly dismissed the complaint for lack of subject-matter jurisdiction under *Bell v. Hood* as "wholly insubstantial and frivolous" without reaching the merits or considering petitioner's supplemental forensic filings, and (b) whether the district court erred in denying petitioner's Rule 11 motion without extended discussion. While the Eleventh Circuit noted in passing that it had not previously addressed whether factual frivolousness defeats diversity jurisdiction under 28 U.S.C. § 1332 (as distinct from federal-question jurisdiction under 28 U.S.C. § 1331), it held that petitioner abandoned any diversity-jurisdiction challenge on appeal. If the Court were hypothetically to grant review, it could only reach the threshold Rule 12(b)(1) substantiality standard, and even then would likely affirm or dismiss because diversity jurisdiction was waived below and the factual allegations lack any plausible foundation.
+
+4. **Summary Disposition vs. Plenary Review (`summary-disposition-route: 0.50`)**:
+   Conditional on the remote possibility of a grant (`P(grant) = 0.001`), a summary vacatur and remand (GVR) is at least as likely (`0.50`) as plenary briefing and oral argument, as the Court would not set a *pro se* frivolousness dismissal for full merits argument.
+
+5. **Separate Writings on Denial (`dissent-from-denial: 0.001`)**:
+   When the Court denies certiorari, no Justice is expected to author a dissent or statement respecting the denial. The factual record—alleging hidden cameras and clandestine mind-reading technology across major television networks—and the abandonment of the diversity-jurisdiction issue below leave no vehicle for any Justice to write separately.
