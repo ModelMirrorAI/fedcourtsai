@@ -534,7 +534,7 @@ def _aggregate(
         vote_cells_scored=len(votes),
         vote_events_scored=len({(ev.case_id, ev.event_id) for ev in voted}) or None,
         **_vote_floor_fields(votes),
-        **_alignment_fields(cells, votes),
+        **_alignment_fields(evals, cells, voted, votes),
         mean_reasoning_quality=_mean(
             [ev.reasoning_quality for ev in evals if ev.reasoning_quality is not None]
         ),
@@ -652,7 +652,10 @@ def _vote_floor_fields(votes: Sequence[VoteScore]) -> dict[str, float]:
 
 
 def _alignment_fields(
-    cells: Sequence[CellSkill | None], votes: Sequence[VoteScore]
+    evals: Sequence[Evaluation],
+    cells: Sequence[CellSkill | None],
+    voted: Sequence[Evaluation],
+    votes: Sequence[VoteScore],
 ) -> dict[str, float | int]:
     """Baselines 3 and 4 over the gradings each reads, each paired with the forecasts' own figure.
 
@@ -660,24 +663,35 @@ def _alignment_fields(
     pre-registered reading (:func:`fedcourtsai.pipeline.alignment_board.read_cell`)
     — and the forecasts' figure beside it is taken over exactly those gradings,
     so the pair is a paired comparison wherever the population is a subset of
-    the stratum's. Nothing while no grading has a reading.
+    the stratum's. A decision graded at several moments or by several panels
+    carries one baseline reading per grading, so each population's sample size
+    is its distinct decisions, published beside it. Nothing while no grading
+    has a reading.
     """
     fields: dict[str, float | int] = {}
-    read = [c for c in cells if c is not None and c.alignment_baseline is not None]
+    read = [
+        (ev, c)
+        for ev, c in zip(evals, cells, strict=True)
+        if c is not None and c.alignment_baseline is not None
+    ]
     if read:
+        n = len(read)
         fields.update(
-            alignment_score_cells=len(read),
-            alignment_score_brier=sum(c.alignment_baseline or 0.0 for c in read) / len(read),
-            alignment_score_model_brier=sum(c.brier for c in read) / len(read),
-            alignment_fit_replay_share=sum(c.alignment_fit_replay_share or 0.0 for c in read)
-            / len(read),
+            alignment_score_cells=n,
+            alignment_score_events=len({(ev.case_id, ev.event_id) for ev, _ in read}),
+            alignment_score_brier=sum(c.alignment_baseline or 0.0 for _, c in read) / n,
+            alignment_score_model_brier=sum(c.brier for _, c in read) / n,
+            alignment_fit_replay_share=sum(c.alignment_fit_replay_share or 0.0 for _, c in read)
+            / n,
         )
-    voted = [v for v in votes if v.alignment is not None]
-    if voted:
+    with_baseline = [(ev, v) for ev, v in zip(voted, votes, strict=True) if v.alignment is not None]
+    if with_baseline:
+        n = len(with_baseline)
         fields.update(
-            alignment_vote_cells=len(voted),
-            alignment_vote_accuracy=sum(v.alignment or 0.0 for v in voted) / len(voted),
-            alignment_vote_model_accuracy=sum(v.model for v in voted) / len(voted),
+            alignment_vote_cells=n,
+            alignment_vote_events=len({(ev.case_id, ev.event_id) for ev, _ in with_baseline}),
+            alignment_vote_accuracy=sum(v.alignment or 0.0 for _, v in with_baseline) / n,
+            alignment_vote_model_accuracy=sum(v.model for _, v in with_baseline) / n,
         )
     return fields
 
@@ -1508,7 +1522,10 @@ def skill_components(
         )
         reading = (
             alignment_board.read_cell(inputs, outcome, votes_complete=False)
-            if inputs is not None and stage == Stage.merits and scores_votes(evaluation.event_id)
+            if inputs is not None
+            and stage == Stage.merits
+            and scores_votes(evaluation.event_id)
+            and _brier_reproduces(cases_dir, evaluation, outcome)
             else None
         )
         if prior is None and realized is None and reading is None:
@@ -1521,6 +1538,26 @@ def skill_components(
             alignment_fit_replay_share=None if reading is None else reading.fit_replay_share,
         )
     return components
+
+
+def _brier_reproduces(cases_dir: Path, evaluation: Evaluation, outcome: Outcome) -> bool:
+    """Whether the grading's stamped Brier reproduces from its scored prediction on ``outcome``.
+
+    Within :data:`BRIER_REPRODUCTION_TOLERANCE`, as :attr:`CellFacts.brier_reproduces`
+    reads it: a baseline recomputed off the current outcome is paired with the
+    stamped Brier only where both were taken against the same binary.
+    """
+    scored = _scored_prediction(cases_dir, evaluation)
+    return (
+        scored is not None
+        and evaluation.brier_score is not None
+        and math.isclose(
+            brier_score(scored, outcome),
+            evaluation.brier_score,
+            rel_tol=0.0,
+            abs_tol=BRIER_REPRODUCTION_TOLERANCE,
+        )
+    )
 
 
 def _skill_target(

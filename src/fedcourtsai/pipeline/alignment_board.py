@@ -8,8 +8,11 @@ fits (``data/merits-alignment/alignment-fits.json``, :mod:`.alignment_fits`).
 
 A cell is read only where the reading is **pre-registered**: its case carries
 a clean code (:func:`.alignment_side.is_clean`, read without the argument
-date, which the committed record does not carry) made before the decision,
-and its decision Term has a fit with a transform, made before the decision.
+date, which the committed record does not carry, so the board's clean set
+holds the clean check's and any expedited case coded after an argument held
+inside the lag) made before the decision, and its decision Term has a fit with
+a transform, made before the decision. Baseline 4 needs the transform too: its
+vote model reads the transformed score, as its spread was fitted at it.
 Every other cell has no reading; a backtest is the readout's
 (``fedcourts alignment-score-baseline``), never the board's.
 
@@ -111,7 +114,8 @@ def _vote_accuracy(
         if vote.vote in NOT_SITTING:
             continue
         justice = normalize_justice_name(vote.justice)
-        if justice is None or justice not in fit.positions:
+        # A duplicate is refused, not merged: the forecasts' figure counts each row.
+        if justice is None or justice not in fit.positions or justice in sitting:
             return None
         sitting[justice] = vote.vote
     if not sitting:

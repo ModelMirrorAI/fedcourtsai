@@ -912,7 +912,7 @@
             }
           ],
           "default": null,
-          "description": "Over the `alignment_score_cells` gradings, the mean share of their fits' transform codes that carry the contamination-risk flag. A transform fitted on codes made after their decisions can be sharper than grant-time scores warrant, which scores the baseline worse and a forecast's lift over it larger; omitted while null",
+          "description": "Over the `alignment_score_cells` gradings, the mean share of their fits' transform codes that carry the contamination-risk flag. A transform fitted on codes made after their decisions can be sharper than grant-time scores warrant, which scores the baseline worse and a forecast's lift over it larger. It covers the transform's codes; the spread is fitted on a subset of the same Terms' codes, at that transform. Pooled across Terms where the gradings span several; omitted while null",
           "title": "Alignment Fit Replay Share"
         },
         "alignment_score_brier": {
@@ -943,6 +943,20 @@
           "default": null,
           "description": "Merits gradings with a pre-registered baseline-3 reading: the case's clean side code and its decision Term's frozen fit, both made before the decision (`pipeline.alignment_board`, specified in `docs/merits-alignment-baseline.md`). The denominator of `alignment_score_brier` and `alignment_score_model_brier`; omitted while none",
           "title": "Alignment Score Cells"
+        },
+        "alignment_score_events": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The distinct decisions behind the `alignment_score_cells` gradings: the baseline's sample size, since a decision graded at several moments or by several panels carries one identical reading per grading; omitted while none",
+          "title": "Alignment Score Events"
         },
         "alignment_score_model_brier": {
           "anyOf": [
@@ -987,6 +1001,20 @@
           "default": null,
           "description": "Of the `vote_cells_scored` gradings, those with a pre-registered baseline-4 reading: a fitted spread and a position for every sitting Justice. The denominator of `alignment_vote_accuracy` and `alignment_vote_model_accuracy`; omitted while none",
           "title": "Alignment Vote Cells"
+        },
+        "alignment_vote_events": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The distinct decisions behind the `alignment_vote_cells` gradings, read as `alignment_score_events` is; omitted while none",
+          "title": "Alignment Vote Events"
         },
         "alignment_vote_model_accuracy": {
           "anyOf": [

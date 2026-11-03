@@ -16457,27 +16457,33 @@ freeze commit is recorded here.
   (forward, made within `CLEAN_LAG_DAYS` of its grant) made before the
   decision, and the decision's October Term has a frozen fit in
   `data/merits-alignment/alignment-fits.json` with a transform, made before
-  the decision. Every other grading has no reading; a backtest is never read
-  on the board.
+  the decision; and the grading's stamped Brier reproduces, within
+  `BRIER_REPRODUCTION_TOLERANCE`, from its scored prediction on the current
+  outcome. Every other grading has no reading; a backtest is never read on
+  the board.
   - `alignment_score_brier`: the Brier, on the cell's disturbed binary, of
     the fit's transform of the code's score read as P(disturbed) (the
     transformed P(the conservative side prevails) where the conservative side
     is the petitioner, its complement where the respondent), beside
     `alignment_score_model_brier`, the forecasts' own mean Brier over exactly
-    those `alignment_score_cells` gradings, and `alignment_fit_replay_share`,
-    the mean contamination-risk share of the fits read;
+    those `alignment_score_cells` gradings, `alignment_score_events`, their
+    distinct decisions and the baseline's sample size, and
+    `alignment_fit_replay_share`, the mean contamination-risk share of the
+    transform codes of the fits read;
   - `alignment_vote_accuracy`: over the `vote_cells_scored` gradings whose
     fit has a spread and places every sitting Justice, the exact-vote
     accuracy of the vote model's calls (`majority` on its predicted winner's
     side, `dissent` otherwise; a tie goes to the respondent), beside
     `alignment_vote_model_accuracy` over exactly those `alignment_vote_cells`
-    gradings.
+    gradings, with `alignment_vote_events`, their distinct decisions. An
+    outcome with two rows for one Justice has no reading.
 
   Each baseline's population is its own, and the forecasts' figure beside it
   is taken over that population, never the stratum's. No figure is a rank
   key, and every field is omitted while null. The board reads the codes
   without the argument date, which no committed record carries, so a code is
-  clean here on its mode and lag alone. The rule is registered before any
+  clean here on its mode and lag alone, a superset of the readout's clean
+  set. The rule is registered before any
   figure it governs exists: at `origin/staging` `9773fca23` and `origin/main`
   `d2514da92`, none of the 1,827 committed evaluations is on a merits
   moment, none of the 14,139 committed outcomes carries a complete vote

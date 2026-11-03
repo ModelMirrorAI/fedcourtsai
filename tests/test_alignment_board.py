@@ -146,6 +146,58 @@ def test_baseline_four_calls_each_sitting_justice_relative_to_the_predicted_winn
     assert unplaced is not None and unplaced.vote_accuracy is None
 
 
+def _with_votes(votes: dict[str, VoteValue]) -> Outcome:
+    outcome = _outcome()
+    return outcome.model_copy(
+        update={"votes": [JusticeVote(justice=j, vote=v) for j, v in votes.items()]}
+    )
+
+
+def test_an_even_benchs_predicted_tie_goes_to_the_respondent() -> None:
+    # Score one half, wide spread: the four above the bench's median go conservative, four not.
+    sitting = ("Thomas", "Alito", "Gorsuch", "Kavanaugh", "Barrett", "Roberts", "Kagan", "Jackson")
+    realized = {j: VoteValue.majority if j in sitting[:4] else VoteValue.dissent for j in sitting}
+    outcome = _with_votes(realized)
+    wide = _fit(k=8.0, k_at_grid_edge=True, transform=[[0.0, 0.5]])
+    # A conservative respondent wins the tie, so the four conservatives are the majority.
+    respondent = read_cell(
+        _inputs(_code(conservative_side=AlignmentSide.respondent), wide),
+        outcome,
+        votes_complete=True,
+    )
+    assert respondent is not None and respondent.vote_accuracy == pytest.approx(1.0)
+    # A conservative petitioner loses it, so every call is reversed.
+    petitioner = read_cell(_inputs(fit=wide), outcome, votes_complete=True)
+    assert petitioner is not None and petitioner.vote_accuracy == pytest.approx(0.0)
+
+
+def test_a_recused_justice_needs_no_position_and_a_partial_vote_is_a_miss() -> None:
+    votes = {j: VoteValue.majority for j in _SITTING}
+    votes["Kagan"] = VoteValue.recused
+    votes["Barrett"] = VoteValue.concur_in_judgment
+    partial = {j: x for j, x in BENCH.items() if j != "Kagan"}
+    reading = read_cell(
+        _inputs(fit=_fit(positions=partial)), _with_votes(votes), votes_complete=True
+    )
+    assert reading is not None
+    # Seven sitting (Kagan recused): every call `majority`, Barrett's concurrence a miss.
+    assert reading.vote_accuracy == pytest.approx(6 / 7)
+
+
+def test_two_rows_for_one_justice_have_no_vote_reading() -> None:
+    outcome = _outcome()
+    doubled = outcome.model_copy(
+        update={
+            "votes": [
+                *outcome.votes,
+                JusticeVote(justice="John G. Roberts, Jr.", vote=VoteValue.dissent),
+            ]
+        }
+    )
+    reading = read_cell(_inputs(), doubled, votes_complete=True)
+    assert reading is not None and reading.vote_accuracy is None
+
+
 @pytest.mark.parametrize(
     ("code", "fit"),
     [
@@ -193,11 +245,13 @@ def test_the_board_pairs_each_baseline_with_the_forecasts_over_its_own_cells() -
     )
     assert stratum is not None
     assert stratum.alignment_score_cells == 2
+    assert stratum.alignment_score_events == 2
     assert stratum.alignment_score_brier == pytest.approx(0.2)
     # The forecasts' Brier over the same two cells, not the stratum's three.
     assert stratum.alignment_score_model_brier == pytest.approx(0.15)
     assert stratum.alignment_fit_replay_share == pytest.approx(0.75)
     assert stratum.alignment_vote_cells == 1
+    assert stratum.alignment_vote_events == 1
     assert stratum.alignment_vote_accuracy == pytest.approx(0.75)
     assert stratum.alignment_vote_model_accuracy == pytest.approx(0.5)
 
@@ -217,7 +271,14 @@ def _commit(data_root: Path, code: AlignmentSideCode, fit: AlignmentTermFit) -> 
 
 def test_the_board_reads_the_committed_codes_and_fits(tmp_path: Path) -> None:
     data_root = tmp_path / "data"
-    ev = _evaluation("alpha", case_id="scotus/1", event_id=_MERITS_EVENT_ID, prediction_run_id="p1")
+    # Stamped as the fixture prediction's 0.7 scores against a disturbed outcome.
+    ev = _evaluation(
+        "alpha",
+        case_id="scotus/1",
+        event_id=_MERITS_EVENT_ID,
+        prediction_run_id="p1",
+        brier_score=0.09,
+    )
     full = [JusticeVote(justice=n, vote=VoteValue.majority) for n in _SITTING]
     _write_voting_cell(data_root, ev, predicted=full, complete=True)
     cells = [_forward(ev, Stage.merits)]
@@ -240,3 +301,22 @@ def test_a_fit_made_after_the_decision_is_not_read_by_the_board(tmp_path: Path) 
     cells = [_forward(ev, Stage.merits)]
     assert vote_scores(cells, data_root)[_evaluation_key(ev)].alignment is None
     assert _evaluation_key(ev) not in skill_components(cells, data_root, None)
+
+
+def test_a_stamped_brier_that_no_longer_reproduces_has_no_baseline_three(tmp_path: Path) -> None:
+    """A grading taken against an outcome since corrected would pair unlike binaries."""
+    data_root = tmp_path / "data"
+    # The fixture prediction says 0.7 against a disturbed outcome: 0.09, not the stamped 0.5.
+    ev = _evaluation(
+        "alpha",
+        case_id="scotus/1",
+        event_id=_MERITS_EVENT_ID,
+        prediction_run_id="p1",
+        brier_score=0.5,
+    )
+    full = [JusticeVote(justice=n, vote=VoteValue.majority) for n in _SITTING]
+    _write_voting_cell(data_root, ev, predicted=full, complete=True)
+    _commit(data_root, _code(), _fit())
+    assert _evaluation_key(ev) not in skill_components(
+        [_forward(ev, Stage.merits)], data_root, None
+    )

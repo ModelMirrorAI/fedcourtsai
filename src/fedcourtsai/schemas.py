@@ -4428,6 +4428,13 @@ class LeaderboardStratum(_Strict):
         "denominator of `alignment_score_brier` and `alignment_score_model_brier`; omitted "
         "while none",
     )
+    alignment_score_events: int | None = Field(
+        default=None,
+        ge=1,
+        description="The distinct decisions behind the `alignment_score_cells` gradings: the "
+        "baseline's sample size, since a decision graded at several moments or by several "
+        "panels carries one identical reading per grading; omitted while none",
+    )
     alignment_score_brier: float | None = Field(
         default=None,
         ge=0.0,
@@ -4450,7 +4457,9 @@ class LeaderboardStratum(_Strict):
         description="Over the `alignment_score_cells` gradings, the mean share of their fits' "
         "transform codes that carry the contamination-risk flag. A transform fitted on codes "
         "made after their decisions can be sharper than grant-time scores warrant, which "
-        "scores the baseline worse and a forecast's lift over it larger; omitted while null",
+        "scores the baseline worse and a forecast's lift over it larger. It covers the "
+        "transform's codes; the spread is fitted on a subset of the same Terms' codes, at that "
+        "transform. Pooled across Terms where the gradings span several; omitted while null",
     )
     alignment_vote_cells: int | None = Field(
         default=None,
@@ -4459,6 +4468,12 @@ class LeaderboardStratum(_Strict):
         "baseline-4 reading: a fitted spread and a position for every sitting Justice. The "
         "denominator of `alignment_vote_accuracy` and `alignment_vote_model_accuracy`; "
         "omitted while none",
+    )
+    alignment_vote_events: int | None = Field(
+        default=None,
+        ge=1,
+        description="The distinct decisions behind the `alignment_vote_cells` gradings, read "
+        "as `alignment_score_events` is; omitted while none",
     )
     alignment_vote_accuracy: float | None = Field(
         default=None,
@@ -4499,7 +4514,7 @@ class LeaderboardStratum(_Strict):
             handler(self), reasoning_quality_rubrics=self.reasoning_quality_rubrics
         )
         if isinstance(payload, dict):
-            for name in _VOTE_FLOOR_FIELDS:
+            for name in _MERITS_BASELINE_FIELDS:
                 if payload.get(name, 0) is None:
                     payload.pop(name)
         return payload
@@ -4568,16 +4583,18 @@ _MIXED_SIGNATURE_DESCRIPTION = (
 
 #: The merits baseline fields a stratum omits while null, so a board with no
 #: merits cell scored serializes without them.
-_VOTE_FLOOR_FIELDS: Final = (
+_MERITS_BASELINE_FIELDS: Final = (
     "vote_events_scored",
     "unanimity_vote_accuracy",
     "majority_alignment_vote_accuracy",
     "vote_accuracy_lift",
     "alignment_score_cells",
+    "alignment_score_events",
     "alignment_score_brier",
     "alignment_score_model_brier",
     "alignment_fit_replay_share",
     "alignment_vote_cells",
+    "alignment_vote_events",
     "alignment_vote_accuracy",
     "alignment_vote_model_accuracy",
 )
