@@ -23991,8 +23991,16 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [],
-      "scheduled": null,
+      "schedule": [
+        {
+          "date": "2026-11-13",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-11-13",
+        "kind": "conference"
+      },
       "score_max": 0.63,
       "score_min": 0.42,
       "score_range": 0.21,
@@ -24791,8 +24799,16 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [],
-      "scheduled": null,
+      "schedule": [
+        {
+          "date": "2026-11-13",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-11-13",
+        "kind": "conference"
+      },
       "score_max": 0.57,
       "score_min": 0.45,
       "score_range": 0.12,
@@ -31106,7 +31122,12 @@
       "n": 3,
       "other_party": null,
       "outcome_lines": null,
-      "schedule": [],
+      "schedule": [
+        {
+          "date": "2027-01-19",
+          "kind": "argument"
+        }
+      ],
       "scheduled": null,
       "score_max": 0.56,
       "score_min": 0.3,
@@ -33894,8 +33915,16 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [],
-      "scheduled": null,
+      "schedule": [
+        {
+          "date": "2026-11-13",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-11-13",
+        "kind": "conference"
+      },
       "score_max": 0.42,
       "score_min": 0.3,
       "score_range": 0.12,
@@ -37801,7 +37830,12 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [],
+      "schedule": [
+        {
+          "date": "2026-11-25",
+          "kind": "response_due"
+        }
+      ],
       "scheduled": null,
       "score_max": 0.4,
       "score_min": 0.18,
@@ -45667,7 +45701,12 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [],
+      "schedule": [
+        {
+          "date": "2026-11-25",
+          "kind": "response_due"
+        }
+      ],
       "scheduled": null,
       "score_max": 0.22,
       "score_min": 0.03,
@@ -49082,7 +49121,12 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [],
+      "schedule": [
+        {
+          "date": "2026-11-16",
+          "kind": "response_due"
+        }
+      ],
       "scheduled": null,
       "score_max": 0.03,
       "score_min": 0.01,
