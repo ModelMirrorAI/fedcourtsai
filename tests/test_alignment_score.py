@@ -76,6 +76,7 @@ def _code(
     side: AlignmentSide = AlignmentSide.petitioner,
     replay: bool = True,
     term: int = 2023,
+    valence: AlignmentValence = AlignmentValence.clear,
 ) -> AlignmentSideCode:
     granted = date(term, 11, 1)
     return AlignmentSideCode(
@@ -84,7 +85,7 @@ def _code(
         granted=granted,
         conservative_side=side,
         score=score,
-        valence=AlignmentValence.clear,
+        valence=valence,
         note="Test.",
         mode=AlignmentCodeMode.replay if replay else AlignmentCodeMode.forward,
         contamination_risk=replay,
@@ -202,9 +203,15 @@ def test_a_lineup_joins_on_its_docket_when_it_has_no_case_link() -> None:
     assert [c.case_id for c in vote_cases([lineup], outcomes, codes)] == ["scotus/7"]
 
 
-def _record(n: int, *, ideological: bool, term: int) -> tuple[AlignmentSideCode, MeritsLineup]:
+def _record(
+    n: int,
+    *,
+    ideological: bool,
+    term: int,
+    valence: AlignmentValence = AlignmentValence.clear,
+) -> tuple[AlignmentSideCode, MeritsLineup]:
     """A case coded 0.8 whose conservative petitioner wins, 6-3 or 9-0."""
-    code = _code(n, score=0.8, term=term)
+    code = _code(n, score=0.8, term=term, valence=valence)
     votes = _bench(Sotomayor=D, Kagan=D, Jackson=D) if ideological else _bench()
     return code, _lineup(term, str(n), votes, case_id=code.case_id)
 
@@ -479,3 +486,51 @@ def test_the_cli_reads_lineups_from_the_first_coded_decision_term(
     assert seen == {"first_term": 2021 - 3, "last_term": 2025}
     # A judgment outside the vocabulary is counted and left out, not fatal.
     assert "1 with a judgment outside the vocabulary" in result.output
+
+
+def test_every_fit_is_also_fitted_on_each_valence_alone() -> None:
+    codes: list[AlignmentSideCode] = []
+    lineups: list[MeritsLineup] = []
+    judgments: dict[str, tuple[Judgment, date]] = {}
+    n = 0
+    for term in (2022, 2023):
+        # Each Term: 40 clear cases split 6-3, and 40 with no valence decided 9-0.
+        for ideological, valence in (
+            (True, AlignmentValence.clear),
+            (False, AlignmentValence.none),
+        ):
+            for _ in range(40):
+                n += 1
+                code, lineup = _record(n, ideological=ideological, term=term, valence=valence)
+                codes.append(code)
+                lineups.append(lineup)
+                judgments[code.case_id] = (Judgment.reversed, date(term + 1, 6, 1))
+    codes.sort(key=lambda c: c.case_id)
+    positions = _positions({2021: BENCH, 2022: BENCH, 2023: BENCH})
+    readout = score_readout(
+        codes, judgments, lineups, first_term=2023, last_term=2023, positions=positions
+    )
+    [ot2023] = readout.terms
+    split = {v.valence: v for v in ot2023.by_valence}
+    assert list(split) == [AlignmentValence.clear, AlignmentValence.weak, AlignmentValence.none]
+    clear, weak, none = split.values()
+    assert (clear.decisions, weak.decisions, none.decisions) == (40, 0, 40)
+    assert clear.call_hits == none.call_hits == 40
+    assert weak.brier_raw is None and weak.k_out_of_sample is None
+    # The clear cases' own spread is the 6-3s', the no-valence cases' the 9-0s',
+    assert clear.k_out_of_sample is not None and clear.k_out_of_sample >= 4
+    assert clear.k_in_sample is not None and clear.k_in_sample >= 4
+    assert none.k_out_of_sample == none.k_in_sample == 0.0
+    # and the pooled spread sits between them.
+    pooled = ot2023.votes_out_of_sample
+    assert pooled is not None and pooled.k is not None
+    assert 0.0 < pooled.k < clear.k_out_of_sample
+
+
+def test_the_valence_split_fits_no_spread_without_positions() -> None:
+    codes = [_code(n, score=0.8, term=2023) for n in range(1, 41)]
+    judgments = {c.case_id: (Judgment.reversed, date(2024, 6, 1)) for c in codes}
+    readout = score_readout(codes, judgments, [], first_term=2023, last_term=2023)
+    [clear, _, _] = readout.terms[0].by_valence
+    assert clear.decisions == 40
+    assert clear.k_out_of_sample is None and clear.k_in_sample is None
