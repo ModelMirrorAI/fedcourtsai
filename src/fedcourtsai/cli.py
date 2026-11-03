@@ -7122,6 +7122,29 @@ def alignment_fit_cmd(
     typer.echo(f"alignment-fit: wrote {out}.", err=True)
 
 
+@app.command("assert-alignment-fits")
+def assert_alignment_fits_cmd(
+    after: Annotated[Path, typer.Option("--after", help="The fits file a writer would publish.")],
+    before: Annotated[
+        Path | None,
+        typer.Option("--before", help="The committed fits file it replaces; omit when none."),
+    ] = None,
+) -> None:
+    """Refuse a fits file that does more than add one Term's fit to the committed one.
+
+    The fit writer's check on its own output (`pipeline/alignment_fits.py`):
+    every committed entry carried unchanged and exactly one Term added. Prints
+    the added Term to stdout; a refusal or an unreadable file exits 1.
+    """
+    try:
+        prior = read_model(before, AlignmentFits) if before is not None else None
+        term = alignment_fits.assert_appended(prior, read_model(after, AlignmentFits))
+    except (OSError, ValueError) as exc:
+        typer.echo(f"assert-alignment-fits: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(str(term))
+
+
 @app.command("backfill-opinion-record")
 def backfill_opinion_record_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a CLI entrypoint; options map 1:1 to inputs
     first_term: Annotated[

@@ -6,6 +6,7 @@ workflows the PR runs. PRs into ``main`` from the bot lanes — the collect run
 branches, ``cleanup/*``, ``metrics/refresh``, ``metrics/cert-backtest``,
 ``metrics/salience-replay``, ``qp-topics/refresh``,
 ``qp-topics/applications-refresh``, ``merits-alignment/side-codes``,
+``merits-alignment/fits``,
 ``summaries/refresh`` — are
 cut **from** ``main``, so they run ``main``'s own workflow files. Requiring a
 context that no workflow on that branch produces leaves every such PR pending

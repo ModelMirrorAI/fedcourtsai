@@ -12,6 +12,7 @@ from fedcourtsai import corpus
 from fedcourtsai.cli import app
 from fedcourtsai.pipeline.alignment_fits import (
     AlignmentFitError,
+    assert_appended,
     calibration_of,
     frozen_fit,
     publish_fit,
@@ -263,3 +264,33 @@ def test_the_cli_refuses_a_missing_codes_file(
     result = runner.invoke(app, ["alignment-fit", "--term", "2026"])
     assert result.exit_code == 1
     assert "no side codes" in result.output
+
+
+def test_the_writer_check_admits_exactly_one_new_term() -> None:
+    one = publish_fit(None, _fit(2025))
+    two = publish_fit(one, _fit(2026))
+    assert assert_appended(None, one) == 2025
+    assert assert_appended(one, two) == 2026
+    with pytest.raises(AlignmentFitError, match="exactly one"):
+        assert_appended(one, one)
+    with pytest.raises(AlignmentFitError, match="exactly one"):
+        assert_appended(None, two)
+    revised = AlignmentFits(entries=[_fit(2025, k=2.0), _fit(2026)])
+    with pytest.raises(AlignmentFitError, match="never revised"):
+        assert_appended(one, revised)
+
+
+def test_the_writer_check_cli(tmp_path: Path) -> None:
+    before, after = tmp_path / "before.json", tmp_path / "after.json"
+    one = publish_fit(None, _fit(2025))
+    before.write_text(one.model_dump_json())
+    after.write_text(publish_fit(one, _fit(2026)).model_dump_json())
+    ok = runner.invoke(
+        app, ["assert-alignment-fits", "--before", str(before), "--after", str(after)]
+    )
+    assert ok.exit_code == 0, ok.output
+    assert ok.stdout.strip() == "2026"
+    refused = runner.invoke(
+        app, ["assert-alignment-fits", "--before", str(after), "--after", str(before)]
+    )
+    assert refused.exit_code == 1

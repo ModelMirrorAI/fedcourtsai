@@ -115,17 +115,30 @@ run-name: "run-analytics: ${{ github.event_name == 'workflow_dispatch' && inputs
 #                      and CourtListener (the read-only role and the token),
 #                      writes nothing, buys nothing (no RECAP Fetch), and
 #                      leaves its report as a run artifact.
+#   - alignment-fit:   freeze the current October Term's score-baseline fit
+#                      (`fedcourts alignment-fit`, `docs/merits-alignment-baseline.md`,
+#                      *The frozen fits*): the outcome transform, the spread
+#                      and the prior Term's positions, fitted on every decision
+#                      made before the Term opened, stamped with the day it
+#                      runs. A Term already fitted publishes nothing. One job
+#                      reads the corpus with the read-only role and holds no
+#                      write credential; another, holding the App token and no
+#                      corpus role, checks the file only adds that one Term
+#                      (`fedcourts assert-alignment-fits`) and lands it as a
+#                      reviewed PR on its own fixed branch. Dispatched once a
+#                      Term, before its first merits decision.
 #
 # The read-only analysis modes (corpus-stats, text-coverage, tool-usage, order-scan, decision-below) write neither the
 # corpus, `data/`, the corpus remote, nor git, open no PR, and file no issue — every
 # result goes to the Actions step summary and the run log, and text-coverage's ledgers
 # additionally to a run artifact, because a worklist has to outlive the summary page
-# it is read beside — as do order-scan's and decision-below's reports. The five committing modes write only under their own
+# it is read beside — as do order-scan's and decision-below's reports. The six committing modes write only under their own
 # paths — metrics-refresh under `metrics/` + `data/scope/`, big-cases under
 # `metrics/big-cases.*`, public-updates under `metrics/updates/`, qp-topic-label
 # under `data/qp-topics/` (the labels file and the run's spend record under
 # `data/qp-topics/spend/`), alignment-side-code under `data/merits-alignment/`
-# (its spend record in the same `data/qp-topics/spend/` ledger) — and land the change as a PR to `main`, reviewed
+# (its spend record in the same `data/qp-topics/spend/` ledger), alignment-fit
+# the one file `data/merits-alignment/alignment-fits.json` — and land the change as a PR to `main`, reviewed
 # except for the board's and the update history's (argued at those jobs).
 # GitHub scopes permissions and tokens per **job**, so each mode runs as its own
 # least-privilege job gated on `mode` and none is ever granted another's credential:
@@ -224,6 +237,7 @@ on:
           - alignment-side-code
           - order-scan
           - decision-below
+          - alignment-fit
         default: corpus-stats
       label_model:
         description: "Labeling modes only (qp-topic-label, qp-topic-label-applications, the two qp-topic-replicate modes, alignment-side-code): the agent's model."
@@ -3630,6 +3644,224 @@ jobs:
           # (docs/security.md). The counts themselves are on the summary page.
           retention-days: 1
 
+  alignment-fit:
+    needs: [authorize]
+    # The current October Term's frozen score-baseline fit
+    # (`fedcourts alignment-fit`, `pipeline/alignment_fits.py`): read-only
+    # against the corpus, which it pulls with the read-only role for the
+    # merits judgments and lineups, and against the committed side codes and
+    # fits. It holds no write credential and opens nothing; the file it writes
+    # crosses to the publish job as an artifact. A Term the committed file
+    # already holds is refused by the command (exit 2), which is this job's
+    # "nothing owed", so a second dispatch once the Term's fit is on `main`
+    # publishes nothing; while its PR is open, the publish job refuses one.
+    if: >-
+      ${{ inputs.mode == 'alignment-fit'
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
+    runs-on: ubuntu-26.04
+    # The pull, then a few minutes of fitting.
+    timeout-minutes: 30
+    environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
+    concurrency:
+      group: run-analytics-alignment-fit-${{ github.ref_name }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write # assume the read-only AWS role to pull the corpus
+    outputs:
+      owed: ${{ steps.fit.outputs.owed }}
+      term: ${{ steps.fit.outputs.term }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
+
+      - uses: ./.github/actions/corpus-readonly
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
+          aws-region: ${{ vars.AWS_REGION }}
+          corpus-base-url: ${{ vars.CORPUS_BASE_URL }}
+          # Forwarded only off `main`, as corpus-stats states.
+          corpus-pointer: ${{ github.ref_name != 'main' && vars.FEDCOURTS_CORPUS_POINTER || '' }}
+
+      - name: Fit the current Term
+        id: fit
+        env:
+          FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
+        run: |
+          set -euo pipefail
+          # The Term today falls in, by the same rule every reader keys a
+          # decision's Term on.
+          term=$(uv run python -I -c 'from datetime import UTC, datetime; from fedcourtsai.supremecourt import october_term_year; print(october_term_year(datetime.now(UTC).date()))')
+          echo "term=${term}" >> "$GITHUB_OUTPUT"
+          mkdir -p "$RUNNER_TEMP/alignment-fit"
+          out="$RUNNER_TEMP/alignment-fit/alignment-fits.json"
+          summary="$RUNNER_TEMP/alignment-fit-summary.txt"
+          status=0
+          uv run fedcourts alignment-fit --term "$term" --out "$out" 2> "$summary" || status=$?
+          {
+            echo "## alignment-fit — OT${term}, $(date -u +%Y-%m-%d)"
+            echo '```'
+            cat "$summary"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          cat "$summary"
+          if [ "$status" -eq 2 ] && grep -q 'already fitted' "$summary"; then
+            echo "owed=false" >> "$GITHUB_OUTPUT"
+            echo "OT${term} is already fitted; nothing to publish." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          if [ "$status" -ne 0 ]; then
+            exit "$status"
+          fi
+          echo "owed=true" >> "$GITHUB_OUTPUT"
+
+      # One day: the publish job reads it within minutes, and the PR is the
+      # record. Fitted figures and Justice positions only, no corpus text.
+      - name: Hand the fits file to the publish job
+        if: ${{ steps.fit.outputs.owed == 'true' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: alignment-fit
+          path: ${{ runner.temp }}/alignment-fit/alignment-fits.json
+          if-no-files-found: error
+          retention-days: 1
+
+  alignment-fit-publish:
+    needs: [authorize, alignment-fit]
+    # Lands the fit as a reviewed PR to `main`, never auto-merged: a fit is a
+    # pre-registration the board scores a whole Term by, so a maintainer reads
+    # it before it is on record. No corpus role. The handed-off file is held
+    # to the committed one by `assert-alignment-fits` (every committed entry
+    # unchanged, exactly one Term added) and to the schema by its read, on a
+    # runner that wrote nothing of it.
+    if: >-
+      ${{ needs.alignment-fit.outputs.owed == 'true'
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
+    concurrency:
+      group: run-analytics-alignment-fit-publish-${{ github.ref_name }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
+
+      - name: Download the fits file
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: alignment-fit
+          path: ${{ runner.temp }}/alignment-fit
+
+      - name: Check the fits file adds one Term and nothing else
+        id: check
+        env:
+          FITS: data/merits-alignment/alignment-fits.json
+        run: |
+          set -euo pipefail
+          handed="$RUNNER_TEMP/alignment-fit/alignment-fits.json"
+          if [ -L "$handed" ] || [ ! -f "$handed" ]; then
+            echo "::error::the handed-off fits file is not a regular file; refusing it"
+            exit 1
+          fi
+          before=()
+          if [ -f "$FITS" ]; then
+            before=(--before "$FITS")
+          fi
+          term=$(uv run fedcourts assert-alignment-fits "${before[@]}" --after "$handed")
+          mkdir -p "$(dirname "$FITS")"
+          cp "$handed" "$FITS"
+          echo "term=${term}" >> "$GITHUB_OUTPUT"
+
+      - name: Mint app token
+        if: ${{ github.ref == 'refs/heads/main' }}
+        id: app-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.DEV_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DEV_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Configure git identity
+        if: ${{ github.ref == 'refs/heads/main' }}
+        uses: ./.github/actions/configure-git-identity
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          app-slug: ${{ steps.app-token.outputs.app-slug }}
+
+      # A fixed branch, opened against `main` and never auto-merged, and never
+      # updated in place: a fit under review is not replaced. The title and body carry only the Term
+      # and jq-extracted numbers from a schema-checked file.
+      - name: Open the review PR
+        if: ${{ github.ref == 'refs/heads/main' }}
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO: ${{ github.repository }}
+          BRANCH: merits-alignment/fits
+          FIT_TERM: ${{ steps.check.outputs.term }}
+          FITS: data/merits-alignment/alignment-fits.json
+        run: |
+          set -euo pipefail
+          gh auth setup-git
+          # An open fit PR is the one the maintainer is reading: a second
+          # dispatch would refit with a new stamp and replace it under them.
+          open=$(gh pr list --repo "$REPO" --head "$BRANCH" --base main --state open \
+            --json number --jq '.[0].number // empty')
+          if [ -n "$open" ]; then
+            echo "::error::fit PR #${open} is still open; merge or close it before fitting again"
+            echo "Fit PR #${open} is still open; nothing published. Merge or close it, then dispatch again if a fit is still owed." \
+              >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          git add "$FITS"
+          entry=".entries[] | select(.term == (env.FIT_TERM | tonumber))"
+          decisions=$(jq -er "${entry} | .transform_decisions | numbers" "$FITS")
+          replay=$(jq -er "${entry} | .contamination_risk | numbers" "$FITS")
+          lineups=$(jq -er "${entry} | .k_decisions | numbers" "$FITS")
+          spread=$(jq -er "${entry} | .k // \"none\"" "$FITS")
+          frozen=$(jq -er "${entry} | .frozen_on | strings" "$FITS")
+          title="data(merits-alignment): freeze the OT${FIT_TERM} score-baseline fit (run ${GITHUB_RUN_ID})"
+          {
+            printf '%s\n\n' "The frozen score-baseline fit for OT${FIT_TERM}, made ${frozen} by \`fedcourts alignment-fit\` from every decision dated before 1 October ${FIT_TERM}: the outcome transform on ${decisions} decided code(s), ${replay} of them contamination-risk (replay) codes, and the spread (${spread}) on ${lineups} coded complete lineup(s). The file is append-only: every Term \`main\` already holds is carried unchanged, which \`fedcourts assert-alignment-fits\` checked."
+            printf '%s\n\n' "Once on \`main\`, the leaderboard reads baselines 3 and 4 under this fit for OT${FIT_TERM} decisions dated after ${frozen} whose own side code is clean (\`docs/merits-alignment-baseline.md\`, *The coded baselines on the board*). Merge it before the Term's first merits decision: the board reads a decision under this fit only if the decision is dated after ${frozen}."
+            printf '%s\n' "Run: ${GITHUB_SERVER_URL}/${REPO}/actions/runs/${GITHUB_RUN_ID}"
+          } > pr-body.md
+          git checkout -q -b "$BRANCH"
+          git commit -q -m "$title"
+          # Force: a closed, unmerged fit PR leaves its branch behind.
+          git -c http.extraHeader= -c "http.https://github.com/.extraHeader=" \
+            push --force "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" \
+            "HEAD:refs/heads/${BRANCH}"
+          url=$(gh pr create --base main --head "$BRANCH" \
+            --title "$title" --body-file pr-body.md)
+          echo "Opened review PR: ${url}" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Note the rehearsal boundary (publish fenced off this ref)
+        if: ${{ github.ref != 'refs/heads/main' }}
+        env:
+          FIT_TERM: ${{ steps.check.outputs.term }}
+        run: |
+          echo "alignment-fit rehearsal: the OT${FIT_TERM} fit passed the append-only check; the PR is fenced to main-branch runs — nothing published from this dispatch." \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+
   # The run gate's verdict on the run as a whole. A refused partial re-run
   # skips every job it re-runs, which alone would leave the earlier attempt's
   # successes standing and the run concluding `success`. This job needs every
@@ -3637,7 +3869,7 @@ jobs:
   # not pass or this attempt is neither the one the gate judged nor a re-run by
   # a login the gate published. No checkout, no token, no environment.
   run-gate:
-    needs: [authorize, corpus-stats, tool-usage, text-coverage, metrics-refresh, big-cases, public-updates, qp-topic-resolve, qp-topic-extract, qp-topic-approval, qp-topic-rejected, qp-topic-label, qp-topic-publish, order-scan, decision-below]
+    needs: [authorize, corpus-stats, tool-usage, text-coverage, metrics-refresh, big-cases, public-updates, qp-topic-resolve, qp-topic-extract, qp-topic-approval, qp-topic-rejected, qp-topic-label, qp-topic-publish, order-scan, decision-below, alignment-fit, alignment-fit-publish]
     if: always()
     runs-on: ubuntu-26.04
     timeout-minutes: 5
