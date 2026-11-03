@@ -533,6 +533,29 @@ class VoteBaselineReading(BaseModel):
     fit: CodeMix | None = Field(description="The decisions the spread was fitted on")
 
 
+class ValenceReading(BaseModel):
+    """One valence's share of a Term: its readings, and the spread fitted on it alone."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    valence: AlignmentValence
+    decisions: int = Field(description="This valence's coded cases decided in the Term")
+    call_hits: int = Field(description="Its decisions whose implied call, s > 0.5, was right")
+    brier_raw: float | None = Field(description="Brier score of s itself over its decisions")
+    brier_calibrated_out_of_sample: float | None = Field(
+        description="Brier score over its decisions after the pooled out-of-sample transform"
+    )
+    k_out_of_sample: float | None = Field(
+        description="The spread fitted on this valence's earlier decisions alone, at the "
+        "pooled out-of-sample transform; null below the fit floor or without positions"
+    )
+    k_in_sample: float | None = Field(
+        description="The spread fitted on this valence's decisions in the Term alone, at the "
+        "pooled in-sample transform: a labeled ceiling; null below the fit floor or without "
+        "positions"
+    )
+
+
 class ScoreTerm(BaseModel):
     """Baselines 3 and 4 over one October Term."""
 
@@ -547,6 +570,10 @@ class ScoreTerm(BaseModel):
     votes_in_sample: VoteBaselineReading | None = Field(
         description="A labeled ceiling: the spread, the transform and the positions all from "
         "this Term. Null when no positions were given"
+    )
+    by_valence: list[ValenceReading] = Field(
+        description="The Term split by valence, clear then weak then none: every pooled fit "
+        "is also fitted on each valence alone"
     )
 
 
@@ -650,6 +677,44 @@ def _vote_reading(
     )
 
 
+def _valence_readings(
+    term: int,
+    outcomes: Sequence[OutcomeCase],
+    votes: Sequence[VoteCase],
+    positions: JusticePositions | None,
+) -> list[ValenceReading]:
+    earlier = [c for c in outcomes if c.term < term]
+    inside = [c for c in outcomes if c.term == term]
+    out_cal = fit_calibration([(c.score, c.conservative_prevailed) for c in earlier])
+    in_cal = fit_calibration([(c.score, c.conservative_prevailed) for c in inside])
+    readings = []
+    for valence in AlignmentValence:
+        scored = [c for c in inside if c.valence == valence]
+        k_out = k_in = None
+        if positions is not None:
+            own = [c for c in votes if c.valence == valence]
+            k_out = fit_spread(
+                _fit_rows([c for c in own if c.term < term], positions.prior_bench, out_cal)[0]
+            )
+            k_in = fit_spread(
+                _fit_rows([c for c in own if c.term == term], positions.bench, in_cal)[0]
+            )
+        readings.append(
+            ValenceReading(
+                valence=valence,
+                decisions=len(scored),
+                call_hits=sum((c.score > 0.5) == c.conservative_prevailed for c in scored),
+                brier_raw=brier((c.score, c.conservative_prevailed) for c in scored),
+                brier_calibrated_out_of_sample=None
+                if out_cal is None
+                else brier((out_cal.apply(c.score), c.conservative_prevailed) for c in scored),
+                k_out_of_sample=k_out,
+                k_in_sample=k_in,
+            )
+        )
+    return readings
+
+
 def score_readout(
     codes: Sequence[AlignmentSideCode],
     judgments: Mapping[str, tuple[Judgment, date]],
@@ -695,6 +760,7 @@ def score_readout(
                 lineups=len(scored_votes),
                 votes_out_of_sample=out_vote,
                 votes_in_sample=in_vote,
+                by_valence=_valence_readings(term, outcomes, votes, positions),
             )
         )
     return ScoreReadout(

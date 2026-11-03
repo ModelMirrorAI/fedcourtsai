@@ -6883,8 +6883,52 @@ def alignment_positions_cmd(
     typer.echo(table.model_dump_json())
 
 
+def _echo_score_readout(readout: alignment_score.ScoreReadout, unread: int) -> None:
+    """Print the score readout's per-Term lines to stderr."""
+
+    def _num(value: float | None, spec: str) -> str:
+        return "-" if value is None else format(value, spec)
+
+    typer.echo(
+        f"alignment-score-baseline: {readout.codes} code(s), {readout.decided} decided, "
+        f"{unread} with a judgment outside the vocabulary left out; "
+        f"positions {readout.positions_source or 'not given'}",
+        err=True,
+    )
+    for term in readout.terms:
+        o = term.outcome
+        typer.echo(
+            f"OT{term.term}: {o.decisions} decided ({o.scored.contamination_risk} replay); "
+            f"call {o.call_hits}/{o.decisions}, Brier raw {_num(o.brier_raw, '.3f')}, "
+            f"calibrated out {_num(o.brier_calibrated_out_of_sample, '.3f')}, "
+            f"in {_num(o.brier_calibrated_in_sample, '.3f')}",
+            err=True,
+        )
+        for label, votes in (
+            ("out of sample", term.votes_out_of_sample),
+            ("in sample", term.votes_in_sample),
+        ):
+            if votes is None:
+                continue
+            typer.echo(
+                f"  votes {label}: k {_num(votes.k, 'g')}, {votes.decisions} of {term.lineups} "
+                f"lineups; justice {_num(votes.justice_accuracy, '.1%')}, exact split "
+                f"{_num(votes.exact_split_accuracy, '.1%')}, full coalition "
+                f"{_num(votes.full_coalition_accuracy, '.1%')}",
+                err=True,
+            )
+        for v in term.by_valence:
+            typer.echo(
+                f"  {v.valence.value}: call {v.call_hits}/{v.decisions}, Brier raw "
+                f"{_num(v.brier_raw, '.3f')}, calibrated out "
+                f"{_num(v.brier_calibrated_out_of_sample, '.3f')}; k out "
+                f"{_num(v.k_out_of_sample, 'g')}, in {_num(v.k_in_sample, 'g')}",
+                err=True,
+            )
+
+
 @app.command("alignment-score-baseline")
-def alignment_score_baseline_cmd(  # noqa: PLR0912 - a CLI entrypoint; each exit is one documented refusal
+def alignment_score_baseline_cmd(
     first_term: Annotated[
         int, typer.Option("--first-term", help="First decision Term to score.")
     ] = 2022,
@@ -6989,37 +7033,7 @@ def alignment_score_baseline_cmd(  # noqa: PLR0912 - a CLI entrypoint; each exit
         positions=table,
     )
 
-    def _num(value: float | None, spec: str) -> str:
-        return "-" if value is None else format(value, spec)
-
-    typer.echo(
-        f"alignment-score-baseline: {readout.codes} code(s), {readout.decided} decided, "
-        f"{unread} with a judgment outside the vocabulary left out; "
-        f"positions {readout.positions_source or 'not given'}",
-        err=True,
-    )
-    for term in readout.terms:
-        o = term.outcome
-        typer.echo(
-            f"OT{term.term}: {o.decisions} decided ({o.scored.contamination_risk} replay); "
-            f"call {o.call_hits}/{o.decisions}, Brier raw {_num(o.brier_raw, '.3f')}, "
-            f"calibrated out {_num(o.brier_calibrated_out_of_sample, '.3f')}, "
-            f"in {_num(o.brier_calibrated_in_sample, '.3f')}",
-            err=True,
-        )
-        for label, votes in (
-            ("out of sample", term.votes_out_of_sample),
-            ("in sample", term.votes_in_sample),
-        ):
-            if votes is None:
-                continue
-            typer.echo(
-                f"  votes {label}: k {_num(votes.k, 'g')}, {votes.decisions} of {term.lineups} "
-                f"lineups; justice {_num(votes.justice_accuracy, '.1%')}, exact split "
-                f"{_num(votes.exact_split_accuracy, '.1%')}, full coalition "
-                f"{_num(votes.full_coalition_accuracy, '.1%')}",
-                err=True,
-            )
+    _echo_score_readout(readout, unread)
     typer.echo(readout.model_dump_json())
 
 

@@ -263,6 +263,12 @@ uv run fedcourts alignment-score-baseline --first-term 2022 --last-term 2025
   the case's judgment Term is left out.
 - **What travels with each fit.** The codes it read, counted by the
   contamination-risk flag and by valence.
+- **The valence split.** Each Term is also read per valence (`by_valence`):
+  that valence's call and its raw and out-of-sample Brier, under the pooled
+  transform, and the spread `k` fitted on that valence's decisions alone,
+  out of sample and in sample, under the same floor. A pooled `k` well below
+  the `clear` cases' own is the forced-call drag *Valence in the fits*
+  describes.
 
 ## The positions
 
@@ -356,8 +362,9 @@ committed artifact and its append-only publish step (`fedcourts
 alignment-side-codes`), and the run mode that executes them; and, for
 baselines 3 and 4, the outcome transform, the vote model, the fit of `k` and
 their read-only readout (`fedcourts alignment-score-baseline`, *The fits*,
-above), with positions estimated from the lineups (`fedcourts
-alignment-positions`, *The positions*, above).
+above) with its valence split, positions estimated from the lineups
+(`fedcourts alignment-positions`, *The positions*, above), and the first
+production run's codes on `main`.
 
 The run mode is `run-analytics` `alignment-side-code`, the topic-labeling
 lane's third frame ([pipeline.md](pipeline.md)), dispatched or on a weekly
@@ -374,15 +381,16 @@ the labeling lane's spend ledger. The codes reach `main` as a reviewed PR on
 the fixed branch `merits-alignment/side-codes`, so the first run's 302 codes
 are read by a maintainer before any fit reads them.
 
+The first production run coded the whole frame, so its codes on decided
+cases are all replay codes, and its forward codes on the earlier grants were
+made past `CLEAN_LAG_DAYS`. Every figure the readout gives over them rests on
+contamination-risk codes, which the counts beside each fit show, so none is
+yet the baseline's grant-time strength.
+
 Owed, in order:
 
-- **The first run.** A rehearsal from `staging`, which publishes nothing,
-  then the production run on `main`; its spend record re-anchors the
-  provisional rate.
-- **Baselines 3 and 4: the first fits.** The fits split by valence, of which
-  the readout carries only the counts; the clean check, a
-  fit on clean codes only; and the first readout, once the first production
-  run's codes are on `main`, each with a `stats-reviewer` pass.
+- **The clean check.** The readout restricted to clean codes, once enough of
+  them are decided, with a `stats-reviewer` pass.
 - **Scoring beside the models.** Baseline records at the same merits moments
   as the models, scored in the leaderboard's merits blocks under the
   leaderboard's own vote rule and labeled as baselines, which also discharges
