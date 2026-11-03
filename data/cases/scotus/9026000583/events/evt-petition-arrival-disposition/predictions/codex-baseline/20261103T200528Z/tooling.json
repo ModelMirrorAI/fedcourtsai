@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000583",
+  "run_id": "20261103T200528Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts paths", "fedcourts query", "committed statpack", "CourtListener MCP search", "CourtListener MCP read_document", "CourtListener MCP search_document", "web search/open attempts", "fedcourts validate"],
+  "helpful": ["Frozen arrival-class cert anchor", "Exact lower-court docket lookup through MCP", "Case-level snapshot and explicit arrival conditioning"],
+  "gaps": ["No provisioned petition or questions presented", "Web calls supplied no readable result", "Long MCP opinion responses were truncated in display"],
+  "notes": "The default uv cache was read-only; --no-cache --no-sync worked without installing packages. Corrected an invalid era token to 2020s. Corpus priors were procedural metadata rather than substantive analogues."
+}

@@ -1,0 +1,102 @@
+{
+  "big_case_rationale": "Pro se suit alleging media companies used AI mind-reading via hidden cameras; dismissed as wholly insubstantial under Bell v. Hood. No stakes beyond the litigant.",
+  "big_case_score": 0.02,
+  "case_id": "scotus/9026000583",
+  "claim_distributions": [
+    {
+      "claim_id": "order-writers",
+      "probabilities": {
+        "Alito": 0.0005,
+        "Barrett": 0.0005,
+        "Gorsuch": 0.001,
+        "Jackson": 0.001,
+        "Kagan": 0.0005,
+        "Kavanaugh": 0.0005,
+        "Roberts": 0.0005,
+        "Sotomayor": 0.0015,
+        "Thomas": 0.001
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.002
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.97
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.001
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.4
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.004
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "baseline",
+    "band_refused": null,
+    "cert_anchor": {
+      "lookback_terms": 10,
+      "rate": 0.0518752467429925,
+      "statpack_digest": "sha256:25e503d614f67cd9f396993ea846302b54a24c202e68287b7c893383385e55e2"
+    },
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-11-04",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 0,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v6",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_contact_scrub": {
+      "blocks": 1,
+      "fields": 5,
+      "sides": [
+        "Petitioner"
+      ]
+    },
+    "snapshot_date": "2026-11-04",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2026,
+    "vide_links": []
+  },
+  "created_at": "2026-11-03T20:19:28.673418Z",
+  "engine": "claude-code",
+  "event_id": "evt-petition-arrival-disposition",
+  "granted": 0,
+  "input_snapshot": "2026-11-04.json",
+  "judgment": null,
+  "model": "claude-opus-5-5",
+  "predicted_disposition": "denied",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.002,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:33a3f9f8f53a2f6cb53967a60d836c3ba29f0078c12306fb8696e15d7c674978",
+    "label": "proc-v17",
+    "pipeline_sha": "ee34748bb53728463df5268329522e3abdb566b0",
+    "stamped_at": "2026-11-03T20:19:28.673418Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261103T200528Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

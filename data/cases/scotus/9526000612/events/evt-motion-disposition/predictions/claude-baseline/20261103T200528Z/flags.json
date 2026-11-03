@@ -1,0 +1,10 @@
+{
+  "case_id": "scotus/9526000612",
+  "run_id": "20261103T200528Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {"category": "provisioning", "severity": "info", "event_id": "evt-motion-disposition",
+     "message": "application.txt has empty_text: true (20-page PDF, no text layer, not OCR'd). The forecast was made without the application's content."}
+  ]
+}

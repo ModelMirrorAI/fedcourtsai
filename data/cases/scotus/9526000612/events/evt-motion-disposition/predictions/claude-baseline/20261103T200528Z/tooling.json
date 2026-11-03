@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000612",
+  "run_id": "20261103T200528Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "statpack.md", "statpack.json", "courtlistener search"],
+  "helpful": ["docket-number lookup confirming the application is pending"],
+  "gaps": ["application PDF had no text layer and no OCR fallback, so I could not see the relief sought", "finer interim counts are unread in every Term, so there is no published interim baseline"],
+  "notes": "Pro se injunction application; forecast rests on posture, not on the application text."
+}
