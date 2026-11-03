@@ -585,7 +585,9 @@ the same rule, against the same outcomes: `unanimity_vote_accuracy` and
 stronger of them. They are conditioned exactly as the predictor is, on the
 cells it was scored on, and are null unless every vote-scored grading carries
 both ([merits-alignment-baseline.md](merits-alignment-baseline.md), *The
-leaderboard's floors*).
+leaderboard's floors*). The coded vote baseline, `alignment_vote_accuracy`,
+rides beside them over its own pre-registered gradings, with the forecasts'
+accuracy over exactly those (*The coded baselines on the board*, same doc).
 
 **A check holds that prohibition, not the absence of a data source.**
 `pipeline.moments.scores_votes` is the gate, and it lives on the moments

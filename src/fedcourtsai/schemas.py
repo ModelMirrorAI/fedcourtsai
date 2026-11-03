@@ -4419,6 +4419,79 @@ class LeaderboardStratum(_Strict):
         "`vote_events_scored` decisions, not the gradings. Null exactly where the floors "
         "are; omitted while null. Never a rank key",
     )
+    alignment_score_cells: int | None = Field(
+        default=None,
+        ge=1,
+        description="Merits gradings with a pre-registered baseline-3 reading: the case's clean "
+        "side code and its decision Term's frozen fit, both made before the decision "
+        "(`pipeline.alignment_board`, specified in `docs/merits-alignment-baseline.md`). The "
+        "denominator of `alignment_score_brier` and `alignment_score_model_brier`; omitted "
+        "while none",
+    )
+    alignment_score_events: int | None = Field(
+        default=None,
+        ge=1,
+        description="The distinct decisions behind the `alignment_score_cells` gradings: the "
+        "baseline's sample size, since a decision graded at several moments or by several "
+        "panels carries one identical reading per grading; omitted while none",
+    )
+    alignment_score_brier: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Baseline 3's mean Brier on the disturbed binary over the "
+        "`alignment_score_cells` gradings: the frozen transform of the side code's score, "
+        "read as P(disturbed). A baseline, never a rank key; omitted while null",
+    )
+    alignment_score_model_brier: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="The forecasts' own mean Brier over exactly the `alignment_score_cells` "
+        "gradings, so it and `alignment_score_brier` are paired; omitted while null",
+    )
+    alignment_fit_replay_share: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Over the `alignment_score_cells` gradings, the mean share of their fits' "
+        "transform codes that carry the contamination-risk flag. A transform fitted on codes "
+        "made after their decisions can be sharper than grant-time scores warrant, which "
+        "scores the baseline worse and a forecast's lift over it larger. It covers the "
+        "transform's codes; the spread is fitted on a subset of the same Terms' codes, at that "
+        "transform. Pooled across Terms where the gradings span several; omitted while null",
+    )
+    alignment_vote_cells: int | None = Field(
+        default=None,
+        ge=1,
+        description="Of the `vote_cells_scored` gradings, those with a pre-registered "
+        "baseline-4 reading: a fitted spread and a position for every sitting Justice. The "
+        "denominator of `alignment_vote_accuracy` and `alignment_vote_model_accuracy`; "
+        "omitted while none",
+    )
+    alignment_vote_events: int | None = Field(
+        default=None,
+        ge=1,
+        description="The distinct decisions behind the `alignment_vote_cells` gradings, read "
+        "as `alignment_score_events` is; omitted while none",
+    )
+    alignment_vote_accuracy: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Baseline 4's exact-vote accuracy over the `alignment_vote_cells` "
+        "gradings, under `mean_vote_accuracy`'s rule: each sitting Justice called `majority` "
+        "when the vote model puts them on its predicted winner's side, `dissent` otherwise. "
+        "A baseline, never a rank key; omitted while null",
+    )
+    alignment_vote_model_accuracy: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="The forecasts' own participating-bench vote accuracy over exactly the "
+        "`alignment_vote_cells` gradings, paired with `alignment_vote_accuracy`; omitted "
+        "while null",
+    )
     mean_reasoning_quality: float | None = Field(
         default=None,
         ge=0.0,
@@ -4436,12 +4509,12 @@ class LeaderboardStratum(_Strict):
 
     @model_serializer(mode="wrap")
     def _omit_ungraded(self, handler: SerializerFunctionWrapHandler) -> Any:
-        """Drop the rubric readings while they list nothing, and the vote floors while null."""
+        """Drop the rubric readings while they list nothing, and the merits baselines while null."""
         payload = _omit_empty(
             handler(self), reasoning_quality_rubrics=self.reasoning_quality_rubrics
         )
         if isinstance(payload, dict):
-            for name in _VOTE_FLOOR_FIELDS:
+            for name in _MERITS_BASELINE_FIELDS:
                 if payload.get(name, 0) is None:
                     payload.pop(name)
         return payload
@@ -4508,13 +4581,22 @@ _MIXED_SIGNATURE_DESCRIPTION = (
 )
 
 
-#: The vote fields a stratum omits while null, so a board with no merits votes
-#: scored serializes as it did before they existed.
-_VOTE_FLOOR_FIELDS: Final = (
+#: The merits baseline fields a stratum omits while null, so a board with no
+#: merits cell scored serializes without them.
+_MERITS_BASELINE_FIELDS: Final = (
     "vote_events_scored",
     "unanimity_vote_accuracy",
     "majority_alignment_vote_accuracy",
     "vote_accuracy_lift",
+    "alignment_score_cells",
+    "alignment_score_events",
+    "alignment_score_brier",
+    "alignment_score_model_brier",
+    "alignment_fit_replay_share",
+    "alignment_vote_cells",
+    "alignment_vote_events",
+    "alignment_vote_accuracy",
+    "alignment_vote_model_accuracy",
 )
 
 

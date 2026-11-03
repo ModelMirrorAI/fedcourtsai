@@ -110,6 +110,7 @@ from .integrity import (
     cell_clock,
     latest_evaluations,
 )
+from .pipeline import alignment_board
 from .pipeline.alignment_baseline import floor_vote_accuracy
 from .pipeline.base_rates import prediction_base_rate, realized_band_rate, statpack_digest
 from .pipeline.evaluate import bench_vote_accuracy, brier_score, is_correct, scored_granted
@@ -359,6 +360,11 @@ class CellSkill:
     brier: float
     prior_term_baseline: float | None = None
     realized_term_baseline: float | None = None
+    #: Baseline 3's Brier on a merits cell's own binary, where the reading is
+    #: pre-registered (:func:`fedcourtsai.pipeline.alignment_board.read_cell`).
+    alignment_baseline: float | None = None
+    #: The contamination-risk share of the fit that reading was made under.
+    alignment_fit_replay_share: float | None = None
 
 
 #: How far a stamped cert ``brier_score`` may sit from the Brier recomputed off
@@ -528,6 +534,7 @@ def _aggregate(
         vote_cells_scored=len(votes),
         vote_events_scored=len({(ev.case_id, ev.event_id) for ev in voted}) or None,
         **_vote_floor_fields(votes),
+        **_alignment_fields(evals, cells, voted, votes),
         mean_reasoning_quality=_mean(
             [ev.reasoning_quality for ev in evals if ev.reasoning_quality is not None]
         ),
@@ -642,6 +649,51 @@ def _vote_floor_fields(votes: Sequence[VoteScore]) -> dict[str, float]:
         "majority_alignment_vote_accuracy": floors[1],
         "vote_accuracy_lift": model - max(floors),
     }
+
+
+def _alignment_fields(
+    evals: Sequence[Evaluation],
+    cells: Sequence[CellSkill | None],
+    voted: Sequence[Evaluation],
+    votes: Sequence[VoteScore],
+) -> dict[str, float | int]:
+    """Baselines 3 and 4 over the gradings each reads, each paired with the forecasts' own figure.
+
+    Each baseline runs over its own population — the gradings with a
+    pre-registered reading (:func:`fedcourtsai.pipeline.alignment_board.read_cell`)
+    — and the forecasts' figure beside it is taken over exactly those gradings,
+    so the pair is a paired comparison wherever the population is a subset of
+    the stratum's. A decision graded at several moments or by several panels
+    carries one baseline reading per grading, so each population's sample size
+    is its distinct decisions, published beside it. Nothing while no grading
+    has a reading.
+    """
+    fields: dict[str, float | int] = {}
+    read = [
+        (ev, c)
+        for ev, c in zip(evals, cells, strict=True)
+        if c is not None and c.alignment_baseline is not None
+    ]
+    if read:
+        n = len(read)
+        fields.update(
+            alignment_score_cells=n,
+            alignment_score_events=len({(ev.case_id, ev.event_id) for ev, _ in read}),
+            alignment_score_brier=sum(c.alignment_baseline or 0.0 for _, c in read) / n,
+            alignment_score_model_brier=sum(c.brier for _, c in read) / n,
+            alignment_fit_replay_share=sum(c.alignment_fit_replay_share or 0.0 for _, c in read)
+            / n,
+        )
+    with_baseline = [(ev, v) for ev, v in zip(voted, votes, strict=True) if v.alignment is not None]
+    if with_baseline:
+        n = len(with_baseline)
+        fields.update(
+            alignment_vote_cells=n,
+            alignment_vote_events=len({(ev.case_id, ev.event_id) for ev, _ in with_baseline}),
+            alignment_vote_accuracy=sum(v.alignment or 0.0 for _, v in with_baseline) / n,
+            alignment_vote_model_accuracy=sum(v.model for _, v in with_baseline) / n,
+        )
+    return fields
 
 
 def _floor_fields(
@@ -1452,6 +1504,7 @@ def skill_components(
     outcomes: dict[tuple[str, str], Outcome] = {}
     components: dict[EvaluationKey, CellSkill] = {}
     pack_digest = statpack_digest(statpack) if statpack is not None else None
+    inputs = alignment_board.load_inputs(data_root)
     for evaluation, _stratum, stage, _moment in cells:
         if evaluation.brier_score is None:
             continue
@@ -1467,14 +1520,44 @@ def skill_components(
         realized = _baseline_brier(
             _realized_rate(cases_dir, evaluation, stage, outcome, statpack), target
         )
-        if prior is None and realized is None:
+        reading = (
+            alignment_board.read_cell(inputs, outcome, votes_complete=False)
+            if inputs is not None
+            and stage == Stage.merits
+            and scores_votes(evaluation.event_id)
+            and _brier_reproduces(cases_dir, evaluation, outcome)
+            else None
+        )
+        if prior is None and realized is None and reading is None:
             continue
         components[_evaluation_key(evaluation)] = CellSkill(
             brier=evaluation.brier_score,
             prior_term_baseline=prior,
             realized_term_baseline=realized,
+            alignment_baseline=None if reading is None else reading.brier,
+            alignment_fit_replay_share=None if reading is None else reading.fit_replay_share,
         )
     return components
+
+
+def _brier_reproduces(cases_dir: Path, evaluation: Evaluation, outcome: Outcome) -> bool:
+    """Whether the grading's stamped Brier reproduces from its scored prediction on ``outcome``.
+
+    Within :data:`BRIER_REPRODUCTION_TOLERANCE`, as :attr:`CellFacts.brier_reproduces`
+    reads it: a baseline recomputed off the current outcome is paired with the
+    stamped Brier only where both were taken against the same binary.
+    """
+    scored = _scored_prediction(cases_dir, evaluation)
+    return (
+        scored is not None
+        and evaluation.brier_score is not None
+        and math.isclose(
+            brier_score(scored, outcome),
+            evaluation.brier_score,
+            rel_tol=0.0,
+            abs_tol=BRIER_REPRODUCTION_TOLERANCE,
+        )
+    )
 
 
 def _skill_target(
@@ -1760,6 +1843,8 @@ class VoteScore:
     model: float
     unanimity: float | None
     majority_alignment: float | None
+    #: Baseline 4 on the same outcome, where the reading is pre-registered.
+    alignment: float | None = None
 
 
 def vote_scores(cells: Iterable[StratifiedCell], data_root: Path) -> dict[EvaluationKey, VoteScore]:
@@ -1775,6 +1860,7 @@ def vote_scores(cells: Iterable[StratifiedCell], data_root: Path) -> dict[Evalua
     readable scored prediction has no score.
     """
     cases_dir = data_root / "cases"
+    inputs = alignment_board.load_inputs(data_root)
     outcomes: dict[tuple[str, str], Outcome] = {}
     scores: dict[EvaluationKey, VoteScore] = {}
     for evaluation, _stratum, _stage, _moment in cells:
@@ -1788,10 +1874,16 @@ def vote_scores(cells: Iterable[StratifiedCell], data_root: Path) -> dict[Evalua
             continue
         score = bench_vote_accuracy(scored, outcome)
         if score is not None:
+            reading = (
+                alignment_board.read_cell(inputs, outcome, votes_complete=True)
+                if inputs is not None
+                else None
+            )
             scores[_evaluation_key(evaluation)] = VoteScore(
                 model=score,
                 unanimity=floor_vote_accuracy("unanimity", outcome),
                 majority_alignment=floor_vote_accuracy("majority-alignment", outcome),
+                alignment=None if reading is None else reading.vote_accuracy,
             )
     return scores
 

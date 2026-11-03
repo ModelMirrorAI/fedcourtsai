@@ -900,6 +900,137 @@
           "title": "Accuracy Scored",
           "type": "integer"
         },
+        "alignment_fit_replay_share": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Over the `alignment_score_cells` gradings, the mean share of their fits' transform codes that carry the contamination-risk flag. A transform fitted on codes made after their decisions can be sharper than grant-time scores warrant, which scores the baseline worse and a forecast's lift over it larger. It covers the transform's codes; the spread is fitted on a subset of the same Terms' codes, at that transform. Pooled across Terms where the gradings span several; omitted while null",
+          "title": "Alignment Fit Replay Share"
+        },
+        "alignment_score_brier": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Baseline 3's mean Brier on the disturbed binary over the `alignment_score_cells` gradings: the frozen transform of the side code's score, read as P(disturbed). A baseline, never a rank key; omitted while null",
+          "title": "Alignment Score Brier"
+        },
+        "alignment_score_cells": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Merits gradings with a pre-registered baseline-3 reading: the case's clean side code and its decision Term's frozen fit, both made before the decision (`pipeline.alignment_board`, specified in `docs/merits-alignment-baseline.md`). The denominator of `alignment_score_brier` and `alignment_score_model_brier`; omitted while none",
+          "title": "Alignment Score Cells"
+        },
+        "alignment_score_events": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The distinct decisions behind the `alignment_score_cells` gradings: the baseline's sample size, since a decision graded at several moments or by several panels carries one identical reading per grading; omitted while none",
+          "title": "Alignment Score Events"
+        },
+        "alignment_score_model_brier": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The forecasts' own mean Brier over exactly the `alignment_score_cells` gradings, so it and `alignment_score_brier` are paired; omitted while null",
+          "title": "Alignment Score Model Brier"
+        },
+        "alignment_vote_accuracy": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Baseline 4's exact-vote accuracy over the `alignment_vote_cells` gradings, under `mean_vote_accuracy`'s rule: each sitting Justice called `majority` when the vote model puts them on its predicted winner's side, `dissent` otherwise. A baseline, never a rank key; omitted while null",
+          "title": "Alignment Vote Accuracy"
+        },
+        "alignment_vote_cells": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Of the `vote_cells_scored` gradings, those with a pre-registered baseline-4 reading: a fitted spread and a position for every sitting Justice. The denominator of `alignment_vote_accuracy` and `alignment_vote_model_accuracy`; omitted while none",
+          "title": "Alignment Vote Cells"
+        },
+        "alignment_vote_events": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The distinct decisions behind the `alignment_vote_cells` gradings, read as `alignment_score_events` is; omitted while none",
+          "title": "Alignment Vote Events"
+        },
+        "alignment_vote_model_accuracy": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The forecasts' own participating-bench vote accuracy over exactly the `alignment_vote_cells` gradings, paired with `alignment_vote_accuracy`; omitted while null",
+          "title": "Alignment Vote Model Accuracy"
+        },
         "always_deny_accuracy": {
           "anyOf": [
             {
