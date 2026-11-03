@@ -1,0 +1,10 @@
+{
+  "case_id": "scotus/9526000612",
+  "run_id": "20261103T203422Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {"category": "provisioning", "severity": "info", "event_id": "evt-motion-disposition", "message": "application.txt was provisioned with empty_text: true (20-page PDF, no extractable text); forecast made from the docket and base rates only."},
+    {"category": "data-quality", "severity": "info", "event_id": "evt-motion-disposition", "message": "statpack.json interim terms 2016-2025 carry finer_resolved=0 with finer_unread equal to the resolved count, so no strictly-prior finer-reading interim baseline clears the floor."}
+  ]
+}

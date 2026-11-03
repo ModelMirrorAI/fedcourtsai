@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000583",
+  "run_id": "20261103T203422Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_get_endpoint_item",
+    "mcp_courtlistener_call_endpoint",
+    "mcp_courtlistener_read_document"
+  ],
+  "helpful": [
+    "CourtListener MCP opinion lookup and read_document for the Eleventh Circuit decision below (No. 25-12004)",
+    "Pre-computed cert_anchor in record/context.json and salience band tables in metrics/statpack.md"
+  ],
+  "gaps": [],
+  "notes": "Although record/documents/ was not provisioned at the arrival moment, the lower-court docket number in the snapshot allowed exact retrieval of the Eleventh Circuit's June 4, 2026 opinion via CourtListener MCP."
+}
