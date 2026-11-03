@@ -1,0 +1,21 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9526000606",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-motion-disposition",
+      "message": "claude-baseline's reasoning gives 1,466 resolved substantive applications for Terms 2016-2025; the committed interim statpack rows sum to 1,366. The incorrect denominator affects its stated anchor and reasoning-quality assessment, not the submitted probability or the harness-computed baseline.",
+      "severity": "warning"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-motion-disposition",
+      "message": "gemini-baseline, claude-baseline, and codex-baseline describe an October 17 historical slice with an October 28 docketing header; claude-baseline and codex-baseline explicitly disclose the chronology discrepancy. Only the resolved November 3 snapshot is staged for this evaluator, so the historical header cannot be independently checked. Preserve/audit header-versus-proceedings truncation provenance. This is not evidence that the November 2 disposition reached the forward predictions.",
+      "severity": "warning"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261103T211539Z",
+  "schema_version": "1.0"
+}
