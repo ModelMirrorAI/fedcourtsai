@@ -399,7 +399,8 @@ jobs:
     # a staging commit) or a non-feature lane — the collect
     # run branches, the maintainer's cleanup sweep, the metrics-refresh /
     # cert-backtest / merits-backtest / salience-replay PRs, the qp-topic
-    # labeling runs' labels PRs (one fixed branch per frame), the case-summary lane's `summaries/refresh`
+    # labeling runs' labels PRs (one fixed branch per frame), the frozen
+    # alignment fit's PR, the case-summary lane's `summaries/refresh`
     # PR, the daily big-case board's and the weekly update history's — or a
     # `record-fill/` PR, which the `paths` jail holds to in-place fills of the
     # freeze-record placeholders `main` already carries. All are
@@ -438,6 +439,7 @@ jobs:
           github.head_ref == 'qp-topics/refresh' ||
           github.head_ref == 'qp-topics/applications-refresh' ||
           github.head_ref == 'merits-alignment/side-codes' ||
+          github.head_ref == 'merits-alignment/fits' ||
           github.head_ref == 'summaries/refresh'
         )
       )

@@ -424,6 +424,12 @@ uv run fedcourts alignment-fit --term 2027                    # print the entry
 uv run fedcourts alignment-fit --term 2027 --out data/merits-alignment/alignment-fits.json
 ```
 
+Each Term's entry reaches `main` through the `run-analytics` `alignment-fit`
+mode ([pipeline.md](pipeline.md)), dispatched once a Term after it opens and
+before its first merits decision: it runs the command on the day it is
+dispatched, so `frozen_on` is the writer's stamp, and lands the file as a
+reviewed PR after checking that it only adds that Term.
+
 The command reads the committed side codes and fits, the corpus's merits
 judgments and its merits lineups, and estimates the positions from the
 lineups through the Term before (*The positions*, above). The file is
@@ -497,10 +503,10 @@ above) with its valence split, positions estimated from the lineups
 production run's codes on `main`; and baselines 1 and 2 as the
 leaderboard's floors of `mean_vote_accuracy` (*The leaderboard's floors*,
 above), registered in [freeze-record.md](freeze-record.md); and the
-frozen per-Term fit file and the command that computes an entry (*The frozen
-fits*, above); and baselines 3 and 4 on the board, read from the frozen fits
-(*The coded baselines on the board*, above), registered in
-[freeze-record.md](freeze-record.md).
+frozen per-Term fit file, the command that computes an entry and the
+`alignment-fit` writer that lands it (*The frozen fits*, above); and baselines
+3 and 4 on the board, read from the frozen fits (*The coded baselines on the
+board*, above), registered in [freeze-record.md](freeze-record.md).
 
 The run mode is `run-analytics` `alignment-side-code`, the topic-labeling
 lane's third frame ([pipeline.md](pipeline.md)), dispatched or on a weekly
@@ -527,8 +533,3 @@ Owed, in order:
 
 - **The clean check.** The readout restricted to clean codes, once enough of
   them are decided, with a `stats-reviewer` pass.
-- **The fit's writer.** A writer step that commits each Term's entry before
-  the Term's first merits decision, since no session can write `data/` on
-  `main` by hand; until an entry is committed, no Term's cells have a
-  reading. The board trusts an entry's `frozen_on`, so the writer stamps it
-  itself, on the day it commits the entry.

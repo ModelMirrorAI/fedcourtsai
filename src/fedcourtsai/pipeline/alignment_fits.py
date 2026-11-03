@@ -132,3 +132,23 @@ def publish_fit(prior: AlignmentFits | None, fit: AlignmentTermFit) -> Alignment
         raise AlignmentFitError(f"OT{fit.term} is already fitted: a fit is never revised")
     held[fit.term] = fit
     return AlignmentFits(entries=[held[t] for t in sorted(held)])
+
+
+def assert_appended(before: AlignmentFits | None, after: AlignmentFits) -> int:
+    """The one Term ``after`` adds to ``before``, refusing any other change.
+
+    The writer's check on its own output: every entry ``before`` holds is in
+    ``after`` byte for byte, and ``after`` holds exactly one entry more.
+    """
+    held = [] if before is None else before.entries
+    added = [e for e in after.entries if e.term not in {h.term for h in held}]
+    kept = {e.term: e for e in after.entries}
+    for entry in held:
+        if kept.get(entry.term) != entry:
+            raise AlignmentFitError(f"OT{entry.term}'s fit changed: a fit is never revised")
+    if len(added) != 1 or len(after.entries) != len(held) + 1:
+        raise AlignmentFitError(
+            f"expected exactly one new Term's fit, found {len(added)} new of "
+            f"{len(after.entries)} entries over {len(held)}"
+        )
+    return added[0].term

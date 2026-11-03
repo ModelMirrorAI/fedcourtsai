@@ -4329,6 +4329,7 @@ def test_run_analytics_publish_steps_are_fenced_to_the_main_ref() -> None:
         "big-cases",
         "public-updates",
         "qp-topic-publish",
+        "alignment-fit-publish",
     }, f"the publishing-job set moved: {sorted(publishing_jobs)}"
     for job_id, steps in publishing_jobs.items():
         publishers = [
@@ -5510,3 +5511,36 @@ def test_the_side_codes_are_restamped_where_no_agent_ran() -> None:
         s["with"]["name"]: s for s in publish if "download-artifact" in str(s.get("uses") or "")
     }
     assert {"qp-publish", "qp-texts", "alignment-modes"} == set(downloads)
+
+
+def test_the_alignment_fit_is_computed_read_only_and_published_reviewed() -> None:
+    """The fit job holds the corpus read-only role and no write credential; the
+    publish job holds the App token and no corpus role, checks the file adds one
+    Term, and opens a reviewed PR on its own fixed branch, never merging it."""
+    wf = _load("run-analytics.yml")
+    modes = wf[True]["workflow_dispatch"]["inputs"]["mode"]["options"]
+    assert "alignment-fit" in modes
+    fit = wf["jobs"]["alignment-fit"]
+    assert fit["permissions"] == {"contents": "read", "id-token": "write"}
+    fit_text = json.dumps(fit)
+    assert "create-github-app-token" not in fit_text
+    assert "AWS_ROLE_TO_ASSUME_READONLY" in fit_text
+    assert "fedcourts alignment-fit --term" in fit_text
+    publish = wf["jobs"]["alignment-fit-publish"]
+    assert publish["permissions"] == {"contents": "read"}
+    publish_text = json.dumps(publish)
+    assert "corpus-readonly" not in publish_text
+    assert "id-token" not in publish_text
+    names = [s.get("id") or s.get("name") for s in publish["steps"]]
+    assert names.index("check") < names.index("app-token")
+    assert "fedcourts assert-alignment-fits" in publish_text
+    assert "gh pr merge" not in publish_text and "merge-when-green" not in publish_text
+    pr = next(s for s in publish["steps"] if s.get("name") == "Open the review PR")
+    # A fit under review is never replaced by a second dispatch.
+    assert pr["run"].index("--state open") < pr["run"].index("push --force")
+    assert pr["env"]["BRANCH"] == "merits-alignment/fits"
+    assert pr["if"] == "${{ github.ref == 'refs/heads/main' }}"
+    gate = wf["jobs"]["run-gate"]["needs"]
+    assert "alignment-fit" in gate and "alignment-fit-publish" in gate
+    ci = _norm(_load("ci.yml")["jobs"]["main-base"]["if"])
+    assert "github.head_ref == 'merits-alignment/fits'" in ci
