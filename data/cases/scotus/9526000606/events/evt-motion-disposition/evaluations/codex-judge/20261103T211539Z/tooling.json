@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000606",
+  "run_id": "20261103T211539Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell: local staged-input and schema inspection",
+    "apply_patch: contracted output files",
+    "python: JSON inspection and local schema-model validation"
+  ],
+  "helpful": [
+    "Blinded candidate directories separate identity from evidence.",
+    "Resolved snapshot corroborates the outcome and the Circuit Justice route.",
+    "Per-call result_capture markers prevent mistaking uncaptured results for empty retrieval.",
+    "Interim statpack rows permit checking the rationale's denominator without new case retrieval."
+  ],
+  "gaps": [
+    "Historical candidate snapshots are not staged, so header chronology can only be assessed through candidate disclosures.",
+    "No order body or writing collection is staged; precise explanation and separate-writing forecasts remain unresolved."
+  ],
+  "notes": "All three candidates were evaluated from aliases only. No external retrieval or package installation was needed. Standing capture limitations were respected rather than treated as leakage findings or tooling failures."
+}

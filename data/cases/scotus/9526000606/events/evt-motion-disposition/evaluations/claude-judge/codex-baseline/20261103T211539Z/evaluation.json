@@ -1,0 +1,125 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.03,
+    "notes": "Individual self-represented stay-of-removal application after an unpublished, fact-bound Third Circuit petition-for-review denial; denied in chambers by the Circuit Justice with no response, referral, amicus or writing. High personal stakes, no broader legal significance."
+  },
+  "brier_score": 0.004900000000000001,
+  "brier_skill_score": 0.642844359375,
+  "case_id": "scotus/9526000606",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.1171303074670571,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.07,
+        "score": 0.008819508927327333
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.18,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.35,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v2",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.005,
+          "Barrett": 0.002,
+          "Gorsuch": 0.004,
+          "Jackson": 0.01,
+          "Kagan": 0.004,
+          "Kavanaugh": 0.002,
+          "Roberts": 0.002,
+          "Sotomayor": 0.012,
+          "Thomas": 0.003
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.008819508927327333,
+    "total": 0.008819508927327333
+  },
+  "correct": 1,
+  "created_at": "2026-11-03T22:10:14.269165Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell: prediction made 2026-10-31 (context.cutoff 2026-10-17, arrival-position anchor 0); the application was denied 2026-11-02, after the prediction, so no outcome existed to retrieve. Log shows statpack reads, a generic corpus query returning unrelated denied cert petitions, a Nken citation query, CourtListener lookups of Nken v. Holder, and three unobserved web calls whose queries target only Nken (general law). Nothing about this case's disposition sought or retrieved. No data/qp-topics read.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-opus-5-5",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.55,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Snapshot: bare 'denied by Justice Alito' entry; no writing.",
+        "claim": "The application will most likely be denied by a short order without a separate opinion.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Denied Nov 2 by a single Justice, no distribution.",
+        "claim": "Disposition within roughly one to four weeks of the Oct 16 submission, not a conference-and-relist sequence.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Neither occurred (referred_to_court false, response_requested false), consistent with the modal path, though the stated escalation odds were high for this shape.",
+        "claim": "Material chance of escalation: 35% full-Court referral, 18% response requested; modal path is denial without those steps.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Bare denial entry; no votes or writings recorded.",
+        "claim": "No Justice will write separately; order gives no substantive explanation.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261031T173439Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+    "label": "proc-v17",
+    "pipeline_sha": "158255602a33cac82363247466d203b267137187",
+    "stamped_at": "2026-11-03T22:10:14.269165Z"
+  },
+  "reasoning_quality": 0.55,
+  "run_id": "20261103T211539Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.1171303074670571,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}
