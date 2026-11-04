@@ -70,8 +70,10 @@ doubled for the rate in force from 2026-12-01, about $3.40 of each event;
 the scaling is rough from milestone 5, where more predictors change each
 engine's share of an event. At milestone 2 the column fills the
 bootstrapping envelope, so any further spend inside it would outgrow it. At the about $10 per SCOTUS event [budget.md](budget.md)
-measures, today's row is ≈$8.5–11K and milestone 3's ≈$21–27K. The table
-stays the planning ceiling until a round of measured cells re-anchors it.
+budgets, today's row is ≈$8.5–11K and milestone 3's ≈$21–27K; at the about
+$6.60 it measures for the current engines once gemini's rate doubles, they
+are ≈$5.6–7.3K and ≈$14–18K. The table stays the planning ceiling until a
+round of measured cells re-anchors it.
 
 The order is deliberate. New moments are cheap and raise the value of every
 case already covered, so they come first. The AI-case watchlist comes next

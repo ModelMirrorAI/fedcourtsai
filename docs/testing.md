@@ -217,14 +217,14 @@ dispatched once and never re-dispatched — a failed one is reported on the
 candidate for the maintainer to re-run or close — so a candidate costs at most
 one paid suite. That default is a spend
 decision as much as a safety
-one: a paid `scenario=gate` spends three real cells plus the boot probes, on the
-order of $8 a run (an `all` run adds an evaluate cell and the labeler's cents),
-and at the measured cadence of about 1.4 paid suites a
-promotion batch that is roughly $250 a month — re-measured from `gh run list
---workflow integration-test.yml` filtered to titles beginning
-`integration-test: gate @` or `integration-test: all @` (both paid suites),
-against `git tag -l 'promotion/*'` over the same
-window. The default changes what an unqualified dispatch
+one: a paid `scenario=gate` spends three real cells plus the boot probes,
+about $1.60 a run as `fedcourts off-ledger-spend-report` measures it (an
+`all` run adds an evaluate cell and the labeler's cents), and at the measured
+cadence of about 1.4 paid suites a promotion batch that is roughly $70 a
+month. The cadence is re-measured from `gh run list --workflow
+integration-test.yml` filtered to titles beginning `integration-test: gate @`
+or `integration-test: all @` (both paid suites), against `git tag -l
+'promotion/*'` over the same window. The default changes what an unqualified dispatch
 runs and nothing about what the gate accepts: an `offline-gate` title is minted
 only by a run that really ran that suite, and it counts as whole-suite
 evidence only under the engine-smoke skip.
