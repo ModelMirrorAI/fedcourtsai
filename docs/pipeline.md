@@ -2117,27 +2117,31 @@ The mechanics:
   lives as a check at all, and why the check deters mistakes while the human
   merge is what catches sabotage: a PR that edits ci.yml runs the edited
   definition. Dependabot targets `staging` for the same reason. The `staging`
-  ruleset itself requires a pull request plus the status checks that can report
-  on a staging-targeted PR — `gate` and `paths`; `main`'s other two,
+  rulesets require a pull request plus the status checks that can report
+  on a staging-targeted PR — `gate`, `paths` and `staging-base`, which holds
+  any dev App PR into `staging` to the head `main`; `main`'s other two,
   `promotion-gate` and `main-base`, key on a base of `main` and are always
-  `skipped` here — and a code owner's review, with stale approvals
-  dismissed on a new push, on a PR touching a path `.github/CODEOWNERS`
-  names, with the
+  `skipped` here — and, in `staging: code owners`, a code owner's review, with
+  stale approvals dismissed on a new push, on a PR touching a path
+  `.github/CODEOWNERS` names, which the dev App bypasses for pull requests so
+  the sync lands unattended; `staging: require PR` has the
   **repository admin
   role as its sole bypass actor** — a
   required-checks rule blocks direct pushes of commits that carry no passing
-  check runs, so the admin role is the only identity that can land the sync
-  merge below — a role the agent account does not hold; `AGENTS.md` carries
+  check runs, so the admin role is the only identity that can push to it
+  directly — a role the agent account does not hold; `AGENTS.md` carries
   the discipline rule for a session that holds the maintainer's credentials
-  instead. Neither GitHub App *bypasses* `staging`: the scheduled
-  `sync-staging` workflow holds a write token to it but opens an ordinary PR
-  that must satisfy the same required checks, and `promote` itself performs no
-  write at all.
+  instead. Neither GitHub App bypasses `staging`'s required checks: the
+  scheduled `sync-staging` workflow holds a write token to it but opens an
+  ordinary PR that must satisfy them, passing only the code-owner review by
+  the dev App's bypass, and `promote` itself performs no write at all.
 - **Scheduled sync.** `staging` never owns data, so it falls behind `main`
   as the writers and bot lanes commit there. The `sync-staging` workflow
-  merges `main` into `staging` daily by opening a PR that auto-merges once
-  the staging ruleset's checks pass — gated like any other change, not
-  bypassed. Syncing on a schedule rather than at batch time is what keeps the
+  merges `main` into `staging` daily by opening a PR and merging it, with the
+  dev App's own merge call, once the staging checks pass — gated like any
+  other change; the code-owner review, which a sync carrying a registering
+  promotion's registry stamp would otherwise wait on, is the one rule it
+  passes by bypass (docs/security.md). Syncing on a schedule rather than at batch time is what keeps the
   cost off the promotion path: the same merge done at promotion moves
   `staging`'s head, and integration freshness is per-SHA, so every scenario
   would have to be re-dispatched for a merge whose content is
@@ -2473,12 +2477,14 @@ The full path of a change, operator's view:
    then reads *not yet*, not *didn't work* — say which you saw.
 
 One-time setup (maintainer): create the branch from main (`git push origin
-main:staging`); add the `staging` ruleset — require a pull request plus the
-checks that can report on a staging-targeted PR (`gate` and `paths`),
-require review from code owners and dismiss stale approvals on new commits
-(leave approval of the most recent push off: it asks an approval of every PR),
-**repository admin role as the only bypass actor** (docs/security.md
-inventories it); add the `main: require approval` ruleset, whose one approval
+main:staging`); add the `staging: require PR` ruleset — require a pull
+request plus the checks that can report on a staging-targeted PR (`gate`,
+`paths` and `staging-base`), leave approval of the most recent push off (it
+asks an approval of every PR), **repository admin role as the only bypass
+actor** — and the `staging: code owners` ruleset — require review from code
+owners and dismiss stale approvals on new commits, most-recent-push approval
+off, bypass the admin role always and the dev App for pull requests
+(docs/security.md inventories both); add the `main: require approval` ruleset, whose one approval
 comes from the `maintainers` team and whose bypass is the dev App and admin
 role for pull requests and the data App always (docs/security.md, *Branch
 protection*); and add `promotion-gate` — and, once the *Adding a required

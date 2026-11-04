@@ -25,10 +25,14 @@ name: sync-staging
 # exactly the case where a task earns its own surface rather than eroding a
 # property another workflow was built to have.
 #
-# What it does NOT do: land the merge past the ruleset. The PR goes through the
-# staging ruleset like any other — `gate` and `paths` must pass — so the sync is
-# gated, not bypassed. A PR on which neither auto-merge nor a direct merge takes
-# (a conflict, say) turns the run red, and the open PR is where it is resolved.
+# What it does NOT do: land the merge past the required checks. The PR goes
+# through `staging: require PR` like any other — `gate`, `paths` and
+# `staging-base` must pass — so the sync is gated. The one rule it passes by
+# bypass is `staging: code owners`, which a sync carrying a promotion's registry
+# stamp would otherwise hold for a review of history the maintainer already
+# approved (docs/security.md). A PR on which neither auto-merge nor a direct
+# merge takes (a conflict, say) turns the run red, and the open PR is where it
+# is resolved.
 
 on:
   schedule:
@@ -90,13 +94,16 @@ jobs:
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-26.04
-    timeout-minutes: 10
+    # The open and arm take a few minutes; the rest is the merge's wait for the
+    # PR's checks, which the merge script bounds at 20.
+    timeout-minutes: 35
     # The App credentials live on the prod environment, like every other
     # App-minting job. Its deployment-branch policy is `main`-only, which is also
     # why this workflow does nothing until it is promoted (see the header).
     environment: prod
     permissions:
       contents: read # ancestry check only; the PR is opened on the App token
+      checks: read # the merge lists the sync PR's check runs (GITHUB_TOKEN)
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -129,9 +136,32 @@ jobs:
       - name: Open or refresh the main -> staging sync PR
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          # Checks read for the merge's check-run listing, so the dev App needs
+          # none.
+          CHECKS_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
+
+          # Land an armed sync PR $1 with the dev App's own merge call, pinned
+          # to the head it has now. Armed auto-merge never exercises a bypass,
+          # so a sync carrying a code-owned path — the process registry a
+          # promotion's record commit stamps — would wait on the maintainer's
+          # review of history the maintainer already approved; the dev App
+          # bypasses `staging: code owners` alone, and `staging: require PR`'s
+          # required checks (`gate`, `paths`, `staging-base`) still bind the
+          # merge. The script refuses any PR but a same-repository `main` head
+          # into `staging` here, and is read from this job's own commit.
+          land_sync() {
+            local head script
+            head=$(gh pr view "$1" --repo "$REPO" --json headRefOid --jq '.headRefOid')
+            script="${RUNNER_TEMP}/merge-when-green.sh"
+            git show "${GITHUB_SHA}:scripts/merge-when-green.sh" > "$script"
+            bash "$script" "$1" "$head" < /dev/null
+            if [ "$(gh pr view "$1" --repo "$REPO" --json state --jq '.state')" = MERGED ]; then
+              outcome=merged
+            fi
+          }
 
           # Arm auto-merge (merge commit) on PR $1, or merge it outright when
           # GitHub already counts it mergeable; sets `outcome` and returns 0
@@ -207,6 +237,9 @@ jobs:
             # way past, since an unarmed PR is the likeliest cause.
             outcome=""
             arm_or_merge "$existing" || true
+            if [ "$outcome" = armed ]; then
+              land_sync "$existing"
+            fi
             if [ "$outcome" = merged ]; then
               echo "sync PR #${existing} merged directly (merge commit)."
               echo "Sync PR [#${existing}](https://github.com/${REPO}/pull/${existing}) merged directly (merge commit)." >> "$GITHUB_STEP_SUMMARY"
@@ -278,6 +311,9 @@ jobs:
             if [ "$attempt" -lt 12 ]; then sleep 20; fi
           done
           echo "opened sync PR #${num} (staging was ${behind} commit(s) behind)."
+          if [ "$outcome" = armed ]; then
+            land_sync "$num"
+          fi
           if [ -z "$outcome" ]; then
             echo "::error::sync PR #${num} opened but neither auto-merge nor a direct merge took after 12 attempts; resolve it there"
             {

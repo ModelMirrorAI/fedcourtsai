@@ -4604,6 +4604,38 @@ def test_a_carried_branch_and_a_side_coding_batch_wait_for_the_maintainer() -> N
     assert label_run.count('carried="spend-records"') == 1
 
 
+def test_staging_base_holds_a_dev_app_pr_into_staging_to_the_sync() -> None:
+    """The dev App bypasses `staging: code owners`, so `staging-base` fails any
+    dev App PR into `staging` whose head is not this repository's `main`. The
+    comparison is the shell's, exact: an expression's `==` ignores case."""
+    ci = yaml.safe_load((WORKFLOWS / "ci.yml").read_text())
+    job = ci["jobs"]["staging-base"]
+    condition = " ".join(str(job["if"]).split())
+    assert "github.base_ref == 'staging'" in condition
+    # The App the promotion gate resolves as `apps/fedcourtsai-dev`.
+    assert "github.event.pull_request.user.login == 'fedcourtsai-dev[bot]'" in condition
+    assert job["permissions"] == {}
+    (step,) = job["steps"]
+    assert step["env"]["HEAD_REF"] == "${{ github.head_ref }}"
+    assert step["env"]["HEAD_REPO"] == "${{ github.event.pull_request.head.repo.full_name }}"
+    assert 'if [ "$HEAD_REF" = main ] && [ "$HEAD_REPO" = "$REPO" ]; then' in step["run"]
+    assert step["run"].rstrip().endswith("exit 1")
+
+
+def test_the_sync_lands_through_the_pinned_merge_script() -> None:
+    """Armed auto-merge never exercises the code-owner bypass, so the sync job
+    merges its PR itself, with the script read from its own commit."""
+    wf = yaml.safe_load((WORKFLOWS / "sync-staging.yml").read_text())
+    job = wf["jobs"]["sync"]
+    assert job["permissions"] == {"contents": "read", "checks": "read"}
+    (step,) = [s for s in job["steps"] if "land_sync" in str(s.get("run", ""))]
+    assert step["env"]["CHECKS_TOKEN"] == "${{ github.token }}"
+    run = str(step["run"])
+    assert 'git show "${GITHUB_SHA}:scripts/merge-when-green.sh" > "$script"' in run
+    assert 'bash "$script" "$1" "$head" < /dev/null' in run
+    assert run.count('land_sync "') == 2
+
+
 def test_the_big_case_board_job_reaches_nothing_but_the_ledger_and_its_own_pr() -> None:
     """The board is ledger-only by contract, and the job is where that is
     enforceable: it must assume no cloud role, pull no corpus, and hold no
