@@ -10,6 +10,7 @@ from typer.testing import CliRunner
 
 from fedcourtsai import corpus
 from fedcourtsai.ai_activity import activity_path
+from fedcourtsai.ai_watchlist import AI_WATCHLIST_FILENAME, load_ai_watchlist
 from fedcourtsai.cli import app
 from fedcourtsai.courtlistener import (
     CourtListenerClient,
@@ -19,6 +20,7 @@ from fedcourtsai.courtlistener import (
 )
 from fedcourtsai.pipeline.ingest import from_api_docket, upsert_to_corpus
 from fedcourtsai.pipeline.watchlist_refresh import (
+    OnboardDoesNotFit,
     PlannedRefresh,
     ReadMode,
     full_read_due,
@@ -93,6 +95,22 @@ class FakeClient:
         return EntryPages(found, self.pages, docket_id not in self.incomplete)
 
 
+_LISTED_COURTS = {
+    docket_id: court
+    for case in load_ai_watchlist(
+        Path(__file__).resolve().parents[1] / "config" / AI_WATCHLIST_FILENAME
+    ).cases
+    for court, docket_id in case.dockets()
+}
+
+
+class ListedClient(FakeClient):
+    """A fake that serves each listed docket under its own court."""
+
+    def get_docket(self, docket_id: int) -> dict[str, Any]:
+        return _docket(docket_id, _LISTED_COURTS.get(docket_id, "cand"))
+
+
 def _db(tmp_path: Path) -> Path:
     return corpus.corpus_db_path(tmp_path / "corpus")
 
@@ -117,7 +135,7 @@ def test_full_read_days_spread_over_the_week() -> None:
     assert picked == set(range(7))
 
 
-def test_plan_puts_incremental_reads_first_then_onboards_then_full_reads(
+def test_plan_puts_one_onboard_first_then_incremental_reads_then_the_rest(
     tmp_path: Path,
 ) -> None:
     db = _db(tmp_path)
@@ -136,9 +154,9 @@ def test_plan_puts_incremental_reads_first_then_onboards_then_full_reads(
             full_read_every_days=7,
         )
     assert [(p.docket_id, p.mode) for p in plan] == [
+        (99, ReadMode.onboard),
         (old, ReadMode.incremental),
         (recent, ReadMode.incremental),
-        (99, ReadMode.onboard),
         (full_day, ReadMode.full),
     ]
     by_id = {p.docket_id: p for p in plan}
@@ -432,12 +450,19 @@ def test_the_command_records_a_day_of_significant_new_entries(
     today = datetime.now(UTC).date()
     monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
     monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(tmp_path / "data"))
-    first = FakeClient(
+    first = ListedClient(
         {71450167: [{"id": 1, "date_filed": "2025-09-24", "description": "COMPLAINT"}]}
     )
     monkeypatch.setattr("fedcourtsai.cli._client", lambda _lane: nullcontext(first))
-    onboard = CliRunner().invoke(app, ["watchlist-refresh"])
-    assert onboard.exit_code == 0, onboard.output
+    # An onboard starts only when the share left covers the page cap, so the
+    # listed dockets onboard over several runs.
+    for _ in range(len(_LISTED_COURTS)):
+        onboard = CliRunner().invoke(app, ["watchlist-refresh"])
+        assert onboard.exit_code == 0, onboard.output
+        if any(docket_id == 71450167 for docket_id, _, _ in first.reads):
+            break
+    else:
+        pytest.fail("the docket never onboarded")
     # Onboarding records nothing: a whole docket is history, not news.
     assert not activity_path(tmp_path / "data", today).exists()
 
@@ -447,7 +472,7 @@ def test_the_command_records_a_day_of_significant_new_entries(
         "date_filed": today.isoformat(),
         "description": "JUDGMENT.",
     }
-    second = FakeClient(
+    second = ListedClient(
         {71450167: [judgment, *first.entries[71450167]]}, changed={71450167: [judgment]}
     )
     monkeypatch.setattr("fedcourtsai.cli._client", lambda _lane: nullcontext(second))
@@ -457,3 +482,81 @@ def test_the_command_records_a_day_of_significant_new_entries(
     assert [(e.case, e.category, e.entry_id, e.kind) for e in record.entries] == [
         ("X.AI v. OpenAI", "competitor", 9, "judgment")
     ]
+
+
+def test_only_the_stalest_onboard_leads_the_plan(tmp_path: Path) -> None:
+    db = _db(tmp_path)
+    inc = next(d for d in range(1, 20) if not full_read_due(d, TODAY, 7))
+    _stamp(db, inc, TODAY - timedelta(days=1))
+    with corpus.connect(db) as conn:
+        plan = plan_refresh(
+            conn,
+            [("cand", 98), ("cand", inc), ("cand", 97)],
+            today=TODAY,
+            overlap_days=2,
+            full_read_every_days=7,
+        )
+    assert [(p.docket_id, p.mode) for p in plan] == [
+        (97, ReadMode.onboard),
+        (inc, ReadMode.incremental),
+        (98, ReadMode.onboard),
+    ]
+
+
+def test_an_onboard_the_share_left_cannot_cover_is_deferred_unread(tmp_path: Path) -> None:
+    db = _db(tmp_path)
+    fake = FakeClient({1: [{"id": 1}]})
+    with pytest.raises(OnboardDoesNotFit):
+        refresh_docket(
+            _client(fake),
+            db,
+            _planned(1, ReadMode.onboard),
+            max_entry_pages=150,
+            today=TODAY,
+            share_left=150,  # one short of the docket and 150 pages
+        )
+    assert fake.reads == []
+    done = refresh_docket(
+        _client(fake),
+        db,
+        _planned(1, ReadMode.onboard),
+        max_entry_pages=150,
+        today=TODAY,
+        share_left=151,
+    )
+    assert done.mode is ReadMode.onboard
+
+
+def test_an_incremental_plan_without_a_snapshot_is_deferred_when_short(tmp_path: Path) -> None:
+    db = _db(tmp_path)
+    _stamp(db, 3, TODAY - timedelta(days=1))  # a row, but no snapshot
+    fake = FakeClient({3: [{"id": 1}]})
+    with pytest.raises(OnboardDoesNotFit) as caught:
+        refresh_docket(
+            _client(fake),
+            db,
+            _planned(3, ReadMode.incremental, TODAY - timedelta(days=3)),
+            max_entry_pages=150,
+            today=TODAY,
+            share_left=100,
+        )
+    assert caught.value.requests == 1  # the docket was read; its entries were not
+    assert fake.reads == []
+
+
+def test_a_run_defers_an_onboard_that_does_not_fit_and_goes_on(tmp_path: Path) -> None:
+    db = _db(tmp_path)
+    _onboarded(db, 7, 1)
+    fake = FakeClient({1: [{"id": 1}], 2: [{"id": 2}]}, changed={7: [{"id": 2}]})
+    plan = [
+        _planned(1, ReadMode.onboard),
+        _planned(7, ReadMode.incremental, TODAY - timedelta(days=3)),
+        _planned(2, ReadMode.onboard),
+    ]
+    report = refresh_watchlist(_client(fake), db, plan, max_entry_pages=150, today=TODAY, share=152)
+    # The first onboard spends two, leaving 150: the incremental read still
+    # fits, the second onboard no longer does and waits for a later run.
+    assert [r.case_id for r in report.refreshed] == ["cand/1", "cand/7"]
+    assert report.deferred == ["cand/2"]
+    assert report.stop_reason is None
+    assert fake.reads[-1] == (7, "since", TODAY - timedelta(days=3))

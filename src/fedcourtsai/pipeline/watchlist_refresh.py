@@ -14,9 +14,14 @@ A docket is read three ways:
   refresh (less an overlap), merged by id into the stored entries. Two requests
   for a quiet docket, so every docket refreshed before is read this way first.
 - **onboard**, a whole read of a docket the corpus holds no snapshot of. The
-  listed dockets run to over a hundred pages, so onboarding the list spreads
-  over several runs: each docket is read whole or not at all, and the run stops
-  at its lane's share, leaving the rest first in line for the next.
+  listed dockets run to over a hundred pages and upstream does not say how
+  long one is before it is read, so an onboard starts only when what is left
+  of the run's share covers the longest read the page cap allows; one that
+  starts short of that could be cut off by the share and leave nothing
+  written for what it spent. The stalest pending onboard leads each run,
+  ahead of the incremental reads, so the list onboards one docket a run at
+  least, however long its dockets; the others follow the incremental reads
+  and start only if that much is still left.
 - **full**, a whole re-read on a day the docket's id picks, once every
   ``full_read_every_days``, so the reads spread across the period. It catches
   what the incremental read cannot see: an entry deleted upstream, or a
@@ -60,6 +65,7 @@ from .ingest import from_api_docket, upsert_to_corpus
 
 __all__ = [
     "ENTRIES_PER_PAGE",
+    "OnboardDoesNotFit",
     "PlannedRefresh",
     "ReadMode",
     "Refreshed",
@@ -119,12 +125,15 @@ def plan_refresh(
     overlap_days: int,
     full_read_every_days: int,
 ) -> list[PlannedRefresh]:
-    """Every listed docket's refresh: the cheap incremental reads, then the whole ones.
+    """Every listed docket's refresh: one onboard, the incremental reads, then the rest.
 
-    Incremental reads come first so a long whole read can never crowd them out
-    of the run's share; within each mode the stalest docket leads (never
-    refreshed, then oldest ``last_pulled``). Reads only ``cases`` rows, never a
-    snapshot, so a plan costs one row lookup a docket; whether a docket
+    The stalest pending onboard leads, so each run onboards a docket while the
+    whole share is still there to cover it; the incremental reads follow, then
+    the other onboards and the full reads, so no other long whole read can
+    crowd the incremental reads out of the run's share. Within each mode the
+    stalest docket leads (never refreshed, then oldest ``last_pulled``). Reads
+    only ``cases`` rows, never a snapshot, so a plan costs one row lookup a
+    docket; whether a docket
     actually holds a snapshot to merge into is settled when it is read
     (:func:`refresh_docket` reads it whole when it does not).
     """
@@ -150,7 +159,28 @@ def plan_refresh(
             p.case_id,
         )
     )
+    first_onboard = next((p for p in planned if p.mode is ReadMode.onboard), None)
+    if first_onboard is not None:
+        planned.remove(first_onboard)
+        planned.insert(0, first_onboard)
     return planned
+
+
+class OnboardDoesNotFit(RuntimeError):
+    """What is left of the run's share cannot cover an onboard's longest read.
+
+    Raised before the entries are read, so nothing is written; ``requests`` is
+    what the refresh had already sent (the docket, when a planned incremental
+    read found no stored snapshot to merge into).
+    """
+
+    def __init__(self, message: str, *, requests: int) -> None:
+        super().__init__(message)
+        self.requests = requests
+
+
+def _onboard_fits(share_left: int | None, max_entry_pages: int) -> bool:
+    return share_left is None or share_left >= max_entry_pages
 
 
 @dataclass(frozen=True)
@@ -180,7 +210,9 @@ def refresh_docket(
     """Read one docket, store its snapshot if it changed, and stamp its row.
 
     ``share_left`` is what remains of the run's share: a full read the stored
-    docket's length says it cannot cover is taken incrementally instead. Raises
+    docket's length says it cannot cover is taken incrementally instead, and an
+    onboard it cannot cover at the page cap raises :class:`OnboardDoesNotFit`
+    before its entries are read. Raises
     :class:`EntryPageCapExceeded` before writing anything when a read does not
     finish within ``max_entry_pages``, so a truncated docket is never stored as
     if whole.
@@ -192,6 +224,13 @@ def refresh_docket(
         nonlocal sent
         sent += 1
 
+    if planned.mode is ReadMode.onboard and not _onboard_fits(
+        None if share_left is None else share_left - 1, max_entry_pages
+    ):
+        raise OnboardDoesNotFit(
+            f"{case_id}: {share_left} of the share left, under an onboard's {1 + max_entry_pages}",
+            requests=0,
+        )
     count()
     docket = client.get_docket(planned.docket_id)
     with corpus.connect(corpus_db_path) as conn:
@@ -201,6 +240,11 @@ def refresh_docket(
     if not isinstance(stored, list):
         # Nothing stored to merge into: only a whole read will do.
         mode = ReadMode.onboard
+        if not _onboard_fits(None if share_left is None else share_left - sent, max_entry_pages):
+            raise OnboardDoesNotFit(
+                f"{case_id}: no stored snapshot, and the share left cannot cover an onboard",
+                requests=sent,
+            )
     elif (
         mode is ReadMode.full
         and share_left is not None
@@ -283,14 +327,15 @@ def refresh_watchlist(  # noqa: PLR0913 - each bound is a caller-tuned guard
 
     ``share`` is the lane's per-run request cap, which the client also enforces;
     it is passed here so a full read the rest of the share cannot cover falls
-    back to an incremental one rather than stopping the run. A docket that
+    back to an incremental one rather than stopping the run, and an onboard it
+    cannot cover at the page cap is deferred while the run goes on. A docket that
     fails (an HTTP error, a malformed entry, or a read past ``max_entry_pages``)
     is recorded and skipped. The share running out, the ``deadline`` (a
     ``clock`` reading) passing, or ``max_consecutive_transient_failures``
     transient errors in a row stop the run, and the dockets not reached are
     deferred. None of these writes anything for the docket, which keeps its
     place in the next run's plan: a never-refreshed docket longer than the page
-    cap therefore fails every run, ahead of the onboards behind it, until the
+    cap therefore leads and fails every run, ahead of the onboards behind it, until the
     cap is raised, and the command exits non-zero on any failure so that is seen.
 
     ``on_refreshed`` is called with each docket as soon as its write lands, so
@@ -318,6 +363,11 @@ def refresh_watchlist(  # noqa: PLR0913 - each bound is a caller-tuned guard
             report.stop_reason = str(exc)
             report.deferred = [p.case_id for p in plan[index:]]
             break
+        except OnboardDoesNotFit as exc:
+            # A shorter read further on may still fit, so the run goes on.
+            spent += exc.requests
+            report.deferred.append(planned.case_id)
+            continue
         except (httpx.HTTPError, EntryPageCapExceeded, KeyError, ValueError) as exc:
             report.failed[planned.case_id] = f"{type(exc).__name__}: {exc}"
             transient_run = transient_run + 1 if is_transient(exc) else 0
