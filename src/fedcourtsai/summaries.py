@@ -60,6 +60,7 @@ from tenacity.wait import wait_base
 from . import ids, secretscan
 from .config import SummariesConfig
 from .paths import CasePaths
+from .pipeline.documents import contact_residuals
 from .pricing import MODEL_RATES, TokenCounts, estimate_cost_usd
 from .provision import GENERATION_STAMPS
 from .schemas import (
@@ -447,13 +448,15 @@ def plan_summaries(
 _REASON_ORDER = {"new": 0, "record-changed": 1, "body-outdated": 2}
 
 
-def estimate_cost(config: SummariesConfig, chars: Sequence[int]) -> tuple[float, float]:
-    """A low/high USD range for summarizing records of these sizes.
+def estimate_cost(
+    config: SummariesConfig, chars: Sequence[int], *, prompt_path: Path = PROMPT_PATH
+) -> tuple[float, float]:
+    """A low/high USD range for summarizing records of these sizes under ``prompt_path``.
 
     Raises ``KeyError`` when the configured model has no rate, which is the
     point: a plan that cannot be priced must not be approved as if it were free.
     """
-    prompt_chars = len(PROMPT_PATH.read_text()) if PROMPT_PATH.is_file() else 0
+    prompt_chars = len(prompt_path.read_text()) if prompt_path.is_file() else 0
     low = high = 0.0
     for size in chars:
         total = size + prompt_chars
@@ -508,9 +511,27 @@ def render_plan_report(plan: SummaryPlan, *, run_url: str = "") -> str:
         ]
     else:
         lines.append(
-            "Nothing is owed: every eligible case's summary matches its record "
+            "No case summary is owed: every eligible case's summary matches its record "
             + "and the current body contract."
         )
+    if plan.rulings or plan.rulings_without_text:
+        lines += [
+            "",
+            f"AI watchlist rulings owed a summary: **{len(plan.rulings)}** planned, "
+            + f"{len(plan.rulings_without_text)} whose text the corpus does not hold yet "
+            + "(planned again by the next run).",
+        ]
+    if plan.rulings:
+        lines += [
+            "",
+            "| ruling | case | filed | kind | input chars |",
+            "|---|---|---|---|---:|",
+        ]
+        lines += [
+            f"| `{r.court}/{r.docket_id}` entry `{r.entry_id}` | {_cell(r.case)} "
+            + f"| {r.date_filed.isoformat()} | {r.kind} | {r.input_chars:,} |"
+            for r in plan.rulings
+        ]
     if plan.withdrawn:
         lines += [
             "",
@@ -523,6 +544,11 @@ def render_plan_report(plan: SummaryPlan, *, run_url: str = "") -> str:
             f"| `{w.case_id}` | `{w.path}` | {w.docketed.isoformat()} |" for w in plan.withdrawn
         ]
     return "\n".join(lines) + "\n"
+
+
+def _cell(text: str) -> str:
+    """A table cell's text: one line, with no pipe to split the row."""
+    return " ".join(text.split()).replace("|", "\\|")
 
 
 # --- the staged record ----------------------------------------------------------
@@ -551,15 +577,21 @@ def prune_stage(plan: SummaryPlan, stage_root: Path) -> list[tuple[str, str]]:
     snapshot in the Court's shape, ``context.json``, and the documents manifest
     with one text file per listed document, each fetched from supremecourt.gov.
     Everything else under the stage root is removed, and a symlink anywhere
-    removes the case rather than being followed. Returns ``(path, reason)`` for
-    each removal.
+    removes the case rather than being followed. The AI watchlist rulings the
+    plan names are staged beside the cases, under :data:`RULING_STAGE_DIR`, and
+    held to an allowlist of their own (:func:`_prune_ruling_stage`). Returns
+    ``(path, reason)`` for each removal.
     """
     planned = {(c.court_id, str(c.docket_id)): c for c in plan.cases}
     removed: list[tuple[str, str]] = []
     if not stage_root.is_dir() or stage_root.is_symlink():
         return removed
     cases_root = stage_root / "cases"
+    rulings_root = stage_root / RULING_STAGE_DIR
     for entry in sorted(stage_root.iterdir()):
+        if entry == rulings_root and not entry.is_symlink() and entry.is_dir():
+            removed.extend(_prune_ruling_stage(plan, entry))
+            continue
         if entry != cases_root or entry.is_symlink() or not entry.is_dir():
             _remove(entry)
             removed.append((entry.name, "not a case tree"))
@@ -582,6 +614,66 @@ def prune_stage(plan: SummaryPlan, stage_root: Path) -> list[tuple[str, str]]:
                 (f"{label}/{kind}", reason) for kind, reason in _withhold_residuals(case_dir)
             )
     return removed
+
+
+#: Where ``ai-ruling-stage`` stages the planned AI watchlist rulings, under the
+#: stage root: one ``<entry_id>.json`` per ruling (:data:`RULING_STAGE_KEYS`).
+RULING_STAGE_DIR = "ai-rulings"
+
+#: Exactly the keys a staged ruling file carries: the ruling's text after the
+#: contact scrub, the digest of the stored text it came from, and its entry id.
+RULING_STAGE_KEYS = frozenset({"entry_id", "text_digest", "text"})
+
+_RULING_STAGE_NAME = re.compile(r"^([1-9][0-9]*)\.json$")
+
+
+def _prune_ruling_stage(plan: SummaryPlan, rulings_root: Path) -> list[tuple[str, str]]:
+    """Remove every staged ruling file that may not leave the stage job.
+
+    A file is kept only if it is a regular file named for a ruling the plan
+    names, holds exactly :data:`RULING_STAGE_KEYS` with that entry id, the
+    plan's text digest and a non-empty text, and the residual contact detector
+    finds nothing on that text. The ruling is a court's own document, public
+    domain, so its text may cross the public artifact; nothing else of the
+    docket may.
+    """
+    planned = {r.entry_id: r for r in plan.rulings}
+    removed: list[tuple[str, str]] = []
+    for path in sorted(rulings_root.iterdir()):
+        label = f"{RULING_STAGE_DIR}/{path.name}"
+        name = _RULING_STAGE_NAME.match(path.name)
+        ruling = planned.get(int(name.group(1))) if name else None
+        if path.is_symlink() or not path.is_file():
+            reason = "not a staged ruling file"
+        elif ruling is None:
+            reason = "not a planned ruling"
+        else:
+            reason = _ruling_stage_problem(path, ruling.entry_id, ruling.text_digest)
+        if reason:
+            _remove(path)
+            removed.append((label, reason))
+    return removed
+
+
+def _ruling_stage_problem(path: Path, entry_id: int, digest: str) -> str:
+    """Why one staged ruling file may not cross the artifact, or ``""``."""
+    try:
+        staged = json.loads(path.read_text())
+    except (OSError, ValueError):
+        return "staged ruling is unreadable"
+    if not isinstance(staged, dict) or set(staged) != RULING_STAGE_KEYS:
+        return "staged ruling does not hold exactly " + ", ".join(sorted(RULING_STAGE_KEYS))
+    text = staged["text"]
+    checks = (
+        (staged["entry_id"] != entry_id, "staged ruling names another entry"),
+        (staged["text_digest"] != digest, "staged ruling text is not the text the plan priced"),
+        (not isinstance(text, str) or not text.strip(), "staged ruling has no text"),
+        (
+            isinstance(text, str) and contact_residuals(text) > 0,
+            "staged ruling text carries a contact-shaped residual",
+        ),
+    )
+    return next((reason for failed, reason in checks if failed), "")
 
 
 DOCUMENT_WITHHELD = "document withheld"
@@ -939,7 +1031,7 @@ def call_messages_api(
 # --- the body contract ------------------------------------------------------------
 
 
-def _sections(body: str) -> tuple[list[str], list[str], str]:
+def split_sections(body: str) -> tuple[list[str], list[str], str]:
     """The body's headings, each section's text, and any text before the first."""
     headings: list[str] = []
     sections: list[list[str]] = []
@@ -969,6 +1061,11 @@ _MARKUP: tuple[tuple[str, re.Pattern[str]], ...] = (
 )
 
 
+def markup_problems(body: str) -> list[str]:
+    """The off-contract markup ``body`` carries, one reason per construct (:data:`_MARKUP`)."""
+    return [f"carries {label}" for label, pattern in _MARKUP if pattern.search(body)]
+
+
 def body_problems(
     body: str, *, version: int = BODY_VERSION, check_length: bool = True
 ) -> list[str]:
@@ -981,11 +1078,8 @@ def body_problems(
     expected = SECTION_HEADINGS_BY_VERSION.get(version)
     if expected is None:
         return [f"unknown body_version {version!r}"]
-    problems: list[str] = []
-    for label, pattern in _MARKUP:
-        if pattern.search(body):
-            problems.append(f"carries {label}")
-    headings, sections, preamble = _sections(body)
+    problems = markup_problems(body)
+    headings, sections, preamble = split_sections(body)
     if preamble:
         problems.append("text before the first section heading")
     if tuple(headings) != expected:
@@ -1002,7 +1096,7 @@ def body_problems(
             if paragraph.strip().lower().startswith("whether"):
                 problems.append(f"a paragraph in {heading!r} opens with 'Whether'")
         if heading == HEADLINE_HEADING and text:
-            problems += _headline_problems(heading, paragraphs)
+            problems += headline_problems(heading, paragraphs)
     if check_length:
         words = sum(len(text.split()) for text in sections)
         low, high = WORD_BAND
@@ -1011,7 +1105,7 @@ def body_problems(
     return problems
 
 
-def _headline_problems(heading: str, paragraphs: Sequence[str]) -> list[str]:
+def headline_problems(heading: str, paragraphs: Sequence[str]) -> list[str]:
     """Why a headline section is not a one-line headline; empty when it is."""
     problems: list[str] = []
     if len(paragraphs) > 1:
@@ -1093,9 +1187,25 @@ def summary_file_problems(file: Path, root: Path) -> list[str] | None:
 _SUMMARY_PATH = re.compile(
     r"data/cases/[a-z0-9][a-z0-9._-]*/[0-9]+/summaries/[0-9]{4}-[0-9]{2}-[0-9]{2}\.md"
 )
+# An AI watchlist ruling's summary, named for its CourtListener entry id
+# (`fedcourtsai.ai_rulings`), which the same lane writes.
+_RULING_SUMMARY_PATH = re.compile(r"data/ai-cases/summaries/[1-9][0-9]*\.md")
 
 
 def is_summary_path(rel: str) -> bool:
+    """Whether a repo-relative path is a summary file the lane writes.
+
+    A case summary, or an AI watchlist ruling's summary; withdrawal applies to
+    case summaries alone (:func:`summary_changes`).
+    """
+    if ".." in rel.split("/"):
+        return False
+    if _RULING_SUMMARY_PATH.fullmatch(rel) is not None:
+        return True
+    return is_case_summary_path(rel)
+
+
+def is_case_summary_path(rel: str) -> bool:
     """Whether a repo-relative path is a case summary file."""
     if ".." in rel.split("/"):
         return False
@@ -1107,18 +1217,19 @@ def summary_changes(
 ) -> tuple[list[str], list[str]]:
     """Split ``(status, path)`` changes into summary writes and everything else.
 
-    A summary write is an addition or a modification of a summary file. The
-    only other change the summaries lane makes is deleting a summary its plan
-    withdrew, admitted only for a path in ``withdrawn`` and returned in neither
-    list. Anything else (any other deletion, a rename, any other path) is
-    returned as a violation, each rendered ``<status> <path>``.
+    A summary write is an addition or a modification of a summary file, a
+    case's or an AI watchlist ruling's. The only other change the summaries
+    lane makes is deleting a case summary its plan withdrew, admitted only for
+    a path in ``withdrawn`` and returned in neither list. Anything else (any
+    other deletion, a rename, any other path) is returned as a violation, each
+    rendered ``<status> <path>``.
     """
     writes: list[str] = []
     violations: list[str] = []
     for status, path in changes:
         if status in {"A", "M"} and is_summary_path(path):
             writes.append(path)
-        elif status == "D" and path in withdrawn and is_summary_path(path):
+        elif status == "D" and path in withdrawn and is_case_summary_path(path):
             continue
         else:
             violations.append(f"{status} {path}")
@@ -1237,9 +1348,9 @@ def summarize_case(  # noqa: PLR0913 - one case's inputs, each load-bearing
         except SummaryCallError as exc:
             refusal = f"retry failed: {exc}"
         else:
-            usage = _add_usage(usage, result.usage)
+            usage = add_usage(usage, result.usage)
             cost += estimate_cost_usd(config.model, result.usage)
-            refusal = _on_retry(_refusal(result, str(target), api_key)[0])
+            refusal = on_retry(_refusal(result, str(target), api_key)[0])
     if refusal:
         return CaseResult(None, refusal, cost, first_rejection)
     front = CaseSummaryFrontMatter(
@@ -1260,14 +1371,14 @@ def summarize_case(  # noqa: PLR0913 - one case's inputs, each load-bearing
     return CaseResult(target, cost_usd=cost, first_rejection=first_rejection)
 
 
-def _on_retry(refusal: str) -> str:
+def on_retry(refusal: str) -> str:
     """A retry's refusal, marked as the retry's so the report tells the two apart."""
     if refusal.startswith("rejected:"):
         return refusal.replace("rejected:", "rejected on retry:", 1)
     return f"on retry: {refusal}" if refusal else ""
 
 
-def _add_usage(a: TokenCounts, b: TokenCounts) -> TokenCounts:
+def add_usage(a: TokenCounts, b: TokenCounts) -> TokenCounts:
     return TokenCounts(
         input_tokens=a.input_tokens + b.input_tokens,
         output_tokens=a.output_tokens + b.output_tokens,

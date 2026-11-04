@@ -468,6 +468,74 @@ it costs about twice a first-pass summary; the report's cost line and each
 summary's `usage` include it. The plan's estimate prices one call per case, so
 a run costs more than the estimate by roughly its first-pass rejection rate.
 
+## AI watchlist rulings
+
+The same lane writes a second kind of summary: one per ruling the AI
+watchlist's activity records list, for the weekly AI-cases update
+([data-sources.md](data-sources.md), *Model summaries of the AI watchlist's
+rulings*, fixes what it may be written from). `fedcourtsai.ai_rulings` holds
+it.
+
+**The artifact.** `data/ai-cases/summaries/<entry_id>.md`, named for the
+CourtListener docket entry, under harness-written front matter
+(`AiRulingSummaryFrontMatter`, exported as
+`schemas/ai_ruling_summary_front_matter.schema.json`): the watchlist case's
+name, the court, docket and entry identifiers, the filing date and kind, the
+`text_digest` of the stored ruling text, and the model, prompt digest,
+`body_version`, `generated_at` and `usage` a case summary carries. The body is
+two sections, about 150 words: `## In brief`, one sentence held to the case
+summaries' headline rules, and `## What the court decided`. The harness
+accepts a response on the case summaries' mechanical rules (sections exactly
+and in order, no markup, no "Whether" opening, the headline cap, the secret
+scan) with a 60–350 word band, and retries a mechanical rejection once.
+`fedcourts validate data` holds every committed file to its name and its
+sections. A ruling is summarized once; the file is never rewritten.
+
+**Which rulings.** A ruling is owed a summary when an activity record dated
+within the last 30 days lists it as an opinion, a ruling on a motion or a
+judgment, the kinds a court writes, and no summary exists for its entry. It is
+planned when the corpus's newest snapshot of its docket holds the text of the
+entry's main document; one without text yet (RECAP has no copy, or only the
+clerk's entry text exists) is listed in the plan's `rulings_without_text`, free,
+and planned again by each run until its text arrives or its record ages out.
+
+**What the model reads.** The prompt is
+`.github/prompts/summarize-ai-ruling.md`. The request carries that prompt and
+one `<ruling>` element: the case name, court id, docket number, entry number
+and filing date as attributes, and the ruling's stored text, capped at
+`max_document_chars` and marked where cut. Nothing else from the docket is
+sent: no entry description, caption, nature of suit or party field. No tools,
+thinking off, as for a case. The prompt's rules mirror the case summaries':
+the ruling only, neutral, exact about what was granted and denied, no
+citations, and no individual person named.
+
+**In the lane.** `summarize-plan --rulings` adds the owed rulings to the plan
+under `rulings`, priced into the same estimate the review hold and the
+auto-release read; the flag leaves `--limit` to the cases. `ai-ruling-stage`
+stages each planned ruling's text, after the contact-detail scrub, to
+`<stage>/ai-rulings/<entry_id>.json`, skipping one whose text changed since the
+plan or keeps a contact residual; `summary-stage-check` keeps a staged ruling
+file only if the plan names it and it holds exactly the entry id, the planned
+digest and a text with no contact residual. `summarize` writes the planned
+rulings after the cases, under the same time budget, and `summary-paths`
+admits the files, so they ride the same `summaries/refresh` review PR.
+
+**Not switched on.** `summarize.yml` does not pass `--rulings` or run
+`ai-ruling-stage` yet, so no scheduled run plans a ruling. Switching it on is a
+change to that workflow, and the measured spend the auto-release budget reads
+(`fedcourtsai.spend`) counts case summaries alone until it also reads these
+files' `usage`.
+
+**In the update.** `ai-cases-update` renders a committed summary under its
+entry's item as a quote, its headline then what the court decided, closed by a
+line naming the model that wrote it from the ruling's own text and that the
+ruling is the authority. An item without one renders as before.
+
+**Cost.** A ruling's text is the whole input: a short order is a few thousand
+characters, a long opinion reaches the 100,000-character cap. Nine rulings the
+corpus held on 2026-11-04 priced at $0.26–0.46 together, and the watchlist's
+activity rule records a few rulings a week.
+
 ## Non-goals
 
 - **Grading summaries.** They are display material; nothing is scored on them.
