@@ -362,6 +362,22 @@ def test_label_jail_refuses_any_other_path_and_any_other_branch() -> None:
         assert_labels_within_jail([], branch="merits-alignment/fits")
 
 
+def test_label_and_refresh_jails_refuse_a_rename_or_copy_whatever_its_source() -> None:
+    for line in (
+        "R100\tsrc/x.py\tdata/qp-topics/qp-topics.json",
+        "R100\tdata/qp-topics/spend/1-1.json\tdata/qp-topics/spend/2-1.json",
+        "C100\tdata/qp-topics/spend/1-1.json\tdata/qp-topics/spend/2-1.json",
+    ):
+        with pytest.raises(PathJailError):
+            assert_labels_within_jail(parse_name_status(line + "\n"), branch="qp-topics/refresh")
+    for line in (
+        "R100\tsrc/x.py\tmetrics/leaderboard.json",
+        "C100\tmetrics/README.md\tmetrics/statpack.md",
+    ):
+        with pytest.raises(PathJailError, match="the refresh only writes files"):
+            assert_refresh_within_jail(parse_name_status(line + "\n"))
+
+
 def test_assert_label_paths_cli_exits_1_with_an_error_and_0_when_clean(tmp_path: Path) -> None:
     changes = tmp_path / "changes.txt"
     changes.write_text("A\tdata/qp-topics/spend/41869898663-1.json\n")

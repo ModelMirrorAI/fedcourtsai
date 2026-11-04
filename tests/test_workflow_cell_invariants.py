@@ -4539,6 +4539,31 @@ def test_the_newer_unattended_lanes_merge_through_the_pinned_script(
     )
 
 
+def test_a_carried_branch_and_a_side_coding_batch_wait_for_the_maintainer() -> None:
+    """The fixed summaries and labeling branches are unprotected, so a tree that
+    carried an open PR's content forward is never merged unattended, and the side
+    coder's codes, which have no reference gate, never are either."""
+    summarize = yaml.safe_load((WORKFLOWS / "summarize.yml").read_text())
+    (sum_run,) = [
+        str(s["run"])
+        for s in summarize["jobs"]["publish"]["steps"]
+        if "merge-when-green.sh" in str(s.get("run", ""))
+    ]
+    skip = sum_run.index('if [ "$open" != "0" ]; then\n  echo "Carries an open PR')
+    assert skip < sum_run.index("gh pr merge --auto")
+    analytics = yaml.safe_load((WORKFLOWS / "run-analytics.yml").read_text())
+    (label_run,) = [
+        str(s["run"])
+        for s in analytics["jobs"]["qp-topic-publish"]["steps"]
+        if "merge-when-green.sh" in str(s.get("run", ""))
+    ]
+    land = label_run[label_run.index("land() {") :]
+    assert land.index('if [ -n "$carried" ]; then') < land.index("gh pr merge --auto")
+    assert land.index('if [ "$QP_FRAME" = alignment-sides ]') < land.index("gh pr merge --auto")
+    assert label_run.count('carried="open-branch"') == 1
+    assert label_run.count('carried="spend-records"') == 1
+
+
 def test_the_big_case_board_job_reaches_nothing_but_the_ledger_and_its_own_pr() -> None:
     """The board is ledger-only by contract, and the job is where that is
     enforceable: it must assume no cloud role, pull no corpus, and hold no

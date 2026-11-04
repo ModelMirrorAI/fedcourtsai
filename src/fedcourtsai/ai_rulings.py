@@ -20,7 +20,7 @@ domain by authorship.
 The lane is the case-summary lane's (:mod:`fedcourtsai.summaries`): the same
 model and caps, the same plan and hold (``summarize-plan --rulings`` adds the
 owed rulings to the plan and its estimate), the same no-tools request and
-one retry on a mechanical rejection, the same jail and review PR. A ruling is
+one retry on a mechanical rejection, the same jail and summaries PR. A ruling is
 summarized once: the file is never rewritten, since it describes that ruling.
 """
 

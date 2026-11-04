@@ -148,7 +148,7 @@ run-name: "run-analytics: ${{ github.event_name == 'workflow_dispatch' && inputs
 # corpus-stats, text-coverage and qp-topic-extract hold only the read-only S3
 # role; decision-below holds that role and the CourtListener token, on its one
 # measuring step; metrics-refresh holds that role *and* mints the dev App token (contents + PR
-# write) for its review PR; qp-topic-label, big-cases and public-updates mint the
+# write) for its refresh PR; qp-topic-label, big-cases and public-updates mint the
 # same token but assume no role at all — the first because it is the one job here
 # that runs an agent, the other two because they read nothing but the committed
 # ledger; and
@@ -588,8 +588,9 @@ jobs:
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-26.04
     # The regeneration takes under twenty minutes; the rest is the merge's wait
-    # for the PR's required checks, which the merge script bounds at 20.
-    timeout-minutes: 45
+    # for the PR's required checks, which the merge script bounds at 20, and
+    # the setup around both.
+    timeout-minutes: 50
     environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
     concurrency:
       group: run-analytics-metrics-refresh-${{ github.ref_name }}
@@ -3097,14 +3098,23 @@ jobs:
             --json number --jq '.[0].number // empty')
           # Land PR $1 under $title, after the same jail the required `paths`
           # check runs on this branch has passed here, on the commit just
-          # pushed. A side-coding branch that carries codes — this run's, or an
-          # open PR's this run's spend record joined — is left for the
-          # maintainer: the codes have no reference gate.
+          # pushed. Two kinds of PR are left for the maintainer instead. One
+          # whose tree carries anything from an open PR's branch (`carried` set
+          # below): that branch is unprotected and any write holder can push to
+          # it, so only a tree this run built from `main` and its own hand-off
+          # merges without a human. And a side-coding branch that carries
+          # codes: the codes have no reference gate.
+          carried=''
           land() {
             local url="$1" changes="$RUNNER_TEMP/label-changes.txt" script
             git fetch --no-tags -q origin main
             git diff --name-status origin/main...HEAD > "$changes"
             uv run fedcourts assert-label-paths --branch "$BRANCH" --name-status-file "$changes"
+            if [ -n "$carried" ]; then
+              echo "Carries an open PR's content, so it waits for review: ${url}" \
+                | tee -a "$GITHUB_STEP_SUMMARY"
+              return 0
+            fi
             if [ "$QP_FRAME" = alignment-sides ] \
               && grep -qxF "${LABELS_DIR}/${LABELS_NAME}" <<< "$(cut -f2- "$changes")"; then
               echo "Side codes wait for review: ${url}" | tee -a "$GITHUB_STEP_SUMMARY"
@@ -3112,7 +3122,9 @@ jobs:
             fi
             # Best-effort, as the board lane arms it: a refusal leaves the PR
             # open for a manual merge rather than failing a run whose output is
-            # already pushed.
+            # already pushed. An arm left on a side-codes PR that a later codes
+            # batch force-pushes grants nothing: auto-merge never exercises the
+            # approval bypass, so the codes still wait for an approval.
             gh pr merge --auto --merge --subject "${title} (#${url##*/})" "$url" || {
               echo "::warning::could not enable auto-merge on ${url}; merge it by hand"
               echo "Auto-merge could not be enabled on ${url}; merge it by hand." \
@@ -3166,6 +3178,7 @@ jobs:
             if [ -n "$open" ]; then
               git fetch --no-tags -q origin "$BRANCH"
               git checkout -q -f -B "$BRANCH" FETCH_HEAD
+              carried="open-branch"
             else
               git checkout -q -f -B "$BRANCH" origin/main
             fi
@@ -3324,7 +3337,10 @@ jobs:
               > "$RUNNER_TEMP/carried-spend.txt"
             while IFS= read -r path; do
               case "$path" in
-                data/qp-topics/spend/*.json) git checkout FETCH_HEAD -- "$path" ;;
+                data/qp-topics/spend/*.json)
+                  git checkout FETCH_HEAD -- "$path"
+                  carried="spend-records"
+                  ;;
               esac
             done < "$RUNNER_TEMP/carried-spend.txt"
           fi

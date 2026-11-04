@@ -39,7 +39,10 @@ run-name: "summarize @ ${{ github.ref_name == 'main' && 'prod' || github.ref_nam
 #             required checks pass (`scripts/merge-when-green.sh`). The
 #             required `paths` check runs the lane's own jail on that branch
 #             (`summary-paths --strict --any-withdrawal`): summary writes, and
-#             case-summary deletions, which only a withdrawal makes.
+#             case-summary deletions, which only a withdrawal makes. A branch
+#             that carried an open PR's summaries forward is left for the
+#             maintainer, since that unprotected branch takes any write
+#             holder's push.
 #
 # Every environment-binding job but `publish` resolves its environment from the
 # dispatching ref, as run-analytics does: `main` (and the schedule, which runs
@@ -758,6 +761,15 @@ jobs:
             url=$(gh pr create --repo "$REPO" --base main --head "$BRANCH" \
               --title "$title" --body-file "$RUNNER_TEMP/pr-body.md")
             echo "Opened summaries PR: ${url}" | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+          # A branch that carried an open PR's summaries forward waits for the
+          # maintainer: that branch is unprotected and any write holder can push
+          # to it, so only a tree this run built from `main` and its own
+          # generate output merges without a human.
+          if [ "$open" != "0" ]; then
+            echo "Carries an open PR's summaries, so it waits for review: ${url}" \
+              | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
           fi
           # Best-effort, as the board lane arms it: a refusal leaves the PR open
           # for a manual merge rather than failing a run whose summaries are

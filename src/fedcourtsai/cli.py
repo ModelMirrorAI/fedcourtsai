@@ -21148,7 +21148,7 @@ def summary_withdraw_cmd(
     A summary written before the docketed date of the petition its docket
     number now holds describes another petition (a re-docketed number), and
     ``summarize-plan`` lists it under ``withdrawn``. The publish job runs this
-    on its checkout so the review PR carries the deletion, which
+    on its checkout so the summaries PR carries the deletion, which
     ``summary-paths --strict --plan`` then admits. A file already gone is
     skipped.
     """
@@ -25326,7 +25326,7 @@ def _spend_verdict_json(verdict: SpendVerdict) -> dict[str, Any]:
         "basis": (
             "The ledger counts committed spend only — a cell's usage.json reaches data/ when "
             "its run's collect PR merges, a case summary's or a topic-labeler run's record "
-            "when its reviewed PR does — and `cells` counts the agent cells inside spent_usd, "
+            "when its publish PR does — and `cells` counts the agent cells inside spent_usd, "
             "which also sums those summaries and labeler runs; so spent_usd is a FLOOR on "
             "spend within the window, "
             "never a live figure. Null where no ceiling is configured: the backstop returns "
@@ -28294,7 +28294,7 @@ def cleanup_out_of_scope_predictions_cmd(
         typer.Option("--apply", help="Delete the directories; omit for a dry-run that only lists."),
     ] = False,
     run_id: Annotated[
-        str, typer.Option(help="Run id for the review PR's branch name; defaults to now (UTC).")
+        str, typer.Option(help="Run id the refresh PR's body names; defaults to now (UTC).")
     ] = "",
     issue: Annotated[int, typer.Option(help="Issue the PR closes on merge (0 = none).")] = 0,
 ) -> None:

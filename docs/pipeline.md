@@ -587,7 +587,9 @@ queues behind the production run of the same mode. The modes:
   file, written, and added spend records (`assert-label-paths`); the batch got
   there only past the measure step's publication gate and the publish job's
   accrual guard. A run that publishes nothing lands its spend record the same
-  way. The side coder's codes PR (`merits-alignment/side-codes`) is the one
+  way. A branch that carries an open PR's labels or spend records
+  forward is left for the maintainer, since that fixed branch takes any write
+  holder's push. The side coder's codes PR (`merits-alignment/side-codes`) is the one
   labeling PR left for the maintainer: the codes have no reference gate, so
   reading the coder's notes is the check; its spend-record-only PRs merge
   unattended. The frame outruns

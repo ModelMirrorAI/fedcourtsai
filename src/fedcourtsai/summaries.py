@@ -536,7 +536,7 @@ def render_plan_report(plan: SummaryPlan, *, run_url: str = "") -> str:
     if plan.withdrawn:
         lines += [
             "",
-            "Withdrawn (the review PR deletes them):",
+            "Withdrawn (the summaries PR deletes them):",
             "",
             "| case | summary | docketed |",
             "|---|---|---|",
