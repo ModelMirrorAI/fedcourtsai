@@ -1,0 +1,10 @@
+{
+  "case_id": "scotus/9526000634",
+  "run_id": "20261104T222804Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {"category": "capture-gap", "severity": "info", "event_id": "evt-motion-disposition",
+     "message": "statpack.json interim per-Term finer_granted/finer_resolved are 0 with finer_unread equal to the substantive count in every Term 2016-2025, so the OT2026 interim pool cannot clear its floor and no published baseline exists for this cell."}
+  ]
+}

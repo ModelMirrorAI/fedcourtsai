@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000634",
+  "run_id": "20261104T222804Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "capture-gap",
+      "severity": "warning",
+      "event_id": "evt-motion-disposition",
+      "message": "The committed interim statpack has no eligible finer-reading baseline for application Term 2026. Pooling 2016–2025 yields finer_resolved=0, finer_granted=0, finer_unread=1366; every pooled Term has unread finer dispositions. The 50-resolved floor and zero-unread condition both fail. Forecast completed from the provisioned application and general precedent without substituting the older substantive-reading rate."
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "case_id": "scotus/9026000589",
+  "run_id": "20261104T222804Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md"
+  ],
+  "helpful": [
+    "Provisioned petition.txt including the vacated panel opinion and en banc per curiam order in the appendix",
+    "Pre-computed cert_anchor in record/context.json for the federal salience band",
+    "fedcourts query --docket-number for checking the status of related petitions (No. 26-210 and No. 25-48)"
+  ],
+  "gaps": [],
+  "notes": "All provisioned documents and metadata were complete and clear."
+}
