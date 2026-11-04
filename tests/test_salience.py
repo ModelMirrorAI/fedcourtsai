@@ -698,7 +698,7 @@ def test_the_writ_scope_leaves_rule_20_writs_out_of_scoring_and_selection(versio
 def test_the_live_pass_leaves_a_rule_20_writ_out_under_the_active_version(
     tmp_path: Path,
 ) -> None:
-    """The live pass's scope is the active sal-v7's (sal-v6's), so a Rule 20 writ is neither
+    """The live pass's scope is the active version's (sal-v6's writ scope, shared by sal-v7), so a Rule 20 writ is neither
     scored nor latched, while a certiorari petition beside it is."""
     writ = _v5_row("scotus/writ", distribution_count=3, opening_writ="rule-20")
     cert = _v5_row("scotus/cert", distribution_count=3, opening_writ="certiorari")
@@ -3086,7 +3086,7 @@ def test_no_other_counsel_field_reaches_the_base_row_or_the_cell(
 
 
 def test_sal_v6_cells_never_read_the_counsel_fact(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Under the active sal-v6 the fact moves nothing a cell freezes: an SG cell
+    """Under sal-v6 the fact moves nothing a cell freezes: an SG cell
     with the fact forced either way, forward and replay, freezes one context."""
     _activate(monkeypatch, "sal-v6")
     for mode in ("forward", "replay"):

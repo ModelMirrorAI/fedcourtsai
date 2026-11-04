@@ -1069,11 +1069,9 @@ exactly as `sal-v4` does, counsel or none. Its petitioner class is read off the
 caption, so it is fixed at filing and the reachable-ladder premise the
 statpack's risk sets rest on holds, as under `sal-v3` and `sal-v4`.
 
-`sal-v6` was the active scorer from its activation until `sal-v7`'s below
-superseded it: while `SALIENCE_VERSION` named it, the live
-pass scored, latched and stamped under it, every band a cell froze was a
-`sal-v6` band, and the pack's `segments` were its bands, with `sal-v4`'s in
-`alt_segments`. It
+`sal-v6` is a **frozen, superseded** scorer: `sal-v7` below is `sal-v6` read
+through `caption-v4`, and its bands stay published in `alt_segments` for the
+cells that froze them. It
 pins `dist-v2`, the parse `DEFAULT_DISTRIBUTION_PARSE` already names, so the
 flip moved one constant. It was registered inactive first, on the pattern
 `sal-v5` set, and the back-fill state above reads the same for it: a past-Term
@@ -1307,14 +1305,17 @@ that a cell cut on the same docket would not; the replay's `dated` cells are
 the reading a cell actually makes.
 
 **The activation readings.** The census above, re-run on the activation's
-blob, finds the same 15 moves. The first pack carrying a `sal-v7` block pools
-`federal` at 75.54% (139/184) over OT2017–OT2024 against `sal-v6`'s 75.98%
-(136/179), the five moved complete-Term rows leaving the other bands all but
-unchanged. The gate replay over OT2017–OT2024 reads `sal-v7`'s cells equal to
+blob, finds the same 15 moves. The first pack carrying a `sal-v7` block (the
+metrics refresh `12f759dc9`, on blob `2adbff38…9cfc`) pools `federal` at
+75.54% (139/184) over OT2017–OT2024 against `sal-v6`'s 75.98% (136/179), the
+five moved complete-Term rows leaving the other bands all but unchanged; those
+pools band stored rows, so they carry the substitution residual above. The gate replay over OT2017–OT2024 reads `sal-v7`'s cells equal to
 `sal-v6`'s in every Term and policy, because no cell in that frame has a
 `dated` projection, so the replay cannot see `caption-v4` there: the
-matched-recall reading over the `dated` provenance runs over zero rows, and the
-activation rests on the census's outcome-free precision and the pools instead.
+matched-recall reading over the `dated` provenance runs over zero rows. That
+registered leg is unmet, and the activation departs from the registration on
+it, proceeding on the bar `sal-v3`'s activation cleared alone: the census and
+its outcome-free precision.
 The 2026-11-04 entry of [freeze-record.md](freeze-record.md) carries the
 tables and the dry run's size.
 

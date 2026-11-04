@@ -16544,8 +16544,8 @@ freeze commit is recorded here.
 
   Five complete-Term rows move, the five the registration census names (19-71
   from `elevated`; 20-1044, 20-1478, 23-411 and 24-1246 from `baseline`),
-  three of them grant-family. `federal` holds its rate on five more rows and
-  the bands they leave barely move. As the registration entry states, those
+  three of them grant-family. `federal`'s rate moves by under half a point
+  on five more rows, and the bands they leave barely move. As the registration entry states, those
   shapes were surfaced by flagged forecasts on petitions later granted, so no
   recall gain is quoted from this table.
 
@@ -16568,10 +16568,15 @@ freeze commit is recorded here.
   projection** (every row is `truncated` or `blind`), and `caption-v4`'s
   counsel fact reads false on both, so the replay cannot see `caption-v4` on
   these Terms at all. The matched-recall reading the registration asked for,
-  over the `dated` provenance, therefore runs over zero rows. The evidence
-  this activation rests on is the census's outcome-free precision (12 of the
-  15 moved captions name a federal agency or an officer's title) and the
-  pools above, not a replay comparison.
+  over the `dated` provenance, therefore runs over zero rows: **that
+  registered leg is unmet, and this activation departs from the
+  registration on it.** It proceeds on the bar `sal-v3`'s activation cleared
+  alone: the census and its outcome-free precision (12 of the 15 moved
+  captions name a federal agency or an officer's title). The pools above are
+  read beside it, not as outcome-clean evidence: they band stored rows, and
+  8 of the 10 resolved moved rows have no stored snapshot from before their
+  outcome, so the post-grant substitution residual the registration entry
+  declares cannot be ruled out on them.
 
   **What it moves.** The live pass scores, latches and stamps under
   `sal-v7`. The activation dry run, `uv run python
@@ -16580,8 +16585,8 @@ freeze commit is recorded here.
   and 26-379 as federal arrivals (both pending moved rows not yet selected),
   and 26-157 and 26-218 in the 2026-10-09 cohort, where `sal-v7`'s top-N
   differs from `sal-v6`'s and a cohort's capacity counts no existing latch.
-  The same dry run under `sal-v6` plans 0. The 257 rows the segment refuses
-  are the writs `sal-v6` already refuses (the segment is the same callable).
+  The same dry run under `sal-v6` plans 0 new latches and refuses the same
+  257 rows the `sal-v7` run refuses (the segment is the same callable).
   `unlatch-overselected` is not part of activation and is not run. The
   scored window opens at the first post-promotion metrics refresh, as for
   every earlier flip; a cell minted before it pools a `sal-v7` anchor from
