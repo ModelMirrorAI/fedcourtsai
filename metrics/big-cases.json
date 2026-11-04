@@ -1,14 +1,14 @@
 {
-  "cases": 353,
+  "cases": 358,
   "cases_out_of_scope": 0,
   "cases_without_score": 1,
   "coverage": [
     {
-      "cases": 319,
+      "cases": 321,
       "n": 3
     },
     {
-      "cases": 32,
+      "cases": 35,
       "n": 2
     },
     {
@@ -16,8 +16,8 @@
       "n": 1
     }
   ],
-  "current_reads": 1057,
-  "declared_no_view": 23,
+  "current_reads": 1072,
+  "declared_no_view": 26,
   "frozen_process": {
     "digests": [
       "sha256:1389c40a89d22cb951b25dad96d18d307cef26db4f6b66cdd425ea8fcf0f49b6",
@@ -2882,9 +2882,9 @@
         }
       ],
       "docket_id": 73275185,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-243",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-243.html",
       "events": [
         {
           "actual_disposition": "gvr",
@@ -4503,9 +4503,9 @@
         }
       ],
       "docket_id": 73514289,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1404",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1404.html",
       "events": [
         {
           "actual_disposition": null,
@@ -6423,8 +6423,8 @@
       "status": "resolved"
     },
     {
-      "asking_declined": "original_jurisdiction",
-      "asking_party": null,
+      "asking_declined": null,
+      "asking_party": "Oklahoma",
       "caption": "Oklahoma, et al. v. United States, et al.",
       "caption_event_id": "evt-petition-disposition",
       "case_id": "scotus/73500226",
@@ -6459,9 +6459,9 @@
         }
       ],
       "docket_id": 73500226,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1325",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1325.html",
       "events": [
         {
           "actual_disposition": null,
@@ -6519,8 +6519,19 @@
       "moment": "evt-petition-disposition",
       "moment_opened_at": "2026-05-29",
       "n": 3,
-      "other_party": null,
-      "outcome_lines": null,
+      "other_party": "United States",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Oklahoma's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Oklahoma's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
       "schedule": [],
       "scheduled": null,
       "score_max": 0.9,
@@ -21213,9 +21224,9 @@
         }
       ],
       "docket_id": 73369985,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1295",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1295.html",
       "events": [
         {
           "actual_disposition": null,
@@ -26805,6 +26816,129 @@
       "status": "pending"
     },
     {
+      "asking_declined": null,
+      "asking_party": "Jack",
+      "caption": "Saundra M. Jack, Commissioner, Virginia Department of Motor Vehicles v. Curtis M. Whateley",
+      "caption_event_id": "evt-petition-arrival-disposition",
+      "case_id": "scotus/9026000584",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Government-speech line for vanity plates touches every state's plate program and the Walker/Shurtleff doctrine; a plate case, not a landmark.",
+          "big_case_score": 0.45,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261103T225348Z"
+        },
+        {
+          "big_case_rationale": "A recurring national First Amendment question about personalized license plates, with consequences for state speech programs but a relatively bounded immediate subject.",
+          "big_case_score": 0.5,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261103T225348Z"
+        },
+        {
+          "big_case_rationale": "Resolving whether state vanity license plates are government speech under Walker or private speech subject to First Amendment forum analysis affects millions of personalized plates nationwide and an acknowledged federal-state split, though the interlocutory remand posture narrows its immediate remedial scope.",
+          "big_case_score": 0.42,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261103T225348Z"
+        }
+      ],
+      "docket_id": 9026000584,
+      "docket_number": "26-584",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-584.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-arrival-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Government-speech line for vanity plates touches every state's plate program and the Walker/Shurtleff doctrine; a plate case, not a landmark.",
+              "big_case_score": 0.45,
+              "cell_path": "data/cases/scotus/9026000584/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261103T225348Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000584/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261103T225348Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.17,
+              "run_id": "20261103T225348Z"
+            },
+            {
+              "big_case_rationale": "A recurring national First Amendment question about personalized license plates, with consequences for state speech programs but a relatively bounded immediate subject.",
+              "big_case_score": 0.5,
+              "cell_path": "data/cases/scotus/9026000584/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261103T225348Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000584/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261103T225348Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.32,
+              "run_id": "20261103T225348Z"
+            },
+            {
+              "big_case_rationale": "Resolving whether state vanity license plates are government speech under Walker or private speech subject to First Amendment forum analysis affects millions of personalized plates nationwide and an acknowledged federal-state split, though the interlocutory remand posture narrows its immediate remedial scope.",
+              "big_case_score": 0.42,
+              "cell_path": "data/cases/scotus/9026000584/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261103T225348Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000584/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261103T225348Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.18,
+              "run_id": "20261103T225348Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Saundra M. Jack, Commissioner, Virginia Department of Motor Vehicles v. Curtis M. Whateley"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.4567,
+      "moment": "evt-petition-arrival-disposition",
+      "moment_opened_at": "2026-11-03",
+      "n": 3,
+      "other_party": "Whateley",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Jack's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Jack's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-12-03",
+          "kind": "response_due"
+        }
+      ],
+      "scheduled": null,
+      "score_max": 0.5,
+      "score_min": 0.42,
+      "score_range": 0.08,
+      "short_caption": "Jack v. Whateley",
+      "status": "pending"
+    },
+    {
       "asking_declined": "short_form",
       "asking_party": null,
       "caption": "Benjamin M. Bauer v. Anne Elizabeth Alma Marks",
@@ -26841,9 +26975,9 @@
         }
       ],
       "docket_id": 73527306,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1413",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1413.html",
       "events": [
         {
           "actual_disposition": null,
@@ -26948,9 +27082,9 @@
         }
       ],
       "docket_id": 73520108,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1408",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1408.html",
       "events": [
         {
           "actual_disposition": null,
@@ -28118,9 +28252,9 @@
         }
       ],
       "docket_id": 73283862,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-7026",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-7026.html",
       "events": [
         {
           "actual_disposition": null,
@@ -29777,9 +29911,9 @@
         }
       ],
       "docket_id": 73281704,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1199",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1199.html",
       "events": [
         {
           "actual_disposition": null,
@@ -31534,9 +31668,9 @@
         }
       ],
       "docket_id": 73521973,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1410",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1410.html",
       "events": [
         {
           "actual_disposition": "denied",
@@ -33635,6 +33769,174 @@
       "score_min": 0.3,
       "score_range": 0.1,
       "short_caption": "Davis v. Smith",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Guardado",
+      "caption": "Jesse Guardado v. Florida",
+      "caption_event_id": "evt-brief-response-disposition",
+      "case_id": "scotus/9526000623",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Life-or-death for the applicant, but a routine Florida warrant-cycle stay application on a clemency due-process theory the federal courts have uniformly rejected; little doctrinal reach.",
+          "big_case_score": 0.12,
+          "event_id": "evt-brief-response-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261104T014043Z"
+        },
+        {
+          "big_case_rationale": "An imminent execution and a potentially statewide challenge to meaningful clemency access create substantial stakes, although the legal issue is narrower than a challenge to capital punishment generally.",
+          "big_case_score": 0.58,
+          "event_id": "evt-brief-response-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261104T014043Z"
+        },
+        {
+          "big_case_rationale": "Capital stay application pending execution on November 5, 2026, raising routine, procedurally barred post-warrant claims with no circuit split or amicus participation.",
+          "big_case_score": 0.35,
+          "event_id": "evt-brief-response-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261104T014043Z"
+        }
+      ],
+      "docket_id": 9526000623,
+      "docket_number": "26A623",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26a623.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-brief-response-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Life-or-death for the applicant, but a routine Florida warrant-cycle stay application on a clemency due-process theory the federal courts have uniformly rejected; little doctrinal reach.",
+              "big_case_score": 0.12,
+              "cell_path": "data/cases/scotus/9526000623/events/evt-brief-response-disposition/predictions/claude-baseline/20261104T014043Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000623/events/evt-brief-response-disposition/predictions/claude-baseline/20261104T014043Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.01,
+              "run_id": "20261104T014043Z"
+            },
+            {
+              "big_case_rationale": "An imminent execution and a potentially statewide challenge to meaningful clemency access create substantial stakes, although the legal issue is narrower than a challenge to capital punishment generally.",
+              "big_case_score": 0.58,
+              "cell_path": "data/cases/scotus/9526000623/events/evt-brief-response-disposition/predictions/codex-baseline/20261104T014043Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000623/events/evt-brief-response-disposition/predictions/codex-baseline/20261104T014043Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.03,
+              "run_id": "20261104T014043Z"
+            },
+            {
+              "big_case_rationale": "Capital stay application pending execution on November 5, 2026, raising routine, procedurally barred post-warrant claims with no circuit split or amicus participation.",
+              "big_case_score": 0.35,
+              "cell_path": "data/cases/scotus/9526000623/events/evt-brief-response-disposition/predictions/gemini-baseline/20261104T014043Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000623/events/evt-brief-response-disposition/predictions/gemini-baseline/20261104T014043Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.015,
+              "run_id": "20261104T014043Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Jesse Guardado v. Florida"
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-motion-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Individual capital stay on a recurring, repeatedly rejected clemency-due-process theory; life-or-death for the applicant but little doctrinal reach.",
+              "big_case_score": 0.15,
+              "cell_path": "data/cases/scotus/9526000623/events/evt-motion-disposition/predictions/claude-baseline/20261104T014043Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000623/events/evt-motion-disposition/predictions/claude-baseline/20261104T014043Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.015,
+              "run_id": "20261104T014043Z"
+            },
+            {
+              "big_case_rationale": "An imminent execution gives the application exceptional individual stakes; its challenge to categorical clemency refusal could affect Florida's broader capital process, but the requested order is case-specific.",
+              "big_case_score": 0.58,
+              "cell_path": "data/cases/scotus/9526000623/events/evt-motion-disposition/predictions/codex-baseline/20261104T014043Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000623/events/evt-motion-disposition/predictions/codex-baseline/20261104T014043Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.03,
+              "run_id": "20261104T014043Z"
+            },
+            {
+              "big_case_rationale": "Routine last-minute state capital post-warrant stay application raising a settled Woodard clemency due-process claim with no circuit split or broader doctrinal reach.",
+              "big_case_score": 0.08,
+              "cell_path": "data/cases/scotus/9526000623/events/evt-motion-disposition/predictions/gemini-baseline/20261104T014043Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000623/events/evt-motion-disposition/predictions/gemini-baseline/20261104T014043Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.02,
+              "run_id": "20261104T014043Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Jesse Guardado v. Florida"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.35,
+      "moment": "evt-brief-response-disposition",
+      "moment_opened_at": "2026-11-02",
+      "n": 3,
+      "other_party": "Florida",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "Guardado gets the relief requested for now, while the case continues in the lower courts.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Guardado does not get the relief requested for now, and things stay as the lower courts left them while the case continues.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [],
+      "scheduled": null,
+      "score_max": 0.58,
+      "score_min": 0.12,
+      "score_range": 0.46,
+      "short_caption": "Guardado v. Florida",
       "status": "pending"
     },
     {
@@ -36993,9 +37295,9 @@
         }
       ],
       "docket_id": 73538544,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1421",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1421.html",
       "events": [
         {
           "actual_disposition": null,
@@ -42573,9 +42875,9 @@
         }
       ],
       "docket_id": 73500268,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1367",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1367.html",
       "events": [
         {
           "actual_disposition": "gvr",
@@ -45756,7 +46058,7 @@
       "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26a606.html",
       "events": [
         {
-          "actual_disposition": null,
+          "actual_disposition": "denied",
           "event_id": "evt-motion-disposition",
           "reads": [
             {
@@ -45802,7 +46104,7 @@
               "run_id": "20261031T173439Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-11-02",
           "title": "Gina Silva, et al. v. Todd Blanche, Attorney General"
         }
       ],
@@ -45830,7 +46132,7 @@
       "score_min": 0.02,
       "score_range": 0.23,
       "short_caption": "Silva v. Blanche",
-      "status": "pending"
+      "status": "resolved"
     },
     {
       "asking_declined": null,
@@ -49013,6 +49315,124 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Akerman",
+      "caption": "Martin Akerman v. Merit Systems Protection Board, et al.",
+      "caption_event_id": "evt-motion-disposition",
+      "case_id": "scotus/9526000612",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "An individual federal-employment dispute brought by a self-represented applicant; no broader legal question is visible on the record.",
+          "big_case_score": 0.03,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261103T203422Z"
+        },
+        {
+          "big_case_rationale": "The docket identifies an injunction application against the MSPB and others, but the application has no extracted text, so the substantive stakes cannot reliably be assessed.",
+          "big_case_score": null,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261103T203422Z"
+        },
+        {
+          "big_case_rationale": "Routine pro se interlocutory stay application arising from an individual federal employment/FOIA dispute with no broad legal or policy significance.",
+          "big_case_score": 0.02,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261103T203422Z"
+        }
+      ],
+      "docket_id": 9526000612,
+      "docket_number": "26A612",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26a612.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-motion-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "An individual federal-employment dispute brought by a self-represented applicant; no broader legal question is visible on the record.",
+              "big_case_score": 0.03,
+              "cell_path": "data/cases/scotus/9526000612/events/evt-motion-disposition/predictions/claude-baseline/20261103T203422Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000612/events/evt-motion-disposition/predictions/claude-baseline/20261103T203422Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.02,
+              "run_id": "20261103T203422Z"
+            },
+            {
+              "big_case_rationale": "The docket identifies an injunction application against the MSPB and others, but the application has no extracted text, so the substantive stakes cannot reliably be assessed.",
+              "big_case_score": null,
+              "cell_path": "data/cases/scotus/9526000612/events/evt-motion-disposition/predictions/codex-baseline/20261103T203422Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000612/events/evt-motion-disposition/predictions/codex-baseline/20261103T203422Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.03,
+              "run_id": "20261103T203422Z"
+            },
+            {
+              "big_case_rationale": "Routine pro se interlocutory stay application arising from an individual federal employment/FOIA dispute with no broad legal or policy significance.",
+              "big_case_score": 0.02,
+              "cell_path": "data/cases/scotus/9526000612/events/evt-motion-disposition/predictions/gemini-baseline/20261103T203422Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000612/events/evt-motion-disposition/predictions/gemini-baseline/20261103T203422Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.01,
+              "run_id": "20261103T203422Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Martin Akerman v. Merit Systems Protection Board, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.025,
+      "moment": "evt-motion-disposition",
+      "moment_opened_at": "2026-10-20",
+      "n": 2,
+      "other_party": "Merit Systems Protection Board",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "Akerman gets the relief requested for now, while the case continues in the lower courts.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Akerman does not get the relief requested for now, and things stay as the lower courts left them while the case continues.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [],
+      "scheduled": null,
+      "score_max": 0.03,
+      "score_min": 0.02,
+      "score_range": 0.01,
+      "short_caption": "Akerman v. Merit Systems Protection Board",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Alejandro Evaristo Perez",
       "caption": "Alejandro Evaristo Perez v. Disney Corporation, et al.",
       "caption_event_id": "evt-petition-arrival-disposition",
@@ -49412,7 +49832,7 @@
       "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26a602.html",
       "events": [
         {
-          "actual_disposition": null,
+          "actual_disposition": "denied",
           "event_id": "evt-motion-disposition",
           "reads": [
             {
@@ -49458,7 +49878,7 @@
               "run_id": "20261031T173439Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-11-03",
           "title": "Micahiel Nichloson, et al. v. U.S. Bank National Association"
         }
       ],
@@ -49486,7 +49906,125 @@
       "score_min": 0.02,
       "score_range": 0.0,
       "short_caption": "Nichloson v. U.S. Bank National Association",
-      "status": "pending"
+      "status": "resolved"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Smith",
+      "caption": "Denise Smith v. Brown, Savage, Britto, Stitely & Callahan, LLP, et al.",
+      "caption_event_id": "evt-motion-disposition",
+      "case_id": "scotus/9526000619",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Pro se private dispute against a law firm out of the Maryland Supreme Court; no sign of stakes reaching past the parties.",
+          "big_case_score": 0.03,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261103T221945Z"
+        },
+        {
+          "big_case_rationale": "The application has no extracted text, so its federal question, requested stay's reach, and underlying stakes cannot be responsibly assessed from the caption alone.",
+          "big_case_score": null,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261103T221945Z"
+        },
+        {
+          "big_case_rationale": "Routine pro se emergency stay application arising from a long-running Maryland residential foreclosure and eviction dispute with no broader doctrinal or policy significance.",
+          "big_case_score": 0.01,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261103T221945Z"
+        }
+      ],
+      "docket_id": 9526000619,
+      "docket_number": "26A619",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26a619.html",
+      "events": [
+        {
+          "actual_disposition": "denied",
+          "event_id": "evt-motion-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Pro se private dispute against a law firm out of the Maryland Supreme Court; no sign of stakes reaching past the parties.",
+              "big_case_score": 0.03,
+              "cell_path": "data/cases/scotus/9526000619/events/evt-motion-disposition/predictions/claude-baseline/20261103T221945Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000619/events/evt-motion-disposition/predictions/claude-baseline/20261103T221945Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.02,
+              "run_id": "20261103T221945Z"
+            },
+            {
+              "big_case_rationale": "The application has no extracted text, so its federal question, requested stay's reach, and underlying stakes cannot be responsibly assessed from the caption alone.",
+              "big_case_score": null,
+              "cell_path": "data/cases/scotus/9526000619/events/evt-motion-disposition/predictions/codex-baseline/20261103T221945Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000619/events/evt-motion-disposition/predictions/codex-baseline/20261103T221945Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.03,
+              "run_id": "20261103T221945Z"
+            },
+            {
+              "big_case_rationale": "Routine pro se emergency stay application arising from a long-running Maryland residential foreclosure and eviction dispute with no broader doctrinal or policy significance.",
+              "big_case_score": 0.01,
+              "cell_path": "data/cases/scotus/9526000619/events/evt-motion-disposition/predictions/gemini-baseline/20261103T221945Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000619/events/evt-motion-disposition/predictions/gemini-baseline/20261103T221945Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.002,
+              "run_id": "20261103T221945Z"
+            }
+          ],
+          "resolved_at": "2026-11-03",
+          "title": "Denise Smith v. Brown, Savage, Britto, Stitely & Callahan, LLP, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.02,
+      "moment": "evt-motion-disposition",
+      "moment_opened_at": "2026-10-27",
+      "n": 2,
+      "other_party": "Brown",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "Smith gets the relief requested for now, while the case continues in the lower courts.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Smith does not get the relief requested for now, and things stay as the lower courts left them while the case continues.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [],
+      "scheduled": null,
+      "score_max": 0.03,
+      "score_min": 0.01,
+      "score_range": 0.02,
+      "short_caption": "Smith v. Brown",
+      "status": "resolved"
     },
     {
       "asking_declined": null,
@@ -49829,6 +50367,129 @@
       "score_min": 0.0,
       "score_range": 0.03,
       "short_caption": "Boddie v. United States District Court",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Shaikh",
+      "caption": "Ahmed Shaikh v. Fox News Network, LLC, et al.",
+      "caption_event_id": "evt-petition-arrival-disposition",
+      "case_id": "scotus/9026000583",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Pro se claims that media companies read the petitioner's thoughts via hidden cameras, dismissed below as wholly insubstantial; no stakes beyond the parties.",
+          "big_case_score": 0.01,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261103T203422Z"
+        },
+        {
+          "big_case_rationale": "Neither the petition nor its questions presented nor the decision below is provisioned; the caption alone cannot establish the legal stakes.",
+          "big_case_score": null,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261103T203422Z"
+        },
+        {
+          "big_case_rationale": "Pro se civil suit dismissed as patently frivolous under Bell v. Hood, with any diversity-jurisdiction question held abandoned on appeal.",
+          "big_case_score": 0.02,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261103T203422Z"
+        }
+      ],
+      "docket_id": 9026000583,
+      "docket_number": "26-583",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-583.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-arrival-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Pro se claims that media companies read the petitioner's thoughts via hidden cameras, dismissed below as wholly insubstantial; no stakes beyond the parties.",
+              "big_case_score": 0.01,
+              "cell_path": "data/cases/scotus/9026000583/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261103T203422Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000583/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261103T203422Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.002,
+              "run_id": "20261103T203422Z"
+            },
+            {
+              "big_case_rationale": "Neither the petition nor its questions presented nor the decision below is provisioned; the caption alone cannot establish the legal stakes.",
+              "big_case_score": null,
+              "cell_path": "data/cases/scotus/9026000583/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261103T203422Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000583/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261103T203422Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.02,
+              "run_id": "20261103T203422Z"
+            },
+            {
+              "big_case_rationale": "Pro se civil suit dismissed as patently frivolous under Bell v. Hood, with any diversity-jurisdiction question held abandoned on appeal.",
+              "big_case_score": 0.02,
+              "cell_path": "data/cases/scotus/9026000583/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261103T203422Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000583/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261103T203422Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.001,
+              "run_id": "20261103T203422Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Ahmed Shaikh v. Fox News Network, LLC, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.015,
+      "moment": "evt-petition-arrival-disposition",
+      "moment_opened_at": "2026-11-03",
+      "n": 2,
+      "other_party": "Fox News Network",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Shaikh's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Shaikh's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-12-03",
+          "kind": "response_due"
+        }
+      ],
+      "scheduled": null,
+      "score_max": 0.02,
+      "score_min": 0.01,
+      "score_range": 0.01,
+      "short_caption": "Shaikh v. Fox News Network",
       "status": "pending"
     },
     {
@@ -50177,5 +50838,5 @@
   ],
   "rows_with_leakage_flag": 4,
   "schema_version": "1.4",
-  "scored_reads": 1023
+  "scored_reads": 1035
 }
