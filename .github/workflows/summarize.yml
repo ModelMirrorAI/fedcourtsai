@@ -428,7 +428,7 @@ jobs:
           set -euo pipefail
           uv run fedcourts ai-ruling-stage \
             --plan "$RUNNER_TEMP/plan/summary-plan.json" \
-            --staged "$RUNNER_TEMP/stage" | tee -a "$GITHUB_STEP_SUMMARY"
+            --staged "$RUNNER_TEMP/stage"
 
       # The staged tree leaves this job as a public run artifact, so it may
       # carry only the Court's own docket JSON and filings. The plan screened
