@@ -9,11 +9,12 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from fedcourtsai import off_ledger_spend, summaries
+from fedcourtsai import ai_rulings, off_ledger_spend, summaries
 from fedcourtsai.cli import app
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pricing import TokenCounts, estimate_cost_usd
 from fedcourtsai.schemas import (
+    AiRulingSummaryFrontMatter,
     CaseSummaryFrontMatter,
     CaseSummaryUsage,
     Engine,
@@ -248,14 +249,33 @@ def test_record_carries_cell_usage_and_summaries_at_their_own_cost(tmp_path: Pat
     path = CasePaths(written, "scotus", 2).summary("2026-10-30")
     path.parent.mkdir(parents=True)
     path.write_text(summaries.render_summary(front, "body"))
+    # An AI watchlist ruling's summary, from the same lane, joins its model's line.
+    ruling = AiRulingSummaryFrontMatter(
+        case="Kadrey v. Meta Platforms",
+        court="cand",
+        docket_id=1,
+        docket_number="3:23-cv-03417",
+        entry_id=501,
+        date_filed=date(2026, 10, 30),
+        kind="ruling",
+        text_digest="sha256:" + "2" * 64,
+        model="claude-sonnet-5",
+        prompt_digest="sha256:" + "0" * 64,
+        body_version=1,
+        generated_at=WHEN,
+        usage=CaseSummaryUsage(input_tokens=1000, output_tokens=200, estimated_cost_usd=0.05),
+    )
+    ruling_path = ai_rulings.summary_path(written, 501)
+    ruling_path.parent.mkdir(parents=True)
+    ruling_path.write_text(ai_rulings.render_summary(ruling, "body"))
 
     lines = off_ledger_spend.spend_lines(cell_usage_root=cells, case_summaries_root=written)
 
     assert [(str(line.source), line.records) for line in lines] == [
         ("cell-usage", 2),
-        ("case-summaries", 1),
+        ("case-summaries", 2),
     ]
-    assert [line.estimated_cost_usd for line in lines] == pytest.approx([2.0, 0.5])
+    assert [line.estimated_cost_usd for line in lines] == pytest.approx([2.0, 0.55])
     assert lines[1].engine is None
 
 

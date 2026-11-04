@@ -10,14 +10,28 @@ state on a later cycle.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
+from fedcourtsai import ai_rulings
 from fedcourtsai.config import SpendConfig
 from fedcourtsai.pipeline.qp_topics import run_spend_path
-from fedcourtsai.schemas import Engine, ModelUsage, QpTopicRunSpend, UsageRole
+from fedcourtsai.schemas import (
+    AiRulingSummaryFrontMatter,
+    CaseSummaryUsage,
+    Engine,
+    ModelUsage,
+    QpTopicRunSpend,
+    UsageRole,
+)
 from fedcourtsai.serialize import write_json
-from fedcourtsai.spend import check_spend, measured_spend, spend_over, trailing_spend
+from fedcourtsai.spend import (
+    check_spend,
+    measured_spend,
+    spend_over,
+    summary_spend,
+    trailing_spend,
+)
 from fedcourtsai.store import iter_usage
 
 NOW = datetime(2026, 7, 27, 12, 0, tzinfo=UTC)
@@ -204,3 +218,31 @@ def test_the_backstop_counts_cells_summaries_and_labeler_runs_as_one_total(
     assert verdict.spent_usd == 49.28
     assert verdict.cells == 1
     assert verdict.breached
+
+
+def test_summary_spend_counts_the_ai_watchlist_rulings_summaries(tmp_path: Path) -> None:
+    """A ruling's summary spends on the same key under the same hold, so it counts."""
+
+    def ruling(entry_id: int, cost: float, generated_at: datetime) -> None:
+        front = AiRulingSummaryFrontMatter(
+            case="Kadrey v. Meta Platforms",
+            court="cand",
+            docket_id=1,
+            docket_number="3:23-cv-03417",
+            entry_id=entry_id,
+            date_filed=date(2026, 9, 1),
+            kind="ruling",
+            text_digest="sha256:" + "a" * 64,
+            model="claude-sonnet-5",
+            prompt_digest="sha256:" + "b" * 64,
+            body_version=1,
+            generated_at=generated_at,
+            usage=CaseSummaryUsage(input_tokens=1, output_tokens=1, estimated_cost_usd=cost),
+        )
+        path = ai_rulings.summary_path(tmp_path, entry_id)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(ai_rulings.render_summary(front, "## In brief\n\nX.\n"))
+
+    ruling(1, 0.04, NOW - timedelta(days=1))
+    ruling(2, 0.50, NOW - timedelta(days=40))
+    assert summary_spend(tmp_path, window_days=30, now=NOW) == 0.04
