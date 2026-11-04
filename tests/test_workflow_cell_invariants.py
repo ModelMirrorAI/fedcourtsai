@@ -2584,6 +2584,46 @@ def test_the_retried_listings_are_captured_before_they_are_filtered() -> None:
         ]
 
 
+# The latched alarms that close themselves on a green check, with the title
+# each one files its issue under.
+SELF_CLEARING_ALARM_STEPS = (
+    ("run-seed.yml", "guard", "Escalate a cancelled or failed seed walk", "Seed walk failing"),
+    (
+        "run-ops.yml",
+        "ops",
+        "Escalate a failing data-validation verdict",
+        "Data validation failing",
+    ),
+)
+
+
+def test_a_self_clearing_alarm_closes_only_the_issue_it_filed() -> None:
+    """A green check closes the alarm's own issue, never another one under its label.
+
+    Both steps close the issue their lookup finds once the check is green
+    again. A lookup keyed on the label alone closes any open issue that carries
+    it, a hand-filed one included, with nothing to say the work it tracked was
+    not done. So the lookup must select on the exact title the step files under
+    and on the workflow bot as author, and the label-only shape must not
+    return.
+    """
+    for workflow, job, name, title in SELF_CLEARING_ALARM_STEPS:
+        run = str(_named_step(workflow, job, name)["run"])
+        code = "\n".join(_uncommented(run))
+        assert f'--title "{title}"' in code, f"{workflow}:{name} no longer files {title!r}"
+        assert f'select(.title == "{title}"' in code, (
+            f"{workflow}:{name} must match its own title before closing"
+        )
+        assert '.user.login == "github-actions[bot]"' in code, (
+            f"{workflow}:{name} must match the workflow bot as author before closing"
+        )
+        # The retried listing is captured before jq filters it, so an exhausted
+        # retry fails the assignment instead of reading as "no issue".
+        assert 'listing=$(gh_retry gh api "repos/${REPO}/issues?labels=' in code
+        assert '<<<"$listing")' in code
+        assert "--json number --jq '.[0].number'" not in code
+
+
 # The codex invocation surface, described in several places that certify each
 # other only while they agree: the codex-action steps of the two cell
 # workflows (the action pin and its `codex-version` / `codex-args` /
