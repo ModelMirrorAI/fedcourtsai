@@ -118,6 +118,9 @@ from fedcourtsai.collect import (
     BOARD_ARTIFACTS,
     BOARD_BRANCH,
     BOARD_JAIL_PATHS,
+    LABEL_BRANCHES,
+    REFRESH_BRANCH,
+    SUMMARIES_BRANCH,
     UPDATES_BRANCH,
     is_agent_context_path,
 )
@@ -1948,7 +1951,11 @@ def test_the_qp_measure_composite_is_shared_by_the_paid_run_and_the_scenario() -
     ), "the hand-off must read the measured block from the composite's output"
     assert '"$RUNNER_TEMP/qp-publish/measured.txt"' in stage["run"]
     publish_steps = _load("run-analytics.yml")["jobs"]["qp-topic-publish"]["steps"]
-    pr_step = next(s for s in publish_steps if s.get("name") == "Open or update the review PR")
+    pr_step = next(
+        s
+        for s in publish_steps
+        if s.get("name") == ("Open or update the labels PR, and merge it once green")
+    )
     assert pr_step["env"]["MEASURED_FILE"] == "${{ runner.temp }}/qp-publish/measured.txt", (
         "the PR body must read the measured block the hand-off carried"
     )
@@ -4492,6 +4499,46 @@ def test_the_update_history_branch_is_spelled_the_same_in_all_three_places() -> 
     assert f"git add -A {staged}; fi\n" in analytics_wf
 
 
+def test_the_newer_unattended_branches_are_spelled_the_same_in_all_three_places() -> None:
+    """The board's three-literal argument, for the metrics refresh, the case
+    summaries and the labeling frames: each branch `collect` names is selected
+    by ci.yml's `paths` jail and allowed by `main-base`, so a drift cannot leave
+    an unattended lane on the jail's passing non-match path."""
+    ci = (WORKFLOWS / "ci.yml").read_text()
+    summarize = (WORKFLOWS / "summarize.yml").read_text()
+    assert f"\n            {REFRESH_BRANCH}) jail=refresh ;;" in ci
+    assert f"\n            {SUMMARIES_BRANCH}) jail=summaries ;;" in ci
+    assert f"\n            {'|'.join(LABEL_BRANCHES)}) jail=labels ;;" in ci
+    for branch in (REFRESH_BRANCH, SUMMARIES_BRANCH, *LABEL_BRANCHES):
+        assert f"github.head_ref == '{branch}'" in ci, f"main-base does not allow {branch}"
+    assert f"BRANCH: {SUMMARIES_BRANCH}" in summarize
+
+
+@pytest.mark.parametrize(
+    ("workflow", "job"),
+    [
+        ("summarize.yml", "publish"),
+        ("run-analytics.yml", "metrics-refresh"),
+        ("run-analytics.yml", "qp-topic-publish"),
+    ],
+)
+def test_the_newer_unattended_lanes_merge_through_the_pinned_script(
+    workflow: str, job: str
+) -> None:
+    """Each lane lands its PR as the board does: the merge script read from the
+    job's own commit, the check-run listing on the ambient token, and the
+    `checks: read` that listing needs."""
+    wf = yaml.safe_load((WORKFLOWS / workflow).read_text())
+    spec = wf["jobs"][job]
+    assert spec["permissions"].get("checks") == "read"
+    runs = "\n".join(str(step.get("run", "")) for step in spec["steps"])
+    assert 'git show "${GITHUB_SHA}:scripts/merge-when-green.sh" > "$script"' in runs
+    assert any(
+        (step.get("env") or {}).get("CHECKS_TOKEN") == "${{ github.token }}"
+        for step in spec["steps"]
+    )
+
+
 def test_the_big_case_board_job_reaches_nothing_but_the_ledger_and_its_own_pr() -> None:
     """The board is ledger-only by contract, and the job is where that is
     enforceable: it must assume no cloud role, pull no corpus, and hold no
@@ -5293,7 +5340,7 @@ def test_the_application_labeling_mode_reads_its_frame_off_the_mode_alone() -> N
     publish = next(
         s
         for s in wf["jobs"]["qp-topic-publish"]["steps"]
-        if s.get("name") == "Open or update the review PR"
+        if s.get("name") == "Open or update the labels PR, and merge it once green"
     )
     branch = _norm(publish["env"]["BRANCH"])
     assert "'qp-topics/applications-refresh'" in branch and "'qp-topics/refresh'" in branch

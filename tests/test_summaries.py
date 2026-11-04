@@ -1087,6 +1087,16 @@ def test_summary_withdraw_deletes_the_planned_files_and_the_jail_admits_only_the
     )
     assert clean.exit_code == 0, clean.output
     assert clean.stdout.split() == ["data/cases/scotus/2/summaries/2026-10-13.md"]
+    # The required `paths` check's form has no plan, so it admits any case
+    # summary deletion as a withdrawal, and still refuses every other change.
+    any_withdrawal = runner.invoke(app, [*args, "--any-withdrawal"])
+    assert any_withdrawal.exit_code == 0, any_withdrawal.output
+    assert any_withdrawal.stdout.split() == ["data/cases/scotus/2/summaries/2026-10-13.md"]
+    for line in ("D\tdata/ai-cases/summaries/7.md", "D\tmetrics/leaderboard.json"):
+        changes.write_text(line + "\n")
+        refused = runner.invoke(app, [*args, "--any-withdrawal"])
+        assert refused.exit_code == 1
+        assert "not a summary write" in refused.output
 
 
 def test_a_summary_written_on_the_docketed_day_is_kept(tmp_path: Path) -> None:

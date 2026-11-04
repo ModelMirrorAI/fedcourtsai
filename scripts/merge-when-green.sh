@@ -25,8 +25,9 @@
 #
 # Why this exists rather than `gh pr merge --auto`. `main: require approval`
 # lists the dev App as a pull-request-only bypass actor, and that bypass is what
-# lets the two unattended lanes — the predict/evaluate `collect` PRs and the
-# big-case board — land without a human. Auto-merge never exercises a bypass:
+# lets the unattended lanes — the predict/evaluate `collect` PRs, the big-case
+# board, the update history, the metrics refresh, the case summaries and the
+# labeling runs — land without a human. Auto-merge never exercises a bypass:
 # it waits until the PR satisfies every rule, approval included, so an armed
 # bot PR sits blocked with every check green. A merge call made by the dev App
 # itself is expected to exercise it — unverified until the first production

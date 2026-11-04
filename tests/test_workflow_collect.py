@@ -704,12 +704,15 @@ def test_the_composite_hands_merge_targets_through_a_step_output() -> None:
 def test_no_unattended_lane_arms_a_squash() -> None:
     # Data PRs land on `main` as merge commits under their titles; a squash
     # arm would land the same PR differently depending on who merged it.
-    for path in (COLLECT_ACTION, WORKFLOWS / "run-analytics.yml"):
+    for path in (COLLECT_ACTION, WORKFLOWS / "run-analytics.yml", WORKFLOWS / "summarize.yml"):
         text = path.read_text()
         assert "--squash" not in text, path
     assert ARM_AUTO_MERGE in COLLECT_ACTION.read_text()
     analytics = (WORKFLOWS / "run-analytics.yml").read_text()
-    assert analytics.count(ARM_AUTO_MERGE.replace('"$url"', '"$url" ||')) == 2
+    # The board, the update history, the metrics refresh and the labeling runs.
+    assert analytics.count(ARM_AUTO_MERGE.replace('"$url"', '"$url" ||')) == 4
+    summarize = (WORKFLOWS / "summarize.yml").read_text()
+    assert summarize.count(ARM_AUTO_MERGE.replace('"$url"', '"$url" ||')) == 1
 
 
 def test_the_update_history_job_merges_its_pr_with_the_committed_script() -> None:

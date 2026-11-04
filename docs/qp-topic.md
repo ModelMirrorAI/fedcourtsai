@@ -52,14 +52,15 @@ prompt (`.github/prompts/qp-topic-label.md`), the extract and measurement
 commands (`fedcourts qp-corpus` / `fedcourts qp-topics`), the shadow rules
 (`fedcourtsai.pipeline.qp_topics`), the run mode that runs the labeler
 (`run-analytics`'s `qp-topic-label`, on dispatch and on a weekly cron behind the
-review hold, which lands `data/qp-topics/qp-topics.json` as a reviewed PR — see
+review hold, which lands `data/qp-topics/qp-topics.json` as a PR that merges
+unattended once its required checks pass — see
 `docs/pipeline.md`), and the court-facing docket pack's
 topic section, which renders — always with the inline scope string below, and
 only from a gate-passing labels artifact — in place of the gap bullet that
 names the missing distribution until then. The labels artifact exists and
 accrues one batch a run, so the cut renders wherever a checkout holds it and
 `fedcourts docket` is re-run — which the weekly metrics refresh does, landing
-the regenerated pack in its own reviewed PR; a committed `metrics/docket.md`
+the regenerated pack in its own PR; a committed `metrics/docket.md`
 older than that run still carries the gap bullet. The pack renders the application frame's
 topic cut beside it from the application labels file on the same terms (see
 *Applications*), and a topic mix by stage summarizes both: the share of the

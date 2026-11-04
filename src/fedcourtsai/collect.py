@@ -302,6 +302,103 @@ def assert_updates_within_jail(changes: Iterable[PathChange]) -> None:
         raise PathJailError("update jail rejected the change set:\n- " + "\n- ".join(violations))
 
 
+#: The fixed branch the case-summary lane (`summarize.yml`) publishes on. Its
+#: jail is `summary-paths --strict` (:func:`fedcourtsai.summaries.summary_changes`),
+#: which lives beside the summary path rules because that module imports this
+#: one; the `paths` check runs it with `--any-withdrawal`, admitting summary
+#: writes and case-summary deletions and nothing else. Named here for the same
+#: reason as :data:`BOARD_BRANCH`: the producer, the `paths` selector and
+#: `main-base`'s allowlist must agree, and a test asserts it.
+SUMMARIES_BRANCH = "summaries/refresh"
+
+#: The labeling lane's fixed branches, one per frame, each mapped to the one
+#: labels artifact that frame's run writes. A run that published nothing lands
+#: its spend record alone on the same branch.
+LABEL_BRANCHES: dict[str, str] = {
+    "qp-topics/refresh": "data/qp-topics/qp-topics.json",
+    "qp-topics/applications-refresh": "data/qp-topics/qp-topics-applications.json",
+    "merits-alignment/side-codes": "data/merits-alignment/alignment-side-codes.json",
+}
+
+#: One labeling run's spend record, ``<run_id>-<run_attempt>.json``.
+_SPEND_RECORD = re.compile(r"data/qp-topics/spend/[1-9][0-9]*-[1-9][0-9]*\.json")
+
+
+def assert_labels_within_jail(changes: Iterable[PathChange], *, branch: str) -> None:
+    """Raise :class:`PathJailError` unless the change set is one labeling run's output.
+
+    A labels PR carries its frame's labels artifact, written (added on the
+    frame's first batch, modified after), and spend records, added; a
+    spend-record PR carries the records alone. Anything else — another frame's
+    artifact, a deleted or rewritten spend record, any other path — is a
+    violation. The bound is on paths: that the artifact only accrues (ledger
+    extension and row containment against `main`) is the producer's guard, run
+    before the push the merge is pinned to.
+    """
+    if branch not in LABEL_BRANCHES:
+        raise PathJailError(f"{branch!r} is not a labeling branch")
+    labels = LABEL_BRANCHES[branch]
+    violations: list[str] = []
+    for change in changes:
+        if change.path == labels:
+            if change.status not in ("A", "M"):
+                violations.append(
+                    f"{change.path!r} has status {change.status!r}; the labels file is only written"
+                )
+        elif _SPEND_RECORD.fullmatch(change.path) is not None:
+            if change.status != "A":
+                violations.append(
+                    f"{change.path!r} has status {change.status!r}; spend records are only added"
+                )
+        else:
+            violations.append(f"{change.path!r} is not {labels!r} or a spend record")
+    if violations:
+        raise PathJailError("labels jail rejected the change set:\n- " + "\n- ".join(violations))
+
+
+#: The fixed branch the weekly metrics refresh publishes on
+#: (``metrics_refresh.REFRESH_BRANCH``, which a test holds equal).
+REFRESH_BRANCH = "metrics/refresh"
+
+#: The artifacts the refresh regenerates, and so the only paths its PR may
+#: carry. Spelled here rather than imported, because ``metrics_refresh``
+#: imports this module; a test holds it equal to that module's artifact order.
+REFRESH_JAIL_PATHS = frozenset(
+    {
+        "metrics/leaderboard.json",
+        "metrics/claim-scores.json",
+        "metrics/backtest.json",
+        "metrics/statpack.json",
+        "metrics/statpack.md",
+        "metrics/docket.json",
+        "metrics/docket.md",
+        "metrics/big-cases.json",
+        "metrics/big-cases.md",
+        "data/scope/scope.json",
+    }
+)
+
+
+def assert_refresh_within_jail(changes: Iterable[PathChange]) -> None:
+    """Raise :class:`PathJailError` unless every change writes a refreshed artifact.
+
+    The refresh reruns deterministic commands whose tests the required `gate`
+    re-runs on the PR, so its diff carries no judgement a reviewer adds; what
+    bounds it is this jail: :data:`REFRESH_JAIL_PATHS`, written, and nothing
+    else. `metrics/README.md`, the registered reading rules, is outside it.
+    """
+    violations: list[str] = []
+    for change in changes:
+        if change.path not in REFRESH_JAIL_PATHS:
+            violations.append(f"{change.path!r} is not an artifact the metrics refresh writes")
+        elif change.status not in ("A", "M"):
+            violations.append(
+                f"{change.path!r} has status {change.status!r}; the refresh only writes files"
+            )
+    if violations:
+        raise PathJailError("refresh jail rejected the change set:\n- " + "\n- ".join(violations))
+
+
 @dataclass(frozen=True)
 class UnionReport:
     """What one cell artifact's add-only union onto the branch checkout did.

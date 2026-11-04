@@ -139,7 +139,10 @@ jobs:
     # record-fill lane. A predict/evaluate run
     # branch may only *add* files under data/; the daily big-case-board branch may
     # only write the board's own two artifacts; the weekly update-history branch
-    # may only add week files under metrics/updates/. Either way a PR that auto-merges
+    # may only add week files under metrics/updates/; the weekly metrics-refresh
+    # branch may only write the artifacts the refresh regenerates; the
+    # case-summary branch may only write summary files; a labeling branch may
+    # only write its frame's labels file and add spend records. Either way a PR that auto-merges
     # without a human cannot carry a code, workflow, or config change. A
     # `record-fill/` branch, the one reviewed route to `main` outside a
     # promotion, may only fill in place placeholders `docs/freeze-record.md`
@@ -148,7 +151,8 @@ jobs:
     # check on all PRs. The data jail also runs producer-side in each collect job;
     # this required check enforces both independently of the workflow that
     # produced the branch. Logic lives in the tested `assert-paths` /
-    # `assert-board-paths` / `assert-update-paths` / `assert-record-fill`
+    # `assert-board-paths` / `assert-update-paths` / `assert-refresh-paths` /
+    # `summary-paths --strict` / `assert-label-paths` / `assert-record-fill`
     # commands; this step only runs git.
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-26.04
@@ -189,6 +193,9 @@ jobs:
             predict/run-*|evaluate/run-*) jail=data ;;
             metrics/big-cases) jail=board ;;
             metrics/public-updates) jail=updates ;;
+            metrics/refresh) jail=refresh ;;
+            summaries/refresh) jail=summaries ;;
+            qp-topics/refresh|qp-topics/applications-refresh|merits-alignment/side-codes) jail=labels ;;
             record-fill/*) jail=record-fill ;;
             *) echo "not a jailed branch; path jail not applicable"; exit 0 ;;
           esac
@@ -205,6 +212,16 @@ jobs:
             uv run fedcourts assert-board-paths --name-status-file changes.txt
           elif [ "$jail" = updates ]; then
             uv run fedcourts assert-update-paths --name-status-file changes.txt
+          elif [ "$jail" = refresh ]; then
+            uv run fedcourts assert-refresh-paths --name-status-file changes.txt
+          elif [ "$jail" = summaries ]; then
+            # No plan to read here, so any case-summary deletion is admitted as
+            # a withdrawal; the producer's `--plan` form decided which it made.
+            uv run fedcourts summary-paths --strict --any-withdrawal \
+              --name-status-file changes.txt > /dev/null
+          elif [ "$jail" = labels ]; then
+            uv run fedcourts assert-label-paths --branch "${HEAD_REF,,}" \
+              --name-status-file changes.txt
           else
             uv run fedcourts assert-paths --name-status-file changes.txt
           fi
@@ -403,9 +420,9 @@ jobs:
     # alignment fit's PR, the case-summary lane's `summaries/refresh`
     # PR, the daily big-case board's and the weekly update history's — or a
     # `record-fill/` PR, which the `paths` jail holds to in-place fills of the
-    # freeze-record placeholders `main` already carries. All are
-    # reviewed except the board's and the history's, which auto-merge behind
-    # the `paths` jail above. This job runs (and fails) only on a
+    # freeze-record placeholders `main` already carries. The board, the
+    # history, the metrics refresh, the summaries and the labeling branches
+    # merge unattended behind the `paths` jail above; the rest are reviewed. This job runs (and fails) only on a
     # PR to `main` from any other head; every legitimate PR skips it, and the
     # skipped run satisfies the requirement. It is among `main`'s required
     # contexts (with `gate`, `paths`, `promotion-gate`): a `pull_request` runs

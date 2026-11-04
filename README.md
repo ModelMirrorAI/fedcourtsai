@@ -337,8 +337,8 @@ and `qp-topic-reference-applications.json`, its application block, authored
 the same way;
 and — once a labeling run has produced one — `qp-topics.json`, the
 machine-produced per-case labels, written by the agent-backed `qp-topic-label`
-run mode and landed the same way, as a reviewed PR to `main` that is never
-auto-merged. That file **accrues**: the labeling frame outruns one dispatch, so
+run mode and landed as a PR to `main` that merges unattended once its
+required checks pass, the `paths` jail among them. That file **accrues**: the labeling frame outruns one dispatch, so
 each run labels a derived batch and the artifact is the union of every batch,
 carrying a per-batch ledger of who labeled what. `qp-topics-applications.json`
 is the same kind of file for the emergency-application frame, written by the

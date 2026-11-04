@@ -296,7 +296,7 @@ jobs:
 | `approval` | nothing (`review`, or `review-auto` when auto-released) | the spend hold |
 | `stage` | read-only corpus role | `provision-snapshot` for each planned case, into a data root under `$RUNNER_TEMP`, and `ai-ruling-stage` for each planned AI watchlist ruling |
 | `generate` | the environment's Anthropic key, and asserts it holds no cloud credential | `fedcourts summarize`; jails, validates and secret-scans the written files; uploads them as the `case-summaries` artifact |
-| `publish` | dev App token (`main` only) | opens or updates one reviewed PR from `summaries/refresh` |
+| `publish` | dev App token (`main` only) | opens or updates one PR from `summaries/refresh`, and merges it once its required checks pass |
 | `rejected` | nothing (no environment, `permissions: {}`) | records on the run page that the hold did not release |
 
 **Every run holds** on `review`, scheduled or dispatched, unless its own plan
@@ -347,10 +347,15 @@ known secret; a failure withholds both the artifact and the PR. On `main` the
 summaries forward, adds the run's, deletes the plan's withdrawn summaries
 (*Withdrawal*, above), re-runs the jail — which admits those deletions and no
 other — the validator and the scan
-over the whole change set, force-pushes and opens or updates the PR. It is
-**never auto-merged**: the collect jails do not cover this branch family, so an
-auto-merge needs a jail of its own first. `ci.yml`'s `main-base` routing admits
-the branch.
+over the whole change set, force-pushes and opens or updates the PR, then
+merges it itself once its required checks pass (`scripts/merge-when-green.sh`,
+pinned to the commit it pushed, through the dev App's approval bypass on
+`main`). What bounds that unattended merge is the required `paths` check, which
+runs the lane's jail on this branch independently of the job
+(`summary-paths --strict --any-withdrawal`: summary writes, and deletions of
+case summaries, which only a withdrawal makes); a failed check, a moved head or
+a merge that does not land in twenty minutes leaves the PR open for the
+maintainer. `ci.yml`'s `main-base` routing admits the branch.
 
 The branch is rebuilt from `main` on every run, which shapes how a reviewer
 works it. Only summary *additions and modifications* are carried forward: a
@@ -495,8 +500,9 @@ and in order, no markup, no "Whether" opening, the headline cap, the secret
 scan) with a 60–350 word band, and retries a mechanical rejection once. It
 also refuses, without a retry, a body in which the contact scrub's shape pass
 finds a contact detail anywhere, since the body reaches a public email; that
-no individual is named is the prompt's rule alone, so the review PR is where a
-name is caught.
+no individual is named is the prompt's rule alone: the summaries PR merges
+unattended, so a name that slips through is caught after publication, on the
+site, and corrected by a re-run or a reviewed PR.
 `fedcourts validate data` holds every committed file to its name and its
 sections. A ruling is summarized once; the file is never rewritten.
 
@@ -531,7 +537,7 @@ plan or keeps a contact residual; `summary-stage-check` keeps a staged ruling
 file only if the plan names it and it holds exactly the entry id, the planned
 digest and a text with no contact residual. `summarize` writes the planned
 rulings after the cases, under the same time budget, and `summary-paths`
-admits the files, so they ride the same `summaries/refresh` review PR.
+admits the files, so they ride the same `summaries/refresh` PR.
 
 **In the workflow.** `summarize.yml`'s plan job passes `--rulings` and
 counts a plan holding only rulings as work, its stage job runs
