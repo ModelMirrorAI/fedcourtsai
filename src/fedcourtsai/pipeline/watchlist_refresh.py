@@ -12,16 +12,18 @@ A docket is read three ways:
 
 - **incremental**, the entries upstream added or changed since the last
   refresh (less an overlap), merged by id into the stored entries. Two requests
-  for a quiet docket, so every docket refreshed before is read this way first.
+  for a quiet docket, so every docket refreshed before is read this way, right
+  after the run's lead onboard; a long lead onboard may leave some of them to
+  the next run, whose window starts from their own last refresh.
 - **onboard**, a whole read of a docket the corpus holds no snapshot of. The
   listed dockets run to over a hundred pages and upstream does not say how
   long one is before it is read, so an onboard starts only when what is left
   of the run's share covers the longest read the page cap allows; one that
   starts short of that could be cut off by the share and leave nothing
-  written for what it spent. The stalest pending onboard leads each run,
-  ahead of the incremental reads, so the list onboards one docket a run at
-  least, however long its dockets; the others follow the incremental reads
-  and start only if that much is still left.
+  written for what it spent. One pending onboard leads each run, ahead of the
+  incremental reads, rotating among them by day, so the list onboards a docket
+  each run whose lead read succeeds, however long its dockets; the others
+  follow the incremental reads and start only if that much is still left.
 - **full**, a whole re-read on a day the docket's id picks, once every
   ``full_read_every_days``, so the reads spread across the period. It catches
   what the incremental read cannot see: an entry deleted upstream, or a
@@ -127,8 +129,9 @@ def plan_refresh(
 ) -> list[PlannedRefresh]:
     """Every listed docket's refresh: one onboard, the incremental reads, then the rest.
 
-    The stalest pending onboard leads, so each run onboards a docket while the
-    whole share is still there to cover it; the incremental reads follow, then
+    One pending onboard leads, so each run onboards a docket while the whole
+    share is still there to cover it; the pending onboards are all equally
+    stale, so the lead rotates among them by ``today``; the incremental reads follow, then
     the other onboards and the full reads, so no other long whole read can
     crowd the incremental reads out of the run's share. Within each mode the
     stalest docket leads (never refreshed, then oldest ``last_pulled``). Reads
@@ -159,10 +162,14 @@ def plan_refresh(
             p.case_id,
         )
     )
-    first_onboard = next((p for p in planned if p.mode is ReadMode.onboard), None)
-    if first_onboard is not None:
-        planned.remove(first_onboard)
-        planned.insert(0, first_onboard)
+    pending = [p for p in planned if p.mode is ReadMode.onboard]
+    if pending:
+        # Every pending onboard is equally stale (never refreshed), so the
+        # lead rotates by day: a docket whose read fails every run (past the
+        # page cap) holds the lead one day in len(pending), not every day.
+        lead = pending[today.toordinal() % len(pending)]
+        planned.remove(lead)
+        planned.insert(0, lead)
     return planned
 
 
@@ -206,6 +213,7 @@ def refresh_docket(
     max_entry_pages: int,
     today: date,
     share_left: int | None = None,
+    on_request: Callable[[], None] | None = None,
 ) -> Refreshed:
     """Read one docket, store its snapshot if it changed, and stamp its row.
 
@@ -223,6 +231,8 @@ def refresh_docket(
     def count() -> None:
         nonlocal sent
         sent += 1
+        if on_request is not None:
+            on_request()
 
     if planned.mode is ReadMode.onboard and not _onboard_fits(
         None if share_left is None else share_left - 1, max_entry_pages
@@ -335,7 +345,7 @@ def refresh_watchlist(  # noqa: PLR0913 - each bound is a caller-tuned guard
     transient errors in a row stop the run, and the dockets not reached are
     deferred. None of these writes anything for the docket, which keeps its
     place in the next run's plan: a never-refreshed docket longer than the page
-    cap therefore leads and fails every run, ahead of the onboards behind it, until the
+    cap therefore fails each run it leads, spending its read, until the
     cap is raised, and the command exits non-zero on any failure so that is seen.
 
     ``on_refreshed`` is called with each docket as soon as its write lands, so
@@ -343,12 +353,19 @@ def refresh_watchlist(  # noqa: PLR0913 - each bound is a caller-tuned guard
     is killed before it returns.
     """
     report = WatchlistRefreshReport()
+    # Every request a refresh sends, failed reads included, so the share left
+    # stays exact after a read that fails part-way.
     spent = 0
+
+    def count() -> None:
+        nonlocal spent
+        spent += 1
+
     transient_run = 0
     for index, planned in enumerate(plan):
         if deadline is not None and clock() >= deadline:
             report.stop_reason = "the run's wall-clock budget is spent"
-            report.deferred = [p.case_id for p in plan[index:]]
+            report.deferred.extend(p.case_id for p in plan[index:])
             break
         try:
             done = refresh_docket(
@@ -358,14 +375,14 @@ def refresh_watchlist(  # noqa: PLR0913 - each bound is a caller-tuned guard
                 max_entry_pages=max_entry_pages,
                 today=today,
                 share_left=share - spent,
+                on_request=count,
             )
         except RateBudgetExceeded as exc:
             report.stop_reason = str(exc)
-            report.deferred = [p.case_id for p in plan[index:]]
+            report.deferred.extend(p.case_id for p in plan[index:])
             break
-        except OnboardDoesNotFit as exc:
+        except OnboardDoesNotFit:
             # A shorter read further on may still fit, so the run goes on.
-            spent += exc.requests
             report.deferred.append(planned.case_id)
             continue
         except (httpx.HTTPError, EntryPageCapExceeded, KeyError, ValueError) as exc:
@@ -375,11 +392,10 @@ def refresh_watchlist(  # noqa: PLR0913 - each bound is a caller-tuned guard
                 report.stop_reason = (
                     f"{transient_run} transient upstream failures in a row; upstream degraded"
                 )
-                report.deferred = [p.case_id for p in plan[index + 1 :]]
+                report.deferred.extend(p.case_id for p in plan[index + 1 :])
                 break
             continue
         transient_run = 0
-        spent += done.requests
         report.refreshed.append(done)
         if on_refreshed is not None:
             on_refreshed(done)

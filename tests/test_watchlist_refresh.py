@@ -484,7 +484,7 @@ def test_the_command_records_a_day_of_significant_new_entries(
     ]
 
 
-def test_only_the_stalest_onboard_leads_the_plan(tmp_path: Path) -> None:
+def test_one_onboard_leads_the_plan_rotating_by_day(tmp_path: Path) -> None:
     db = _db(tmp_path)
     inc = next(d for d in range(1, 20) if not full_read_due(d, TODAY, 7))
     _stamp(db, inc, TODAY - timedelta(days=1))
@@ -496,17 +496,29 @@ def test_only_the_stalest_onboard_leads_the_plan(tmp_path: Path) -> None:
             overlap_days=2,
             full_read_every_days=7,
         )
+    # The two pending onboards take the lead on alternate days.
+    lead = (97, 98)[TODAY.toordinal() % 2]
+    other = 98 if lead == 97 else 97
     assert [(p.docket_id, p.mode) for p in plan] == [
-        (97, ReadMode.onboard),
+        (lead, ReadMode.onboard),
         (inc, ReadMode.incremental),
-        (98, ReadMode.onboard),
+        (other, ReadMode.onboard),
     ]
+    with corpus.connect(db) as conn:
+        tomorrow = plan_refresh(
+            conn,
+            [("cand", 98), ("cand", inc), ("cand", 97)],
+            today=TODAY + timedelta(days=1),
+            overlap_days=2,
+            full_read_every_days=7,
+        )
+    assert tomorrow[0].docket_id != lead
 
 
 def test_an_onboard_the_share_left_cannot_cover_is_deferred_unread(tmp_path: Path) -> None:
     db = _db(tmp_path)
     fake = FakeClient({1: [{"id": 1}]})
-    with pytest.raises(OnboardDoesNotFit):
+    with pytest.raises(OnboardDoesNotFit) as caught:
         refresh_docket(
             _client(fake),
             db,
@@ -515,6 +527,7 @@ def test_an_onboard_the_share_left_cannot_cover_is_deferred_unread(tmp_path: Pat
             today=TODAY,
             share_left=150,  # one short of the docket and 150 pages
         )
+    assert caught.value.requests == 0
     assert fake.reads == []
     done = refresh_docket(
         _client(fake),
@@ -560,3 +573,36 @@ def test_a_run_defers_an_onboard_that_does_not_fit_and_goes_on(tmp_path: Path) -
     assert report.deferred == ["cand/2"]
     assert report.stop_reason is None
     assert fake.reads[-1] == (7, "since", TODAY - timedelta(days=3))
+
+
+def test_a_failed_read_still_counts_against_the_share(tmp_path: Path) -> None:
+    db = _db(tmp_path)
+    _onboarded(db, 7, 60)  # four requests for a full read
+    fake = FakeClient(
+        {1: [{"id": 1}], 7: [{"id": n} for n in range(1, 61)]},
+        incomplete=frozenset({1}),
+    )
+    plan = [
+        _planned(1, ReadMode.onboard),
+        _planned(7, ReadMode.full, TODAY - timedelta(days=3)),
+    ]
+    report = refresh_watchlist(_client(fake), db, plan, max_entry_pages=1, today=TODAY, share=5)
+    # The failed onboard sent two requests, leaving three: under docket 7's
+    # four, so its full read falls back to an incremental one.
+    assert set(report.failed) == {"cand/1"}
+    assert [r.mode for r in report.refreshed] == [ReadMode.incremental]
+
+
+def test_a_stop_keeps_the_onboards_deferred_before_it(tmp_path: Path) -> None:
+    db = _db(tmp_path)
+    fake = FakeClient({1: [{"id": 1}]}, over_budget=frozenset({3}))
+    plan = [
+        _planned(1, ReadMode.onboard),
+        _planned(2, ReadMode.onboard),
+        _planned(3, ReadMode.incremental, TODAY - timedelta(days=3)),
+    ]
+    report = refresh_watchlist(_client(fake), db, plan, max_entry_pages=1, today=TODAY, share=3)
+    # Docket 1 spends two, so 2 cannot fit; 3 then finds the share spent, and
+    # the stop adds it to the deferral rather than replacing the list.
+    assert [r.case_id for r in report.refreshed] == ["cand/1"]
+    assert report.deferred == ["cand/2", "cand/3"]

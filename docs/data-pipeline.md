@@ -113,15 +113,17 @@ its own `watchlist` share, sized for one run a day (the day's first run-pull
 pull window). It stores **facts only**: a dated snapshot when the docket changed and
 the `cases` row stamped `last_pulled`, with no event extraction, outcome
 detection or queue, since no moment is registered for a lower-court docket.
-Each run opens with one onboard, a whole read of the stalest docket the corpus
-holds no snapshot of, while the whole share is there to cover it. It then
-reads incrementally every docket refreshed before: the entries modified since
-its last refresh, less an overlap, merged by id into the stored docket, about
-two requests for a quiet one. Whole reads take what is left: further onboards,
-each started only when the share left covers the longest read the page cap
-allows (upstream does not say how long a docket is before it is read, and a
-read the share cut off would write nothing for what it spent), so the list
-onboards a docket a run at least; and a weekly re-read on
+Each run opens with one onboard, a whole read of a docket the corpus holds no
+snapshot of (the lead rotates among them by day), while the whole share is
+there to cover it. It then reads incrementally every docket refreshed before:
+the entries modified since its last refresh, less an overlap, merged by id
+into the stored docket, about two requests for a quiet one; a long lead
+onboard can leave some of these to the next run, which reads from their own
+last refresh. Whole reads take what is left: further onboards, each started
+only when the share left covers the longest read the page cap allows
+(upstream does not say how long a docket is before it is read, and a read the
+share cut off would write nothing for what it spent), so the list onboards a
+docket each run whose lead read succeeds; and a weekly re-read on
 a day the docket id picks, which catches deletions and documents that did not
 move an entry's modification time, taken only where the share left covers the
 docket's stored length. Like pull, a run stops at a wall-clock budget or a run
