@@ -15400,6 +15400,11 @@ class AiRulingPlanItem(_Strict):
     text_digest: str = Field(
         pattern=_SHA256_DIGEST, description="sha256 of the ruling's stored text the plan read"
     )
+    staged_digest: str = Field(
+        pattern=_SHA256_DIGEST,
+        description="sha256 of that text after the contact-detail scrub: exactly the text "
+        + "the stage may carry, which the stage check holds it to",
+    )
     input_chars: int = Field(
         ge=0, description="Characters the model would read: the text up to the per-document cap"
     )

@@ -64,6 +64,7 @@ from .pipeline.documents import contact_residuals
 from .pricing import MODEL_RATES, TokenCounts, estimate_cost_usd
 from .provision import GENERATION_STAMPS
 from .schemas import (
+    AiRulingPlanItem,
     CaseSummaryFrontMatter,
     CaseSummaryUsage,
     SummaryPlan,
@@ -632,8 +633,10 @@ def _prune_ruling_stage(plan: SummaryPlan, rulings_root: Path) -> list[tuple[str
 
     A file is kept only if it is a regular file named for a ruling the plan
     names, holds exactly :data:`RULING_STAGE_KEYS` with that entry id, the
-    plan's text digest and a non-empty text, and the residual contact detector
-    finds nothing on that text. The ruling is a court's own document, public
+    plan's text digest and a non-empty text whose own digest is the plan's
+    ``staged_digest`` (so the file carries that ruling's scrubbed text and
+    nothing else), and the residual contact detector finds nothing on it. The
+    ruling is a court's own document, public
     domain, so its text may cross the public artifact; nothing else of the
     docket may.
     """
@@ -648,14 +651,14 @@ def _prune_ruling_stage(plan: SummaryPlan, rulings_root: Path) -> list[tuple[str
         elif ruling is None:
             reason = "not a planned ruling"
         else:
-            reason = _ruling_stage_problem(path, ruling.entry_id, ruling.text_digest)
+            reason = _ruling_stage_problem(path, ruling)
         if reason:
             _remove(path)
             removed.append((label, reason))
     return removed
 
 
-def _ruling_stage_problem(path: Path, entry_id: int, digest: str) -> str:
+def _ruling_stage_problem(path: Path, ruling: AiRulingPlanItem) -> str:
     """Why one staged ruling file may not cross the artifact, or ``""``."""
     try:
         staged = json.loads(path.read_text())
@@ -665,12 +668,21 @@ def _ruling_stage_problem(path: Path, entry_id: int, digest: str) -> str:
         return "staged ruling does not hold exactly " + ", ".join(sorted(RULING_STAGE_KEYS))
     text = staged["text"]
     checks = (
-        (staged["entry_id"] != entry_id, "staged ruling names another entry"),
-        (staged["text_digest"] != digest, "staged ruling text is not the text the plan priced"),
+        (staged["entry_id"] != ruling.entry_id, "staged ruling names another entry"),
+        (
+            staged["text_digest"] != ruling.text_digest,
+            "staged ruling text is not the text the plan priced",
+        ),
         (not isinstance(text, str) or not text.strip(), "staged ruling has no text"),
         (
             isinstance(text, str) and contact_residuals(text) > 0,
             "staged ruling text carries a contact-shaped residual",
+        ),
+        (
+            isinstance(text, str)
+            and "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()
+            != ruling.staged_digest,
+            "staged ruling text is not the planned ruling's scrubbed text",
         ),
     )
     return next((reason for failed, reason in checks if failed), "")

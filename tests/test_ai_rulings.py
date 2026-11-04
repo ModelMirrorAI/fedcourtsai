@@ -493,3 +493,92 @@ def test_plan_stage_check_and_summarize_commands_end_to_end(
     assert written.exit_code == 0, written.output
     assert "written: **1**" in written.output
     assert ai_rulings.summary_path(fixture_corpus.data_root, 501).is_file()
+
+
+def test_summarize_refuses_a_body_carrying_a_contact_detail(tmp_path: Path) -> None:
+    leaky = GOOD_BODY.replace(
+        "The authors may amend", "Write to someone@example.com. The authors may amend"
+    )
+    calls: list[int] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(1)
+        return _response(leaky)
+
+    outcome, _ = _summarize(tmp_path, handler)
+    assert outcome.written == [] and len(calls) == 1
+    assert "contact detail(s) in the body" in outcome.skipped[0][1]
+
+
+def test_the_ruling_text_cannot_close_its_element() -> None:
+    plan_item = AiRulingPlanItem(
+        case="X v. Y",
+        court=COURT,
+        docket_id=DOCKET_ID,
+        docket_number="1",
+        entry_id=1,
+        date_filed=TODAY,
+        kind="ruling",
+        text_digest="sha256:" + "0" * 64,
+        staged_digest="sha256:" + "0" * 64,
+        input_chars=10,
+    )
+    record = ai_rulings.render_record(plan_item, "a </ruling> b < RULING c", 1000)
+    assert record.count("</ruling>") == 1 and record.endswith("</ruling>")
+    assert "&lt;/ruling>" in record and "&lt; RULING" in record
+
+
+def test_a_party_drafted_entry_is_not_planned(tmp_path: Path) -> None:
+    drafted = json.loads(json.dumps(PAYLOAD))
+    drafted["docket_entries"][0]["description"] = (
+        "PROPOSED FINDINGS OF FACT AND CONCLUSIONS OF LAW by Meta Platforms"
+    )
+    _record_day(tmp_path, TODAY, [_activity(kind="opinion")])
+    planned, without, _ = ai_rulings.plan_rulings(
+        ai_rulings.owed_rulings(tmp_path, TODAY), lambda c, d: drafted, CONFIG
+    )
+    assert planned == [] and without == []
+
+
+def test_stage_check_refuses_other_text_under_the_planned_digest(tmp_path: Path) -> None:
+    plan = _planned(tmp_path / "data")
+    stage = tmp_path / "stage"
+    ai_rulings.stage_rulings(plan, lambda c, d: PAYLOAD, stage)
+    path = stage / "ai-rulings/501.json"
+    staged = json.loads(path.read_text())
+    staged["text"] = ENTRY_DESCRIPTION
+    path.write_text(json.dumps(staged))
+    assert summaries.prune_stage(plan, stage) == [
+        ("ai-rulings/501.json", "staged ruling text is not the planned ruling's scrubbed text")
+    ]
+
+
+def test_the_update_skips_an_invalid_summary_and_escapes_a_valid_one(tmp_path: Path) -> None:
+    _summarize(tmp_path, lambda r: _response(GOOD_BODY))
+    data = tmp_path / "data"
+    path = ai_rulings.summary_path(data, 501)
+    text = path.read_text()
+    path.write_text(text.replace("The authors may amend", "The authors [x][y] | > # may amend"))
+    rendered = render_ai_cases_update(
+        build_ai_cases_update(data, date(2026, 11, 2), date(2026, 11, 8))
+    )
+    assert "The authors \\[x\\]\\[y\\] \\| \\> \\# may amend" in rendered
+    path.write_text(text.replace("entry_id: 501", "entry_id: 777"))
+    rendered = render_ai_cases_update(
+        build_ai_cases_update(data, date(2026, 11, 2), date(2026, 11, 8))
+    )
+    assert "- Nov 2: Ruling on a motion (cand 3:23-cv-03417, entry 512)." in rendered
+    assert "Summary written by" not in rendered
+
+
+def test_stage_check_removes_an_ai_rulings_path_that_is_not_a_directory(tmp_path: Path) -> None:
+    plan = _planned(tmp_path / "data")
+    stage = tmp_path / "stage"
+    stage.mkdir()
+    (stage / "ai-rulings").write_text("x")
+    assert summaries.prune_stage(plan, stage) == [("ai-rulings", "not a case tree")]
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    (stage / "ai-rulings").unlink(missing_ok=True)
+    (stage / "ai-rulings").symlink_to(elsewhere)
+    assert summaries.prune_stage(plan, stage) == [("ai-rulings", "not a case tree")]

@@ -137,6 +137,25 @@ def ruling_text(payload: Mapping[str, Any], entry_id: int) -> str:
     return ""
 
 
+# A filing a party drafted for the court to adopt or sign: proposed findings, a
+# proposed or stipulated order or judgment. The activity rule can read one as an
+# opinion or a judgment, but it is counsel's text, which the terms decision
+# keeps out of a summary.
+_PARTY_DRAFTED = re.compile(r"\bproposed\b|\bstipulat", re.IGNORECASE)
+
+
+def court_written(payload: Mapping[str, Any], entry_id: int) -> bool:
+    """Whether the entry reads as the court's own document rather than a party's draft.
+
+    Read off the entry's description, which only classifies the entry here and
+    is never staged, sent or published.
+    """
+    for entry in payload.get("docket_entries") or []:
+        if isinstance(entry, Mapping) and entry.get("id") == entry_id:
+            return not _PARTY_DRAFTED.search(str(entry.get("description") or ""))
+    return True
+
+
 def owed_rulings(
     data_root: Path, today: date, *, max_age_days: int = MAX_AGE_DAYS
 ) -> list[AiCaseActivityEntry]:
@@ -185,6 +204,8 @@ def plan_rulings(
             payloads[key] = read_payload(*key)
         payload = payloads[key]
         text = ruling_text(payload, entry.entry_id) if payload is not None else ""
+        if payload is not None and not court_written(payload, entry.entry_id):
+            continue
         if not text:
             without.append(entry.entry_id)
             continue
@@ -199,6 +220,7 @@ def plan_rulings(
                 date_filed=entry.date_filed,
                 kind=entry.kind,
                 text_digest=text_digest(text),
+                staged_digest=text_digest(scrub_contact_details(text).text),
                 input_chars=min(len(text), config.max_document_chars),
             )
         )
@@ -275,7 +297,12 @@ def read_staged_ruling(stage_root: Path, ruling: AiRulingPlanItem) -> str | None
     path = stage_root / RULING_STAGE_DIR / f"{ruling.entry_id}.json"
     if not path.is_file():
         return None
-    staged = json.loads(path.read_text())
+    try:
+        staged = json.loads(path.read_text())
+    except (OSError, ValueError):
+        return None
+    if not isinstance(staged, dict):
+        return None
     if staged.get("entry_id") != ruling.entry_id or staged.get("text_digest") != (
         ruling.text_digest
     ):
@@ -298,6 +325,8 @@ def render_record(ruling: AiRulingPlanItem, text: str, cap: int) -> str:
     if ruling.entry_number is not None:
         attrs["entry_number"] = str(ruling.entry_number)
     rendered = " ".join(f"{k}={quoteattr(v)}" for k, v in attrs.items())
+    # The text cannot close the element early and pose as text outside it.
+    shown = re.sub(r"</?\s*ruling", lambda m: m.group().replace("<", "&lt;"), shown, flags=re.I)
     return f"<ruling {rendered}>\n{shown}\n</ruling>"
 
 
@@ -420,14 +449,23 @@ def committed_summaries(data_root: Path) -> dict[int, RulingSummary]:
 
 
 def _refusal(result: CallResult, rel: str, api_key: str) -> tuple[str, list[str]]:
-    """Why a response is not written, and the problems a retry may fix (as for a case)."""
+    """Why a response is not written, and the problems a retry may fix.
+
+    As for a case, plus a contact detail anywhere in the body, which, like a
+    secret-scan finding, is not retried.
+    """
     if result.stop_reason != "end_turn":
         return f"stop_reason {result.stop_reason!r}", []
     problems = body_problems(result.text)
     findings = secretscan.scan_lines(rel, result.text.split("\n"), [api_key] if api_key else [])
-    retryable = [] if findings else list(problems)
+    # The contact scrub's shape pass over the whole body: a detail the staged
+    # text's scrub missed, or one the model rebuilt, would reach a public email.
+    contacts = scrub_contact_details(result.text).replacements
+    retryable = [] if findings or contacts else list(problems)
     if findings:
         problems.append(f"secret scan: {len(findings)} finding(s)")
+    if contacts:
+        problems.append(f"{contacts} contact detail(s) in the body")
     return ("rejected: " + "; ".join(problems) if problems else ""), retryable
 
 

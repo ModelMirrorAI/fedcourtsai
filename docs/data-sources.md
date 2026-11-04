@@ -665,9 +665,9 @@ written from, given the two layers of rights below.
   the watchlist's own case name. Nothing from CourtListener's curated layer is
   staged for the writer: no docket payload, no value-add field, and no entry
   description (the clerk's entry text is a court record, but the activity
-  records already carry none of it, and the summary keeps that line). That
-  needs a staged record of its own shape, the order document plus identifiers,
-  since the case-summary lane's staged record is a docket. A party's filing (a
+  records already carry none of it, and the summary keeps that line). So the
+  staged record has its own shape, the order document plus identifiers,
+  rather than the case-summary lane's docket (*How the lane holds it*, below). A party's filing (a
   complaint, a brief) is written by counsel rather than the government and is
   not public domain by authorship, so a summary of one is out of scope: only
   rulings are summarized. Attribution follows [`NOTICE`](../NOTICE), since the
@@ -683,8 +683,11 @@ written from, given the two layers of rights below.
   document text alone (its stored `plain_text`), after the contact-detail
   scrub, with those identifiers as attributes; the stage check refuses a staged
   file holding anything else, and only the kinds a court writes (an opinion, a
-  ruling on a motion, a judgment) are summarized. A text-only docket order,
-  whose only text is the clerk's entry, gets no summary.
+  ruling on a motion, a judgment) are summarized. The curated entry
+  description decides that kind, and keeps out an entry it reads as a party's
+  draft (proposed findings, a stipulated order); it classifies the entry and is
+  never staged, sent or published. A text-only docket order, whose only text
+  is the clerk's entry, gets no summary.
 
 Two layers of rights apply, and they are different:
 

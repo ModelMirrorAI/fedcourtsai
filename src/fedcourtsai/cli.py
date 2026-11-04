@@ -21094,10 +21094,12 @@ def summary_paths_cmd(
         ),
     ] = None,
 ) -> None:
-    """Print the case summary files a change set writes; with --strict, the lane's jail.
+    """Print the summary files a change set writes; with --strict, the lane's jail.
 
-    The summaries lane writes one kind of file — ``data/cases/<court>/<docket>/
-    summaries/<YYYY-MM-DD>.md`` — so its branch may carry nothing else. Without
+    The summaries lane writes two kinds of file — case summaries,
+    ``data/cases/<court>/<docket>/summaries/<YYYY-MM-DD>.md``, and AI watchlist
+    ruling summaries, ``data/ai-cases/summaries/<entry_id>.md`` — so its branch
+    may carry nothing else. Without
     ``--strict`` this is the filter the workflow uses to carry an open refresh
     PR's summaries forward (other paths are ignored); with it, the check that
     refuses to publish a change set holding anything but summaries. With
@@ -21112,7 +21114,7 @@ def summary_paths_cmd(
     writes, violations = summaries.summary_changes(changes, withdrawn)
     if strict and violations:
         for violation in violations:
-            typer.echo(f"::error::not a case summary write: {violation}", err=True)
+            typer.echo(f"::error::not a summary write: {violation}", err=True)
         raise typer.Exit(code=1)
     for path in writes:
         typer.echo(path)
