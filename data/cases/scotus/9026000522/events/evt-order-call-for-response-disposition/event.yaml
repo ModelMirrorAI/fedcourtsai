@@ -1,0 +1,13 @@
+case_id: scotus/9026000522
+decision_target: disposition
+description: Disposition of the petition, forecast after the Court called for a response
+  to it.
+docket_entry_id: null
+event_id: evt-order-call-for-response-disposition
+kind: order
+moment: response-requested
+opened_at: '2026-11-02'
+resolved: false
+schema_version: '1.0'
+stage: cert
+title: Sam Inendino v. Annette Nance-Holt, et al.

@@ -6,7 +6,7 @@ event_id: evt-order-judgment
 kind: order
 moment: grant
 opened_at: '2026-03-16'
-resolved: false
+resolved: true
 schema_version: '1.0'
 stage: merits
 title: Markwayne Mullin, Secretary, Department of Homeland Security, et al. v. Dahlia
