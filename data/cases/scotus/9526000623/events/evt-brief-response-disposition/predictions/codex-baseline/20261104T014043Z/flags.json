@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000623",
+  "run_id": "20261104T014043Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-brief-response-disposition",
+      "message": "The required 2016–2025 interim finer-reading baseline is unavailable: metrics/statpack.json reports pooled finer_resolved=0, finer_granted=0, and finer_unread=1366. Every pooled Term has positive finer_unread, so coverage and the 50-resolved floor both fail. The markdown table exposes only the older substantive reading. Forecast completed from the supplied record without substituting that older rate or the pack-level rate; grading should not assume a valid finer-reading anchor exists."
+    }
+  ]
+}

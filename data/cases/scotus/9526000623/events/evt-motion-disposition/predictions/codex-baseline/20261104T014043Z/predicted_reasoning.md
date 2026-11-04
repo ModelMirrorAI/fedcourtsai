@@ -1,0 +1,9 @@
+# Forecast of the Court's action
+
+The Court will most likely deny the application to stay Jesse Guardado's execution. The chance that it grants any requested relief, including a partial grant, is 3%, conditional on a nonmoot disposition. The likely reason is an insufficient showing that the clemency challenge warrants review and has a significant possibility of succeeding. Irreparable harm will not by itself overcome that weakness. If the Court explains its reasoning, it will likely distinguish an unfavorable exercise of executive clemency discretion from a constitutionally inadequate opportunity to seek clemency; it will not announce an entitlement to a favorable clemency outcome.
+
+At the forecast's starting point, the docket shows only submission to Justice Thomas on October 30, 2026: no response request, no referral, and no amicus entries. A later response request is more likely than not (70%). Referral to the full Court is very likely (92%), even though denial remains the expected result. The amicus count will probably remain zero; the probability of any increase, counting qualifying submissions as well as accepted briefs and other qualifying entries, is 12%.
+
+The expected disposition is a short order before the scheduled November 5, 2026, 6 p.m. execution, most plausibly during the final two days before that time. A protective interim stay is possible but unlikely. This timing forecast is not a horizon claim in the structured claim set.
+
+The order will probably have no separate writing. The likeliest potential authors of a statement or dissent are Sotomayor (6%) and Jackson (4.5%), followed by Kagan (2%); each remaining Justice's independent probability is at most 1.5%. Referral or a response request will indicate consideration of an urgent capital application, not a likely grant. This forecast does not predict a merits judgment or a decision on the linked certiorari petition.
