@@ -1,0 +1,130 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.02,
+    "notes": "Self-represented applicants seeking a temporary stay of a writ of possession in a private foreclosure dispute with U.S. Bank, arising from a remanded S.D. Fla. removal with an Eleventh Circuit stay motion pending; no federal question of general importance; denied in chambers by the Circuit Justice without response or referral."
+  },
+  "brier_score": 0.0001,
+  "brier_skill_score": 0.992711109375,
+  "case_id": "scotus/9526000602",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.1171303074670571,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": 0.013619508927327334
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.12,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v2",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.002,
+          "Barrett": 0.002,
+          "Gorsuch": 0.003,
+          "Jackson": 0.003,
+          "Kagan": 0.002,
+          "Kavanaugh": 0.002,
+          "Roberts": 0.002,
+          "Sotomayor": 0.003,
+          "Thomas": 0.003
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.013619508927327334,
+    "total": 0.013619508927327334
+  },
+  "correct": 1,
+  "created_at": "2026-11-04T21:33:33.837231Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward log (result_capture_coverage 1.0): reads of the prompt, schemas, provisioned record and statpack interim section, plus two `fedcourts query` calls for denied applications. No CourtListener or web calls, no query for this application's disposition, no data/qp-topics access. Prediction created 2026-10-31, before the 2026-11-03 denial.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-opus-5-5",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.7,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Denied by Justice Thomas on Nov 3 2026, six days after the Oct 28 docketing; no referral entry.",
+        "claim": "Justice Thomas, as Circuit Justice, denies the application acting alone, within a few weeks of docketing (by mid-to-late November 2026).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "No response-request entry; outcome interim_signals.response_requested = false.",
+        "claim": "No response is called for.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome interim_signals.referred_to_court = false.",
+        "claim": "The application is most likely not referred to the full Court.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Docket: 'Application (26A602) denied by Justice Thomas.' (Nov 3 2026); no writing recorded.",
+        "claim": "No Justice writes separately on the disposing order.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The in-chambers denial gives no reasons. The application says an Eleventh Circuit stay motion (No. 26-13319) was pending, so 'no court of appeals involvement' was at best a partial reading.",
+        "claim": "Legal ground: the application fails both the cert-prospect and irreparable-harm prongs, apparently coming from a district court with no court of appeals decision.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261031T173439Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+    "label": "proc-v17",
+    "pipeline_sha": "2af864fe92d46ec00347786277b3e825757d6671",
+    "stamped_at": "2026-11-04T21:33:33.837231Z"
+  },
+  "reasoning_quality": 0.75,
+  "run_id": "20261104T212933Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.1171303074670571,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

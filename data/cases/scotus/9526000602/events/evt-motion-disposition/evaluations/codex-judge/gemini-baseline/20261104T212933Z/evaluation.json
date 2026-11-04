@@ -1,0 +1,127 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": null,
+  "brier_score": 2.5e-05,
+  "brier_skill_score": 0.99817777734375,
+  "case_id": "scotus/9526000602",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.1171303074670571,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": 0.013694508927327332
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v2",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.001,
+          "Barrett": 0.001,
+          "Gorsuch": 0.001,
+          "Jackson": 0.001,
+          "Kagan": 0.001,
+          "Kavanaugh": 0.001,
+          "Roberts": 0.001,
+          "Sotomayor": 0.001,
+          "Thomas": 0.002
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.013694508927327332,
+    "total": 0.013694508927327332
+  },
+  "correct": 1,
+  "created_at": "2026-11-04T21:36:09.493909Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The 40-call log is forward and dated October 31, before the November 3 resolution. Lower-court docket searches, a general Nichloson opinion search, and corpus queries are legitimate forward context; no query or prose reports this application's disposition. All calls are outcome_only: null result dates do not establish empty results, and the retrieval note's descriptions are self-reported rather than independently captured.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.9,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The outcome records interim_signals.response_requested = false, and the docket contains submission followed by denial, with no response request. The asserted legal explanation is not established by the bare denial.",
+        "claim": "Justice Thomas will dispose of the application without requesting a response.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The November 3 docket entry identifies Justice Thomas as denying the application, and interim_signals.referred_to_court is false.",
+        "claim": "Justice Thomas will act alone rather than refer the application to the full Court.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The outcome records interim_signals.amicus_briefs = 0 and the staged docket records no amicus entry.",
+        "claim": "No amicus briefs or submissions will be filed before disposition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "DocketedDate is October 28, 2026; the docket records 'Application (26A602) denied by Justice Thomas.' on November 3, six days later. The outcome's finer reading is denied.",
+        "claim": "Thomas will deny the application in a brief chambers disposition within approximately one to ten days of docketing, in late October or early November.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The staged docket shows a bare denial, but writing_roles is null and no disposing-order text or writing roster is staged. The complete absence of separate writings is not independently established.",
+        "claim": "No Justice will author a separate concurrence, dissent, or statement concerning the denial.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261031T173439Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+    "label": "proc-v17",
+    "pipeline_sha": "2af864fe92d46ec00347786277b3e825757d6671",
+    "stamped_at": "2026-11-04T21:36:09.493909Z"
+  },
+  "reasoning_quality": 0.6,
+  "run_id": "20261104T212933Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.1171303074670571,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

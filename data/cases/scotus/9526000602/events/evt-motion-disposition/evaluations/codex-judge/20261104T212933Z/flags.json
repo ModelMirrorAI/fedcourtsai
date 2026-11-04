@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9526000602",
+  "flags": [
+    {
+      "category": "provisioning",
+      "event_id": "evt-motion-disposition",
+      "message": "claude-baseline, gemini-baseline, and codex-baseline all report a blank 12-page application with empty_text=true and ocr_derived=false at prediction time. The evaluator's current manifest instead has empty_text=false and ocr_derived=true, with readable application text and an Eleventh Circuit docket. The candidate-stage text/manifest is not staged for direct comparison. This information-set difference matters: the current filing identifies appellate stay proceedings that some rationales inferred were bypassed. Evaluations distinguish unsupported inference from inability to read unavailable text; preserve candidate-stage extraction provenance for audit.",
+      "severity": "warning"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261104T212933Z",
+  "schema_version": "1.0"
+}

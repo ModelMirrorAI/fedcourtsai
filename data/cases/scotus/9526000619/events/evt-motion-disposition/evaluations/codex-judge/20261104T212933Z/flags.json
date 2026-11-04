@@ -1,0 +1,21 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9526000619",
+  "flags": [
+    {
+      "category": "provisioning",
+      "event_id": "evt-motion-disposition",
+      "message": "codex-baseline, gemini-baseline, and claude-baseline all report that the provisioned 37-page application had empty_text true and ocr_derived false at prediction time. This evaluator's November 4 provision instead contains 69,340 bytes of OCR text and metadata empty_text false / ocr_derived true. The missing earlier content could materially affect case-specific analysis. Grades account for the reported historical limitation rather than penalizing candidates for not reading later OCR; the predictor-time document versions are not staged for direct comparison.",
+      "severity": "warning"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-motion-disposition",
+      "message": "gemini-baseline reasoning.md reports older substantive-reading counts of 237 grants / 1,906 resolved across Terms 2016\u20132025 and 2,869 substantive applications in the pack. The currently committed metrics/statpack.json instead has 160 / 1,366 across those Terms and 1,490 substantive applications overall. These are descriptive-count discrepancies, not a substitute scored baseline; the finer-reading pool remains unavailable. The prediction-time statpack version is not staged, so version drift cannot be excluded.",
+      "severity": "warning"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261104T212933Z",
+  "schema_version": "1.0"
+}

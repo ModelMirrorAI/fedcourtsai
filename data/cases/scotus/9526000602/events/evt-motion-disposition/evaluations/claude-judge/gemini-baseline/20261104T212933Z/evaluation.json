@@ -1,0 +1,130 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.02,
+    "notes": "Self-represented applicants seeking a temporary stay of a writ of possession in a private foreclosure dispute with U.S. Bank, arising from a remanded S.D. Fla. removal with an Eleventh Circuit stay motion pending; no federal question of general importance; denied in chambers by the Circuit Justice without response or referral."
+  },
+  "brier_score": 2.5e-05,
+  "brier_skill_score": 0.99817777734375,
+  "case_id": "scotus/9526000602",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.1171303074670571,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": 0.013694508927327332
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v2",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.001,
+          "Barrett": 0.001,
+          "Gorsuch": 0.001,
+          "Jackson": 0.001,
+          "Kagan": 0.001,
+          "Kavanaugh": 0.001,
+          "Roberts": 0.001,
+          "Sotomayor": 0.001,
+          "Thomas": 0.002
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.013694508927327332,
+    "total": 0.013694508927327332
+  },
+  "correct": 1,
+  "created_at": "2026-11-04T21:33:33.837231Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward log (result_capture_coverage 0.0; all rows outcome_only, so graded on queries). Calls: provisioned record, statpack, two `fedcourts query` calls (denied/granted 2020s priors), and CourtListener RECAP lookups for the lower S.D. Fla. dockets (26-cv-25796, 26-cv-27288), a ca11 party search and a 'Nichloson' opinion search. None target this application's Supreme Court disposition. The lower-court entries it cites are dated Aug 25 to Oct 20 2026, before the Nov 3 resolution, so they are legitimate forward signal. No data/qp-topics access.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-opus-5-5",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.75,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "No response-request entry; interim_signals.response_requested = false.",
+        "claim": "Justice Thomas disposes of the application in chambers without calling for a response.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "'denied by Justice Thomas'; referred_to_court = false.",
+        "claim": "Justice Thomas acts alone and does not refer the application to the full Court.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Docketed Oct 28; denied Nov 3 2026 by a one-line docket entry.",
+        "claim": "The stay is denied by an unsigned chambers docket entry within about 1 to 10 days of docketing (late Oct or early Nov 2026).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Docket: 'Application (26A602) denied by Justice Thomas.' (Nov 3 2026); no writing recorded.",
+        "claim": "No Justice writes separately.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The denial states no reasons, so the record cannot confirm the ground.",
+        "claim": "Relief is foreclosed by threshold defects: Rule 23.3 exhaustion, no direct review of a district court order, and the \u00a7 1447(d) bar on reviewing remand orders.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261031T173439Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+    "label": "proc-v17",
+    "pipeline_sha": "2af864fe92d46ec00347786277b3e825757d6671",
+    "stamped_at": "2026-11-04T21:33:33.837231Z"
+  },
+  "reasoning_quality": 0.8,
+  "run_id": "20261104T212933Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.1171303074670571,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

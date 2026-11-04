@@ -1,0 +1,125 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.02,
+    "notes": "Pro se application to stay a Maryland writ of possession at the end of a long-running residential foreclosure (Prince George's County CAEF17-36003); the state appeal was dismissed and the Supreme Court of Maryland denied review. Stakes are confined to the parties; no federal question of reach beyond them, and the Chief Justice denied it in chambers without a response."
+  },
+  "brier_score": 0.0004,
+  "brier_skill_score": null,
+  "case_id": "scotus/9526000619",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": null,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.12,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.003,
+          "Barrett": 0.002,
+          "Gorsuch": 0.004,
+          "Jackson": 0.004,
+          "Kagan": 0.002,
+          "Kavanaugh": 0.002,
+          "Roberts": 0.003,
+          "Sotomayor": 0.004,
+          "Thomas": 0.003
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": null,
+    "lift": null,
+    "total": null
+  },
+  "correct": 1,
+  "created_at": "2026-11-04T21:33:39.026163Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "none",
+    "mode": "forward",
+    "notes": "At 2026-11-03T22:40Z the candidate web-fetched this application's own live supremecourt.gov docket page (26a619.html), on the resolution date. The call is captured but its content is not visible to the evaluator; the candidate discloses in reasoning.md and retrieval.md that the page showed only the Oct 27 submission and nothing after it. The prediction (2%, denied, plus a renewal-then-referral path) reads as built from priors and shows no knowledge of the denial. Graded false/none on that disclosure and the reasoning; the ambiguity is flagged. The event resolved 2026-11-03 (denied by The Chief Justice) and this prediction was made the same evening (~22:4xZ), so the forward cell was checked as if possibly mis-provisioned.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-opus-5-5",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.7,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Docketed Oct 30; denied by The Chief Justice Nov 3; response_requested false.",
+        "claim": "The Chief Justice, acting alone, will deny the stay without asking for a response, within about two weeks of docketing.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "referred_to_court false at disposition. Whether a renewal follows is not in the record, so the conditional renewal path is untested.",
+        "claim": "No referral at first; the main path to referral is a renewal to another Justice after denial (12% overall).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "amicus_briefs 0; the order is one line.",
+        "claim": "No amicus filings and no separate writings; the denial will be a one-line order.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Conditional on a grant that did not happen.",
+        "claim": "An unexpected grant would be a temporary administrative stay rather than a stay pending certiorari.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261103T221945Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+    "label": "proc-v17",
+    "pipeline_sha": "2af864fe92d46ec00347786277b3e825757d6671",
+    "stamped_at": "2026-11-04T21:33:39.026163Z"
+  },
+  "reasoning_quality": 0.7,
+  "run_id": "20261104T212933Z",
+  "schema_version": "1.0",
+  "segment_base_rate": null,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}
