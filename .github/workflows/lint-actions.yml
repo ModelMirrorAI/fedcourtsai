@@ -28,7 +28,7 @@ jobs:
       # Cache off: setup-uv enables it by default on hosted runners, and no job
       # restores a cache outside setup-python-env's allow-list
       # (tests/test_workflow_cache_restore.py).
-      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           enable-cache: false
       - name: zizmor
