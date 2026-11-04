@@ -1,13 +1,13 @@
 {
   "cost": {
     "actions_cost_usd": 0.0,
-    "actions_minutes": 1207.6,
+    "actions_minutes": 1198.6,
     "actions_monthly_usd": 0.0,
     "estimated_monthly_usd": 1464.52,
     "fixed_monthly_usd": 115.0,
     "model_cost_usd": 5095.48211,
     "model_monthly_usd": 1349.52,
-    "window_days": 4.2
+    "window_days": 4.3
   },
   "data_health": {
     "corpus": {
@@ -106,7 +106,7 @@
           "problems": []
         },
         {
-          "checked": 17957,
+          "checked": 17958,
           "detail": "",
           "failures": 0,
           "name": "ledger_references_exist",
@@ -122,7 +122,7 @@
           "problems": []
         },
         {
-          "checked": 29417,
+          "checked": 29418,
           "detail": "",
           "failures": 0,
           "name": "event_dirs_hold_only_ledger_entries",
@@ -202,7 +202,7 @@
           "problems": []
         },
         {
-          "checked": 14146,
+          "checked": 14147,
           "detail": "",
           "failures": 0,
           "name": "outcome_votes_await_a_registered_source",
@@ -218,7 +218,7 @@
           "problems": []
         },
         {
-          "checked": 14138,
+          "checked": 14139,
           "detail": "",
           "failures": 0,
           "name": "judgment_only_on_merits_outcomes",
@@ -694,50 +694,50 @@
     "warnings": 82,
     "window_days": 14
   },
-  "generated_at": "2026-11-04T12:25:05.485780+00:00",
+  "generated_at": "2026-11-04T15:57:33.860621+00:00",
   "health": [
     {
-      "failures": 1,
+      "failures": 3,
       "last_conclusion": "failure",
-      "last_run_at": "2026-11-03T15:44:12Z",
+      "last_run_at": "2026-11-04T15:44:13Z",
       "median_seconds": 141,
-      "p95_seconds": 141,
-      "runs_considered": 1,
-      "success_rate": 0.0,
-      "successes": 0,
+      "p95_seconds": 289,
+      "runs_considered": 5,
+      "success_rate": 0.4,
+      "successes": 2,
       "workflow": "Dependabot Updates"
     },
     {
-      "failures": 10,
-      "last_conclusion": "success",
-      "last_run_at": "2026-11-04T12:21:20Z",
-      "median_seconds": 98,
+      "failures": 6,
+      "last_conclusion": null,
+      "last_run_at": "2026-11-04T15:48:09Z",
+      "median_seconds": 103,
       "p95_seconds": 416,
-      "runs_considered": 58,
-      "success_rate": 0.8275862068965517,
-      "successes": 48,
+      "runs_considered": 57,
+      "success_rate": 0.8909090909090909,
+      "successes": 49,
       "workflow": "ci"
     },
     {
-      "failures": 11,
+      "failures": 8,
       "last_conclusion": null,
-      "last_run_at": "2026-11-04T12:21:20Z",
-      "median_seconds": 281,
+      "last_run_at": "2026-11-04T15:48:09Z",
+      "median_seconds": 286,
       "p95_seconds": 315,
-      "runs_considered": 59,
-      "success_rate": 0.8103448275862069,
-      "successes": 47,
+      "runs_considered": 63,
+      "success_rate": 0.8688524590163934,
+      "successes": 53,
       "workflow": "codeql"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-11-04T06:23:55Z",
-      "median_seconds": 29,
+      "last_run_at": "2026-11-04T14:53:09Z",
+      "median_seconds": 30,
       "p95_seconds": 43,
       "runs_considered": 48,
       "success_rate": 1.0,
-      "successes": 46,
+      "successes": 47,
       "workflow": "corpus-check"
     },
     {
@@ -745,50 +745,50 @@
       "last_conclusion": "success",
       "last_run_at": "2026-11-03T18:39:45Z",
       "median_seconds": 152,
-      "p95_seconds": 386,
-      "runs_considered": 2,
+      "p95_seconds": 152,
+      "runs_considered": 1,
       "success_rate": 1.0,
-      "successes": 2,
+      "successes": 1,
       "workflow": "integration-test"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-11-03T16:48:23Z",
-      "median_seconds": 21,
+      "last_run_at": "2026-11-04T15:48:09Z",
+      "median_seconds": 28,
       "p95_seconds": 37,
-      "runs_considered": 2,
+      "runs_considered": 4,
       "success_rate": 1.0,
-      "successes": 2,
+      "successes": 4,
       "workflow": "lint-actions"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
       "last_run_at": "2026-11-04T09:30:23Z",
-      "median_seconds": 83,
+      "median_seconds": 97,
       "p95_seconds": 189,
-      "runs_considered": 5,
+      "runs_considered": 4,
       "success_rate": 1.0,
-      "successes": 5,
+      "successes": 4,
       "workflow": "promotion-prep"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-11-04T12:21:20Z",
-      "median_seconds": 21,
-      "p95_seconds": 40,
-      "runs_considered": 38,
+      "last_run_at": "2026-11-04T14:01:27Z",
+      "median_seconds": 22,
+      "p95_seconds": 38,
+      "runs_considered": 33,
       "success_rate": 1.0,
-      "successes": 38,
+      "successes": 33,
       "workflow": "promotion-record"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-11-04T09:14:47Z",
-      "median_seconds": 507,
+      "last_run_at": "2026-11-04T13:54:59Z",
+      "median_seconds": 447,
       "p95_seconds": 969,
       "runs_considered": 6,
       "success_rate": 1.0,
@@ -809,30 +809,30 @@
     {
       "failures": 0,
       "last_conclusion": null,
-      "last_run_at": "2026-11-04T12:23:30Z",
-      "median_seconds": 146,
+      "last_run_at": "2026-11-04T15:56:02Z",
+      "median_seconds": 123,
       "p95_seconds": 146,
-      "runs_considered": 2,
+      "runs_considered": 3,
       "success_rate": 1.0,
-      "successes": 1,
+      "successes": 2,
       "workflow": "run-ops"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
       "last_run_at": "2026-11-04T10:30:22Z",
-      "median_seconds": 1741,
+      "median_seconds": 1986,
       "p95_seconds": 4935,
-      "runs_considered": 9,
+      "runs_considered": 7,
       "success_rate": 1.0,
-      "successes": 9,
+      "successes": 7,
       "workflow": "run-predict"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-11-04T09:57:08Z",
-      "median_seconds": 795,
+      "last_run_at": "2026-11-04T12:32:13Z",
+      "median_seconds": 988,
       "p95_seconds": 2653,
       "runs_considered": 8,
       "success_rate": 1.0,
@@ -841,13 +841,13 @@
     },
     {
       "failures": 0,
-      "last_conclusion": null,
-      "last_run_at": "2026-11-04T12:22:50Z",
-      "median_seconds": null,
-      "p95_seconds": null,
-      "runs_considered": 1,
-      "success_rate": null,
-      "successes": 0,
+      "last_conclusion": "success",
+      "last_run_at": "2026-11-04T13:57:08Z",
+      "median_seconds": 228,
+      "p95_seconds": 354,
+      "runs_considered": 2,
+      "success_rate": 1.0,
+      "successes": 2,
       "workflow": "run-repair"
     },
     {
@@ -866,10 +866,10 @@
       "last_conclusion": "success",
       "last_run_at": "2026-11-04T11:31:52Z",
       "median_seconds": 759,
-      "p95_seconds": 2028,
-      "runs_considered": 2,
+      "p95_seconds": 759,
+      "runs_considered": 1,
       "success_rate": 1.0,
-      "successes": 2,
+      "successes": 1,
       "workflow": "summarize"
     },
     {
@@ -877,10 +877,10 @@
       "last_conclusion": "success",
       "last_run_at": "2026-11-04T10:54:49Z",
       "median_seconds": 48,
-      "p95_seconds": 78,
-      "runs_considered": 2,
+      "p95_seconds": 48,
+      "runs_considered": 1,
       "success_rate": 1.0,
-      "successes": 2,
+      "successes": 1,
       "workflow": "sync-staging"
     }
   ],
@@ -893,14 +893,7 @@
     "possible": 0,
     "window_days": 14
   },
-  "open_triggers": [
-    {
-      "created_at": "2026-10-29T16:50:58Z",
-      "label": "run:predict",
-      "number": 2866,
-      "title": "predict(gemini-baseline): partial and off-schema cells on the first proc-v14 rounds; prediction_summary.md missing on 2 cells"
-    }
-  ],
+  "open_triggers": [],
   "schema_version": "1.0",
   "spend": {
     "estimated_cost_usd": 5095.48211,
