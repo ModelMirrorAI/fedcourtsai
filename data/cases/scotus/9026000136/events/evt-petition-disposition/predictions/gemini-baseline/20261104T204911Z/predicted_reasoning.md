@@ -1,0 +1,18 @@
+# Forecast of the Court's Action: *Tesla, Inc. v. Granite Vehicle Ventures LLC, et al.* (No. 26-136)
+
+## Procedural Trajectory from Current Docket State
+
+The docket currently records two conference distributions (`distribution_count: 2`): an initial October 14, 2026 distribution for the November 6, 2026 Conference (which was rescheduled prior to conference on October 22, 2026) and a November 4, 2026 distribution for the December 4, 2026 Conference.
+
+- **Further Relists or Distributions (`relist-increment`: 0.12):** Expect no further relists or distributions past the December 4, 2026 Conference. The Court is likely to deny the petition on the order list following the December 4, 2026 Conference, just as it denied the lead companion mandamus petition (*Google LLC v. VirtaMove, Corp.*, No. 25-1230) following the October 16, 2026 Conference. There is a modest (~12%) chance of one or more additional distributions if the Court holds or relists the petition alongside the pending direct-APA companion petition (*Intel Corp. v. Squires*, No. 26-73) or *Kahoot! AS v. Interstellar Inc.* (No. 26-198).
+- **Call for the Views of the Solicitor General (`cvsg-increment`: 0.01):** The Court will not issue a CVSG. The USPTO Director (represented by the Solicitor General) is already a federal respondent in the case and has filed a comprehensive Brief in Opposition setting forth the government's position.
+- **Disposition (`disposition`: 0.06):** The Court will deny the petition for a writ of certiorari.
+
+## Conditional Merits and Summary-Disposition Forecast
+
+- **Question Presented If Granted:** If the Court were to grant certiorari, it would take the single question presented in the petition—whether courts have authority to review a USPTO decision denying institution of inter partes review on grounds alleged to be contrary to statute—likely framing the threshold inquiry around whether 35 U.S.C. § 314(d) and the mandamus standard of 28 U.S.C. § 1651(a) foreclose review of the Director's reliance on parallel-litigation time-to-trial factors. If granted for plenary review, the Court would likely affirm the Federal Circuit's denial of mandamus on the ground that 35 U.S.C. § 314(a) imposes no statutory mandate to institute inter partes review and § 314(d) commits the institution decision to the Director's unreviewable discretion.
+- **Summary Disposition Route Conditional on Grant (`summary-disposition-route`: 0.25):** Conditional on the Court granting review of this petition, plenary review (75%) is likelier than summary disposition (25%). A summary GVR would occur only in the unlikely event that the Court grants review solely in the APA-posture companion case (*Intel Corp. v. Squires*, No. 26-73), rules against the USPTO on the merits, and then grants, vacates, and remands *Tesla* for further consideration in light of that decision. An immediate summary reversal is exceedingly unlikely given the unpublished mandamus posture below.
+
+## Separate Writings on the Order List
+
+- **Dissent or Statement Respecting Denial (`dissent-from-denial`: 0.03):** Conditional on a denial of certiorari, expect the order to issue without any noted dissent or statement respecting the denial. None of the Court's prior denials of certiorari in challenges to the PTAB's *Fintiv* framework—including *Google LLC v. VirtaMove, Corp.* (No. 25-1230) on October 19, 2026 and *Intel Corp. v. Vidal* (No. 23-135) in 2024—drew a recorded dissent or separate statement. In the small (~3%) event of a separate writing on the denial order, Justice Gorsuch (0.015) or Justice Thomas (0.008) would be the likeliest authors given their past writings on PTAB structure, administrative adjudication, and statutory reviewability under the America Invents Act.
