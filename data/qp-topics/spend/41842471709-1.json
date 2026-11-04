@@ -1,0 +1,42 @@
+{
+  "agree": 226,
+  "batch_rows": 241,
+  "cache_creation_input_tokens": 254685,
+  "cache_read_input_tokens": 5157030,
+  "estimated_cost_usd": 2.892395,
+  "floor": 0.3817427385892116,
+  "frame": "applications",
+  "input_tokens": 66,
+  "label_lines": 241,
+  "labeler": "claude-code/claude-opus-5-5",
+  "lane": "qp-topic-label",
+  "model": "claude-opus-5-5",
+  "n": 241,
+  "outcome": "replicate",
+  "output_tokens": 29365,
+  "priced_as": null,
+  "rate": 0.9377593360995851,
+  "recorded_at": "2026-11-04T14:03:33.725042Z",
+  "replicate": {
+    "matches": "1111111111111111111111111111111111100111011111111111111101111111111111011111111110111111111111011110111111111111111111111111111111111111111111111111110111011111111111111111111111111101111111111111111111011111101011111111111111111111011111111",
+    "per_input_kind": [
+      {
+        "agree": 32,
+        "input_kind": "application-text",
+        "n": 35
+      },
+      {
+        "agree": 194,
+        "input_kind": "docket-only",
+        "n": 206
+      }
+    ],
+    "prompt_sha256": "82dbc5c23227773977cbfec7c9828e23728a3ad63bbc529880416bbf0d18c1ab",
+    "reference_entries": 241,
+    "reference_sha256": "c39b24ccc99afa718d0a87682a805756c790626c43bb4f6746bb06dd21bf18b3",
+    "unclassifiable": 96
+  },
+  "run_attempt": 1,
+  "run_id": "41842471709",
+  "schema_version": "1.0"
+}
