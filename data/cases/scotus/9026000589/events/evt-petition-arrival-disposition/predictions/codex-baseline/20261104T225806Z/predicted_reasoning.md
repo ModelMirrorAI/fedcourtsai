@@ -1,0 +1,13 @@
+# Forecast of the Court's treatment
+
+The Court will grant review, most likely for full briefing and argument. The recurring boundary between statutory review of federal agency action and contractual claims against the United States, together with the approximately $16 billion dispute and the fractured en banc judgment, will justify intervention.
+
+The record starts at **zero distributions**. The petition will receive an initial conference distribution after response-stage briefing. The most likely path is one additional relist after that initial conference, or two distributions in total, followed by a grant. A hold or additional relist is possible if another grant-termination petition advances first; I do not forecast a particular conference date. The 0.995 distribution-increment probability concerns any increase from the current zero, not a true relist after an initial conference.
+
+The Court will not invite the Solicitor General's views: the Solicitor General already represents the federal petitioners. The probability of a new invitation is 0.001.
+
+If review is granted, the central question will be QP1 as presented: whether the Tucker Act prevents these grant-termination challenges from proceeding in district court. The most likely grant also includes QP2, addressing whether the statutory funding provision can support this injunction after repeal, rather than reformulating the case into a generic power to cancel all federal spending. Conditional on plenary review, the likely government-favoring ground is the contractual character of the relief sought, while the distinction between already-disbursed property and future grant administration will require attention.
+
+Full merits consideration is more likely than disposing of the case in the cert order. The probability of a summary route, **conditional on any grant**, is 0.30. A summary reversal applying existing grant-forum principles is a more concrete immediate possibility than a GVR based on an unidentified intervening decision. A GVR would become more plausible if a separate pending case first supplies controlling guidance.
+
+The modal cert order will have no separate writing. If review is denied instead, there is a 0.10 chance that a Justice notes a dissent or writes a statement; Thomas or Gorsuch would be plausible writers criticizing the failure to resolve the forum issue. If the Court instead grants and summarily intervenes, Jackson is the most likely individual separate writer, with Sotomayor or Kagan also plausible. These are writing forecasts, not claims that the Court will disclose each Justice's cert vote.
