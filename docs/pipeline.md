@@ -1760,8 +1760,13 @@ run-log issue means exactly "a window broke".
 
 **An open issue is one of exactly three things, and the reader can tell which
 from its label.** An **alarm** — `pull-log`, `live-log`, `data-validation`,
-`pipeline-health` — is filed only by a failure and closed by a human once
-triaged, so an open one always means something needs attention. A **digest** —
+`pipeline-health` — is filed only by a failure, so an open one always means
+something needs attention. A run-log alarm is closed by a human once triaged;
+the two latched alarms, `data-validation` and `pipeline-health`, also close
+themselves when their check is green again, and each closes only the issue it
+filed, matched by its fixed title and the workflow bot as author. Alarm
+labels are reserved for these jobs: a hand-filed issue takes a category
+label instead. A **digest** —
 `daily-digest` — is filed on the happy path and closed once
 read, so the open ones are the unread backlog and nothing more. The
 **`agent-feedback` tracker** is the one standing body a job writes to on a
@@ -3647,7 +3652,7 @@ The `run-seed` historical walker has its own instance of the latched-issue
 pattern: a `guard`
 job raises one long-lived **pipeline-health** issue if the checkpointed walk is
 ever cancelled or fails (e.g. a chunk overran the job's hard timeout), and clears
-it when a later walk finishes clean — so a silent, PR-less writer failure still
+that issue, and only that one, when a later walk finishes clean — so a silent, PR-less writer failure still
 reaches a durable home.
 Separately, every cell may also write a `tooling.json` self-report on its
 environment/tooling, committed with the cell's output; only its

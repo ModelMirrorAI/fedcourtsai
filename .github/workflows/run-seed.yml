@@ -2332,8 +2332,17 @@ jobs:
           gh_retry gh label create pipeline-health --repo "$REPO" --force \
             --color b60205 --description "Long-lived corpus-writer failure" \
             || echo "::warning::pipeline-health label create failed after retries; continuing"
-          num=$(gh_retry gh issue list --repo "$REPO" --label pipeline-health --state open \
-            --json number --jq '.[0].number')
+          # This job's own alarm only: the open issue it files, titled "Seed walk
+          # failing" and authored by the ambient token's bot. The label alone is
+          # not enough, because a clean walk closes what this matches, and any
+          # other open issue that carries `pipeline-health` would be closed with
+          # it. The retried listing lands in a variable before jq filters it, so
+          # an exhausted retry fails the assignment rather than reading as "no
+          # issue".
+          listing=$(gh_retry gh api "repos/${REPO}/issues?labels=pipeline-health&state=open&per_page=100")
+          num=$(jq -r '[.[] | select(.title == "Seed walk failing"
+                          and .user.login == "github-actions[bot]"
+                          and (has("pull_request") | not))][0].number // empty' <<<"$listing")
           # Only 'success' clears; 'failure'/'cancelled' (or any non-skipped
           # not-clean result — this job's always() runs it regardless) escalate.
           if [ "$RESULT" = "success" ]; then
