@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000602",
+  "run_id": "20261104T212933Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell: provisioned file reads",
+    "metrics/statpack.md: interim section",
+    "python: blinded retrieval-log inspection",
+    "apply_patch",
+    "python: jsonschema validation"
+  ],
+  "helpful": [
+    "Alias-keyed prediction staging preserved the blind.",
+    "Finer interim outcome and docket established the scoring axis and procedural route.",
+    "Evaluator-side application OCR exposed appellate proceedings omitted from some rationales.",
+    "Per-call result-capture markers distinguished unseen results from verified negatives."
+  ],
+  "gaps": [
+    "No disposing-order text or writing roster to verify absence of writings or judicial grounds.",
+    "Candidate-stage application text and manifest are not frozen alongside the blinded outputs; all candidates report blank text while the evaluator has OCR."
+  ],
+  "notes": "No external retrieval or installation. Read the committed interim statpack only to assess baseline use and pool availability; baseline, skill, and mechanical claim scores remain harness-owned."
+}

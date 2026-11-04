@@ -1,0 +1,125 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.02,
+    "notes": "Pro se emergency stay application seeking to halt execution of a Maryland state-court writ of possession arising out of a residential foreclosure and post-auction bankruptcy consent-order dispute; summarily denied in chambers by the Chief Justice without a response request or referral, with stakes confined to the parties."
+  },
+  "brier_score": 0.0009,
+  "brier_skill_score": null,
+  "case_id": "scotus/9526000619",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": null,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.08,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.2,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.003,
+          "Barrett": 0.002,
+          "Gorsuch": 0.003,
+          "Jackson": 0.003,
+          "Kagan": 0.001,
+          "Kavanaugh": 0.002,
+          "Roberts": 0.006,
+          "Sotomayor": 0.003,
+          "Thomas": 0.003
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": null,
+    "lift": null,
+    "total": null
+  },
+  "correct": 1,
+  "created_at": "2026-11-04T21:36:21.464596Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward-mode prediction run on 2026-11-03T22:40Z against the 2026-10-28 arrival snapshot. Inspection of retrieval_log.json (29 calls, result_capture_coverage 0.897) and reasoning.md confirms no query or retrieval touched the target application's November 3 disposition; external lookups were limited to prior cert denials before 2026 and Hollingsworth v. Perry (558 U.S. 183).",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-argon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.78,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json and the November 3, 2026 docket entry ('Application (26A619) denied by The Chief Justice.') confirm an unexplained in-chambers denial by Chief Justice Roberts with referred_to_court: false and writing_roles: null.",
+        "claim": "The Chief Justice will most likely deny the stay application without a written explanation and without referring it to the full Court.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records interim_signals with response_requested: false, referred_to_court: false, and amicus_briefs: 0.",
+        "claim": "The modal path adds no subsequent response request, no full-Court referral, and no amicus curiae filings.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records resolved_at: '2026-11-03', exactly seven days after the October 27, 2026 submission.",
+        "claim": "Disposition will occur within approximately one to three weeks of the October 27, 2026 submission (roughly November 3-17) without prolonged briefing.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The November 3, 2026 order is a standard one-line chambers denial with no separate opinions or statements (writing_roles: null).",
+        "claim": "The order will not announce a new legal rule and no separate writing by any Justice is expected.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261103T221945Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+    "label": "proc-v17",
+    "pipeline_sha": "2af864fe92d46ec00347786277b3e825757d6671",
+    "stamped_at": "2026-11-04T21:36:21.464596Z"
+  },
+  "reasoning_quality": 0.8,
+  "run_id": "20261104T212933Z",
+  "schema_version": "1.0",
+  "segment_base_rate": null,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

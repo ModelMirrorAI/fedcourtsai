@@ -1,0 +1,125 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.02,
+    "notes": "Self-represented applicants seeking a temporary stay of a writ of possession in a private foreclosure dispute with U.S. Bank, arising from a remanded S.D. Fla. removal with an Eleventh Circuit stay motion pending; no federal question of general importance; denied in chambers by the Circuit Justice without response or referral."
+  },
+  "brier_score": 0.0016,
+  "brier_skill_score": 0.88337775,
+  "case_id": "scotus/9526000602",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.1171303074670571,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": 0.012119508927327332
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.12,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.16,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.015,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v2",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.003,
+          "Barrett": 0.002,
+          "Gorsuch": 0.003,
+          "Jackson": 0.003,
+          "Kagan": 0.001,
+          "Kavanaugh": 0.002,
+          "Roberts": 0.002,
+          "Sotomayor": 0.003,
+          "Thomas": 0.006
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.012119508927327332,
+    "total": 0.012119508927327332
+  },
+  "correct": 1,
+  "created_at": "2026-11-04T21:33:33.837231Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward log (result_capture_coverage ~0.89). Shell reads of the prompt, provisioned record and statpack.json interim counts, plus one `fedcourts query` for denied 2020s cert petitions; that query's captured result date was 2026-04-29, which predates resolution and concerns other cases. Three web calls (uncaptured) targeted the Supreme Court Rules PDF and a generic Rule 23 query; graded on their queries, none seeks this case. No data/qp-topics access.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-opus-5-5",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.6,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "'Application (26A602) denied by Justice Thomas.' Nov 3 2026; no writing.",
+        "claim": "The stay is denied (4% unqualified grant) by a short order of Justice Thomas acting on the application, with no explanatory writing.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "interim_signals: response_requested false, referred_to_court false, amicus_briefs 0.",
+        "claim": "Response request, referral and amicus counts all stay unchanged before disposition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Denied Nov 3 2026, 14 days after submission.",
+        "claim": "Disposition comes about two to four weeks after the Oct 20 submission, around early to mid-November 2026.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "A one-line chambers denial with no reasoning.",
+        "claim": "The denial will not announce a rule governing the underlying dispute.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261031T173439Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+    "label": "proc-v17",
+    "pipeline_sha": "2af864fe92d46ec00347786277b3e825757d6671",
+    "stamped_at": "2026-11-04T21:33:33.837231Z"
+  },
+  "reasoning_quality": 0.65,
+  "run_id": "20261104T212933Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.1171303074670571,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

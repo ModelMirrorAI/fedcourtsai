@@ -1,0 +1,26 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9526000619",
+  "gaps": [
+    "No disposing order body or writing inventory to verify no-writing forecasts",
+    "gemini-baseline returned content is not available under outcome_only capture",
+    "Prediction-time application text and statpack versions are not staged for direct historical comparison"
+  ],
+  "helpful": [
+    "Blinded candidate staging and mode-aware retrieval logs",
+    "Recorded finer interim outcome and terminal docket snapshot",
+    "OCR application text and machine-readable statpack coverage counts"
+  ],
+  "notes": "All three candidates were evaluated from aliases only. No external lookup or corpus query was needed. The current application has OCR although all candidates report empty prediction-time text. Baseline and claim-score stamping remain with the harness.",
+  "role": "evaluator",
+  "run_id": "20261104T212933Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "jq",
+    "apply_patch",
+    "python jsonschema"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

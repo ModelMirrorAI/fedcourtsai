@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000619",
+  "run_id": "20261104T212933Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": ["shell", "file-read"],
+  "helpful": ["Blinded staging with retrieval_log result_capture markers made the leakage check tractable."],
+  "gaps": ["Captured web-fetch results are visible only as digests; a captured call's content (here a same-day fetch of the case's own docket) cannot be inspected by the evaluator."],
+  "notes": "Interim cell; the baseline and skill are left to the harness stamp."
+}

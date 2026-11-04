@@ -1,0 +1,125 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.08,
+    "notes": "The staged OCR application concerns preservation of a family home and an asserted federal due-process defect in Maryland appellate procedure. Stakes are substantial for the applicant, but the requested relief and procedural challenge are case-specific; the record does not establish broad institutional or nationwide consequences."
+  },
+  "brier_score": 0.0009,
+  "brier_skill_score": null,
+  "case_id": "scotus/9526000619",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": null,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.08,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.2,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.003,
+          "Barrett": 0.002,
+          "Gorsuch": 0.003,
+          "Jackson": 0.003,
+          "Kagan": 0.001,
+          "Kavanaugh": 0.002,
+          "Roberts": 0.006,
+          "Sotomayor": 0.003,
+          "Thomas": 0.003
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": null,
+    "lift": null,
+    "total": null
+  },
+  "correct": 1,
+  "created_at": "2026-11-04T21:35:49.497180Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Reviewed all 29 captured-log calls and the three prose documents. Result capture coverage is 26/29; three web calls are unobserved, not established empty results. Those calls concern general stay authorities, not this application. Other retrieval concerns unrelated prior dispositions and Hollingsworth. No query or reasoning reveals this application's November 3 denial. Prediction and resolution share a calendar date, but no resolution time or affirmative exposure establishes a decided-case forward misroute.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.9,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The November 4 snapshot records a November 3 denial by the Chief Justice; outcome.interim_reading is denied and interim_signals.referred_to_court is false.",
+        "claim": "The Chief Justice will deny the stay directly rather than refer it to the full Court.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Outcome.interim_signals records response_requested false and amicus_briefs zero; the frozen arrival values were also false and zero.",
+        "claim": "The modal path includes no response request and no increase in amicus filings.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Outcome.resolved_at is November 3, seven days after the October 27 submission.",
+        "claim": "Disposition will occur roughly November 3 through November 17, one to three weeks after submission.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The staged docket supplies only a brief denial entry. No disposing order body or writings are staged, and outcome.writing_roles is null; silence does not independently establish the contents or absence of writings.",
+        "claim": "The denial will be unexplained, announce no new legal rule, and attract no separate writing.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261103T221945Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+    "label": "proc-v17",
+    "pipeline_sha": "2af864fe92d46ec00347786277b3e825757d6671",
+    "stamped_at": "2026-11-04T21:35:49.497180Z"
+  },
+  "reasoning_quality": 0.9,
+  "run_id": "20261104T212933Z",
+  "schema_version": "1.0",
+  "segment_base_rate": null,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}
