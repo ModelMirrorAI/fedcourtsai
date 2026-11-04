@@ -1,0 +1,10 @@
+{
+  "case_id": "scotus/9526000634",
+  "run_id": "20261104T225806Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {"category": "data-quality", "severity": "warning", "event_id": "evt-motion-disposition",
+     "message": "metrics/statpack.json interim.terms carries finer_granted=finer_resolved=0 and finer_unread equal to the resolved substantive count for every Term 2016-2025, so the strictly-prior pooled interim baseline cannot be computed; anchored without a published baseline."}
+  ]
+}
