@@ -18,7 +18,7 @@ from typing import Any
 #: table below does not name — a new engine, or a registry entry ahead of the
 #: table — so a plan never silently drops such a cell from its total. Re-anchor
 #: it when the table below moves.
-PLANNING_USD_PER_CELL = 2.80
+PLANNING_USD_PER_CELL = 2.95
 
 #: Per-cell rates in USD, keyed (seam, engine) — the source for every spend
 #: figure a plan prints; ``docs/budget.md`` sizes the program from measurements
@@ -30,13 +30,14 @@ PLANNING_USD_PER_CELL = 2.80
 #: (x1.218), the same scaling the per-case derivation uses. The other stamped
 #: evaluate gradings are interim-stage, graded before the current instant under
 #: superseded evaluator digests, so they re-anchor nothing here. The gemini
-#: cells price ``gemini-4-argon``: its first measured cells (5 predictions at
-#: about $1.06, 18 grading runs at about $0.64, at the introductory $2 / $10)
-#: doubled for the $4 / $20 rate in force from 2026-12-01, so the row holds
-#: across that change. See the spend-basis caveats every plan carries
-#: (``fedcourtsai.cli``). The two seams sum to $8.27 + $8.51 = $16.78 a case,
-#: which the $2.80 fallback is the six-cell rounding of — so a full
-#: three-engine, both-seam fan-out prices within a cent either way.
+#: cells price ``gemini-4-argon``: its measured cells on ``main`` at
+#: ``0d99f5b01`` (137 predictions at about $1.34, 31 grading runs at about
+#: $0.79, at the introductory $2 / $10) doubled for the $4 / $20 rate in force
+#: from 2026-12-01 and rounded up, so the row holds across that change. See the
+#: spend-basis caveats every plan carries (``fedcourtsai.cli``). The two seams
+#: sum to $8.85 + $8.82 = $17.67 a case, which the $2.95 fallback is the
+#: six-cell rounding of — so a full three-engine, both-seam fan-out prices
+#: within a few cents either way.
 #: ``docs/milestones.md``'s ~$17 per fully evaluated event is that same total:
 #: one table, described twice, not two measurements. What
 #: conditioning buys is the *narrowed* plan: within a seam the engines differ
@@ -47,8 +48,8 @@ PLANNING_USD_PER_CELL = 2.80
 #: per-actor measurements behind these rows are one actor per engine in the
 #: shipped registries.
 PLANNING_RATES_USD_PER_CELL: dict[str, dict[str, float]] = {
-    "predict": {"claude-code": 4.27, "codex": 1.88, "gemini": 2.12},
-    "evaluate": {"claude-code": 5.92, "codex": 1.30, "gemini": 1.29},
+    "predict": {"claude-code": 4.27, "codex": 1.88, "gemini": 2.70},
+    "evaluate": {"claude-code": 5.92, "codex": 1.30, "gemini": 1.60},
 }
 
 

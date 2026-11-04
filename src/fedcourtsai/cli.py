@@ -25216,11 +25216,12 @@ _SPEND_BASIS_CAVEATS: dict[str, list[str]] = {
         + "The ~+20% level gap to the 410-cell pre-freeze ledger is an UPPER "
         + "BOUND on any level effect, not a measurement of one.",
         "The codex row is PRE-CUTOVER, measured on gpt-5.6-sol, and projects "
-        + "HIGH: gpt-6.1-sol measures about $0.43 a prediction (5 cells) against the "
-        + "row's $1.88. The gemini row prices gemini-4-argon from its first "
-        + "few cells (5 predictions, about $1.06 each at the introductory "
-        + "$2/$10) doubled for the $4/$20 rate in force from 2026-12-01, so "
-        + "until then it projects about twice the measured cost. Only a deliberate "
+        + "HIGH: gpt-6.1-sol measures about $0.55 a prediction (134 cells) against "
+        + "the row's $1.88. The gemini row prices gemini-4-argon from its "
+        + "measured cells (137 predictions, about $1.34 each at the introductory "
+        + "$2/$10) doubled for the $4/$20 rate in force from 2026-12-01 and "
+        + "rounded up, so until then it projects about twice the measured cost. "
+        + "Only a deliberate "
         + "re-anchor of the pinned rows moves them.",
     ],
     "evaluate": [
@@ -25231,9 +25232,11 @@ _SPEND_BASIS_CAVEATS: dict[str, list[str]] = {
         + "of the two pre-freeze anchors; the pooled four-grading figure is the "
         + "more cautious one and is NOT what these rates carry. All four are "
         + "cert-stage, so the anchor is stage-narrow either way. The gemini "
-        + "row does not use that anchor: it prices gemini-4-argon's first 18 "
-        + "grading runs (about $0.64 each at the introductory $2/$10) doubled "
-        + "for the $4/$20 rate in force from 2026-12-01.",
+        + "row does not use that anchor: it prices gemini-4-argon's measured "
+        + "grading runs (31, about $0.79 each at the introductory $2/$10, "
+        + "mostly cert-stage) doubled for the $4/$20 rate in force from "
+        + "2026-12-01 and rounded up, so a merits grading, which reads more, "
+        + "has little margin under it.",
         "An evaluate measurement EXISTS outside the frozen partition, and these "
         + "rates do not use "
         + "it: two runs independently graded one six-event INTERIM population "
