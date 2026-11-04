@@ -452,6 +452,7 @@ from .pipeline.party_rates import DEFAULT_RATES_RULE, party_rates
 from .pipeline.policy_area import policy_areas, policy_source
 from .pipeline.pull import (
     BACKLOG_MAX_POLL_AGE_DAYS,
+    SCAN_HOLD_DAYS,
     CaseDisposition,
     CaseReconciliation,
     IncrementalEntries,
@@ -23713,6 +23714,15 @@ def _report_predict_backlog(backlog: PredictBacklog, *, cap: int, prefix: str) -
             "snapshot already shows the outcome of every event they are owed, so "
             "provisioning would refuse each forward cell. The hold clears when the events "
             "resolve or a newer snapshot stops disclosing them.",
+            err=True,
+        )
+    if backlog.held_unread_scan:
+        typer.echo(
+            f"Predict backlog: held {backlog.held_unread_scan} owed case(s) holding a scanned "
+            f"filing stored no more than {SCAN_HOLD_DAYS} days before the plan day that the "
+            "OCR sweep has not read yet, "
+            "so a forward cell would read it as empty. The hold clears when a run-seed "
+            "window's sweep recovers the text, or when the bound lapses.",
             err=True,
         )
     for case_id, event_id, reason in backlog.decided_events:

@@ -65,6 +65,7 @@ from .entry_reads import full_read_owed, merge_entries
 from .events import AmbiguousEntry, extract_events
 from .ingest import from_api_docket, upsert_to_corpus
 from .moments import spec_for
+from .ocr_recovery import fetchable_document_url, is_recoverable_scan
 from .outcome import (
     UnrecordedOutcome,
     disposition_basis,
@@ -927,6 +928,7 @@ class CaseDisposition(StrEnum):
     held_stale = "held_stale"
     held_unswept = "held_unswept"
     held_decided = "held_decided"
+    held_unread_scan = "held_unread_scan"
     dropped_already_queued = "dropped_already_queued"
     dropped_excluded = "dropped_excluded"
     dropped_not_funded = "dropped_not_funded"
@@ -944,6 +946,7 @@ _ADMITTED_DISPOSITIONS = frozenset(
         CaseDisposition.held_stale,
         CaseDisposition.held_unswept,
         CaseDisposition.held_decided,
+        CaseDisposition.held_unread_scan,
     }
 )
 
@@ -1132,7 +1135,7 @@ class PredictBacklog:
     stage's own schedule, which reads the committed record and derives its fan-out
     from it.
 
-    The three **hold** counts are the derivation's other output, and they are
+    The four **hold** counts are the derivation's other output, and they are
     counted over the *owed* population alone — a candidate is only counted as
     held if, but for the hold, it would have produced an entry. That is what
     makes them mean something: "work this lane owes and cannot mint yet",
@@ -1148,6 +1151,10 @@ class PredictBacklog:
     - ``held_unswept`` — the pull lane has never queued the case *and* it has
       no stored documents, so provisioning has not been attempted for it.
       Clears when run-pull sweeps it.
+    - ``held_unread_scan`` — the case holds a stored filing the OCR sweep has
+      not read yet: a scan stored within :data:`SCAN_HOLD_DAYS` whose text is
+      empty (:func:`_unread_scan_hold`). Clears when a run-seed window's sweep
+      recovers it, or when the bound lapses for a scan the sweep cannot read.
     - ``held_decided`` — the case's latest stored snapshot already discloses
       the outcome of every event it is owed
       (:func:`~fedcourtsai.pipeline.outcome.forward_leakage`), so provisioning
@@ -1190,6 +1197,7 @@ class PredictBacklog:
     held_stale: int = 0
     held_unswept: int = 0
     held_decided: int = 0
+    held_unread_scan: int = 0
     decided_events: tuple[tuple[str, str, str], ...] = ()
     cap_reached: bool = False
     reconciliation: CaseReconciliation | None = None
@@ -1425,9 +1433,9 @@ def _drop_disclosed(
 def _timing_hold(
     conn: corpus.ReadConnection, row: corpus.CorpusRow, *, day: date
 ) -> CaseDisposition | None:
-    """The first of the two timing holds an owed case is under, or ``None``.
+    """The first of the three timing holds an owed case is under, or ``None``.
 
-    Steps 7 and 8 of :func:`derive_predict_backlog`, asked only of a case that
+    Steps 7 to 9 of :func:`derive_predict_backlog`, asked only of a case that
     step 6 found owed.
     """
     observed = _last_observed(row)
@@ -1452,7 +1460,45 @@ def _timing_hold(
         # would permanently bar every structurally unprovisionable docket —
         # an application form has no document route at all.
         return CaseDisposition.held_unswept
+    if _unread_scan_hold(conn, row.case_id, day=day):
+        return CaseDisposition.held_unread_scan
     return None
+
+
+#: How long, in days from when it was stored, an owed case waits for the OCR
+#: sweep to read a scanned filing before the backlog mints its cells anyway.
+#: The sweep puts a forward case's fresh scans at the head of every run-seed
+#: window's slice (:func:`fedcourtsai.pipeline.ocr_sweep.order_sweep_class`),
+#: four windows a day, so a readable scan clears the hold within a window or
+#: two; the bound is what keeps a scan the sweep cannot read from holding its
+#: case for good, and it leaves room for a dropped window or two. A case the
+#: backlog admits on cohort completion alone (salience-deferred, no open merits
+#: event) is not forward to the sweep, so its scan waits on the sweep's rotated
+#: backlog tier instead and may hold its cells for the whole bound. The bound is
+#: inclusive: a scan stored ``SCAN_HOLD_DAYS`` days before the plan day still holds.
+SCAN_HOLD_DAYS = 2
+
+
+def _unread_scan_hold(conn: corpus.ReadConnection, case_id: str, *, day: date) -> bool:
+    """Whether the case holds a fresh scan the OCR sweep has yet to read.
+
+    Step 9 of :func:`derive_predict_backlog`. A stored filing is an unread
+    scan when it is in the OCR recovery class
+    (:func:`~fedcourtsai.pipeline.ocr_recovery.is_recoverable_scan`: a fetched
+    kind a cell reads, empty text over a PDF with pages, one link) at a URL the
+    sweep may re-fetch. It is fresh while ``fetched_at`` is within
+    :data:`SCAN_HOLD_DAYS` of ``day``: the fetch path stores a link once and
+    never re-stamps it, so ``fetched_at`` is when the scan arrived, and the
+    sweep's own write moves the row out of the class.
+    """
+    for document in corpus.documents_for_case(conn, case_id):
+        if (
+            is_recoverable_scan(document)
+            and fetchable_document_url(document.url)
+            and (day - document.fetched_at).days <= SCAN_HOLD_DAYS
+        ):
+            return True
+    return False
 
 
 def derive_predict_backlog(
@@ -1500,7 +1546,7 @@ def derive_predict_backlog(
        per-cell attempt cap, over the event list the cohort narrowing below
        leaves.
 
-    Then three **holds**, which run only on a case step 6 found owed, so every
+    Then four **holds**, which run only on a case step 6 found owed, so every
     held case is one this lane genuinely owes and cannot mint yet:
 
     7. **Record freshness** — the case was observed by either ingestion channel
@@ -1522,13 +1568,22 @@ def derive_predict_backlog(
        An admitted case whose store is empty mints a cell with a thin
        ``record/``; that is the queued-without-petition coverage metric's
        problem to report, not this predicate's to exclude.
-    9. **Outcome not disclosed** — per event, the case's latest stored snapshot
-       does not already show that event's outcome
-       (:func:`~fedcourtsai.pipeline.outcome.forward_leakage`, the scan
-       provisioning refuses a forward cell on). An event it flags is dropped;
-       a case left with none is counted on ``held_decided``. This is the plan
-       seam's copy of the live routing's decided-docket diversion, which keeps
-       such a docket off the queue but records nothing the backlog can read.
+    9. **Fresh scans read** — the case holds no stored filing that is still an
+       unread scan stored within :data:`SCAN_HOLD_DAYS`
+       (:func:`_unread_scan_hold`). Counted on ``held_unread_scan``. The live
+       channel stores a new filing every two hours and this round can run
+       within the hour, while the OCR sweep that reads a scanned one runs on
+       run-seed's windows, about six hours apart; a cell minted in that gap
+       reads an empty filing for the whole of its one forward run. Asked only
+       of a case that passed the two holds above, so the document read is paid
+       on the few cases a round could mint.
+    10. **Outcome not disclosed** — per event, the case's latest stored snapshot
+        does not already show that event's outcome
+        (:func:`~fedcourtsai.pipeline.outcome.forward_leakage`, the scan
+        provisioning refuses a forward cell on). An event it flags is dropped;
+        a case left with none is counted on ``held_decided``. This is the plan
+        seam's copy of the live routing's decided-docket diversion, which keeps
+        such a docket off the queue but records nothing the backlog can read.
 
     **Case-grain reconciliation.** Every step above that turns a case away files
     it under a :class:`CaseDisposition`, and so does every step that derives or
@@ -1543,14 +1598,16 @@ def derive_predict_backlog(
     prediction set.
 
     Steps 1 through 5 filter, then candidates sort **stalest first** (see
-    :func:`_predict_backlog_candidates`) and steps 6 through 9 run inside the
+    :func:`_predict_backlog_candidates`) and steps 6 through 10 run inside the
     ``cap`` — a held case costs no cap slot, but the loop still stops at the
     cap, so every hold count is censored by it and ``cap_reached`` says
     whether it was. Ordering the owed check ahead of the holds is also what
     keeps the store reads cheap under the corpus split: step 8 reads the store
-    only for an owed, fresh, never-queued case, and step 9 reads one snapshot
-    per owed case that passed the other holds — a small fraction of the
-    candidate set rather than all of it. ``cap`` bounds model spend and PR
+    only for an owed, fresh, never-queued case, step 9 reads the stored
+    documents in full (the manifest and each body) of an owed, fresh,
+    provisioned case, and step 10 reads one snapshot per owed case that passed
+    the other holds — a small fraction of the candidate set rather than all of
+    it. ``cap`` bounds model spend and PR
     volume: each queued case fans out one cell per predictor still owed the
     event.
 
@@ -1776,7 +1833,7 @@ def derive_predict_backlog(
                 for pid in predictor_ids
             )
         ]
-        # The owed check runs FIRST, and the two timing holds after it, so a
+        # The owed check runs FIRST, and the timing holds after it, so a
         # hold is only counted where it is the sole thing between the case and
         # an entry. Counted the other way round the figures would be dominated
         # by cases the owed check drops anyway, and "held, still owed a
@@ -1852,6 +1909,7 @@ def derive_predict_backlog(
         held_stale=log.count(CaseDisposition.held_stale),
         held_unswept=log.count(CaseDisposition.held_unswept),
         held_decided=log.count(CaseDisposition.held_decided),
+        held_unread_scan=log.count(CaseDisposition.held_unread_scan),
         decided_events=tuple(decided),
         cap_reached=cap_reached,
         reconciliation=_reconcile(universe, log, cap_reached=cap_reached),
