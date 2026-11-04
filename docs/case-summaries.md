@@ -294,7 +294,7 @@ jobs:
 |---|---|---|
 | `plan` | read-only corpus role | stands down (a notice, no work) while a `run-predict` or `run-evaluate` run is executing — a round parked on its own hold or queued does not count, and the check is at plan time only, so a round can still start while this run's generate job works; counts an open `summaries/refresh` PR's summaries as written; `fedcourts summarize-plan` → the plan and the report the hold is judged on |
 | `approval` | nothing (`review`, or `review-auto` when auto-released) | the spend hold |
-| `stage` | read-only corpus role | `provision-snapshot` for each planned case, into a data root under `$RUNNER_TEMP` |
+| `stage` | read-only corpus role | `provision-snapshot` for each planned case, into a data root under `$RUNNER_TEMP`, and `ai-ruling-stage` for each planned AI watchlist ruling |
 | `generate` | the environment's Anthropic key, and asserts it holds no cloud credential | `fedcourts summarize`; jails, validates and secret-scans the written files; uploads them as the `case-summaries` artifact |
 | `publish` | dev App token (`main` only) | opens or updates one reviewed PR from `summaries/refresh` |
 | `rejected` | nothing (no environment, `permissions: {}`) | records on the run page that the hold did not release |
@@ -533,11 +533,12 @@ digest and a text with no contact residual. `summarize` writes the planned
 rulings after the cases, under the same time budget, and `summary-paths`
 admits the files, so they ride the same `summaries/refresh` review PR.
 
-**Not switched on.** `summarize.yml` does not pass `--rulings` or run
-`ai-ruling-stage` yet, so no scheduled run plans a ruling. Switching it on is a
-change to that workflow, and the measured spend the auto-release budget reads
-(`fedcourtsai.spend`) counts case summaries alone until it also reads these
-files' `usage`.
+**In the workflow.** `summarize.yml`'s plan job passes `--rulings` and
+counts a plan holding only rulings as work, its stage job runs
+`ai-ruling-stage` before the stage check, and its publish PR body tells the
+reviewer how to read the ruling files. The measured spend the auto-release
+budget and the backstop read (`fedcourtsai.spend`) counts these files'
+`usage`, and a rehearsal records them off-ledger with the case summaries.
 
 **In the update.** `ai-cases-update` renders a committed summary under its
 entry's item as a quote, its headline then what the court decided, closed by a

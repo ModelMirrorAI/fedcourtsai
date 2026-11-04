@@ -73,7 +73,9 @@ staged record of ~120k characters (≈50k tokens) puts a summary at
 predicted cases' records change on a given day (8 of 185 sampled day-pairs),
 so steady state is roughly 5–10 summaries a day, ≈$1–2 a day or ≈$30–60 a
 month — inside the model-spend envelope's headroom below, and bounded by the
-key's cap whatever a plan owes.
+key's cap whatever a plan owes. The same runs summarize the AI watchlist's
+rulings, one call each on the ruling's text alone: a few cents for a short
+order, under $0.10 for an opinion at the per-document cap.
 
 **The topic labeler spends outside it too** ([qp-topic.md](qp-topic.md)). One
 headless Claude Code session labels a batch of up to 1,200 questions-presented
