@@ -4632,8 +4632,12 @@ def test_the_sync_lands_through_the_pinned_merge_script() -> None:
     assert step["env"]["CHECKS_TOKEN"] == "${{ github.token }}"
     run = str(step["run"])
     assert 'git show "${GITHUB_SHA}:scripts/merge-when-green.sh" > "$script"' in run
-    assert 'bash "$script" "$1" "$head" < /dev/null' in run
+    # The script refuses a staging base unless the caller opts in, and the
+    # head is re-read on each bounded try because `main` keeps moving.
+    assert 'MERGE_SYNC=true MERGE_WAIT_SECONDS=600 bash "$script" "$1" "$head" < /dev/null' in run
+    assert "for try in 1 2 3; do" in run
     assert run.count('land_sync "') == 2
+    assert job["timeout-minutes"] >= 3 * 10 + 5
 
 
 def test_the_big_case_board_job_reaches_nothing_but_the_ledger_and_its_own_pr() -> None:

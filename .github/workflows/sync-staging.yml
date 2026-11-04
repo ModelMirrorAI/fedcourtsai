@@ -32,7 +32,9 @@ name: sync-staging
 # stamp would otherwise hold for a review of history the maintainer already
 # approved (docs/security.md). A PR on which neither auto-merge nor a direct
 # merge takes (a conflict, say) turns the run red, and the open PR is where it
-# is resolved.
+# is resolved. A sync whose head kept moving through every merge try stays open
+# with auto-merge armed: it lands on its own once nothing owned is in it, and
+# otherwise waits for the next run or the maintainer.
 
 on:
   schedule:
@@ -94,9 +96,9 @@ jobs:
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-26.04
-    # The open and arm take a few minutes; the rest is the merge's wait for the
-    # PR's checks, which the merge script bounds at 20.
-    timeout-minutes: 35
+    # The open and arm take a few minutes; the rest is the merge's three tries,
+    # each of which waits at most ten minutes for the PR's checks.
+    timeout-minutes: 45
     # The App credentials live on the prod environment, like every other
     # App-minting job. Its deployment-branch policy is `main`-only, which is also
     # why this workflow does nothing until it is promoted (see the header).
@@ -152,15 +154,28 @@ jobs:
           # required checks (`gate`, `paths`, `staging-base`) still bind the
           # merge. The script refuses any PR but a same-repository `main` head
           # into `staging` here, and is read from this job's own commit.
+          #
+          # The head is `main` itself, so a data commit landing on `main`
+          # mid-wait moves it and the pinned merge gives up. Each of three
+          # tries re-reads the head and waits at most ten minutes, and a try
+          # stops the loop as soon as the PR is merged or no longer open.
           land_sync() {
-            local head script
-            head=$(gh pr view "$1" --repo "$REPO" --json headRefOid --jq '.headRefOid')
+            local head script state try
             script="${RUNNER_TEMP}/merge-when-green.sh"
             git show "${GITHUB_SHA}:scripts/merge-when-green.sh" > "$script"
-            bash "$script" "$1" "$head" < /dev/null
-            if [ "$(gh pr view "$1" --repo "$REPO" --json state --jq '.state')" = MERGED ]; then
-              outcome=merged
-            fi
+            for try in 1 2 3; do
+              head=$(gh pr view "$1" --repo "$REPO" --json headRefOid --jq '.headRefOid')
+              echo "Merge try ${try} at head ${head}."
+              MERGE_SYNC=true MERGE_WAIT_SECONDS=600 bash "$script" "$1" "$head" < /dev/null
+              state=$(gh pr view "$1" --repo "$REPO" --json state --jq '.state')
+              if [ "$state" = MERGED ]; then
+                outcome=merged
+                return 0
+              fi
+              if [ "$state" != OPEN ]; then
+                return 0
+              fi
+            done
           }
 
           # Arm auto-merge (merge commit) on PR $1, or merge it outright when

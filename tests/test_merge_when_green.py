@@ -232,16 +232,26 @@ def test_a_pr_into_another_base_is_never_merged(tmp_path: Path) -> None:
         assert "not a owner/repo branch into main, nor the main → staging sync" in summary
 
 
-def test_the_main_to_staging_sync_is_merged(tmp_path: Path) -> None:
+def test_the_main_to_staging_sync_is_merged_only_when_the_caller_opts_in(
+    tmp_path: Path,
+) -> None:
     pull = _pull(base="staging", head_ref="main", title="chore: sync main into staging")
-    proc, calls, _ = _run(tmp_path, {"pull": [pull], "checks": [GREEN], "merge": [MERGED]})
+    scenario = {"pull": [pull], "checks": [GREEN], "merge": [MERGED]}
+    (tmp_path / "in").mkdir()
+    proc, calls, _ = _run(tmp_path / "in", scenario, extra_env={"MERGE_SYNC": "true"})
     assert proc.returncode == 0
     assert len(_merges(calls)) == 1
+    (tmp_path / "out").mkdir()
+    proc, calls, summary = _run(tmp_path / "out", scenario)
+    assert proc.returncode == 0
+    assert _merges(calls) == []
+    assert "nor the main → staging sync" in summary
 
 
 def test_a_sync_head_from_a_fork_is_never_merged(tmp_path: Path) -> None:
     pull = _pull(base="staging", head_ref="main", head_repo="someone/fork")
-    proc, calls, _ = _run(tmp_path, {"pull": [pull], "checks": [GREEN], "merge": [MERGED]})
+    scenario = {"pull": [pull], "checks": [GREEN], "merge": [MERGED]}
+    proc, calls, _ = _run(tmp_path, scenario, extra_env={"MERGE_SYNC": "true"})
     assert proc.returncode == 0
     assert _merges(calls) == []
 

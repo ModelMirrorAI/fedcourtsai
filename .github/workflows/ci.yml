@@ -480,7 +480,11 @@ jobs:
     # case-insensitively, so the comparison is the shell's). Every other PR
     # skips it, and the skipped run satisfies the requirement. It is among
     # `staging: require PR`'s required contexts, which carry no bypass, so a
-    # misrouted dev App PR into `staging` cannot merge however it is merged.
+    # dev App PR into `staging` from another head cannot merge however it is
+    # merged. It keys on the author, not the merger: what keeps the dev App
+    # from merging a PR someone else opened is that only promoted code can
+    # mint its token, and the only such code merging into `staging` is the
+    # sync (docs/security.md).
     if: >-
       github.event_name == 'pull_request' &&
       github.base_ref == 'staging' &&

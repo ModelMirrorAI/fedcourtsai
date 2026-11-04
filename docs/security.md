@@ -656,9 +656,14 @@ this policy.
   (`scripts/merge-when-green.sh`, which refuses any PR but a same-repository
   `main` head into `staging` there); armed auto-merge alone would wait on the
   review, since it never exercises a bypass. The bypass is the merging
-  actor's, so what confines it to the sync is twofold: the only dev App code
-  that merges into `staging` is that job, and the required `staging-base`
-  check fails any dev App PR here from another head. **`staging: require
+  actor's, so what confines it to the sync is the code that holds the dev App
+  key: its credentials live on the `prod` environment, which only `main` may
+  use, so only promoted code can mint the token, and the only such code that
+  merges into `staging` is that job. The required `staging-base` check is a
+  narrower second guard: it keys on the PR's author, not its merger, and fails
+  any PR the dev App opens into `staging` from a head other than `main`; it
+  does not stop the dev App merging a PR someone else opened, which only the
+  code holding the key prevents. **`staging: require
   PR`'s bypass: the repository admin role only**, and `staging: code owners`
   adds the dev App for pull requests alone; the admin role is the escape hatch
   for a main→staging sync when the ordinary PR path is unavailable, its content

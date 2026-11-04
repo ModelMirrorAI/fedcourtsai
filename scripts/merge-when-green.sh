@@ -10,7 +10,8 @@
 # (owner/name). Optional: `MERGE_REQUIRED_CHECKS` (space-separated check names
 # that must have reported before a refusal counts as settled; default
 # `gate paths`), `MERGE_METHOD` (default `merge`), `MERGE_WAIT_SECONDS`
-# (default 1200), `MERGE_POLL_SECONDS` (default 30).
+# (default 1200), `MERGE_POLL_SECONDS` (default 30), `MERGE_SYNC` (`true`
+# admits the main → staging sync; any other value refuses a `staging` base).
 #
 # The merge commit's subject is the PR's title with its number, `<title> (#N)`,
 # rather than the platform's `Merge pull request #N from <branch>`. The title
@@ -46,11 +47,12 @@
 #   identity — makes the platform refuse it, and the PR is left for the
 #   maintainer's review, where `dismiss stale reviews` and the extra-approval
 #   rule for unattributed changes apply.
-# - **Its own lanes only.** A PR is merged only into `main`, or into `staging`
-#   from the head `main` — the sync, whose content is `main`'s own history and
-#   which `staging: code owners` lets the dev App land past code-owner review.
-#   Any other base, or a head in another repository, is never merged, whatever
-#   number it was handed.
+# - **Its own lanes only.** A PR is merged only into `main`, or — when the
+#   caller sets `MERGE_SYNC=true`, which only `sync-staging` does — into
+#   `staging` from the head `main`: the sync, whose content is `main`'s own
+#   history and which `staging: code owners` lets the dev App land past
+#   code-owner review. Any other base, or a head in another repository, is
+#   never merged, whatever number it was handed.
 # - **Every check is heard first, and any failure stops it,** required or not:
 #   the merge is asked for only once nothing is still running, so a red CodeQL
 #   run on a data PR gets a human look before it lands. Only each check's newest run
@@ -168,7 +170,8 @@ while :; do
     exit 0
   fi
   if [ "$head_repo" != "$REPO" ] \
-    || { [ "$base" != "main" ] && { [ "$base" != "staging" ] || [ "$head_ref" != "main" ]; }; }; then
+    || { [ "$base" != "main" ] && { [ "${MERGE_SYNC:-}" != "true" ] \
+      || [ "$base" != "staging" ] || [ "$head_ref" != "main" ]; }; }; then
     report warning "PR #${pr} is not a ${REPO} branch into main, nor the main → staging sync (base ${base}, head ${head_repo:-unknown}:${head_ref:-unknown}); not merged (${pr_url})."
     exit 0
   fi
