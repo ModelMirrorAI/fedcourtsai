@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000589",
+  "run_id": "20261104T222804Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "The staged petition contains inconsistent internal Supreme Court docket headings (No. -XXXX and No. 24-101), whereas the authoritative snapshot identifies No. 26-589. Parties, appeal numbers, judgment date, questions, and the en banc judgment otherwise match. Used the supplied cell/snapshot identifiers, not those internal headings."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "The generated lower-court summary labels opinion cluster 10939291 unpublished and lists panel metadata, but the supplied opinion text is the August 4, 2026 en banc judgment, matching petition appendix 1a-4a and the petition's reported citation 184 F.4th 679. Relied on that text. The summary's no-rehearing-petition finding covers only entries after this en banc judgment and must not be read as absence of the earlier en banc proceeding."
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000634",
+  "run_id": "20261104T222804Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "statpack",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_call_endpoint",
+    "mcp_courtlistener_read_document",
+    "web_fetch"
+  ],
+  "helpful": [
+    "provisioned application.txt",
+    "fedcourts query",
+    "web_fetch of supremecourt.gov docket JSON and appendix",
+    "statpack interim docket table"
+  ],
+  "gaps": [
+    "fedcourts query filter for capital_case or application_kind directly on the CLI"
+  ],
+  "notes": "Provisioned application.txt and forward-mode access to the lower-court orders in the application appendix and the State's November 4 response provided full visibility into the District Court evidentiary hearing findings and the Eleventh Circuit panel opinion."
+}
