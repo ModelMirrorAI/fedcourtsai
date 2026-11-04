@@ -5,7 +5,10 @@ scanned filing whenever a maintainer spends a slice on it. A forward cell runs
 once, usually within days of the filing it reads, so a scan stored between two
 dispatches reaches its cell with no text. This sweep runs the same recovery
 every walker window, capped, so a newly stored scan gets its text before the
-cell that reads it.
+cell that reads it. The predict backlog holds that cell while the scan waits
+(:func:`fedcourtsai.pipeline.pull.derive_predict_backlog`, ``held_unread_scan``),
+since a live window can store the scan and a round mint its cell between two
+walker windows.
 
 It is split at the credential boundary, like the order-list vote sweep, because
 it fetches and parses third-party PDFs:

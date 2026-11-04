@@ -1391,8 +1391,10 @@ or network.
   boundary. A forward cell runs once, usually within days of the filing it
   reads, so a scan stored between two dispatches would reach its cell with no
   text; on every window a scan a live window stored waits at most one seed
-  window. `ocr-sweep-projection` holds the read-only role, walks the recovery
-  class and writes the window's slice of at most `historical.sweep_caps.ocr`
+  window, and the predict backlog holds the case's forward cells while it
+  waits (`held_unread_scan`, bounded at `pull.SCAN_HOLD_DAYS`).
+  `ocr-sweep-projection` holds the read-only role, walks the recovery class
+  and writes the window's slice of at most `historical.sweep_caps.ocr`
   candidates: those a forward cell will read (an open event on an in-scope
   row that salience has not deferred, or an open merits event) stored within
   the last week first, newest first; then the older forward candidates and
