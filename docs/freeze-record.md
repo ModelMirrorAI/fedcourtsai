@@ -16498,6 +16498,74 @@ freeze commit is recorded here.
   Term is graded; from then on, every object it counts also carries
   `alignment_score_brier` and `alignment_score_model_brier`.
 
+- **A reconstructed docket drops a `DocketedDate` on or after its cutoff;
+  recorded 2026-11-04.** A **conditioning** entry in the *what the pipeline
+  provisions* class, under unchanged digests: no prompt byte and no registry
+  field the digests read moves, and `uv run fedcourts process-digest --all` at
+  this commit prints what it prints at its parent on `staging`: `proc-v17` and
+  the six digests `33a3f9f8…` (claude-baseline), `5b6efbbb…`
+  (codex-baseline), `1389c40a…` (gemini-baseline), `3b78d93b…`
+  (claude-judge), `5c7cc4e6…` (codex-judge) and `8966bfb2…` (gemini-judge).
+
+  **What changes.** The live channel's top-level `DocketedDate` joins the
+  date-keyed fields a `truncated` placement cuts (`provision.cut_dated_fields`,
+  on the reconstructed branch and on a staged companion): dropped where it
+  falls on or after the cell's cutoff or cannot be parsed, kept otherwise. It
+  is the day the Clerk docketed the matter, which on an application can trail
+  the submission the arrival moment opens on, so a docket reconstructed at
+  that moment named a docketing its own proceedings had not reached. A
+  `dated` payload is untouched, as before.
+
+  **The executed check.** Three application cells flagged it on agent
+  feedback (predict runs 20261031T173439Z, 20261103T200528Z, 20261103T203422Z):
+  `scotus/9526000602`, `9526000606` and `9526000612`, each on
+  `evt-motion-disposition`. Provisioned from the production content store on
+  2026-11-04 (`provision-snapshot --corpus-backend ranged`), `9526000612`'s
+  staged snapshot (truncated, arrival-position, dated 2026-10-21, one entry
+  dated 2026-10-20) carries `DocketedDate` "October 30, 2026" at the parent
+  and none at this commit; `9526000602` (cut 2026-10-21) and `9526000606`
+  (cut 2026-10-17) carry none at this commit.
+
+  **A harness boundary under the 2026-10-11 pooled rule.** The change moves
+  what a predict cell reads under unchanged digests, so it is composition and
+  not a cut: the pooled default and the paired figure keep both sides and list
+  each engine's `n` before and after.
+  - **The registry row** is `truncated-docketed-date-cut`: every predictor,
+    reach `all`, not gradual, since provisioning cuts the payload at placement
+    and the next cell placed reads the change. It is registered **pending** in
+    the change's own PR (`fedcourts register-boundary`). Its `merge` and `at`
+    stay null until the promotion merge that carries it to `main` stamps them
+    (`promotion-record`); until then it is left out of
+    `process_version.HARNESS_BOUNDARIES`, so no cell has a side of it.
+  - **The side test** is the registered one: a stamped cell is after the
+    change if the carrying merge is an ancestor of, or equal to, its
+    `process_version.pipeline_sha`; a cell with no `pipeline_sha` is on
+    neither side, and its number is listed.
+  - **Evaluate cells are dated by this entry, not partitioned**: the boundary
+    registry splits predictor cells only.
+  - **Exposure is an upper bound and is not sized.** Which `truncated`
+    placements fall before their docket's `DocketedDate` was not counted for
+    this entry; the class includes interim arrival cells, whose application
+    is submitted before the Clerk dockets it.
+
+  **What a post-change cell reads.** On an affected placement, the same
+  snapshot less its `DocketedDate` field. Nothing a context freezes moves:
+  the base row reads the docket number and caption, not this date, and the
+  caption-v4 counsel fact is read on `dated` and `as-stored` payloads only.
+  No skill movement is predicted, and a movement in either direction across
+  this boundary may not be read as a model effect. No base rate re-prices, no
+  membership rule moves, no scored figure moves, and nothing is written to the
+  corpus.
+
+  The runnable effect check once it is live: `uv run pytest
+  tests/test_cli_provision.py -k top_level_date` is green; `uv run fedcourts
+  provision-snapshot --court scotus --docket 9526000612 --event
+  evt-motion-disposition --out /tmp/s.json && jq .DocketedDate /tmp/s.json`
+  prints `null`; and `uv run fedcourts process-digest --all` prints the same
+  label and six digests at the carrying merge as at its first parent.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
 - **`sal-v7` activated; recorded 2026-11-04.** A distinct entry from the
   `caption-v4` and `sal-v7` registration entry above, on the `sal-v6`
   activation's pattern: that entry is landed, and its only editable content

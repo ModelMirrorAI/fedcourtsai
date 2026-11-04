@@ -185,3 +185,30 @@ def test_the_staged_records_are_checked_before_they_leave_the_stage_job() -> Non
     # A failed check must stop the upload: no step-level override lets it run anyway.
     assert "if" not in steps[upload]
     assert "continue-on-error" not in steps[check]
+
+
+def test_the_ai_watchlist_rulings_are_planned_staged_and_checked() -> None:
+    jobs = _jobs()
+    plan_run = next(
+        step["run"]
+        for step in jobs["plan"]["steps"]
+        if step.get("name") == "Plan the owed summaries"
+    )
+    assert "--rulings" in plan_run
+    # A plan holding only rulings is work: it holds, stages and generates.
+    assert "(.rulings | length)" in plan_run
+    steps = jobs["stage"]["steps"]
+    names = [str(step.get("name", "")) for step in steps]
+    ruling = names.index("Stage each planned ruling's text")
+    check = names.index("Check the staged records before they leave this job")
+    assert ruling < check
+    assert "fedcourts ai-ruling-stage" in steps[ruling]["run"]
+    assert "set -euo pipefail" in steps[ruling]["run"]
+    assert "if" not in steps[ruling]
+    # A rehearsal's ruling summaries are recorded off-ledger with the cases'.
+    staged = next(
+        step["run"]
+        for step in jobs["generate"]["steps"]
+        if step.get("name") == "Stage the summaries this run wrote"
+    )
+    assert "data/ai-cases" in staged

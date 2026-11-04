@@ -1335,6 +1335,7 @@ def test_a_reconstructed_docket_drops_the_top_level_dates_that_postdate_it(
             **_MERITS_TIMELINE,
             "date_filed": "2025-01-15",
             "date_argued": "2026-04-27",
+            "DocketedDate": "January 20, 2026",
             "sJsonCreationDate": "2026-07-20",
         },
     )
@@ -1347,6 +1348,9 @@ def test_a_reconstructed_docket_drops_the_top_level_dates_that_postdate_it(
     payload = json.loads(paths.snapshot(_GRANT_CUTOFF.isoformat()).read_text())
     assert "date_argued" not in payload
     assert "sJsonCreationDate" not in payload
+    # The live channel's docketing date is the Clerk's, which can trail the
+    # submission a moment opens on, so it is cut like any other dated field.
+    assert "DocketedDate" not in payload
     # The docket's arrival precedes every moment and identifies what the cell is
     # looking at, so it is never subject to the rule.
     assert payload["date_filed"] == "2025-01-15"
@@ -1362,7 +1366,7 @@ def test_a_reconstructed_docket_keeps_a_top_level_date_that_precedes_it(
     _seed_snapshot(
         fixture_corpus,
         date(2026, 7, 20),
-        {**_MERITS_TIMELINE, "date_argued": "2025-12-01"},
+        {**_MERITS_TIMELINE, "date_argued": "2025-12-01", "DocketedDate": "January 15, 2025"},
     )
     _drop_snapshots_before(fixture_corpus, _GRANT_CUTOFF)
 
@@ -1372,6 +1376,7 @@ def test_a_reconstructed_docket_keeps_a_top_level_date_that_precedes_it(
     paths = CasePaths(fixture_corpus.data_root, "scotus", 305)
     payload = json.loads(paths.snapshot(_GRANT_CUTOFF.isoformat()).read_text())
     assert payload["date_argued"] == "2025-12-01"
+    assert payload["DocketedDate"] == "January 15, 2025"
 
 
 def test_a_point_in_time_docket_keeps_its_top_level_dates(
@@ -3666,3 +3671,14 @@ def test_a_cell_of_another_stage_freezes_no_cert_anchor(
     _, context = _provision_event(fixture_corpus, "evt-order-judgment", tmp_path / "metrics")
 
     assert context["cert_anchor"] is None
+
+
+def test_the_date_cut_drops_a_blank_or_unparseable_docketed_date() -> None:
+    # Fails closed like every dated field: a docketing date that cannot be read
+    # cannot be shown to predate the moment.
+    for value in ("", "pending", None):
+        assert "DocketedDate" not in provision.cut_dated_fields(
+            {"DocketedDate": value}, date(2026, 10, 21)
+        )
+    kept = provision.cut_dated_fields({"DocketedDate": "October 20, 2026"}, date(2026, 10, 21))
+    assert kept["DocketedDate"] == "October 20, 2026"

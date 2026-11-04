@@ -1391,7 +1391,11 @@ what watches for it (*Historical — the Term walker* in
 `historical.sweep_caps.ocr` candidates, those a forward cell will read and
 stored in the last week first, newest first, and recovers them on the terms
 below. A scan stored by a
-live window therefore waits at most one seed window for its text. The
+live window therefore waits at most one seed window for its text, and the
+predict backlog holds the case's forward cells for that wait
+(`held_unread_scan`, bounded at `pull.SCAN_HOLD_DAYS` from when the scan was
+stored, so a scan the sweep cannot read delays its cell rather than stranding
+it). The
 dispatched pass stays the route for a maintainer-read slice of the whole class.
 
 ### Contract for the recovery pass

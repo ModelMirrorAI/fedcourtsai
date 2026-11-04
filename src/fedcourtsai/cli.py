@@ -49,6 +49,7 @@ from typer.core import TyperCommand
 
 from . import (
     ai_activity,
+    ai_rulings,
     analytics,
     blinding,
     casestore,
@@ -452,6 +453,7 @@ from .pipeline.party_rates import DEFAULT_RATES_RULE, party_rates
 from .pipeline.policy_area import policy_areas, policy_source
 from .pipeline.pull import (
     BACKLOG_MAX_POLL_AGE_DAYS,
+    SCAN_HOLD_DAYS,
     CaseDisposition,
     CaseReconciliation,
     IncrementalEntries,
@@ -20801,6 +20803,15 @@ def summarize_plan_cmd(
     report_run_url: Annotated[
         str, typer.Option(help="Actions run URL named in the plan report.")
     ] = "",
+    rulings: Annotated[
+        bool,
+        typer.Option(
+            "--rulings",
+            help="Also plan the AI watchlist rulings owed a summary (recorded in the "
+            "last 30 days' activity records, a kind a court writes, no summary yet, text "
+            "in the corpus) and price them into the estimate. Not subject to --limit.",
+        ),
+    ] = False,
     corpus_backend: CorpusBackendOption = "",
 ) -> None:
     """Dry run of the case-summary lane: which cases are owed a summary, at what cost.
@@ -20844,6 +20855,12 @@ def summarize_plan_cmd(
         )
 
     plan = summaries.plan_summaries(settings.data_root, eligible, read, config, limit=limit)
+    if rulings:
+        owed = ai_rulings.owed_rulings(settings.data_root, datetime.now(UTC).date())
+        planned, without_text, cost = ai_rulings.plan_rulings(
+            owed, _ruling_payload_reader(backend, db_path), config
+        )
+        plan = ai_rulings.with_rulings(plan, planned, without_text, cost)
     document = json.dumps(plan.model_dump(mode="json"), indent=2, sort_keys=True) + "\n"
     if out is None:
         typer.echo(document, nl=False)
@@ -20855,9 +20872,62 @@ def summarize_plan_cmd(
         f"summaries: {plan.eligible} eligible, {plan.up_to_date} up to date, "
         f"{len(plan.cases)} planned, {plan.deferred} deferred, "
         f"{len(plan.no_snapshot)} without a snapshot, "
-        f"{len(plan.not_live_shaped)} not live-shaped; estimated "
+        f"{len(plan.not_live_shaped)} not live-shaped, {len(plan.rulings)} AI ruling(s) "
+        f"planned ({len(plan.rulings_without_text)} without text); estimated "
         f"${plan.estimated_cost_usd_low:.2f} to ${plan.estimated_cost_usd_high:.2f}",
         err=True,
+    )
+
+
+def _ruling_payload_reader(
+    backend: corpus.CorpusBackend, db_path: Path
+) -> Callable[[str, int], Mapping[str, Any] | None]:
+    """A docket's newest snapshot payload, read as a forward cell's provisioning reads it."""
+
+    def read(court: str, docket_id: int) -> Mapping[str, Any] | None:
+        found = _read_cell_inputs(
+            backend, db_path, ids.case_id(court, docket_id), "", want_row=False, cut=False
+        )
+        return None if found.latest is None else found.latest[1]
+
+    return read
+
+
+@app.command("ai-ruling-stage")
+def ai_ruling_stage_cmd(
+    plan_file: Annotated[
+        Path, typer.Option("--plan", help="The plan JSON `summarize-plan --rulings` wrote.")
+    ],
+    staged: Annotated[
+        Path,
+        typer.Option(
+            help="The stage root: each planned ruling is written to "
+            "<staged>/ai-rulings/<entry_id>.json."
+        ),
+    ],
+    corpus_backend: CorpusBackendOption = "",
+) -> None:
+    """Stage the planned AI watchlist rulings' text for the summary lane's generate job.
+
+    For each ruling the plan names, reads its docket's newest snapshot and
+    stages the main document's stored text alone, after the contact-detail
+    scrub, with its entry id and the stored text's digest. Nothing else of the
+    docket is staged. A ruling whose text changed since the plan, is gone, or
+    keeps a contact-shaped residual after the scrub is skipped with a
+    ``::warning::`` and stays owed. ``summary-stage-check`` then holds the
+    staged files to the plan before they leave the job.
+    """
+    settings = get_settings()
+    plan = SummaryPlan.model_validate_json(plan_file.read_text())
+    reader = _ruling_payload_reader(
+        _provision_backend(corpus_backend), corpus.corpus_db_path(settings.corpus_root)
+    )
+    skipped = ai_rulings.stage_rulings(plan, reader, staged)
+    for entry_id, reason in skipped:
+        typer.echo(f"::warning::ruling entry {entry_id} not staged: {reason}")
+    typer.echo(
+        f"ai-ruling-stage: {len(plan.rulings) - len(skipped)} ruling(s) staged, "
+        f"{len(skipped)} skipped"
     )
 
 
@@ -20891,6 +20961,10 @@ def summarize_cmd(
 ) -> None:
     """Write the planned case summaries: one Messages API call per case, no tools.
 
+    The plan's AI watchlist rulings, where ``summarize-plan --rulings`` planned
+    any, are written after the cases, from the texts ``ai-ruling-stage`` staged
+    under the same stage root, to the ruling contract (``fedcourtsai.ai_rulings``).
+
     Each call carries the summarizer prompt and the case's staged record and
     nothing else. A response is written to ``summaries/<snapshot day>.md`` only
     if it ends normally, carries exactly the current contract's sections in order,
@@ -20913,6 +20987,9 @@ def summarize_cmd(
     config = load_summaries_config(settings.config_root)
     plan = SummaryPlan.model_validate_json(plan_file.read_text())
     deadline = datetime.now(UTC) + timedelta(minutes=budget_minutes) if budget_minutes > 0 else None
+    if plan.rulings and not ai_rulings.PROMPT_PATH.is_file():
+        typer.echo(f"prompt {ai_rulings.PROMPT_PATH} not found (run from the repo root)", err=True)
+        raise typer.Exit(code=2)
     try:
         with httpx.Client(timeout=httpx.Timeout(300.0, connect=10.0)) as client:
             outcome = summaries.summarize_plan(
@@ -20925,14 +21002,27 @@ def summarize_cmd(
                 api_key=api_key,
                 deadline=deadline,
             )
+            if plan.rulings:
+                ai_rulings.summarize_rulings(
+                    plan,
+                    outcome,
+                    stage_root=staged,
+                    data_root=settings.data_root,
+                    config=config,
+                    prompt_bytes=ai_rulings.PROMPT_PATH.read_bytes(),
+                    client=client,
+                    api_key=api_key,
+                    deadline=deadline,
+                )
     except ValueError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=2) from exc
-    rendered = summaries.render_outcome_report(outcome, len(plan.cases))
+    planned = len(plan.cases) + len(plan.rulings)
+    rendered = summaries.render_outcome_report(outcome, planned)
     typer.echo(rendered, nl=False)
     if report is not None:
         write_text(report, rendered)
-    if plan.cases and not outcome.written:
+    if planned and not outcome.written:
         typer.echo("no summary was written from a non-empty plan", err=True)
         raise typer.Exit(code=1)
 
@@ -20971,11 +21061,12 @@ def summary_stage_check_cmd(
     for what, reason in removed:
         typer.echo(f"::warning::removed {what} from the staged records: {reason}")
     kept = sum(1 for p in (staged / "cases").glob("*/*") if p.is_dir())
+    rulings = sum(1 for p in (staged / summaries.RULING_STAGE_DIR).glob("*.json") if p.is_file())
     withheld = sum(1 for _, reason in removed if reason.startswith(summaries.DOCUMENT_WITHHELD))
     line = (
         f"stage check: {kept} staged case record(s) kept, {len(removed) - withheld} removed, "
         f"{withheld} document(s) withheld"
-    )
+    ) + (f"; {rulings} staged ruling(s) kept" if rulings else "")
     typer.echo(line)
     if summary is not None:
         with summary.open("a", encoding="utf-8") as fh:
@@ -21004,10 +21095,12 @@ def summary_paths_cmd(
         ),
     ] = None,
 ) -> None:
-    """Print the case summary files a change set writes; with --strict, the lane's jail.
+    """Print the summary files a change set writes; with --strict, the lane's jail.
 
-    The summaries lane writes one kind of file — ``data/cases/<court>/<docket>/
-    summaries/<YYYY-MM-DD>.md`` — so its branch may carry nothing else. Without
+    The summaries lane writes two kinds of file — case summaries,
+    ``data/cases/<court>/<docket>/summaries/<YYYY-MM-DD>.md``, and AI watchlist
+    ruling summaries, ``data/ai-cases/summaries/<entry_id>.md`` — so its branch
+    may carry nothing else. Without
     ``--strict`` this is the filter the workflow uses to carry an open refresh
     PR's summaries forward (other paths are ignored); with it, the check that
     refuses to publish a change set holding anything but summaries. With
@@ -21022,7 +21115,7 @@ def summary_paths_cmd(
     writes, violations = summaries.summary_changes(changes, withdrawn)
     if strict and violations:
         for violation in violations:
-            typer.echo(f"::error::not a case summary write: {violation}", err=True)
+            typer.echo(f"::error::not a summary write: {violation}", err=True)
         raise typer.Exit(code=1)
     for path in writes:
         typer.echo(path)
@@ -23713,6 +23806,15 @@ def _report_predict_backlog(backlog: PredictBacklog, *, cap: int, prefix: str) -
             "snapshot already shows the outcome of every event they are owed, so "
             "provisioning would refuse each forward cell. The hold clears when the events "
             "resolve or a newer snapshot stops disclosing them.",
+            err=True,
+        )
+    if backlog.held_unread_scan:
+        typer.echo(
+            f"Predict backlog: held {backlog.held_unread_scan} owed case(s) holding a scanned "
+            f"filing stored no more than {SCAN_HOLD_DAYS} days before the plan day that the "
+            "OCR sweep has not read yet, "
+            "so a forward cell would read it as empty. The hold clears when a run-seed "
+            "window's sweep recovers the text, or when the bound lapses.",
             err=True,
         )
     for case_id, event_id, reason in backlog.decided_events:

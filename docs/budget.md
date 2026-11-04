@@ -26,35 +26,23 @@ Model spend is `events × cost per event`, and two dials set it:
   runs rather than the `P + 3P` a per-(predictor, evaluator) grading would cost:
   adding a predictor buys one more prediction run and makes each of the three
   grading runs a little larger. So `P` raises the cost *per event*, by an amount
-  that depends on which model is added: prediction runs spanned roughly $0.58 to
-  $3.04 across the three as last measured.
+  that depends on which model is added: prediction runs span roughly $0.55 to
+  $1.34 across the three as last measured.
 
 At today's `P = 3` with three evaluators, one fully predicted and evaluated
-event costs roughly **$10**. The claude pair's share of that is priced rather
-than measured: its cells run Claude Opus 5.5, priced at the token counts the
-pair recorded on the Fable tier it replaced — a mean of about $1.38 a
-prediction (251 runs) and $1.16 a grading run (118 runs) — on the assumption
-that Opus spends the same tokens, which the first round's `fedcourts
-usage-summary` measures; the measured Opus figures below are not yet the
-basis. The other four figures are
-measured means: about $3.04 and $0.58 a prediction and $2.90 and $0.73 a
-grading run for codex and gemini, measured on `gpt-6-astra` and
-`gemini-3.1-pro-preview`. The codex and gemini engine defaults are
-`gpt-6.1-sol` and `gemini-4-argon`, and their first measured cells on
-`main` (at `38802b537`, 2026-10-21) are few: 5 predictions and 18 grading
-runs each. Codex measures about $0.43 a prediction, in line with the $0.44
-that re-pricing its earlier cells at Sol's rate projected, and $0.34 a
-grading run, below the projected $0.42. Gemini measures about $1.06 and $0.64 at Argon's introductory
-rate ($2 / $10, $0.10 cached), against a projected $0.46 and $0.55: its
-predictions read about 2.8 times the uncached input of the earlier model's.
-The rate doubles from 2026-12-01, which at equal tokens, and with the cached
-rate assumed to double too, adds about $1.70 to gemini's share of an event. On those figures a fully predicted and evaluated
-event comes to about $5.00 with the claude pair at its priced figure, and
-about $3.75 with it at the first measured Opus 5.5 rounds on the same
-commit (54 predictions at about $0.62, 47 grading runs at about $0.65). Both samples are
-small. The $10 figure and everything below that scales from it stay on the
-measured basis until the rates are re-anchored on the rounds on the new
-models.
+event is budgeted at roughly **$10**, the basis everything below scales from.
+It is the conservative figure, not the measured one. The current engines
+(`claude-opus-5-5`, `gpt-6.1-sol`, `gemini-4-argon`) measure, over their cells
+on `main` (at `0d99f5b01`, 2026-11-04, every cell from 2026-10-20 on): about
+$0.75, $0.55 and $1.34 a prediction (135, 134 and 137 runs) and $0.67, $0.40
+and $0.79 a grading run (31 each), so about $4.50 a fully predicted and
+evaluated event. Gemini's share is at Argon's introductory rate ($2 / $10,
+$0.10 cached). The rate doubles from 2026-12-01, which at equal tokens, and
+with the cached rate assumed to double too, adds about $2.10 to gemini's share
+and brings the event to about $6.60. The $10 figure stays the basis until
+cells at that rate are measured, since the doubling is a projection; the
+grading sample is the smaller one, and its cells are mostly cert-stage
+gradings, which read less than a merits one.
 The evaluator count holds at 3 as `P` grows.
 Per-run token usage and cost are recorded on the ledger (`usage.json`, rolled
 up by `fedcourts usage-summary`), so the rates can be re-anchored from
@@ -65,10 +53,13 @@ predicted and evaluated event at about $16.80, well above the measured
 figures. Pricing high errs toward holding: the review hold's per-round
 auto-release reads the table, and a round priced above
 `auto_release_usd_per_round` waits for a release. Its claude-code
-and codex rows are set from the pre-cutover measurements and anchors; its gemini rows,
-$2.12 a prediction and $1.29 a grading run, are the measured Argon cells
-doubled for the rate in force from 2026-12-01, so they hold across that
-change. [milestones.md](milestones.md) prices its plan at the table.
+and codex rows are set from the pre-cutover measurements and anchors, well
+above the measured cells. Its gemini rows, $2.12 a prediction and $1.29 a
+grading run, are Argon's first few measured cells doubled for the rate in
+force from 2026-12-01, and they sit below the larger sample above doubled
+(about $2.68 and $1.57). A round still prices above what it measures, since
+the claude-code rows' margin covers that gap many times over, but the gemini
+rows alone do not hold across the change. [milestones.md](milestones.md) prices its plan at the table.
 
 **The plain-language case summaries also spend outside `events × cost per
 event`** ([case-summaries.md](case-summaries.md)). It is one non-agentic
@@ -82,7 +73,9 @@ staged record of ~120k characters (≈50k tokens) puts a summary at
 predicted cases' records change on a given day (8 of 185 sampled day-pairs),
 so steady state is roughly 5–10 summaries a day, ≈$1–2 a day or ≈$30–60 a
 month — inside the model-spend envelope's headroom below, and bounded by the
-key's cap whatever a plan owes.
+key's cap whatever a plan owes. The same runs summarize the AI watchlist's
+rulings, one call each on the ruling's text alone: a few cents for a short
+order, under $0.10 for an opinion at the per-document cap.
 
 **The topic labeler spends outside it too** ([qp-topic.md](qp-topic.md)). One
 headless Claude Code session labels a batch of up to 1,200 questions-presented
@@ -194,16 +187,19 @@ in `config/tracking.yaml` sits above the budget and stops minting outright
 ([pipeline.md](pipeline.md), *Auto-release*).
 
 One more unattended spend sits outside that budget: the promotion train's
-integration `gate` suite, estimated at about $8 of the staging environment's
-engine keys per promotion candidate, dispatched with no review hold. It is
-bounded on its own terms — once per candidate head, never re-dispatched by the
-train, and at most `max_gate_dispatches_per_day` suites a UTC day
-(`config/promotion-train.yaml`, code-owned like the review hold's caps) — so at
-the measured cadence of about one promotion a day the estimate runs to roughly
-$250 a month ([pipeline.md](pipeline.md), *Promotion: staging → main*). Each
-gate run's measured cost is the report's promotion-gate table (*Test and
-staging spend, reported separately*, above), which is where to read this figure
-once gate runs are on record, and which counts toward no budget either.
+integration `gate` suite, run on the staging environment's engine keys once
+per promotion candidate and dispatched with no review hold. It is bounded on
+its own terms — once per candidate head, never re-dispatched by the train,
+and at most `max_gate_dispatches_per_day` suites a UTC day
+(`config/promotion-train.yaml`, code-owned like the review hold's caps)
+([pipeline.md](pipeline.md), *Promotion: staging → main*). Its measured cost
+is the report's promotion-gate table (*Test and staging spend, reported
+separately*, above), which counts toward no budget either: the first three
+gate runs on record (`promote/2026-11-01` to `promote/2026-11-03`) cost $1.53
+to $1.73, a median of $1.59, each a lower bound wherever a leg's record was
+lost. At about one promotion a day and about 1.4 paid suites a
+promotion ([testing.md](testing.md)) that is roughly $70 a month, and the
+per-day cap of two suites holds the worst case near $100.
 
 ## Scenario 2: Scaling
 

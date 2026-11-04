@@ -244,12 +244,13 @@ jobs:
           case "$limit" in
             ''|*[!0-9]*) echo "::error::limit must be a whole number, got '${limit}'"; exit 1 ;;
           esac
-          uv run fedcourts summarize-plan --limit "$limit" \
+          uv run fedcourts summarize-plan --limit "$limit" --rulings \
             --out "$RUNNER_TEMP/summary-plan.json" \
             --report "$RUNNER_TEMP/summary-plan.md" \
             --report-run-url "$RUN_URL"
           cat "$RUNNER_TEMP/summary-plan.md" >> "$GITHUB_STEP_SUMMARY"
-          count=$(jq '.cases | length' "$RUNNER_TEMP/summary-plan.json")
+          # The AI watchlist rulings ride the same plan, hold and run.
+          count=$(jq '(.cases | length) + (.rulings | length)' "$RUNNER_TEMP/summary-plan.json")
           if [ "$count" -gt 0 ]; then
             echo "has_cases=true" >> "$GITHUB_OUTPUT"
           else
@@ -418,6 +419,17 @@ jobs:
           done < "$RUNNER_TEMP/cases.txt"
           echo "staged ${staged} case record(s), ${failed} failed" | tee -a "$GITHUB_STEP_SUMMARY"
 
+      # Each planned AI watchlist ruling's main-document text alone, after the
+      # contact-detail scrub, beside the cases under the same stage root; the
+      # check below holds each file to the plan's digest of that text, so
+      # nothing else of the docket crosses (docs/data-sources.md).
+      - name: Stage each planned ruling's text
+        run: |
+          set -euo pipefail
+          uv run fedcourts ai-ruling-stage \
+            --plan "$RUNNER_TEMP/plan/summary-plan.json" \
+            --staged "$RUNNER_TEMP/stage"
+
       # The staged tree leaves this job as a public run artifact, so it may
       # carry only the Court's own docket JSON and filings. The plan screened
       # each case's newest snapshot, but staging ran after the review hold and
@@ -580,8 +592,8 @@ jobs:
           set -euo pipefail
           root="$RUNNER_TEMP/written-summaries/data"
           rm -rf "$RUNNER_TEMP/written-summaries"
-          git ls-files --others --exclude-standard -- data/cases \
-            | { grep -E '^data/cases/[^/]+/[^/]+/summaries/[^/]+\.md$' || true; } \
+          git ls-files --others --exclude-standard -- data/cases data/ai-cases \
+            | { grep -E '^data/(cases/[^/]+/[^/]+|ai-cases)/summaries/[^/]+\.md$' || true; } \
             | while read -r path; do
                 mkdir -p "$root/$(dirname "${path#data/}")"
                 cp "$path" "$root/${path#data/}"
@@ -714,6 +726,7 @@ jobs:
           fi
           {
             printf '%s\n\n' "Plain-language case summaries (docs/case-summaries.md): ${WRITTEN} written by this run, ${total} in this PR in all (an open PR's earlier summaries are carried forward). Display material — nothing scores them — so review is a read for factual errors and slant against the filings, not a number."
+            printf '%s\n\n' "Files under data/ai-cases/summaries/ summarize one AI watchlist ruling each, written from the ruling's own text alone; read each against the ruling its front matter names (docs/case-summaries.md, AI watchlist rulings)."
             if [ "$withdrawn" != "0" ]; then
               printf '%s\n\n' "${withdrawn} of the changes delete a summary written before the petition its docket number now holds was docketed: a re-docketed number, so the summary describes another petition (docs/case-summaries.md, Withdrawal)."
             fi

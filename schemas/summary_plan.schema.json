@@ -1,5 +1,95 @@
 {
   "$defs": {
+    "AiRulingPlanItem": {
+      "additionalProperties": false,
+      "description": "One AI watchlist ruling a summary run would summarize, with the text it would read.",
+      "properties": {
+        "case": {
+          "description": "The watchlist case's name",
+          "minLength": 1,
+          "title": "Case",
+          "type": "string"
+        },
+        "court": {
+          "minLength": 1,
+          "title": "Court",
+          "type": "string"
+        },
+        "date_filed": {
+          "format": "date",
+          "title": "Date Filed",
+          "type": "string"
+        },
+        "docket_id": {
+          "exclusiveMinimum": 0,
+          "title": "Docket Id",
+          "type": "integer"
+        },
+        "docket_number": {
+          "minLength": 1,
+          "title": "Docket Number",
+          "type": "string"
+        },
+        "entry_id": {
+          "exclusiveMinimum": 0,
+          "title": "Entry Id",
+          "type": "integer"
+        },
+        "entry_number": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Entry Number"
+        },
+        "input_chars": {
+          "description": "Characters the model would read: the text up to the per-document cap",
+          "minimum": 0,
+          "title": "Input Chars",
+          "type": "integer"
+        },
+        "kind": {
+          "enum": [
+            "opinion",
+            "judgment",
+            "ruling"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "staged_digest": {
+          "description": "sha256 of that text after the contact-detail scrub: exactly the text the stage may carry, which the stage check holds it to",
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Staged Digest",
+          "type": "string"
+        },
+        "text_digest": {
+          "description": "sha256 of the ruling's stored text the plan read",
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Text Digest",
+          "type": "string"
+        }
+      },
+      "required": [
+        "case",
+        "court",
+        "docket_id",
+        "docket_number",
+        "entry_id",
+        "date_filed",
+        "kind",
+        "text_digest",
+        "staged_digest",
+        "input_chars"
+      ],
+      "title": "AiRulingPlanItem",
+      "type": "object"
+    },
     "SummaryPlanCase": {
       "additionalProperties": false,
       "description": "One case a summary run would write, with the record it would read.",
@@ -149,6 +239,22 @@
         "type": "string"
       },
       "title": "Not Live Shaped",
+      "type": "array"
+    },
+    "rulings": {
+      "description": "AI watchlist rulings owed a summary whose text the corpus holds (`summarize-plan --rulings`); priced into the estimate below",
+      "items": {
+        "$ref": "#/$defs/AiRulingPlanItem"
+      },
+      "title": "Rulings",
+      "type": "array"
+    },
+    "rulings_without_text": {
+      "description": "Entry ids of AI watchlist rulings owed a summary whose text the corpus does not hold yet; free, and planned again by the next run",
+      "items": {
+        "type": "integer"
+      },
+      "title": "Rulings Without Text",
       "type": "array"
     },
     "schema_version": {
