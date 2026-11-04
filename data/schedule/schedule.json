@@ -1485,7 +1485,7 @@
       "argument": null,
       "case_id": "scotus/9026000436",
       "distributed_for_conference": "2026-11-06",
-      "last_live_polled": "2026-11-03",
+      "last_live_polled": "2026-11-04",
       "next_conference": "2026-11-06",
       "response_due": null,
       "stale_reason": null
@@ -1503,7 +1503,7 @@
       "argument": null,
       "case_id": "scotus/9026000443",
       "distributed_for_conference": "2026-11-06",
-      "last_live_polled": "2026-11-03",
+      "last_live_polled": "2026-11-04",
       "next_conference": "2026-11-06",
       "response_due": {
         "set_for": "2026-12-18",
@@ -1525,7 +1525,7 @@
       "argument": null,
       "case_id": "scotus/9026000457",
       "distributed_for_conference": "2026-11-06",
-      "last_live_polled": "2026-11-03",
+      "last_live_polled": "2026-11-04",
       "next_conference": "2026-11-06",
       "response_due": {
         "set_for": "2026-11-27",
@@ -1538,7 +1538,7 @@
       "argument": null,
       "case_id": "scotus/9026000459",
       "distributed_for_conference": "2026-11-06",
-      "last_live_polled": "2026-11-03",
+      "last_live_polled": "2026-11-04",
       "next_conference": "2026-11-06",
       "response_due": {
         "set_for": "2026-11-27",
@@ -1560,7 +1560,7 @@
       "argument": null,
       "case_id": "scotus/9026000462",
       "distributed_for_conference": "2026-11-06",
-      "last_live_polled": "2026-11-03",
+      "last_live_polled": "2026-11-04",
       "next_conference": "2026-11-06",
       "response_due": null,
       "stale_reason": null
@@ -1569,7 +1569,7 @@
       "argument": null,
       "case_id": "scotus/9026000468",
       "distributed_for_conference": "2026-11-06",
-      "last_live_polled": "2026-11-03",
+      "last_live_polled": "2026-11-04",
       "next_conference": "2026-11-06",
       "response_due": {
         "set_for": "2026-11-27",
@@ -1617,7 +1617,7 @@
       "argument": null,
       "case_id": "scotus/9026000518",
       "distributed_for_conference": "2026-11-06",
-      "last_live_polled": "2026-11-03",
+      "last_live_polled": "2026-11-04",
       "next_conference": "2026-11-06",
       "response_due": {
         "set_for": "2026-11-27",
