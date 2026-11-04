@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000623",
+  "run_id": "20261104T014043Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts paths", "fedcourts query", "committed statpack", "CourtListener MCP search", "CourtListener MCP read_document", "web search", "fedcourts validate"],
+  "helpful": ["Complete application and response text", "Frozen interim escalation state", "CourtListener access to the historical Woodard concurrence", "Machine-readable finer-reading coverage counts"],
+  "gaps": ["No usable prior-Term finer-reading interim baseline", "Underlying cert petition and lower-court opinion not provisioned", "Web searches returned no visible results", "Default uv cache path was read-only"],
+  "notes": "Used a writable temporary uv cache after the initial paths command failed. No installation was attempted. The broad structured query returned cert denials rather than close interim analogues and received no numerical weight. The missing finer coverage was disclosed rather than replaced with an older-reading rate."
+}

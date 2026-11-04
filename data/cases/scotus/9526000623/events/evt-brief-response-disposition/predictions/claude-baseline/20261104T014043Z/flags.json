@@ -1,0 +1,10 @@
+{
+  "case_id": "scotus/9526000623",
+  "run_id": "20261104T014043Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {"category": "data-quality", "severity": "info", "event_id": "evt-brief-response-disposition",
+     "message": "statpack.json interim section has finer_resolved=0 and finer_unread>0 for every pooled Term (2016-2025), so no finer-reading interim baseline can be pooled for this OT2026 cell; anchored without a published baseline."}
+  ]
+}

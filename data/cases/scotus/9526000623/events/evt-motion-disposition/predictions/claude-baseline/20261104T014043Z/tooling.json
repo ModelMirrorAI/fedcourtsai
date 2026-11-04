@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9526000623",
+  "run_id": "20261104T014043Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "metrics/statpack.json"],
+  "helpful": ["Provisioned application text", "--docket-number lookup of the linked cert petition"],
+  "gaps": ["Interim finer_* counts are 0 with finer_unread = resolved in every Term, so no published baseline exists", "No capital-only cut of the interim slice", "The linked cert petition text was not provisioned beside the stay application"],
+  "notes": "A capital-stay base rate would be far more informative than the pooled substantive rate."
+}

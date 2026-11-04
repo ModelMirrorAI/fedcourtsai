@@ -1,0 +1,10 @@
+{
+  "case_id": "scotus/9526000623",
+  "run_id": "20261104T014043Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {"category": "data-quality", "severity": "warning", "event_id": "evt-motion-disposition",
+     "message": "statpack.json interim.terms: finer_granted/finer_resolved are 0 and finer_unread equals the resolved count in every Term 2016-2025, so the interim pool fails the zero-unread rule and no published baseline exists for this cell. I anchored without one."}
+  ]
+}
