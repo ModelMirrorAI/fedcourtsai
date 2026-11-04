@@ -287,7 +287,7 @@ widening under the old label would re-point a published constant at a
 population it was never measured on.
 
 `sal-v3` is a **frozen, superseded** scorer: `sal-v4` below is `sal-v3` read
-under a second distribution parse, and the active version is `sal-v6`. Everything in
+under a second distribution parse, and the active version is `sal-v7`. Everything in
 this section is `sal-v3`'s own record — the caption widening it registered, the
 review that licensed it, and the pools its frozen predictions still replay
 against — and none of it moved when the pointer did. Registration and activation are separate
@@ -429,7 +429,7 @@ unversioned, because an ancillary paper is distributed for the conference the
 petition is on and a case must sit in one cohort rather than one per parse.
 
 `sal-v1` through `sal-v3` pin `dist-v1`; `sal-v4` pins `dist-v2` (below), and
-so do `sal-v5`, the registered `sal-v7` and the **active** `sal-v6`, which is also the reading the corpus's
+so do `sal-v5`, `sal-v6` and the **active** `sal-v7`, which is also the reading the corpus's
 `distribution_count` column now holds. The active scorer's parse and the column's therefore agree, which is the
 alignment that is load-bearing beyond banding: the relist-increment
 claim reads its prediction-time count from the frozen context (which follows the
@@ -1003,7 +1003,7 @@ entry, read past an extension application), fill-in latched and kept off the
 (`corpus.RETRIEVAL_WITHHELD_COLUMNS`). The release's sensitivity line reads the
 same entry through the same reader, so the two never disagree about which
 dockets are writs. The scope is `sal-v5`'s and `sal-v6`'s, not Tier 0: a writ
-stays in predict scope, and under the active `sal-v6` it is neither scored nor
+stays in predict scope, and under the active `sal-v7`, whose segment is `sal-v6`'s, it is neither scored nor
 selected. The live pass stamps it with the active version and no score, so the
 gate reads it as deferred, not as a row no pass has reached, which the gate's
 fail-open would fund; a writ latched under `sal-v4` keeps its latch, since the
@@ -1069,10 +1069,9 @@ exactly as `sal-v4` does, counsel or none. Its petitioner class is read off the
 caption, so it is fixed at filing and the reachable-ladder premise the
 statpack's risk sets rest on holds, as under `sal-v3` and `sal-v4`.
 
-`sal-v6` is the **active** scorer: `SALIENCE_VERSION` names it, so the live
-pass scores, latches and stamps under it, every band a cell freezes is a
-`sal-v6` band, and the pack's `segments` are its bands from the first refresh
-after the promotion that carries the flip, with `sal-v4`'s in `alt_segments`. It
+`sal-v6` is a **frozen, superseded** scorer: `sal-v7` below is `sal-v6` read
+through `caption-v4`, and its bands stay published in `alt_segments` for the
+cells that froze them. It
 pins `dist-v2`, the parse `DEFAULT_DISTRIBUTION_PARSE` already names, so the
 flip moved one constant. It was registered inactive first, on the pattern
 `sal-v5` set, and the back-fill state above reads the same for it: a past-Term
@@ -1147,11 +1146,15 @@ the cutpoints, the band vocabulary and the arrival draw are `sal-v6`'s, as the
 same callables, and the band, the carve-in and the reachable ladder read the
 class through `caption-v4` exactly as `sal-v6` reads it through `caption-v2`.
 
-`sal-v7` is **registered and not active**: `SALIENCE_VERSION` still names
-`sal-v6`, so nothing the live pass scores, latches or stamps moves, and no cell
-freezes a `sal-v7` band. Registration puts it everywhere a registered version is
-read: its bands in every rendered pack's `alt_segments` from the next render,
-its cells in every `salience-replay`, and its frame in the distribution census.
+`sal-v7` is the **active** scorer: `SALIENCE_VERSION` names it, so the live
+pass scores, latches and stamps under it, every band a cell freezes is a
+`sal-v7` band, and the pack's `segments` are its bands from the first refresh
+after the promotion that carries the flip, with `sal-v6`'s in `alt_segments`. It
+pins `dist-v2`, the parse `DEFAULT_DISTRIBUTION_PARSE` already names, so the
+flip moved one constant. It was registered inactive first, which put its bands
+in every rendered pack's `alt_segments`, its cells in every `salience-replay`
+and its frame in the distribution census before any selection read it. The
+activation record is in [freeze-record.md](freeze-record.md).
 
 **`caption-v4`.** `caption-v4` (`pipeline.caption.petitioner_class_v4`,
 registered in `CAPTION_RULES` beside the three earlier rules, which are
@@ -1241,7 +1244,7 @@ partly outcome-selected, in the direction that lifts the `federal` pool. On five
 rows of 170 that effect is small, but it is the reason no recall gain may be
 quoted from this table.
 
-**What `sal-v7` would move.** Every moved row moves into `federal`. Of the 15,
+**What `sal-v7` moves.** Every moved row moves into `federal`. Of the 15,
 5 are pending: 25-952 (from `elevated`), 26-111 and 26-145 (from `baseline`),
 and 26-146 and 26-379 (from `state`). 25-952, 26-145 and 26-146 are already
 selected; 26-111 and 26-379 are not. The 10 resolved moves are 6 from
@@ -1286,8 +1289,7 @@ successor's name on a federal party) is never applied. The cost is declared: a
 replay or back-test cell reconstructed by truncation bands as `sal-v6` would on
 the class, so a `sal-v7` replay reading measures `caption-v4` on its `dated`
 cells only, and the provenance mix each replay cell reports says how many
-those are. Under the active `sal-v6` nothing reads the fact, and nothing a cell
-sees or freezes changes.
+those are. Under `sal-v6` and every earlier version nothing reads the fact.
 
 **Two readings of one rule.** The census, the band census script and the
 statpack's `sal-v7` block band **stored** rows, so they read the row's whole
@@ -1302,11 +1304,20 @@ in this section, and the statpack's `sal-v7` rates, can read a row `federal`
 that a cell cut on the same docket would not; the replay's `dated` cells are
 the reading a cell actually makes.
 
-**What activation still owes**, stated here so the flip does not rediscover it:
-the statistical bar `sal-v3`'s activation cleared, read on the census above, on
-a statpack rendered after this registration (the first to carry a `sal-v7`
-block), and on a `salience-replay` whose `sal-v7` cells are read at matched
-recall against `sal-v6`'s over their `dated` provenance.
+**The activation readings.** The census above, re-run on the activation's
+blob, finds the same 15 moves. The first pack carrying a `sal-v7` block (the
+metrics refresh `12f759dc9`, on blob `2adbff38…9cfc`) pools `federal` at
+75.54% (139/184) over OT2017–OT2024 against `sal-v6`'s 75.98% (136/179), the
+five moved complete-Term rows leaving the other bands all but unchanged; those
+pools band stored rows, so they carry the substitution residual above. The gate replay over OT2017–OT2024 reads `sal-v7`'s cells equal to
+`sal-v6`'s in every Term and policy, because no cell in that frame has a
+`dated` projection, so the replay cannot see `caption-v4` there: the
+matched-recall reading over the `dated` provenance runs over zero rows. That
+registered leg is unmet, and the activation departs from the registration on
+it, proceeding on the bar `sal-v3`'s activation cleared alone: the census and
+its outcome-free precision.
+The 2026-11-04 entry of [freeze-record.md](freeze-record.md) carries the
+tables and the dry run's size.
 
 ## Selection — deterministic rank-and-cap, sticky per conference
 

@@ -94,7 +94,7 @@ logger = logging.getLogger(__name__)
 # and stamps with. A refit is a NEW version registered alongside, never an
 # in-place edit, so any past ranking replays against the function that produced
 # it — see :data:`SCORERS`.
-SALIENCE_VERSION = "sal-v6"
+SALIENCE_VERSION = "sal-v7"
 
 # sal-v1 builds a ranking score from empirical grant rates. Every constant below
 # is a real SCOTUS cert grant rate from ``metrics/statpack.md`` (denial-reweighted),
@@ -518,7 +518,7 @@ def _sal_v6_band(row: corpus.CorpusRow) -> str:
 # party the caption names — the entry the petition's own filing writes — so the
 # two post-outcome shapes that set sal-v5 aside (a supporting amicus listed
 # under the petitioner, a consolidation at the grant) never move a class
-# (docs/salience.md). Registered inactive: SALIENCE_VERSION still names sal-v6.
+# (docs/salience.md).
 
 
 def _sal_v7_band(row: corpus.CorpusRow) -> str:
@@ -712,8 +712,8 @@ _SAL_V5 = SalienceScorer(
     admits=_sal_v5_admits,
 )
 
-# sal-v6: the ACTIVE version (`SALIENCE_VERSION`), registered inactive first and
-# flipped as a separate step (docs/salience.md). It is sal-v5's relist rule and
+# sal-v6: registered inactive first, flipped active as a separate step, and
+# superseded by sal-v7 (docs/salience.md). It is sal-v5's relist rule and
 # writ scope over sal-v3's caption-v2 carve-out and reachable ladder, reusing
 # each as the SAME callable so the versions cannot drift in what they share. It
 # pins `dist-v2`, the default parse, so its activation moved one constant.
@@ -729,10 +729,11 @@ _SAL_V6 = SalienceScorer(
     admits=_sal_v5_admits,  # sal-v5's segment: Rule 20 writs out
 )
 
-# sal-v7: registered, inactive. sal-v6's relist rule, writ scope and parse pin
-# as the same callables, with the band, carve-in and reachable ladder read
-# through caption-v4 (docs/salience.md). Its bands are published in the
-# statpack's `alt_segments` and scored in every gate replay from the next render.
+# sal-v7: the ACTIVE version (`SALIENCE_VERSION`), registered inactive first and
+# flipped as a separate step (docs/salience.md). sal-v6's relist rule, writ
+# scope and parse pin as the same callables, with the band, carve-in and
+# reachable ladder read through caption-v4. It pins `dist-v2`, the default
+# parse, so its activation moved one constant.
 _SAL_V7 = SalienceScorer(
     version="sal-v7",
     score=_sal_v5_score,  # sal-v6's score, unchanged; the caption never weights it
