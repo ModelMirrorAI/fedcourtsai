@@ -65,9 +65,10 @@ sit inside the bootstrapping envelope, so their funding figure is that
 envelope rather than the sum of the row. Other spend is assumed to step from the
 bootstrapping to the scaling level at milestone 3, when volume starts to grow.
 The model-spend column is priced at about $17 per fully evaluated SCOTUS
-event, the pinned planning table's total, and $30–60 per lower-court event.
-The table prices the gemini pair at `gemini-4-argon`'s first measured cells
-doubled for the rate in force from 2026-12-01, about $3.40 of each event;
+event, the pinned planning table's total rounded down (the table sums to
+$17.67, so the column reads up to about 4% low), and $30–60 per lower-court
+event. The table prices the gemini pair at `gemini-4-argon`'s measured cells
+doubled for the rate in force from 2026-12-01, about $4.30 of each event;
 the scaling is rough from milestone 5, where more predictors change each
 engine's share of an event. At milestone 2 the column fills the
 bootstrapping envelope, so any further spend inside it would outgrow it. At the about $10 per SCOTUS event [budget.md](budget.md)

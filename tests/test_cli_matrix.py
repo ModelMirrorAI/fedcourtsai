@@ -2102,15 +2102,15 @@ def test_predict_plan_enumerates_exactly_the_cells_predict_matrix_would_mint(
     assert plan["spend_estimate_basis"]["rates_usd_per_cell"] == {
         "claude-code": 4.27,
         "codex": 1.88,
-        "gemini": 2.12,
+        "gemini": 2.70,
     }
     # The fallback rate lives inside the basis block, named as the fallback it
     # is — never at the top level, where a consumer multiplying it by
     # `would_mint_cells` would rebuild the flat-rate error the table removes.
     assert "planning_rate_usd_per_cell" not in plan
-    assert plan["spend_estimate_basis"]["fallback_usd_per_cell"] == 2.80
+    assert plan["spend_estimate_basis"]["fallback_usd_per_cell"] == 2.95
     # The surviving cells are codex + gemini on both cases, priced per engine.
-    assert plan["estimated_spend_usd"] == round(2 * (1.88 + 2.12), 2)
+    assert plan["estimated_spend_usd"] == round(2 * (1.88 + 2.70), 2)
     assert plan["estimated_spend_caveat"] is None
     assert plan["spend_estimate_basis"]["cells_at_fallback_rate"] == 0
     # The guard ran against no census at all — distinct from a clean run.
@@ -2202,9 +2202,9 @@ def test_evaluate_plan_enumerates_exactly_the_cells_evaluate_matrix_would_mint(
     assert plan["spend_estimate_basis"]["rates_usd_per_cell"] == {
         "claude-code": 5.92,
         "codex": 1.30,
-        "gemini": 1.29,
+        "gemini": 1.60,
     }
-    assert plan["estimated_spend_usd"] == round(5.92 + 1.30 + 1.29, 2)
+    assert plan["estimated_spend_usd"] == round(5.92 + 1.30 + 1.60, 2)
     caveats = plan["spend_estimate_basis"]["caveats"]
     assert any("ASSUMPTION, not a measurement" in c for c in caveats)
     # An assumption is the right basis for a reason that keeps changing, so the
@@ -2465,16 +2465,16 @@ def test_a_failed_presence_read_warns_and_grades_unheld(
 def test_the_planning_rate_table_matches_the_per_event_totals() -> None:
     """The rate table is the source for every priced plan, so pin its totals.
 
-    Predict sums to **$8.27 an event** and evaluate to **$8.51**: the claude-code
+    Predict sums to **$8.85 an event** and evaluate to **$8.82**: the claude-code
     and codex cells as measured and anchored, the gemini cells at Argon's
     measured cells doubled for its 2026-12-01 rate.
     Pinning the sums rather than only the columns means a re-anchor of the table
     lands here as a visible test edit instead of silently re-pricing every plan.
     """
-    assert round(sum(planning_rates.PLANNING_RATES_USD_PER_CELL["predict"].values()), 2) == 8.27
-    assert round(sum(planning_rates.PLANNING_RATES_USD_PER_CELL["evaluate"].values()), 2) == 8.51
-    # And the pair is the $16.78 the six-cell $2.80 fallback is the rounding of.
-    assert round(8.27 + 8.51, 2) == 16.78
+    assert round(sum(planning_rates.PLANNING_RATES_USD_PER_CELL["predict"].values()), 2) == 8.85
+    assert round(sum(planning_rates.PLANNING_RATES_USD_PER_CELL["evaluate"].values()), 2) == 8.82
+    # And the pair is the $17.67 the six-cell $2.95 fallback is the rounding of.
+    assert round(8.85 + 8.82, 2) == 17.67
 
 
 def test_predict_plan_prices_an_unknown_engine_at_the_stated_fallback(
@@ -2501,7 +2501,7 @@ def test_predict_plan_prices_an_unknown_engine_at_the_stated_fallback(
     assert plan["counts"]["cell_ledger"]["would_mint_cells"] == 3
     assert basis["cells_at_fallback_rate"] == 1
     # Priced in, not dropped: the total carries it at the fallback rate.
-    assert plan["estimated_spend_usd"] == round(4.27 + 1.88 + 2.80, 2)
+    assert plan["estimated_spend_usd"] == round(4.27 + 1.88 + 2.95, 2)
     assert any("design-mix fallback" in c for c in basis["caveats"])
 
 
@@ -2638,7 +2638,7 @@ def test_predict_plan_prices_an_engine_narrowed_backfill_at_that_engine_rate(
     }
     assert all("gemini-baseline" in d["reason"] for d in plan["dropped_by_request_narrowing"])
     # The whole point: the estimate is not cells x the flat rate.
-    assert plan["estimated_spend_usd"] == round(2 * 2.12, 2)
+    assert plan["estimated_spend_usd"] == round(2 * 2.70, 2)
     fallback = plan["spend_estimate_basis"]["fallback_usd_per_cell"]
     assert plan["estimated_spend_usd"] != round(2 * fallback, 2)
 
@@ -3438,7 +3438,7 @@ def test_hold_decision_reads_a_real_evaluate_plan(tmp_path: Path) -> None:
     )
     assert decision.plan_cells == decision.matrix_cells == 3
     assert (
-        decision.estimated_spend_usd == plan["estimated_spend_usd"] == round(5.92 + 1.30 + 1.29, 2)
+        decision.estimated_spend_usd == plan["estimated_spend_usd"] == round(5.92 + 1.30 + 1.60, 2)
     )
     assert decision.auto_release, decision.auto_release_reason
     assert not decision.drain_more
