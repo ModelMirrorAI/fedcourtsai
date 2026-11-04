@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000612",
+  "run_id": "20261103T203422Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "provisioning",
+      "severity": "warning",
+      "event_id": "evt-motion-disposition",
+      "message": "The provisioned 20-page application was fetched but documents.json reports empty_text=true and ocr_derived=false; application.txt contains only whitespace. The relief's scope, grounds, alleged irreparable harm, and underlying order could not be assessed. This is unavailable content, not an absent filing. Forecast completed from the docket and general procedural context."
+    },
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-motion-disposition",
+      "message": "Chronology mismatch: snapshot/context are dated 2026-10-21 and the opening application entry is 2026-10-20, but the snapshot's DocketedDate is 2026-10-30 and the provisioned application's URL also encodes October 30. The supplied opening-entry anchor was retained; actual processing time is uncertain. No subsequent proceeding or disposition was retrieved."
+    },
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-motion-disposition",
+      "message": "The committed statpack's interim table lacks finer_granted, finer_resolved, and finer_unread columns. Its older denial-first mixed-disposition reading cannot supply the contract's grant-in-part-inclusive 2016-2025 pooled baseline. No eligible published baseline was available, and no older-reading, current-Term, or cert rate was substituted. The 3% estimate is explicitly subjective and record-limited."
+    }
+  ]
+}

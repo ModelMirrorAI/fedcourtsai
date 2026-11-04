@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000584",
+  "run_id": "20261103T225348Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts validate",
+    "CourtListener MCP search",
+    "CourtListener MCP search_document",
+    "web search and open",
+    "shell record inspection"
+  ],
+  "helpful": [
+    "The frozen state-petitioner arrival anchor prevented substitution of a terminal relist rate.",
+    "The matching lower-court opinion exposed the unresolved forum analysis that matters to vehicle quality.",
+    "CourtListener literal document searches verified the relevant precedent without downloading whole opinions.",
+    "Corpus docket-number lookup recovered the prior Gilliam petition's history."
+  ],
+  "gaps": [
+    "The default uv cache was read-only; a writable cache override and --no-sync were necessary.",
+    "Corpus citation coverage was sparse, and CourtListener citation search returned an unrelated first match for Mitchell.",
+    "A three-row structured corpus query required roughly 60 MB of ranged reads.",
+    "Web attempts supplied no usable additional evidence."
+  ],
+  "notes": "No packages installed. No opponent brief was expected at arrival. The declared relist-increment starts from zero distributions and is not the probability of an actual repeat conference. No provisioning blocker or own-case outcome exposure was encountered."
+}

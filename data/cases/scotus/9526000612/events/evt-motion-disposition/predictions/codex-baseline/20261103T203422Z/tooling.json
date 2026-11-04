@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000612",
+  "run_id": "20261103T203422Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts paths", "fedcourts query", "committed statpack", "CourtListener MCP search", "CourtListener MCP read_document", "web search/open attempts", "fedcourts validate"],
+  "helpful": ["Explicit empty_text document metadata", "Frozen interim escalation context", "CourtListener full-text in-chambers precedent", "Sparse-citation coverage warning"],
+  "gaps": ["No extracted application text or provisioned OCR text", "Required finer-reading interim baseline columns absent", "Web calls returned no visible results or content"],
+  "notes": "Default uv cache was read-only; commands worked with a /tmp cache and --no-sync, without package installation. Broad corpus query returned cert rather than application comparators; these were not used to estimate interim odds. used_base_rates means the statpack was consulted and audited, not that a valid numerical baseline could be computed."
+}

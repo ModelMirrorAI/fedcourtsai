@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000612",
+  "run_id": "20261103T200528Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "capture-gap",
+      "severity": "warning",
+      "event_id": "evt-motion-disposition",
+      "message": "The 20-page application is marked empty_text=true and ocr_derived=false; application.txt contains only whitespace. Opening its provisioned PDF URL returned no usable content. The grounds, requested scope, challenged order, and asserted harm could not be assessed; the forecast is record-limited rather than an assessment of the unread filing."
+    },
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-motion-disposition",
+      "message": "For application Term 2026, metrics/statpack.json's required 2016–2025 pool has finer_granted=0, finer_resolved=0, finer_unread=1366. It supplies no eligible finer-reading baseline despite the markdown's older substantive rates. No older-reading, current-Term, or cert rate was substituted."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-motion-disposition",
+      "message": "The snapshot filename and context cutoff are 2026-10-21, but its header says docketed October 30, 2026. The sole submission entry is October 20 and matches the event opening. Used that entry and frozen context as the starting state; did not infer subsequent judicial inaction from the header chronology."
+    }
+  ]
+}

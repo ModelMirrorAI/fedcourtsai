@@ -1,0 +1,19 @@
+# Predicted Reasoning: *Denise Smith v. Brown, Savage, Britto, Stitely & Callahan, LLP, et al.* (No. 26A619)
+
+## Procedural Posture at Arrival and Escalation Forecast
+
+At the arrival moment (`2026-10-27` submission entry; snapshot `2026-10-28.json`), this pro se application for a stay of judgment/enforcement from the Supreme Court of Maryland (Case No. 119, September Term 2026) stands at the bottom of the interim escalation ladder: it has been submitted to Chief Justice Roberts as Circuit Justice for Maryland (`response_requested: false`, `referred_to_court: false`, `amicus_briefs: 0`).
+
+1. **Call for a Response (`response-requested-increment`: 0.008):** Neither the Chief Justice nor the Clerk will request a response from the respondent substitute trustees (`Brown, Savage, Britto, Stitely & Callahan, LLP, et al.`). In routine pro se stay applications arising from state-court residential foreclosure and possession proceedings, the Circuit Justice disposes of the application on the applicant's papers alone without burdening respondents to answer.
+2. **Referral to the Full Court (`referral-increment`: 0.003):** The application will not be referred to the full Court. Chief Justice Roberts will act on the application in chambers and deny it directly.
+3. **Amicus Activity (`amicus-increment`: 0.002):** No amicus curiae briefs or motions will be submitted before disposition. The dispute concerns a fact-bound residential mortgage foreclosure and writ of possession on a single property in Bowie, Maryland, attracting no institutional third-party participation.
+4. **Timing and Manner of Disposition (`interim-disposition`: 0.002; `predicted_disposition`: `denied`):** The application will be summarily denied by Chief Justice Roberts within approximately three to ten days of docketing (early November 2026) via a standard one-line chambers order with no separate writing by any Justice (`order-writers`: 0.001 for each sitting Justice).
+
+## Conditional Doctrinal Assessment under the Stay Standard
+
+To obtain a stay pending the filing and disposition of a petition for a writ of certiorari, an applicant must demonstrate (1) a reasonable probability that four Justices will consider the issue sufficiently meritorious to grant certiorari, (2) a fair prospect that a majority of the Court will vote to reverse the judgment below, and (3) a likelihood that irreparable harm will result from the denial of a stay (*Hollingsworth v. Perry*, 558 U.S. 183, 190 (2010)).
+
+Even assuming irreparable harm from eviction under a state-court writ of possession, the application cannot satisfy the threshold requirements of a reasonable probability of certiorari or a fair prospect of reversal:
+
+- **Independent and Adequate State Procedural Bar:** The underlying state appeal to the Appellate Court of Maryland (*Smith v. Brown, Savage, Britto, Stitely & Callahan, et al.*, No. ACM-REG-1051-2025) was dismissed on April 14, 2026, for failure to file an appellate brief in compliance with state appellate rules and orders, and the Supreme Court of Maryland denied certiorari in Petition No. 119. A procedural default under routine state appellate briefing rules constitutes an independent and adequate state-law ground barring Supreme Court review under 28 U.S.C. § 1257(a).
+- **Finality and Res Judicata in State Foreclosure Proceedings:** The underlying foreclosure sale on 917 Jennings Mill Drive occurred in August 2018, the Bankruptcy Court lifted the automatic stay in September 2020, the Circuit Court for Prince George's County ratified the sale in October 2021, and the Appellate Court of Maryland affirmed ratification in November 2023. If the Court were ever to reach the merits, it would find no cognizable federal constitutional error or circuit conflict in the Maryland courts' enforcement of a final, ratified foreclosure judgment.

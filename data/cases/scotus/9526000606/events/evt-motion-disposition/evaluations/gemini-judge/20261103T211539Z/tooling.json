@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000606",
+  "run_id": "20261103T211539Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "metrics/statpack.md"
+  ],
+  "helpful": [
+    "metrics/statpack.md interim docket table for verifying candidates' strictly-prior ten-Term pooled counts",
+    "staged retrieval_log.json and blinded candidate directories"
+  ],
+  "gaps": [],
+  "notes": "All needed context—including the resolved outcome, docket snapshot, statpack interim table, and candidate retrieval logs—was present in the provisioned workspace."
+}

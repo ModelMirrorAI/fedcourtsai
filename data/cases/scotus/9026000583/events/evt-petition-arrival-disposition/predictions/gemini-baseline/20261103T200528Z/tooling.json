@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000583",
+  "run_id": "20261103T200528Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts validate",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_get_endpoint_item",
+    "mcp_courtlistener_call_endpoint",
+    "mcp_courtlistener_read_document"
+  ],
+  "helpful": [
+    "context.json pre-computed cert_anchor rate",
+    "mcp_courtlistener_read_document for the 11th Cir. decision below",
+    "mcp_courtlistener_call_endpoint for M.D. Fla. dismissal order",
+    "statpack.md segment base-rate tables"
+  ],
+  "gaps": [],
+  "notes": "Although no petition PDF was provisioned in record/documents/ for this pro se arrival event, the lower-court docket number (11th Cir. No. 25-12004) in the snapshot allowed immediate retrieval of both the Eleventh Circuit's published opinion (opinion_id 11337751) and the Middle District of Florida's dismissal order (Doc. 91) via the CourtListener MCP server."
+}

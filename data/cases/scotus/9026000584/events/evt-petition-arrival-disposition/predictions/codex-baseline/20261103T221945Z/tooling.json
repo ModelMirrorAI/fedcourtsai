@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000584",
+  "run_id": "20261103T221945Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["provisioned text record", "committed statpack", "fedcourts query", "fedcourts paths", "CourtListener MCP search/search_document/read_document", "web search/open", "fedcourts validate"],
+  "helpful": ["Frozen state-band anchor matched the strictly-prior reached-rate pool", "Complete petition and matching lower-court opinion exposed the interlocutory vehicle issue", "CourtListener primary opinions verified the asserted split"],
+  "gaps": ["Corpus reporter-citation coverage was too sparse to retrieve Walker", "Web tool returned no visible content", "Default uv cache was read-only"],
+  "notes": "CLI worked with UV_CACHE_DIR=/tmp/uv-cache and --no-sync, without installing dependencies. No opposition at this arrival moment is expected, not a provisioning failure. CourtListener retrieval succeeded. No task-level blocker or outcome disclosure was encountered."
+}

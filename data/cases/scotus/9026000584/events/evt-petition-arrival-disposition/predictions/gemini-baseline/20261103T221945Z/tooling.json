@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000584",
+  "run_id": "20261103T221945Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "mcp_courtlistener_search"
+  ],
+  "helpful": [
+    "Pre-computed cert_anchor in record/context.json matching statpack.md state band reached rate",
+    "Provisioned petition.txt, decision-below.txt, and appendix.txt with full District Court and Fourth Circuit opinions",
+    "fedcourts query lookup of Gilliam v. Gerregano (No. 25-107) confirming 2 distributions and cert denial on 2025-12-08",
+    "CourtListener MCP search confirming M J Nichols Co. v. Boardman (No. 26-1043, 7th Cir.) was argued 2026-09-17 and remains pending"
+  ],
+  "gaps": [],
+  "notes": "Provisioned record was complete and clean; corpus query and CourtListener MCP resolved both related cases cited in the petition."
+}

@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000612",
+  "run_id": "20261103T200528Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts validate",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_call_endpoint",
+    "mcp_courtlistener_get_endpoint_item",
+    "mcp_courtlistener_get_endpoint_schema"
+  ],
+  "helpful": [
+    "CourtListener RECAP docket-entries lookup on D.D.C. 1:23-cv-02574-RDM and D.C. Cir. 26-5131 reconstructed the full procedural posture when the provisioned application PDF had empty_text: true.",
+    "fedcourts query confirmed the applicant's 0-for-9 prior Supreme Court petition history, including an earlier denied cert petition (No. 24-339) in the same underlying lawsuit."
+  ],
+  "gaps": [
+    "Provisioned application.txt was a 20-page scanned PDF with empty_text: true and ocr_derived: false; OCR fallback on image-only emergency applications would expose the exact text of pro se filings.",
+    "fedcourts query does not currently support a --party or --attorney filter flag, requiring docket-number lookups to inspect repeat-litigant history."
+  ],
+  "notes": "In metrics/statpack.json, finer_resolved is 0 and finer_unread is non-zero across all prior Terms (OT2016-OT2025), and metrics/statpack.md does not yet render the finer_granted / finer_resolved columns, so reasoning.md documents both the absence of a qualifying finer-reading baseline and the older substantive_granted / substantive_resolved 10-Term pool (160/1366 = 11.71%) for descriptive context."
+}

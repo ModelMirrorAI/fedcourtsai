@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000623",
+  "run_id": "20261104T014043Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "capture-gap",
+      "severity": "warning",
+      "event_id": "evt-motion-disposition",
+      "message": "The committed statpack has no qualifying interim finer-reading anchor for application Term 2026. Pooling Terms 2016–2025 gives finer_granted=0, finer_resolved=0, and finer_unread=1366, with nonzero finer_unread in every pooled Term. The Markdown table reports older substantive readings. Forecast completed from the application and historical legal context without substituting the older or pack-wide rate; see reasoning.md."
+    }
+  ]
+}

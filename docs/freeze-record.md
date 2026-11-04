@@ -16403,8 +16403,8 @@ freeze commit is recorded here.
   never re-scored under `policy-gate-v2`: its ledger row stays a
   `policy-gate-v1` refusal, and the rule is judged first on the next
   labeling run after this entry reaches `main`. Carried to `main` by the
-  promotion tagged `<FILL: promotion tag>` (merge commit `<FILL: merge sha>`,
-  merged `<FILL: merged time utc>`).
+  promotion tagged `promotion/2026-11-03` (merge commit `38fd19732fbfd1b25080cc99cb4c1c22d0365027`,
+  merged `2026-11-03T16:48:18Z`).
 
 - **Merits vote floors beside `mean_vote_accuracy`: unanimity and majority
   alignment; recorded 2026-11-03.** A **scoring-baseline** entry; no digest
@@ -16432,8 +16432,8 @@ freeze commit is recorded here.
   merits moment, so every `mean_vote_accuracy` is null and no floor is
   computed. The coded baselines (score outcome, score votes) are not in this
   entry and score nothing on the board. Carried to `main` by the promotion
-  tagged `<FILL: promotion tag>` (merge commit `<FILL: merge sha>`, merged
-  `<FILL: merged time utc>`).
+  tagged `promotion/2026-11-03` (merge commit `38fd19732fbfd1b25080cc99cb4c1c22d0365027`, merged
+  `2026-11-03T16:48:18Z`).
 
   The runnable effect check once it is live: `uv run fedcourts leaderboard
   --all-versions --out /tmp/lb.json && jq '[.. | objects |
@@ -16488,8 +16488,8 @@ freeze commit is recorded here.
   `d2514da92`, none of the 1,827 committed evaluations is on a merits
   moment, none of the 14,139 committed outcomes carries a complete vote
   record, and `main` holds no fits file. Carried to `main` by the promotion
-  tagged `<FILL: promotion tag>` (merge commit `<FILL: merge sha>`, merged
-  `<FILL: merged time utc>`).
+  tagged `promotion/2026-11-03` (merge commit `38fd19732fbfd1b25080cc99cb4c1c22d0365027`, merged
+  `2026-11-03T16:48:18Z`).
 
   The runnable effect check once it is live: `uv run fedcourts leaderboard
   --all-versions --out /tmp/lb.json && jq '[.. | objects |

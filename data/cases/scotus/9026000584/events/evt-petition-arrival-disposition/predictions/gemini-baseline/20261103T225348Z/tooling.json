@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000584",
+  "run_id": "20261103T225348Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "mcp_courtlistener_search",
+    "fedcourts validate"
+  ],
+  "helpful": [
+    "Frozen cert_anchor in record/context.json provided the exact 10-Term pooled state band reached rate (23.52%).",
+    "Full text of petition.txt, decision-below.txt, and appendix.txt made it easy to evaluate both the post-Walker lower-court split and the interlocutory Rule 12(b)(6) remand posture.",
+    "fedcourts query --docket-number 25-107 quickly surfaced the prior Term's disposition and distribution count for Gilliam v. Gerregano."
+  ],
+  "gaps": [],
+  "notes": "All provisioned inputs were complete and clean."
+}

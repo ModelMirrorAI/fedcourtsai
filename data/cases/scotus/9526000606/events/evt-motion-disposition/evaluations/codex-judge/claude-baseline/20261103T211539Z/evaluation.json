@@ -1,0 +1,130 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.08,
+    "notes": "An individual family's removal stay has substantial personal stakes. The staged application docket identifies no systemic challenge, broad remedy, or new legal rule, and the Circuit Justice's denial creates no visible merits precedent. Application text is unavailable, limiting assessment of broader significance."
+  },
+  "brier_score": 0.000144,
+  "brier_skill_score": 0.9895039975,
+  "case_id": "scotus/9526000606",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.1171303074670571,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.012,
+        "score": 0.013575508927327333
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.12,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v2",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.003,
+          "Barrett": 0.002,
+          "Gorsuch": 0.003,
+          "Jackson": 0.008,
+          "Kagan": 0.003,
+          "Kavanaugh": 0.002,
+          "Roberts": 0.002,
+          "Sotomayor": 0.008,
+          "Thomas": 0.002
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.013575508927327333,
+    "total": 0.013575508927327333
+  },
+  "correct": 1,
+  "created_at": "2026-11-03T22:12:55.816745Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "All 11 calls are captured and dated October 31, before the November 2 resolution. Queries seek general denied-application comparators; no target-disposition search, outcome-file read, or post-resolution authority appears. The rationale discloses the refreshed October 28 docketing header but does not know or assume the November 2 denial.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.9,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The November 2 docket entry records denial by Justice Alito; outcome.interim_signals records no response request or full-Court referral.",
+        "claim": "Justice Alito will deny the application alone without calling for a response.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.interim_signals.referred_to_court is false. The conditional account of renewal followed by referral was not tested.",
+        "claim": "Any later full-Court referral is a minority path rather than the expected route.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.interim_signals.amicus_briefs is zero and the resolved snapshot shows no amicus entry.",
+        "claim": "No amicus participation is expected.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Read from the forecast's October 16 arrival vantage, the November 2 denial followed submission by 17 days, within one to three weeks.",
+        "claim": "Disposition will likely occur within one to three weeks.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "No order body or separate-writing collection is staged; outcome.writing_roles and noted_dissent_from_denial are null. The docket's lack of a writing entry cannot independently establish this claim.",
+        "claim": "No Justice will write separately or note dissent.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261031T173439Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+    "label": "proc-v17",
+    "pipeline_sha": "158255602a33cac82363247466d203b267137187",
+    "stamped_at": "2026-11-03T22:12:55.816745Z"
+  },
+  "reasoning_quality": 0.7,
+  "run_id": "20261103T211539Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.1171303074670571,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

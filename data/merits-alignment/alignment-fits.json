@@ -1,0 +1,57 @@
+{
+  "entries": [
+    {
+      "codes_digest": "78679fae72ce964523e3c9a86f5061d974cc5894eca763c9005c4bb271d946b0",
+      "consolidated": 0,
+      "contamination_risk": 267,
+      "frozen_on": "2026-11-03",
+      "k": 1.25,
+      "k_at_grid_edge": false,
+      "k_decisions": 155,
+      "latest_decision_read": "2026-06-30",
+      "opened": "2026-10-01",
+      "positions": {
+        "Alito": 0.2066545439923824,
+        "Barrett": 0.06871384822047637,
+        "Gorsuch": 0.13606491136932672,
+        "Jackson": -0.24751532403787666,
+        "Kagan": -0.20695084936894736,
+        "Kavanaugh": 0.05031736508175484,
+        "Roberts": 0.026109517402732853,
+        "Sotomayor": -0.23684575583552261,
+        "Thomas": 0.20344791570110032
+      },
+      "positions_source": "estimated from the corpus's complete merits lineups: one-dimensional classical scaling of vote disagreement over a trailing 3-Term window",
+      "term": 2026,
+      "transform": [
+        [
+          0.2,
+          0.05714285714285714
+        ],
+        [
+          0.35,
+          0.08
+        ],
+        [
+          0.5,
+          0.3333333333333333
+        ],
+        [
+          0.55,
+          0.5
+        ],
+        [
+          0.6,
+          0.7547169811320755
+        ],
+        [
+          0.7,
+          0.975
+        ]
+      ],
+      "transform_decisions": 267
+    }
+  ],
+  "schema_version": "1.0",
+  "scheme": "alignment-side-v1"
+}
