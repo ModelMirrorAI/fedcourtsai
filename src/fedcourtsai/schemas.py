@@ -15337,6 +15337,79 @@ class CaseSummaryFrontMatter(_Strict):
     )
 
 
+class AiRulingSummaryFrontMatter(_Strict):
+    """The YAML front matter of ``data/ai-cases/summaries/<entry_id>.md``.
+
+    A plain-language summary of one AI watchlist ruling, for the AI-cases
+    update (``docs/case-summaries.md``, *AI watchlist rulings*). Written by the
+    harness, never by the model: the court-record identifiers the summary is
+    filed under, the digest of the ruling text it was written from, and the
+    model and prompt that wrote it.
+    """
+
+    case: str = Field(
+        min_length=1, description="The watchlist case's name, as the watchlist gives it"
+    )
+    court: str = Field(min_length=1, description="CourtListener court id of the docket")
+    docket_id: int = Field(gt=0, description="CourtListener docket id")
+    docket_number: str = Field(min_length=1, description="The court's own docket number")
+    entry_id: int = Field(
+        gt=0, description="CourtListener's id for the docket entry; the file is named for it"
+    )
+    entry_number: int | None = Field(
+        default=None, description="The entry's number on the docket; unnumbered entries carry none"
+    )
+    date_filed: date = Field(description="The day the ruling was filed")
+    kind: Literal["opinion", "judgment", "ruling"] = Field(
+        description="What the entry is, under the activity rule that recorded it"
+    )
+    text_digest: str = Field(
+        pattern=_SHA256_DIGEST,
+        description="sha256 of the ruling's text as stored, before the contact scrub — "
+        + "the text the summary was written from",
+    )
+    model: str = Field(description="The Messages API model id that wrote the body")
+    prompt_digest: str = Field(
+        pattern=_SHA256_DIGEST,
+        description="sha256 of `.github/prompts/summarize-ai-ruling.md` as sent",
+    )
+    body_version: Literal[1] = Field(
+        description="The body contract the summary was written to "
+        + "(`ai_rulings.SECTION_HEADINGS`): 1, a one-sentence `In brief` headline and "
+        + "`What the court decided`"
+    )
+    generated_at: datetime = Field(description="When the harness wrote the file (UTC)")
+    usage: CaseSummaryUsage | None = Field(
+        default=None,
+        description="The token usage of the calls that wrote the summary (a rejected first "
+        + "response's included), where the responses carried it",
+    )
+
+
+class AiRulingPlanItem(_Strict):
+    """One AI watchlist ruling a summary run would summarize, with the text it would read."""
+
+    case: str = Field(min_length=1, description="The watchlist case's name")
+    court: str = Field(min_length=1)
+    docket_id: int = Field(gt=0)
+    docket_number: str = Field(min_length=1)
+    entry_id: int = Field(gt=0)
+    entry_number: int | None = None
+    date_filed: date
+    kind: Literal["opinion", "judgment", "ruling"]
+    text_digest: str = Field(
+        pattern=_SHA256_DIGEST, description="sha256 of the ruling's stored text the plan read"
+    )
+    staged_digest: str = Field(
+        pattern=_SHA256_DIGEST,
+        description="sha256 of that text after the contact-detail scrub: exactly the text "
+        + "the stage may carry, which the stage check holds it to",
+    )
+    input_chars: int = Field(
+        ge=0, description="Characters the model would read: the text up to the per-document cap"
+    )
+
+
 class SummaryPlanCase(_Strict):
     """One case a summary run would write, with the record it would read."""
 
@@ -15412,6 +15485,16 @@ class SummaryPlan(_Strict):
         description="Committed summaries of another petition than the docket number now "
         + "holds (a re-docketed number), which the run's review PR deletes; free, so "
         + "never deferred by the limit",
+    )
+    rulings: list[AiRulingPlanItem] = Field(
+        default_factory=list,
+        description="AI watchlist rulings owed a summary whose text the corpus holds "
+        + "(`summarize-plan --rulings`); priced into the estimate below",
+    )
+    rulings_without_text: list[int] = Field(
+        default_factory=list,
+        description="Entry ids of AI watchlist rulings owed a summary whose text the corpus "
+        + "does not hold yet; free, and planned again by the next run",
     )
     estimated_cost_usd_low: float = Field(ge=0)
     estimated_cost_usd_high: float = Field(ge=0)
@@ -15847,6 +15930,7 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "alignment_fits": AlignmentFits,
     "ai_case_activity": AiCaseActivity,
     "case_summary_front_matter": CaseSummaryFrontMatter,
+    "ai_ruling_summary_front_matter": AiRulingSummaryFrontMatter,
     "summary_plan": SummaryPlan,
     "export_prediction_row": ExportPredictionRow,
     "export_grading_row": ExportGradingRow,

@@ -10,17 +10,25 @@ it.
 
 A span is either one day or one ISO week. Its items are the entries recorded on
 days inside it, grouped by case in the order each case's first item was filed.
+
+A ruling with a committed model summary (``data/ai-cases/summaries/``,
+:mod:`fedcourtsai.ai_rulings`) carries it under its item, quoted and labeled
+with the model that wrote it. The summary is written from the ruling's own
+text, so this is the one place the update says what a ruling decided; an item
+without one renders as before.
 """
 
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Final
 
 from .ai_activity import ACTIVITY_DIR
+from .ai_rulings import RulingSummary, committed_summaries
 from .schemas import AiCaseActivity, AiCaseActivityEntry
 from .serialize import read_model
 
@@ -53,6 +61,8 @@ class AiCasesUpdate:
     end: date
     # Each case's items, cases in the order of their first item.
     cases: tuple[tuple[str, str, tuple[AiCaseActivityEntry, ...]], ...]
+    # The committed ruling summaries of the span's items, by entry id.
+    summaries: Mapping[int, RulingSummary] = field(default_factory=dict)
 
     @property
     def empty(self) -> bool:
@@ -77,12 +87,14 @@ def build_ai_cases_update(data_root: Path, start: date, end: date) -> AiCasesUpd
     grouped: dict[str, list[AiCaseActivityEntry]] = {}
     for entry in ordered:
         grouped.setdefault(entry.case, []).append(entry)
+    written = committed_summaries(data_root) if found else {}
     return AiCasesUpdate(
         start=start,
         end=end,
         cases=tuple(
             (name, entries[0].category, tuple(entries)) for name, entries in grouped.items()
         ),
+        summaries={k: v for k, v in written.items() if k in found},
     )
 
 
@@ -109,6 +121,20 @@ def _item(entry: AiCaseActivityEntry) -> str:
     return f"- {when}: {label} ({_escape(where)}). [View on CourtListener]({entry.url})"
 
 
+def _summary(summary: RulingSummary) -> list[str]:
+    """A ruling's summary as a quote under its list item, labeled with its model."""
+    paragraphs = [_escape(summary.headline)]
+    paragraphs += [_escape(p) for p in re.split(r"\n\s*\n", summary.decided) if p.strip()]
+    paragraphs.append(
+        f"*Summary written by {_escape(summary.model)} from the ruling's own text. "
+        + "It may contain errors; the ruling is the authority.*"
+    )
+    lines: list[str] = []
+    for paragraph in paragraphs:
+        lines += ["  >", f"  > {paragraph}"] if lines else [f"  > {paragraph}"]
+    return ["", *lines, ""]
+
+
 def render_ai_cases_update(update: AiCasesUpdate, *, title: bool = True) -> str:
     """The update as Markdown, ready for an email body; ``title=False`` leaves it to the subject."""
     lines = [f"# {ai_cases_subject(update)}", ""] if title else []
@@ -118,7 +144,11 @@ def render_ai_cases_update(update: AiCasesUpdate, *, title: bool = True) -> str:
     for name, category, entries in update.cases:
         kind_of_case = category.replace("-", " ").capitalize()
         lines += [f"## {_escape(name)}", "", f"*{_escape(kind_of_case)}*", ""]
-        lines += [_item(entry) for entry in entries]
+        for entry in entries:
+            lines.append(_item(entry))
+            summary = update.summaries.get(entry.entry_id)
+            if summary is not None:
+                lines += _summary(summary)
         lines += [""]
     lines += ["---", "", _FOOTER, ""]
     return "\n".join(lines)

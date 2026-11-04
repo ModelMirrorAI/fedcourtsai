@@ -63,6 +63,7 @@ from typing import Final
 from pydantic import ValidationError
 
 from . import corpus, ids
+from .ai_rulings import summary_file_problems as ruling_summary_file_problems
 from .integrity import cell_clock, latest_evaluation_runs
 from .paths import CasePaths
 from .pipeline import moments
@@ -396,7 +397,9 @@ def validate_ledger(path: Path) -> LedgerValidation:
     Scoped to the committed ledger: the gitignored ``record/`` provisioning trees
     are skipped (:func:`_in_provisioning_tree`). A case's committed
     ``summaries/`` files are checked too, against the summary contract
-    (:func:`fedcourtsai.summaries.summary_file_problems`), and so are the topic
+    (:func:`fedcourtsai.summaries.summary_file_problems`), as are the AI
+    watchlist rulings' summaries under ``ai-cases/summaries/``
+    (:func:`fedcourtsai.ai_rulings.summary_file_problems`), and so are the topic
     labeler's run spend records under ``qp-topics/spend/``
     (:func:`_run_spend_problems`) and the AI-case activity records under
     ``ai-cases/activity/`` (:func:`_ai_activity_problems`); all are matched by
@@ -410,6 +413,8 @@ def validate_ledger(path: Path) -> LedgerValidation:
         # A case's summaries are markdown named for a day, so no filename keys
         # them; they are matched by position under the case instead.
         summary = summary_file_problems(file, path)
+        if summary is None:
+            summary = ruling_summary_file_problems(file, path)
         if summary is not None:
             checked += 1
             problems.extend(f"{file}: {problem}" for problem in summary)

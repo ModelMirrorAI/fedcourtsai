@@ -396,8 +396,10 @@ both after the contact-detail scrub. This repository is public, so any signed-in
 user can download a run artifact while it exists; its retention is the
 shortest GitHub offers, one day. It rides the qp-topic extract's footing —
 supremecourt.gov content only, since the plan and `summarize` both refuse a
-CourtListener REST snapshot ([data-sources.md](data-sources.md)) — and is
-wider than the extract in one way: every stored filing of each planned case
+CourtListener REST snapshot ([data-sources.md](data-sources.md)), with one
+addition: a planned AI watchlist ruling's text, a court's own public-domain
+document reached through RECAP, scrubbed and held to the ruling allowlist
+(*AI watchlist rulings*, above) — and is wider than the extract in one way: every stored filing of each planned case
 rather than one section of each petition. Staging runs after the review hold
 and provisions whatever snapshot is newest by then, so the plan's screen alone
 would let a REST snapshot stored in between reach the artifact. The stage job
@@ -426,16 +428,19 @@ spot check needs.
 
 ## Commands
 
-- `fedcourts summarize-plan [--limit N] [--out plan.json] [--report plan.md]` —
-  the dry run: eligible, up-to-date and owed counts, the planned cases, and an
+- `fedcourts summarize-plan [--limit N] [--rulings] [--out plan.json]
+  [--report plan.md]` — the dry run: eligible, up-to-date and owed counts, the
+  planned cases (and, with `--rulings`, the owed AI watchlist rulings), and an
   estimated cost range. Reads the corpus; writes nothing under `data/`; calls no
   model.
 - `fedcourts summarize --plan plan.json --staged <root> [--report result.md]
   [--budget-minutes M]` — writes the planned summaries. Past the time budget it
   starts no new case and reports the rest as deferred, so the workflow's step
   returns (at 140 minutes, under its 165-minute cap) and what was written is
-  still collected. Exits 1 if the plan held cases and none was written, so a
-  dead key reads as a failure rather than an empty success.
+  still collected. Exits 1 if the plan held cases or rulings and nothing was
+  written, so a dead key reads as a failure rather than an empty success.
+- `fedcourts ai-ruling-stage --plan plan.json --staged <root>` — stages the
+  plan's AI watchlist rulings under `<root>/ai-rulings/`.
 - `fedcourts summary-paths --name-status-file <f> [--strict] [--plan plan.json]`
   — the lane's path filter and, with `--strict`, its publish jail; `--plan`
   admits the deletions that plan withdraws.
@@ -467,6 +472,83 @@ A retried case pays for two calls, and the retry re-sends the whole record, so
 it costs about twice a first-pass summary; the report's cost line and each
 summary's `usage` include it. The plan's estimate prices one call per case, so
 a run costs more than the estimate by roughly its first-pass rejection rate.
+
+## AI watchlist rulings
+
+The same lane writes a second kind of summary: one per ruling the AI
+watchlist's activity records list, for the weekly AI-cases update
+([data-sources.md](data-sources.md), *Model summaries of the AI watchlist's
+rulings*, fixes what it may be written from). `fedcourtsai.ai_rulings` holds
+it.
+
+**The artifact.** `data/ai-cases/summaries/<entry_id>.md`, named for the
+CourtListener docket entry, under harness-written front matter
+(`AiRulingSummaryFrontMatter`, exported as
+`schemas/ai_ruling_summary_front_matter.schema.json`): the watchlist case's
+name, the court, docket and entry identifiers, the filing date and kind, the
+`text_digest` of the stored ruling text, and the model, prompt digest,
+`body_version`, `generated_at` and `usage` a case summary carries. The body is
+two sections, about 150 words: `## In brief`, one sentence held to the case
+summaries' headline rules, and `## What the court decided`. The harness
+accepts a response on the case summaries' mechanical rules (sections exactly
+and in order, no markup, no "Whether" opening, the headline cap, the secret
+scan) with a 60–350 word band, and retries a mechanical rejection once. It
+also refuses, without a retry, a body in which the contact scrub's shape pass
+finds a contact detail anywhere, since the body reaches a public email; that
+no individual is named is the prompt's rule alone, so the review PR is where a
+name is caught.
+`fedcourts validate data` holds every committed file to its name and its
+sections. A ruling is summarized once; the file is never rewritten.
+
+**Which rulings.** A ruling is owed a summary when an activity record dated
+within the last 30 days lists it as an opinion, a ruling on a motion or a
+judgment, the kinds a court writes, and no summary exists for its entry. It is
+planned when the corpus's newest snapshot of its docket holds the text of the
+entry's main document and the entry is not a party's draft: an entry whose
+description reads "proposed" or "stipulat…" (proposed findings, a stipulated
+order) is counsel's text, which the activity rule can read as an opinion or a
+judgment, and is left out. The description only classifies the entry here; it
+is never staged, sent or published. A court-written ruling without text yet (RECAP has no copy, or only
+the clerk's entry text exists) is listed in the plan's `rulings_without_text`, free,
+and planned again by each run until its text arrives or its record ages out.
+
+**What the model reads.** The prompt is
+`.github/prompts/summarize-ai-ruling.md`. The request carries that prompt and
+one `<ruling>` element: the case name, court id, docket number, entry number
+and filing date as attributes, and the ruling's stored text, capped at
+`max_document_chars` and marked where cut. Nothing else from the docket is
+sent: no entry description, caption, nature of suit or party field. No tools,
+thinking off, as for a case. The prompt's rules mirror the case summaries':
+the ruling only, neutral, exact about what was granted and denied, no
+citations, and no individual person named.
+
+**In the lane.** `summarize-plan --rulings` adds the owed rulings to the plan
+under `rulings`, priced into the same estimate the review hold and the
+auto-release read; the flag leaves `--limit` to the cases. `ai-ruling-stage`
+stages each planned ruling's text, after the contact-detail scrub, to
+`<stage>/ai-rulings/<entry_id>.json`, skipping one whose text changed since the
+plan or keeps a contact residual; `summary-stage-check` keeps a staged ruling
+file only if the plan names it and it holds exactly the entry id, the planned
+digest and a text with no contact residual. `summarize` writes the planned
+rulings after the cases, under the same time budget, and `summary-paths`
+admits the files, so they ride the same `summaries/refresh` review PR.
+
+**Not switched on.** `summarize.yml` does not pass `--rulings` or run
+`ai-ruling-stage` yet, so no scheduled run plans a ruling. Switching it on is a
+change to that workflow, and the measured spend the auto-release budget reads
+(`fedcourtsai.spend`) counts case summaries alone until it also reads these
+files' `usage`.
+
+**In the update.** `ai-cases-update` renders a committed summary under its
+entry's item as a quote, its headline then what the court decided, closed by a
+line naming the model that wrote it from the ruling's own text and that the
+ruling is the authority. An item without one renders as before.
+
+**Cost.** A ruling's text is the whole input: a short order is a few thousand
+characters, a long opinion reaches the 100,000-character cap. Nine rulings
+filed June–September 2026 that the production corpus held on 2026-11-04,
+planned as if newly recorded, priced at $0.26–0.46 together
+(`summarize-plan --rulings --report`).
 
 ## Non-goals
 

@@ -42,8 +42,9 @@ feed** (new rulings and major filings on the AI-case watchlist below, each
 linked to the public docket). Each update's body is rendered from committed
 data, and each send is a draft a person approves; neither update is scored.
 Still to come for the AI-cases feed: that slice's forecasts as an opt-in
-addition, once the watchlist has forecasts, and an optional ruling summary
-labelled with its model. They cost almost nothing beyond those summaries, so
+addition, once the watchlist has forecasts, and switching on the ruling
+summaries labelled with their model, which are built in the summary lane
+but not yet run by its workflow. They cost almost nothing beyond those summaries, so
 they sit outside the scaling plan.
 
 ## The scaling plan
