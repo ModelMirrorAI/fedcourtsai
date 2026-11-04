@@ -34,10 +34,15 @@ run-name: "summarize @ ${{ github.ref_name == 'main' && 'prod' || github.ref_nam
 #             harness rejects the body on a mechanical rule; the harness
 #             validates each body and writes the file. Jails, validates and
 #             secret-scans the written files before anything leaves the runner.
-#   publish   main only: the dev App token, opening or updating one reviewed
-#             PR from the fixed `summaries/refresh` branch. Never auto-merged —
-#             the collect jails do not cover this branch family, and an
-#             auto-merge would need a jail of its own.
+#   publish   main only: the dev App token, opening or updating one PR from
+#             the fixed `summaries/refresh` branch and merging it once its
+#             required checks pass (`scripts/merge-when-green.sh`). The
+#             required `paths` check runs the lane's own jail on that branch
+#             (`summary-paths --strict --any-withdrawal`): summary writes, and
+#             case-summary deletions, which only a withdrawal makes. A branch
+#             that carried an open PR's summaries forward is left for the
+#             maintainer, since that unprotected branch takes any write
+#             holder's push.
 #
 # Every environment-binding job but `publish` resolves its environment from the
 # dispatching ref, as run-analytics does: `main` (and the schedule, which runs
@@ -613,7 +618,7 @@ jobs:
       - name: Note the rehearsal boundary (publish fenced off this ref)
         if: ${{ !cancelled() && github.ref != 'refs/heads/main' }}
         run: |
-          echo "summarize rehearsal: the summaries are in the case-summaries run artifact; the review PR is fenced to main-branch runs — nothing published from this dispatch." \
+          echo "summarize rehearsal: the summaries are in the case-summaries run artifact; the summaries PR is fenced to main-branch runs — nothing published from this dispatch." \
             | tee -a "$GITHUB_STEP_SUMMARY"
 
   publish:
@@ -627,10 +632,13 @@ jobs:
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-26.04
-    timeout-minutes: 15
+    # The push takes a few minutes; the rest is the merge's wait for the PR's
+    # required checks, which the merge script bounds at 20.
+    timeout-minutes: 35
     environment: prod
     permissions:
       contents: read
+      checks: read # the merge lists the summaries PR's check runs (GITHUB_TOKEN)
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -670,12 +678,14 @@ jobs:
 
       # The branch is cut fresh from main each run, then carries the open PR's
       # summaries forward (the plan counted them as written) and adds this
-      # run's — so one reviewed PR accrues until it merges. The jail, the
-      # validator and the scan run over the whole change set against main
-      # before the push.
-      - name: Open or update the review PR
+      # run's — so one PR accrues until it merges. The jail, the validator and
+      # the scan run over the whole change set against main before the push.
+      - name: Open or update the summaries PR, and merge it once green
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          # Checks read for the merge's check-run listing, so the dev App needs
+          # none.
+          CHECKS_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           OWNER: ${{ github.repository_owner }}
           BRANCH: summaries/refresh
@@ -725,7 +735,7 @@ jobs:
             title="${title} [auto-released]"
           fi
           {
-            printf '%s\n\n' "Plain-language case summaries (docs/case-summaries.md): ${WRITTEN} written by this run, ${total} in this PR in all (an open PR's earlier summaries are carried forward). Display material — nothing scores them — so review is a read for factual errors and slant against the filings, not a number."
+            printf '%s\n\n' "Plain-language case summaries (docs/case-summaries.md): ${WRITTEN} written by this run, ${total} in this PR in all (an open PR's earlier summaries are carried forward). Display material — nothing scores them. It merges unattended once the required checks pass, the \`paths\` jail among them. A factual error or slant found after it lands is corrected by a re-run or a reviewed PR."
             printf '%s\n\n' "Files under data/ai-cases/summaries/ summarize one AI watchlist ruling each, written from the ruling's own text alone; read each against the ruling its front matter names (docs/case-summaries.md, AI watchlist rulings)."
             if [ "$withdrawn" != "0" ]; then
               printf '%s\n\n' "${withdrawn} of the changes delete a summary written before the petition its docket number now holds was docketed: a re-docketed number, so the summary describes another petition (docs/case-summaries.md, Withdrawal)."
@@ -745,12 +755,37 @@ jobs:
               exit 1
             fi
             gh pr edit "$number" --repo "$REPO" --title "$title" --body-file "$RUNNER_TEMP/pr-body.md"
-            echo "Updated review PR #${number} in place." | tee -a "$GITHUB_STEP_SUMMARY"
+            url=$(gh pr view "$number" --repo "$REPO" --json url --jq '.url')
+            echo "Updated summaries PR #${number} in place." | tee -a "$GITHUB_STEP_SUMMARY"
           else
             url=$(gh pr create --repo "$REPO" --base main --head "$BRANCH" \
               --title "$title" --body-file "$RUNNER_TEMP/pr-body.md")
-            echo "Opened review PR: ${url}" | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "Opened summaries PR: ${url}" | tee -a "$GITHUB_STEP_SUMMARY"
           fi
+          # A branch that carried an open PR's summaries forward waits for the
+          # maintainer: that branch is unprotected and any write holder can push
+          # to it, so only a tree this run built from `main` and its own
+          # generate output merges without a human.
+          if [ "$open" != "0" ]; then
+            echo "Carries an open PR's summaries, so it waits for review: ${url}" \
+              | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          # Best-effort, as the board lane arms it: a refusal leaves the PR open
+          # for a manual merge rather than failing a run whose summaries are
+          # already pushed.
+          gh pr merge --auto --merge --subject "${title} (#${url##*/})" "$url" || {
+            echo "::warning::could not enable auto-merge on ${url}; merge it by hand"
+            echo "Auto-merge could not be enabled on ${url}; merge it by hand." \
+              >> "$GITHUB_STEP_SUMMARY"
+          }
+          # Then land it with the dev App's approval bypass, pinned to the commit
+          # just pushed; `main: require PR`'s required checks, the `paths` jail
+          # among them, still refuse the merge until they pass. The script is
+          # read from this job's own commit, as the collect jobs read it.
+          script="${RUNNER_TEMP}/merge-when-green.sh"
+          git show "${GITHUB_SHA}:scripts/merge-when-green.sh" > "$script"
+          bash "$script" "${url##*/}" "$(git rev-parse HEAD)" < /dev/null
 
   # The run gate's verdict on the run as a whole. A refused partial re-run
   # skips every job it re-runs, which alone would leave the earlier attempt's

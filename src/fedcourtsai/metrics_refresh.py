@@ -9,10 +9,12 @@ workflow's weekly ``metrics-refresh`` job keeps the scheduled set current —
 ``data/scope/scope.json`` — by rerunning the tested ``fedcourts`` commands
 (``leaderboard`` / ``claim-scores`` / ``backtest`` / ``statpack`` / ``docket``
 / ``big-cases`` / ``scope-manifest``) and, when anything changed, landing the
-result as a **reviewed** PR (never a direct commit to ``main``, never
-auto-merged). The docket pack is regenerated beside the statpack because its
-topic cut reads the committed labels artifact, which the weekly labeling runs
-grow, so a pack left to on-demand runs would lag the labels it renders.
+result as a PR that merges unattended once its required checks pass (never a
+direct commit to ``main``), the ``paths`` check holding it to
+:data:`fedcourtsai.collect.REFRESH_JAIL_PATHS`. The docket pack is regenerated
+beside the statpack because its topic cut reads the committed labels artifact,
+which the weekly labeling runs grow, so a pack left to on-demand runs would lag
+the labels it renders.
 
 This module is the tested half of that workflow: given the changed paths (``git
 diff --cached --name-only -- metrics/ data/scope/``, plumbed by the workflow),
@@ -64,7 +66,7 @@ REFRESH_BRANCH = "metrics/refresh"
 # committed case tree, which is exactly what this refresh exists to keep current
 # — and it is the only surface that publishes the salience decision, so drift in
 # it falsifies a claim `README.md` makes rather than merely aging a number.
-_ARTIFACT_ORDER = (
+REFRESH_ARTIFACTS = (
     "metrics/leaderboard.json",
     "metrics/claim-scores.json",
     "metrics/backtest.json",
@@ -350,7 +352,7 @@ def render_refresh_pr(
     run_id: str,
     predictor_roster: Sequence[str] | None = None,
 ) -> MetricsRefreshPr | None:
-    """Render the review PR (branch / title / commit / body) for a refresh's changes.
+    """Render the refresh PR (branch / title / commit / body) for a refresh's changes.
 
     ``changed`` is the repo-relative output of ``git diff --cached --name-only`` over
     the refreshed paths, staged after the regeneration commands ran so a
@@ -367,7 +369,7 @@ def render_refresh_pr(
     :func:`fedcourtsai.cleanup.render_cleanup_pr`.
     """
     paths = {path.strip() for path in changed if path.strip()}
-    ordered = [rel for rel in _ARTIFACT_ORDER if rel in paths]
+    ordered = [rel for rel in REFRESH_ARTIFACTS if rel in paths]
     if not ordered:
         return None
     # Name the artifacts (statpack.json/.md collapse to one) so the title reads
@@ -386,9 +388,10 @@ def render_refresh_pr(
         "| artifact | now holds |\n"
         "|----------|-----------|\n"
         f"{rows}\n\n"
-        f"Refresh run `{run_id}`. Review and merge — this PR is intentionally **not** "
-        "auto-merged; if it sits unmerged, the next scheduled refresh force-pushes "
-        "this same branch and the PR updates in place.\n"
+        f"Refresh run `{run_id}`. It merges unattended once the required checks pass, "
+        "the `paths` jail holding it to the artifacts the refresh writes; if it sits "
+        "unmerged, the next scheduled refresh force-pushes this same branch and the PR "
+        "updates in place.\n"
     )
     return MetricsRefreshPr(
         branch=REFRESH_BRANCH,

@@ -520,8 +520,9 @@ extract checked against the digest the extract job recorded. Each round waits on
 priced at the side coder's provisional rate
 (`planning_rates.SIDE_CODE_RATES_USD_PER_ROW`), and every run's spend lands in
 the labeling lane's spend ledger. The codes reach `main` as a reviewed PR on
-the fixed branch `merits-alignment/side-codes`, so the first run's 302 codes
-are read by a maintainer before any fit reads them.
+the fixed branch `merits-alignment/side-codes` — the one labeling branch the
+publish job never merges itself, since the codes have no reference gate — so
+the first run's 302 codes are read by a maintainer before any fit reads them.
 
 The first production run coded the whole frame, so its codes on decided
 cases are all replay codes, and its forward codes on the earlier grants were

@@ -18,7 +18,7 @@ Two properties worth stating, because they bound what this can promise:
 
 - **The ledger lags.** A cell's ``usage.json`` reaches ``data/`` only when its
   run's collect PR merges (a summary's or a labeler run's record when its
-  reviewed PR does), so spend already incurred but not yet committed is
+  publish PR does), so spend already incurred but not yet committed is
   invisible here. The ceiling is therefore a floor on what has been spent, and
   should be set with that lag in mind rather than read as real-time.
 - **It is deliberately blunt.** It does not attribute, forecast, or pro-rate; it

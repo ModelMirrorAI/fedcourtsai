@@ -551,8 +551,9 @@ each is edited only in an interactive session and only via its own reviewed stag
 neither the deterministic writers nor any workflow regenerates either. `qp-topics.json` is machine-produced and appears once a
 labeling run has produced one: the per-case labels, written by
 `run-analytics`'s agent-backed `qp-topic-label` mode (`fedcourts qp-topics`,
-which refuses to write below the publication gate) and landed as a reviewed PR
-to `main` on the fixed `qp-topics/refresh` branch, never auto-merged. It is an
+which refuses to write below the publication gate) and landed as a PR to
+`main` on the fixed `qp-topics/refresh` branch, which merges unattended once its
+required checks pass, the `paths` jail among them. It is an
 **accumulating** artifact — the labeling frame outruns one dispatch, so each run
 labels a batch derived from committed state and the file is the union of every
 batch, carrying a per-batch ledger and, on each row, the batch that first

@@ -149,6 +149,8 @@ from .collect import (
     ThrottleRollup,
     assert_board_within_jail,
     assert_cleanup_within_jail,
+    assert_labels_within_jail,
+    assert_refresh_within_jail,
     assert_updates_within_jail,
     assert_within_jail,
     attempted_corpus_query,
@@ -21094,6 +21096,14 @@ def summary_paths_cmd(
             "withdraws is admitted rather than refused.",
         ),
     ] = None,
+    any_withdrawal: Annotated[
+        bool,
+        typer.Option(
+            "--any-withdrawal",
+            help="Admit the deletion of any case summary, as a withdrawal, without a "
+            "plan: the required `paths` check's form, which has no plan to read.",
+        ),
+    ] = False,
 ) -> None:
     """Print the summary files a change set writes; with --strict, the lane's jail.
 
@@ -21105,13 +21115,19 @@ def summary_paths_cmd(
     PR's summaries forward (other paths are ignored); with it, the check that
     refuses to publish a change set holding anything but summaries. With
     ``--plan``, the one deletion the lane makes, a summary that plan withdraws,
-    passes too; it is not printed.
+    passes too; it is not printed. With ``--any-withdrawal``, a deletion of any
+    case summary passes the same way: the required `paths` check runs that form
+    on the `summaries/refresh` branch, which merges unattended, and it bounds the
+    branch to summary files, while the producer's ``--plan`` form decides which
+    deletions it makes.
     """
     withdrawn: set[str] = set()
     if plan_file is not None:
         plan = SummaryPlan.model_validate_json(plan_file.read_text())
         withdrawn = {row.path for row in plan.withdrawn}
     changes = [(c.status, c.path) for c in parse_name_status(name_status_file.read_text())]
+    if any_withdrawal:
+        withdrawn |= {path for status, path in changes if status == "D"}
     writes, violations = summaries.summary_changes(changes, withdrawn)
     if strict and violations:
         for violation in violations:
@@ -21132,7 +21148,7 @@ def summary_withdraw_cmd(
     A summary written before the docketed date of the petition its docket
     number now holds describes another petition (a re-docketed number), and
     ``summarize-plan`` lists it under ``withdrawn``. The publish job runs this
-    on its checkout so the review PR carries the deletion, which
+    on its checkout so the summaries PR carries the deletion, which
     ``summary-paths --strict --plan`` then admits. A file already gone is
     skipped.
     """
@@ -25310,7 +25326,7 @@ def _spend_verdict_json(verdict: SpendVerdict) -> dict[str, Any]:
         "basis": (
             "The ledger counts committed spend only — a cell's usage.json reaches data/ when "
             "its run's collect PR merges, a case summary's or a topic-labeler run's record "
-            "when its reviewed PR does — and `cells` counts the agent cells inside spent_usd, "
+            "when its publish PR does — and `cells` counts the agent cells inside spent_usd, "
             "which also sums those summaries and labeler runs; so spent_usd is a FLOOR on "
             "spend within the window, "
             "never a live figure. Null where no ceiling is configured: the backstop returns "
@@ -27852,6 +27868,53 @@ def assert_update_paths_cmd(
     typer.echo(f"update jail OK ({len(changes)} change(s))")
 
 
+@app.command("assert-label-paths")
+def assert_label_paths_cmd(
+    name_status_file: Annotated[
+        Path, typer.Option(help="File holding `git diff --name-status` output to check.")
+    ],
+    branch: Annotated[
+        str, typer.Option(help="The labeling branch the change set is on, which names its frame.")
+    ],
+) -> None:
+    """Enforce a labeling branch's path jail; exit non-zero on any violation.
+
+    A labels or spend-record PR merges unattended, so its diff is bounded: the
+    branch's frame's labels file, written, and spend records, added. CI runs this
+    as a required status check on the PR, independently of the workflow that
+    produced the branch.
+    """
+    changes = parse_name_status(name_status_file.read_text())
+    try:
+        assert_labels_within_jail(changes, branch=branch)
+    except PathJailError as exc:
+        typer.echo(f"::error::{exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(f"labels jail OK ({len(changes)} change(s))")
+
+
+@app.command("assert-refresh-paths")
+def assert_refresh_paths_cmd(
+    name_status_file: Annotated[
+        Path, typer.Option(help="File holding `git diff --name-status` output to check.")
+    ],
+) -> None:
+    """Enforce the metrics refresh's path jail; exit non-zero on any violation.
+
+    The refresh PR merges unattended, so its diff is bounded: the artifacts the
+    refresh regenerates, written, and nothing else. CI runs this as a required
+    status check on the PR, independently of the workflow that produced the
+    branch.
+    """
+    changes = parse_name_status(name_status_file.read_text())
+    try:
+        assert_refresh_within_jail(changes)
+    except PathJailError as exc:
+        typer.echo(f"::error::{exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(f"refresh jail OK ({len(changes)} change(s))")
+
+
 @app.command("collect-union")
 def collect_union_cmd(
     source: Annotated[
@@ -28231,7 +28294,7 @@ def cleanup_out_of_scope_predictions_cmd(
         typer.Option("--apply", help="Delete the directories; omit for a dry-run that only lists."),
     ] = False,
     run_id: Annotated[
-        str, typer.Option(help="Run id for the review PR's branch name; defaults to now (UTC).")
+        str, typer.Option(help="Run id the refresh PR's body names; defaults to now (UTC).")
     ] = "",
     issue: Annotated[int, typer.Option(help="Issue the PR closes on merge (0 = none).")] = 0,
 ) -> None:

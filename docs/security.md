@@ -35,10 +35,11 @@ jail (the dev App's unattended merges), the writer jail (the data App), or
   `DATA_APP_PRIVATE_KEY` secret. This App **is** a bypass actor on `main: require
   PR`, so the writers push corpus facts straight to `main`.
 - **dev App** — used by the agent workflows' `collect` jobs (`run-predict` /
-  `run-evaluate`; no job that runs an agent names it), the reviewed-PR openers (`run-backtest`'s publish job,
-  `run-analytics`'s metrics-refresh and qp-topic-publish jobs, and
-  `summarize`'s publish job),
-  `run-analytics`'s big-cases and public-updates jobs (the two PR openers here that merge their own PRs unattended),
+  `run-evaluate`; no job that runs an agent names it), the reviewed-PR openers (`run-backtest`'s publish job
+  and `run-analytics`'s alignment-fit-publish job),
+  the PR openers that merge their own PRs unattended (`run-analytics`'s
+  big-cases, public-updates, metrics-refresh and qp-topic-publish jobs — the
+  last leaving a side-coding batch for review — and `summarize`'s publish job),
   `sync-staging`, and the promotion train (`promotion-prep`'s `write` job),
   which cuts each frozen `promote/<date>` candidate, opens its PR and merges
   it on the configured approver's approval of exactly its head.
@@ -97,12 +98,12 @@ also on `corpus-write`, for the corpus writer jobs that bind it. Each workflow m
 | `run-repair` | data | contents (the corpus, re-grade, vote, application back-fill, decision-record, opinion-record and document jobs); none at all on the selector-validation, `handoff-projection`, `handoff-parse` and `documents-dry-run` jobs | commit one dispatched maintenance pass's corpus and/or ledger writes to `main`; publish the verdict. Every pass that fetches and parses the Court's content (`opinion-votes`, `order-votes`, `application-backfill`, `opinion-record`, `ocr-recovery`, `recut`, `document-backfill`) runs as a credential split: a read-only projection job, a parse job holding **no** credential (no environment, no `id-token`, no secret), and on an apply only a writer job that re-validates the parse's plan whole and applies it, fetching nothing; the re-cut's dry run reads its plan in `documents-dry-run`, which holds the read-only session alone and writes nothing. The vote writer holds the App token and nothing else — no AWS role and no `id-token` — and mints it only after the planned stamps are applied; the application back-fill, opinion-record and document (OCR recovery, re-cut and document back-fill) writers take the read-write role, pull, apply and push, and mint the App token only after the push, for a commit step that blanks the AWS session's variables and asserts it. The corpus job's dry run holds the read-only session and no App token, and pushes nothing; its apply holds the read-write role and the App token. The decision-record job is one job (it fetches nothing and parses only private stored snapshots): its dry run holds the read-only session, its apply the read-write one, and its commit step blanks and asserts the AWS session's variables. In every job here that holds `id-token: write`, each step can mint a token for every role its environment is trusted by — both corpus roles under `corpus-write` (the corpus, application back-fill, decision-record, opinion-record and document jobs), and under `prod` (`handoff-projection`, `documents-dry-run`) the read-only role alone, since the read-write role's trust names `corpus-write` only (*`corpus-write` holds the production read-write role* below) — the runner injects the OIDC request pair into every step after the step's own `env:`, so a step env cannot blank it and only a job boundary removes it; the validation, `handoff-parse`, vote-writer and re-grade jobs hold no `id-token` |
 | `run-predict`, `run-evaluate` (`collect` job only) | dev | contents, pull-requests | the cell jobs name no App credential: a Claude cell's action gets the job's own token, capped at `contents: read` by the cell job's permissions, and the codex and gemini cells get none. The workflow commits, and `collect` merges its run PR once the required checks pass with a second workflow token minted for that step alone. The engine watchdog that brackets every engine step holds no token: it reports only on the runner, through the cell's own tail |
 | `run-backtest` (publish job only) | dev | contents, pull-requests | open the reviewed back-test PR. The replay job holds no App credential: it hands the arm's one report to the publish job as a one-day artifact, and the publish job, which runs no engine and assumes no role, checks that the hand-off holds that file alone, that the tree differs from the commit there alone, and scans the change and the PR prose for secrets, all before it mints. A merits replay also uploads its cells' scanned forecasts as the 30-day `merits-forecasts` artifact from the replay job itself, on the runtime token, with no App credential (SECURITY.md states that artifact's gate and residuals). The `cadence` guard holds no App token either, only an ambient `actions: read` over this workflow's own run history, for the overlap check that keeps a fortnight from replaying behind a run still going |
-| `run-analytics` (metrics-refresh job only) | dev | contents, pull-requests | open the reviewed metrics-refresh PR; the read-only analysis modes hold no write token. Minted on `main`-branch (prod-bound) runs only — a staging rehearsal fences the mint, identity and review-PR steps and publishes nothing |
-| `run-analytics` (big-cases job only) | dev | contents, pull-requests | open and, once its required checks pass, merge the **unattended** big-case-board PR — one of the two PR openers in this repo not reviewed by a human (with the public-updates row below), which is why its diff is bounded independently by the required `paths` check (`assert-board-paths`: the board's two files, written, nothing else). The job assumes no role and holds no `id-token`: it reads the committed ledger and nothing else. Minted on `main`-branch (prod-bound) runs only, on the same terms as the row above |
+| `run-analytics` (metrics-refresh job only) | dev | contents, pull-requests | open and, once its required checks pass, merge the **unattended** metrics-refresh PR, whose diff the required `paths` check bounds independently (`assert-refresh-paths`: the artifacts the refresh regenerates, written, nothing else — `metrics/README.md` is outside it); the read-only analysis modes hold no write token. Minted on `main`-branch (prod-bound) runs only — a staging rehearsal fences the mint, identity and refresh-PR steps and publishes nothing |
+| `run-analytics` (big-cases job only) | dev | contents, pull-requests | open and, once its required checks pass, merge the **unattended** big-case-board PR — one of the PR openers in this repo not reviewed by a human (with the public-updates, metrics-refresh, qp-topic-publish and summarize rows), which is why its diff is bounded independently by the required `paths` check (`assert-board-paths`: the board's two files, written, nothing else). The job assumes no role and holds no `id-token`: it reads the committed ledger and nothing else. Minted on `main`-branch (prod-bound) runs only, on the same terms as the row above |
 | `run-analytics` (public-updates job only) | dev | contents, pull-requests | open and, once its required checks pass, merge the **unattended** update-history PR, whose diff the required `paths` check bounds independently (`assert-update-paths`: added `metrics/updates/<YYYY-Www>.md` files, nothing else). The job assumes no role, holds no `id-token` and does not bind `website`: it reads the committed ledger and nothing else. Minted on `main`-branch (prod-bound) runs only, on the same terms as the rows above |
-| `run-analytics` (qp-topic-publish job only) | dev | contents, pull-requests | open the reviewed qp-topic labels PR (on the side-coding frame, the reviewed side-codes PR on `merits-alignment/side-codes`), or a spend-record PR, from a job that runs no agent and takes only the measured labels file, the measured block and the run's spend record from `qp-topic-label`, as a one-day artifact: the labels and the block once the gate has passed, the spend record on any outcome it was written on — a refused or incomplete run hands off the record (and a refused run its block) alone, and the job re-validates the record, holds it to this run's id and frame, and scans every handed-off file before it mints. The mint is fenced to `main`-branch (prod-bound) runs, so a rehearsal exercises the hand-off and publishes nothing. The labeling job itself holds no App token on any ref — the agent step is passed the job's own ambient token as `github_token` (the action requires one, and its OIDC fallback would mint an App installation token defaulting to contents/issues/pull-requests *write*), capped at `contents: read` by the job's permissions block |
+| `run-analytics` (qp-topic-publish job only) | dev | contents, pull-requests | open the qp-topic labels PR (on the side-coding frame, the side-codes PR on `merits-alignment/side-codes`), or a spend-record PR, and merge it once its required checks pass — **unattended**, except a PR carrying side codes, which has no reference gate and waits for the maintainer; the required `paths` check bounds each branch's diff independently (`assert-label-paths`: the frame's labels file, written, and spend records, added) — from a job that runs no agent and takes only the measured labels file, the measured block and the run's spend record from `qp-topic-label`, as a one-day artifact: the labels and the block once the gate has passed, the spend record on any outcome it was written on — a refused or incomplete run hands off the record (and a refused run its block) alone, and the job re-validates the record, holds it to this run's id and frame, and scans every handed-off file before it mints. The mint is fenced to `main`-branch (prod-bound) runs, so a rehearsal exercises the hand-off and publishes nothing. The labeling job itself holds no App token on any ref — the agent step is passed the job's own ambient token as `github_token` (the action requires one, and its OIDC fallback would mint an App installation token defaulting to contents/issues/pull-requests *write*), capped at `contents: read` by the job's permissions block |
 | `run-analytics` (alignment-fit-publish job only) | dev | contents, pull-requests | open or update the reviewed frozen-fit PR on `merits-alignment/fits` (never auto-merged), after `assert-alignment-fits` holds the handed-off file to adding one Term to `main`'s. The job assumes no role and holds no `id-token`; the fit job that computed the file holds the read-only role and no App token. Minted on `main`-branch (prod-bound) runs only |
-| `summarize` (publish job only) | dev | contents, pull-requests | open or update the reviewed `summaries/refresh` PR (never auto-merged). The job runs on `main` only, binds `prod`, assumes no role and holds no model key: it mints after the generate job has jailed, validated and scanned the summaries, and re-runs all three over the whole change set before the push |
+| `summarize` (publish job only) | dev | contents, pull-requests | open or update the `summaries/refresh` PR and, once its required checks pass, merge it **unattended**; the required `paths` check bounds its diff independently (`summary-paths --strict --any-withdrawal`: summary files written, case summaries deleted, nothing else). The job runs on `main` only, binds `prod`, assumes no role and holds no model key: it mints after the generate job has jailed, validated and scanned the summaries, and re-runs all three over the whole change set before the push |
 | `promotion-prep` (`write` job only — the promotion train) | dev | contents, pull-requests | create a `promote/<date>` candidate branch at staging's tip (the one ref write; never an update, force push or deletion), open its draft PR into `main`, mark it ready, request the approvers' review, refresh the generated block of its body — and **merge it**, with a merge commit pinned to the head, using the dev App's `main: require approval` bypass. The merge runs only after the job re-reads, on the ambient token before minting, that the PR is open, ready and unchanged at the planned head, that an approver in `config/promotion-train.yaml` approved exactly that head with no change requested since, from every page of the reviews (`fedcourts promotion-train-approval`; a short or failed read is not approved), that no fan-out is in flight, and that the registry gate still passes; `main: require PR`'s required checks still bind the merge. The `plan` job before it decides and renders holding no write credential and no environment |
 | `run-pull` (chain-predict job), `run-predict` (chain job) | dispatch | actions write; pull-requests read | start an input-less `run-predict` on `main`: after a pull window commits, and after a round a cap stopped short once its collect PR merges. Both read the open PRs into `main` and their reviews first, standing down while a promotion is about to merge, and `chain` also reads its round's collect PR. The started round derives its own backlog and waits on the review hold unless its own plan auto-releases |
 | `promotion-prep` (`dispatch-gate` job) | dispatch | actions write | start `integration-test` `scenario=gate` (`offline-gate` when `main`'s `scripts/cell_reach.py` calls the batch cell-inert or the `promote:skip-engine-smoke` label is on, never under `promote:require-engine-smoke`) at a promotion candidate's `promote/<date>` branch, only while no dispatched integration run of any title sits at that head and ref: one paid suite per candidate, never re-dispatched by the train, and at most `max_gate_dispatches_per_day` (`config/promotion-train.yaml`) a UTC day across candidates. The run resolves the `staging` environment, spends staging's engine keys with no review hold, and is side-effect free like every integration run |
@@ -383,9 +384,11 @@ this policy.
     on every PR they do not gate). `main-base` is the merge-routing jail: it
     runs — and fails — only on a PR to `main` whose head
     is not a same-repo `staging` or non-feature lane, so a feature PR
-    cannot ride around the promotion path by mistake. Those lanes are all
-    reviewed except the big-case board's and the weekly update history's, which
-    merge unattended behind the `paths` jail below. One reviewed lane is not a
+    cannot ride around the promotion path by mistake. The big-case board, the
+    weekly update history, the metrics refresh, the case summaries and the
+    labeling branches merge unattended behind the `paths` jail below; the
+    back-tests, the salience replay and the frozen fit are reviewed, as is a
+    side-coding batch. One reviewed lane is not a
     bot's: a `record-fill/*` PR, which the `paths` jail holds to filling, in
     place, freeze-record placeholders the base already carries (the tested
     `fedcourts assert-record-fill`), so the one route into `main` an
@@ -437,8 +440,25 @@ this policy.
     `metrics/big-cases.{json,md}` and nothing else; its weekly `public-updates`
     job opens its PR on the `metrics/public-updates` branch, and there `paths`
     runs `fedcourts assert-update-paths`, which admits added
-    `metrics/updates/<YYYY-Www>.md` files and nothing else — one bounded diff per
-    lane, so no unattended merge can carry a change a human never read. It
+    `metrics/updates/<YYYY-Www>.md` files and nothing else; the weekly
+    `metrics-refresh` job's `metrics/refresh` branch runs `fedcourts
+    assert-refresh-paths` (the regenerated artifacts, written); `summarize`'s
+    `summaries/refresh` branch runs `fedcourts summary-paths --strict
+    --any-withdrawal` (summary files written, case summaries deleted); and the
+    labeling branches `qp-topics/refresh`, `qp-topics/applications-refresh` and
+    `merits-alignment/side-codes` run `fedcourts assert-label-paths` (that
+    frame's labels file, written, and spend records, added) — one bounded diff
+    per lane, so no unattended merge can carry code, config or a workflow.
+    Those three newer lanes publish model output a human no longer reads before
+    it lands — case summaries and topic labels — so what stands in for the
+    read is the lane's own producer-side gates: the summaries' mechanical
+    body rules, contact scrub and secret scan, and the labeler's publication
+    gate, accrual guard and secret scan. A summary's factual error, slant or a
+    named individual is caught after publication and corrected by a re-run or
+    a reviewed PR. The summaries jail's path rules live in
+    `src/fedcourtsai/summaries.py`, outside the owned files, because that module
+    imports `collect.py`; a change to them still reaches `main` only in a
+    promotion the maintainer approves. It
     carries one reviewed lane's jail as well: on a `record-fill/*` branch it
     runs `fedcourts assert-record-fill` (below). It is a no-op that
     passes on every other branch, so requiring it never blocks an ordinary PR. The
@@ -497,8 +517,9 @@ this policy.
   ineligible to. A train candidate's only push is the dev App's ref creation,
   never the maintainer's, so the rule would not block its approval either way;
   it stays off for the hand promotions. **Bypass**, each scoped to what it lands:
-  - the **dev App**, for pull requests only — the three unattended lanes
-    (`collect`, the big-case board and the weekly update history) land without a human, still bound by
+  - the **dev App**, for pull requests only — the unattended lanes
+    (`collect`, the big-case board, the weekly update history, the metrics
+    refresh, the case summaries and the labeling runs) land without a human, still bound by
     `main: require PR`'s checks and the `paths` jail, because that ruleset
     does not list it. They land by the job's own merge call
     (`scripts/merge-when-green.sh`), not by GitHub's auto-merge, which never
@@ -508,10 +529,14 @@ this policy.
     platform's refusal, and a refusal leaves the PR armed for approval. The
     call is pinned to the commit the job pushed, so a later push
     onto the branch leaves the PR for review; the jobs still arm auto-merge,
-    so a PR the call gives up on lands on the maintainer's approval. Its
-    reviewed lanes (the metrics refresh, the backtest, the summaries, the
-    labeling run) are never merged unattended, so a maintainer merging them is
-    the convention that keeps them read. The promotion train's `write` job
+    so a PR the call gives up on lands on the maintainer's approval. The
+    summaries and labeling lanes merge only a tree the run built from `main`
+    and its own output: a branch that carries an open PR's content forward is
+    left for review, because that fixed branch is unprotected and any write
+    holder can push to it. Its reviewed lanes (the back-tests, the salience
+    replay, the frozen fit, and a side-coding batch carrying codes) are never
+    merged unattended, so a maintainer merging them is the convention that
+    keeps them read. The promotion train's `write` job
     is the one dev App merge into `main` of code: it merges a promotion
     candidate only after re-reading that an approver `config/promotion-train.yaml`
     lists approved exactly the candidate's head, nothing requested since, and
@@ -702,7 +727,7 @@ happen and keep the branch list clean. To reproduce the repo (or use it as a tem
 | Setting | Value | Why |
 |---------|-------|-----|
 | **Allow auto-merge** | **on** | The `collect`, `big-cases` and `public-updates` jobs each run `gh pr merge --auto --merge` before merging the PR themselves, so a PR their own merge gives up on (a slow check, a refusal) still lands the moment the maintainer approves it. With it off that call errors and both degrade gracefully (log a warning and carry on); the jobs' own merge does not depend on it. |
-| **Allow squash merging** | **off** | No lane squashes. A data-run PR lands as a merge commit whose subject is the PR's title and number when its job or the armed auto-merge lands it (`scripts/merge-when-green.sh`, and the same subject on the auto-merge arm), so `main`'s first-parent log reads one line per run and carries the auto-released mark the review hold counts its daily cap from. A hand merge — every summaries review PR, and a data PR whose own merge gave up — takes the default subject the next row sets to the same title. |
+| **Allow squash merging** | **off** | No lane squashes. A data-run PR lands as a merge commit whose subject is the PR's title and number when its job or the armed auto-merge lands it (`scripts/merge-when-green.sh`, and the same subject on the auto-merge arm), so `main`'s first-parent log reads one line per run and carries the auto-released mark the review hold counts its daily cap from. A hand merge — a reviewed lane's PR, and a data PR whose own merge gave up or that carried an open PR's content — takes the default subject the next row sets to the same title. |
 | **Default merge commit message** | **Pull request title** | A hand-merged PR's merge commit takes `<title> (#N)` as its subject, the subject the jobs' own merges set. With the platform's `Merge pull request #N from <branch>` instead, an auto-released round merged by hand keeps its mark only on the branch commit beneath, dated when it was built rather than when it landed, so a PR that waited a day under review drops out of the review hold's daily count. |
 | **Automatically delete head branches** | **on** | A new `predict/run-<id>` branch is pushed every run; without this they accumulate. (It cannot touch `main`: GitHub skips the default branch, and `main: protect history` refuses deletion from anyone.) |
 | **Allow merge commits** | **on** | The only method. `sync-staging` merges `main` into `staging` with `--merge`. A squash or rebase would land a commit with no parent link to `main`'s tip, so the promotion gate's ancestry check would fail and the next sync would reopen the same PR forever. |

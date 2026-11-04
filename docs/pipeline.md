@@ -491,10 +491,13 @@ queues behind the production run of the same mode. The modes:
   (input: the corpus) are deterministic stage commands that otherwise change
   only when someone reruns them locally. It reruns those tested
   `fedcourts` commands and — only when an artifact actually changed (they are
-  byte-stable, so a no-op refresh diffs empty) — opens a **reviewed** PR rendered
-  by the tested `metrics-refresh-plan` command: never a
-  direct commit to `main`, never auto-merged. It mints the dev App token to do
-  so; `big-cases`, `public-updates` and `qp-topic-publish` below are the only
+  byte-stable, so a no-op refresh diffs empty) — opens a PR rendered by the
+  tested `metrics-refresh-plan` command, never a direct commit to `main`, and
+  merges it itself once its required checks pass (`scripts/merge-when-green.sh`,
+  as `big-cases` below does). The required `paths` check holds that PR to the
+  artifacts listed here, written (`assert-refresh-paths`); `gate` re-runs the
+  regenerating commands' tests. It mints the dev App token to do so;
+  `big-cases`, `public-updates` and `qp-topic-publish` below are the only
   other jobs here that do. The branch is fixed
   (`metrics/refresh`) and force-pushed, so an unmerged refresh PR is updated in
   place by the next tick rather than stacking. It gates on the weekly cron by
@@ -578,8 +581,18 @@ queues behind the production run of the same mode. The modes:
   population, row ceiling, and batching rule are in [qp-topic.md](qp-topic.md))
   and lands the
   measured per-case labels file
-  (`data/qp-topics/qp-topics.json`) as a **reviewed** PR to `main` — fixed
-  branch `qp-topics/refresh`, force-pushed, never auto-merged. The frame outruns
+  (`data/qp-topics/qp-topics.json`) as a PR to `main` on the fixed, force-pushed
+  branch `qp-topics/refresh`, which the publish job merges once its required
+  checks pass. The required `paths` check holds the PR to the frame's labels
+  file, written, and added spend records (`assert-label-paths`); the batch got
+  there only past the measure step's publication gate and the publish job's
+  accrual guard. A run that publishes nothing lands its spend record the same
+  way. A branch that carries an open PR's labels or spend records
+  forward is left for the maintainer, since that fixed branch takes any write
+  holder's push. The side coder's codes PR (`merits-alignment/side-codes`) is the one
+  labeling PR left for the maintainer: the codes have no reference gate, so
+  reading the coder's notes is the check; its spend-record-only PRs merge
+  unattended. The frame outruns
   one run, so each run labels a batch derived from committed state and the
   artifact **accrues**: the weekly cron works the frame down a batch at a time,
   and a dispatch adds one — dispatch it **from the ref carrying the newest
@@ -742,9 +755,10 @@ from the one its newest summary was written from — so a run that was declined
 or never fired is simply re-derived by the next. Every run holds on `review`
 before it spends, unless a `main` run's plan is within the auto-release caps
 and budget (*Auto-release*, below). The corpus role and the Anthropic API key never share
-a job; on `main` the result lands as one reviewed PR from the fixed branch
-`summaries/refresh`, never auto-merged, which later runs update in place until
-it merges. A `staging` dispatch is a rehearsal whose summaries stay in the run
+a job; on `main` the result lands as one PR from the fixed branch
+`summaries/refresh`, which the publish job merges once its required checks pass,
+the `paths` jail among them; a PR left open is updated in place by later runs
+until it merges. A `staging` dispatch is a rehearsal whose summaries stay in the run
 artifact. The contract, selection rule, credential split and residuals are in
 [case-summaries.md](case-summaries.md).
 
@@ -2079,7 +2093,7 @@ The mechanics:
   `main`'s required checks are exactly `gate`, `paths`, `promotion-gate`, and
   **`main-base`**. `main-base` is the merge-routing jail — it runs, and fails,
   only on a PR to `main` whose head is not `staging`, a promotion train
-  candidate (`promote/…`), or a reviewed non-feature
+  candidate (`promote/…`), or a non-feature
   lane (the collect run branches, the maintainer's cleanup sweep, the
   metrics-refresh, cert-backtest, merits-backtest and salience-replay PRs,
   the qp-topic labeling runs' `qp-topics/refresh` and
