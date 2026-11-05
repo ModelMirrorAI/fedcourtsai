@@ -3267,6 +3267,30 @@
             ]
           },
           {
+            "cases": 1,
+            "labels": [
+              "proc-v17"
+            ],
+            "rank_agreement": null,
+            "signature": [
+              {
+                "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+                "evaluator_id": "claude-judge",
+                "n": 1
+              },
+              {
+                "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+                "evaluator_id": "codex-judge",
+                "n": 1
+              },
+              {
+                "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+                "evaluator_id": "gemini-judge",
+                "n": 1
+              }
+            ]
+          },
+          {
             "cases": 100,
             "labels": [
               "proc-v8"
@@ -3291,8 +3315,8 @@
             ]
           }
         ],
-        "cases": 144,
-        "rank_agreement": 0.77582067986667,
+        "cases": 145,
+        "rank_agreement": 0.776703388620977,
         "rubrics": [
           {
             "digest": "sha256:0e123d10c73cb8a03f7859c46c1f3bd621187ecb12918542fee4512f6fde36ec",
@@ -3303,6 +3327,11 @@
             "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
             "evaluator_id": "claude-judge",
             "n": 55
+          },
+          {
+            "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+            "evaluator_id": "claude-judge",
+            "n": 1
           },
           {
             "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
@@ -3318,6 +3347,11 @@
             "digest": "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456",
             "evaluator_id": "codex-judge",
             "n": 20
+          },
+          {
+            "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+            "evaluator_id": "codex-judge",
+            "n": 1
           },
           {
             "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
@@ -3345,6 +3379,11 @@
             "n": 27
           },
           {
+            "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+            "evaluator_id": "gemini-judge",
+            "n": 1
+          },
+          {
             "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
             "evaluator_id": "gemini-judge",
             "n": 86
@@ -3360,6 +3399,11 @@
             "n": 12,
             "opens": "2026-10-20T15:24:42Z",
             "process_window": "proc-v10"
+          },
+          {
+            "n": 3,
+            "opens": "2026-10-30T16:38:43Z",
+            "process_window": "proc-v15"
           }
         ]
       },
@@ -4344,6 +4388,30 @@
             ]
           },
           {
+            "cases": 3,
+            "labels": [
+              "proc-v17"
+            ],
+            "rank_agreement": 0.8164965809277261,
+            "signature": [
+              {
+                "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+                "evaluator_id": "claude-judge",
+                "n": 3
+              },
+              {
+                "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+                "evaluator_id": "codex-judge",
+                "n": 2
+              },
+              {
+                "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+                "evaluator_id": "gemini-judge",
+                "n": 3
+              }
+            ]
+          },
+          {
             "cases": 105,
             "labels": [
               "proc-v8"
@@ -4368,8 +4436,8 @@
             ]
           }
         ],
-        "cases": 150,
-        "rank_agreement": 0.8343015283609879,
+        "cases": 153,
+        "rank_agreement": 0.8376678390309821,
         "rubrics": [
           {
             "digest": "sha256:0e123d10c73cb8a03f7859c46c1f3bd621187ecb12918542fee4512f6fde36ec",
@@ -4380,6 +4448,11 @@
             "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
             "evaluator_id": "claude-judge",
             "n": 56
+          },
+          {
+            "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+            "evaluator_id": "claude-judge",
+            "n": 3
           },
           {
             "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
@@ -4395,6 +4468,11 @@
             "digest": "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456",
             "evaluator_id": "codex-judge",
             "n": 20
+          },
+          {
+            "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+            "evaluator_id": "codex-judge",
+            "n": 2
           },
           {
             "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
@@ -4422,6 +4500,11 @@
             "n": 28
           },
           {
+            "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+            "evaluator_id": "gemini-judge",
+            "n": 3
+          },
+          {
             "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
             "evaluator_id": "gemini-judge",
             "n": 91
@@ -4437,6 +4520,16 @@
             "n": 32,
             "opens": "2026-10-11T12:00:00Z",
             "process_window": "proc-v9"
+          },
+          {
+            "n": 5,
+            "opens": "2026-10-30T16:38:43Z",
+            "process_window": "proc-v15"
+          },
+          {
+            "n": 3,
+            "opens": "2026-11-02T17:51:42Z",
+            "process_window": "proc-v17"
           }
         ]
       },
@@ -5409,6 +5502,30 @@
             ]
           },
           {
+            "cases": 3,
+            "labels": [
+              "proc-v17"
+            ],
+            "rank_agreement": 0.0,
+            "signature": [
+              {
+                "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+                "evaluator_id": "claude-judge",
+                "n": 3
+              },
+              {
+                "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+                "evaluator_id": "codex-judge",
+                "n": 2
+              },
+              {
+                "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+                "evaluator_id": "gemini-judge",
+                "n": 3
+              }
+            ]
+          },
+          {
             "cases": 102,
             "labels": [
               "proc-v8"
@@ -5433,8 +5550,8 @@
             ]
           }
         ],
-        "cases": 146,
-        "rank_agreement": 0.7813353460935007,
+        "cases": 149,
+        "rank_agreement": 0.7835918105405275,
         "rubrics": [
           {
             "digest": "sha256:0e123d10c73cb8a03f7859c46c1f3bd621187ecb12918542fee4512f6fde36ec",
@@ -5445,6 +5562,11 @@
             "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
             "evaluator_id": "claude-judge",
             "n": 55
+          },
+          {
+            "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+            "evaluator_id": "claude-judge",
+            "n": 3
           },
           {
             "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
@@ -5460,6 +5582,11 @@
             "digest": "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456",
             "evaluator_id": "codex-judge",
             "n": 20
+          },
+          {
+            "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+            "evaluator_id": "codex-judge",
+            "n": 2
           },
           {
             "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
@@ -5487,6 +5614,11 @@
             "n": 28
           },
           {
+            "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+            "evaluator_id": "gemini-judge",
+            "n": 3
+          },
+          {
             "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
             "evaluator_id": "gemini-judge",
             "n": 87
@@ -5502,6 +5634,16 @@
             "n": 15,
             "opens": "2026-10-20T15:24:42Z",
             "process_window": "proc-v10"
+          },
+          {
+            "n": 5,
+            "opens": "2026-10-30T16:38:43Z",
+            "process_window": "proc-v15"
+          },
+          {
+            "n": 3,
+            "opens": "2026-11-02T17:51:42Z",
+            "process_window": "proc-v17"
           }
         ]
       },
@@ -6488,6 +6630,30 @@
           ]
         },
         {
+          "cases": 3,
+          "labels": [
+            "proc-v17"
+          ],
+          "rank_agreement": 0.5,
+          "signature": [
+            {
+              "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+              "evaluator_id": "claude-judge",
+              "n": 9
+            },
+            {
+              "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+              "evaluator_id": "codex-judge",
+              "n": 6
+            },
+            {
+              "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+              "evaluator_id": "gemini-judge",
+              "n": 9
+            }
+          ]
+        },
+        {
           "cases": 91,
           "labels": [
             "proc-v8"
@@ -6512,8 +6678,8 @@
           ]
         }
       ],
-      "events": 136,
-      "rank_agreement": 0.8394641859554656,
+      "events": 139,
+      "rank_agreement": 0.8429702022430386,
       "rubrics": [
         {
           "digest": "sha256:0e123d10c73cb8a03f7859c46c1f3bd621187ecb12918542fee4512f6fde36ec",
@@ -6524,6 +6690,11 @@
           "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
           "evaluator_id": "claude-judge",
           "n": 168
+        },
+        {
+          "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+          "evaluator_id": "claude-judge",
+          "n": 9
         },
         {
           "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
@@ -6539,6 +6710,11 @@
           "digest": "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456",
           "evaluator_id": "codex-judge",
           "n": 60
+        },
+        {
+          "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+          "evaluator_id": "codex-judge",
+          "n": 6
         },
         {
           "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
@@ -6566,6 +6742,11 @@
           "n": 84
         },
         {
+          "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+          "evaluator_id": "gemini-judge",
+          "n": 9
+        },
+        {
           "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
           "evaluator_id": "gemini-judge",
           "n": 271
@@ -6583,6 +6764,16 @@
           "process_window": "proc-v9"
         },
         {
+          "n": 2,
+          "predictor_id": "claude-baseline",
+          "process_window": "proc-v15"
+        },
+        {
+          "n": 1,
+          "predictor_id": "claude-baseline",
+          "process_window": "proc-v17"
+        },
+        {
           "n": 147,
           "predictor_id": "codex-baseline",
           "process_window": "proc-v8"
@@ -6593,6 +6784,16 @@
           "process_window": "proc-v10"
         },
         {
+          "n": 2,
+          "predictor_id": "codex-baseline",
+          "process_window": "proc-v15"
+        },
+        {
+          "n": 1,
+          "predictor_id": "codex-baseline",
+          "process_window": "proc-v17"
+        },
+        {
           "n": 146,
           "predictor_id": "gemini-baseline",
           "process_window": "proc-v8"
@@ -6601,6 +6802,16 @@
           "n": 5,
           "predictor_id": "gemini-baseline",
           "process_window": "proc-v10"
+        },
+        {
+          "n": 2,
+          "predictor_id": "gemini-baseline",
+          "process_window": "proc-v15"
+        },
+        {
+          "n": 1,
+          "predictor_id": "gemini-baseline",
+          "process_window": "proc-v17"
         }
       ]
     },
@@ -6687,6 +6898,30 @@
           ]
         },
         {
+          "cases": 2,
+          "labels": [
+            "proc-v17"
+          ],
+          "rank_agreement": null,
+          "signature": [
+            {
+              "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+              "evaluator_id": "claude-judge",
+              "n": 6
+            },
+            {
+              "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+              "evaluator_id": "codex-judge",
+              "n": 6
+            },
+            {
+              "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+              "evaluator_id": "gemini-judge",
+              "n": 6
+            }
+          ]
+        },
+        {
           "cases": 4,
           "labels": [
             "proc-v8"
@@ -6711,8 +6946,8 @@
           ]
         }
       ],
-      "events": 43,
-      "rank_agreement": 0.8897188378786535,
+      "events": 45,
+      "rank_agreement": 0.8972449737164326,
       "rubrics": [
         {
           "digest": "sha256:0e123d10c73cb8a03f7859c46c1f3bd621187ecb12918542fee4512f6fde36ec",
@@ -6723,6 +6958,11 @@
           "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
           "evaluator_id": "claude-judge",
           "n": 150
+        },
+        {
+          "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+          "evaluator_id": "claude-judge",
+          "n": 6
         },
         {
           "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
@@ -6738,6 +6978,11 @@
           "digest": "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456",
           "evaluator_id": "codex-judge",
           "n": 60
+        },
+        {
+          "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+          "evaluator_id": "codex-judge",
+          "n": 6
         },
         {
           "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
@@ -6765,6 +7010,11 @@
           "n": 84
         },
         {
+          "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+          "evaluator_id": "gemini-judge",
+          "n": 6
+        },
+        {
           "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
           "evaluator_id": "gemini-judge",
           "n": 6
@@ -6782,6 +7032,16 @@
           "process_window": "proc-v9"
         },
         {
+          "n": 1,
+          "predictor_id": "claude-baseline",
+          "process_window": "proc-v15"
+        },
+        {
+          "n": 1,
+          "predictor_id": "claude-baseline",
+          "process_window": "proc-v17"
+        },
+        {
           "n": 48,
           "predictor_id": "codex-baseline",
           "process_window": "proc-v8"
@@ -6792,6 +7052,16 @@
           "process_window": "proc-v10"
         },
         {
+          "n": 1,
+          "predictor_id": "codex-baseline",
+          "process_window": "proc-v15"
+        },
+        {
+          "n": 1,
+          "predictor_id": "codex-baseline",
+          "process_window": "proc-v17"
+        },
+        {
           "n": 48,
           "predictor_id": "gemini-baseline",
           "process_window": "proc-v8"
@@ -6800,6 +7070,16 @@
           "n": 5,
           "predictor_id": "gemini-baseline",
           "process_window": "proc-v10"
+        },
+        {
+          "n": 1,
+          "predictor_id": "gemini-baseline",
+          "process_window": "proc-v15"
+        },
+        {
+          "n": 1,
+          "predictor_id": "gemini-baseline",
+          "process_window": "proc-v17"
         }
       ]
     },
@@ -6886,6 +7166,30 @@
           ]
         },
         {
+          "cases": 3,
+          "labels": [
+            "proc-v17"
+          ],
+          "rank_agreement": 0.8164965809277261,
+          "signature": [
+            {
+              "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+              "evaluator_id": "claude-judge",
+              "n": 9
+            },
+            {
+              "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+              "evaluator_id": "codex-judge",
+              "n": 6
+            },
+            {
+              "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+              "evaluator_id": "gemini-judge",
+              "n": 9
+            }
+          ]
+        },
+        {
           "cases": 89,
           "labels": [
             "proc-v8"
@@ -6910,8 +7214,8 @@
           ]
         }
       ],
-      "events": 133,
-      "rank_agreement": 0.8135834328529183,
+      "events": 136,
+      "rank_agreement": 0.8136099964860047,
       "rubrics": [
         {
           "digest": "sha256:0e123d10c73cb8a03f7859c46c1f3bd621187ecb12918542fee4512f6fde36ec",
@@ -6922,6 +7226,11 @@
           "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
           "evaluator_id": "claude-judge",
           "n": 165
+        },
+        {
+          "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+          "evaluator_id": "claude-judge",
+          "n": 9
         },
         {
           "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
@@ -6937,6 +7246,11 @@
           "digest": "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456",
           "evaluator_id": "codex-judge",
           "n": 57
+        },
+        {
+          "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+          "evaluator_id": "codex-judge",
+          "n": 6
         },
         {
           "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
@@ -6964,6 +7278,11 @@
           "n": 84
         },
         {
+          "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+          "evaluator_id": "gemini-judge",
+          "n": 9
+        },
+        {
           "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
           "evaluator_id": "gemini-judge",
           "n": 271
@@ -6981,6 +7300,16 @@
           "process_window": "proc-v9"
         },
         {
+          "n": 2,
+          "predictor_id": "claude-baseline",
+          "process_window": "proc-v15"
+        },
+        {
+          "n": 1,
+          "predictor_id": "claude-baseline",
+          "process_window": "proc-v17"
+        },
+        {
           "n": 141,
           "predictor_id": "codex-baseline",
           "process_window": "proc-v8"
@@ -6991,6 +7320,16 @@
           "process_window": "proc-v10"
         },
         {
+          "n": 2,
+          "predictor_id": "codex-baseline",
+          "process_window": "proc-v15"
+        },
+        {
+          "n": 1,
+          "predictor_id": "codex-baseline",
+          "process_window": "proc-v17"
+        },
+        {
           "n": 139,
           "predictor_id": "gemini-baseline",
           "process_window": "proc-v8"
@@ -6999,6 +7338,16 @@
           "n": 5,
           "predictor_id": "gemini-baseline",
           "process_window": "proc-v10"
+        },
+        {
+          "n": 2,
+          "predictor_id": "gemini-baseline",
+          "process_window": "proc-v15"
+        },
+        {
+          "n": 1,
+          "predictor_id": "gemini-baseline",
+          "process_window": "proc-v17"
         }
       ]
     }
@@ -7006,7 +7355,7 @@
   "events_scored": 129,
   "forward_claim": {
     "by_predictor": {},
-    "claimed_forward": 1500,
+    "claimed_forward": 1527,
     "excluded": 0,
     "policy": "exclude"
   },
@@ -7241,7 +7590,7 @@
     ]
   },
   "leakage_exclusion": {
-    "assessed": 1500,
+    "assessed": 1527,
     "by_predictor": {
       "gemini-baseline": 3
     },
@@ -10335,16 +10684,16 @@
       },
       {
         "including": {
-          "accuracy": 0.8,
-          "accuracy_events_scored": 5,
+          "accuracy": 0.8333333333333334,
+          "accuracy_events_scored": 6,
           "accuracy_lift": null,
-          "accuracy_scored": 15,
+          "accuracy_scored": 18,
           "always_deny_accuracy": null,
-          "evaluations": 15,
-          "event_accuracy": 0.8,
+          "evaluations": 18,
+          "event_accuracy": 0.8333333333333334,
           "event_accuracy_lift": null,
           "event_always_deny_accuracy": null,
-          "events_scored": 5,
+          "events_scored": 6,
           "grants_expected": null,
           "grants_expected_scored": null,
           "grants_realized": null,
@@ -10352,8 +10701,8 @@
           "in_sample_events_scored": 0,
           "in_sample_grant_rate": null,
           "in_sample_skill_scored": 0,
-          "mean_brier_score": 0.11972,
-          "mean_reasoning_quality": 0.8193333333333332,
+          "mean_brier_score": 0.09983333333333333,
+          "mean_reasoning_quality": 0.8066666666666666,
           "mean_vote_accuracy": null,
           "population_brier_skill_score": 0.2905343712876165,
           "population_in_sample_skill_score": null,
@@ -10371,6 +10720,15 @@
                 "proc-v9"
               ],
               "mean_reasoning_quality": 0.6,
+              "n": 1
+            },
+            {
+              "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v17"
+              ],
+              "mean_reasoning_quality": 0.7,
               "n": 1
             },
             {
@@ -10392,6 +10750,15 @@
               "n": 1
             },
             {
+              "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v17"
+              ],
+              "mean_reasoning_quality": 0.75,
+              "n": 1
+            },
+            {
               "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
               "evaluator_id": "codex-judge",
               "labels": [
@@ -10407,6 +10774,15 @@
                 "proc-v9"
               ],
               "mean_reasoning_quality": 0.85,
+              "n": 1
+            },
+            {
+              "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v17"
+              ],
+              "mean_reasoning_quality": 0.78,
               "n": 1
             },
             {
@@ -10429,16 +10805,16 @@
       },
       {
         "including": {
-          "accuracy": 0.8,
-          "accuracy_events_scored": 5,
+          "accuracy": 0.8333333333333334,
+          "accuracy_events_scored": 6,
           "accuracy_lift": null,
-          "accuracy_scored": 15,
+          "accuracy_scored": 18,
           "always_deny_accuracy": null,
-          "evaluations": 15,
-          "event_accuracy": 0.8,
+          "evaluations": 18,
+          "event_accuracy": 0.8333333333333334,
           "event_accuracy_lift": null,
           "event_always_deny_accuracy": null,
-          "events_scored": 5,
+          "events_scored": 6,
           "grants_expected": null,
           "grants_expected_scored": null,
           "grants_realized": null,
@@ -10446,8 +10822,8 @@
           "in_sample_events_scored": 0,
           "in_sample_grant_rate": null,
           "in_sample_skill_scored": 0,
-          "mean_brier_score": 0.14936,
-          "mean_reasoning_quality": 0.8226666666666667,
+          "mean_brier_score": 0.12461666666666665,
+          "mean_reasoning_quality": 0.8188888888888889,
           "mean_vote_accuracy": null,
           "population_brier_skill_score": 0.11488651599998667,
           "population_in_sample_skill_score": null,
@@ -10465,6 +10841,15 @@
                 "proc-v9"
               ],
               "mean_reasoning_quality": 0.55,
+              "n": 1
+            },
+            {
+              "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v17"
+              ],
+              "mean_reasoning_quality": 0.7,
               "n": 1
             },
             {
@@ -10486,6 +10871,15 @@
               "n": 1
             },
             {
+              "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v17"
+              ],
+              "mean_reasoning_quality": 0.9,
+              "n": 1
+            },
+            {
               "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
               "evaluator_id": "codex-judge",
               "labels": [
@@ -10501,6 +10895,15 @@
                 "proc-v9"
               ],
               "mean_reasoning_quality": 0.85,
+              "n": 1
+            },
+            {
+              "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v17"
+              ],
+              "mean_reasoning_quality": 0.8,
               "n": 1
             },
             {
@@ -10523,16 +10926,16 @@
       },
       {
         "including": {
-          "accuracy": 0.7,
-          "accuracy_events_scored": 4,
+          "accuracy": 0.7692307692307693,
+          "accuracy_events_scored": 5,
           "accuracy_lift": null,
-          "accuracy_scored": 10,
+          "accuracy_scored": 13,
           "always_deny_accuracy": null,
-          "evaluations": 10,
-          "event_accuracy": 0.75,
+          "evaluations": 13,
+          "event_accuracy": 0.8,
           "event_accuracy_lift": null,
           "event_always_deny_accuracy": null,
-          "events_scored": 4,
+          "events_scored": 5,
           "grants_expected": null,
           "grants_expected_scored": null,
           "grants_realized": null,
@@ -10540,8 +10943,8 @@
           "in_sample_events_scored": 0,
           "in_sample_grant_rate": null,
           "in_sample_skill_scored": 0,
-          "mean_brier_score": 0.2593402,
-          "mean_reasoning_quality": 0.668,
+          "mean_brier_score": 0.19949338461538463,
+          "mean_reasoning_quality": 0.7030769230769232,
           "mean_vote_accuracy": null,
           "population_brier_skill_score": -0.047264036579079294,
           "population_in_sample_skill_score": null,
@@ -10559,6 +10962,15 @@
                 "proc-v9"
               ],
               "mean_reasoning_quality": 0.35,
+              "n": 1
+            },
+            {
+              "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v17"
+              ],
+              "mean_reasoning_quality": 0.85,
               "n": 1
             },
             {
@@ -10580,6 +10992,15 @@
               "n": 1
             },
             {
+              "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v17"
+              ],
+              "mean_reasoning_quality": 0.65,
+              "n": 1
+            },
+            {
               "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
               "evaluator_id": "codex-judge",
               "labels": [
@@ -10595,6 +11016,15 @@
                 "proc-v9"
               ],
               "mean_reasoning_quality": 0.85,
+              "n": 1
+            },
+            {
+              "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v17"
+              ],
+              "mean_reasoning_quality": 0.96,
               "n": 1
             },
             {
@@ -17491,6 +17921,136 @@
         },
         {
           "evaluators": 3,
+          "events_scored": 2,
+          "forward": {
+            "accuracy": 1.0,
+            "accuracy_events_scored": 2,
+            "accuracy_lift": null,
+            "accuracy_scored": 6,
+            "always_deny_accuracy": null,
+            "evaluations": 6,
+            "event_accuracy": 1.0,
+            "event_accuracy_lift": null,
+            "event_always_deny_accuracy": null,
+            "events_scored": 2,
+            "grants_expected": null,
+            "grants_expected_scored": null,
+            "grants_realized": null,
+            "grants_realized_expected_scored": null,
+            "in_sample_events_scored": 0,
+            "in_sample_grant_rate": null,
+            "in_sample_skill_scored": 0,
+            "mean_brier_score": 0.000122,
+            "mean_reasoning_quality": 0.7066666666666667,
+            "mean_vote_accuracy": null,
+            "population_brier_skill_score": 0.9911075534375,
+            "population_in_sample_skill_score": null,
+            "population_realized_term_skill_score": null,
+            "realized_term_skill_scored": 0,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v17"
+                ],
+                "mean_reasoning_quality": 0.725,
+                "n": 2
+              },
+              {
+                "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v17"
+                ],
+                "mean_reasoning_quality": 0.675,
+                "n": 2
+              },
+              {
+                "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v17"
+                ],
+                "mean_reasoning_quality": 0.72,
+                "n": 2
+              }
+            ],
+            "skill_scored": 6,
+            "vote_cells_scored": 0
+          },
+          "predictor_id": "claude-baseline",
+          "procedural": null,
+          "process_window": "proc-v15",
+          "retrospective": null
+        },
+        {
+          "evaluators": 3,
+          "events_scored": 1,
+          "forward": null,
+          "predictor_id": "claude-baseline",
+          "procedural": null,
+          "process_window": "proc-v17",
+          "retrospective": {
+            "accuracy": 1.0,
+            "accuracy_events_scored": 1,
+            "accuracy_lift": null,
+            "accuracy_scored": 3,
+            "always_deny_accuracy": null,
+            "evaluations": 3,
+            "event_accuracy": 1.0,
+            "event_accuracy_lift": null,
+            "event_always_deny_accuracy": null,
+            "events_scored": 1,
+            "grants_expected": null,
+            "grants_expected_scored": null,
+            "grants_realized": null,
+            "grants_realized_expected_scored": null,
+            "in_sample_events_scored": 0,
+            "in_sample_grant_rate": null,
+            "in_sample_skill_scored": 0,
+            "mean_brier_score": 0.0004,
+            "mean_reasoning_quality": 0.7433333333333333,
+            "mean_vote_accuracy": null,
+            "population_brier_skill_score": null,
+            "population_in_sample_skill_score": null,
+            "population_realized_term_skill_score": null,
+            "realized_term_skill_scored": 0,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v17"
+                ],
+                "mean_reasoning_quality": 0.7,
+                "n": 1
+              },
+              {
+                "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v17"
+                ],
+                "mean_reasoning_quality": 0.75,
+                "n": 1
+              },
+              {
+                "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v17"
+                ],
+                "mean_reasoning_quality": 0.78,
+                "n": 1
+              }
+            ],
+            "skill_scored": 0,
+            "vote_cells_scored": 0
+          }
+        },
+        {
+          "evaluators": 3,
           "events_scored": 7,
           "forward": {
             "accuracy": 0.7142857142857143,
@@ -17686,6 +18246,136 @@
         },
         {
           "evaluators": 3,
+          "events_scored": 2,
+          "forward": {
+            "accuracy": 1.0,
+            "accuracy_events_scored": 2,
+            "accuracy_lift": null,
+            "accuracy_scored": 6,
+            "always_deny_accuracy": null,
+            "evaluations": 6,
+            "event_accuracy": 1.0,
+            "event_accuracy_lift": null,
+            "event_always_deny_accuracy": null,
+            "events_scored": 2,
+            "grants_expected": null,
+            "grants_expected_scored": null,
+            "grants_realized": null,
+            "grants_realized_expected_scored": null,
+            "in_sample_events_scored": 0,
+            "in_sample_grant_rate": null,
+            "in_sample_skill_scored": 0,
+            "mean_brier_score": 0.0032500000000000007,
+            "mean_reasoning_quality": 0.7216666666666667,
+            "mean_vote_accuracy": null,
+            "population_brier_skill_score": 0.7631110546875,
+            "population_in_sample_skill_score": null,
+            "population_realized_term_skill_score": null,
+            "realized_term_skill_scored": 0,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v17"
+                ],
+                "mean_reasoning_quality": 0.6000000000000001,
+                "n": 2
+              },
+              {
+                "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v17"
+                ],
+                "mean_reasoning_quality": 0.9,
+                "n": 2
+              },
+              {
+                "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v17"
+                ],
+                "mean_reasoning_quality": 0.665,
+                "n": 2
+              }
+            ],
+            "skill_scored": 6,
+            "vote_cells_scored": 0
+          },
+          "predictor_id": "codex-baseline",
+          "procedural": null,
+          "process_window": "proc-v15",
+          "retrospective": null
+        },
+        {
+          "evaluators": 3,
+          "events_scored": 1,
+          "forward": null,
+          "predictor_id": "codex-baseline",
+          "procedural": null,
+          "process_window": "proc-v17",
+          "retrospective": {
+            "accuracy": 1.0,
+            "accuracy_events_scored": 1,
+            "accuracy_lift": null,
+            "accuracy_scored": 3,
+            "always_deny_accuracy": null,
+            "evaluations": 3,
+            "event_accuracy": 1.0,
+            "event_accuracy_lift": null,
+            "event_always_deny_accuracy": null,
+            "events_scored": 1,
+            "grants_expected": null,
+            "grants_expected_scored": null,
+            "grants_realized": null,
+            "grants_realized_expected_scored": null,
+            "in_sample_events_scored": 0,
+            "in_sample_grant_rate": null,
+            "in_sample_skill_scored": 0,
+            "mean_brier_score": 0.0009000000000000001,
+            "mean_reasoning_quality": 0.7999999999999999,
+            "mean_vote_accuracy": null,
+            "population_brier_skill_score": null,
+            "population_in_sample_skill_score": null,
+            "population_realized_term_skill_score": null,
+            "realized_term_skill_scored": 0,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v17"
+                ],
+                "mean_reasoning_quality": 0.7,
+                "n": 1
+              },
+              {
+                "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v17"
+                ],
+                "mean_reasoning_quality": 0.9,
+                "n": 1
+              },
+              {
+                "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v17"
+                ],
+                "mean_reasoning_quality": 0.8,
+                "n": 1
+              }
+            ],
+            "skill_scored": 0,
+            "vote_cells_scored": 0
+          }
+        },
+        {
+          "evaluators": 3,
           "events_scored": 7,
           "forward": {
             "accuracy": 0.5714285714285714,
@@ -17878,13 +18568,143 @@
           "procedural": null,
           "process_window": "proc-v10",
           "retrospective": null
+        },
+        {
+          "evaluators": 3,
+          "events_scored": 2,
+          "forward": {
+            "accuracy": 1.0,
+            "accuracy_events_scored": 2,
+            "accuracy_lift": null,
+            "accuracy_scored": 6,
+            "always_deny_accuracy": null,
+            "evaluations": 6,
+            "event_accuracy": 1.0,
+            "event_accuracy_lift": null,
+            "event_always_deny_accuracy": null,
+            "events_scored": 2,
+            "grants_expected": null,
+            "grants_expected_scored": null,
+            "grants_realized": null,
+            "grants_realized_expected_scored": null,
+            "in_sample_events_scored": 0,
+            "in_sample_grant_rate": null,
+            "in_sample_skill_scored": 0,
+            "mean_brier_score": 6.25e-05,
+            "mean_reasoning_quality": 0.8283333333333333,
+            "mean_vote_accuracy": null,
+            "population_brier_skill_score": 0.995444443359375,
+            "population_in_sample_skill_score": null,
+            "population_realized_term_skill_score": null,
+            "realized_term_skill_scored": 0,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v17"
+                ],
+                "mean_reasoning_quality": 0.825,
+                "n": 2
+              },
+              {
+                "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v17"
+                ],
+                "mean_reasoning_quality": 0.71,
+                "n": 2
+              },
+              {
+                "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v17"
+                ],
+                "mean_reasoning_quality": 0.95,
+                "n": 2
+              }
+            ],
+            "skill_scored": 6,
+            "vote_cells_scored": 0
+          },
+          "predictor_id": "gemini-baseline",
+          "procedural": null,
+          "process_window": "proc-v15",
+          "retrospective": null
+        },
+        {
+          "evaluators": 3,
+          "events_scored": 1,
+          "forward": null,
+          "predictor_id": "gemini-baseline",
+          "procedural": null,
+          "process_window": "proc-v17",
+          "retrospective": {
+            "accuracy": 1.0,
+            "accuracy_events_scored": 1,
+            "accuracy_lift": null,
+            "accuracy_scored": 3,
+            "always_deny_accuracy": null,
+            "evaluations": 3,
+            "event_accuracy": 1.0,
+            "event_accuracy_lift": null,
+            "event_always_deny_accuracy": null,
+            "events_scored": 1,
+            "grants_expected": null,
+            "grants_expected_scored": null,
+            "grants_realized": null,
+            "grants_realized_expected_scored": null,
+            "in_sample_events_scored": 0,
+            "in_sample_grant_rate": null,
+            "in_sample_skill_scored": 0,
+            "mean_brier_score": 4e-06,
+            "mean_reasoning_quality": 0.82,
+            "mean_vote_accuracy": null,
+            "population_brier_skill_score": null,
+            "population_in_sample_skill_score": null,
+            "population_realized_term_skill_score": null,
+            "realized_term_skill_scored": 0,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v17"
+                ],
+                "mean_reasoning_quality": 0.85,
+                "n": 1
+              },
+              {
+                "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v17"
+                ],
+                "mean_reasoning_quality": 0.65,
+                "n": 1
+              },
+              {
+                "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v17"
+                ],
+                "mean_reasoning_quality": 0.96,
+                "n": 1
+              }
+            ],
+            "skill_scored": 0,
+            "vote_cells_scored": 0
+          }
         }
       ],
       "entries": [
         {
           "boundaries": [
             {
-              "after": 5,
+              "after": 8,
               "at": "2026-09-29T23:30:38Z",
               "before": 4,
               "boundary": "scrub-ocr-and-served-values",
@@ -17892,7 +18712,7 @@
               "unstamped": 0
             },
             {
-              "after": 5,
+              "after": 8,
               "at": "2026-09-29T23:30:38Z",
               "before": 4,
               "boundary": "pro-se-snapshot-scrub",
@@ -17900,7 +18720,7 @@
               "unstamped": 0
             },
             {
-              "after": 5,
+              "after": 8,
               "at": "2026-10-01T16:15:45Z",
               "before": 4,
               "boundary": "scrub-pro-se-respondent",
@@ -17908,7 +18728,7 @@
               "unstamped": 0
             },
             {
-              "after": 5,
+              "after": 8,
               "at": "2026-10-01T16:15:45Z",
               "before": 4,
               "boundary": "scrub-pro-se-amicus",
@@ -17916,7 +18736,7 @@
               "unstamped": 0
             },
             {
-              "after": 3,
+              "after": 6,
               "at": "2026-10-03T19:08:49Z",
               "before": 6,
               "boundary": "scrub-in-re-self-filer",
@@ -17924,7 +18744,7 @@
               "unstamped": 0
             },
             {
-              "after": 3,
+              "after": 6,
               "at": "2026-10-03T19:08:49Z",
               "before": 6,
               "boundary": "scrub-titled-joinder-self-filer",
@@ -17932,7 +18752,7 @@
               "unstamped": 0
             },
             {
-              "after": 3,
+              "after": 6,
               "at": "2026-10-03T19:08:49Z",
               "before": 6,
               "boundary": "merits-brief-spellings-consolidated-lead",
@@ -17941,7 +18761,7 @@
               "unstamped": 0
             },
             {
-              "after": 3,
+              "after": 6,
               "at": "2026-10-11T23:41:22Z",
               "before": 6,
               "boundary": "merits-brief-partial-support",
@@ -17950,7 +18770,7 @@
               "unstamped": 0
             },
             {
-              "after": 2,
+              "after": 5,
               "at": "2026-10-16T20:17:17Z",
               "before": 7,
               "boundary": "scrub-withheld-petitioner-block",
@@ -17958,7 +18778,7 @@
               "unstamped": 0
             },
             {
-              "after": 2,
+              "after": 5,
               "at": "2026-10-16T20:17:17Z",
               "before": 7,
               "boundary": "single-entry-trigger-placement",
@@ -17966,7 +18786,7 @@
               "unstamped": 0
             },
             {
-              "after": 2,
+              "after": 5,
               "at": "2026-10-16T20:17:17Z",
               "before": 7,
               "boundary": "query-clock-prior-last-pull-mask",
@@ -17974,7 +18794,7 @@
               "unstamped": 0
             },
             {
-              "after": 2,
+              "after": 5,
               "at": "2026-10-18T01:06:13Z",
               "before": 7,
               "boundary": "scrub-scanned-caption-residuals",
@@ -17982,7 +18802,7 @@
               "unstamped": 0
             },
             {
-              "after": 2,
+              "after": 5,
               "at": "2026-10-18T01:06:13Z",
               "before": 7,
               "boundary": "interim-pool-one-row-per-number",
@@ -17991,7 +18811,7 @@
               "unstamped": 0
             },
             {
-              "after": 2,
+              "after": 5,
               "at": "2026-10-20T15:24:42Z",
               "before": 7,
               "boundary": "scrub-ohio-reporter-citation",
@@ -17999,7 +18819,7 @@
               "unstamped": 0
             },
             {
-              "after": 2,
+              "after": 5,
               "at": "2026-10-20T15:24:42Z",
               "before": 7,
               "boundary": "merits-judgment-parser-summary-ruling-consolidated",
@@ -18008,7 +18828,7 @@
               "unstamped": 0
             },
             {
-              "after": 2,
+              "after": 5,
               "at": "2026-10-20T15:24:42Z",
               "before": 7,
               "boundary": "cert-exit-guard-and-plural-nouns",
@@ -18017,7 +18837,7 @@
               "unstamped": 0
             },
             {
-              "after": 2,
+              "after": 5,
               "at": "2026-10-20T15:24:42Z",
               "before": 7,
               "boundary": "direct-appeal-plenary-review-grant",
@@ -18026,7 +18846,7 @@
               "unstamped": 0
             },
             {
-              "after": 1,
+              "after": 4,
               "at": "2026-10-22T22:40:22Z",
               "before": 8,
               "boundary": "merits-brief-confession-of-error",
@@ -18035,27 +18855,136 @@
               "unstamped": 0
             },
             {
-              "after": 1,
+              "after": 4,
               "at": "2026-10-22T22:40:22Z",
               "before": 8,
               "boundary": "vide-related-dockets",
               "scope": "all",
               "unstamped": 0
+            },
+            {
+              "after": 3,
+              "at": "2026-10-23T02:37:11Z",
+              "before": 9,
+              "boundary": "direct-appeal-summary-exit",
+              "gradual": true,
+              "scope": "all",
+              "unstamped": 0
+            },
+            {
+              "after": 3,
+              "at": "2026-10-23T02:37:11Z",
+              "before": 9,
+              "boundary": "context-vide-links",
+              "scope": "all",
+              "unstamped": 0
+            },
+            {
+              "after": 3,
+              "at": "2026-10-25T13:40:46Z",
+              "before": 9,
+              "boundary": "context-paper-only-filings",
+              "scope": "all",
+              "unstamped": 0
+            },
+            {
+              "after": 3,
+              "at": "2026-10-25T13:40:46Z",
+              "before": 9,
+              "boundary": "qp-cutter-split-and-review-headings",
+              "gradual": true,
+              "scope": "all",
+              "unstamped": 0
+            },
+            {
+              "after": 3,
+              "at": "2026-10-25T13:40:46Z",
+              "before": 9,
+              "boundary": "recut-head-cut-documents",
+              "gradual": true,
+              "scope": "all",
+              "unstamped": 0
+            },
+            {
+              "after": 3,
+              "at": "2026-10-28T20:36:01Z",
+              "before": 9,
+              "boundary": "scrub-abbreviated-street-mailing-block",
+              "scope": "self-represented dockets",
+              "unstamped": 0
+            },
+            {
+              "after": 3,
+              "at": "2026-10-28T20:36:01Z",
+              "before": 9,
+              "boundary": "combined-row-per-filing-cut",
+              "gradual": true,
+              "scope": "all",
+              "unstamped": 0
+            },
+            {
+              "after": 3,
+              "at": "2026-10-29T14:16:26Z",
+              "before": 9,
+              "boundary": "context-snapshot-contact-scrub",
+              "scope": "all",
+              "unstamped": 0
+            },
+            {
+              "after": 3,
+              "at": "2026-10-29T14:16:26Z",
+              "before": 9,
+              "boundary": "agent-shell-fedcourts-on-path",
+              "scope": "all",
+              "unstamped": 0
+            },
+            {
+              "after": 3,
+              "at": "2026-10-30T16:38:43Z",
+              "before": 9,
+              "boundary": "cert-same-question-list",
+              "scope": "all",
+              "unstamped": 0
+            },
+            {
+              "after": 3,
+              "at": "2026-10-31T13:36:41Z",
+              "before": 9,
+              "boundary": "context-band-refused",
+              "scope": "all",
+              "unstamped": 0
+            },
+            {
+              "after": 1,
+              "at": "2026-11-01T17:45:59Z",
+              "before": 11,
+              "boundary": "opposition-cut-by-brief",
+              "scope": "all",
+              "unstamped": 0
+            },
+            {
+              "after": 1,
+              "at": "2026-11-01T17:45:59Z",
+              "before": 11,
+              "boundary": "decision-below-documents",
+              "gradual": true,
+              "scope": "all",
+              "unstamped": 0
             }
           ],
           "evaluators": 3,
-          "events_scored": 9,
+          "events_scored": 12,
           "forward": {
-            "accuracy": 0.7777777777777778,
-            "accuracy_events_scored": 9,
+            "accuracy": 0.8181818181818182,
+            "accuracy_events_scored": 11,
             "accuracy_lift": null,
-            "accuracy_scored": 27,
+            "accuracy_scored": 33,
             "always_deny_accuracy": null,
-            "evaluations": 27,
-            "event_accuracy": 0.7777777777777778,
+            "evaluations": 33,
+            "event_accuracy": 0.8181818181818182,
             "event_accuracy_lift": null,
             "event_always_deny_accuracy": null,
-            "events_scored": 9,
+            "events_scored": 11,
             "grants_expected": null,
             "grants_expected_scored": null,
             "grants_realized": null,
@@ -18063,10 +18992,10 @@
             "in_sample_events_scored": 0,
             "in_sample_grant_rate": null,
             "in_sample_skill_scored": 0,
-            "mean_brier_score": 0.12812500000000002,
-            "mean_reasoning_quality": 0.8022222222222223,
+            "mean_brier_score": 0.10485172727272726,
+            "mean_reasoning_quality": 0.7848484848484848,
             "mean_vote_accuracy": null,
-            "population_brier_skill_score": 0.32078240999974295,
+            "population_brier_skill_score": 0.33144403893047836,
             "population_in_sample_skill_score": null,
             "population_realized_term_skill_score": null,
             "realized_term_skill_scored": 0,
@@ -18085,6 +19014,15 @@
                 "n": 5
               },
               {
+                "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v17"
+                ],
+                "mean_reasoning_quality": 0.725,
+                "n": 2
+              },
+              {
                 "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
                 "evaluator_id": "claude-judge",
                 "labels": [
@@ -18101,6 +19039,15 @@
                 ],
                 "mean_reasoning_quality": 0.8,
                 "n": 1
+              },
+              {
+                "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v17"
+                ],
+                "mean_reasoning_quality": 0.675,
+                "n": 2
               },
               {
                 "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
@@ -18145,6 +19092,15 @@
                 "n": 4
               },
               {
+                "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v17"
+                ],
+                "mean_reasoning_quality": 0.72,
+                "n": 2
+              },
+              {
                 "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
                 "evaluator_id": "gemini-judge",
                 "labels": [
@@ -18154,15 +19110,71 @@
                 "n": 4
               }
             ],
-            "skill_scored": 27,
+            "skill_scored": 33,
             "vote_cells_scored": 0
           },
           "predictor_id": "claude-baseline",
           "procedural": null,
           "process_window": null,
-          "retrospective": null,
+          "retrospective": {
+            "accuracy": 1.0,
+            "accuracy_events_scored": 1,
+            "accuracy_lift": null,
+            "accuracy_scored": 3,
+            "always_deny_accuracy": null,
+            "evaluations": 3,
+            "event_accuracy": 1.0,
+            "event_accuracy_lift": null,
+            "event_always_deny_accuracy": null,
+            "events_scored": 1,
+            "grants_expected": null,
+            "grants_expected_scored": null,
+            "grants_realized": null,
+            "grants_realized_expected_scored": null,
+            "in_sample_events_scored": 0,
+            "in_sample_grant_rate": null,
+            "in_sample_skill_scored": 0,
+            "mean_brier_score": 0.0004,
+            "mean_reasoning_quality": 0.7433333333333333,
+            "mean_vote_accuracy": null,
+            "population_brier_skill_score": null,
+            "population_in_sample_skill_score": null,
+            "population_realized_term_skill_score": null,
+            "realized_term_skill_scored": 0,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v17"
+                ],
+                "mean_reasoning_quality": 0.7,
+                "n": 1
+              },
+              {
+                "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v17"
+                ],
+                "mean_reasoning_quality": 0.75,
+                "n": 1
+              },
+              {
+                "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v17"
+                ],
+                "mean_reasoning_quality": 0.78,
+                "n": 1
+              }
+            ],
+            "skill_scored": 0,
+            "vote_cells_scored": 0
+          },
           "self_provisioning": {
-            "cells": 9,
+            "cells": 11,
             "reached": 0,
             "target_blind": 5,
             "unlogged": 0
@@ -18177,13 +19189,23 @@
               "n": 9,
               "opens": "2026-10-11T12:00:00Z",
               "process_window": "proc-v9"
+            },
+            {
+              "n": 6,
+              "opens": "2026-10-30T16:38:43Z",
+              "process_window": "proc-v15"
+            },
+            {
+              "n": 3,
+              "opens": "2026-11-02T17:51:42Z",
+              "process_window": "proc-v17"
             }
           ]
         },
         {
           "boundaries": [
             {
-              "after": 5,
+              "after": 8,
               "at": "2026-09-29T23:30:38Z",
               "before": 4,
               "boundary": "scrub-ocr-and-served-values",
@@ -18191,7 +19213,7 @@
               "unstamped": 0
             },
             {
-              "after": 5,
+              "after": 8,
               "at": "2026-09-29T23:30:38Z",
               "before": 4,
               "boundary": "pro-se-snapshot-scrub",
@@ -18199,7 +19221,7 @@
               "unstamped": 0
             },
             {
-              "after": 5,
+              "after": 8,
               "at": "2026-10-01T16:15:45Z",
               "before": 4,
               "boundary": "scrub-pro-se-respondent",
@@ -18207,7 +19229,7 @@
               "unstamped": 0
             },
             {
-              "after": 5,
+              "after": 8,
               "at": "2026-10-01T16:15:45Z",
               "before": 4,
               "boundary": "scrub-pro-se-amicus",
@@ -18215,7 +19237,7 @@
               "unstamped": 0
             },
             {
-              "after": 3,
+              "after": 6,
               "at": "2026-10-03T19:08:49Z",
               "before": 6,
               "boundary": "scrub-in-re-self-filer",
@@ -18223,7 +19245,7 @@
               "unstamped": 0
             },
             {
-              "after": 3,
+              "after": 6,
               "at": "2026-10-03T19:08:49Z",
               "before": 6,
               "boundary": "scrub-titled-joinder-self-filer",
@@ -18231,7 +19253,7 @@
               "unstamped": 0
             },
             {
-              "after": 3,
+              "after": 6,
               "at": "2026-10-03T19:08:49Z",
               "before": 6,
               "boundary": "merits-brief-spellings-consolidated-lead",
@@ -18240,7 +19262,7 @@
               "unstamped": 0
             },
             {
-              "after": 3,
+              "after": 6,
               "at": "2026-10-11T00:12:02Z",
               "before": 6,
               "boundary": "predict-cell-record-hide",
@@ -18248,7 +19270,7 @@
               "unstamped": 0
             },
             {
-              "after": 3,
+              "after": 6,
               "at": "2026-10-11T00:12:02Z",
               "before": 6,
               "boundary": "widened-document-kinds-freshness",
@@ -18257,7 +19279,7 @@
               "unstamped": 0
             },
             {
-              "after": 3,
+              "after": 6,
               "at": "2026-10-11T23:41:22Z",
               "before": 6,
               "boundary": "merits-brief-partial-support",
@@ -18266,7 +19288,7 @@
               "unstamped": 0
             },
             {
-              "after": 2,
+              "after": 5,
               "at": "2026-10-16T20:17:17Z",
               "before": 7,
               "boundary": "scrub-withheld-petitioner-block",
@@ -18274,7 +19296,7 @@
               "unstamped": 0
             },
             {
-              "after": 2,
+              "after": 5,
               "at": "2026-10-16T20:17:17Z",
               "before": 7,
               "boundary": "single-entry-trigger-placement",
@@ -18282,7 +19304,7 @@
               "unstamped": 0
             },
             {
-              "after": 2,
+              "after": 5,
               "at": "2026-10-16T20:17:17Z",
               "before": 7,
               "boundary": "query-clock-prior-last-pull-mask",
@@ -18290,7 +19312,7 @@
               "unstamped": 0
             },
             {
-              "after": 2,
+              "after": 5,
               "at": "2026-10-18T01:06:13Z",
               "before": 7,
               "boundary": "scrub-scanned-caption-residuals",
@@ -18298,7 +19320,7 @@
               "unstamped": 0
             },
             {
-              "after": 2,
+              "after": 5,
               "at": "2026-10-18T01:06:13Z",
               "before": 7,
               "boundary": "interim-pool-one-row-per-number",
@@ -18307,7 +19329,7 @@
               "unstamped": 0
             },
             {
-              "after": 2,
+              "after": 5,
               "at": "2026-10-20T15:24:42Z",
               "before": 7,
               "boundary": "scrub-ohio-reporter-citation",
@@ -18315,7 +19337,7 @@
               "unstamped": 0
             },
             {
-              "after": 2,
+              "after": 5,
               "at": "2026-10-20T15:24:42Z",
               "before": 7,
               "boundary": "merits-judgment-parser-summary-ruling-consolidated",
@@ -18324,7 +19346,7 @@
               "unstamped": 0
             },
             {
-              "after": 2,
+              "after": 5,
               "at": "2026-10-20T15:24:42Z",
               "before": 7,
               "boundary": "cert-exit-guard-and-plural-nouns",
@@ -18333,7 +19355,7 @@
               "unstamped": 0
             },
             {
-              "after": 2,
+              "after": 5,
               "at": "2026-10-20T15:24:42Z",
               "before": 7,
               "boundary": "direct-appeal-plenary-review-grant",
@@ -18342,7 +19364,7 @@
               "unstamped": 0
             },
             {
-              "after": 1,
+              "after": 4,
               "at": "2026-10-22T22:40:22Z",
               "before": 8,
               "boundary": "merits-brief-confession-of-error",
@@ -18351,27 +19373,136 @@
               "unstamped": 0
             },
             {
-              "after": 1,
+              "after": 4,
               "at": "2026-10-22T22:40:22Z",
               "before": 8,
               "boundary": "vide-related-dockets",
               "scope": "all",
               "unstamped": 0
+            },
+            {
+              "after": 3,
+              "at": "2026-10-23T02:37:11Z",
+              "before": 9,
+              "boundary": "direct-appeal-summary-exit",
+              "gradual": true,
+              "scope": "all",
+              "unstamped": 0
+            },
+            {
+              "after": 3,
+              "at": "2026-10-23T02:37:11Z",
+              "before": 9,
+              "boundary": "context-vide-links",
+              "scope": "all",
+              "unstamped": 0
+            },
+            {
+              "after": 3,
+              "at": "2026-10-25T13:40:46Z",
+              "before": 9,
+              "boundary": "context-paper-only-filings",
+              "scope": "all",
+              "unstamped": 0
+            },
+            {
+              "after": 3,
+              "at": "2026-10-25T13:40:46Z",
+              "before": 9,
+              "boundary": "qp-cutter-split-and-review-headings",
+              "gradual": true,
+              "scope": "all",
+              "unstamped": 0
+            },
+            {
+              "after": 3,
+              "at": "2026-10-25T13:40:46Z",
+              "before": 9,
+              "boundary": "recut-head-cut-documents",
+              "gradual": true,
+              "scope": "all",
+              "unstamped": 0
+            },
+            {
+              "after": 3,
+              "at": "2026-10-28T20:36:01Z",
+              "before": 9,
+              "boundary": "scrub-abbreviated-street-mailing-block",
+              "scope": "self-represented dockets",
+              "unstamped": 0
+            },
+            {
+              "after": 3,
+              "at": "2026-10-28T20:36:01Z",
+              "before": 9,
+              "boundary": "combined-row-per-filing-cut",
+              "gradual": true,
+              "scope": "all",
+              "unstamped": 0
+            },
+            {
+              "after": 3,
+              "at": "2026-10-29T14:16:26Z",
+              "before": 9,
+              "boundary": "context-snapshot-contact-scrub",
+              "scope": "all",
+              "unstamped": 0
+            },
+            {
+              "after": 3,
+              "at": "2026-10-29T14:16:26Z",
+              "before": 9,
+              "boundary": "agent-shell-fedcourts-on-path",
+              "scope": "all",
+              "unstamped": 0
+            },
+            {
+              "after": 3,
+              "at": "2026-10-30T16:38:43Z",
+              "before": 9,
+              "boundary": "cert-same-question-list",
+              "scope": "all",
+              "unstamped": 0
+            },
+            {
+              "after": 3,
+              "at": "2026-10-31T13:36:41Z",
+              "before": 9,
+              "boundary": "context-band-refused",
+              "scope": "all",
+              "unstamped": 0
+            },
+            {
+              "after": 1,
+              "at": "2026-11-01T17:45:59Z",
+              "before": 11,
+              "boundary": "opposition-cut-by-brief",
+              "scope": "all",
+              "unstamped": 0
+            },
+            {
+              "after": 1,
+              "at": "2026-11-01T17:45:59Z",
+              "before": 11,
+              "boundary": "decision-below-documents",
+              "gradual": true,
+              "scope": "all",
+              "unstamped": 0
             }
           ],
           "evaluators": 3,
-          "events_scored": 9,
+          "events_scored": 12,
           "forward": {
-            "accuracy": 0.7777777777777778,
-            "accuracy_events_scored": 9,
+            "accuracy": 0.8181818181818182,
+            "accuracy_events_scored": 11,
             "accuracy_lift": null,
-            "accuracy_scored": 27,
+            "accuracy_scored": 33,
             "always_deny_accuracy": null,
-            "evaluations": 27,
-            "event_accuracy": 0.7777777777777778,
+            "evaluations": 33,
+            "event_accuracy": 0.8181818181818182,
             "event_accuracy_lift": null,
             "event_always_deny_accuracy": null,
-            "events_scored": 9,
+            "events_scored": 11,
             "grants_expected": null,
             "grants_expected_scored": null,
             "grants_realized": null,
@@ -18379,10 +19510,10 @@
             "in_sample_events_scored": 0,
             "in_sample_grant_rate": null,
             "in_sample_skill_scored": 0,
-            "mean_brier_score": 0.13983333333333337,
-            "mean_reasoning_quality": 0.8003703703703704,
+            "mean_brier_score": 0.115,
+            "mean_reasoning_quality": 0.7860606060606061,
             "mean_vote_accuracy": null,
-            "population_brier_skill_score": 0.25871407088102016,
+            "population_brier_skill_score": 0.2667365858169025,
             "population_in_sample_skill_score": null,
             "population_realized_term_skill_score": null,
             "realized_term_skill_scored": 0,
@@ -18401,6 +19532,15 @@
                 "n": 5
               },
               {
+                "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v17"
+                ],
+                "mean_reasoning_quality": 0.6000000000000001,
+                "n": 2
+              },
+              {
                 "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
                 "evaluator_id": "claude-judge",
                 "labels": [
@@ -18417,6 +19557,15 @@
                 ],
                 "mean_reasoning_quality": 0.9,
                 "n": 1
+              },
+              {
+                "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v17"
+                ],
+                "mean_reasoning_quality": 0.9,
+                "n": 2
               },
               {
                 "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
@@ -18461,6 +19610,15 @@
                 "n": 4
               },
               {
+                "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v17"
+                ],
+                "mean_reasoning_quality": 0.665,
+                "n": 2
+              },
+              {
                 "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
                 "evaluator_id": "gemini-judge",
                 "labels": [
@@ -18470,15 +19628,71 @@
                 "n": 4
               }
             ],
-            "skill_scored": 27,
+            "skill_scored": 33,
             "vote_cells_scored": 0
           },
           "predictor_id": "codex-baseline",
           "procedural": null,
           "process_window": null,
-          "retrospective": null,
+          "retrospective": {
+            "accuracy": 1.0,
+            "accuracy_events_scored": 1,
+            "accuracy_lift": null,
+            "accuracy_scored": 3,
+            "always_deny_accuracy": null,
+            "evaluations": 3,
+            "event_accuracy": 1.0,
+            "event_accuracy_lift": null,
+            "event_always_deny_accuracy": null,
+            "events_scored": 1,
+            "grants_expected": null,
+            "grants_expected_scored": null,
+            "grants_realized": null,
+            "grants_realized_expected_scored": null,
+            "in_sample_events_scored": 0,
+            "in_sample_grant_rate": null,
+            "in_sample_skill_scored": 0,
+            "mean_brier_score": 0.0009000000000000001,
+            "mean_reasoning_quality": 0.7999999999999999,
+            "mean_vote_accuracy": null,
+            "population_brier_skill_score": null,
+            "population_in_sample_skill_score": null,
+            "population_realized_term_skill_score": null,
+            "realized_term_skill_scored": 0,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v17"
+                ],
+                "mean_reasoning_quality": 0.7,
+                "n": 1
+              },
+              {
+                "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v17"
+                ],
+                "mean_reasoning_quality": 0.9,
+                "n": 1
+              },
+              {
+                "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v17"
+                ],
+                "mean_reasoning_quality": 0.8,
+                "n": 1
+              }
+            ],
+            "skill_scored": 0,
+            "vote_cells_scored": 0
+          },
           "self_provisioning": {
-            "cells": 9,
+            "cells": 11,
             "reached": 0,
             "target_blind": 0,
             "unlogged": 0
@@ -18493,13 +19707,23 @@
               "n": 6,
               "opens": "2026-10-20T15:24:42Z",
               "process_window": "proc-v10"
+            },
+            {
+              "n": 6,
+              "opens": "2026-10-30T16:38:43Z",
+              "process_window": "proc-v15"
+            },
+            {
+              "n": 3,
+              "opens": "2026-11-02T17:51:42Z",
+              "process_window": "proc-v17"
             }
           ]
         },
         {
           "boundaries": [
             {
-              "after": 5,
+              "after": 8,
               "at": "2026-09-29T23:30:38Z",
               "before": 4,
               "boundary": "scrub-ocr-and-served-values",
@@ -18507,7 +19731,7 @@
               "unstamped": 0
             },
             {
-              "after": 5,
+              "after": 8,
               "at": "2026-09-29T23:30:38Z",
               "before": 4,
               "boundary": "pro-se-snapshot-scrub",
@@ -18515,7 +19739,7 @@
               "unstamped": 0
             },
             {
-              "after": 5,
+              "after": 8,
               "at": "2026-10-01T16:15:45Z",
               "before": 4,
               "boundary": "scrub-pro-se-respondent",
@@ -18523,7 +19747,7 @@
               "unstamped": 0
             },
             {
-              "after": 5,
+              "after": 8,
               "at": "2026-10-01T16:15:45Z",
               "before": 4,
               "boundary": "scrub-pro-se-amicus",
@@ -18531,7 +19755,7 @@
               "unstamped": 0
             },
             {
-              "after": 3,
+              "after": 6,
               "at": "2026-10-03T19:08:49Z",
               "before": 6,
               "boundary": "scrub-in-re-self-filer",
@@ -18539,7 +19763,7 @@
               "unstamped": 0
             },
             {
-              "after": 3,
+              "after": 6,
               "at": "2026-10-03T19:08:49Z",
               "before": 6,
               "boundary": "scrub-titled-joinder-self-filer",
@@ -18547,7 +19771,7 @@
               "unstamped": 0
             },
             {
-              "after": 3,
+              "after": 6,
               "at": "2026-10-03T19:08:49Z",
               "before": 6,
               "boundary": "merits-brief-spellings-consolidated-lead",
@@ -18556,7 +19780,7 @@
               "unstamped": 0
             },
             {
-              "after": 3,
+              "after": 6,
               "at": "2026-10-11T00:12:02Z",
               "before": 6,
               "boundary": "predict-cell-record-hide",
@@ -18564,7 +19788,7 @@
               "unstamped": 0
             },
             {
-              "after": 3,
+              "after": 6,
               "at": "2026-10-11T00:12:02Z",
               "before": 6,
               "boundary": "widened-document-kinds-freshness",
@@ -18573,7 +19797,7 @@
               "unstamped": 0
             },
             {
-              "after": 3,
+              "after": 6,
               "at": "2026-10-11T23:41:22Z",
               "before": 6,
               "boundary": "merits-brief-partial-support",
@@ -18582,7 +19806,7 @@
               "unstamped": 0
             },
             {
-              "after": 2,
+              "after": 5,
               "at": "2026-10-16T20:17:17Z",
               "before": 7,
               "boundary": "scrub-withheld-petitioner-block",
@@ -18590,7 +19814,7 @@
               "unstamped": 0
             },
             {
-              "after": 2,
+              "after": 5,
               "at": "2026-10-16T20:17:17Z",
               "before": 7,
               "boundary": "single-entry-trigger-placement",
@@ -18598,7 +19822,7 @@
               "unstamped": 0
             },
             {
-              "after": 2,
+              "after": 5,
               "at": "2026-10-16T20:17:17Z",
               "before": 7,
               "boundary": "query-clock-prior-last-pull-mask",
@@ -18606,7 +19830,7 @@
               "unstamped": 0
             },
             {
-              "after": 2,
+              "after": 5,
               "at": "2026-10-18T01:06:13Z",
               "before": 7,
               "boundary": "scrub-scanned-caption-residuals",
@@ -18614,7 +19838,7 @@
               "unstamped": 0
             },
             {
-              "after": 2,
+              "after": 5,
               "at": "2026-10-18T01:06:13Z",
               "before": 7,
               "boundary": "interim-pool-one-row-per-number",
@@ -18623,7 +19847,7 @@
               "unstamped": 0
             },
             {
-              "after": 2,
+              "after": 5,
               "at": "2026-10-20T15:24:42Z",
               "before": 7,
               "boundary": "scrub-ohio-reporter-citation",
@@ -18631,7 +19855,7 @@
               "unstamped": 0
             },
             {
-              "after": 2,
+              "after": 5,
               "at": "2026-10-20T15:24:42Z",
               "before": 7,
               "boundary": "merits-judgment-parser-summary-ruling-consolidated",
@@ -18640,7 +19864,7 @@
               "unstamped": 0
             },
             {
-              "after": 2,
+              "after": 5,
               "at": "2026-10-20T15:24:42Z",
               "before": 7,
               "boundary": "cert-exit-guard-and-plural-nouns",
@@ -18649,7 +19873,7 @@
               "unstamped": 0
             },
             {
-              "after": 2,
+              "after": 5,
               "at": "2026-10-20T15:24:42Z",
               "before": 7,
               "boundary": "direct-appeal-plenary-review-grant",
@@ -18658,7 +19882,7 @@
               "unstamped": 0
             },
             {
-              "after": 1,
+              "after": 4,
               "at": "2026-10-22T22:40:22Z",
               "before": 8,
               "boundary": "merits-brief-confession-of-error",
@@ -18667,27 +19891,136 @@
               "unstamped": 0
             },
             {
-              "after": 1,
+              "after": 4,
               "at": "2026-10-22T22:40:22Z",
               "before": 8,
               "boundary": "vide-related-dockets",
               "scope": "all",
               "unstamped": 0
+            },
+            {
+              "after": 3,
+              "at": "2026-10-23T02:37:11Z",
+              "before": 9,
+              "boundary": "direct-appeal-summary-exit",
+              "gradual": true,
+              "scope": "all",
+              "unstamped": 0
+            },
+            {
+              "after": 3,
+              "at": "2026-10-23T02:37:11Z",
+              "before": 9,
+              "boundary": "context-vide-links",
+              "scope": "all",
+              "unstamped": 0
+            },
+            {
+              "after": 3,
+              "at": "2026-10-25T13:40:46Z",
+              "before": 9,
+              "boundary": "context-paper-only-filings",
+              "scope": "all",
+              "unstamped": 0
+            },
+            {
+              "after": 3,
+              "at": "2026-10-25T13:40:46Z",
+              "before": 9,
+              "boundary": "qp-cutter-split-and-review-headings",
+              "gradual": true,
+              "scope": "all",
+              "unstamped": 0
+            },
+            {
+              "after": 3,
+              "at": "2026-10-25T13:40:46Z",
+              "before": 9,
+              "boundary": "recut-head-cut-documents",
+              "gradual": true,
+              "scope": "all",
+              "unstamped": 0
+            },
+            {
+              "after": 3,
+              "at": "2026-10-28T20:36:01Z",
+              "before": 9,
+              "boundary": "scrub-abbreviated-street-mailing-block",
+              "scope": "self-represented dockets",
+              "unstamped": 0
+            },
+            {
+              "after": 3,
+              "at": "2026-10-28T20:36:01Z",
+              "before": 9,
+              "boundary": "combined-row-per-filing-cut",
+              "gradual": true,
+              "scope": "all",
+              "unstamped": 0
+            },
+            {
+              "after": 3,
+              "at": "2026-10-29T14:16:26Z",
+              "before": 9,
+              "boundary": "context-snapshot-contact-scrub",
+              "scope": "all",
+              "unstamped": 0
+            },
+            {
+              "after": 3,
+              "at": "2026-10-29T14:16:26Z",
+              "before": 9,
+              "boundary": "agent-shell-fedcourts-on-path",
+              "scope": "all",
+              "unstamped": 0
+            },
+            {
+              "after": 3,
+              "at": "2026-10-30T16:38:43Z",
+              "before": 9,
+              "boundary": "cert-same-question-list",
+              "scope": "all",
+              "unstamped": 0
+            },
+            {
+              "after": 3,
+              "at": "2026-10-31T13:36:41Z",
+              "before": 9,
+              "boundary": "context-band-refused",
+              "scope": "all",
+              "unstamped": 0
+            },
+            {
+              "after": 1,
+              "at": "2026-11-01T17:45:59Z",
+              "before": 11,
+              "boundary": "opposition-cut-by-brief",
+              "scope": "all",
+              "unstamped": 0
+            },
+            {
+              "after": 1,
+              "at": "2026-11-01T17:45:59Z",
+              "before": 11,
+              "boundary": "decision-below-documents",
+              "gradual": true,
+              "scope": "all",
+              "unstamped": 0
             }
           ],
           "evaluators": 3,
-          "events_scored": 9,
+          "events_scored": 12,
           "forward": {
-            "accuracy": 0.5555555555555556,
-            "accuracy_events_scored": 9,
+            "accuracy": 0.6363636363636364,
+            "accuracy_events_scored": 11,
             "accuracy_lift": null,
-            "accuracy_scored": 27,
+            "accuracy_scored": 33,
             "always_deny_accuracy": null,
-            "evaluations": 27,
-            "event_accuracy": 0.5555555555555556,
+            "evaluations": 33,
+            "event_accuracy": 0.6363636363636364,
             "event_accuracy_lift": null,
             "event_always_deny_accuracy": null,
-            "events_scored": 9,
+            "events_scored": 11,
             "grants_expected": null,
             "grants_expected_scored": null,
             "grants_realized": null,
@@ -18695,10 +20028,10 @@
             "in_sample_events_scored": 0,
             "in_sample_grant_rate": null,
             "in_sample_skill_scored": 0,
-            "mean_brier_score": 0.24565844444444446,
-            "mean_reasoning_quality": 0.5366666666666666,
+            "mean_brier_score": 0.20100463636363636,
+            "mean_reasoning_quality": 0.5896969696969697,
             "mean_vote_accuracy": null,
-            "population_brier_skill_score": -0.3022871149172104,
+            "population_brier_skill_score": -0.28164648631853884,
             "population_in_sample_skill_score": null,
             "population_realized_term_skill_score": null,
             "realized_term_skill_scored": 0,
@@ -18717,6 +20050,15 @@
                 "n": 5
               },
               {
+                "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v17"
+                ],
+                "mean_reasoning_quality": 0.825,
+                "n": 2
+              },
+              {
                 "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
                 "evaluator_id": "claude-judge",
                 "labels": [
@@ -18733,6 +20075,15 @@
                 ],
                 "mean_reasoning_quality": 0.3,
                 "n": 1
+              },
+              {
+                "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v17"
+                ],
+                "mean_reasoning_quality": 0.71,
+                "n": 2
               },
               {
                 "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
@@ -18777,6 +20128,15 @@
                 "n": 4
               },
               {
+                "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v17"
+                ],
+                "mean_reasoning_quality": 0.95,
+                "n": 2
+              },
+              {
                 "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
                 "evaluator_id": "gemini-judge",
                 "labels": [
@@ -18786,15 +20146,71 @@
                 "n": 4
               }
             ],
-            "skill_scored": 27,
+            "skill_scored": 33,
             "vote_cells_scored": 0
           },
           "predictor_id": "gemini-baseline",
           "procedural": null,
           "process_window": null,
-          "retrospective": null,
+          "retrospective": {
+            "accuracy": 1.0,
+            "accuracy_events_scored": 1,
+            "accuracy_lift": null,
+            "accuracy_scored": 3,
+            "always_deny_accuracy": null,
+            "evaluations": 3,
+            "event_accuracy": 1.0,
+            "event_accuracy_lift": null,
+            "event_always_deny_accuracy": null,
+            "events_scored": 1,
+            "grants_expected": null,
+            "grants_expected_scored": null,
+            "grants_realized": null,
+            "grants_realized_expected_scored": null,
+            "in_sample_events_scored": 0,
+            "in_sample_grant_rate": null,
+            "in_sample_skill_scored": 0,
+            "mean_brier_score": 4e-06,
+            "mean_reasoning_quality": 0.82,
+            "mean_vote_accuracy": null,
+            "population_brier_skill_score": null,
+            "population_in_sample_skill_score": null,
+            "population_realized_term_skill_score": null,
+            "realized_term_skill_scored": 0,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v17"
+                ],
+                "mean_reasoning_quality": 0.85,
+                "n": 1
+              },
+              {
+                "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v17"
+                ],
+                "mean_reasoning_quality": 0.65,
+                "n": 1
+              },
+              {
+                "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v17"
+                ],
+                "mean_reasoning_quality": 0.96,
+                "n": 1
+              }
+            ],
+            "skill_scored": 0,
+            "vote_cells_scored": 0
+          },
           "self_provisioning": {
-            "cells": 9,
+            "cells": 11,
             "reached": 0,
             "target_blind": 0,
             "unlogged": 0
@@ -18809,29 +20225,39 @@
               "n": 6,
               "opens": "2026-10-20T15:24:42Z",
               "process_window": "proc-v10"
+            },
+            {
+              "n": 6,
+              "opens": "2026-10-30T16:38:43Z",
+              "process_window": "proc-v15"
+            },
+            {
+              "n": 3,
+              "opens": "2026-11-02T17:51:42Z",
+              "process_window": "proc-v17"
             }
           ]
         }
       ],
-      "evaluations_total": 81,
-      "events_scored": 9,
-      "forward_evaluations": 81,
+      "evaluations_total": 108,
+      "events_scored": 12,
+      "forward_evaluations": 99,
       "paired": {
         "band_mismatches": 0,
         "common_record": {
           "entries": [
             {
               "forward": {
-                "accuracy": 0.75,
-                "accuracy_events_scored": 4,
+                "accuracy": 0.8333333333333334,
+                "accuracy_events_scored": 6,
                 "accuracy_lift": null,
-                "accuracy_scored": 12,
+                "accuracy_scored": 18,
                 "always_deny_accuracy": null,
-                "evaluations": 12,
-                "event_accuracy": 0.75,
+                "evaluations": 18,
+                "event_accuracy": 0.8333333333333334,
                 "event_accuracy_lift": null,
                 "event_always_deny_accuracy": null,
-                "events_scored": 4,
+                "events_scored": 6,
                 "grants_expected": null,
                 "grants_expected_scored": null,
                 "grants_realized": null,
@@ -18839,10 +20265,10 @@
                 "in_sample_events_scored": 0,
                 "in_sample_grant_rate": null,
                 "in_sample_skill_scored": 0,
-                "mean_brier_score": 0.11433124999999998,
-                "mean_reasoning_quality": 0.7625000000000001,
+                "mean_brier_score": 0.07626149999999998,
+                "mean_reasoning_quality": 0.7438888888888889,
                 "mean_vote_accuracy": null,
-                "population_brier_skill_score": 0.46590856825514926,
+                "population_brier_skill_score": 0.4822159600910315,
                 "population_in_sample_skill_score": null,
                 "population_realized_term_skill_score": null,
                 "realized_term_skill_scored": 0,
@@ -18861,6 +20287,15 @@
                     "n": 3
                   },
                   {
+                    "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+                    "evaluator_id": "claude-judge",
+                    "labels": [
+                      "proc-v17"
+                    ],
+                    "mean_reasoning_quality": 0.725,
+                    "n": 2
+                  },
+                  {
                     "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
                     "evaluator_id": "claude-judge",
                     "labels": [
@@ -18868,6 +20303,15 @@
                     ],
                     "mean_reasoning_quality": 0.78,
                     "n": 1
+                  },
+                  {
+                    "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+                    "evaluator_id": "codex-judge",
+                    "labels": [
+                      "proc-v17"
+                    ],
+                    "mean_reasoning_quality": 0.675,
+                    "n": 2
                   },
                   {
                     "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
@@ -18903,6 +20347,15 @@
                     "n": 3
                   },
                   {
+                    "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+                    "evaluator_id": "gemini-judge",
+                    "labels": [
+                      "proc-v17"
+                    ],
+                    "mean_reasoning_quality": 0.72,
+                    "n": 2
+                  },
+                  {
                     "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
                     "evaluator_id": "gemini-judge",
                     "labels": [
@@ -18912,7 +20365,7 @@
                     "n": 1
                   }
                 ],
-                "skill_scored": 12,
+                "skill_scored": 18,
                 "vote_cells_scored": 0
               },
               "predictor_id": "claude-baseline"
@@ -18920,15 +20373,15 @@
             {
               "forward": {
                 "accuracy": 1.0,
-                "accuracy_events_scored": 4,
+                "accuracy_events_scored": 6,
                 "accuracy_lift": null,
-                "accuracy_scored": 12,
+                "accuracy_scored": 18,
                 "always_deny_accuracy": null,
-                "evaluations": 12,
+                "evaluations": 18,
                 "event_accuracy": 1.0,
                 "event_accuracy_lift": null,
                 "event_always_deny_accuracy": null,
-                "events_scored": 4,
+                "events_scored": 6,
                 "grants_expected": null,
                 "grants_expected_scored": null,
                 "grants_realized": null,
@@ -18936,10 +20389,10 @@
                 "in_sample_events_scored": 0,
                 "in_sample_grant_rate": null,
                 "in_sample_skill_scored": 0,
-                "mean_brier_score": 0.051925,
-                "mean_reasoning_quality": 0.7766666666666667,
+                "mean_brier_score": 0.035699999999999996,
+                "mean_reasoning_quality": 0.7583333333333333,
                 "mean_vote_accuracy": null,
-                "population_brier_skill_score": 0.7574355428340775,
+                "population_brier_skill_score": 0.7576117670810281,
                 "population_in_sample_skill_score": null,
                 "population_realized_term_skill_score": null,
                 "realized_term_skill_scored": 0,
@@ -18958,6 +20411,15 @@
                     "n": 3
                   },
                   {
+                    "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+                    "evaluator_id": "claude-judge",
+                    "labels": [
+                      "proc-v17"
+                    ],
+                    "mean_reasoning_quality": 0.6000000000000001,
+                    "n": 2
+                  },
+                  {
                     "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
                     "evaluator_id": "claude-judge",
                     "labels": [
@@ -18965,6 +20427,15 @@
                     ],
                     "mean_reasoning_quality": 0.62,
                     "n": 1
+                  },
+                  {
+                    "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+                    "evaluator_id": "codex-judge",
+                    "labels": [
+                      "proc-v17"
+                    ],
+                    "mean_reasoning_quality": 0.9,
+                    "n": 2
                   },
                   {
                     "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
@@ -19000,6 +20471,15 @@
                     "n": 3
                   },
                   {
+                    "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+                    "evaluator_id": "gemini-judge",
+                    "labels": [
+                      "proc-v17"
+                    ],
+                    "mean_reasoning_quality": 0.665,
+                    "n": 2
+                  },
+                  {
                     "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
                     "evaluator_id": "gemini-judge",
                     "labels": [
@@ -19009,23 +20489,23 @@
                     "n": 1
                   }
                 ],
-                "skill_scored": 12,
+                "skill_scored": 18,
                 "vote_cells_scored": 0
               },
               "predictor_id": "codex-baseline"
             },
             {
               "forward": {
-                "accuracy": 0.75,
-                "accuracy_events_scored": 4,
+                "accuracy": 0.8333333333333334,
+                "accuracy_events_scored": 6,
                 "accuracy_lift": null,
-                "accuracy_scored": 12,
+                "accuracy_scored": 18,
                 "always_deny_accuracy": null,
-                "evaluations": 12,
-                "event_accuracy": 0.75,
+                "evaluations": 18,
+                "event_accuracy": 0.8333333333333334,
                 "event_accuracy_lift": null,
                 "event_always_deny_accuracy": null,
-                "events_scored": 4,
+                "events_scored": 6,
                 "grants_expected": null,
                 "grants_expected_scored": null,
                 "grants_realized": null,
@@ -19033,10 +20513,10 @@
                 "in_sample_events_scored": 0,
                 "in_sample_grant_rate": null,
                 "in_sample_skill_scored": 0,
-                "mean_brier_score": 0.18273150000000002,
-                "mean_reasoning_quality": 0.5841666666666666,
+                "mean_brier_score": 0.12184183333333334,
+                "mean_reasoning_quality": 0.6655555555555556,
                 "mean_vote_accuracy": null,
-                "population_brier_skill_score": 0.1463809898003895,
+                "population_brier_skill_score": 0.17274435077662287,
                 "population_in_sample_skill_score": null,
                 "population_realized_term_skill_score": null,
                 "realized_term_skill_scored": 0,
@@ -19055,6 +20535,15 @@
                     "n": 3
                   },
                   {
+                    "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+                    "evaluator_id": "claude-judge",
+                    "labels": [
+                      "proc-v17"
+                    ],
+                    "mean_reasoning_quality": 0.825,
+                    "n": 2
+                  },
+                  {
                     "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
                     "evaluator_id": "claude-judge",
                     "labels": [
@@ -19062,6 +20551,15 @@
                     ],
                     "mean_reasoning_quality": 0.45,
                     "n": 1
+                  },
+                  {
+                    "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+                    "evaluator_id": "codex-judge",
+                    "labels": [
+                      "proc-v17"
+                    ],
+                    "mean_reasoning_quality": 0.71,
+                    "n": 2
                   },
                   {
                     "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
@@ -19097,6 +20595,15 @@
                     "n": 3
                   },
                   {
+                    "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+                    "evaluator_id": "gemini-judge",
+                    "labels": [
+                      "proc-v17"
+                    ],
+                    "mean_reasoning_quality": 0.95,
+                    "n": 2
+                  },
+                  {
                     "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
                     "evaluator_id": "gemini-judge",
                     "labels": [
@@ -19106,19 +20613,19 @@
                     "n": 1
                   }
                 ],
-                "skill_scored": 12,
+                "skill_scored": 18,
                 "vote_cells_scored": 0
               },
               "predictor_id": "gemini-baseline"
             }
           ],
-          "events": 4
+          "events": 6
         },
         "entries": [
           {
             "boundaries": [
               {
-                "after": 5,
+                "after": 7,
                 "at": "2026-09-29T23:30:38Z",
                 "before": 4,
                 "boundary": "scrub-ocr-and-served-values",
@@ -19126,7 +20633,7 @@
                 "unstamped": 0
               },
               {
-                "after": 5,
+                "after": 7,
                 "at": "2026-09-29T23:30:38Z",
                 "before": 4,
                 "boundary": "pro-se-snapshot-scrub",
@@ -19134,7 +20641,7 @@
                 "unstamped": 0
               },
               {
-                "after": 5,
+                "after": 7,
                 "at": "2026-10-01T16:15:45Z",
                 "before": 4,
                 "boundary": "scrub-pro-se-respondent",
@@ -19142,7 +20649,7 @@
                 "unstamped": 0
               },
               {
-                "after": 5,
+                "after": 7,
                 "at": "2026-10-01T16:15:45Z",
                 "before": 4,
                 "boundary": "scrub-pro-se-amicus",
@@ -19150,7 +20657,7 @@
                 "unstamped": 0
               },
               {
-                "after": 3,
+                "after": 5,
                 "at": "2026-10-03T19:08:49Z",
                 "before": 6,
                 "boundary": "scrub-in-re-self-filer",
@@ -19158,7 +20665,7 @@
                 "unstamped": 0
               },
               {
-                "after": 3,
+                "after": 5,
                 "at": "2026-10-03T19:08:49Z",
                 "before": 6,
                 "boundary": "scrub-titled-joinder-self-filer",
@@ -19166,7 +20673,7 @@
                 "unstamped": 0
               },
               {
-                "after": 3,
+                "after": 5,
                 "at": "2026-10-03T19:08:49Z",
                 "before": 6,
                 "boundary": "merits-brief-spellings-consolidated-lead",
@@ -19175,7 +20682,7 @@
                 "unstamped": 0
               },
               {
-                "after": 3,
+                "after": 5,
                 "at": "2026-10-11T23:41:22Z",
                 "before": 6,
                 "boundary": "merits-brief-partial-support",
@@ -19184,7 +20691,7 @@
                 "unstamped": 0
               },
               {
-                "after": 2,
+                "after": 4,
                 "at": "2026-10-16T20:17:17Z",
                 "before": 7,
                 "boundary": "scrub-withheld-petitioner-block",
@@ -19192,7 +20699,7 @@
                 "unstamped": 0
               },
               {
-                "after": 2,
+                "after": 4,
                 "at": "2026-10-16T20:17:17Z",
                 "before": 7,
                 "boundary": "single-entry-trigger-placement",
@@ -19200,7 +20707,7 @@
                 "unstamped": 0
               },
               {
-                "after": 2,
+                "after": 4,
                 "at": "2026-10-16T20:17:17Z",
                 "before": 7,
                 "boundary": "query-clock-prior-last-pull-mask",
@@ -19208,7 +20715,7 @@
                 "unstamped": 0
               },
               {
-                "after": 2,
+                "after": 4,
                 "at": "2026-10-18T01:06:13Z",
                 "before": 7,
                 "boundary": "scrub-scanned-caption-residuals",
@@ -19216,7 +20723,7 @@
                 "unstamped": 0
               },
               {
-                "after": 2,
+                "after": 4,
                 "at": "2026-10-18T01:06:13Z",
                 "before": 7,
                 "boundary": "interim-pool-one-row-per-number",
@@ -19225,7 +20732,7 @@
                 "unstamped": 0
               },
               {
-                "after": 2,
+                "after": 4,
                 "at": "2026-10-20T15:24:42Z",
                 "before": 7,
                 "boundary": "scrub-ohio-reporter-citation",
@@ -19233,7 +20740,7 @@
                 "unstamped": 0
               },
               {
-                "after": 2,
+                "after": 4,
                 "at": "2026-10-20T15:24:42Z",
                 "before": 7,
                 "boundary": "merits-judgment-parser-summary-ruling-consolidated",
@@ -19242,7 +20749,7 @@
                 "unstamped": 0
               },
               {
-                "after": 2,
+                "after": 4,
                 "at": "2026-10-20T15:24:42Z",
                 "before": 7,
                 "boundary": "cert-exit-guard-and-plural-nouns",
@@ -19251,7 +20758,7 @@
                 "unstamped": 0
               },
               {
-                "after": 2,
+                "after": 4,
                 "at": "2026-10-20T15:24:42Z",
                 "before": 7,
                 "boundary": "direct-appeal-plenary-review-grant",
@@ -19260,7 +20767,7 @@
                 "unstamped": 0
               },
               {
-                "after": 1,
+                "after": 3,
                 "at": "2026-10-22T22:40:22Z",
                 "before": 8,
                 "boundary": "merits-brief-confession-of-error",
@@ -19269,25 +20776,117 @@
                 "unstamped": 0
               },
               {
-                "after": 1,
+                "after": 3,
                 "at": "2026-10-22T22:40:22Z",
                 "before": 8,
                 "boundary": "vide-related-dockets",
                 "scope": "all",
                 "unstamped": 0
+              },
+              {
+                "after": 2,
+                "at": "2026-10-23T02:37:11Z",
+                "before": 9,
+                "boundary": "direct-appeal-summary-exit",
+                "gradual": true,
+                "scope": "all",
+                "unstamped": 0
+              },
+              {
+                "after": 2,
+                "at": "2026-10-23T02:37:11Z",
+                "before": 9,
+                "boundary": "context-vide-links",
+                "scope": "all",
+                "unstamped": 0
+              },
+              {
+                "after": 2,
+                "at": "2026-10-25T13:40:46Z",
+                "before": 9,
+                "boundary": "context-paper-only-filings",
+                "scope": "all",
+                "unstamped": 0
+              },
+              {
+                "after": 2,
+                "at": "2026-10-25T13:40:46Z",
+                "before": 9,
+                "boundary": "qp-cutter-split-and-review-headings",
+                "gradual": true,
+                "scope": "all",
+                "unstamped": 0
+              },
+              {
+                "after": 2,
+                "at": "2026-10-25T13:40:46Z",
+                "before": 9,
+                "boundary": "recut-head-cut-documents",
+                "gradual": true,
+                "scope": "all",
+                "unstamped": 0
+              },
+              {
+                "after": 2,
+                "at": "2026-10-28T20:36:01Z",
+                "before": 9,
+                "boundary": "scrub-abbreviated-street-mailing-block",
+                "scope": "self-represented dockets",
+                "unstamped": 0
+              },
+              {
+                "after": 2,
+                "at": "2026-10-28T20:36:01Z",
+                "before": 9,
+                "boundary": "combined-row-per-filing-cut",
+                "gradual": true,
+                "scope": "all",
+                "unstamped": 0
+              },
+              {
+                "after": 2,
+                "at": "2026-10-29T14:16:26Z",
+                "before": 9,
+                "boundary": "context-snapshot-contact-scrub",
+                "scope": "all",
+                "unstamped": 0
+              },
+              {
+                "after": 2,
+                "at": "2026-10-29T14:16:26Z",
+                "before": 9,
+                "boundary": "agent-shell-fedcourts-on-path",
+                "scope": "all",
+                "unstamped": 0
+              },
+              {
+                "after": 2,
+                "at": "2026-10-30T16:38:43Z",
+                "before": 9,
+                "boundary": "cert-same-question-list",
+                "scope": "all",
+                "unstamped": 0
+              },
+              {
+                "after": 2,
+                "at": "2026-10-31T13:36:41Z",
+                "before": 9,
+                "boundary": "context-band-refused",
+                "scope": "all",
+                "unstamped": 0
               }
             ],
             "forward": {
-              "accuracy": 0.7777777777777778,
-              "accuracy_events_scored": 9,
+              "accuracy": 0.8181818181818182,
+              "accuracy_events_scored": 11,
               "accuracy_lift": null,
-              "accuracy_scored": 27,
+              "accuracy_scored": 33,
               "always_deny_accuracy": null,
-              "evaluations": 27,
-              "event_accuracy": 0.7777777777777778,
+              "evaluations": 33,
+              "event_accuracy": 0.8181818181818182,
               "event_accuracy_lift": null,
               "event_always_deny_accuracy": null,
-              "events_scored": 9,
+              "events_scored": 11,
               "grants_expected": null,
               "grants_expected_scored": null,
               "grants_realized": null,
@@ -19295,10 +20894,10 @@
               "in_sample_events_scored": 0,
               "in_sample_grant_rate": null,
               "in_sample_skill_scored": 0,
-              "mean_brier_score": 0.12812500000000002,
-              "mean_reasoning_quality": 0.8022222222222223,
+              "mean_brier_score": 0.10485172727272726,
+              "mean_reasoning_quality": 0.7848484848484848,
               "mean_vote_accuracy": null,
-              "population_brier_skill_score": 0.32078240999974295,
+              "population_brier_skill_score": 0.33144403893047836,
               "population_in_sample_skill_score": null,
               "population_realized_term_skill_score": null,
               "realized_term_skill_scored": 0,
@@ -19317,6 +20916,15 @@
                   "n": 5
                 },
                 {
+                  "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+                  "evaluator_id": "claude-judge",
+                  "labels": [
+                    "proc-v17"
+                  ],
+                  "mean_reasoning_quality": 0.725,
+                  "n": 2
+                },
+                {
                   "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
                   "evaluator_id": "claude-judge",
                   "labels": [
@@ -19333,6 +20941,15 @@
                   ],
                   "mean_reasoning_quality": 0.8,
                   "n": 1
+                },
+                {
+                  "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+                  "evaluator_id": "codex-judge",
+                  "labels": [
+                    "proc-v17"
+                  ],
+                  "mean_reasoning_quality": 0.675,
+                  "n": 2
                 },
                 {
                   "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
@@ -19377,6 +20994,15 @@
                   "n": 4
                 },
                 {
+                  "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+                  "evaluator_id": "gemini-judge",
+                  "labels": [
+                    "proc-v17"
+                  ],
+                  "mean_reasoning_quality": 0.72,
+                  "n": 2
+                },
+                {
                   "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
                   "evaluator_id": "gemini-judge",
                   "labels": [
@@ -19386,13 +21012,13 @@
                   "n": 4
                 }
               ],
-              "skill_scored": 27,
+              "skill_scored": 33,
               "vote_cells_scored": 0
             },
             "predictor_id": "claude-baseline",
             "rank": null,
             "self_provisioning": {
-              "cells": 9,
+              "cells": 11,
               "reached": 0,
               "target_blind": 5,
               "unlogged": 0
@@ -19408,13 +21034,18 @@
                 "n": 9,
                 "opens": "2026-10-11T12:00:00Z",
                 "process_window": "proc-v9"
+              },
+              {
+                "n": 6,
+                "opens": "2026-10-30T16:38:43Z",
+                "process_window": "proc-v15"
               }
             ]
           },
           {
             "boundaries": [
               {
-                "after": 5,
+                "after": 7,
                 "at": "2026-09-29T23:30:38Z",
                 "before": 4,
                 "boundary": "scrub-ocr-and-served-values",
@@ -19422,7 +21053,7 @@
                 "unstamped": 0
               },
               {
-                "after": 5,
+                "after": 7,
                 "at": "2026-09-29T23:30:38Z",
                 "before": 4,
                 "boundary": "pro-se-snapshot-scrub",
@@ -19430,7 +21061,7 @@
                 "unstamped": 0
               },
               {
-                "after": 5,
+                "after": 7,
                 "at": "2026-10-01T16:15:45Z",
                 "before": 4,
                 "boundary": "scrub-pro-se-respondent",
@@ -19438,7 +21069,7 @@
                 "unstamped": 0
               },
               {
-                "after": 5,
+                "after": 7,
                 "at": "2026-10-01T16:15:45Z",
                 "before": 4,
                 "boundary": "scrub-pro-se-amicus",
@@ -19446,7 +21077,7 @@
                 "unstamped": 0
               },
               {
-                "after": 3,
+                "after": 5,
                 "at": "2026-10-03T19:08:49Z",
                 "before": 6,
                 "boundary": "scrub-in-re-self-filer",
@@ -19454,7 +21085,7 @@
                 "unstamped": 0
               },
               {
-                "after": 3,
+                "after": 5,
                 "at": "2026-10-03T19:08:49Z",
                 "before": 6,
                 "boundary": "scrub-titled-joinder-self-filer",
@@ -19462,7 +21093,7 @@
                 "unstamped": 0
               },
               {
-                "after": 3,
+                "after": 5,
                 "at": "2026-10-03T19:08:49Z",
                 "before": 6,
                 "boundary": "merits-brief-spellings-consolidated-lead",
@@ -19471,7 +21102,7 @@
                 "unstamped": 0
               },
               {
-                "after": 3,
+                "after": 5,
                 "at": "2026-10-11T00:12:02Z",
                 "before": 6,
                 "boundary": "predict-cell-record-hide",
@@ -19479,7 +21110,7 @@
                 "unstamped": 0
               },
               {
-                "after": 3,
+                "after": 5,
                 "at": "2026-10-11T00:12:02Z",
                 "before": 6,
                 "boundary": "widened-document-kinds-freshness",
@@ -19488,7 +21119,7 @@
                 "unstamped": 0
               },
               {
-                "after": 3,
+                "after": 5,
                 "at": "2026-10-11T23:41:22Z",
                 "before": 6,
                 "boundary": "merits-brief-partial-support",
@@ -19497,7 +21128,7 @@
                 "unstamped": 0
               },
               {
-                "after": 2,
+                "after": 4,
                 "at": "2026-10-16T20:17:17Z",
                 "before": 7,
                 "boundary": "scrub-withheld-petitioner-block",
@@ -19505,7 +21136,7 @@
                 "unstamped": 0
               },
               {
-                "after": 2,
+                "after": 4,
                 "at": "2026-10-16T20:17:17Z",
                 "before": 7,
                 "boundary": "single-entry-trigger-placement",
@@ -19513,7 +21144,7 @@
                 "unstamped": 0
               },
               {
-                "after": 2,
+                "after": 4,
                 "at": "2026-10-16T20:17:17Z",
                 "before": 7,
                 "boundary": "query-clock-prior-last-pull-mask",
@@ -19521,7 +21152,7 @@
                 "unstamped": 0
               },
               {
-                "after": 2,
+                "after": 4,
                 "at": "2026-10-18T01:06:13Z",
                 "before": 7,
                 "boundary": "scrub-scanned-caption-residuals",
@@ -19529,7 +21160,7 @@
                 "unstamped": 0
               },
               {
-                "after": 2,
+                "after": 4,
                 "at": "2026-10-18T01:06:13Z",
                 "before": 7,
                 "boundary": "interim-pool-one-row-per-number",
@@ -19538,7 +21169,7 @@
                 "unstamped": 0
               },
               {
-                "after": 2,
+                "after": 4,
                 "at": "2026-10-20T15:24:42Z",
                 "before": 7,
                 "boundary": "scrub-ohio-reporter-citation",
@@ -19546,7 +21177,7 @@
                 "unstamped": 0
               },
               {
-                "after": 2,
+                "after": 4,
                 "at": "2026-10-20T15:24:42Z",
                 "before": 7,
                 "boundary": "merits-judgment-parser-summary-ruling-consolidated",
@@ -19555,7 +21186,7 @@
                 "unstamped": 0
               },
               {
-                "after": 2,
+                "after": 4,
                 "at": "2026-10-20T15:24:42Z",
                 "before": 7,
                 "boundary": "cert-exit-guard-and-plural-nouns",
@@ -19564,7 +21195,7 @@
                 "unstamped": 0
               },
               {
-                "after": 2,
+                "after": 4,
                 "at": "2026-10-20T15:24:42Z",
                 "before": 7,
                 "boundary": "direct-appeal-plenary-review-grant",
@@ -19573,7 +21204,7 @@
                 "unstamped": 0
               },
               {
-                "after": 1,
+                "after": 3,
                 "at": "2026-10-22T22:40:22Z",
                 "before": 8,
                 "boundary": "merits-brief-confession-of-error",
@@ -19582,25 +21213,117 @@
                 "unstamped": 0
               },
               {
-                "after": 1,
+                "after": 3,
                 "at": "2026-10-22T22:40:22Z",
                 "before": 8,
                 "boundary": "vide-related-dockets",
                 "scope": "all",
                 "unstamped": 0
+              },
+              {
+                "after": 2,
+                "at": "2026-10-23T02:37:11Z",
+                "before": 9,
+                "boundary": "direct-appeal-summary-exit",
+                "gradual": true,
+                "scope": "all",
+                "unstamped": 0
+              },
+              {
+                "after": 2,
+                "at": "2026-10-23T02:37:11Z",
+                "before": 9,
+                "boundary": "context-vide-links",
+                "scope": "all",
+                "unstamped": 0
+              },
+              {
+                "after": 2,
+                "at": "2026-10-25T13:40:46Z",
+                "before": 9,
+                "boundary": "context-paper-only-filings",
+                "scope": "all",
+                "unstamped": 0
+              },
+              {
+                "after": 2,
+                "at": "2026-10-25T13:40:46Z",
+                "before": 9,
+                "boundary": "qp-cutter-split-and-review-headings",
+                "gradual": true,
+                "scope": "all",
+                "unstamped": 0
+              },
+              {
+                "after": 2,
+                "at": "2026-10-25T13:40:46Z",
+                "before": 9,
+                "boundary": "recut-head-cut-documents",
+                "gradual": true,
+                "scope": "all",
+                "unstamped": 0
+              },
+              {
+                "after": 2,
+                "at": "2026-10-28T20:36:01Z",
+                "before": 9,
+                "boundary": "scrub-abbreviated-street-mailing-block",
+                "scope": "self-represented dockets",
+                "unstamped": 0
+              },
+              {
+                "after": 2,
+                "at": "2026-10-28T20:36:01Z",
+                "before": 9,
+                "boundary": "combined-row-per-filing-cut",
+                "gradual": true,
+                "scope": "all",
+                "unstamped": 0
+              },
+              {
+                "after": 2,
+                "at": "2026-10-29T14:16:26Z",
+                "before": 9,
+                "boundary": "context-snapshot-contact-scrub",
+                "scope": "all",
+                "unstamped": 0
+              },
+              {
+                "after": 2,
+                "at": "2026-10-29T14:16:26Z",
+                "before": 9,
+                "boundary": "agent-shell-fedcourts-on-path",
+                "scope": "all",
+                "unstamped": 0
+              },
+              {
+                "after": 2,
+                "at": "2026-10-30T16:38:43Z",
+                "before": 9,
+                "boundary": "cert-same-question-list",
+                "scope": "all",
+                "unstamped": 0
+              },
+              {
+                "after": 2,
+                "at": "2026-10-31T13:36:41Z",
+                "before": 9,
+                "boundary": "context-band-refused",
+                "scope": "all",
+                "unstamped": 0
               }
             ],
             "forward": {
-              "accuracy": 0.7777777777777778,
-              "accuracy_events_scored": 9,
+              "accuracy": 0.8181818181818182,
+              "accuracy_events_scored": 11,
               "accuracy_lift": null,
-              "accuracy_scored": 27,
+              "accuracy_scored": 33,
               "always_deny_accuracy": null,
-              "evaluations": 27,
-              "event_accuracy": 0.7777777777777778,
+              "evaluations": 33,
+              "event_accuracy": 0.8181818181818182,
               "event_accuracy_lift": null,
               "event_always_deny_accuracy": null,
-              "events_scored": 9,
+              "events_scored": 11,
               "grants_expected": null,
               "grants_expected_scored": null,
               "grants_realized": null,
@@ -19608,10 +21331,10 @@
               "in_sample_events_scored": 0,
               "in_sample_grant_rate": null,
               "in_sample_skill_scored": 0,
-              "mean_brier_score": 0.13983333333333337,
-              "mean_reasoning_quality": 0.8003703703703704,
+              "mean_brier_score": 0.115,
+              "mean_reasoning_quality": 0.7860606060606061,
               "mean_vote_accuracy": null,
-              "population_brier_skill_score": 0.25871407088102016,
+              "population_brier_skill_score": 0.2667365858169025,
               "population_in_sample_skill_score": null,
               "population_realized_term_skill_score": null,
               "realized_term_skill_scored": 0,
@@ -19630,6 +21353,15 @@
                   "n": 5
                 },
                 {
+                  "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+                  "evaluator_id": "claude-judge",
+                  "labels": [
+                    "proc-v17"
+                  ],
+                  "mean_reasoning_quality": 0.6000000000000001,
+                  "n": 2
+                },
+                {
                   "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
                   "evaluator_id": "claude-judge",
                   "labels": [
@@ -19646,6 +21378,15 @@
                   ],
                   "mean_reasoning_quality": 0.9,
                   "n": 1
+                },
+                {
+                  "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+                  "evaluator_id": "codex-judge",
+                  "labels": [
+                    "proc-v17"
+                  ],
+                  "mean_reasoning_quality": 0.9,
+                  "n": 2
                 },
                 {
                   "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
@@ -19690,6 +21431,15 @@
                   "n": 4
                 },
                 {
+                  "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+                  "evaluator_id": "gemini-judge",
+                  "labels": [
+                    "proc-v17"
+                  ],
+                  "mean_reasoning_quality": 0.665,
+                  "n": 2
+                },
+                {
                   "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
                   "evaluator_id": "gemini-judge",
                   "labels": [
@@ -19699,13 +21449,13 @@
                   "n": 4
                 }
               ],
-              "skill_scored": 27,
+              "skill_scored": 33,
               "vote_cells_scored": 0
             },
             "predictor_id": "codex-baseline",
             "rank": null,
             "self_provisioning": {
-              "cells": 9,
+              "cells": 11,
               "reached": 0,
               "target_blind": 0,
               "unlogged": 0
@@ -19721,13 +21471,18 @@
                 "n": 6,
                 "opens": "2026-10-20T15:24:42Z",
                 "process_window": "proc-v10"
+              },
+              {
+                "n": 6,
+                "opens": "2026-10-30T16:38:43Z",
+                "process_window": "proc-v15"
               }
             ]
           },
           {
             "boundaries": [
               {
-                "after": 5,
+                "after": 7,
                 "at": "2026-09-29T23:30:38Z",
                 "before": 4,
                 "boundary": "scrub-ocr-and-served-values",
@@ -19735,7 +21490,7 @@
                 "unstamped": 0
               },
               {
-                "after": 5,
+                "after": 7,
                 "at": "2026-09-29T23:30:38Z",
                 "before": 4,
                 "boundary": "pro-se-snapshot-scrub",
@@ -19743,7 +21498,7 @@
                 "unstamped": 0
               },
               {
-                "after": 5,
+                "after": 7,
                 "at": "2026-10-01T16:15:45Z",
                 "before": 4,
                 "boundary": "scrub-pro-se-respondent",
@@ -19751,7 +21506,7 @@
                 "unstamped": 0
               },
               {
-                "after": 5,
+                "after": 7,
                 "at": "2026-10-01T16:15:45Z",
                 "before": 4,
                 "boundary": "scrub-pro-se-amicus",
@@ -19759,7 +21514,7 @@
                 "unstamped": 0
               },
               {
-                "after": 3,
+                "after": 5,
                 "at": "2026-10-03T19:08:49Z",
                 "before": 6,
                 "boundary": "scrub-in-re-self-filer",
@@ -19767,7 +21522,7 @@
                 "unstamped": 0
               },
               {
-                "after": 3,
+                "after": 5,
                 "at": "2026-10-03T19:08:49Z",
                 "before": 6,
                 "boundary": "scrub-titled-joinder-self-filer",
@@ -19775,7 +21530,7 @@
                 "unstamped": 0
               },
               {
-                "after": 3,
+                "after": 5,
                 "at": "2026-10-03T19:08:49Z",
                 "before": 6,
                 "boundary": "merits-brief-spellings-consolidated-lead",
@@ -19784,7 +21539,7 @@
                 "unstamped": 0
               },
               {
-                "after": 3,
+                "after": 5,
                 "at": "2026-10-11T00:12:02Z",
                 "before": 6,
                 "boundary": "predict-cell-record-hide",
@@ -19792,7 +21547,7 @@
                 "unstamped": 0
               },
               {
-                "after": 3,
+                "after": 5,
                 "at": "2026-10-11T00:12:02Z",
                 "before": 6,
                 "boundary": "widened-document-kinds-freshness",
@@ -19801,7 +21556,7 @@
                 "unstamped": 0
               },
               {
-                "after": 3,
+                "after": 5,
                 "at": "2026-10-11T23:41:22Z",
                 "before": 6,
                 "boundary": "merits-brief-partial-support",
@@ -19810,7 +21565,7 @@
                 "unstamped": 0
               },
               {
-                "after": 2,
+                "after": 4,
                 "at": "2026-10-16T20:17:17Z",
                 "before": 7,
                 "boundary": "scrub-withheld-petitioner-block",
@@ -19818,7 +21573,7 @@
                 "unstamped": 0
               },
               {
-                "after": 2,
+                "after": 4,
                 "at": "2026-10-16T20:17:17Z",
                 "before": 7,
                 "boundary": "single-entry-trigger-placement",
@@ -19826,7 +21581,7 @@
                 "unstamped": 0
               },
               {
-                "after": 2,
+                "after": 4,
                 "at": "2026-10-16T20:17:17Z",
                 "before": 7,
                 "boundary": "query-clock-prior-last-pull-mask",
@@ -19834,7 +21589,7 @@
                 "unstamped": 0
               },
               {
-                "after": 2,
+                "after": 4,
                 "at": "2026-10-18T01:06:13Z",
                 "before": 7,
                 "boundary": "scrub-scanned-caption-residuals",
@@ -19842,7 +21597,7 @@
                 "unstamped": 0
               },
               {
-                "after": 2,
+                "after": 4,
                 "at": "2026-10-18T01:06:13Z",
                 "before": 7,
                 "boundary": "interim-pool-one-row-per-number",
@@ -19851,7 +21606,7 @@
                 "unstamped": 0
               },
               {
-                "after": 2,
+                "after": 4,
                 "at": "2026-10-20T15:24:42Z",
                 "before": 7,
                 "boundary": "scrub-ohio-reporter-citation",
@@ -19859,7 +21614,7 @@
                 "unstamped": 0
               },
               {
-                "after": 2,
+                "after": 4,
                 "at": "2026-10-20T15:24:42Z",
                 "before": 7,
                 "boundary": "merits-judgment-parser-summary-ruling-consolidated",
@@ -19868,7 +21623,7 @@
                 "unstamped": 0
               },
               {
-                "after": 2,
+                "after": 4,
                 "at": "2026-10-20T15:24:42Z",
                 "before": 7,
                 "boundary": "cert-exit-guard-and-plural-nouns",
@@ -19877,7 +21632,7 @@
                 "unstamped": 0
               },
               {
-                "after": 2,
+                "after": 4,
                 "at": "2026-10-20T15:24:42Z",
                 "before": 7,
                 "boundary": "direct-appeal-plenary-review-grant",
@@ -19886,7 +21641,7 @@
                 "unstamped": 0
               },
               {
-                "after": 1,
+                "after": 3,
                 "at": "2026-10-22T22:40:22Z",
                 "before": 8,
                 "boundary": "merits-brief-confession-of-error",
@@ -19895,25 +21650,117 @@
                 "unstamped": 0
               },
               {
-                "after": 1,
+                "after": 3,
                 "at": "2026-10-22T22:40:22Z",
                 "before": 8,
                 "boundary": "vide-related-dockets",
                 "scope": "all",
                 "unstamped": 0
+              },
+              {
+                "after": 2,
+                "at": "2026-10-23T02:37:11Z",
+                "before": 9,
+                "boundary": "direct-appeal-summary-exit",
+                "gradual": true,
+                "scope": "all",
+                "unstamped": 0
+              },
+              {
+                "after": 2,
+                "at": "2026-10-23T02:37:11Z",
+                "before": 9,
+                "boundary": "context-vide-links",
+                "scope": "all",
+                "unstamped": 0
+              },
+              {
+                "after": 2,
+                "at": "2026-10-25T13:40:46Z",
+                "before": 9,
+                "boundary": "context-paper-only-filings",
+                "scope": "all",
+                "unstamped": 0
+              },
+              {
+                "after": 2,
+                "at": "2026-10-25T13:40:46Z",
+                "before": 9,
+                "boundary": "qp-cutter-split-and-review-headings",
+                "gradual": true,
+                "scope": "all",
+                "unstamped": 0
+              },
+              {
+                "after": 2,
+                "at": "2026-10-25T13:40:46Z",
+                "before": 9,
+                "boundary": "recut-head-cut-documents",
+                "gradual": true,
+                "scope": "all",
+                "unstamped": 0
+              },
+              {
+                "after": 2,
+                "at": "2026-10-28T20:36:01Z",
+                "before": 9,
+                "boundary": "scrub-abbreviated-street-mailing-block",
+                "scope": "self-represented dockets",
+                "unstamped": 0
+              },
+              {
+                "after": 2,
+                "at": "2026-10-28T20:36:01Z",
+                "before": 9,
+                "boundary": "combined-row-per-filing-cut",
+                "gradual": true,
+                "scope": "all",
+                "unstamped": 0
+              },
+              {
+                "after": 2,
+                "at": "2026-10-29T14:16:26Z",
+                "before": 9,
+                "boundary": "context-snapshot-contact-scrub",
+                "scope": "all",
+                "unstamped": 0
+              },
+              {
+                "after": 2,
+                "at": "2026-10-29T14:16:26Z",
+                "before": 9,
+                "boundary": "agent-shell-fedcourts-on-path",
+                "scope": "all",
+                "unstamped": 0
+              },
+              {
+                "after": 2,
+                "at": "2026-10-30T16:38:43Z",
+                "before": 9,
+                "boundary": "cert-same-question-list",
+                "scope": "all",
+                "unstamped": 0
+              },
+              {
+                "after": 2,
+                "at": "2026-10-31T13:36:41Z",
+                "before": 9,
+                "boundary": "context-band-refused",
+                "scope": "all",
+                "unstamped": 0
               }
             ],
             "forward": {
-              "accuracy": 0.5555555555555556,
-              "accuracy_events_scored": 9,
+              "accuracy": 0.6363636363636364,
+              "accuracy_events_scored": 11,
               "accuracy_lift": null,
-              "accuracy_scored": 27,
+              "accuracy_scored": 33,
               "always_deny_accuracy": null,
-              "evaluations": 27,
-              "event_accuracy": 0.5555555555555556,
+              "evaluations": 33,
+              "event_accuracy": 0.6363636363636364,
               "event_accuracy_lift": null,
               "event_always_deny_accuracy": null,
-              "events_scored": 9,
+              "events_scored": 11,
               "grants_expected": null,
               "grants_expected_scored": null,
               "grants_realized": null,
@@ -19921,10 +21768,10 @@
               "in_sample_events_scored": 0,
               "in_sample_grant_rate": null,
               "in_sample_skill_scored": 0,
-              "mean_brier_score": 0.24565844444444446,
-              "mean_reasoning_quality": 0.5366666666666666,
+              "mean_brier_score": 0.20100463636363636,
+              "mean_reasoning_quality": 0.5896969696969697,
               "mean_vote_accuracy": null,
-              "population_brier_skill_score": -0.3022871149172104,
+              "population_brier_skill_score": -0.28164648631853884,
               "population_in_sample_skill_score": null,
               "population_realized_term_skill_score": null,
               "realized_term_skill_scored": 0,
@@ -19943,6 +21790,15 @@
                   "n": 5
                 },
                 {
+                  "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+                  "evaluator_id": "claude-judge",
+                  "labels": [
+                    "proc-v17"
+                  ],
+                  "mean_reasoning_quality": 0.825,
+                  "n": 2
+                },
+                {
                   "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
                   "evaluator_id": "claude-judge",
                   "labels": [
@@ -19959,6 +21815,15 @@
                   ],
                   "mean_reasoning_quality": 0.3,
                   "n": 1
+                },
+                {
+                  "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+                  "evaluator_id": "codex-judge",
+                  "labels": [
+                    "proc-v17"
+                  ],
+                  "mean_reasoning_quality": 0.71,
+                  "n": 2
                 },
                 {
                   "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
@@ -20003,6 +21868,15 @@
                   "n": 4
                 },
                 {
+                  "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+                  "evaluator_id": "gemini-judge",
+                  "labels": [
+                    "proc-v17"
+                  ],
+                  "mean_reasoning_quality": 0.95,
+                  "n": 2
+                },
+                {
                   "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
                   "evaluator_id": "gemini-judge",
                   "labels": [
@@ -20012,13 +21886,13 @@
                   "n": 4
                 }
               ],
-              "skill_scored": 27,
+              "skill_scored": 33,
               "vote_cells_scored": 0
             },
             "predictor_id": "gemini-baseline",
             "rank": null,
             "self_provisioning": {
-              "cells": 9,
+              "cells": 11,
               "reached": 0,
               "target_blind": 0,
               "unlogged": 0
@@ -20034,11 +21908,16 @@
                 "n": 6,
                 "opens": "2026-10-20T15:24:42Z",
                 "process_window": "proc-v10"
+              },
+              {
+                "n": 6,
+                "opens": "2026-10-30T16:38:43Z",
+                "process_window": "proc-v15"
               }
             ]
           }
         ],
-        "events": 9,
+        "events": 11,
         "predictors": [
           "claude-baseline",
           "codex-baseline",
@@ -20046,7 +21925,7 @@
         ]
       },
       "procedural_evaluations": 0,
-      "retrospective_evaluations": 0
+      "retrospective_evaluations": 9
     },
     "interim@response-filed": {
       "by_protocol": [

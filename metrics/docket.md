@@ -2,9 +2,9 @@
 
 Facts about the dockets themselves: what the Supreme Court is asked to take, from which court below, on which fee stream, after how many relists, and how it disposes of what it is asked. It carries **no claim about this project's predictions** — no accuracy, no model ranking, no measure of which petitions are worth predicting — so it is readable and citable without any interest in whether those models are any good.
 
-**Corpus.** 2153901 case(s): 70454 resolved, 2083447 open, pulled through 2026-11-02. Most rows are an unlabeled bulk import, so the two overview sections below describe the **labeled subset only** — read `resolved` against `cases` before quoting one.
+**Corpus.** 2153965 case(s): 73646 resolved, 2080319 open, pulled through 2026-11-05. Most rows are an unlabeled bulk import, so the two overview sections below describe the **labeled subset only** — read `resolved` against `cases` before quoting one.
 
-**Live/historical slice.** 40694 case(s), 39487 resolved — matters read from the Court's own docket pages, the population the cert statistics below draw from. It also carries the interim application rows, which no cert statistic aggregates, so a cert denominator can sit below this count; 26144 docketed filing(s) across the walked Terms.
+**Live/historical slice.** 43921 case(s), 42679 resolved — matters read from the Court's own docket pages, the population the cert statistics below draw from. It also carries the interim application rows, which no cert statistic aggregates, so a cert denominator can sit below this count; 29772 docketed filing(s) across the walked Terms.
 
 **How to read the tables.** Each section states its own scope: the court, the population, and whether its counts are denial-reweighted. That reweighting matters. The historical walk ingests every decided petition except denials, which it samples on a committed frame, so a raw count would badly overstate the grant rate; a reweighted section counts each ingested petition for the number of petitions it stands in for. **Every section here is reweighted**, including the two overview cuts: nearly every labeled SCOTUS row is a sampled one, so a raw disposition split there would overstate the grant family several-fold, while a bulk-import circuit row carries weight 1 and is unchanged by it. So every count is a population **estimate** rather than rows on hand, and every denominator is written `est. n=`. In the breakdown tables that denominator is the `resolved` column beside the rate; the per-Term census states its own the same way.
 
@@ -17,7 +17,7 @@ _Scope: all courts; includes the frozen bulk import; counts are denial-reweighte
 
 | court | cases | resolved | open | base rate (resolved) |
 | --- | --: | --: | --: | --- |
-| scotus | 609031 | 57009 | 552022 | denied 78.6%, granted 18.1%, dismissed 1.7%, gvr 1.1%, other 0.4%, withdrawn 0.1% (est. n=57009) |
+| scotus | 606103 | 57213 | 548890 | denied 78.7%, granted 18.0%, dismissed 1.7%, gvr 1.1%, other 0.4%, withdrawn 0.1% (est. n=57213) |
 | ca9 | 247638 | 1463 | 246175 | other 94.5%, dismissed 2.6%, denied 2.0%, granted 0.8%, withdrawn 0.1% (est. n=1463) |
 | ca5 | 203464 | 1502 | 201962 | other 91.0%, dismissed 4.0%, denied 3.5%, granted 1.5% (est. n=1502) |
 | ca4 | 187218 | 15593 | 171625 | other 63.2%, dismissed 36.2%, denied 0.4%, granted 0.2%, granted-in-part 0.0% (est. n=15593) |
@@ -32,21 +32,22 @@ _Scope: all courts; includes the frozen bulk import; counts are denial-reweighte
 | cadc | 57037 | 3042 | 53995 | other 94.3%, dismissed 2.2%, denied 2.0%, granted 1.5% (est. n=3042) |
 | ca1 | 45337 | 599 | 44738 | other 86.3%, dismissed 8.0%, denied 5.0%, granted 0.7% (est. n=599) |
 | cand | 10 | 0 | 10 | — |
+| flnd | 5 | 0 | 5 | — |
 | ded | 2 | 0 | 2 | — |
-| flnd | 2 | 0 | 2 | — |
 | flmd | 1 | 0 | 1 | — |
+| jpml | 1 | 0 | 1 | — |
 
 ## SCOTUS cases by era
 _Scope: scotus; includes the frozen bulk import; counts are denial-reweighted estimates._
 
 | era | cases | resolved | open | base rate (resolved) |
 | --- | --: | --: | --: | --- |
-| (none) | 126247 | 267 | 125980 | other 76.4%, dismissed 17.6%, denied 4.5%, granted 1.5% (est. n=267) |
+| (none) | 126248 | 267 | 125981 | other 76.4%, dismissed 17.6%, denied 4.5%, granted 1.5% (est. n=267) |
 | 2000s | 124840 | 13 | 124827 | other 100.0% (est. n=13) |
 | 1990s | 109307 | 12 | 109295 | other 91.7%, denied 8.3% (est. n=12) |
-| 2010s | 104895 | 22932 | 81963 | denied 78.7%, granted 18.7%, dismissed 1.5%, gvr 1.1%, withdrawn 0.0% (est. n=22932) |
+| 2010s | 104895 | 23042 | 81853 | denied 78.8%, granted 18.6%, dismissed 1.5%, gvr 1.1%, withdrawn 0.0% (est. n=23042) |
 | 1980s | 62149 | 1 | 62148 | other 100.0% (est. n=1) |
-| 2020s | 45049 | 33781 | 11268 | denied 79.3%, granted 17.9%, dismissed 1.7%, gvr 1.1%, withdrawn 0.1% (est. n=33781) |
+| 2020s | 42120 | 33875 | 8245 | denied 79.3%, granted 17.8%, dismissed 1.7%, gvr 1.1%, withdrawn 0.1% (est. n=33875) |
 | 1970s | 36385 | 3 | 36382 | other 100.0% (est. n=3) |
 | 1960s | 107 | 0 | 107 | — |
 | 1910s | 20 | 0 | 20 | — |
@@ -63,53 +64,53 @@ _Scope: scotus, modern discretionary-cert dockets, live/historical slice; counts
 
 | disposition | cases | resolved | open | base rate (resolved) |
 | --- | --: | --: | --: | --- |
-| denied | 42712 | 42712 | 0 | denied 100.0% (est. n=42712) |
-| (open) | 1155 | 0 | 1155 | — |
+| denied | 42890 | 42890 | 0 | denied 100.0% (est. n=42890) |
+| (open) | 1197 | 0 | 1197 | — |
 | dismissed | 919 | 919 | 0 | dismissed 100.0% (est. n=919) |
-| granted | 659 | 659 | 0 | granted 100.0% (est. n=659) |
-| gvr | 615 | 615 | 0 | gvr 100.0% (est. n=615) |
+| granted | 638 | 638 | 0 | granted 100.0% (est. n=638) |
+| gvr | 637 | 637 | 0 | gvr 100.0% (est. n=637) |
 
 ## Modern cert petitions by originating circuit
 _Scope: scotus, modern discretionary-cert dockets, live/historical slice; counts are denial-reweighted estimates._
 
 | originating_court | cases | resolved | open | base rate (resolved) |
 | --- | --: | --: | --: | --- |
-| (none) | 12080 | 11708 | 372 | denied 96.4%, dismissed 2.2%, gvr 0.8%, granted 0.6% (est. n=11708) |
-| ca9 | 5660 | 5542 | 118 | denied 94.8%, granted 2.1%, dismissed 1.9%, gvr 1.2% (est. n=5542) |
-| ca5 | 5588 | 5452 | 136 | denied 94.7%, gvr 2.2%, granted 1.6%, dismissed 1.6% (est. n=5452) |
-| ca11 | 3866 | 3795 | 71 | denied 94.7%, gvr 2.1%, dismissed 1.8%, granted 1.3% (est. n=3795) |
-| ca4 | 3502 | 3436 | 66 | denied 95.2%, dismissed 2.2%, gvr 1.3%, granted 1.3% (est. n=3436) |
-| ca6 | 3030 | 2947 | 83 | denied 95.7%, dismissed 1.5%, gvr 1.4%, granted 1.4% (est. n=2947) |
-| ca8 | 2191 | 2149 | 42 | denied 95.3%, dismissed 2.0%, gvr 1.5%, granted 1.2% (est. n=2149) |
-| ca2 | 2154 | 2082 | 72 | denied 92.6%, granted 2.6%, dismissed 2.4%, gvr 2.4% (est. n=2082) |
-| ca3 | 2035 | 1986 | 49 | denied 95.0%, dismissed 2.6%, granted 1.5%, gvr 1.0% (est. n=1986) |
-| ca7 | 1645 | 1607 | 38 | denied 95.1%, dismissed 2.4%, gvr 1.4%, granted 1.1% (est. n=1607) |
-| ca10 | 1448 | 1413 | 35 | denied 94.1%, granted 2.3%, dismissed 2.2%, gvr 1.5% (est. n=1413) |
-| cafc | 936 | 907 | 29 | denied 92.5%, dismissed 3.0%, granted 3.0%, gvr 1.5% (est. n=907) |
-| ca1 | 924 | 904 | 20 | denied 95.4%, granted 2.5%, dismissed 1.5%, gvr 0.6% (est. n=904) |
-| cadc | 667 | 643 | 24 | denied 88.6%, granted 6.1%, dismissed 3.1%, gvr 2.2% (est. n=643) |
+| (none) | 12199 | 11825 | 374 | denied 96.5%, dismissed 2.2%, gvr 0.8%, granted 0.6% (est. n=11825) |
+| ca9 | 5664 | 5544 | 120 | denied 94.8%, granted 2.1%, dismissed 1.9%, gvr 1.2% (est. n=5544) |
+| ca5 | 5549 | 5409 | 140 | denied 94.6%, gvr 2.3%, dismissed 1.6%, granted 1.6% (est. n=5409) |
+| ca11 | 3935 | 3861 | 74 | denied 94.8%, gvr 2.2%, dismissed 1.8%, granted 1.2% (est. n=3861) |
+| ca4 | 3495 | 3425 | 70 | denied 95.2%, dismissed 2.2%, gvr 1.4%, granted 1.2% (est. n=3425) |
+| ca6 | 3076 | 2990 | 86 | denied 95.7%, dismissed 1.5%, gvr 1.4%, granted 1.3% (est. n=2990) |
+| ca8 | 2235 | 2189 | 46 | denied 95.4%, dismissed 2.0%, gvr 1.6%, granted 1.0% (est. n=2189) |
+| ca2 | 2159 | 2083 | 76 | denied 92.6%, granted 2.6%, dismissed 2.4%, gvr 2.4% (est. n=2083) |
+| ca3 | 2010 | 1961 | 49 | denied 94.9%, dismissed 2.7%, granted 1.5%, gvr 1.0% (est. n=1961) |
+| ca7 | 1652 | 1613 | 39 | denied 95.1%, dismissed 2.4%, gvr 1.4%, granted 1.1% (est. n=1613) |
+| ca10 | 1460 | 1422 | 38 | denied 94.1%, dismissed 2.2%, granted 2.0%, gvr 1.8% (est. n=1422) |
+| ca1 | 930 | 910 | 20 | denied 95.4%, granted 2.5%, dismissed 1.5%, gvr 0.5% (est. n=910) |
+| cafc | 917 | 887 | 30 | denied 92.3%, dismissed 3.0%, granted 3.0%, gvr 1.6% (est. n=887) |
+| cadc | 666 | 641 | 25 | denied 88.6%, granted 6.1%, dismissed 3.1%, gvr 2.2% (est. n=641) |
 | fla | 100 | 100 | 0 | denied 100.0% (est. n=100) |
 | texcrimapp | 41 | 41 | 0 | denied 97.6%, gvr 2.4% (est. n=41) |
 | alacrimapp | 40 | 40 | 0 | denied 100.0% (est. n=40) |
 | cal | 31 | 31 | 0 | denied 96.8%, dismissed 3.2% (est. n=31) |
 | ariz | 30 | 30 | 0 | denied 100.0% (est. n=30) |
 | nev | 20 | 20 | 0 | denied 100.0% (est. n=20) |
-| ohio | 20 | 20 | 0 | denied 100.0% (est. n=20) |
 | oklacrimapp | 11 | 11 | 0 | denied 90.9%, dismissed 9.1% (est. n=11) |
 | ark | 10 | 10 | 0 | denied 100.0% (est. n=10) |
 | idaho | 10 | 10 | 0 | denied 100.0% (est. n=10) |
 | neb | 10 | 10 | 0 | denied 100.0% (est. n=10) |
-| _… 2 more bucket(s) in the JSON_ | | | | |
+| ohio | 10 | 10 | 0 | denied 100.0% (est. n=10) |
+| _… 8 more bucket(s) in the JSON_ | | | | |
 
 ## Cert petitions by relist count
 _Scope: scotus, modern discretionary-cert dockets, live/historical slice; counts are denial-reweighted estimates. Relists are read off the stored distribution count, which holds the `dist-v2` reading; a parse change moves which entries count as a relist, not the tier labels, so the parse travels with the numbers. The count is an upper bound on true relists under either reading — a reschedule before first consideration also adds a distribution entry._
 
 | relist_bucket | cases | resolved | open | base rate (resolved) |
 | --- | --: | --: | --: | --- |
-| 0 | 38017 | 36941 | 1076 | denied 96.8%, dismissed 2.3%, gvr 0.4%, granted 0.4% (est. n=36941) |
-| 1 | 6410 | 6362 | 48 | denied 92.0%, gvr 3.8%, granted 3.6%, dismissed 0.6% (est. n=6362) |
-| 3+ | 831 | 822 | 9 | denied 69.1%, granted 16.3%, gvr 13.6%, dismissed 1.0% (est. n=822) |
-| 2 | 793 | 780 | 13 | denied 65.9%, granted 19.0%, gvr 14.1%, dismissed 1.0% (est. n=780) |
+| 0 | 38211 | 37100 | 1111 | denied 96.9%, dismissed 2.3%, gvr 0.4%, granted 0.4% (est. n=37100) |
+| 1 | 6430 | 6376 | 54 | denied 92.0%, gvr 3.9%, granted 3.5%, dismissed 0.6% (est. n=6376) |
+| 3+ | 840 | 831 | 9 | denied 69.4%, granted 15.9%, gvr 13.7%, dismissed 1.0% (est. n=831) |
+| 2 | 791 | 777 | 14 | denied 65.8%, granted 18.7%, gvr 14.5%, dismissed 1.0% (est. n=777) |
 | (unknown) | 9 | 0 | 9 | — |
 
 ## Cert petitions by CVSG status
@@ -117,7 +118,7 @@ _Scope: scotus, modern discretionary-cert dockets, live/historical slice; counts
 
 | cvsg | cases | resolved | open | base rate (resolved) |
 | --- | --: | --: | --: | --- |
-| none | 45871 | 44741 | 1130 | denied 95.2%, dismissed 2.0%, granted 1.4%, gvr 1.4% (est. n=44741) |
+| none | 46092 | 44920 | 1172 | denied 95.3%, dismissed 2.0%, gvr 1.4%, granted 1.3% (est. n=44920) |
 | cvsg | 180 | 164 | 16 | denied 62.8%, granted 29.3%, gvr 5.5%, dismissed 2.4% (est. n=164) |
 | (unknown) | 9 | 0 | 9 | — |
 
@@ -126,92 +127,92 @@ _Scope: scotus, modern discretionary-cert dockets, live/historical slice; counts
 
 | capital_case | cases | resolved | open | base rate (resolved) |
 | --- | --: | --: | --: | --- |
-| unmarked | 45293 | 44166 | 1127 | denied 95.1%, dismissed 2.1%, granted 1.4%, gvr 1.4% (est. n=44166) |
-| capital | 767 | 739 | 28 | denied 93.8%, granted 3.0%, gvr 1.9%, dismissed 1.4% (est. n=739) |
+| unmarked | 45371 | 44205 | 1166 | denied 95.1%, dismissed 2.1%, gvr 1.4%, granted 1.4% (est. n=44205) |
+| capital | 910 | 879 | 31 | denied 94.5%, granted 2.6%, gvr 1.7%, dismissed 1.1% (est. n=879) |
 
 ## Petitions by originating court (incl. state courts)
 _Scope: scotus, modern discretionary-cert dockets, live/historical slice; counts are denial-reweighted estimates._
 
 | originating_court | cases | resolved | open | base rate (resolved) |
 | --- | --: | --: | --: | --- |
-| ca9 | 5660 | 5542 | 118 | denied 94.8%, granted 2.1%, dismissed 1.9%, gvr 1.2% (est. n=5542) |
-| ca5 | 5588 | 5452 | 136 | denied 94.7%, gvr 2.2%, granted 1.6%, dismissed 1.6% (est. n=5452) |
-| ca11 | 3866 | 3795 | 71 | denied 94.7%, gvr 2.1%, dismissed 1.8%, granted 1.3% (est. n=3795) |
-| ca4 | 3502 | 3436 | 66 | denied 95.2%, dismissed 2.2%, gvr 1.3%, granted 1.3% (est. n=3436) |
-| ca6 | 3030 | 2947 | 83 | denied 95.7%, dismissed 1.5%, gvr 1.4%, granted 1.4% (est. n=2947) |
-| ca8 | 2191 | 2149 | 42 | denied 95.3%, dismissed 2.0%, gvr 1.5%, granted 1.2% (est. n=2149) |
-| ca2 | 2154 | 2082 | 72 | denied 92.6%, granted 2.6%, dismissed 2.4%, gvr 2.4% (est. n=2082) |
-| ca3 | 2035 | 1986 | 49 | denied 95.0%, dismissed 2.6%, granted 1.5%, gvr 1.0% (est. n=1986) |
-| ca7 | 1645 | 1607 | 38 | denied 95.1%, dismissed 2.4%, gvr 1.4%, granted 1.1% (est. n=1607) |
-| ca10 | 1448 | 1413 | 35 | denied 94.1%, granted 2.3%, dismissed 2.2%, gvr 1.5% (est. n=1413) |
-| (none) | 1420 | 1344 | 76 | denied 99.2%, dismissed 0.8% (est. n=1344) |
-| cafc | 936 | 907 | 29 | denied 92.5%, dismissed 3.0%, granted 3.0%, gvr 1.5% (est. n=907) |
-| ca1 | 924 | 904 | 20 | denied 95.4%, granted 2.5%, dismissed 1.5%, gvr 0.6% (est. n=904) |
-| cadc | 667 | 643 | 24 | denied 88.6%, granted 6.1%, dismissed 3.1%, gvr 2.2% (est. n=643) |
-| Supreme Court of Florida | 546 | 536 | 10 | denied 97.2%, dismissed 2.6%, gvr 0.2% (est. n=536) |
-| Court of Criminal Appeals of Texas | 363 | 360 | 3 | denied 96.9%, dismissed 1.4%, gvr 1.1%, granted 0.6% (est. n=360) |
-| Court of Appeal of California, Second Appellate District | 318 | 315 | 3 | denied 93.7%, dismissed 3.8%, gvr 2.2%, granted 0.3% (est. n=315) |
-| Supreme Court of California | 266 | 261 | 5 | denied 96.2%, dismissed 3.8% (est. n=261) |
-| Court of Appeals of Michigan | 242 | 237 | 5 | denied 98.7%, dismissed 1.3% (est. n=237) |
-| Supreme Court of Virginia | 229 | 221 | 8 | denied 97.7%, dismissed 1.4%, gvr 0.9% (est. n=221) |
-| Court of Criminal Appeals of Oklahoma | 227 | 225 | 2 | denied 88.4%, gvr 8.0%, dismissed 2.2%, granted 1.3% (est. n=225) |
-| District Court of Appeal of Florida, Fourth District | 215 | 189 | 26 | denied 95.8%, dismissed 3.7%, granted 0.5% (est. n=189) |
-| Appellate Court of Illinois, First District | 212 | 209 | 3 | denied 99.0%, dismissed 1.0% (est. n=209) |
-| District Court of Appeal of Florida, First District | 182 | 178 | 4 | denied 97.2%, dismissed 2.8% (est. n=178) |
-| District Court of Appeal of Florida, Second District | 173 | 163 | 10 | denied 98.2%, dismissed 1.8% (est. n=163) |
-| _… 308 more bucket(s) in the JSON_ | | | | |
+| ca9 | 5664 | 5544 | 120 | denied 94.8%, granted 2.1%, dismissed 1.9%, gvr 1.2% (est. n=5544) |
+| ca5 | 5549 | 5409 | 140 | denied 94.6%, gvr 2.3%, dismissed 1.6%, granted 1.6% (est. n=5409) |
+| ca11 | 3935 | 3861 | 74 | denied 94.8%, gvr 2.2%, dismissed 1.8%, granted 1.2% (est. n=3861) |
+| ca4 | 3495 | 3425 | 70 | denied 95.2%, dismissed 2.2%, gvr 1.4%, granted 1.2% (est. n=3425) |
+| ca6 | 3076 | 2990 | 86 | denied 95.7%, dismissed 1.5%, gvr 1.4%, granted 1.3% (est. n=2990) |
+| ca8 | 2235 | 2189 | 46 | denied 95.4%, dismissed 2.0%, gvr 1.6%, granted 1.0% (est. n=2189) |
+| ca2 | 2159 | 2083 | 76 | denied 92.6%, granted 2.6%, dismissed 2.4%, gvr 2.4% (est. n=2083) |
+| ca3 | 2010 | 1961 | 49 | denied 94.9%, dismissed 2.7%, granted 1.5%, gvr 1.0% (est. n=1961) |
+| ca7 | 1652 | 1613 | 39 | denied 95.1%, dismissed 2.4%, gvr 1.4%, granted 1.1% (est. n=1613) |
+| ca10 | 1460 | 1422 | 38 | denied 94.1%, dismissed 2.2%, granted 2.0%, gvr 1.8% (est. n=1422) |
+| (none) | 1441 | 1363 | 78 | denied 99.2%, dismissed 0.8% (est. n=1363) |
+| ca1 | 930 | 910 | 20 | denied 95.4%, granted 2.5%, dismissed 1.5%, gvr 0.5% (est. n=910) |
+| cafc | 917 | 887 | 30 | denied 92.3%, dismissed 3.0%, granted 3.0%, gvr 1.6% (est. n=887) |
+| cadc | 666 | 641 | 25 | denied 88.6%, granted 6.1%, dismissed 3.1%, gvr 2.2% (est. n=641) |
+| Supreme Court of Florida | 580 | 570 | 10 | denied 97.4%, dismissed 2.5%, gvr 0.2% (est. n=570) |
+| Court of Criminal Appeals of Texas | 367 | 364 | 3 | denied 97.0%, dismissed 1.4%, gvr 1.1%, granted 0.5% (est. n=364) |
+| Court of Appeal of California, Second Appellate District | 337 | 333 | 4 | denied 94.0%, dismissed 3.6%, gvr 2.1%, granted 0.3% (est. n=333) |
+| Court of Appeals of Michigan | 253 | 248 | 5 | denied 98.8%, dismissed 1.2% (est. n=248) |
+| Court of Criminal Appeals of Oklahoma | 248 | 245 | 3 | denied 89.4%, gvr 7.3%, dismissed 2.0%, granted 1.2% (est. n=245) |
+| Supreme Court of California | 246 | 241 | 5 | denied 95.9%, dismissed 4.1% (est. n=241) |
+| District Court of Appeal of Florida, Fourth District | 237 | 213 | 24 | denied 96.2%, dismissed 3.3%, granted 0.5% (est. n=213) |
+| Supreme Court of Virginia | 236 | 228 | 8 | denied 97.8%, dismissed 1.3%, gvr 0.9% (est. n=228) |
+| District Court of Appeal of Florida, First District | 192 | 188 | 4 | denied 97.3%, dismissed 2.7% (est. n=188) |
+| Appellate Court of Illinois, First District | 190 | 187 | 3 | denied 98.9%, dismissed 1.1% (est. n=187) |
+| District of Columbia Court of Appeals | 159 | 157 | 2 | denied 96.2%, dismissed 2.5%, granted 0.6%, gvr 0.6% (est. n=157) |
+| _… 323 more bucket(s) in the JSON_ | | | | |
 
 ## Cert petitions by fee class (paid vs IFP)
 _Scope: scotus, modern discretionary-cert dockets, live/historical slice; counts are denial-reweighted estimates._
 
 | fee_class | cases | resolved | open | base rate (resolved) |
 | --- | --: | --: | --: | --- |
-| ifp | 31882 | 31192 | 690 | denied 96.5%, dismissed 2.4%, gvr 1.0%, granted 0.2% (est. n=31192) |
-| paid | 14170 | 13713 | 457 | denied 92.1%, granted 4.4%, gvr 2.3%, dismissed 1.3% (est. n=13713) |
+| ifp | 32093 | 31371 | 722 | denied 96.5%, dismissed 2.4%, gvr 1.0%, granted 0.1% (est. n=31371) |
+| paid | 14180 | 13713 | 467 | denied 92.1%, granted 4.4%, gvr 2.3%, dismissed 1.3% (est. n=13713) |
 | (none) | 8 | 0 | 8 | — |
 
 ## Cert petitions by question-presented topic (`qp-topic-v0`)
-_Scope: scotus, modern discretionary-cert dockets, live/historical slice; counts are denial-reweighted estimates. QP-bearing rows only — 8498 of 28834 in-scope ingested rows labeled; grant-enriched; primaries only; not docket-representative. Those two counts are raw rows; the bucket counts are denial-reweighted, and no reweighting recovers the docket — QP presence is itself outcome- and stream-correlated, so this stays a share of QP-bearing rows. Coverage is uneven across Terms and zero on the earliest of them, so the mix is not the whole slice's; the base-rate column is over a grant-enriched population and is not comparable to the sections above. The 20336 unlabeled row(s) span two gaps at once — rows carrying no stored questions-presented text, which no labeling batch can reach, and QP-bearing rows whose batch has not come up — and batch 10's extract sized the second: it counted 8502 QP-bearing row(s) in the frame it cut from, of which the artifact held 8502 labeled (100.0%). Both counts are batch 10's, taken at its own corpus vintage rather than this pack's: the frame grows with every pull while the labeled count moves only when a batch lands, so read that share as a ceiling on the share of the frame as it now stands, not as a reading of this blob. Labeling accrues in batches, so the labeled rows are two populations on different terms: 353 hand reference-set members, carried in every batch and so included with certainty, and 8145 drawn over this blob by a Term x fee-class-stratified, seeded-hash order from the QP-bearing frame batch 10's extract counted. Both count once here, so the reference block — grant-enriched by design and carrying no sampling weights — is over-represented by at least about 1.0x — row for row, how much likelier a reference row was to be included than a drawn one when batch 10 landed: 353 carried in with certainty against 8149 drawn from the 8149 QP-bearing row(s) outside the block that batch's extract counted. Measured against that frame rather than bounded over rows no batch could reach — and a floor rather than a ceiling at this pack's vintage, since the frame grows with every pull while the drawn count waits for the next batch. It closes to 1.0x as the frame is labeled, which a bound over unreachable rows never does, and this mix is not the frame's until every QP-bearing row is labeled. A naive share partly counts coordinated filing campaigns rather than subjects; no de-duplicated companion is published._
+_Scope: scotus, modern discretionary-cert dockets, live/historical slice; counts are denial-reweighted estimates. QP-bearing rows only — 9347 of 32043 in-scope ingested rows labeled; grant-enriched; primaries only; not docket-representative. Those two counts are raw rows; the bucket counts are denial-reweighted, and no reweighting recovers the docket — QP presence is itself outcome- and stream-correlated, so this stays a share of QP-bearing rows. Coverage is uneven across Terms and zero on the earliest of them, so the mix is not the whole slice's; the base-rate column is over a grant-enriched population and is not comparable to the sections above. The 22696 unlabeled row(s) span two gaps at once — rows carrying no stored questions-presented text, which no labeling batch can reach, and QP-bearing rows whose batch has not come up — and batch 11's extract sized the second: it counted 11871 QP-bearing row(s) in the frame it cut from, of which the artifact held 9351 labeled (78.8%). Both counts are batch 11's, taken at its own corpus vintage rather than this pack's: the frame grows with every pull while the labeled count moves only when a batch lands, so read that share as a ceiling on the share of the frame as it now stands, not as a reading of this blob. Labeling accrues in batches, so the labeled rows are two populations on different terms: 353 hand reference-set members, carried in every batch and so included with certainty, and 8994 drawn over this blob by a Term x fee-class-stratified, seeded-hash order from the QP-bearing frame batch 11's extract counted. Both count once here, so the reference block — grant-enriched by design and carrying no sampling weights — is over-represented by at least about 1.3x — row for row, how much likelier a reference row was to be included than a drawn one when batch 11 landed: 353 carried in with certainty against 8998 drawn from the 11518 QP-bearing row(s) outside the block that batch's extract counted. Measured against that frame rather than bounded over rows no batch could reach — and a floor rather than a ceiling at this pack's vintage, since the frame grows with every pull while the drawn count waits for the next batch. It closes to 1.0x as the frame is labeled, which a bound over unreachable rows never does, and this mix is not the frame's until every QP-bearing row is labeled. A naive share partly counts coordinated filing campaigns rather than subjects; no de-duplicated companion is published._
 
 | qp_topic | cases | resolved | open | base rate (resolved) |
 | --- | --: | --: | --: | --- |
-| criminal-law | 4274 | 4267 | 7 | denied 95.9%, gvr 2.3%, granted 1.2%, dismissed 0.6% (est. n=4267) |
-| civil-procedure | 1968 | 1952 | 16 | denied 94.5%, dismissed 2.4%, granted 2.4%, gvr 0.8% (est. n=1952) |
-| constitutional-rights | 1321 | 1313 | 8 | denied 94.1%, dismissed 2.7%, granted 2.2%, gvr 1.0% (est. n=1313) |
-| habeas-and-postconviction | 1160 | 1160 | 0 | denied 95.5%, dismissed 2.3%, granted 1.5%, gvr 0.7% (est. n=1160) |
-| employment-and-antidiscrimination | 590 | 583 | 7 | denied 92.6%, granted 3.6%, dismissed 3.1%, gvr 0.7% (est. n=583) |
-| business-and-financial-regulation | 578 | 566 | 12 | denied 86.7%, granted 6.0%, dismissed 3.9%, gvr 3.4% (est. n=566) |
-| unclassifiable | 527 | 525 | 2 | denied 93.5%, dismissed 6.3%, granted 0.2% (est. n=525) |
-| first-amendment | 476 | 466 | 10 | denied 92.5%, granted 5.2%, gvr 1.5%, dismissed 0.9% (est. n=466) |
-| firearms | 467 | 464 | 3 | denied 90.7%, gvr 5.6%, granted 3.4%, dismissed 0.2% (est. n=464) |
-| administrative-law-and-benefit-programs | 405 | 400 | 5 | denied 83.2%, granted 11.2%, gvr 4.5%, dismissed 1.0% (est. n=400) |
-| sovereignty-and-foreign-relations | 253 | 252 | 1 | denied 82.9%, granted 10.3%, gvr 6.0%, dismissed 0.8% (est. n=252) |
-| intellectual-property | 215 | 214 | 1 | denied 94.4%, granted 4.7%, gvr 0.9% (est. n=214) |
-| election-law | 98 | 95 | 3 | denied 89.5%, granted 4.2%, dismissed 3.2%, gvr 3.2% (est. n=95) |
-| tax | 94 | 94 | 0 | denied 94.7%, granted 5.3% (est. n=94) |
-| environment-energy-and-property | 82 | 81 | 1 | denied 85.2%, granted 8.6%, gvr 6.2% (est. n=81) |
-| immigration | 49 | 48 | 1 | denied 60.4%, granted 31.2%, gvr 6.2%, dismissed 2.1% (est. n=48) |
+| criminal-law | 3786 | 3775 | 11 | denied 95.3%, gvr 2.9%, granted 1.2%, dismissed 0.6% (est. n=3775) |
+| civil-procedure | 1922 | 1902 | 20 | denied 94.1%, dismissed 2.5%, granted 2.4%, gvr 0.9% (est. n=1902) |
+| constitutional-rights | 1289 | 1278 | 11 | denied 93.8%, dismissed 2.8%, granted 2.3%, gvr 1.1% (est. n=1278) |
+| habeas-and-postconviction | 1003 | 1001 | 2 | denied 94.7%, dismissed 2.7%, granted 1.6%, gvr 1.0% (est. n=1001) |
+| employment-and-antidiscrimination | 563 | 555 | 8 | denied 92.3%, granted 3.8%, dismissed 3.2%, gvr 0.7% (est. n=555) |
+| business-and-financial-regulation | 559 | 544 | 15 | denied 86.2%, granted 6.2%, dismissed 4.0%, gvr 3.5% (est. n=544) |
+| first-amendment | 470 | 457 | 13 | denied 92.1%, granted 5.5%, gvr 1.5%, dismissed 0.9% (est. n=457) |
+| firearms | 457 | 453 | 4 | denied 90.5%, gvr 7.1%, granted 2.2%, dismissed 0.2% (est. n=453) |
+| unclassifiable | 424 | 421 | 3 | denied 91.9%, dismissed 7.8%, granted 0.2% (est. n=421) |
+| administrative-law-and-benefit-programs | 376 | 369 | 7 | denied 81.6%, granted 12.5%, gvr 4.9%, dismissed 1.1% (est. n=369) |
+| sovereignty-and-foreign-relations | 257 | 255 | 2 | denied 83.1%, granted 10.2%, gvr 5.9%, dismissed 0.8% (est. n=255) |
+| intellectual-property | 218 | 217 | 1 | denied 94.5%, granted 4.6%, gvr 0.9% (est. n=217) |
+| tax | 96 | 96 | 0 | denied 94.8%, granted 5.2% (est. n=96) |
+| election-law | 95 | 90 | 5 | denied 85.6%, granted 6.7%, dismissed 4.4%, gvr 3.3% (est. n=90) |
+| environment-energy-and-property | 84 | 83 | 1 | denied 85.5%, granted 8.4%, gvr 6.0% (est. n=83) |
+| immigration | 43 | 41 | 2 | denied 53.7%, granted 36.6%, gvr 7.3%, dismissed 2.4% (est. n=41) |
 
-_Accrued over 10 labeling batches, whose labelers may differ. The most recent was labeled by claude-code/claude-fable-5, whose primaries matched the `qp-topic-v0` reference rater on 324 of 353 reference case(s) (91.8%), against the 22.9% a constant labeler scores on the same entries — **agreement, not accuracy**: the reference raters were agent sessions too, so rater error and labeler error cannot be separated, and the reference frame is grant-enriched, so the figure certifies the grant stream only. That rate certifies the batch that produced it, not every row in the table above; the per-batch figures are in the labels artifact. 0 reference entr(ies) went uncovered. 8498 of 8502 labeled case(s) joined a row in this section's population; a gap is expected across batches, which span corpus vintages, and a large one reads as labels produced against another vintage rather than as thin coverage._
+_Accrued over 11 labeling batches, whose labelers may differ. The most recent was labeled by claude-code/claude-opus-5-5, whose primaries matched the `qp-topic-v0` reference rater on 313 of 351 reference case(s) (89.2%), against the 23.1% a constant labeler scores on the same entries — **agreement, not accuracy**: the reference raters were agent sessions too, so rater error and labeler error cannot be separated, and the reference frame is grant-enriched, so the figure certifies the grant stream only. That rate certifies the batch that produced it, not every row in the table above; the per-batch figures are in the labels artifact. 2 reference entr(ies) went uncovered. 9347 of 9351 labeled case(s) joined a row in this section's population; a gap is expected across batches, which span corpus vintages, and a large one reads as labels produced against another vintage rather than as thin coverage._
 
 _Per-label agreement is **unmeasured in v0** for `election-law`, `environment-energy-and-property`, `immigration`, `intellectual-property`, `tax` — fewer reference examples than the support floor, where one entry moves the ratio by tens of points. The figure above certifies none of those rows._
 
-_Rows on hand behind each bucket, reference-sourced in brackets, ordered by rows rather than by the table's reweighted count — the raw view the reweighted `est. n=` above does not give: `criminal-law` 1871 [81], `civil-procedure` 1680 [55], `constitutional-rights` 1177 [36], `habeas-and-postconviction` 557 [14], `business-and-financial-regulation` 533 [21], `employment-and-antidiscrimination` 527 [18], `first-amendment` 440 [13], `administrative-law-and-benefit-programs` 360 [29], `firearms` 332 [35], `unclassifiable` 293 [14], `sovereignty-and-foreign-relations` 226 [13], `intellectual-property` 206 [5], `tax` 94 [3], `environment-energy-and-property` 82 [6], `election-law` 80 [5], `immigration` 40 [5]. A bucket's `est. n=` is an estimate of the population its rows stand for, so it runs above the rows read; the reference share is not uniform across buckets, and the block holds every QP-bearing grant it could reach, so it inflates the grant-heavy topics most._
+_Rows on hand behind each bucket, reference-sourced in brackets, ordered by rows rather than by the table's reweighted count — the raw view the reweighted `est. n=` above does not give: `criminal-law` 2292 [81], `civil-procedure` 1787 [55], `constitutional-rights` 1217 [36], `habeas-and-postconviction` 679 [14], `employment-and-antidiscrimination` 545 [18], `business-and-financial-regulation` 541 [21], `first-amendment` 452 [13], `firearms` 403 [35], `administrative-law-and-benefit-programs` 367 [29], `unclassifiable` 316 [14], `sovereignty-and-foreign-relations` 230 [13], `intellectual-property` 209 [5], `tax` 96 [3], `election-law` 86 [5], `environment-energy-and-property` 84 [6], `immigration` 43 [5]. A bucket's `est. n=` is an estimate of the population its rows stand for, so it runs above the rows read; the reference share is not uniform across buckets, and the block holds every QP-bearing grant it could reach, so it inflates the grant-heavy topics most._
 
 ## Emergency applications by topic (`qp-topic-v1`)
-_Scope: scotus, live/historical slice; counts are denial-reweighted estimates. Labeled applications only — 2027 of 2033 in-frame live-slice applications labeled, 1991 of the labeled read from the docket alone; primaries only; not docket-representative. Those counts are raw rows (the second includes the few duplicate rows the labeling frame folds into one per docket number); the bucket counts are reweighted like every section here. The frame is the live slice's non-extension application dockets, substantive asks and asks whose kind was never read alike, read from different inputs than the petition cut, so the two are never pooled. A docket-only row whose caption and entries name no subject is `unclassifiable` by rule, so that bucket tracks how thin the dockets are as much as what the applications are about. Batch 2's extract counted 2027 application(s) in the frame it cut from, of which the artifact held 2027 labeled (100.0%); read that share as a ceiling on the share of the frame as it now stands, since the frame grows with every pull. The reference block rides in every batch, so its 241 row(s) are over-represented against the 1786 drawn from the 1786 outside it by no factor — the frame was fully labeled when that batch landed, and this mix is not the frame's until every application is labeled. Of the labeled rows here, 241 are reference-block members and 1786 were drawn._
+_Scope: scotus, live/historical slice; counts are denial-reweighted estimates. Labeled applications only — 2029 of 2037 in-frame live-slice applications labeled, 1993 of the labeled read from the docket alone; primaries only; not docket-representative. Those counts are raw rows (the second includes the few duplicate rows the labeling frame folds into one per docket number); the bucket counts are reweighted like every section here. The frame is the live slice's non-extension application dockets, substantive asks and asks whose kind was never read alike, read from different inputs than the petition cut, so the two are never pooled. A docket-only row whose caption and entries name no subject is `unclassifiable` by rule, so that bucket tracks how thin the dockets are as much as what the applications are about. Batch 4's extract counted 2029 application(s) in the frame it cut from, of which the artifact held 2029 labeled (100.0%); read that share as a ceiling on the share of the frame as it now stands, since the frame grows with every pull. The reference block rides in every batch, so its 241 row(s) are over-represented against the 1788 drawn from the 1788 outside it by no factor — the frame was fully labeled when that batch landed, and this mix is not the frame's until every application is labeled. Of the labeled rows here, 241 are reference-block members and 1788 were drawn._
 
 | qp_topic | cases | resolved | open | base rate (resolved) |
 | --- | --: | --: | --: | --- |
-| unclassifiable | 893 | 883 | 10 | denied 83.6%, granted 14.8%, withdrawn 1.5%, dismissed 0.1% (est. n=883) |
-| habeas-and-postconviction | 481 | 474 | 7 | denied 89.5%, granted 9.3%, withdrawn 1.3% (est. n=474) |
-| criminal-law | 171 | 168 | 3 | denied 92.3%, granted 6.0%, withdrawn 1.8% (est. n=168) |
-| civil-procedure | 125 | 122 | 3 | denied 89.3%, granted 9.8%, withdrawn 0.8% (est. n=122) |
+| unclassifiable | 894 | 888 | 6 | denied 83.7%, granted 14.8%, withdrawn 1.5%, dismissed 0.1% (est. n=888) |
+| habeas-and-postconviction | 482 | 474 | 8 | denied 89.5%, granted 9.3%, withdrawn 1.3% (est. n=474) |
+| criminal-law | 171 | 169 | 2 | denied 92.3%, granted 5.9%, withdrawn 1.8% (est. n=169) |
+| civil-procedure | 125 | 123 | 2 | denied 89.4%, granted 9.8%, withdrawn 0.8% (est. n=123) |
 | election-law | 85 | 83 | 2 | denied 69.9%, granted 28.9%, withdrawn 1.2% (est. n=83) |
-| immigration | 85 | 82 | 3 | denied 74.4%, granted 22.0%, withdrawn 3.7% (est. n=82) |
+| immigration | 85 | 83 | 2 | denied 74.7%, granted 21.7%, withdrawn 3.6% (est. n=83) |
 | administrative-law-and-benefit-programs | 40 | 38 | 2 | granted 78.9%, denied 21.1% (est. n=38) |
 | first-amendment | 34 | 34 | 0 | denied 67.6%, granted 29.4%, withdrawn 2.9% (est. n=34) |
-| employment-and-antidiscrimination | 30 | 28 | 2 | denied 89.3%, granted 10.7% (est. n=28) |
+| employment-and-antidiscrimination | 30 | 29 | 1 | denied 89.7%, granted 10.3% (est. n=29) |
 | environment-energy-and-property | 29 | 29 | 0 | denied 82.8%, granted 17.2% (est. n=29) |
 | business-and-financial-regulation | 21 | 20 | 1 | denied 70.0%, granted 30.0% (est. n=20) |
 | constitutional-rights | 12 | 11 | 1 | denied 63.6%, withdrawn 27.3%, granted 9.1% (est. n=11) |
@@ -220,58 +221,58 @@ _Scope: scotus, live/historical slice; counts are denial-reweighted estimates. L
 | intellectual-property | 3 | 3 | 0 | denied 100.0% (est. n=3) |
 | tax | 2 | 2 | 0 | denied 100.0% (est. n=2) |
 
-_Accrued over 2 labeling batches, whose labelers may differ. The most recent was labeled by claude-code/claude-opus-5-5, whose primaries matched the application reference block's adjudicated labels on 225 of 241 reference case(s) (93.4%), against the 38.2% a constant labeler scores on the same entries — **agreement, not accuracy**, and **not yet quotable**: the block's labels are the majority of three blind raters that are instances of the labeler's own model, so their errors and the labeler's are correlated, and the held-out check behind them held no row with stored application text; an independent rater is owed before an application agreement figure is quoted. It is the publication gate's reading, printed so the gate can be audited. That rate certifies the batch that produced it, not every row in the table above; the per-batch figures are in the labels artifact. 0 reference entr(ies) went uncovered. 2027 of 2027 labeled application(s) joined a row in this section's population._
+_Accrued over 4 labeling batches, whose labelers may differ. The most recent was labeled by claude-code/claude-opus-5-5, whose primaries matched the application reference block's adjudicated labels on 222 of 241 reference case(s) (92.1%), against the 38.2% a constant labeler scores on the same entries — **agreement, not accuracy**, and **not yet quotable**: the block's labels are the majority of three blind raters that are instances of the labeler's own model, so their errors and the labeler's are correlated, and the held-out check behind them held no row with stored application text; an independent rater is owed before an application agreement figure is quoted. It is the publication gate's reading, printed so the gate can be audited. That rate certifies the batch that produced it, not every row in the table above; the per-batch figures are in the labels artifact. 0 reference entr(ies) went uncovered. 2029 of 2029 labeled application(s) joined a row in this section's population._
 
 _Per-label agreement is **unmeasured** for `administrative-law-and-benefit-programs`, `business-and-financial-regulation`, `constitutional-rights`, `employment-and-antidiscrimination`, `environment-energy-and-property`, `firearms`, `first-amendment`, `intellectual-property`, `tax` — fewer reference examples than the support floor. The figure above certifies none of those rows._
 
-_Rows on hand behind each bucket, reference-sourced in brackets: `unclassifiable` 893 [92], `habeas-and-postconviction` 481 [43], `criminal-law` 171 [24], `civil-procedure` 125 [24], `election-law` 85 [13], `immigration` 85 [10], `administrative-law-and-benefit-programs` 40 [9], `first-amendment` 34 [4], `employment-and-antidiscrimination` 30 [6], `environment-energy-and-property` 29 [4], `business-and-financial-regulation` 21 [2], `constitutional-rights` 12 [7], `sovereignty-and-foreign-relations` 10 [0], `firearms` 6 [1], `intellectual-property` 3 [1], `tax` 2 [1]._
+_Rows on hand behind each bucket, reference-sourced in brackets: `unclassifiable` 894 [92], `habeas-and-postconviction` 482 [43], `criminal-law` 171 [24], `civil-procedure` 125 [24], `election-law` 85 [13], `immigration` 85 [10], `administrative-law-and-benefit-programs` 40 [9], `first-amendment` 34 [4], `employment-and-antidiscrimination` 30 [6], `environment-energy-and-property` 29 [4], `business-and-financial-regulation` 21 [2], `constitutional-rights` 12 [7], `sovereignty-and-foreign-relations` 10 [0], `firearms` 6 [1], `intellectual-property` 3 [1], `tax` 2 [1]._
 
 ## Topic mix by stage
 _The share of each stage's **labeled** cases under each primary topic, read off the topic cuts above: cert is every labeled cert-form petition, merits the labeled petitions granted plenary review, interim every labeled emergency application. Each column is a share of its own stage, never of the docket, and carries the scope string under the table. The columns are **not stages of one funnel**: cert is a denial-reweighted share of a grant-enriched set, merits a share of the labeled grants, and interim another frame read from other inputs, so a difference between columns is not a grant propensity — the petition topic section's base-rate column is where that is read._
 
-| topic | cert (est. n=12557; 8498 rows) | merits (n=353) | interim (n=2027) | interim, subject-bearing only |
+| topic | cert (est. n=11642; 9347 rows) | merits (n=341) | interim (n=2029) | interim, subject-bearing only |
 | --- | --: | --: | --: | --: |
-| criminal-law | 34.0% (1871) | 15.0% (53) | 8.4% (171) | 15.1% |
-| civil-procedure | 15.7% (1680) | 13.0% (46) | 6.2% (125) | 11.0% |
-| constitutional-rights | 10.5% (1177) | 8.2% (29) | 0.6% (12) | 1.1% |
-| habeas-and-postconviction | 9.2% (557) | 4.8% (17) | 23.7% (481) | 42.4% |
-| employment-and-antidiscrimination | 4.7% (527) | 5.9% (21) | 1.5% (30) | 2.6% |
-| business-and-financial-regulation | 4.6% (533) | 9.6% (34) | 1.0% (21) | 1.9% |
-| unclassifiable | 4.2% (293) | 0.3% (1) | 44.1% (893) | — |
-| first-amendment | 3.8% (440) | 6.8% (24) | 1.7% (34) | 3.0% |
-| firearms | 3.7% (332) | 4.5% (16) | 0.3% (6) | 0.5% |
-| administrative-law-and-benefit-programs | 3.2% (360) | 12.7% (45) | 2.0% (40) | 3.5% |
-| sovereignty-and-foreign-relations | 2.0% (226) | 7.4% (26) | 0.5% (10) | 0.9% |
-| intellectual-property | 1.7% (206) | 2.8% (10) | 0.1% (3) | 0.3% |
-| election-law | 0.8% (80) | 1.1% (4) | 4.2% (85) | 7.5% |
-| tax | 0.7% (94) | 1.4% (5) | 0.1% (2) | 0.2% |
-| environment-energy-and-property | 0.7% (82) | 2.0% (7) | 1.4% (29) | 2.6% |
-| immigration | 0.4% (40) | 4.2% (15) | 4.2% (85) | 7.5% |
+| criminal-law | 32.5% (2292) | 12.9% (44) | 8.4% (171) | 15.1% |
+| civil-procedure | 16.5% (1787) | 13.5% (46) | 6.2% (125) | 11.0% |
+| constitutional-rights | 11.1% (1217) | 8.5% (29) | 0.6% (12) | 1.1% |
+| habeas-and-postconviction | 8.6% (679) | 4.7% (16) | 23.8% (482) | 42.5% |
+| employment-and-antidiscrimination | 4.8% (545) | 6.2% (21) | 1.5% (30) | 2.6% |
+| business-and-financial-regulation | 4.8% (541) | 10.0% (34) | 1.0% (21) | 1.9% |
+| first-amendment | 4.0% (452) | 7.3% (25) | 1.7% (34) | 3.0% |
+| firearms | 3.9% (403) | 2.9% (10) | 0.3% (6) | 0.5% |
+| unclassifiable | 3.6% (316) | 0.3% (1) | 44.1% (894) | — |
+| administrative-law-and-benefit-programs | 3.2% (367) | 13.5% (46) | 2.0% (40) | 3.5% |
+| sovereignty-and-foreign-relations | 2.2% (230) | 7.6% (26) | 0.5% (10) | 0.9% |
+| intellectual-property | 1.9% (209) | 2.9% (10) | 0.1% (3) | 0.3% |
+| tax | 0.8% (96) | 1.5% (5) | 0.1% (2) | 0.2% |
+| election-law | 0.8% (86) | 1.8% (6) | 4.2% (85) | 7.5% |
+| environment-energy-and-property | 0.7% (84) | 2.1% (7) | 1.4% (29) | 2.6% |
+| immigration | 0.4% (43) | 4.4% (15) | 4.2% (85) | 7.5% |
 
 _Rows on hand in parentheses; each header's count is the stage's count as its section publishes it, `est. n=` where that section reweights._
 
 _The subject-bearing column divides the interim counts by the applications outside `unclassifiable`. It sits beside the full share, never in place of it: whether a row names a subject at all depends on whether the labeler read a stored application or only the docket, so this column is no closer to what the applications are about than the full one._
 
-_cert: QP-bearing rows only — 8498 of 28834 in-scope ingested rows labeled; grant-enriched; primaries only; not docket-representative. Those two counts are raw rows; the bucket counts are denial-reweighted, and no reweighting recovers the docket — QP presence is itself outcome- and stream-correlated, so this stays a share of QP-bearing rows. Coverage is uneven across Terms and zero on the earliest of them, so the mix is not the whole slice's; the base-rate column is over a grant-enriched population and is not comparable to the sections above. The 20336 unlabeled row(s) span two gaps at once — rows carrying no stored questions-presented text, which no labeling batch can reach, and QP-bearing rows whose batch has not come up — and batch 10's extract sized the second: it counted 8502 QP-bearing row(s) in the frame it cut from, of which the artifact held 8502 labeled (100.0%). Both counts are batch 10's, taken at its own corpus vintage rather than this pack's: the frame grows with every pull while the labeled count moves only when a batch lands, so read that share as a ceiling on the share of the frame as it now stands, not as a reading of this blob. Labeling accrues in batches, so the labeled rows are two populations on different terms: 353 hand reference-set members, carried in every batch and so included with certainty, and 8145 drawn over this blob by a Term x fee-class-stratified, seeded-hash order from the QP-bearing frame batch 10's extract counted. Both count once here, so the reference block — grant-enriched by design and carrying no sampling weights — is over-represented by at least about 1.0x — row for row, how much likelier a reference row was to be included than a drawn one when batch 10 landed: 353 carried in with certainty against 8149 drawn from the 8149 QP-bearing row(s) outside the block that batch's extract counted. Measured against that frame rather than bounded over rows no batch could reach — and a floor rather than a ceiling at this pack's vintage, since the frame grows with every pull while the drawn count waits for the next batch. It closes to 1.0x as the frame is labeled, which a bound over unreachable rows never does, and this mix is not the frame's until every QP-bearing row is labeled. A naive share partly counts coordinated filing campaigns rather than subjects; no de-duplicated companion is published._
+_cert: QP-bearing rows only — 9347 of 32043 in-scope ingested rows labeled; grant-enriched; primaries only; not docket-representative. Those two counts are raw rows; the bucket counts are denial-reweighted, and no reweighting recovers the docket — QP presence is itself outcome- and stream-correlated, so this stays a share of QP-bearing rows. Coverage is uneven across Terms and zero on the earliest of them, so the mix is not the whole slice's; the base-rate column is over a grant-enriched population and is not comparable to the sections above. The 22696 unlabeled row(s) span two gaps at once — rows carrying no stored questions-presented text, which no labeling batch can reach, and QP-bearing rows whose batch has not come up — and batch 11's extract sized the second: it counted 11871 QP-bearing row(s) in the frame it cut from, of which the artifact held 9351 labeled (78.8%). Both counts are batch 11's, taken at its own corpus vintage rather than this pack's: the frame grows with every pull while the labeled count moves only when a batch lands, so read that share as a ceiling on the share of the frame as it now stands, not as a reading of this blob. Labeling accrues in batches, so the labeled rows are two populations on different terms: 353 hand reference-set members, carried in every batch and so included with certainty, and 8994 drawn over this blob by a Term x fee-class-stratified, seeded-hash order from the QP-bearing frame batch 11's extract counted. Both count once here, so the reference block — grant-enriched by design and carrying no sampling weights — is over-represented by at least about 1.3x — row for row, how much likelier a reference row was to be included than a drawn one when batch 11 landed: 353 carried in with certainty against 8998 drawn from the 11518 QP-bearing row(s) outside the block that batch's extract counted. Measured against that frame rather than bounded over rows no batch could reach — and a floor rather than a ceiling at this pack's vintage, since the frame grows with every pull while the drawn count waits for the next batch. It closes to 1.0x as the frame is labeled, which a bound over unreachable rows never does, and this mix is not the frame's until every QP-bearing row is labeled. A naive share partly counts coordinated filing campaigns rather than subjects; no de-duplicated companion is published._
 
-_merits: Granted QP-bearing petitions only — 353 labeled grant(s) of the 659 plenary grant(s) in the cert scope; primaries only; not docket-representative. Plenary review here is the `granted` disposition, which takes in probable jurisdiction noted on a direct appeal and leaves out GVRs recorded as such (a few older merits GVRs still carry `granted`). The labeling frame was fully labeled when its newest batch landed, so the missing grants are those with no stored questions-presented text. Questions-presented coverage is zero before Term 2023 and uneven after, so this mix is weighted toward the Terms with stored texts and is not the merits docket's._
+_merits: Granted QP-bearing petitions only — 341 labeled grant(s) of the 638 plenary grant(s) in the cert scope; primaries only; not docket-representative. Plenary review here is the `granted` disposition, which takes in probable jurisdiction noted on a direct appeal and leaves out GVRs recorded as such (a few older merits GVRs still carry `granted`). The petition frame is still being labeled, so the missing grants are both those with no stored questions-presented text and those whose batch has not come up; reference-set grants are in every batch, so they are over-represented until it clears. Questions-presented coverage is zero before Term 2023 and uneven after, so this mix is weighted toward the Terms with stored texts and is not the merits docket's._
 
-_interim: Labeled applications only — 2027 of 2033 in-frame live-slice applications labeled, 1991 of the labeled read from the docket alone; primaries only; not docket-representative. Those counts are raw rows (the second includes the few duplicate rows the labeling frame folds into one per docket number); the bucket counts are reweighted like every section here. The frame is the live slice's non-extension application dockets, substantive asks and asks whose kind was never read alike, read from different inputs than the petition cut, so the two are never pooled. A docket-only row whose caption and entries name no subject is `unclassifiable` by rule, so that bucket tracks how thin the dockets are as much as what the applications are about. Batch 2's extract counted 2027 application(s) in the frame it cut from, of which the artifact held 2027 labeled (100.0%); read that share as a ceiling on the share of the frame as it now stands, since the frame grows with every pull. The reference block rides in every batch, so its 241 row(s) are over-represented against the 1786 drawn from the 1786 outside it by no factor — the frame was fully labeled when that batch landed, and this mix is not the frame's until every application is labeled. Of the labeled rows here, 241 are reference-block members and 1786 were drawn._
+_interim: Labeled applications only — 2029 of 2037 in-frame live-slice applications labeled, 1993 of the labeled read from the docket alone; primaries only; not docket-representative. Those counts are raw rows (the second includes the few duplicate rows the labeling frame folds into one per docket number); the bucket counts are reweighted like every section here. The frame is the live slice's non-extension application dockets, substantive asks and asks whose kind was never read alike, read from different inputs than the petition cut, so the two are never pooled. A docket-only row whose caption and entries name no subject is `unclassifiable` by rule, so that bucket tracks how thin the dockets are as much as what the applications are about. Batch 4's extract counted 2029 application(s) in the frame it cut from, of which the artifact held 2029 labeled (100.0%); read that share as a ceiling on the share of the frame as it now stands, since the frame grows with every pull. The reference block rides in every batch, so its 241 row(s) are over-represented against the 1788 drawn from the 1788 outside it by no factor — the frame was fully labeled when that batch landed, and this mix is not the frame's until every application is labeled. Of the labeled rows here, 241 are reference-block members and 1788 were drawn._
 
 ## SCOTUS cert petitions by Term
 _Live/historical slice. `filings` is the count of docketed serials across the paid and IFP streams, read from the discovery cursors — exact for docketed numbers, a slight upper bound on real petitions since withheld serials still count. **The two columns are not nested**: `ingested` counts rows on hand, and a row can sit outside the serial census — a petition whose docket number carries no serial the stream parser can read (a consolidated, prefixed, or dash-variant spelling), ingested under its Term but belonging to no stream's census — so `ingested` can exceed `filings`. `ingested` and `grants observed` are raw counts of rows on hand; the grant rate is the denial-reweighted estimate, and its `est. n` is the reweighted resolved count it divides by — which is why it too can exceed `ingested`. The plain `n` beside the pace to grant is different: that one is a raw count of the granted petitions carrying both dates. Dividing `grants observed` by `ingested` does **not** reproduce the rate and is not a rate at all; the raw grant count is comparable to the weighted denominator only because a grant is always kept at weight 1 while denials are sampled. The rate pools the paid and IFP streams, whose own grant rates differ several-fold, so a Term-over-Term move can be a shift in that mix rather than in the Court's appetite. A Term reads `complete` only once every probed stream was walked to its observed end; until then its figures describe the walked prefix, and for a Term still in progress that end moves as the Court dockets more petitions, so `complete` there means current, not final. Every Term the walk has touched is listed, most recent first._
 
 | Term | filings | ingested (rows) | est. grant rate (weighted) | grants observed (rows) | median days to grant | census |
 | --- | --: | --: | --- | --: | --- | --- |
-| 2026 | 1610 | 1579 | 1.5% (est. n=609) | 9 | 71 (n=9) | complete |
+| 2026 | 1654 | 1620 | 1.5% (est. n=609) | 9 | 71 (n=9) | complete |
 | 2025 | 4134 | 4134 | 2.6% (est. n=4002) | 106 | 153 (n=106) | complete |
 | 2024 | 3858 | 3809 | 3.2% (est. n=3809) | 120 | 137 (n=119) | complete |
-| 2023 | 2466 | 2669 | 3.3% (est. n=4127) | 138 | 152 (n=138) | partial |
-| 2022 | 1252 | 1629 | 2.7% (est. n=4050) | 109 | 143 (n=109) | complete |
+| 2023 | 4223 | 4166 | 3.3% (est. n=4166) | 139 | 152 (n=139) | complete |
+| 2022 | 3079 | 3189 | 2.7% (est. n=4080) | 109 | 143 (n=109) | partial |
 | 2021 | 1611 | 2033 | 3.1% (est. n=4877) | 151 | 163 (n=151) | complete |
 | 2020 | 1829 | 2293 | 3.1% (est. n=5263) | 162 | 144 (n=162) | complete |
 | 2019 | 1478 | 2008 | 2.9% (est. n=5356) | 158 | 141 (n=158) | complete |
-| 2018 | 1593 | 2364 | 2.3% (est. n=6543) | 151 | 152 (n=151) | complete |
+| 2018 | 1593 | 2475 | 2.3% (est. n=6653) | 151 | 152 (n=151) | complete |
 | 2017 | 6313 | 6316 | 2.7% (est. n=6269) | 170 | 164 (n=170) | complete |
 
 _Replay/backtest cells: this document sits in the same checkout as the statpack and the same rule applies — anchor only on Term rows strictly preceding `record/context.json`'s `decided_before`, an October Term, because later Terms post-date what you are allowed to know. These rows are keyed on the **docket-number** Term, so your own Term's row already contains your case._

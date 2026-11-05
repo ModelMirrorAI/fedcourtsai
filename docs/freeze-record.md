@@ -16564,7 +16564,7 @@ freeze commit is recorded here.
   prints `null`; and `uv run fedcourts process-digest --all` prints the same
   label and six digests at the carrying merge as at its first parent.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by `promotion/2026-11-05` (merge commit `478003b709f6ddd1eab343a97a697c46463bad58`, merged `2026-11-05T14:54:07Z`).
 
 - **`sal-v7` activated; recorded 2026-11-04.** A distinct entry from the
   `caption-v4` and `sal-v7` registration entry above, on the `sal-v6`
@@ -16662,8 +16662,8 @@ freeze commit is recorded here.
   table as a version mismatch.
 
   Carried to `main` by the promotion
-  tagged `<FILL: promotion tag>` (merge commit `<FILL: merge sha>`, merged
-  `<FILL: merged time utc>`).
+  tagged `promotion/2026-11-05` (merge commit `478003b709f6ddd1eab343a97a697c46463bad58`, merged
+  `2026-11-05T14:54:07Z`).
 
   The runnable effect check once it is live:
   - on `main`, `uv run python -c "from fedcourtsai.pipeline.salience import
@@ -16700,5 +16700,5 @@ freeze commit is recorded here.
   labeler model and labeling prompt the replicates ran on; a new labeler or a
   prompt revision owes its own replicate series before this entry's reading
   is quoted for it, and the floor moves only by a later dated entry. Carried
-  to `main` by the promotion tagged `<FILL: promotion tag>` (merge commit
-  `<FILL: merge sha>`, merged `<FILL: merged time utc>`).
+  to `main` by the promotion tagged `promotion/2026-11-05` (merge commit
+  `478003b709f6ddd1eab343a97a697c46463bad58`, merged `2026-11-05T14:54:07Z`).
