@@ -22,6 +22,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
+import pytest
 import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -130,10 +131,11 @@ def _setup(tmp_path: Path, fail_pushes: int) -> tuple[Path, Path, dict[str, str]
     return work, script, run_env
 
 
-def test_an_advanced_branch_and_a_transient_failure_still_land_the_snapshot(
-    tmp_path: Path,
+@pytest.mark.parametrize("fail_pushes", [0, 1, 2])
+def test_an_advanced_branch_and_transient_failures_still_land_the_snapshot(
+    tmp_path: Path, fail_pushes: int
 ) -> None:
-    work, script, env = _setup(tmp_path, fail_pushes=1)
+    work, script, env = _setup(tmp_path, fail_pushes=fail_pushes)
     result = subprocess.run(
         ["bash", "-e", str(script)], check=False, cwd=work, env=env, capture_output=True, text=True
     )
@@ -145,6 +147,9 @@ def test_an_advanced_branch_and_a_transient_failure_still_land_the_snapshot(
     log = _git(origin, "log", "--format=%s", "ops-metrics", env=env).splitlines()
     assert log[0].startswith("ops: snapshot ")
     assert log[1] == "validate: corpus verdict"
+    # The first push always fails (the advance, or the shim's blip); the
+    # rebased retry after the last blip lands.
+    assert (tmp_path / "push-count").read_text().strip() == str(max(fail_pushes, 1) + 1)
 
 
 def test_a_push_that_never_succeeds_fails_the_step_loudly(tmp_path: Path) -> None:

@@ -305,7 +305,8 @@ jobs:
             # it), or a transient GitHub error such as `remote: fatal error in
             # commit_refs` that only needs outlasting. Rebase and retry with a
             # doubling backoff, then fail loudly once the attempts run out.
-            # A rebase conflict is never transient and fails the step at once.
+            # A rebase conflict is never transient and fails the step at once,
+            # with an error naming it.
             attempts=5
             backoff=5
             pushed=false
@@ -319,7 +320,11 @@ jobs:
                 sleep "$backoff"
                 backoff=$((backoff * 2))
                 git -C "$tree" fetch origin '+refs/heads/ops-metrics:refs/remotes/origin/ops-metrics' || true
-                git -C "$tree" rebase origin/ops-metrics
+                if ! git -C "$tree" rebase origin/ops-metrics; then
+                  git -C "$tree" rebase --abort || true
+                  echo "::error::rebase conflict on ops-metrics; another writer touched the ops snapshot's files"
+                  exit 1
+                fi
               fi
             done
             if [ "$pushed" != true ]; then
