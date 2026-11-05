@@ -2269,6 +2269,20 @@
       "valence": "clear"
     },
     {
+      "case_id": "scotus/69666553",
+      "coded_at": "2026-11-05",
+      "conservative_side": "respondent",
+      "contamination_risk": true,
+      "docket_number": "23-7809",
+      "granted": "2024-10-04",
+      "mode": "replay",
+      "model": "claude-opus-5-5",
+      "note": "Death penalty and standing: the state officials, as respondents, resist a capital prisoner's federal suit for post-conviction DNA testing, the government side against the prisoner and the side favoring narrower standing.",
+      "run_id": "42073703935",
+      "score": 0.3,
+      "valence": "clear"
+    },
+    {
       "case_id": "scotus/69671470",
       "coded_at": "2026-11-02",
       "conservative_side": "respondent",
