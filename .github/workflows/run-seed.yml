@@ -2310,7 +2310,7 @@ jobs:
             local attempt out what
             what="${1:-} ${2:-} ${3:-}"
             for attempt in 1 2 3; do
-              if out=$(timeout 30 "$@"); then
+              if out=$(timeout "${GH_RETRY_TIMEOUT:-30}" "$@"); then
                 printf '%s\n' "$out"
                 return 0
               fi

@@ -66,10 +66,11 @@ jobs:
     # Setup + report is a couple of minutes; the cap is sized for the degraded
     # API this job's retries exist to survive. Seven retryable shell calls
     # across its three retried steps, each worth up to 105s when every attempt
-    # times out (3 × `timeout 30` plus 5s + 10s of backoff): ~12 min of retry
+    # times out (3 × `timeout 30` plus 5s + 10s of backoff), and the run
+    # listing up to 285s on its 90s bound: ~15 min of retry
     # alone. The off-ledger spend sweep makes a retried call per page and per
     # artifact, so it carries its own 10 min cap and gives up quietly rather
-    # than eat the escalation's share: ~22 min in all. Under a 15 min cap the
+    # than eat the escalation's share: ~25 min in all. Under a 15 min cap the
     # job would be killed mid-recovery, after the ops-metrics snapshot but
     # before the data-validation escalation. This job
     # holds no corpus lock, so a wider cap costs only runner minutes on a day
@@ -112,7 +113,9 @@ jobs:
           # every 30 minutes and would otherwise fill it in days.
           # `headBranch` lets the status snapshot judge the production lanes on
           # `main` runs alone, so a staging rehearsal never reads as one.
-          gh_retry gh run list --repo "$REPO" --limit 1200 \
+          # Twelve pages of 100 take ~35s on a healthy API, past gh_retry's
+          # 30s per-request default, so this call gets its own bound.
+          GH_RETRY_TIMEOUT=90 gh_retry gh run list --repo "$REPO" --limit 1200 \
             --json workflowName,status,conclusion,createdAt,startedAt,updatedAt,headBranch \
             > runs.json
 

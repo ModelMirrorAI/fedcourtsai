@@ -1,4 +1,9 @@
-"""run-ops' ops-metrics push, executed against a local remote.
+"""run-ops' run listing bound and ops-metrics push, executed.
+
+The run listing pages twelve requests (~35s on a healthy API), so it carries
+its own `GH_RETRY_TIMEOUT` rather than `gh_retry`'s 30s per-request default,
+which a slow day exhausts on all three attempts. The tests below run the
+wrapper with an override and check the listing call sets one.
 
 The ops snapshot is the one copy of the day's ops report, and the public status
 page reads the ``status.json`` it carries, so a push that fails loses both until
@@ -162,3 +167,31 @@ def test_a_push_that_never_succeeds_fails_the_step_loudly(tmp_path: Path) -> Non
         result.stdout
     )
     assert (tmp_path / "push-count").read_text().strip() == "5"
+
+
+GH_RETRY = ROOT / "scripts" / "gh_retry.sh"
+
+
+def _gh_retry(call: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["bash", "-c", f'source "{GH_RETRY}"; sleep() {{ :; }}; {call}'],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+
+def test_gh_retry_bounds_each_attempt_by_the_override() -> None:
+    slow = "bash -c 'command sleep 2'"
+    assert _gh_retry(f"GH_RETRY_TIMEOUT=5 gh_retry {slow}").returncode == 0
+    cut = _gh_retry(f"GH_RETRY_TIMEOUT=1 gh_retry {slow}")
+    assert cut.returncode != 0
+    assert "failed after 3 attempts" in cut.stderr
+
+
+def test_the_run_listing_carries_a_bound_sized_for_its_pages() -> None:
+    workflow = yaml.safe_load(RUN_OPS.read_text(encoding="utf-8"))
+    steps = {s.get("name"): s for s in workflow["jobs"]["ops"]["steps"]}
+    run = str(steps["Collect recent workflow runs"]["run"])
+    call = next(line for line in run.splitlines() if "gh run list" in line)
+    assert call.strip().startswith("GH_RETRY_TIMEOUT=90 gh_retry gh run list")

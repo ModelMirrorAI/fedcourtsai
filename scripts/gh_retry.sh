@@ -49,6 +49,10 @@
 # Why each attempt is bounded (`timeout 30`). `gh` sets no client-side request
 # timeout, so a stalled connect against a degraded API hangs until the job's own
 # kill — leaving nothing written, the one outcome these steps exist to prevent.
+# Thirty seconds covers a single request. A call that pages through many
+# requests needs a bound sized to its page count, so a caller sets
+# `GH_RETRY_TIMEOUT` (seconds) for that one call, as run-ops does for its
+# twelve-page run listing, which takes ~35s on a healthy API.
 #
 # Why no transient/genuine split (unlike commit-corpus-to-main's
 # push_with_retry.sh, which classifies its failures). Retrying a deterministic
@@ -83,7 +87,7 @@ gh_retry() {
   local attempt out what
   what="${1:-} ${2:-} ${3:-}"
   for attempt in 1 2 3; do
-    if out=$(timeout 30 "$@"); then
+    if out=$(timeout "${GH_RETRY_TIMEOUT:-30}" "$@"); then
       printf '%s\n' "$out"
       return 0
     fi
