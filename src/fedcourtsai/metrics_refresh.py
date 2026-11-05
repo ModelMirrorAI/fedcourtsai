@@ -31,6 +31,7 @@ open PR updates in place instead of stacking a new PR per schedule tick.
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -51,6 +52,7 @@ from .schemas import (
     DocketPack,
     Leaderboard,
     ScopeManifest,
+    StateAgsBoard,
     StatPack,
 )
 from .serialize import read_model
@@ -316,6 +318,23 @@ def _big_case_headline(path: Path) -> str:
     )
 
 
+def _state_ags_headline(path: Path) -> str:
+    """The state-AGs board's line: offices by tier, and what the coalition figures rest on.
+
+    The multistate count rides the line because every coalition figure is a
+    share of it, so a refresh that adds one letter reads as the small change it is.
+    """
+    board = read_model(path, StateAgsBoard)
+    by_tier = Counter((office.tier, office.tier_label) for office in board.offices)
+    tiers = ", ".join(f"{label} {n}" for (_, label), n in sorted(by_tier.items())) or "no roster"
+    overdue = sum(1 for office in board.offices if office.transition_overdue)
+    stale = f"; {overdue} transition(s) overdue" if overdue else ""
+    return (
+        f"{len(board.offices)} office(s) as of {board.as_of.isoformat()} ({tiers}); "
+        f"{len(board.actions)} action(s), {board.coalition.multistate_actions} multistate{stale}"
+    )
+
+
 # The metrics-model artifacts, keyed by filename (they all live under
 # `metrics/`; anything path-ambiguous belongs in _SPECIAL_HEADLINES instead).
 _FILENAME_HEADLINES: dict[str, Callable[[Path], str]] = {
@@ -327,6 +346,7 @@ _FILENAME_HEADLINES: dict[str, Callable[[Path], str]] = {
     "statpack.json": _statpack_headline,
     "docket.json": _docket_headline,
     "big-cases.json": _big_case_headline,
+    "state-ags.json": _state_ags_headline,
 }
 
 

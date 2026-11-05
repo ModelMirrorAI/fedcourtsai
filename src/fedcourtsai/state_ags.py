@@ -14,20 +14,32 @@ The method that reads the registry is ``ag-ai-ambition-v1``
 the highest rung an action of a tier-raising kind reached for it in a trailing
 window (:data:`AMBITION_WINDOW_DAYS`). The rung each kind reaches is
 :func:`rung`; a kind on the ``defense`` or ``context`` track never raises a tier.
-The coalition figures the doc defines are not computed here yet.
+The coalition figures read only the actions two or more offices took part in;
+:func:`build_board` computes them, and the tiers, into ``metrics/state-ags.json``.
 """
 
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from datetime import date, timedelta
 from enum import IntEnum, StrEnum
+from itertools import combinations
 from pathlib import Path
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from fedcourtsai.ai_watchlist import UniqueKeyLoader
+from fedcourtsai.schemas import (
+    StateAgActionRow,
+    StateAgCoalition,
+    StateAgHolderRow,
+    StateAgJoin,
+    StateAgOfficeRow,
+    StateAgPair,
+    StateAgsBoard,
+)
 
 #: The registry's file, under the config root.
 STATE_AGS_FILENAME = "state-ags.yaml"
@@ -251,9 +263,12 @@ class Office(BaseModel):
             raise ValueError(f"{self.state}: at most one pending holder, and only last")
         return self
 
-    def holder_on(self, day: date) -> Holder:
-        """The holder in office on ``day``; a successor counts once their start has come."""
-        current = self.holders[0]
+    def holder_on(self, day: date) -> Holder | None:
+        """The holder in office on ``day``; a successor counts once their start has come.
+
+        A day before the first recorded holder's start has no holder on record.
+        """
+        current: Holder | None = None
         for holder in self.holders:
             if holder.start <= day:
                 current = holder
@@ -379,3 +394,146 @@ def load_state_ags(path: Path) -> StateAgRegistry:
     """Read and validate the registry; a missing or empty file is an error, not a default."""
     data = yaml.load(path.read_text(), Loader=UniqueKeyLoader)
     return StateAgRegistry.model_validate(data)
+
+
+#: The label each tier is published under.
+TIER_LABELS: dict[Rung, str] = {
+    Rung.none: "None recorded",
+    Rung.signals: "Signals",
+    Rung.joins: "Joins",
+    Rung.investigates: "Investigates",
+    Rung.sues: "Sues",
+}
+
+
+def _holder_name(holder: Holder | None) -> str | None:
+    return None if holder is None else holder.name
+
+
+def _holder_row(holder: Holder) -> StateAgHolderRow:
+    return StateAgHolderRow(
+        name=holder.name,
+        party=holder.party,
+        status=holder.status.value,
+        start=holder.start,
+        sources=list(holder.sources),
+    )
+
+
+def _coalition(registry: StateAgRegistry, states: Sequence[str], as_of: date) -> StateAgCoalition:
+    """Affinity, participation and join rankings over the multistate actions to ``as_of``."""
+    multistate = [
+        frozenset(a.states) for a in registry.actions if a.multistate and a.announced <= as_of
+    ]
+    total = len(multistate)
+    joined = {s: sum(1 for group in multistate if s in group) for s in states}
+    participation = {s: (joined[s] / total if total else 0.0) for s in states}
+    affinity: dict[tuple[str, str], StateAgPair] = {}
+    pairs: list[StateAgPair] = []
+    for a, b in combinations(states, 2):
+        joint = sum(1 for group in multistate if a in group and b in group)
+        if not joint:
+            continue
+        either = sum(1 for group in multistate if a in group or b in group)
+        pair = StateAgPair(a=a, b=b, joint=joint, either=either, affinity=joint / either)
+        affinity[(a, b)] = affinity[(b, a)] = pair
+        pairs.append(pair)
+    pairs.sort(key=lambda p: (-p.affinity, -p.joint, p.a, p.b))
+    rankings: dict[str, list[StateAgJoin]] = {}
+    for lead in states:
+        if not joined[lead]:
+            continue
+        joins = [
+            StateAgJoin(
+                state=other,
+                affinity=affinity[(lead, other)].affinity,
+                joint=affinity[(lead, other)].joint,
+                either=affinity[(lead, other)].either,
+                participation=participation[other],
+                score=affinity[(lead, other)].affinity * participation[other],
+            )
+            for other in states
+            if (lead, other) in affinity
+        ]
+        joins.sort(key=lambda j: (-j.score, j.state))
+        rankings[lead] = joins
+    return StateAgCoalition(
+        multistate_actions=total,
+        participation=participation,
+        pairs=pairs,
+        join_rankings=rankings,
+    )
+
+
+def build_board(
+    registry: StateAgRegistry, as_of: date, watchlist_cases: frozenset[str]
+) -> StateAgsBoard:
+    """The ``metrics/state-ags.json`` board for ``as_of``, computed from the registry.
+
+    ``watchlist_cases`` is the set of case names the AI watchlist lists; an
+    action naming any other is refused, so a link the site renders always
+    resolves. An empty roster yields no office rows, never a guessed one.
+    """
+    for action in registry.actions:
+        if action.watchlist_case is not None and action.watchlist_case not in watchlist_cases:
+            raise ValueError(
+                f"{action.id}: watchlist_case {action.watchlist_case!r} is not on the watchlist"
+            )
+    since = as_of - timedelta(days=AMBITION_WINDOW_DAYS)
+    newest = sorted(registry.actions, key=lambda a: (a.announced, a.id), reverse=True)
+    offices = {office.state: office for office in registry.offices}
+    rows: list[StateAgOfficeRow] = []
+    for state in sorted(offices):
+        office = offices[state]
+        mine = [a for a in newest if state in a.states]
+        window = [a for a in mine if since < a.announced <= as_of]
+        pending = office.transition()
+        current = office.holder_on(as_of)
+        tier = registry.tier(state, as_of)
+        rows.append(
+            StateAgOfficeRow(
+                state=state,
+                selection=office.selection.value,
+                holder=_holder_row(current) if current is not None else None,
+                transition=None if pending is None else _holder_row(pending),
+                transition_overdue=pending is not None and pending.start <= as_of,
+                tier=int(tier),
+                tier_label=TIER_LABELS[tier],
+                window_counts={k.value: sum(1 for a in window if a.kind is k) for k in Kind},
+                action_ids=[a.id for a in mine],
+            )
+        )
+    actions = [
+        StateAgActionRow(
+            id=a.id,
+            title=a.title,
+            announced=a.announced,
+            kind=a.kind.value,
+            track=track(a.kind).value,
+            category=a.category,
+            states=list(a.states),
+            lead=a.lead,
+            holders={
+                s: _holder_name(offices[s].holder_on(a.announced)) if s in offices else None
+                for s in a.states
+            },
+            rungs={s: int(a.rung_for(s)) for s in a.states},
+            in_window=since < a.announced <= as_of,
+            developers=list(a.developers),
+            court=a.court,
+            docket_number=a.docket_number,
+            watchlist_case=a.watchlist_case,
+            why=a.why,
+            sources=list(a.sources),
+        )
+        for a in newest
+    ]
+    return StateAgsBoard(
+        method=AMBITION_METHOD,
+        as_of=as_of,
+        window_days=AMBITION_WINDOW_DAYS,
+        offices=rows,
+        actions=actions,
+        defense_and_context=sum(1 for a in newest if track(a.kind) is not Track.enforcement),
+        coalition=_coalition(registry, sorted(JURISDICTIONS), as_of),
+    )

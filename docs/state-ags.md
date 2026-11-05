@@ -91,8 +91,9 @@ this one, so a published tier always says which definition produced it.
 ## The coalition figures
 
 The coalition figures read only **multistate** actions, those two or more
-offices took part in, across both tracks and every kind, because co-signing is
-the signal whatever is signed. For each pair of offices *i* and *j*:
+offices took part in announced on or before the board's day, across both
+tracks and every kind, because co-signing is the signal whatever is signed.
+For each pair of offices *i* and *j*:
 
 - **affinity** is the Jaccard index: the multistate actions both took part in,
   over the multistate actions either took part in. It is 0 when neither took
@@ -103,9 +104,6 @@ the signal whatever is signed. For each pair of offices *i* and *j*:
 For a chosen lead office *i*, the **join ranking** orders every other office by
 affinity with *i* times its participation rate. It is a ranking from past
 co-signing, not a probability that a state will join, and the page says so.
-Offices are also grouped into clusters by affinity, so the page can show which
-blocs recur.
-
 Wherever the join ranking or an affinity is shown, the number of multistate
 actions it rests on is shown beside it, because both figures are noisy over a
 handful of actions.
@@ -116,8 +114,14 @@ enough multistate actions to score it against.
 
 ## What the site reads
 
-The site reads a derived file, `metrics/state-ags.json`, carrying each
-office's tier, counts by kind and transition, every action with its sources,
-and the coalition figures, all computed here; the site renders it and computes
-nothing. That file, the command that writes it and the coalition figures are not
-built yet: the registry, its checks and the tier are.
+`fedcourts state-ags` writes `metrics/state-ags.json`, carrying each office's
+tier, counts by kind in the window and transition, every action with each
+participating office's holder on its date (none before the first holder
+on record) and the rung it reaches for them,
+and the coalition figures, all computed here; the site renders it and
+computes nothing. A pending holder whose start day has passed is flagged
+overdue, so a roster that has fallen behind shows on the board rather than
+silently attributing actions to the wrong AG. An action that names a
+`watchlist_case` the AI watchlist does not list is refused, so every case link
+the site renders resolves. The weekly metrics refresh does not run the command
+yet, and the roster and actions are not yet filled.
