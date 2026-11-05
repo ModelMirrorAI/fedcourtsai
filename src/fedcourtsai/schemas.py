@@ -10433,6 +10433,10 @@ class StateAgOfficeRow(_Strict):
         description="A pending holder whose start day has passed: the roster needs updating."
     )
     tier: int = Field(ge=0, le=4, description="The office's ag-ai-ambition-v1 tier on the day.")
+    data_center_ids: list[str] = Field(
+        description="The state's large AI data center projects that mark it (every status but "
+        "cancelled), largest first. Context beside the tier, never part of it."
+    )
     tier_label: str = Field(description="The tier's label (None recorded … Sues).")
     window_counts: dict[str, int] = Field(
         description="Actions in the window the office took part in, by kind, every kind present."
@@ -10468,6 +10472,20 @@ class StateAgActionRow(_Strict):
         default=None, description="The AI watchlist case the action is in, when it is one."
     )
     why: str
+    sources: list[str] = Field(min_length=1)
+
+
+class StateAgDataCenterRow(_Strict):
+    """One large AI data center project as the state-AGs board publishes it."""
+
+    id: str
+    name: str
+    state: str
+    locality: str
+    developers: list[str] = Field(min_length=1)
+    capacity_mw: int = Field(description="The stated capacity, in megawatts.")
+    status: Literal["announced", "under-construction", "operating", "cancelled"]
+    announced: date = Field(description="The day the project was first announced.")
     sources: list[str] = Field(min_length=1)
 
 
@@ -10529,6 +10547,12 @@ class StateAgsBoard(_Strict):
     actions: list[StateAgActionRow] = Field(description="Every recorded action, newest first.")
     defense_and_context: int = Field(
         ge=0, description="Recorded actions off the enforcement track, which raise no tier."
+    )
+    data_center_threshold_mw: int = Field(
+        gt=0, description="The smallest project, in megawatts, the data-center layer lists."
+    )
+    data_centers: list[StateAgDataCenterRow] = Field(
+        description="Every listed project, by state, then largest first."
     )
     coalition: StateAgCoalition
 

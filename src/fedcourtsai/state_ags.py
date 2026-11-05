@@ -34,6 +34,7 @@ from fedcourtsai.ai_watchlist import UniqueKeyLoader
 from fedcourtsai.schemas import (
     StateAgActionRow,
     StateAgCoalition,
+    StateAgDataCenterRow,
     StateAgHolderRow,
     StateAgJoin,
     StateAgOfficeRow,
@@ -343,6 +344,57 @@ class Action(BaseModel):
         return rung(self.kind, led=led, multistate=self.multistate)
 
 
+#: The smallest project, in megawatts, the data-center layer lists.
+DATA_CENTER_THRESHOLD_MW = 1000
+
+
+class DataCenterStatus(StrEnum):
+    """Where a data center project stands."""
+
+    announced = "announced"
+    under_construction = "under-construction"
+    operating = "operating"
+    #: Kept on record, never marked on the map.
+    cancelled = "cancelled"
+
+
+class DataCenter(BaseModel):
+    """One large AI data center project: context beside the tier, never part of it."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    id: str
+    name: str = Field(min_length=1)
+    state: str
+    locality: str = Field(min_length=1)
+    developers: list[str] = Field(min_length=1)
+    capacity_mw: int = Field(ge=DATA_CENTER_THRESHOLD_MW)
+    status: DataCenterStatus
+    announced: date
+    sources: list[str] = Field(min_length=1)
+    added: date
+
+    @field_validator("id")
+    @classmethod
+    def _slug(cls, value: str) -> str:
+        if not _SLUG.match(value):
+            raise ValueError(f"data center id {value!r} must be lower-case kebab-case")
+        return value
+
+    @model_validator(mode="after")
+    def _consistent(self) -> DataCenter:
+        if self.state not in JURISDICTIONS:
+            raise ValueError(f"{self.id}: {self.state!r} is not a state postal code or DC")
+        if self.added < self.announced:
+            raise ValueError(f"{self.id}: added before the project's own date")
+        return self
+
+    @property
+    def marked(self) -> bool:
+        """Whether the project marks its state on the map: every status but cancelled."""
+        return self.status is not DataCenterStatus.cancelled
+
+
 class StateAgRegistry(BaseModel):
     """``config/state-ags.yaml``: the subject vocabulary, the roster, and the actions."""
 
@@ -351,6 +403,7 @@ class StateAgRegistry(BaseModel):
     categories: dict[str, str] = Field(min_length=1)
     offices: list[Office] = Field(default_factory=list)
     actions: list[Action] = Field(default_factory=list)
+    data_centers: list[DataCenter] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _consistent(self) -> StateAgRegistry:
@@ -366,6 +419,9 @@ class StateAgRegistry(BaseModel):
         ids = [action.id for action in self.actions]
         if len(set(ids)) != len(ids):
             raise ValueError("an action id is used twice")
+        centers = [center.id for center in self.data_centers]
+        if len(set(centers)) != len(centers):
+            raise ValueError("a data center id is used twice")
         for action in self.actions:
             if action.category not in self.categories:
                 raise ValueError(
@@ -482,6 +538,7 @@ def build_board(
     since = as_of - timedelta(days=AMBITION_WINDOW_DAYS)
     newest = sorted(registry.actions, key=lambda a: (a.announced, a.id), reverse=True)
     offices = {office.state: office for office in registry.offices}
+    centers = sorted(registry.data_centers, key=lambda c: (c.state, -c.capacity_mw, c.id))
     rows: list[StateAgOfficeRow] = []
     for state in sorted(offices):
         office = offices[state]
@@ -497,6 +554,7 @@ def build_board(
                 holder=_holder_row(current) if current is not None else None,
                 transition=None if pending is None else _holder_row(pending),
                 transition_overdue=pending is not None and pending.start <= as_of,
+                data_center_ids=[c.id for c in centers if c.state == state and c.marked],
                 tier=int(tier),
                 tier_label=TIER_LABELS[tier],
                 window_counts={k.value: sum(1 for a in window if a.kind is k) for k in Kind},
@@ -534,6 +592,21 @@ def build_board(
         window_days=AMBITION_WINDOW_DAYS,
         offices=rows,
         actions=actions,
+        data_center_threshold_mw=DATA_CENTER_THRESHOLD_MW,
+        data_centers=[
+            StateAgDataCenterRow(
+                id=c.id,
+                name=c.name,
+                state=c.state,
+                locality=c.locality,
+                developers=list(c.developers),
+                capacity_mw=c.capacity_mw,
+                status=c.status.value,
+                announced=c.announced,
+                sources=list(c.sources),
+            )
+            for c in centers
+        ],
         defense_and_context=sum(1 for a in newest if track(a.kind) is not Track.enforcement),
         coalition=_coalition(registry, sorted(JURISDICTIONS), as_of),
     )

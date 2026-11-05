@@ -212,6 +212,78 @@
       "title": "StateAgCoalition",
       "type": "object"
     },
+    "StateAgDataCenterRow": {
+      "additionalProperties": false,
+      "description": "One large AI data center project as the state-AGs board publishes it.",
+      "properties": {
+        "announced": {
+          "description": "The day the project was first announced.",
+          "format": "date",
+          "title": "Announced",
+          "type": "string"
+        },
+        "capacity_mw": {
+          "description": "The stated capacity, in megawatts.",
+          "title": "Capacity Mw",
+          "type": "integer"
+        },
+        "developers": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Developers",
+          "type": "array"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "locality": {
+          "title": "Locality",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "sources": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Sources",
+          "type": "array"
+        },
+        "state": {
+          "title": "State",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "announced",
+            "under-construction",
+            "operating",
+            "cancelled"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "state",
+        "locality",
+        "developers",
+        "capacity_mw",
+        "status",
+        "announced",
+        "sources"
+      ],
+      "title": "StateAgDataCenterRow",
+      "type": "object"
+    },
     "StateAgHolderRow": {
       "additionalProperties": false,
       "description": "One attorney general as the state-AGs board publishes them.",
@@ -339,6 +411,14 @@
           "title": "Action Ids",
           "type": "array"
         },
+        "data_center_ids": {
+          "description": "The state's large AI data center projects that mark it (every status but cancelled), largest first. Context beside the tier, never part of it.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Data Center Ids",
+          "type": "array"
+        },
         "holder": {
           "anyOf": [
             {
@@ -410,6 +490,7 @@
         "transition",
         "transition_overdue",
         "tier",
+        "data_center_ids",
         "tier_label",
         "window_counts",
         "action_ids"
@@ -480,6 +561,20 @@
     "coalition": {
       "$ref": "#/$defs/StateAgCoalition"
     },
+    "data_center_threshold_mw": {
+      "description": "The smallest project, in megawatts, the data-center layer lists.",
+      "exclusiveMinimum": 0,
+      "title": "Data Center Threshold Mw",
+      "type": "integer"
+    },
+    "data_centers": {
+      "description": "Every listed project, by state, then largest first.",
+      "items": {
+        "$ref": "#/$defs/StateAgDataCenterRow"
+      },
+      "title": "Data Centers",
+      "type": "array"
+    },
     "defense_and_context": {
       "description": "Recorded actions off the enforcement track, which raise no tier.",
       "minimum": 0,
@@ -520,6 +615,8 @@
     "offices",
     "actions",
     "defense_and_context",
+    "data_center_threshold_mw",
+    "data_centers",
     "coalition"
   ],
   "title": "StateAgsBoard",

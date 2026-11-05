@@ -17,7 +17,9 @@ from fedcourtsai.schemas import StateAgsBoard
 from fedcourtsai.serialize import read_model, write_json
 from fedcourtsai.state_ags import (
     AMBITION_METHOD,
+    DATA_CENTER_THRESHOLD_MW,
     JURISDICTIONS,
+    DataCenter,
     Kind,
     Rung,
     StateAgRegistry,
@@ -408,3 +410,66 @@ def test_cli_exits_1_on_an_unknown_watchlist_case(tmp_path: Path) -> None:
 
     assert result.exit_code == 1
     assert "is not on the watchlist" in result.output
+
+
+def _center(**overrides: Any) -> dict[str, Any]:
+    center: dict[str, Any] = {
+        "id": "big-campus",
+        "name": "Big Campus",
+        "state": "TX",
+        "locality": "Somewhere County",
+        "developers": ["Model Co."],
+        "capacity_mw": 1200,
+        "status": "under-construction",
+        "announced": "2025-01-21",
+        "sources": ["https://example.com/announce"],
+        "added": "2026-11-05",
+    }
+    center.update(overrides)
+    return center
+
+
+def test_data_centers_mark_their_state_largest_first() -> None:
+    registry = _board_registry().model_copy(
+        update={
+            "data_centers": [
+                DataCenter.model_validate(c)
+                for c in (
+                    _center(),
+                    _center(id="bigger", capacity_mw=5000),
+                    _center(id="gone", status="cancelled"),
+                    _center(id="ohio", state="OH", status="announced"),
+                )
+            ]
+        }
+    )
+    board = build_board(registry, date(2026, 11, 5), frozenset({"Doe v. Model Co."}))
+    rows = {row.state: row for row in board.offices}
+
+    assert board.data_center_threshold_mw == DATA_CENTER_THRESHOLD_MW == 1000
+    assert rows["TX"].data_center_ids == ["bigger", "big-campus"]
+    assert rows["OH"].data_center_ids == ["ohio"]
+    assert rows["WY"].data_center_ids == []
+    assert [c.id for c in board.data_centers] == ["ohio", "bigger", "big-campus", "gone"]
+    # A data center never moves a tier.
+    assert rows["OH"].tier == 0
+
+
+@pytest.mark.parametrize(
+    ("overrides", "message"),
+    [
+        ({"capacity_mw": 999}, "greater than or equal to 1000"),
+        ({"state": "ZZ"}, "not a state postal code"),
+        ({"added": "2024-01-01"}, "added before"),
+        ({"id": "Big Campus"}, "kebab-case"),
+        ({"status": "rumoured"}, "Input should be"),
+    ],
+)
+def test_bad_data_centers_are_refused(overrides: dict[str, Any], message: str) -> None:
+    with pytest.raises(ValidationError, match=message):
+        StateAgRegistry.model_validate({**_registry(), "data_centers": [_center(**overrides)]})
+
+
+def test_a_data_center_id_is_unique() -> None:
+    with pytest.raises(ValidationError, match="data center id is used twice"):
+        StateAgRegistry.model_validate({**_registry(), "data_centers": [_center(), _center()]})

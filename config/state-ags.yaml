@@ -19,6 +19,11 @@
 # pending (`successor` or `uncalled`). An action's `states` are every office
 # that took part, `lead` the one that led (a single-state action is led by
 # that state), and `developers` every AI developer it is aimed at.
+#
+# Data centers. `data_centers` lists each AI data center project of at least
+# 1,000 MW stated capacity (the layer's threshold, docs/state-ags.md), with its
+# source and a dated `added` line. It marks a state on the map and never moves
+# a tier; a cancelled project stays listed with status `cancelled`.
 
 categories:
   consumer-protection: Deceptive or unfair practices in selling or marketing an AI product.
@@ -33,3 +38,5 @@ categories:
 offices: []
 
 actions: []
+
+data_centers: []

@@ -112,10 +112,23 @@ A forecast of who signs the next multistate action, pre-registered and scored
 like the project's other forecasts, is a later step once the registry holds
 enough multistate actions to score it against.
 
+## Large AI data centers
+
+`data_centers` lists each AI data center project of at least 1,000 MW (1 GW)
+of stated capacity in a state or DC: its developers, locality, capacity, status
+(`announced`, `under-construction`, `operating` or `cancelled`), first
+announcement date and source, the developer's or the state's own announcement
+where one exists. A campus total counts; a multi-site program's total does not
+unless one site reaches the threshold. A state hosting any project that is not
+cancelled is marked on the map. The layer is context for reading a state's
+AI policy, never part of the tier, and a cancelled project stays on record
+unmarked. The threshold is part of the layer's definition: a change to it is a
+change to the rule, made in its own PR.
+
 ## What the site reads
 
 `fedcourts state-ags` writes `metrics/state-ags.json`, carrying each office's
-tier, counts by kind in the window and transition, every action with each
+data-center projects and tier, counts by kind in the window and transition, every action with each
 participating office's holder on its date (none before the first holder
 on record) and the rung it reaches for them,
 and the coalition figures, all computed here; the site renders it and
