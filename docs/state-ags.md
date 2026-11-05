@@ -128,13 +128,13 @@ change to the rule, made in its own PR.
 ## What the site reads
 
 `fedcourts state-ags` writes `metrics/state-ags.json`, carrying each office's
-data-center projects and tier, counts by kind in the window and transition, every action with each
-participating office's holder on its date (none before the first holder
-on record) and the rung it reaches for them,
-and the coalition figures, all computed here; the site renders it and
-computes nothing. A pending holder whose start day has passed is flagged
-overdue, so a roster that has fallen behind shows on the board rather than
-silently attributing actions to the wrong AG. An action that names a
-`watchlist_case` the AI watchlist does not list is refused, so every case link
-the site renders resolves. The weekly metrics refresh does not run the command
-yet, and the roster and actions are not yet filled.
+data-center projects and tier, counts by kind in the window and transition,
+every action with each participating office's holder on its date (none before
+the first holder on record) and the rung it reaches for them, and the
+coalition figures, all computed here; the site renders it and computes
+nothing. A pending holder whose start day has passed is flagged overdue, so a
+roster that has fallen behind shows on the board rather than silently
+attributing actions to the wrong AG. An action that names a `watchlist_case`
+the AI watchlist does not list is refused, so every case link the site renders
+resolves. The weekly metrics refresh does not run the command yet, and the
+roster and actions are not yet filled.
