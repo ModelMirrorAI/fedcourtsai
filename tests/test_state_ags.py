@@ -8,7 +8,12 @@ from typing import Any
 
 import pytest
 from pydantic import ValidationError
+from typer.testing import CliRunner
 
+from fedcourtsai.cli import app
+from fedcourtsai.metrics_refresh import _headline
+from fedcourtsai.schemas import StateAgsBoard
+from fedcourtsai.serialize import read_model, write_json
 from fedcourtsai.state_ags import (
     AMBITION_METHOD,
     JURISDICTIONS,
@@ -16,6 +21,7 @@ from fedcourtsai.state_ags import (
     Rung,
     StateAgRegistry,
     Track,
+    build_board,
     load_state_ags,
     rung,
     track,
@@ -253,3 +259,122 @@ def test_repeated_key_is_refused(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="duplicate key"):
         load_state_ags(path)
+
+
+def _board_registry() -> StateAgRegistry:
+    offices = _all_offices()
+    states = [o["state"] for o in offices]
+    offices[states.index("TX")] = _office(
+        "TX",
+        _holder(name="Outgoing", start="2015-01-05"),
+        _holder(name="Incoming", party="D", status="successor", start="2027-01-01"),
+    )
+    offices[states.index("KS")] = _office(
+        "KS",
+        _holder(name="Sitting", start="2023-01-09"),
+        _holder(name=None, party=None, status="uncalled", start="2026-11-01"),
+    )
+    return StateAgRegistry.model_validate(
+        _registry(
+            _action(),
+            _action(
+                id="letter-one",
+                kind="letter",
+                states=["TX", "CA", "NY"],
+                lead="CA",
+                court=None,
+                docket_number=None,
+                announced="2026-04-01",
+            ),
+            _action(
+                id="letter-two",
+                kind="letter",
+                states=["CA", "NY"],
+                lead="NY",
+                court=None,
+                docket_number=None,
+                announced="2026-05-01",
+            ),
+            _action(
+                id="defense-one",
+                kind="defense",
+                states=["CA"],
+                announced="2026-06-01",
+                watchlist_case="Doe v. Model Co.",
+            ),
+            offices=offices,
+        )
+    )
+
+
+def test_board_rows_tiers_counts_and_transitions() -> None:
+    board = build_board(_board_registry(), date(2026, 11, 5), frozenset({"Doe v. Model Co."}))
+    rows = {row.state: row for row in board.offices}
+
+    assert len(rows) == 51
+    assert rows["TX"].tier == 4 and rows["TX"].tier_label == "Sues"
+    assert rows["TX"].holder.name == "Outgoing"
+    assert rows["TX"].transition is not None and rows["TX"].transition.name == "Incoming"
+    assert not rows["TX"].transition_overdue
+    # An uncalled race whose start day has passed is flagged, and names nobody.
+    assert rows["KS"].transition_overdue and rows["KS"].holder.name is None
+    # A defense never raises the tier; CA stays at the letters' rung.
+    assert rows["CA"].tier == 1
+    assert rows["CA"].window_counts["defense"] == 1
+    assert rows["CA"].action_ids == ["defense-one", "letter-two", "letter-one"]
+    assert board.defense_and_context == 1
+    assert board.actions[0].id == "defense-one"
+    letter = next(a for a in board.actions if a.id == "letter-one")
+    assert letter.holders["TX"] == "Outgoing"
+    assert letter.rungs == {"TX": 1, "CA": 1, "NY": 1}
+
+
+def test_board_coalition_figures() -> None:
+    coalition = build_board(
+        _board_registry(), date(2026, 11, 5), frozenset({"Doe v. Model Co."})
+    ).coalition
+
+    assert coalition.multistate_actions == 2
+    assert coalition.participation["CA"] == 1.0
+    assert coalition.participation["TX"] == 0.5
+    assert coalition.participation["WY"] == 0.0
+    pairs = {(p.a, p.b): p for p in coalition.pairs}
+    assert pairs[("CA", "NY")].affinity == 1.0
+    assert pairs[("CA", "TX")].joint == 1 and pairs[("CA", "TX")].either == 2
+    assert coalition.pairs[0].affinity == 1.0
+    ranking = [(j.state, j.score) for j in coalition.join_rankings["CA"]]
+    assert ranking == [("NY", 1.0), ("TX", 0.25)]
+    assert "WY" not in coalition.join_rankings
+
+
+def test_board_refuses_an_unknown_watchlist_case() -> None:
+    with pytest.raises(ValueError, match="is not on the watchlist"):
+        build_board(_board_registry(), date(2026, 11, 5), frozenset())
+
+
+def test_empty_registry_board_validates_and_headlines(tmp_path: Path) -> None:
+    board = build_board(load_state_ags(_COMMITTED), date(2026, 11, 5), frozenset())
+    path = tmp_path / "state-ags.json"
+    write_json(path, board)
+
+    assert read_model(path, StateAgsBoard).coalition.multistate_actions == 0
+    assert _headline(path, "metrics/state-ags.json").startswith("0 office(s) as of 2026-11-05")
+
+
+def test_headline_counts_tiers_and_overdue(tmp_path: Path) -> None:
+    path = tmp_path / "state-ags.json"
+    write_json(
+        path, build_board(_board_registry(), date(2026, 11, 5), frozenset({"Doe v. Model Co."}))
+    )
+
+    line = _headline(path, "metrics/state-ags.json")
+    assert "51 office(s)" in line and "Sues 1" in line and "Signals 2" in line
+    assert "4 action(s), 2 multistate; 1 transition(s) overdue" in line
+
+
+def test_cli_writes_the_board(tmp_path: Path) -> None:
+    out = tmp_path / "state-ags.json"
+    result = CliRunner().invoke(app, ["state-ags", "--out", str(out), "--as-of", "2026-11-05"])
+
+    assert result.exit_code == 0, result.output
+    assert read_model(out, StateAgsBoard).as_of == date(2026, 11, 5)

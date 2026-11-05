@@ -1,0 +1,506 @@
+{
+  "$defs": {
+    "StateAgActionRow": {
+      "additionalProperties": false,
+      "description": "One recorded action as the state-AGs board publishes it.",
+      "properties": {
+        "announced": {
+          "description": "The day the action was announced.",
+          "format": "date",
+          "title": "Announced",
+          "type": "string"
+        },
+        "category": {
+          "description": "The subject, from the registry's vocabulary.",
+          "title": "Category",
+          "type": "string"
+        },
+        "court": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Court"
+        },
+        "developers": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Developers",
+          "type": "array"
+        },
+        "docket_number": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Docket Number"
+        },
+        "holders": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "description": "Each participating office's holder on the announced day, by state.",
+          "title": "Holders",
+          "type": "object"
+        },
+        "id": {
+          "description": "The action's slug.",
+          "title": "Id",
+          "type": "string"
+        },
+        "in_window": {
+          "description": "Whether the action counts toward tiers on the day.",
+          "title": "In Window",
+          "type": "boolean"
+        },
+        "kind": {
+          "description": "letter, amicus, investigation, settlement, suit, defense \u2026",
+          "title": "Kind",
+          "type": "string"
+        },
+        "lead": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The office that led, where one did.",
+          "title": "Lead"
+        },
+        "rungs": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "description": "The tier this action reaches for each office.",
+          "title": "Rungs",
+          "type": "object"
+        },
+        "sources": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Sources",
+          "type": "array"
+        },
+        "states": {
+          "description": "Every office that took part.",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "States",
+          "type": "array"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "track": {
+          "description": "Which part of the method the kind feeds; only enforcement raises a tier.",
+          "enum": [
+            "enforcement",
+            "defense",
+            "context"
+          ],
+          "title": "Track",
+          "type": "string"
+        },
+        "watchlist_case": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The AI watchlist case the action is in, when it is one.",
+          "title": "Watchlist Case"
+        },
+        "why": {
+          "title": "Why",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "announced",
+        "kind",
+        "track",
+        "category",
+        "states",
+        "lead",
+        "holders",
+        "rungs",
+        "in_window",
+        "developers",
+        "why",
+        "sources"
+      ],
+      "title": "StateAgActionRow",
+      "type": "object"
+    },
+    "StateAgCoalition": {
+      "additionalProperties": false,
+      "description": "The coalition figures, over every multistate action on record.",
+      "properties": {
+        "join_rankings": {
+          "additionalProperties": {
+            "items": {
+              "$ref": "#/$defs/StateAgJoin"
+            },
+            "type": "array"
+          },
+          "description": "For each office that took part in a multistate action, the others with a non-zero score, highest first.",
+          "title": "Join Rankings",
+          "type": "object"
+        },
+        "multistate_actions": {
+          "description": "The multistate actions every figure here rests on; read it beside them.",
+          "minimum": 0,
+          "title": "Multistate Actions",
+          "type": "integer"
+        },
+        "pairs": {
+          "description": "Every pair that co-signed at least once, highest affinity first.",
+          "items": {
+            "$ref": "#/$defs/StateAgPair"
+          },
+          "title": "Pairs",
+          "type": "array"
+        },
+        "participation": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "description": "Each office's share of the multistate actions, every office present.",
+          "title": "Participation",
+          "type": "object"
+        }
+      },
+      "required": [
+        "multistate_actions",
+        "participation",
+        "pairs",
+        "join_rankings"
+      ],
+      "title": "StateAgCoalition",
+      "type": "object"
+    },
+    "StateAgHolderRow": {
+      "additionalProperties": false,
+      "description": "One attorney general as the state-AGs board publishes them.",
+      "properties": {
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The holder's name; empty only for an uncalled race.",
+          "title": "Name"
+        },
+        "party": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The holder's party, as the roster records it.",
+          "title": "Party"
+        },
+        "sources": {
+          "description": "Where the roster's facts come from.",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Sources",
+          "type": "array"
+        },
+        "start": {
+          "description": "The day the holder took, or takes, the office.",
+          "format": "date",
+          "title": "Start",
+          "type": "string"
+        },
+        "status": {
+          "description": "Where the holder stands: in office, next in office, or a race not called.",
+          "enum": [
+            "serving",
+            "successor",
+            "uncalled"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "party",
+        "status",
+        "start",
+        "sources"
+      ],
+      "title": "StateAgHolderRow",
+      "type": "object"
+    },
+    "StateAgJoin": {
+      "additionalProperties": false,
+      "description": "One office's place in a lead office's join ranking.",
+      "properties": {
+        "affinity": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Affinity",
+          "type": "number"
+        },
+        "participation": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Participation",
+          "type": "number"
+        },
+        "score": {
+          "description": "affinity times participation; a ranking, not a probability.",
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Score",
+          "type": "number"
+        },
+        "state": {
+          "title": "State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "state",
+        "affinity",
+        "participation",
+        "score"
+      ],
+      "title": "StateAgJoin",
+      "type": "object"
+    },
+    "StateAgOfficeRow": {
+      "additionalProperties": false,
+      "description": "One office's line on the state-AGs board: who holds it, its tier, and its actions.",
+      "properties": {
+        "action_ids": {
+          "description": "Every recorded action the office took part in, newest first, in or out of the window.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Action Ids",
+          "type": "array"
+        },
+        "holder": {
+          "$ref": "#/$defs/StateAgHolderRow",
+          "description": "The holder in office on the board's day."
+        },
+        "selection": {
+          "description": "How the office is filled.",
+          "enum": [
+            "elected",
+            "governor",
+            "legislature",
+            "court"
+          ],
+          "title": "Selection",
+          "type": "string"
+        },
+        "state": {
+          "description": "The two-letter postal code (DC for the District).",
+          "title": "State",
+          "type": "string"
+        },
+        "tier": {
+          "description": "The office's ag-ai-ambition-v1 tier on the day.",
+          "maximum": 4,
+          "minimum": 0,
+          "title": "Tier",
+          "type": "integer"
+        },
+        "tier_label": {
+          "description": "The tier's label (None recorded \u2026 Sues).",
+          "title": "Tier Label",
+          "type": "string"
+        },
+        "transition": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StateAgHolderRow"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The pending successor or uncalled race, when the office is changing hands."
+        },
+        "transition_overdue": {
+          "description": "A pending holder whose start day has passed: the roster needs updating.",
+          "title": "Transition Overdue",
+          "type": "boolean"
+        },
+        "window_counts": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "description": "Actions in the window the office took part in, by kind, every kind present.",
+          "title": "Window Counts",
+          "type": "object"
+        }
+      },
+      "required": [
+        "state",
+        "selection",
+        "holder",
+        "transition",
+        "transition_overdue",
+        "tier",
+        "tier_label",
+        "window_counts",
+        "action_ids"
+      ],
+      "title": "StateAgOfficeRow",
+      "type": "object"
+    },
+    "StateAgPair": {
+      "additionalProperties": false,
+      "description": "Two offices' co-participation in multistate actions.",
+      "properties": {
+        "a": {
+          "title": "A",
+          "type": "string"
+        },
+        "affinity": {
+          "description": "joint / either (the Jaccard index).",
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Affinity",
+          "type": "number"
+        },
+        "b": {
+          "title": "B",
+          "type": "string"
+        },
+        "either": {
+          "description": "Multistate actions either took part in.",
+          "minimum": 1,
+          "title": "Either",
+          "type": "integer"
+        },
+        "joint": {
+          "description": "Multistate actions both took part in.",
+          "minimum": 1,
+          "title": "Joint",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "a",
+        "b",
+        "joint",
+        "either",
+        "affinity"
+      ],
+      "title": "StateAgPair",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``metrics/state-ags.json`` \u2014 the state-AGs dashboard: tiers, actions and coalitions.\n\nWritten by ``fedcourts state-ags`` from ``config/state-ags.yaml``; the method\nis ``docs/state-ags.md``. The site renders it and computes nothing.",
+  "properties": {
+    "actions": {
+      "description": "Every recorded action, newest first.",
+      "items": {
+        "$ref": "#/$defs/StateAgActionRow"
+      },
+      "title": "Actions",
+      "type": "array"
+    },
+    "as_of": {
+      "description": "The day the tiers and transitions are read on.",
+      "format": "date",
+      "title": "As Of",
+      "type": "string"
+    },
+    "coalition": {
+      "$ref": "#/$defs/StateAgCoalition"
+    },
+    "defense_and_context": {
+      "description": "Recorded actions off the enforcement track, which raise no tier.",
+      "minimum": 0,
+      "title": "Defense And Context",
+      "type": "integer"
+    },
+    "method": {
+      "const": "ag-ai-ambition-v1",
+      "description": "The ambition measure's name.",
+      "title": "Method",
+      "type": "string"
+    },
+    "offices": {
+      "description": "Every office, by postal code.",
+      "items": {
+        "$ref": "#/$defs/StateAgOfficeRow"
+      },
+      "title": "Offices",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "window_days": {
+      "description": "The trailing window an action counts in.",
+      "exclusiveMinimum": 0,
+      "title": "Window Days",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "method",
+    "as_of",
+    "window_days",
+    "offices",
+    "actions",
+    "defense_and_context",
+    "coalition"
+  ],
+  "title": "StateAgsBoard",
+  "type": "object"
+}

@@ -10404,6 +10404,129 @@ class AiCaseActivity(_Strict):
         return self
 
 
+class StateAgHolderRow(_Strict):
+    """One attorney general as the state-AGs board publishes them."""
+
+    name: str | None = Field(description="The holder's name; empty only for an uncalled race.")
+    party: str | None = Field(description="The holder's party, as the roster records it.")
+    status: Literal["serving", "successor", "uncalled"] = Field(
+        description="Where the holder stands: in office, next in office, or a race not called."
+    )
+    start: date = Field(description="The day the holder took, or takes, the office.")
+    sources: list[str] = Field(min_length=1, description="Where the roster's facts come from.")
+
+
+class StateAgOfficeRow(_Strict):
+    """One office's line on the state-AGs board: who holds it, its tier, and its actions."""
+
+    state: str = Field(description="The two-letter postal code (DC for the District).")
+    selection: Literal["elected", "governor", "legislature", "court"] = Field(
+        description="How the office is filled."
+    )
+    holder: StateAgHolderRow = Field(description="The holder in office on the board's day.")
+    transition: StateAgHolderRow | None = Field(
+        description="The pending successor or uncalled race, when the office is changing hands."
+    )
+    transition_overdue: bool = Field(
+        description="A pending holder whose start day has passed: the roster needs updating."
+    )
+    tier: int = Field(ge=0, le=4, description="The office's ag-ai-ambition-v1 tier on the day.")
+    tier_label: str = Field(description="The tier's label (None recorded … Sues).")
+    window_counts: dict[str, int] = Field(
+        description="Actions in the window the office took part in, by kind, every kind present."
+    )
+    action_ids: list[str] = Field(
+        description="Every recorded action the office took part in, newest first, in or out "
+        "of the window."
+    )
+
+
+class StateAgActionRow(_Strict):
+    """One recorded action as the state-AGs board publishes it."""
+
+    id: str = Field(description="The action's slug.")
+    title: str
+    announced: date = Field(description="The day the action was announced.")
+    kind: str = Field(description="letter, amicus, investigation, settlement, suit, defense …")
+    track: Literal["enforcement", "defense", "context"] = Field(
+        description="Which part of the method the kind feeds; only enforcement raises a tier."
+    )
+    category: str = Field(description="The subject, from the registry's vocabulary.")
+    states: list[str] = Field(min_length=1, description="Every office that took part.")
+    lead: str | None = Field(description="The office that led, where one did.")
+    holders: dict[str, str | None] = Field(
+        description="Each participating office's holder on the announced day, by state."
+    )
+    rungs: dict[str, int] = Field(description="The tier this action reaches for each office.")
+    in_window: bool = Field(description="Whether the action counts toward tiers on the day.")
+    developers: list[str] = Field(min_length=1)
+    court: str | None = None
+    docket_number: str | None = None
+    watchlist_case: str | None = Field(
+        default=None, description="The AI watchlist case the action is in, when it is one."
+    )
+    why: str
+    sources: list[str] = Field(min_length=1)
+
+
+class StateAgPair(_Strict):
+    """Two offices' co-participation in multistate actions."""
+
+    a: str
+    b: str
+    joint: int = Field(ge=1, description="Multistate actions both took part in.")
+    either: int = Field(ge=1, description="Multistate actions either took part in.")
+    affinity: float = Field(ge=0, le=1, description="joint / either (the Jaccard index).")
+
+
+class StateAgJoin(_Strict):
+    """One office's place in a lead office's join ranking."""
+
+    state: str
+    affinity: float = Field(ge=0, le=1)
+    participation: float = Field(ge=0, le=1)
+    score: float = Field(
+        ge=0, le=1, description="affinity times participation; a ranking, not a probability."
+    )
+
+
+class StateAgCoalition(_Strict):
+    """The coalition figures, over every multistate action on record."""
+
+    multistate_actions: int = Field(
+        ge=0, description="The multistate actions every figure here rests on; read it beside them."
+    )
+    participation: dict[str, float] = Field(
+        description="Each office's share of the multistate actions, every office present."
+    )
+    pairs: list[StateAgPair] = Field(
+        description="Every pair that co-signed at least once, highest affinity first."
+    )
+    join_rankings: dict[str, list[StateAgJoin]] = Field(
+        description="For each office that took part in a multistate action, the others with a "
+        "non-zero score, highest first."
+    )
+
+
+class StateAgsBoard(_Strict):
+    """``metrics/state-ags.json`` — the state-AGs dashboard: tiers, actions and coalitions.
+
+    Written by ``fedcourts state-ags`` from ``config/state-ags.yaml``; the method
+    is ``docs/state-ags.md``. The site renders it and computes nothing.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    method: Literal["ag-ai-ambition-v1"] = Field(description="The ambition measure's name.")
+    as_of: date = Field(description="The day the tiers and transitions are read on.")
+    window_days: int = Field(gt=0, description="The trailing window an action counts in.")
+    offices: list[StateAgOfficeRow] = Field(description="Every office, by postal code.")
+    actions: list[StateAgActionRow] = Field(description="Every recorded action, newest first.")
+    defense_and_context: int = Field(
+        ge=0, description="Recorded actions off the enforcement track, which raise no tier."
+    )
+    coalition: StateAgCoalition
+
+
 QpTopicFrame = Literal["petitions", "applications", "alignment-sides"]
 QpTopicRunOutcome = Literal["published", "refused", "incomplete", "replicate"]
 
@@ -15929,6 +16052,7 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "alignment_side_codes": AlignmentSideCodes,
     "alignment_fits": AlignmentFits,
     "ai_case_activity": AiCaseActivity,
+    "state_ags_board": StateAgsBoard,
     "case_summary_front_matter": CaseSummaryFrontMatter,
     "ai_ruling_summary_front_matter": AiRulingSummaryFrontMatter,
     "summary_plan": SummaryPlan,
