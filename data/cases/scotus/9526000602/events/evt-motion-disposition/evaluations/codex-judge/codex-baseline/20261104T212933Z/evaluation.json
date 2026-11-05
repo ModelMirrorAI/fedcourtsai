@@ -1,0 +1,127 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": null,
+  "brier_score": 0.0016,
+  "brier_skill_score": 0.88337775,
+  "case_id": "scotus/9526000602",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.1171303074670571,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": 0.012119508927327332
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.12,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.16,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.015,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v2",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.003,
+          "Barrett": 0.002,
+          "Gorsuch": 0.003,
+          "Jackson": 0.003,
+          "Kagan": 0.001,
+          "Kavanaugh": 0.002,
+          "Roberts": 0.002,
+          "Sotomayor": 0.003,
+          "Thomas": 0.006
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.012119508927327332,
+    "total": 0.012119508927327332
+  },
+  "correct": 1,
+  "created_at": "2026-11-04T21:36:09.493909Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The 28-call October 31 log precedes the November 3 resolution. It shows provisioned-input/statpack reads, a corpus query for other cases, and three general-rules web lookups. Those web calls are unobserved, not verified empty; their queries do not target this application's outcome. The readable April 29 date belongs to a corpus-result call, not a disposition of this application. No own-case resolved outcome appears in the prose or log.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.9,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The November 3, 2026 docket entry is a bare denial by Justice Thomas; the outcome records denied and interim_granted = 0.",
+        "claim": "Justice Thomas will deny the requested stay in a short disposition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The outcome's interim_signals are response_requested = false, referred_to_court = false, and amicus_briefs = 0; the staged docket contains only submission and denial.",
+        "claim": "There will be no response request, no referral to the full Court, and no additional qualifying amicus entry before disposition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The outcome and docket date the denial to November 3, exactly fourteen days after the submission.",
+        "claim": "Disposition will occur approximately two to four weeks after the October 20 submission, in early to mid-November 2026.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The staged docket records no substantive rule, but the actual disposing-order text is not staged. The bare outcome does not independently establish every statement accompanying the denial.",
+        "claim": "The denial will not announce a rule governing the underlying dispute.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "No writing is recorded in the docket, but writing_roles is null and neither a disposing-order text nor a writing roster is staged. Absence of a writing is not conclusively observable.",
+        "claim": "There will be no explanatory or separate writing.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261031T173439Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+    "label": "proc-v17",
+    "pipeline_sha": "2af864fe92d46ec00347786277b3e825757d6671",
+    "stamped_at": "2026-11-04T21:36:09.493909Z"
+  },
+  "reasoning_quality": 0.9,
+  "run_id": "20261104T212933Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.1171303074670571,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

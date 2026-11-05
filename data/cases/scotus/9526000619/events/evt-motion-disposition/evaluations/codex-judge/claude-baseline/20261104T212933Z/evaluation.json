@@ -1,0 +1,130 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.08,
+    "notes": "The staged OCR application concerns preservation of a family home and an asserted federal due-process defect in Maryland appellate procedure. Stakes are substantial for the applicant, but the requested relief and procedural challenge are case-specific; the record does not establish broad institutional or nationwide consequences."
+  },
+  "brier_score": 0.0004,
+  "brier_skill_score": null,
+  "case_id": "scotus/9526000619",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": null,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.12,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.003,
+          "Barrett": 0.002,
+          "Gorsuch": 0.004,
+          "Jackson": 0.004,
+          "Kagan": 0.002,
+          "Kavanaugh": 0.002,
+          "Roberts": 0.003,
+          "Sotomayor": 0.004,
+          "Thomas": 0.003
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": null,
+    "lift": null,
+    "total": null
+  },
+  "correct": 1,
+  "created_at": "2026-11-04T21:35:49.497180Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Reviewed all 13 log calls (all marked captured) and the prose. A live official target-docket fetch is present. The reasoning and retrieval note report that it showed only the October 27 submission and October 30 docketing, not a disposition; the log supplies a result digest but no rendered result body or legible document date. Other retrieval concerns unrelated denials. No affirmative evidence shows the November 3 denial surfaced. The shared prediction/resolution calendar date alone cannot establish exposure or a forward misroute without resolution timing.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.88,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The snapshot records denial by the Chief Justice on November 3; outcome.interim_signals records response_requested false and referred_to_court false.",
+        "claim": "The Chief Justice will deny the stay acting alone, without requesting a response.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Outcome.interim_signals.referred_to_court is false. A hypothetical later renewal is outside what this resolved initial event establishes.",
+        "claim": "The initial application will not be referred to the full Court.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Outcome.interim_signals.amicus_briefs is zero, matching the zero-amici arrival context.",
+        "claim": "No amicus briefs will be filed before disposition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The application was docketed October 30 and denied November 3, four days later.",
+        "claim": "Denial will occur in November 2026, probably within about two weeks after docketing.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The record stages a brief docket denial entry, not the disposing order body or a writing inventory; outcome.writing_roles is null.",
+        "claim": "The denial will be a one-line order with no separate writings.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261103T221945Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+    "label": "proc-v17",
+    "pipeline_sha": "2af864fe92d46ec00347786277b3e825757d6671",
+    "stamped_at": "2026-11-04T21:35:49.497180Z"
+  },
+  "reasoning_quality": 0.75,
+  "run_id": "20261104T212933Z",
+  "schema_version": "1.0",
+  "segment_base_rate": null,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

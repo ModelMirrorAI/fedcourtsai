@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000634",
+  "run_id": "20261104T225806Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-motion-disposition",
+      "message": "The committed interim statpack does not support the required finer-reading baseline for application Term 2026: OT2016–OT2025 total finer_resolved=0, finer_granted=0, finer_unread=1366, with 16 additional unparsed applications. This fails both the 50-resolved floor and unread-zero requirement despite the prompt's expectation that predictable pools ordinarily clear the floor. Forecast completed from the application and legal context without substituting older registered counts, a single-Term rate, or a cert band."
+    }
+  ]
+}

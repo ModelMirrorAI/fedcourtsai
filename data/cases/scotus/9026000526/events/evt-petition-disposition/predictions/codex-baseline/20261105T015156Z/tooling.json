@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000526",
+  "run_id": "20261105T015156Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts paths", "fedcourts query", "CourtListener search", "CourtListener get_more_results", "CourtListener search_document", "web.run", "fedcourts validate"],
+  "helpful": ["Frozen risk-set cert anchor", "Searchable provisioned petition with bound appendix", "CourtListener opinion snippets for checking the petition's description of Scott"],
+  "gaps": ["Web calls returned no visible results", "Default uv cache path is read-only; UV_CACHE_DIR=/tmp/uv-cache was needed", "CourtListener citation search was broad and Scott date metadata did not match the merits date"],
+  "notes": "The corrected structured corpus query worked and logged transfer statistics, but returned no subject-specific analogues. No package installation was attempted. No case outcome or other cell output was consulted."
+}

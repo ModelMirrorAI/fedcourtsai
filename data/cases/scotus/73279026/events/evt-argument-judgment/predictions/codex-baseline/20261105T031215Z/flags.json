@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73279026",
+  "run_id": "20261105T031215Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-argument-judgment",
+      "message": "The staged argument transcript repeats 'ORAL ARGUMENT OF HELEN NORTON ON BEHALF OF THE RESPONDENTS' after Roberts introduces 'Rebuttal, Mr. Reaves?' and before Reaves's closing argument. argument-features.json consequently labels segment 3 respondent, with zero advocate turns and one other turn. Its 236/237 attributed Justice-turn coverage does not detect this header defect. I read the rebuttal as petitioners' from the actual speaker text and did not infer sentiment from aggregate counts or use the defective final segment. No inability to finish and no outcome material encountered."
+    }
+  ]
+}

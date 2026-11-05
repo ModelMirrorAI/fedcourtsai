@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73279026",
+  "run_id": "20261105T031215Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md"
+  ],
+  "helpful": [
+    "argument-transcript.txt",
+    "argument-features.json",
+    "merits-brief-petitioner.txt",
+    "merits-brief-respondent.txt",
+    "merits-amicus-united-states.txt",
+    "metrics/statpack.md"
+  ],
+  "gaps": [],
+  "notes": "Provisioned merits briefs, US amicus brief, oral argument transcript, and deterministic argument-features.json provided complete context for the post-argument merits forecast."
+}

@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73280341",
+  "run_id": "20261105T031215Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts validate",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_read_document"
+  ],
+  "helpful": [
+    "Provisioned merits briefs (petitioner, respondent, and United States amicus curiae) in record/documents/ provided comprehensive coverage of the three competing Article III standing theories.",
+    "CourtListener MCP read_document tool allowed reading the full text of the Ninth Circuit en banc dissents (161 F.4th 604) where petition.txt hit the 150 KB cap, as well as the 2026 Supreme Court opinions in Mirabelli v. Bonta, Bost v. Illinois State Board of Elections, and First Choice Women's Resource Centers v. Davenport.",
+    "The merits docket and per-Justice merits votes tables in metrics/statpack.md provided clean strictly-prior base rates for OT2017-OT2024."
+  ],
+  "gaps": [
+    "CourtListener search by U.S. Reports or Supreme Court Reporter citation for recent 2026 slip opinions returns no matches because bound volume/page numbers are not yet populated in the search index; searching by case_name and court='scotus' works reliably."
+  ],
+  "notes": "All provisioned documents extracted cleanly with empty_text: false."
+}

@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000602",
+  "run_id": "20261104T212933Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "flags": [
+    {
+      "category": "provisioning",
+      "severity": "info",
+      "event_id": "evt-motion-disposition",
+      "message": "Predictors were provisioned application.txt with empty_text: true (scanned PDF, no text layer), but the evaluator record now carries OCR'd text (ocr_derived: true). This is not a scoring issue. Re-OCR'ing pro se scanned applications before the predict fan-out would let predictors read the relief sought (here: a stay of a writ of possession pending an Eleventh Circuit stay motion)."
+    }
+  ]
+}

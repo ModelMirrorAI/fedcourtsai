@@ -1,0 +1,21 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/9526000619",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-motion-disposition",
+      "message": "Forward cell predicted on its resolution date: the Chief Justice denied 26A619 on 2026-11-03, and all three predictions were made that evening (22:41-22:45Z). claude-baseline web-fetched this application's own live supremecourt.gov docket page at 22:40Z. The captured result is not readable by the evaluator, and the candidate says the page showed only the Oct 27 submission. gemini-baseline ran a hosted web search on the parties' names (outcome_only) and says it found no disposition. Graded false/none on those disclosures and on reasoning that does not presuppose the outcome. A maintainer may want to check claude-baseline's captured result (digest 6116a668c49ebe29) and whether the predict run should have been dispatched after the order posted.",
+      "severity": "warning"
+    },
+    {
+      "category": "provisioning",
+      "event_id": "evt-motion-disposition",
+      "message": "All three candidates report application.txt as empty (empty_text true, ocr_derived false) at prediction time. The evaluator's record now carries an OCR-derived 37-page text (ocr_derived true), so the predictors forecast without the application body that later became available.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261104T212933Z",
+  "schema_version": "1.0"
+}

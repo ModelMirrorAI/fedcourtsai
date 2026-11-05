@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000634",
+  "run_id": "20261104T222804Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["provisioned application text", "committed statpack", "jq", "fedcourts paths", "CourtListener MCP search", "CourtListener MCP search_document", "web.run", "fedcourts validate"],
+  "helpful": ["Complete application text with page markers and extraction metadata", "Explicit arrival-position snapshot and frozen escalation state", "CourtListener precedent snippets without querying the application's disposition", "Machine-readable per-Term finer-reading coverage"],
+  "gaps": ["All 2016–2025 finer interim dispositions are unread in this committed statpack, leaving no eligible baseline", "No independently provisioned response, lower-court opinions, or hearing exhibits", "General web-precedent search returned no visible results"],
+  "notes": "The default uv cache was read-only; redirecting UV_CACHE_DIR to /tmp and using the provisioned environment resolved command execution without installing anything. The statpack was consulted but its older substantive rate was not substituted for the unavailable finer-reading anchor. No corpus priors or current own-case docket were retrieved."
+}

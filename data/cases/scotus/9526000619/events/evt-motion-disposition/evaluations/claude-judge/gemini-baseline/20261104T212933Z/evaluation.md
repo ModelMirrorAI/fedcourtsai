@@ -1,0 +1,18 @@
+# Evaluation of gemini-baseline
+
+**Cell:** scotus/9526000619 · evt-motion-disposition · **interim** stage (application 26A619, a stay of a Maryland writ of possession, submitted to the Chief Justice on Oct 27, 2026).
+**Outcome:** denied by The Chief Justice on Nov 3, 2026 (`interim_reading` denied, `interim_granted` 0); no response requested, no referral, no amici.
+
+**Scoring.** The outcome records the finer interim reading, so the cell is scored on `interim_granted` = 0. A `denied` prediction falls on the ungranted side, so `correct` = 1. `brier_score` = p². This is an interim cell, so the segment base rate and the skill score come from the harness stamp (pooled from the interim slice over application Terms before 2026) and I wrote neither. Every candidate reports that the committed pack's finer-reading pool for 2016–2025 has zero resolved applications. If that holds, the stamp will come back null because the pool is below its floor and unread rows remain, not because the section is missing. No vote accuracy is scored on this stage, and no semantic set is declared.
+
+**Leakage.** The log's mode is forward. The Nov 3 denial came on the same date the predictions were made (~22:4xZ), so I did not pass the cell by default. I checked each log for this case's own disposition (see the note below and flags.json).
+
+## gemini-baseline: p = 0.002, denied → correct 1, Brier 0.000004
+
+**Reasoning (0.85).** This is the strongest analysis. With the application text empty, the candidate went to CourtListener RECAP and found the Oct 5, 2026 D. Md. memorandum opinion (*Smith v. Nationstar*, 8:25-cv-02817), which predates the application. From it the candidate rebuilt the procedural history: the 2017 foreclosure (CAEF17-36003), the 2018 auction, the bankruptcy consent order and the lifting of the stay, ratification, the 2023 affirmance, the 2025 possession judgment, the dismissal of appeal No. 1051 for failure to file a brief, and the Supreme Court of Maryland's denial in No. 119. That history matches the caption of the application in my own record, which cites the same docket numbers and centers on the March 2019 bankruptcy order. Applying *Hollingsworth*, it reasons that a procedurally defaulted state appeal at the end of a ratified foreclosure leaves no realistic prospect of certiorari. The escalation increments are internally coherent. It labels the comparable recent pro se denials as illustration, not calibration. Deductions: "negligible uncertainty" overstates things for a filing it never read. The independent-state-ground argument is plausible but asserted more firmly than an unread application allows. The 0.002 is aggressive but not unreasonable.
+
+**Leakage.** The candidate ran caption searches on CourtListener and one hosted web search on the parties (outcome_only, content unseen). The only material used predates Oct 27. The candidate discloses that the web search showed no disposition, and the reasoning rests on the earlier history rather than on the Nov 3 order. Graded false/none.
+
+## Predicted reasoning (0.80)
+
+Central claims: (1) a one-line in-chambers denial by the Chief Justice about 3–10 days after docketing; (2) no response request; (3) no referral; (4) no amici and no writing; (5) the doctrinal ground is an independent and adequate state procedural bar. Claims 1–4 were borne out, and the denial came four days after the Oct 30 docketing, inside the forecast window. The timing call is notably tight. The ground cannot be checked against an unexplained order, so it is unresolved, not a miss. This is a specific forecast whose testable claims all held. It stops short of 1.0 because most of what it got right is the modal path for this class of application.

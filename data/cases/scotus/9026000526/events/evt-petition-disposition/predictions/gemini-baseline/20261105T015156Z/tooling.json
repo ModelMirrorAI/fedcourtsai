@@ -1,0 +1,22 @@
+{
+  "case_id": "scotus/9026000526",
+  "run_id": "20261105T015156Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "statpack.md",
+    "mcp_courtlistener_search",
+    "fedcourts validate"
+  ],
+  "helpful": [
+    "Full text of the petition and all five lower-court appendices provisioned in record/documents/petition.txt",
+    "Pre-computed cert_anchor in record/context.json and salience band tables in metrics/statpack.md",
+    "Same-question similarity check in record/same-question.json"
+  ],
+  "gaps": [],
+  "notes": "Provisioned petition.txt included the complete en banc opinion and dissents of the Mississippi Court of Appeals as well as the Union County Circuit Court order, allowing direct verification of the trial court's rulings on the directed-verdict and compulsory-process motions."
+}

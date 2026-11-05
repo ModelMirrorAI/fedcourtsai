@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000602",
+  "run_id": "20261104T212933Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": ["shell", "file-read"],
+  "helpful": ["OCR'd application text in the evaluator record clarified the posture (writ of possession, pending CA11 stay motion)"],
+  "gaps": [],
+  "notes": "Interim cell; baseline and skill left to stamp-cell. No corpus or external lookups were needed."
+}

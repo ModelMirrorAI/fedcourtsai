@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73277468",
+  "run_id": "20261105T015156Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell: local record and schema inspection",
+    "committed statpack merits, justice_votes, and authorship",
+    "fedcourts paths",
+    "web search/open/find attempts",
+    "CourtListener search and read_document",
+    "fedcourts validate data --cell"
+  ],
+  "helpful": [
+    "Complete provisioned argument transcript and both merits briefs",
+    "Argument-feature attribution coverage accompanying the counts",
+    "Grant-Term-keyed merits counts and prior-Term complete vote lineups",
+    "CourtListener full-text access to Foman"
+  ],
+  "gaps": [
+    "Web calls returned no usable text or source references",
+    "Default uv cache path is read-only; a writable cache override was required"
+  ],
+  "notes": "Used UV_CACHE_DIR=/tmp/uv-cache and UV_NO_SYNC=1 for CLI commands; installed nothing. The first citation-filter CourtListener search returned a nonmatching case, so a bounded case-name search was used instead. No own-case outcome retrieval or prior-cell output access occurred."
+}

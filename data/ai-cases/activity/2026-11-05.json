@@ -1,0 +1,19 @@
+{
+  "day": "2026-11-05",
+  "entries": [
+    {
+      "case": "Concord Music Group v. Anthropic",
+      "category": "copyright",
+      "court": "cand",
+      "date_filed": "2026-11-04",
+      "docket_id": 72199828,
+      "docket_number": "5:26-cv-00880",
+      "entry_id": 484417254,
+      "entry_number": null,
+      "kind": "ruling",
+      "url": "https://www.courtlistener.com/docket/72199828/concord-music-group-inc-v-anthropic-pbc/"
+    }
+  ],
+  "rule": "ai-activity-v1",
+  "schema_version": "1.0"
+}

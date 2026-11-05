@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9526000634",
+  "run_id": "20261104T225806Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "metrics/statpack.json"],
+  "helpful": ["Provisioned application text was complete and clean"],
+  "gaps": ["Interim finer_granted/finer_resolved are zero with finer_unread equal to the resolved count in every Term, so no interim baseline is computable", "No capital-stay-specific base rate cut in the interim section", "Eleventh Circuit order not staged for an interim cell"],
+  "notes": "Anchored without a published baseline."
+}

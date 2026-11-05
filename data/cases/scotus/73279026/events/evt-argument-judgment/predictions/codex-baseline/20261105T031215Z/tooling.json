@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73279026",
+  "run_id": "20261105T031215Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["shell record reads", "fedcourts query", "CourtListener MCP search", "CourtListener MCP search_document", "web.run", "committed statpack", "fedcourts validate"],
+  "helpful": ["Complete merits briefs and argument text", "Explicit cutoff and grant-order limitation", "Merits pool with exclusion and coverage counts", "Justice-specific complete-lineup and authorship counts", "Targeted precedent snippets via CourtListener MCP"],
+  "gaps": ["Argument header mislabels Reaves rebuttal as Norton's respondent segment", "Sparse reporter citations in corpus lookup", "Default uv cache path was read-only", "Web attempts returned no visible content", "No staged sitting-assignment inventory or standalone joint appendix"],
+  "notes": "Used /tmp uv cache after the default path failed; installed nothing. Corrected unsupported era=modern to era=2020s. Broad corpus results were not useful merits analogues. Argument counts were used only as a coverage-aware check, not as votes; substantive reading identified the mislabeled rebuttal. No own-case outcome retrieval."
+}
