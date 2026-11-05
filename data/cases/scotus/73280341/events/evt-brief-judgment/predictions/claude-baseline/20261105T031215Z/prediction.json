@@ -1,0 +1,150 @@
+{
+  "big_case_rationale": "Sets the Article III threshold for parental-rights challenges to state gender-identity policies, a heavily litigated and closely watched area; the holding is jurisdictional, not a merits ruling on the Washington laws.",
+  "big_case_score": 0.72,
+  "case_id": "scotus/73280341",
+  "claim_distributions": [
+    {
+      "claim_id": "majority-author",
+      "probabilities": {
+        "Alito": 0.18,
+        "Barrett": 0.15,
+        "Gorsuch": 0.13,
+        "Jackson": 0.06,
+        "Kagan": 0.05,
+        "Kavanaugh": 0.11,
+        "Roberts": 0.1,
+        "Sotomayor": 0.05,
+        "Thomas": 0.1,
+        "per-curiam": 0.07
+      }
+    },
+    {
+      "claim_id": "separate-writers",
+      "probabilities": {
+        "Alito": 0.35,
+        "Barrett": 0.2,
+        "Gorsuch": 0.35,
+        "Jackson": 0.6,
+        "Kagan": 0.3,
+        "Kavanaugh": 0.25,
+        "Roberts": 0.08,
+        "Sotomayor": 0.45,
+        "Thomas": 0.5
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.7
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "elevated",
+    "band_refused": null,
+    "cert_anchor": null,
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-10-22",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 3,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v6",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_contact_scrub": {
+      "blocks": 0,
+      "fields": 0,
+      "sides": []
+    },
+    "snapshot_date": "2026-10-22",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2025,
+    "vide_links": []
+  },
+  "created_at": "2026-11-05T05:27:33.187212Z",
+  "engine": "claude-code",
+  "event_id": "evt-brief-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-10-22.json",
+  "judgment": "reversed",
+  "model": "claude-opus-5-5",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.7,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:33a3f9f8f53a2f6cb53967a60d836c3ba29f0078c12306fb8696e15d7c674978",
+    "label": "proc-v17",
+    "pipeline_sha": "66d4f567a7759ff69388c5a78906d3b8486fa205",
+    "stamped_at": "2026-11-05T05:27:33.187212Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261105T031215Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority holds that at least the parent petitioners whose children remain minors (Parents 2A/2B) adequately alleged a present, concrete injury under the ordinary Lujan/Clapper injury-causation-redressability test: Washington's 2023 laws displace their pre-existing statutory entitlement to direct shelter notice and their control over whether their minor child obtains behavioral-health referrals for gender transition, an injury analogized to traditionally recognized harms to the parental relationship (TransUnion's common-law-analogue inquiry). The majority does not adopt petitioners' freestanding 'object of the law' exemption from the injury requirement, and distinguishes Clapper and Murthy because the injury is the present alteration of parental authority rather than a speculative future chain."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The holding is narrow: it finds standing for these parents on these pleadings and remands for the Ninth Circuit to address the remaining standing and merits questions, declining to announce a categorical rule that every parent may challenge any state law or policy altering parental authority (the United States' proposed rule) and declining to decide the organizational petitioner's standing or the constitutionality of the Washington statutes."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "dissent",
+      "writing": null
+    }
+  ]
+}
