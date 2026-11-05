@@ -1,0 +1,125 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.08,
+    "notes": "Routine last-minute capital stay application arising from a successive state postconviction denial; presents a recurring, repeatedly rejected Woodard clemency challenge with no circuit split, no amicus participation, no response call from the Court, and a summary unsigned denial without noted dissent."
+  },
+  "brier_score": 0.0004,
+  "brier_skill_score": 0.9706185239973701,
+  "case_id": "scotus/9526000623",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": 0.013214019934335405
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.15,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.9,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.003,
+          "Barrett": 0.002,
+          "Gorsuch": 0.003,
+          "Jackson": 0.02,
+          "Kagan": 0.005,
+          "Kavanaugh": 0.002,
+          "Roberts": 0.002,
+          "Sotomayor": 0.025,
+          "Thomas": 0.003
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.013214019934335405,
+    "total": 0.013214019934335405
+  },
+  "correct": 1,
+  "created_at": "2026-11-05T21:50:53.003206Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction placed on 2026-11-04T01:40:43Z, one day before the November 5, 2026 denial order and scheduled execution. Retrieval log shows only pre-resolution lookups: the Florida Supreme Court's October 29, 2026 opinion below (Guardado v. State, No. SC2026-1605, CourtListener opinion 11516852, retrieved_doc_date 2026-10-29) and corpus queries for companion petition 26-6013 and prior Florida capital stay 26A524.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-argon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.88,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "On November 5, 2026, the docket records: 'Application (26A623) for a stay of execution of sentence of death, submitted to Justice Thomas, and by him referred to the Court, is denied.' Companion cert petition No. 26-6013 was denied the same day.",
+        "claim": "Justice Thomas will refer Application 26A623 to the full Court, and the Court will deny the stay application in a single-sentence unsigned order on or before November 5, 2026, alongside denial of certiorari in No. 26-6013.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records interim_signals.response_requested = false and amicus_briefs = 0; snapshot 2026-11-05.json shows Florida filed its response on November 2 and Guardado filed his reply on November 3 without a Court order calling for a response.",
+        "claim": "The Court will not issue a formal order requesting a response (response_requested: false), as the State of Florida will file its opposition voluntarily under capital warrant practice, and no amicus briefs will be filed.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records votes: [], noted_dissent_from_denial: null, and writing_roles: null; the November 5, 2026 denial order carries no separate writings or noted dissents.",
+        "claim": "The denial order will issue with no separate opinions and no publicly recorded dissents from any Justice.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The Court resolved the application via a standard single-sentence unsigned denial order containing no doctrinal explanation.",
+        "claim": "The application fails the Nken / Barefoot stay standard because Guardado received a clemency proceeding under Woodard, his penalty-phase and postconviction IAC claims are procedurally barred as untimely under Fla. R. Crim. P. 3.851(d), and his 31-day warrant-period claim identifies no denial of notice or opportunity to be heard.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261104T014043Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+    "label": "proc-v17",
+    "pipeline_sha": "e0fe020edebaf5090281f01b3523a76f9beb1f1d",
+    "stamped_at": "2026-11-05T21:50:53.003206Z"
+  },
+  "reasoning_quality": 0.94,
+  "run_id": "20261105T213408Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

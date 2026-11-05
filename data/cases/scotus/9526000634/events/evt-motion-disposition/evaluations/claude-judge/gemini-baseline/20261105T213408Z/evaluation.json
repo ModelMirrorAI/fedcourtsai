@@ -1,0 +1,130 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.15,
+    "notes": "A last-minute capital stay application on a fact-bound Eighth Amendment maladministration claim against Florida's etomidate protocol, denied in a one-line referred order with no noted dissent or writing and cert denied alongside. Grave for the applicant; little doctrinal or national reach."
+  },
+  "brier_score": 0.0004,
+  "brier_skill_score": 0.9706185239973701,
+  "case_id": "scotus/9526000634",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": 0.013214019934335405
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.15,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.85,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.005,
+          "Barrett": 0.01,
+          "Gorsuch": 0.01,
+          "Jackson": 0.12,
+          "Kagan": 0.03,
+          "Kavanaugh": 0.01,
+          "Roberts": 0.005,
+          "Sotomayor": 0.22,
+          "Thomas": 0.01
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.013214019934335405,
+    "total": 0.013214019934335405
+  },
+  "correct": 1,
+  "created_at": "2026-11-05T21:44:11.189041Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward log (mode forward). Every call is outcome_only (coverage 0.0, the engine's standing shape), so it is graded on queries. Prediction created 2026-11-04T23:24Z, before the 2026-11-05 resolution. It web-fetched the live SCOTUS dockets for 26A634 and 26-6051 and read the CA11 stay order (2026-11-02) and the Florida Supreme Court opinion (2026-10-29). These are legitimate forward signals: its retrieval.md reports both dockets pending as of Nov 4, with the State's response filed, and that is consistent with the timeline. No disposition existed yet. No data/qp-topics read.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-opus-5-5",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.85,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Nov 05 2026 docket entries: 'Application (26A634) referred to the Court.' and 'Application (26A634) for stay of execution of sentence of death presented to Justice Thomas and by him referred to the Court is denied. The petition for a writ of certiorari is denied.'",
+        "claim": "The Court will deny the stay pending cert, on or before Nov 5 before the 6 p.m. execution, alongside an order denying cert in 26-6051.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Nov 05 2026 referral entry and denial order text match the forecast wording; referred_to_court true.",
+        "claim": "The Circuit Justice will refer to the full Court, which will act in the single-sentence order 'presented to Justice Thomas and by him referred to the Court is denied' (85%).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Response filed Nov 04 2026 with no request entry; response_requested false.",
+        "claim": "No separate 'Response requested' entry will be docketed; Florida responds without a call (15%).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The order is unsigned with no writing. The writing was hedged as a minority possibility, and it did not occur.",
+        "claim": "The order will issue unsigned, with a nontrivial chance that Sotomayor (or Jackson) writes a statement or dissent, prompted by the Wite-Out log alterations.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "amicus_briefs 0 in outcome.",
+        "claim": "No amicus filing before disposition (4%).",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261104T225806Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+    "label": "proc-v17",
+    "pipeline_sha": "e0fe020edebaf5090281f01b3523a76f9beb1f1d",
+    "stamped_at": "2026-11-05T21:44:11.189041Z"
+  },
+  "reasoning_quality": 0.85,
+  "run_id": "20261105T213408Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

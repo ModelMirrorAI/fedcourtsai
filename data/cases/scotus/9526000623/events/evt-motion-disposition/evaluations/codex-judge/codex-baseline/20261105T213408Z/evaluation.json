@@ -1,0 +1,130 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.3,
+    "notes": "An imminent execution creates exceptional individual stakes, and the clemency-process theory potentially reaches other Florida capital prisoners. The actual action is a case-specific interim denial with no staged doctrinal explanation, limiting demonstrated institutional or precedential reach."
+  },
+  "brier_score": 0.0009,
+  "brier_skill_score": 0.9338916789940829,
+  "case_id": "scotus/9526000623",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": 0.012714019934335404
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.7,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.92,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.12,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.01,
+          "Barrett": 0.005,
+          "Gorsuch": 0.015,
+          "Jackson": 0.045,
+          "Kagan": 0.02,
+          "Kavanaugh": 0.005,
+          "Roberts": 0.005,
+          "Sotomayor": 0.06,
+          "Thomas": 0.01
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.012714019934335404,
+    "total": 0.012714019934335404
+  },
+  "correct": 1,
+  "created_at": "2026-11-05T21:45:29.117227Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The November 4 forward log's 25 calls concern provisioned arrival materials, statpack analysis, unrelated comparators, and historical Woodard authority; none seeks this application's result. Capture coverage is 0.92: the two web-search rows are unobserved, so the candidate's reported lack of usable results cannot be independently confirmed. Their historical-authority query slices reveal no present-case outcome target. No already-decided disposition appears in the prose.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.7,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The November 5 final docket entry briefly states denial of the application, and outcome.json records denied relief. No intraday timestamp permits checking whether it preceded 6 p.m.",
+        "claim": "The Court will deny the stay in a short order during the final two days before the November 5 scheduled execution.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The denial supplies no doctrinal explanation, and no Court opinion or explanatory writing is staged. The competing party submissions are not findings of the Court's ground.",
+        "claim": "Relief will fail for insufficient prospects of review and success; if explained, the ground will distinguish unfavorable clemency discretion from constitutionally inadequate access.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "The completed docket contains a filed response on November 2 but no response-request entry, and outcome.interim_signals.response_requested is false. A filed opposition is not a formal response request.",
+        "claim": "A formal response request is more likely than not after the arrival boundary.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "The November 5 docket expressly records referral by Justice Thomas. There is no amicus entry; interim_signals records referred_to_court true and amicus_briefs zero.",
+        "claim": "The application will very likely be referred to the full Court, and the amicus count will probably remain zero.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "No writing is mentioned in the docket, but writing_roles is null and no Court writings are staged. The available record does not establish a complete absence of separate writings.",
+        "claim": "The disposition will probably have no separate writing.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261104T014043Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+    "label": "proc-v17",
+    "pipeline_sha": "e0fe020edebaf5090281f01b3523a76f9beb1f1d",
+    "stamped_at": "2026-11-05T21:45:29.117227Z"
+  },
+  "reasoning_quality": 0.85,
+  "run_id": "20261105T213408Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

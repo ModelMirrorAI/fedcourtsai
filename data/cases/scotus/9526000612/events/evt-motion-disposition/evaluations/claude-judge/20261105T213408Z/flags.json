@@ -1,0 +1,21 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/9526000612",
+  "flags": [
+    {
+      "category": "other",
+      "event_id": "evt-motion-disposition",
+      "message": "claude-baseline (forward) web-fetched this application's own live supremecourt.gov docket at 2026-11-03T20:46Z, the same day the Chief Justice denied it. Only a result digest was captured. The candidate disclosed that no disposition appeared, and its timing forecast is consistent with that, so I graded the leakage not_applicable / not suspected. Noted because a forward cell run on the resolution date can see the outcome.",
+      "severity": "info"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-motion-disposition",
+      "message": "The candidates disagree about the statpack's interim finer counts. claude-baseline reported finer_resolved=0 and finer_unread non-zero. gemini-baseline reported populated finer counts that differ from the current statpack.json (e.g. OT2025 20/223 vs 19/218). The pack may have been rebuilt between prediction and evaluation. The harness-stamped interim baseline is unaffected, but maintainers may want the statpack digest pinned on interim predictions.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261105T213408Z",
+  "schema_version": "1.0"
+}

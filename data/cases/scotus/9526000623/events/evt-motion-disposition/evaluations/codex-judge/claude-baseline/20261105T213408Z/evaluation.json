@@ -1,0 +1,130 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.3,
+    "notes": "An imminent execution creates exceptional individual stakes, and the clemency-process theory potentially reaches other Florida capital prisoners. The actual action is a case-specific interim denial with no staged doctrinal explanation, limiting demonstrated institutional or precedential reach."
+  },
+  "brier_score": 0.000225,
+  "brier_skill_score": 0.9834729197485207,
+  "case_id": "scotus/9526000623",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.015,
+        "score": 0.013389019934335404
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.08,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.9,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.003,
+          "Barrett": 0.003,
+          "Gorsuch": 0.003,
+          "Jackson": 0.04,
+          "Kagan": 0.01,
+          "Kavanaugh": 0.003,
+          "Roberts": 0.003,
+          "Sotomayor": 0.06,
+          "Thomas": 0.003
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.013389019934335404,
+    "total": 0.013389019934335404
+  },
+  "correct": 1,
+  "created_at": "2026-11-05T21:45:29.117227Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "All 16 calls have captured results (coverage 1.0). The November 4 log shows local provisioned-input reads, statpack inspection, CLI usage failures and corrected queries for denied comparators and the linked petition. The query-bearing captured row has retrieved_doc_date 2026-10-30, before this application's November 5 disposition. Neither the queries nor the prose shows this outcome as already decided.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.85,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The November 5 final docket entry denies both application 26A623 and the certiorari petition. The record supplies the date, not the hour.",
+        "claim": "The Court will deny the stay on or just before November 5, 2026, together with denial of certiorari in the linked petition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The November 5 referral and denial entries expressly identify referral by Justice Thomas to the Court; interim_signals.referred_to_court is true.",
+        "claim": "Justice Thomas will refer the application to the full Court, which will deny it.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Florida's response is docketed November 2. There is no docketed response request or amicus filing, matching interim_signals.response_requested false and amicus_briefs zero.",
+        "claim": "Florida will oppose without a formal response request, and no amicus participation is expected.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The brief disposition denies relief and certiorari without stating a legal ground. Party filings discuss Woodard, but no staged explanation shows which interpretation the Court adopted.",
+        "claim": "The Court will reject treating the governor's clemency policy as Woodard's unconstitutional coin flip and find no fair prospect of certiorari.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "The docket mentions no writing, but outcome.writing_roles is null and no Court writings are staged. The available record cannot conclusively establish the absence of a separate writing.",
+        "claim": "The denial will most likely draw no separate writing.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261104T014043Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+    "label": "proc-v17",
+    "pipeline_sha": "e0fe020edebaf5090281f01b3523a76f9beb1f1d",
+    "stamped_at": "2026-11-05T21:45:29.117227Z"
+  },
+  "reasoning_quality": 0.7,
+  "run_id": "20261105T213408Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

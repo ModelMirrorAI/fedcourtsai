@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000623",
+  "run_id": "20261105T213408Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "local shell and jq",
+    "blinded candidate artifacts and harness retrieval logs",
+    "provisioned docket snapshot and filings",
+    "committed interim statpack",
+    "local JSON Schema and Pydantic validation"
+  ],
+  "helpful": [
+    "The final docket distinguishes a filed response from a formal response request and records referral and concurrent certiorari denial.",
+    "Per-call result_capture markers prevent treating missing result content as empty retrieval."
+  ],
+  "gaps": [
+    "No historical predictor-time statpack is staged to reconcile the candidates' reported unread finer pool with today's completed pool.",
+    "The record supplies no Court explanation, complete writing metadata, or intraday disposition time to settle those forecast details."
+  ],
+  "notes": "All three aliases were evaluated from staged artifacts only. Current statpack coverage was checked without calculating an evaluator baseline. Routine result-capture and opinion-availability limits were not treated as candidate defects."
+}

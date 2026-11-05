@@ -1,0 +1,130 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.08,
+    "notes": "The staged application seeks individualized record preservation/production, employment and benefits relief, and restoration of a procedural opportunity. The summary individual-Justice denial establishes no broader holding."
+  },
+  "brier_score": 0.0001,
+  "brier_skill_score": 0.9926546309993426,
+  "case_id": "scotus/9526000612",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": 0.013514019934335405
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.35,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.002,
+          "Barrett": 0.001,
+          "Gorsuch": 0.002,
+          "Jackson": 0.002,
+          "Kagan": 0.001,
+          "Kavanaugh": 0.001,
+          "Roberts": 0.001,
+          "Sotomayor": 0.002,
+          "Thomas": 0.002
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.013514019934335405,
+    "total": 0.013514019934335405
+  },
+  "correct": 1,
+  "created_at": "2026-11-05T21:40:37.918474Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "All 62 calls have outcome_only markers, so no returned body or date is independently visible; this is a capture limitation, not evidence that searches returned nothing. Queries concern provisioned inputs, lower-court proceedings and older Akerman cases; none explicitly requests 26A612's disposing order. The prose describes prior/lower-court results, not knowledge of this denial. No affirmative evidence establishes outcome retrieval or a decided-forward mis-provisioning. Same-day resolution has no recorded time.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.5,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The resolved outcome records response_requested=false and amicus_briefs=0.",
+        "claim": "No response will be requested and no amicus filings will be submitted.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The staged submission entry says an injunction was submitted to the Chief Justice. The application is addressed to Chief Justice Roberts, and the final docket entry records denial by the Chief Justice without referral. The error is the asserted recipient, not merely a 35% event failing to occur.",
+        "claim": "The application was submitted to non-circuit Justice Gorsuch, supplying the premise for an appreciable full-Court referral route.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "The outcome records denied, interim_reading=denied and interim_granted=0. The relief actually sought was an affirmative injunction, not the stay described by the forecast.",
+        "claim": "The requested interim relief will be denied in full.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The docket reports only denial, not reasons or prong-by-prong findings. No disposing order or explanation is staged. The application itself seeks an affirmative injunction and cites its distinct All Writs Act standard.",
+        "claim": "The application fails every prong of the stay standard, which supplies the reason for denial.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "The case was docketed October 30 and denied by the Chief Justice November 3, four calendar days later.",
+        "claim": "If disposed of by a single Justice, denial will occur within one to ten days of docketing, in early November 2026.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261103T203422Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+    "label": "proc-v17",
+    "pipeline_sha": "e0fe020edebaf5090281f01b3523a76f9beb1f1d",
+    "stamped_at": "2026-11-05T21:40:37.918474Z"
+  },
+  "reasoning_quality": 0.3,
+  "run_id": "20261105T213408Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}
