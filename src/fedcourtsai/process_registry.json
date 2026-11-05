@@ -945,8 +945,8 @@
     },
     {
       "name": "truncated-docketed-date-cut",
-      "merge": null,
-      "at": null,
+      "merge": "478003b709f6ddd1eab343a97a697c46463bad58",
+      "at": "2026-11-05T14:54:07Z",
       "predictors": null,
       "reach": "all",
       "gradual": false
