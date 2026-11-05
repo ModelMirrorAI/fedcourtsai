@@ -1,0 +1,24 @@
+{
+  "case_id": "scotus/73279026",
+  "run_id": "20261105T031215Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "argument-features.json"
+  ],
+  "helpful": [
+    "Provisioned argument transcript and merits briefs",
+    "Statpack merits and per-Justice vote sections",
+    "argument-features.json counts as a cross-check on questioning share"
+  ],
+  "gaps": [
+    "fedcourts query offers no way to pull doctrinally similar merits priors (e.g., free-exercise cases); citation column too sparse to find Carson/Fulton",
+    "No current-sitting opinion-assignment data for majority-author forecasting"
+  ],
+  "notes": "Corpus query returned generic recent grants of no doctrinal use; forecast rests on the transcript and briefs."
+}

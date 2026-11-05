@@ -1,0 +1,150 @@
+{
+  "big_case_rationale": "High-profile intersection of Article III pre-enforcement standing doctrine and parental constitutional rights over minor children's gender-transition care and runaway-shelter notification, drawing United States merits participation and roughly thirty amicus briefs, though limited at this stage to threshold federal jurisdiction rather than the ultimate First and Fourteenth Amendment merits.",
+  "big_case_score": 0.78,
+  "case_id": "scotus/73280341",
+  "claim_distributions": [
+    {
+      "claim_id": "majority-author",
+      "probabilities": {
+        "Alito": 0.135,
+        "Barrett": 0.175,
+        "Gorsuch": 0.145,
+        "Jackson": 0.025,
+        "Kagan": 0.035,
+        "Kavanaugh": 0.16,
+        "Roberts": 0.19,
+        "Sotomayor": 0.025,
+        "Thomas": 0.095,
+        "per-curiam": 0.015
+      }
+    },
+    {
+      "claim_id": "separate-writers",
+      "probabilities": {
+        "Alito": 0.35,
+        "Barrett": 0.26,
+        "Gorsuch": 0.28,
+        "Jackson": 0.36,
+        "Kagan": 0.22,
+        "Kavanaugh": 0.2,
+        "Roberts": 0.08,
+        "Sotomayor": 0.34,
+        "Thomas": 0.38
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.88
+    }
+  ],
+  "confidence": 0.82,
+  "context": {
+    "amicus_briefs": null,
+    "band": "elevated",
+    "band_refused": null,
+    "cert_anchor": null,
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-10-22",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 3,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v6",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_contact_scrub": {
+      "blocks": 0,
+      "fields": 0,
+      "sides": []
+    },
+    "snapshot_date": "2026-10-22",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2025,
+    "vide_links": []
+  },
+  "created_at": "2026-11-05T05:38:23.855322Z",
+  "engine": "gemini",
+  "event_id": "evt-brief-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-10-22.json",
+  "judgment": "reversed",
+  "model": "gemini-4-argon",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "gemini-baseline",
+  "probability": 0.88,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:1389c40a89d22cb951b25dad96d18d307cef26db4f6b66cdd425ea8fcf0f49b6",
+    "label": "proc-v17",
+    "pipeline_sha": "66d4f567a7759ff69388c5a78906d3b8486fa205",
+    "stamped_at": "2026-11-05T05:38:23.855322Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261105T031215Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority holds that Petitioners adequately alleged Article III injury-in-fact at the Rule 12(b)(1) pleading stage under Susan B. Anthony List v. Driehaus and Clapper v. Amnesty International USA because parents of minor children currently experiencing gender dysphoria with alleged flight risk or prior runaway history face a substantial risk that Washington Revised Code \u00a7 13.32A.082 will withhold parental notice and trigger state referrals, and that Petitioners' present modifications to their parenting and household speech to prevent that risk are cognizable mitigation and chilling injuries under Monsanto Co. v. Geertson Seed Farms and First Choice Women's Resource Centers, Inc. v. Davenport rather than self-inflicted harm."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The majority grounds its holding narrowly in the complaint's case-specific allegations of minor children already experiencing gender dysphoria and concrete indicators of runaway risk\u2014sustaining suit because at least one plaintiff couple has standing\u2014while declining to adopt a categorical rule that any fit parent has Article III standing merely from the enactment of a statutory exception to parental notification or consent without individualized allegations of likely application."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "dissent",
+      "writing": null
+    }
+  ]
+}

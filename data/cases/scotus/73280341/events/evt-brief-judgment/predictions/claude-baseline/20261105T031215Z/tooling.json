@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/73280341",
+  "run_id": "20261105T031215Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "provisioned merits briefs"],
+  "helpful": ["Merits section with excluded counts made the anchor straightforward", "Staged respondent merits brief and US amicus brief"],
+  "gaps": ["fedcourts query cannot filter on merits judgment labels (reversed/vacated), so it gives no merits priors", "No decision-below text staged for this Ninth Circuit case"],
+  "notes": "Staged respondent brief is the Oct 30 corrected copy, while the docket entry is dated Oct 21; immaterial here."
+}
