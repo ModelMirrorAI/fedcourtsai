@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000379",
+  "run_id": "20261105T203825Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "courtlistener MCP (search, get_endpoint_item, call_endpoint, read_document)",
+    "google_web_search"
+  ],
+  "helpful": [
+    "fedcourts query (surfaced predecessor grant and voluntary dismissal in Genalo v. Black, No. 25-886)",
+    "courtlistener MCP read_document (provided full 29-page SDNY habeas opinion in D.C. v. Noem and 2d Cir. en banc dissents in Black v. Almodovar)",
+    "metrics/statpack.md and cert_anchor in context.json"
+  ],
+  "gaps": [
+    "Paper-only SCOTUS filings under Rule 34.6 are not posted on supremecourt.gov, requiring lower-court RECAP dockets and DOJ/web summaries to verify the Questions Presented."
+  ],
+  "notes": "CourtListener MCP and fedcourts query worked seamlessly together to link the paper-only SCOTUS petition (No. 26-379) to the Second Circuit appeal (No. 26-1396), the S.D.N.Y. habeas opinion (No. 1:26-cv-01833, Doc. 22), and the mooted predecessor grant in Genalo v. Black (No. 25-886)."
+}

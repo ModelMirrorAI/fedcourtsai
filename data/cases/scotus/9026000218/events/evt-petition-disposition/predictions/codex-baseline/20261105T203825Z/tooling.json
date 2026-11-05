@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000218",
+  "run_id": "20261105T203825Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "provisioned case record",
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "CourtListener MCP search",
+    "CourtListener MCP read_document",
+    "web.run",
+    "fedcourts validate"
+  ],
+  "helpful": [
+    "Frozen cert anchor distinguishes reached from terminal salience rates.",
+    "Appendix preserves the appellate majority's contrary framing.",
+    "MCP supplied the historical opinion missing from corpus citation coverage."
+  ],
+  "gaps": [
+    "Default uv cache path was read-only; a temporary cache and disabled synchronization resolved it.",
+    "Corpus own-citation coverage was sparse.",
+    "Web calls returned no usable result content."
+  ],
+  "notes": "No installation, delegation, or retrieval of this petition's disposition. The opposition is not yet filed on the provisioned record; its absence limits substantive confidence."
+}

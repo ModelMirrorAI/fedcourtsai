@@ -1,0 +1,100 @@
+{
+  "big_case_rationale": "One prisoner's state-court Brady claim. It touches on whether Louisiana courts apply Brady materiality correctly as a recurring matter, but it would be decided on its facts.",
+  "big_case_score": 0.3,
+  "case_id": "scotus/9026000218",
+  "claim_distributions": [
+    {
+      "claim_id": "order-writers",
+      "probabilities": {
+        "Alito": 0.05,
+        "Barrett": 0.02,
+        "Gorsuch": 0.03,
+        "Jackson": 0.2,
+        "Kagan": 0.03,
+        "Kavanaugh": 0.02,
+        "Roberts": 0.01,
+        "Sotomayor": 0.25,
+        "Thomas": 0.04
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.12
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.96
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.01
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.55
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.3
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "baseline",
+    "band_refused": null,
+    "cert_anchor": {
+      "lookback_terms": 10,
+      "rate": 0.051512996760685784,
+      "statpack_digest": "sha256:17f38fd88c014731f55c236faa1e9878525fc40e69898293166611c0ffb59f25"
+    },
+    "cut_anchor_index": null,
+    "cut_kind": null,
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 1,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v7",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_contact_scrub": {
+      "blocks": 0,
+      "fields": 0,
+      "sides": []
+    },
+    "snapshot_date": "2026-11-05",
+    "snapshot_provenance": "as-stored",
+    "snapshot_uptake": "read",
+    "term": 2026,
+    "vide_links": []
+  },
+  "created_at": "2026-11-05T21:11:29.969472Z",
+  "engine": "claude-code",
+  "event_id": "evt-petition-disposition",
+  "granted": 0,
+  "input_snapshot": "2026-11-05.json",
+  "judgment": null,
+  "model": "claude-opus-5-5",
+  "predicted_disposition": "denied",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.12,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:33a3f9f8f53a2f6cb53967a60d836c3ba29f0078c12306fb8696e15d7c674978",
+    "label": "proc-v17",
+    "pipeline_sha": "aee5fe77c63e5f1b1043a7d89297e348240f86ba",
+    "stamped_at": "2026-11-05T21:11:29.969472Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261105T203825Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}
