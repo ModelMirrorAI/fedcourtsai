@@ -19,7 +19,7 @@ an action in a case the watchlist follows names that case.
 ## The rule
 
 An action is listed when an AI developer, or an AI system's training, outputs
-or deployment, is central to it (the watchlist's own rule), and one or more
+or deployment, is central to it (adapted from the watchlist's rule), and one or more
 state AG offices took part. The 50 states and the District of Columbia are
 covered. An action is added by a PR that cites the rule, on a dated `added`
 line; nothing is added automatically.
@@ -29,7 +29,7 @@ Each action has one **kind**, and each kind feeds one **track**:
 | Kind | What it is | Track |
 | --- | --- | --- |
 | `letter` | A signed letter or public comment aimed at AI companies | enforcement |
-| `amicus` | A multistate amicus brief in a case against an AI developer | enforcement |
+| `amicus` | An amicus brief in a case against an AI developer | enforcement |
 | `investigation` | An announced investigation or civil investigative demand | enforcement |
 | `settlement` | A settlement or assurance of voluntary compliance reached without suit | enforcement |
 | `suit` | A suit against an AI developer, in any court | enforcement |
@@ -45,17 +45,19 @@ preemption of state AI law, is listed as context only.
 
 `offices` lists every state and DC, how the office is filled (`elected`, or
 appointed by the `governor`, the `legislature` or the state supreme `court`),
-and its holders in the order they serve, each with a source. Only the last
-holder may be pending: a `successor`, elected or appointed and not yet in
+and its holders in the order they serve, each with a source and a distinct
+start day. The first holder is one who served, and only the last may be
+pending: a `successor`, elected or appointed and not yet in
 office, with the day they take it; or an `uncalled` race, which names no winner
 until a major outlet calls it.
 
 Each action is attributed to the office, and through the roster to the holder
 in office on the action's date. The map shades the office. A state whose last
 holder is pending carries a transition badge naming the outgoing and incoming
-AG and the day the change happens. The tier stays the office's until the
-successor has a record of their own: an incoming AG inherits the office's
-standing in the window, and the badge says the record is their predecessor's.
+AG and the day the change happens. The tier is always the office's: holder
+attribution labels each action with who announced it and never changes the
+tier, so an incoming AG inherits the office's standing in the window, and the
+badge says the record is their predecessor's.
 
 ## The ambition measure: `ag-ai-ambition-v1`
 
@@ -67,11 +69,13 @@ on or before the day). The rungs:
 | --- | --- | --- |
 | 0 | None recorded | nothing on the enforcement track in the window |
 | 1 | Signals | a `letter` |
-| 2 | Joins | an `amicus` brief, or an investigation, settlement or suit another state leads |
+| 2 | Joins | an `amicus` brief, or a multistate investigation, settlement or suit another state leads |
 | 3 | Investigates | the office's own `investigation` or `settlement`, alone or as the coalition's lead |
 | 4 | Sues | the office's own `suit`, alone or as the coalition's lead |
 
-"Own" means the office acted alone or is the action's `lead`. A tier is an
+"Own" means the office acted alone or is the action's `lead`; a multistate
+investigation, settlement or suit always names its lead, and a filed action
+(`amicus`, `suit`, `defense`) always names its court and docket number. A tier is an
 ordinal ranking: tier 4 is more than tier 3, by no stated amount. Counts by
 kind are published beside every tier so a reader can see what it rests on.
 
@@ -79,6 +83,10 @@ kind are published beside every tier so a reader can see what it rests on.
 own announcements record it. It does not measure merit, outcome or intent, and
 an investigation the office has not announced is invisible to it. A tier 0
 means none recorded, not none taken.
+
+The 730-day window and the rung ladder together define `ag-ai-ambition-v1`. A
+change to either is a new method version with a new name, never an edit to
+this one, so a published tier always says which definition produced it.
 
 ## The coalition figures
 
@@ -98,6 +106,10 @@ co-signing, not a probability that a state will join, and the page says so.
 Offices are also grouped into clusters by affinity, so the page can show which
 blocs recur.
 
+Wherever the join ranking or an affinity is shown, the number of multistate
+actions it rests on is shown beside it, because both figures are noisy over a
+handful of actions.
+
 A forecast of who signs the next multistate action, pre-registered and scored
 like the project's other forecasts, is a later step once the registry holds
 enough multistate actions to score it against.
@@ -107,5 +119,5 @@ enough multistate actions to score it against.
 The site reads a derived file, `metrics/state-ags.json`, carrying each
 office's tier, counts by kind and transition, every action with its sources,
 and the coalition figures, all computed here; the site renders it and computes
-nothing. That file and the command that writes it are not built yet: the
-registry, its checks and the tier are.
+nothing. That file, the command that writes it and the coalition figures are not
+built yet: the registry, its checks and the tier are.

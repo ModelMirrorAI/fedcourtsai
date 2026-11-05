@@ -605,7 +605,7 @@ task-specific instructions: the prompt file named in your run
 | What does a cell agent have to produce? | `.github/prompts/` |
 | What are the plain-language case summaries, which cases get one, and who writes them? | `docs/case-summaries.md` |
 | How do I test this, and what does CI run? | `docs/testing.md` |
-| How ambitious is each state AG on AI litigation, and which states act together? (registry, checks and the `ag-ai-ambition-v1` tier built; roster and actions not yet filled; the derived metrics file and the site page not built) | `docs/state-ags.md` |
+| How ambitious is each state AG on AI litigation, and which states act together? (registry, checks and the `ag-ai-ambition-v1` tier built; roster and actions not yet filled; the coalition figures, the derived metrics file and the site page not built) | `docs/state-ags.md` |
 | What does a run cost, and where is the project headed? | `docs/budget.md`, `docs/milestones.md` |
 | What must the long-conference release write-up state, and what produces each number? (filled from the metrics refresh and its export, each figure beside the command that produced it; awaits the `results/ot2026-longconf` tag) | `docs/release-ot2026-long-conference.md` |
 | What must the end-of-Term release state about the merits docket, and what produces each number? (a skeleton written before any merits outcome; its unbuilt evidence is marked owed in place) | `docs/release-ot2026-merits.md` |

@@ -141,6 +141,15 @@ def test_tier_takes_the_highest_rung_in_the_window() -> None:
     assert registry.tier("TX", date(2026, 2, 1)) is Rung.none
 
 
+@pytest.mark.parametrize(("days_before", "expected"), [(729, Rung.sues), (730, Rung.none)])
+def test_window_opens_after_day_730(days_before: int, expected: Rung) -> None:
+    on = date(2026, 11, 5)
+    announced = date.fromordinal(on.toordinal() - days_before)
+    registry = StateAgRegistry.model_validate(_registry(_action(announced=announced.isoformat())))
+
+    assert registry.tier("TX", on) is expected
+
+
 def test_multistate_suit_ranks_the_lead_above_the_joiners() -> None:
     registry = StateAgRegistry.model_validate(_registry(_action(states=["TX", "UT"], lead="UT")))
 
@@ -187,6 +196,8 @@ def test_uncalled_race_names_no_winner() -> None:
         (_registry(_action(states=["TX", "TX"])), "listed twice"),
         (_registry(_action(lead="CA")), "is not among the states"),
         (_registry(_action(docket_number=None)), "come together"),
+        (_registry(_action(court=None, docket_number=None)), "names its court"),
+        (_registry(_action(states=["TX", "UT"])), "names its lead"),
         (_registry(_action(added="2026-01-01")), "added before"),
         (_registry(_action(id="Bad Id")), "kebab-case"),
         (_registry(_action(), _action()), "used twice"),

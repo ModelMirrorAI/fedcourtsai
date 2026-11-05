@@ -12,9 +12,9 @@ led, its kind, and the AG office's own announcement as its source.
 The method that reads the registry is ``ag-ai-ambition-v1``
 (:data:`AMBITION_METHOD`), defined in ``docs/state-ags.md``: an office's tier is
 the highest rung an action of a tier-raising kind reached for it in a trailing
-window (:data:`AMBITION_WINDOW_DAYS`), and the coalition figures read only the
-actions two or more states took part in. The rung each kind reaches is
+window (:data:`AMBITION_WINDOW_DAYS`). The rung each kind reaches is
 :func:`rung`; a kind on the ``defense`` or ``context`` track never raises a tier.
+The coalition figures the doc defines are not computed here yet.
 """
 
 from __future__ import annotations
@@ -27,13 +27,14 @@ from pathlib import Path
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from fedcourtsai.ai_watchlist import _UniqueKeyLoader
+from fedcourtsai.ai_watchlist import UniqueKeyLoader
 
 #: The registry's file, under the config root.
 STATE_AGS_FILENAME = "state-ags.yaml"
 #: The registered name of the ambition measure the registry feeds.
 AMBITION_METHOD = "ag-ai-ambition-v1"
-#: The trailing window, in days, an action counts toward an office's tier.
+#: The trailing window, in days, an action counts toward an office's tier. It and
+#: :func:`rung` define the method: a change to either is a new method version.
 AMBITION_WINDOW_DAYS = 730
 
 #: The jurisdictions the roster covers: the 50 states and the District of Columbia.
@@ -145,7 +146,7 @@ class Kind(StrEnum):
 
     #: A signed letter or public comment aimed at AI companies.
     letter = "letter"
-    #: A multistate amicus brief in a case against an AI developer.
+    #: An amicus brief in a case against an AI developer.
     amicus = "amicus"
     #: An announced investigation or civil investigative demand.
     investigation = "investigation"
@@ -168,6 +169,12 @@ _TRACK: dict[Kind, Track] = {
     Kind.defense: Track.defense,
     Kind.advocacy: Track.context,
 }
+
+
+#: Kinds that are filed in a court, so a record names the court and docket number.
+_FILED: frozenset[Kind] = frozenset({Kind.amicus, Kind.suit, Kind.defense})
+#: Kinds whose rung depends on who led, so a multistate record names its lead.
+_LED: frozenset[Kind] = frozenset({Kind.investigation, Kind.settlement, Kind.suit})
 
 
 def track(kind: Kind) -> Track:
@@ -300,6 +307,10 @@ class Action(BaseModel):
             raise ValueError(f"{self.id}: a single-state action is led by that state")
         if (self.court is None) != (self.docket_number is None):
             raise ValueError(f"{self.id}: court and docket_number come together")
+        if self.kind in _FILED and self.court is None:
+            raise ValueError(f"{self.id}: a {self.kind.value} names its court and docket number")
+        if self.multistate and self.kind in _LED and self.lead is None:
+            raise ValueError(f"{self.id}: a multistate {self.kind.value} names its lead state")
         if self.added < self.announced:
             raise ValueError(f"{self.id}: added before the action's own date")
         return self
@@ -366,5 +377,5 @@ class StateAgRegistry(BaseModel):
 
 def load_state_ags(path: Path) -> StateAgRegistry:
     """Read and validate the registry; a missing or empty file is an error, not a default."""
-    data = yaml.load(path.read_text(), Loader=_UniqueKeyLoader)
+    data = yaml.load(path.read_text(), Loader=UniqueKeyLoader)
     return StateAgRegistry.model_validate(data)
