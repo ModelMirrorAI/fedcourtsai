@@ -1,0 +1,261 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "call_source": "transcript_item",
+      "params_digest": "e2a81e91764e3d90",
+      "query": "cat .github/prompts/predict.md; ls -R data/cases/scotus/9026000379/",
+      "result_capture": "captured",
+      "result_digest": "ab0ee79fb0ad1ec9",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T21:10:46.977Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "0455753b3a4909b0",
+      "query": "cat .github/prompts/predict.md | head -c 50000",
+      "result_capture": "captured",
+      "result_digest": "1a76c4b34c4423f2",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T21:10:53.953Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "62ceacc21cdcac22",
+      "query": "tail -n +1 /home/runner/.claude/projects/-home-runner-work-fedcourtsai-fedcourtsai/46e31844-b885-4b61-bf03-a9251c3f1a11/tool-results/bwpf11fbu.txt | tail -c 2500",
+      "result_capture": "captured",
+      "result_digest": "da06c08bb7377d38",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T21:10:54.934Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "0b4def81ef61cac8",
+      "query": "{\"file_path\": \"/home/runner/.claude/projects/-home-runner-work-fedcourtsai-fedcourtsai/46e31844-b885-4b61-bf03-a9251c3f1a11/tool-results/bwz7s0owo.txt\"}",
+      "result_capture": "captured",
+      "result_digest": "c26f9916628d21a1",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T21:10:56.903Z",
+      "tool": "Read"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "c0c1f8ab43787f7d",
+      "query": "{\"file_path\": \"/home/runner/.claude/projects/-home-runner-work-fedcourtsai-fedcourtsai/46e31844-b885-4b61-bf03-a9251c3f1a11/tool-results/bwpf11fbu.txt\", \"offset\": 737}",
+      "result_capture": "captured",
+      "result_digest": "3a2a66a542917c16",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T21:10:59.502Z",
+      "tool": "Read"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "3570cd6526386bc0",
+      "query": "cd data/cases/scotus/9026000379; cat events/*/event.yaml record/context.json record/same-question.json; cat record/snapshots/2026-09-21.json | head -c 6000",
+      "result_capture": "captured",
+      "result_digest": "0b4f551407b4d70e",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T21:11:01.759Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "318bd86eec719492",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; grep -n -i \"salience band\" -A 30 metrics/statpack.md | head -60; grep -n \"Modern discretionary\" -A 15 metrics/statpack.md | head -25",
+      "result_capture": "captured",
+      "result_digest": "12d11e32d55fc852",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T21:11:08.766Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "b578e10a0d62f4df",
+      "query": "select:WebFetch,WebSearch",
+      "result_capture": "captured",
+      "result_digest": "e0a647fd70eb8461",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T21:11:15.501Z",
+      "tool": "ToolSearch"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "907753aa891a4caa",
+      "query": "uv run fedcourts query --help 2>&1 | head -50",
+      "result_capture": "captured",
+      "result_digest": "f6ddd822e0869bd0",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T21:11:15.841Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "d59e14cc79063778",
+      "query": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-379.html\nList all docket entries with dates, the question presented if shown, and any related/vide cases.",
+      "result_capture": "captured",
+      "result_digest": "fb199e046548f11c",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T21:11:22.293Z",
+      "tool": "WebFetch"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "48466500f139b970",
+      "query": "uv run fedcourts query --court scotus --disposition granted --era modern --limit 5 2>&1 | cut -c1-300 | tail -8",
+      "result_capture": "captured",
+      "result_digest": "fb580af792fd85cc",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T21:11:22.832Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "83dd9b1759a767e9",
+      "query": "Genalo v. D.C. certiorari before judgment Second Circuit Solicitor General 2026",
+      "result_capture": "captured",
+      "result_digest": "0045eb8c58137fda",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T21:11:31.052Z",
+      "tool": "WebSearch"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "4a8ad18ebf78ca6d",
+      "query": "uv run fedcourts query --court scotus --disposition granted --limit 5 2>&1 | cut -c1-250 | tail -8",
+      "result_capture": "captured",
+      "result_digest": "0719ebb77c10434c",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T21:11:31.544Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "cf667d24fb3e0f4b",
+      "query": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1415.html\nGive case name, lower court, question, and all docket entries with dates (grant? argued?).",
+      "result_capture": "captured",
+      "result_digest": "49ccb6d70ebf5365",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T21:11:45.440Z",
+      "tool": "WebFetch"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "ae8953a0b54046fb",
+      "query": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-43.html\nGive case name, lower court, and all docket entries with dates.",
+      "result_capture": "captured",
+      "result_digest": "7d76c8f3e6a55049",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T21:11:46.081Z",
+      "tool": "WebFetch"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "27f736cee6068a5f",
+      "query": "https://www.supremecourt.gov/DocketPDF/25/25-1415/425716/20260925165614696_2026.09.25%20Letter%20re%20DC.pdf\nSummarize this letter fully: who wrote it, what it says about D.C. / 26-379, and what it asks the Court to do.",
+      "result_capture": "captured",
+      "result_digest": "e4ce86dba3d161e4",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T21:11:54.566Z",
+      "tool": "WebFetch"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "3d5b729710670a81",
+      "query": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-886.html\nCase name, lower court, questions, and all docket entries with dates (was cert granted? argued?).",
+      "result_capture": "captured",
+      "result_digest": "a5d60124e466aa50",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T21:11:55.355Z",
+      "tool": "WebFetch"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "1aff5b9ad2d08ff3",
+      "query": "uv run fedcourts pdf-text /home/runner/.claude/projects/-home-runner-work-fedcourtsai-fedcourtsai/46e31844-b885-4b61-bf03-a9251c3f1a11/tool-results/webfetch-1793913114654-heej48.pdf | head -80",
+      "result_capture": "captured",
+      "result_digest": "483415771a15d7e2",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T21:12:03.397Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "435fc7d284acd33e",
+      "query": "Putra v. Lopez-Campos certiorari granted October 2026 Buenrostro-Mendez",
+      "result_capture": "captured",
+      "result_digest": "8cb75dc76451ee2c",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T21:12:09.917Z",
+      "tool": "WebSearch"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "a51ebc4bad0b766d",
+      "query": "D=data/cases/scotus/9026000379/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261105T203825Z; mkdir -p $D; cd $D\ncat > prediction.json <<'EOF'\n{\n  \"schema_version\": \"1.0\",\n  \"case_id\": \"scotus/9026000379\",\n  \"event_id\": \"evt-petition-arrival-disposition\",\n  \"predictor_id\": \"claude-baseline\",\n  \"engine\": \"claude-code\",\n  \"model\": \"claude-opus-5-5\",\n  \"run_id\": \"20261105T203825Z\",\n  \"created_at\": \"2026-11-05T20:40:00Z\",\n  \"input_snapshot\": \"2026-09-21.json\",\n  \"granted\": 1,\n",
+      "result_capture": "captured",
+      "result_digest": "fc134be17b088d6b",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T21:12:56.001Z",
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/9026000379",
+  "corpus_service": {
+    "open_events": 0,
+    "open_events_ok": 0,
+    "queries": 1,
+    "queries_ok": 1
+  },
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "result_capture_coverage": 1.0,
+  "role": "predictor",
+  "run_id": "20261105T203825Z",
+  "schema_version": "1.0",
+  "self_provisioned_fetches": 1,
+  "throttled_calls": null
+}

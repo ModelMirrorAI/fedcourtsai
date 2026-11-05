@@ -1,0 +1,23 @@
+# Predicted Court Trajectory and Disposition: *Jasvinder Singh, et al. v. Second Judicial District Court of Nevada, Washoe County, et al.* (No. 26-157)
+
+## 1. Conference Distribution and Relist Trajectory (`relist-increment`: `0.96`)
+
+The docket currently records **one distribution** (`Sep 16 2026`, distributed for the Conference of October 9, 2026) following Respondents' August 21, 2026 waiver of the right to respond. On September 22, 2026, the Court requested a response, and on October 13, 2026, it extended the time to file the Brief in Opposition to November 23, 2026.
+
+Because a response has been called for and is not due until November 23, 2026, the petition will almost certainly (`P = 0.96`) be **distributed at least once more** after the Brief in Opposition and Petitioners' cert reply are filed (likely in December 2026 or January 2027), failing only if the parties settle or withdraw the petition under Rule 46 before post-BIO distribution. Once redistributed with the Brief in Opposition, the most probable path is a denial at the first post-BIO conference (yielding 2 total distributions on the docket) or after one post-BIO relist (3 total distributions) while chambers examine the vehicle and finality objections raised in the opposition.
+
+## 2. Call for the Views of the Solicitor General (`cvsg-increment`: `0.02`)
+
+No CVSG is currently on the docket, and the Court is very unlikely (`P = 0.02`) to invite the Solicitor General's views. The underlying litigation is a state-law nonprofit corporate governance and property-trust dispute (`NRS 82.216(1)`) between private factions of a Nevada religious corporation over the Sikh Temple of Reno. It implicates no federal statute, federal treaty, federal regulatory scheme, or federal enforcement interest (unlike Title VII / ministerial-exception cases where the EEOC's or Department of Justice's views might be relevant).
+
+## 3. Scope of Review If Granted (Question Presented)
+
+If the Court grants certiorari (`P = 0.16`), it will take the **single Question Presented as framed in the petition**—whether the First Amendment's church-autonomy doctrine permits a civil court to invoke the "neutral principles of law" approach beyond property-ownership disputes to adjudicate a religious institution's internal governance dispute under its organizational documents—potentially paired with or contingent on threshold briefing of finality under 28 U.S.C. § 1257(a) and *Cox Broadcasting Corp. v. Cohn*, 420 U.S. 469 (1975). If the Court reaches the merits, the likely ground would clarify that even when a civil claim is pleaded under secular corporate statutes and bylaws, the First Amendment bars civil adjudication wherever determining board authority or membership requires resolving contested questions of religious polity or governance, while leaving intact *Jones v. Wolf*, 443 U.S. 595 (1979), for strictly secular property-title and trust instruments.
+
+## 4. Summary Disposition vs. Plenary Review (`summary-disposition-route`: `0.06`)
+
+Conditional on a grant, plenary review with full merits briefing and oral argument is far likelier than a summary disposition in the cert order (`P(summary | grant) = 0.06`). Lower federal and state appellate courts are genuinely divided over how to reconcile *Jones v. Wolf* with *Serbian Eastern Orthodox Diocese v. Milivojevich*, 426 U.S. 696 (1976), and *Our Lady of Guadalupe School v. Morrissey-Berru*, 591 U.S. 732 (2020), making summary reversal inappropriate. The small `0.06` conditional probability accounts for the narrow possibility of a grant, vacate, and remand (GVR) if the Court grants another church-autonomy petition from the same Term (such as a petition arising from the Fifth Circuit's June 2026 decision in *Lutheran Church—Missouri Synod v. Christian*) and holds No. 26-157 for it.
+
+## 5. Separate Writings on the Disposition Order (`dissent-from-denial`: `0.10`; `order-writers`)
+
+The Court will most likely deny the petition without comment once the Brief in Opposition highlights the interlocutory, pleading-stage posture of the Nevada Supreme Court's denial of a writ of prohibition ("at this juncture") and the overlap between the disputed trust transfer and traditional church-property disputes. Conditional on denial, there is a modest (`P = 0.10`) chance of a separate writing—most likely a dissent from denial or a brief statement respecting the denial of certiorari authored by **Justice Alito (`0.05`), Justice Thomas (`0.04`), or Justice Gorsuch (`0.04`)**—noting the recurring division over the scope of the neutral-principles approach while observing that the tentative, pre-discovery posture in Nevada state court counsels awaiting final judgment or a cleaner vehicle.

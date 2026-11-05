@@ -1,0 +1,9 @@
+# Forecast of the Court's action
+
+The Court will most likely deny the petition after obtaining Louisiana's response. The docket already contains one distribution, not a completed sequence of substantive relists. I expect one further distribution to place the petition before a conference after the response process, followed by denial without a separate opinion. A further merits-driven relist beyond that administrative redistribution is possible, but is not my central forecast. Timing depends on the response process; a decision later in fall 2026 or in early 2027 is the expected path, not a commitment to a specific order list.
+
+No invitation for the Solicitor General's views is expected. The Court can assess the state criminal record and the alleged misapplication of settled disclosure precedent without a federal governmental recommendation.
+
+If review is granted, the Court will take the petition's single question substantially as written: whether the Louisiana courts substituted a sufficiency-of-the-evidence inquiry for the Brady materiality inquiry. The likely intervention would require genuine cumulative assessment of the withheld evidence's effect on confidence in the verdict, not announce a new disclosure rule. Conditional on a grant, I put 65% on action in the cert order rather than full briefing and argument. Summary reversal with a remand is the leading grant route; no identified intervening decision supports predicting a routine GVR.
+
+The central outcome remains an unexplained denial, which would not endorse the conviction or the reasoning below. Conditional on denial, the probability of any dissent or statement respecting denial is 20%. If there is such a writing, Sotomayor is the leading candidate, followed by Jackson; no particular author or recorded vote coalition is part of the central call.

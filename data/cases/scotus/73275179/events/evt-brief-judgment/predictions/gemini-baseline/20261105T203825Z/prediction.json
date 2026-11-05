@@ -1,0 +1,154 @@
+{
+  "big_case_rationale": "Landmark Second Amendment challenge to state and local bans on AR-15 platform and similar semiautomatic rifles, resolving a major circuit split affecting tens of millions of firearm owners and laws in roughly a dozen states.",
+  "big_case_score": 0.95,
+  "case_id": "scotus/73275179",
+  "claim_distributions": [
+    {
+      "claim_id": "majority-author",
+      "probabilities": {
+        "Alito": 0.1,
+        "Barrett": 0.07,
+        "Gorsuch": 0.08,
+        "Jackson": 0.01,
+        "Kagan": 0.025,
+        "Kavanaugh": 0.28,
+        "Roberts": 0.26,
+        "Sotomayor": 0.015,
+        "Thomas": 0.15,
+        "per-curiam": 0.01
+      }
+    },
+    {
+      "claim_id": "separate-writers",
+      "probabilities": {
+        "Alito": 0.22,
+        "Barrett": 0.32,
+        "Gorsuch": 0.3,
+        "Jackson": 0.48,
+        "Kagan": 0.25,
+        "Kavanaugh": 0.35,
+        "Roberts": 0.06,
+        "Sotomayor": 0.55,
+        "Thomas": 0.45
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.91
+    }
+  ],
+  "confidence": 0.85,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "band_refused": null,
+    "cert_anchor": null,
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-10-22",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 22,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v7",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_contact_scrub": {
+      "blocks": 2,
+      "fields": 12,
+      "sides": [
+        "Other"
+      ]
+    },
+    "snapshot_date": "2026-10-22",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2025,
+    "vide_links": [
+      "25-566"
+    ]
+  },
+  "created_at": "2026-11-05T21:08:58.177962Z",
+  "engine": "gemini",
+  "event_id": "evt-brief-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-10-22.json",
+  "judgment": "reversed",
+  "model": "gemini-4-argon",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "gemini-baseline",
+  "probability": 0.91,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:1389c40a89d22cb951b25dad96d18d307cef26db4f6b66cdd425ea8fcf0f49b6",
+    "label": "proc-v17",
+    "pipeline_sha": "aee5fe77c63e5f1b1043a7d89297e348240f86ba",
+    "stamped_at": "2026-11-05T21:08:58.177962Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261105T203825Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "Applying District of Columbia v. Heller (2008), New York State Rifle & Pistol Ass'n v. Bruen (2022), and Wolford v. Lopez (2026), the majority holds that semiautomatic rifles are bearable 'Arms' covered by the Second Amendment's plain text and that because AR-15 platform and similar semiautomatic rifles are owned by millions of Americans in common use for lawful purposes including self-defense, they cannot be banned under the historical tradition of prohibiting 'dangerous and unusual' weapons."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The majority announces a categorical constitutional rule invalidating flat prohibitions on the possession of AR-15 platform and functionally similar semiautomatic rifles by law-abiding citizens across both consolidated cases, while distinguishing fully automatic machineguns and leaving regulations of non-rifle firearms or magazine capacity outside the holding."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "dissent",
+      "writing": null
+    }
+  ]
+}

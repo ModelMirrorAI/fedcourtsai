@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000218",
+  "run_id": "20261105T203825Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts validate",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_read_document",
+    "mcp_courtlistener_get_endpoint_item"
+  ],
+  "helpful": [
+    "Provisioned petition.txt, questions-presented.txt, and appendix.txt provided the complete argument and lower-court decisions.",
+    "fedcourts query --docket-number quickly surfaced the directly analogous prior Louisiana Brady petitions in Skinner v. Louisiana (No. 25-1) and Brown v. Louisiana (No. 22-77), including counsel, amicus filers, distribution counts, and dispositions.",
+    "CourtListener MCP read_document provided the full text of the Supreme Court's January 2026 per curiam opinion in Klein v. Martin, 607 U.S. 213 (2026)."
+  ],
+  "gaps": [
+    "Statpack does not currently publish a conditional base-rate cut for cert petitions where the Court called for a response after a waiver (response-requested)."
+  ],
+  "notes": "All provisioned inputs and corpus/MCP retrieval tools operated smoothly."
+}

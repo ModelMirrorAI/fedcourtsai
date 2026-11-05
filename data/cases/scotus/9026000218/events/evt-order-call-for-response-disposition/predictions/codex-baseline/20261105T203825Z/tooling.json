@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000218",
+  "run_id": "20261105T203825Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts paths", "fedcourts query", "metrics/statpack.md", "CourtListener search", "CourtListener read_document", "CourtListener search_document", "web search/open", "fedcourts validate"],
+  "helpful": ["Frozen reached-band cert anchor", "Appendix containing complete lower-court decisions", "CourtListener historical opinion lookup and literal snippet search", "Explicit corpus transfer statistics"],
+  "gaps": ["Default uv cache is read-only; writable temporary cache override was needed", "Corpus reporter citations are sparse", "No response-requested conditional base rate", "Web attempts returned no usable output"],
+  "notes": "Used UV_CACHE_DIR=/tmp/uv-cache and uv run --no-sync without installing anything. The provisioned appendix was more informative than the petition alone. Docket-Term masking can return prior-Term cases decided after the baseline; unrelated returned cases were not used as substantive analogies. No unresolved blocker."
+}

@@ -1,0 +1,11 @@
+# Retrieval
+- `uv run fedcourts query --court scotus --disposition granted --era modern --limit 5`: usage output only (flag not accepted as written); re-issued.
+- `uv run fedcourts query --court scotus --disposition granted --limit 5` → `ranged corpus reads: 30 GET(s), 7864320 byte(s)`; recent granted priors, several SG petitions (general context only).
+- Read `metrics/statpack.md` (salience band table, sal-v7; band and modern-cert sections).
+- WebFetch supremecourt.gov docket 26-379: the petition is for certiorari **before judgment**; extension motion Oct 2; extension granted in part to Dec 8 (Oct 8); response to the motion Oct 9; amici brief of Iowa et al. Oct 20.
+- WebSearch "Genalo v. D.C. certiorari before judgment…": SCOTUSblog case page gives the two QPs (prolonged §1226(c) detention and bond hearing; burden of proof); links to 25-886, 25-1415, 26-43.
+- WebFetch docket 25-1415 (Putra v. Lopez-Campos): §1225 petition, distributed for the 9/28/2026 conference, with letters through Sept 25.
+- WebFetch docket 26-43 (Buenrostro-Mendez v. Blanche): distributed for the 9/28/2026 conference.
+- WebFetch the ACLU Sept 25, 2026 letter in 25-1415 (PDF; extracted with `uv run fedcourts pdf-text`): describes D.C. as presenting the same constitutional issues as G.M.
+- WebFetch docket 25-886 (Genalo v. Black / G.M.): cert granted June 15, 2026; argument set Oct 13; dismissed Sept 11 under Rule 46.1.
+- WebSearch "Putra v. Lopez-Campos certiorari granted October 2026": no disposition found.

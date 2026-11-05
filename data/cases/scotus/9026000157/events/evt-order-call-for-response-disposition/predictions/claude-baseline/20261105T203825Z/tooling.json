@@ -1,0 +1,11 @@
+{
+  "case_id": "scotus/9026000157",
+  "run_id": "20261105T203825Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md"],
+  "helpful": ["--docket-number lookup for the related O'Connell petition"],
+  "gaps": ["No statpack cut conditioned on a called-for response", "Corpus rows carry no order text, so statements respecting denial are not visible"]
+}

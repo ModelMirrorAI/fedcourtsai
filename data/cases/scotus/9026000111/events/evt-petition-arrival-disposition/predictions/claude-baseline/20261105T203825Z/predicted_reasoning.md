@@ -1,0 +1,7 @@
+# Forecast — No. 26-111, Herzon v. Arias
+
+- **Distributions so far: zero** (arrival moment). The response is now due Dec. 7, 2026. Expect the petition to be distributed for a conference after the response comes in (probably early 2027) and then **held for *Nielsen v. Watanabe***, No. 25-417, rather than decided on its first distribution. While it is held it may be redistributed or carried over, but there will be no ordinary relist series. It will be acted on once *Nielsen* is decided, likely late in OT2026 (June 2027).
+- **No CVSG**: the Solicitor General is the petitioner.
+- **Most likely disposition: a GVR in light of *Nielsen***, returning the case to CA1 to redo the new-context analysis. The alternatives are a summary reversal in the mold of *Goldey v. Fields* or a plenary grant. Conditional on a grant, a summary route (GVR or per curiam) is more likely than full briefing and argument (~62/38).
+- **If plenary review is granted**, the Court would take the QP as written: whether *Bivens* reaches a Fourth Amendment excessive-force claim from a warrant-authorized arrest outside the home. The likely ground is that this is a new context and the Inspector General Act's remedial scheme is a special factor, i.e. reversal.
+- **Separate writing:** on a GVR, a short concurrence from Gorsuch (or Thomas) urging that *Bivens* be confined or overruled is possible. A dissent from a summary reversal by Sotomayor or Jackson is possible. If the petition is instead denied, which is unlikely, a statement or dissent from Thomas or Gorsuch is plausible (~30%).

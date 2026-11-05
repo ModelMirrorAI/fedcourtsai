@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000379",
+  "run_id": "20261105T203825Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "capture-gap",
+      "severity": "info",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "The provisioned paper-only arrival record contains no filed-document text or document manifest. I recovered the official DOJ petition, which clarifies that review is sought before judgment, but did not recover an opposition or independently read a separate lower-court opinion. Prediction completed using the snapshot, frozen federal anchor, and verified petition; the absence of opposition text remains an input limitation, not evidence that no opposition was filed."
+    }
+  ]
+}
