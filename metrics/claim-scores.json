@@ -443,7 +443,7 @@
   },
   "forward_claim": {
     "by_predictor": {},
-    "claimed_forward": 1500,
+    "claimed_forward": 1527,
     "excluded": 0,
     "policy": "exclude"
   },
@@ -677,7 +677,7 @@
     ]
   },
   "leakage_exclusion": {
-    "assessed": 1500,
+    "assessed": 1527,
     "by_predictor": {
       "gemini-baseline": 3
     },
