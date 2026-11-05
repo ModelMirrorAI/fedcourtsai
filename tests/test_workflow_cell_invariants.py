@@ -2118,7 +2118,7 @@ def test_every_inline_gh_retry_copy_matches_the_shared_script() -> None:
     canonical = _gh_retry_body(GH_RETRY_SCRIPT.read_text())
     # A body that lost its bounds would still "match" every identical copy,
     # so pin the shape the script's header promises as well.
-    assert "timeout 30" in canonical
+    assert 'timeout "${GH_RETRY_TIMEOUT:-30}"' in canonical
     assert "for attempt in 1 2 3" in canonical
     assert "sleep $((attempt * 5))" in canonical
     # Both annotations go to stderr: on stdout they would be captured into the
@@ -2440,7 +2440,7 @@ def test_the_python_seams_bounds_match_the_shared_script() -> None:
     long a degraded API is tolerated.
     """
     canonical = _gh_retry_body(GH_RETRY_SCRIPT.read_text())
-    assert f"timeout {_GH_TIMEOUT_SECONDS}" in canonical
+    assert f'timeout "${{GH_RETRY_TIMEOUT:-{_GH_TIMEOUT_SECONDS}}}"' in canonical
     assert f"for attempt in {' '.join(str(n) for n in range(1, _GH_ATTEMPTS + 1))}" in canonical
     assert f"sleep $((attempt * {_GH_BACKOFF_SECONDS}))" in canonical
 

@@ -156,7 +156,7 @@ class AiWatchlist(BaseModel):
         return grouped
 
 
-class UniqueKeyLoader(yaml.SafeLoader):
+class _UniqueKeyLoader(yaml.SafeLoader):
     """A safe loader that refuses a repeated mapping key, which plain YAML keeps the last of."""
 
     def construct_mapping(self, node: yaml.MappingNode, deep: bool = False) -> dict[Any, Any]:
@@ -169,7 +169,7 @@ class UniqueKeyLoader(yaml.SafeLoader):
 
 def load_ai_watchlist(path: Path) -> AiWatchlist:
     """Read and validate the watchlist; a missing or empty file is an error, not a default."""
-    data = yaml.load(path.read_text(), Loader=UniqueKeyLoader)
+    data = yaml.load(path.read_text(), Loader=_UniqueKeyLoader)
     return AiWatchlist.model_validate(data)
 
 
