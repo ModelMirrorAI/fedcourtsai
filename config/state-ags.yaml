@@ -1,0 +1,35 @@
+# State attorneys general and AI litigation (src/fedcourtsai/state_ags.py): the
+# hand-curated roster and actions the state-AGs dashboard reads. The method that
+# reads them, ag-ai-ambition-v1, is defined in docs/state-ags.md.
+#
+# The rule. An action is listed when an AI developer, or an AI system's
+# training, outputs or deployment, is central to it, and one or more state AG
+# offices took part. Any court, and actions that never reach a court
+# (investigations, settlements, letters), count. Each action cites the AG
+# office's own announcement; a filed one also names its court and docket number,
+# and a case the AI watchlist follows names that case.
+#
+# Changes. An office or action is added by a PR that cites this rule, on a dated
+# `added` line for an action. A successor is added when elected or appointed,
+# before taking office; an uncalled race is listed as uncalled, never guessed.
+# Nothing is added automatically; the maintainer decides.
+#
+# Fields. `offices` covers every state and DC or none. Each office's `holders`
+# run in order of `start`, every one with a source; only the last may be
+# pending (`successor` or `uncalled`). An action's `states` are every office
+# that took part, `lead` the one that led (a single-state action is led by
+# that state), and `developers` every AI developer it is aimed at.
+
+categories:
+  consumer-protection: Deceptive or unfair practices in selling or marketing an AI product.
+  child-safety: Harm to minors from chatbots, companions or generated content.
+  privacy: Personal or biometric data in training, outputs or logs.
+  antitrust: Competition in AI products, inputs or markets.
+  civil-rights: Discrimination by an AI system.
+  deepfakes: Synthetic media of real people, election deepfakes and non-consensual imagery.
+  governance: Corporate structure, charitable assets and control of an AI developer.
+  regulation: A state AI law, or federal preemption of state AI law.
+
+offices: []
+
+actions: []
