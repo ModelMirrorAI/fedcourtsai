@@ -16676,3 +16676,29 @@ freeze commit is recorded here.
     data/cases/scotus/*/events/*/predictions/*/<run_id>/prediction.json |
     sort -u` prints `sal-v7` (and `null` on an unbanded cell), and a cell on
     scotus/9026000146 or scotus/9026000379 freezes `band` `federal`.
+
+- **The topic publication gate stays a fixed 80% per-run floor, read
+  against the measured run-to-run spread; recorded 2026-11-05.** A
+  **measurement-rule** entry; no digest moves, no constant changes and no
+  cell reads anything different. Five reference-only replicates per frame
+  ran on the default labeler under the labeling prompt in force on `main`
+  (applications: runs 41596798171, 41643360354, 41678323011, 41842471709,
+  41869898663; petitions: runs 41899368593, 41904968783, 41916670580,
+  41934121288, 42024930611), each measured against the reference file as
+  committed and recorded in its spend record under `data/qp-topics/spend/`.
+  `fedcourts qp-topic-replicates` pools them to: applications 93.2% mean over
+  241 items, run sd 1.12% (95% interval 0.67–3.22% on 4 df), Cochran's Q
+  6.95 (p = 0.14); petitions 91.6% mean over 351 items, run sd 0.77%
+  (0.46–2.21%), Q 6.21 (p = 0.18). The lowest run of either frame (90.6%)
+  sits over three run-sd upper bounds above 80%. Three gate forms were
+  weighed — a quantile floor, a per-run floor plus a pooled rate over recent
+  attempts, and per-input-kind floors — and the fixed per-run floor was kept:
+  Cochran's Q detects no run effect at five runs, the run sd's upper bound
+  covers any run component the point estimates leave, and a per-kind floor
+  would rest on the 35 application-text rows. The figures are agreement with each frame's
+  reference on its own items, in-sample, not accuracy. The reading binds the
+  labeler model and labeling prompt the replicates ran on; a new labeler or a
+  prompt revision owes its own replicate series before this entry's reading
+  is quoted for it, and the floor moves only by a later dated entry. Carried
+  to `main` by the promotion tagged `<FILL: promotion tag>` (merge commit
+  `<FILL: merge sha>`, merged `<FILL: merged time utc>`).

@@ -1321,9 +1321,10 @@ Runs of one labeler on the same reference rows may land several points apart,
 so a single run's agreement may carry a **run-level component** the binomial
 error at the reference block's `n` does not capture. A fixed per-run
 floor then refuses some runs on luck, and passes others on luck once retries
-are allowed. The **replicate mode** measures that spread directly, as input to
-a variance-aware gate that is pre-registered separately, before any batch is
-published under it; until then the 80% floor stands unchanged.
+are allowed. The **replicate mode** measures that spread directly, and the
+gate is read against it: the measured spread is small next to the margin
+above the floor, so the publication gate is a fixed **80% per-run floor**
+(*Gate against the measured spread*, below).
 
 A replicate is a dispatch of `run-analytics` mode `qp-topic-replicate` (the
 petition frame) or `qp-topic-replicate-applications` (the application frame),
@@ -1383,7 +1384,7 @@ imprecise — each run's `unclassifiable` share, the always / never / flipped
 item counts, Cochran's Q for a run effect, the per-kind split, and, apart, the
 binomial error at `n`: item-sampling error, how far this block's rate may stand
 from a frame's, a different estimand from the run sd and never a component of
-one total; a variance-aware gate has to reckon with both. Every figure is agreement with the frame's
+one total; a gate has to reckon with both. Every figure is agreement with the frame's
 reference on the reference block's own items: it says how far a next run on
 these items may land, not how a labeler reads rows the block does not hold.
 `--labels` adds a past labeling run's saved labels, read on the reference rows
@@ -1391,6 +1392,41 @@ it holds, to an exploratory pool beside the records; those runs are not
 records, and a figure drawn from them says which runs it pooled and against
 which reference. The command reads the committed records and any saved labels
 it is handed, spends nothing, and chooses no gate.
+
+#### Gate against the measured spread
+
+Five replicates per frame, on the default labeler and the labeling prompt in
+force when they ran, pooled by `fedcourts qp-topic-replicates`:
+
+| | applications | petitions |
+| --- | --- | --- |
+| reference items | 241 | 351 |
+| run rates | 91.3, 93.4, 94.2, 93.8, 93.4% | 92.6, 92.0, 91.7, 90.6, 91.2% |
+| mean (constant-labeler floor) | 93.2% (38.2%) | 91.6% (23.1%) |
+| run sd, 95% interval on 4 df | 1.12% (0.67–3.22%) | 0.77% (0.46–2.21%) |
+| item-level sd | 0.85% | 0.62% |
+| Cochran's Q on 4 df | 6.95, p = 0.14 | 6.21, p = 0.18 |
+
+Cochran's Q detects no run effect at five runs (p = 0.14 and 0.18), and the
+run sd's upper bound already covers any run-level component the point
+estimates leave (about 0.7 and 0.5 points). The lowest run sits more than ten
+points above 80%, over three times the upper end of either run sd's interval;
+at those upper bounds each frame's mean sits about 4 (applications) and 5
+(petitions) run sds above 80%, taking run rates as roughly normal. A per-run
+floor at 80% therefore refuses a run of this labeler and prompt on agreement
+by luck only with negligible probability. A run below it is not explained by
+the measured spread, so a retry is no remedy for luck. So the
+gate is the fixed per-run floor with no pooled or per-kind tier: a per-kind
+floor would rest on the application-text stream's 35 rows, whose run sd
+(2.86%) is the noisiest figure here. Retries stay disclosed in the run
+records, and the weekly labeling round never retries on its own.
+
+The reading holds for the labeler and prompt the replicates ran on. A new
+labeler model or a revision of the labeling prompt starts a new replicate
+series that the pool keeps apart, and a series whose run sd or lowest
+run brings 80% within reach of a run's luck reopens the gate's form; the
+floor itself does not move without a dated entry in
+[freeze-record.md](freeze-record.md).
 
 ### Publication keys on the count, not on the agent's verdict
 
