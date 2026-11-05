@@ -468,3 +468,40 @@ jobs:
           set -euo pipefail
           echo "::error::PRs to main carry only promotion batches (head 'staging' or a promote/ candidate), a record-fill/ fill or the bot lanes; feature PRs target 'staging' (AGENTS.md)."
           exit 1
+
+  staging-base:
+    # Merge routing into `staging`, on `main-base`'s pattern. The dev App
+    # bypasses `staging: code owners`, so a PR it merges into `staging` skips the
+    # maintainer's code-owner review; the one PR it is meant to land that way is
+    # the main → staging sync, whose content is `main`'s own history, already
+    # approved in a promotion or bounded by a jail on its way there. This job
+    # holds every dev App PR into `staging` to that shape: its head must be this
+    # repository's `main`, spelled exactly (an expression's `==` would compare
+    # case-insensitively, so the comparison is the shell's). Every other PR
+    # skips it, and the skipped run satisfies the requirement. It is among
+    # `staging: require PR`'s required contexts, which carry no bypass, so a
+    # dev App PR into `staging` from another head cannot merge however it is
+    # merged. It keys on the author, not the merger: what keeps the dev App
+    # from merging a PR someone else opened is that only promoted code can
+    # mint its token, and the only such code merging into `staging` is the
+    # sync (docs/security.md).
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.base_ref == 'staging' &&
+      github.event.pull_request.user.login == 'fedcourtsai-dev[bot]'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - env:
+          HEAD_REF: ${{ github.head_ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [ "$HEAD_REF" = main ] && [ "$HEAD_REPO" = "$REPO" ]; then
+            echo "the main -> staging sync; the dev App may land it past code-owner review"
+            exit 0
+          fi
+          echo "::error::the dev App opens one PR into staging, the sync from this repository's main; this one's head is ${HEAD_REPO}:${HEAD_REF} (docs/security.md)."
+          exit 1

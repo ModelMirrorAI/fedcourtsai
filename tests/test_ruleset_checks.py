@@ -18,6 +18,7 @@ from fedcourtsai.ruleset_checks import (
     PROMOTE_CREATION_RULESET,
     PROMOTE_FREEZE_RULESET,
     RECORD_TAG_NAMESPACES,
+    STAGING_OWNERS_RULESET,
     STAGING_PR_RULESET,
     Expected,
     ruleset_problems,
@@ -94,11 +95,21 @@ def _good() -> list[dict[str, Any]]:
                 "type": "pull_request",
                 "parameters": {
                     "required_approving_review_count": 0,
-                    "require_code_owner_review": True,
+                    "require_code_owner_review": False,
                     "dismiss_stale_reviews_on_push": True,
                     "require_last_push_approval": False,
                 },
-            }
+            },
+            {
+                "type": "required_status_checks",
+                "parameters": {
+                    "required_status_checks": [
+                        {"context": "gate"},
+                        {"context": "paths"},
+                        {"context": "staging-base"},
+                    ]
+                },
+            },
         ],
     )
     staging["bypass_actors"] = [dict(ADMIN_ALWAYS)]
@@ -140,7 +151,32 @@ def _good() -> list[dict[str, Any]]:
         "rules": [{"type": "creation"}],
         "bypass_actors": [dict(ADMIN_ALWAYS)],
     }
-    return [approval, staging, protect, writer, others, *_promote()]
+    return [approval, staging, protect, writer, others, *_promote(), _staging_owners()]
+
+
+def _staging_owners() -> dict[str, Any]:
+    """`staging`'s code-owner review in a ruleset of its own, which the dev App
+    bypasses for pull requests (the main -> staging sync)."""
+    owners = _branch(
+        STAGING_OWNERS_RULESET,
+        ["refs/heads/staging"],
+        [
+            {
+                "type": "pull_request",
+                "parameters": {
+                    "required_approving_review_count": 0,
+                    "require_code_owner_review": True,
+                    "dismiss_stale_reviews_on_push": True,
+                    "require_last_push_approval": False,
+                },
+            }
+        ],
+    )
+    owners["bypass_actors"] = [
+        dict(ADMIN_ALWAYS),
+        {"actor_id": DEV_APP, "actor_type": "Integration", "bypass_mode": "pull_request"},
+    ]
+    return owners
 
 
 def _approval_params(rulesets: list[dict[str, Any]]) -> dict[str, Any]:
@@ -292,8 +328,43 @@ def test_the_dev_app_on_a_creation_ruleset_is_named() -> None:
 
 def test_staging_without_code_owner_review_is_named() -> None:
     rulesets = _good()
-    rulesets[1]["rules"][0]["parameters"]["require_code_owner_review"] = False
+    rulesets[-1]["rules"][0]["parameters"]["require_code_owner_review"] = False
     assert any("code-owner review" in p for p in ruleset_problems(rulesets, EXPECTED))
+    del rulesets[-1]
+    assert any("code-owner review" in p for p in ruleset_problems(rulesets, EXPECTED))
+
+
+def test_the_single_ruleset_layout_still_holds() -> None:
+    # Code-owner review on `staging: require PR` itself, bypassed by the admin
+    # role alone: stricter than the split, so it is no finding.
+    rulesets = _good()
+    del rulesets[-1]
+    rulesets[1]["rules"][0]["parameters"]["require_code_owner_review"] = True
+    assert ruleset_problems(rulesets, EXPECTED) == []
+
+
+def test_the_dev_app_on_the_staging_pr_ruleset_is_named() -> None:
+    # That ruleset carries the required checks; a bypass there skips them.
+    rulesets = _good()
+    rulesets[1]["bypass_actors"].append(
+        {"actor_id": DEV_APP, "actor_type": "Integration", "bypass_mode": "pull_request"}
+    )
+    assert any("staging: require PR" in p for p in ruleset_problems(rulesets, EXPECTED))
+
+
+def test_staging_without_the_staging_base_check_is_named() -> None:
+    rulesets = _good()
+    checks = rulesets[1]["rules"][1]["parameters"]["required_status_checks"]
+    rulesets[1]["rules"][1]["parameters"]["required_status_checks"] = [
+        c for c in checks if c["context"] != "staging-base"
+    ]
+    assert any("staging-base" in p for p in ruleset_problems(rulesets, EXPECTED))
+
+
+def test_the_dev_app_bypassing_staging_code_owners_always_is_named() -> None:
+    rulesets = _good()
+    rulesets[-1]["bypass_actors"][1]["bypass_mode"] = "always"
+    assert any("staging: code owners" in p for p in ruleset_problems(rulesets, EXPECTED))
 
 
 def test_staging_last_push_approval_is_named() -> None:
@@ -345,7 +416,7 @@ def _without(name: str) -> list[dict[str, Any]]:
 
 
 def test_without_the_promote_rulesets_every_rule_is_named() -> None:
-    problems = ruleset_problems(_good()[:5], EXPECTED)
+    problems = ruleset_problems([*_good()[:5], _staging_owners()], EXPECTED)
     assert sorted(problems) == sorted(
         f"no active branch ruleset restricts {rule} of promote/**: "
         + f"a promotion candidate can be {what}"
@@ -440,7 +511,7 @@ def test_the_cli_passes_the_documented_arrangement(tmp_path: Path) -> None:
     _write(tmp_path / "r", _good())
     result = CliRunner().invoke(app, [*_CLI, "--rulesets-dir", str(tmp_path / "r")])
     assert result.exit_code == 0, result.output
-    assert "rulesets OK (7 read)" in result.output
+    assert "rulesets OK (8 read)" in result.output
 
 
 def test_the_cli_fails_and_names_the_problem(tmp_path: Path) -> None:

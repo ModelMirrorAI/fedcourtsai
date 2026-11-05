@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Merge one unattended data-lane PR into `main` once its checks pass, pinned to
-# the commit the job that built it pushed.
+# Merge one unattended data-lane PR into `main`, or the `main` → `staging` sync
+# PR, once its checks pass, pinned to the commit the job that built it pushed.
 #
 #   merge-when-green.sh <pr-number> <head-sha>
 #
@@ -10,7 +10,8 @@
 # (owner/name). Optional: `MERGE_REQUIRED_CHECKS` (space-separated check names
 # that must have reported before a refusal counts as settled; default
 # `gate paths`), `MERGE_METHOD` (default `merge`), `MERGE_WAIT_SECONDS`
-# (default 1200), `MERGE_POLL_SECONDS` (default 30).
+# (default 1200), `MERGE_POLL_SECONDS` (default 30), `MERGE_SYNC` (`true`
+# admits the main → staging sync; any other value refuses a `staging` base).
 #
 # The merge commit's subject is the PR's title with its number, `<title> (#N)`,
 # rather than the platform's `Merge pull request #N from <branch>`. The title
@@ -46,8 +47,12 @@
 #   identity — makes the platform refuse it, and the PR is left for the
 #   maintainer's review, where `dismiss stale reviews` and the extra-approval
 #   rule for unattributed changes apply.
-# - **Its own lane only.** A PR whose base is not `main`, or whose head lives in
-#   another repository, is never merged, whatever number it was handed.
+# - **Its own lanes only.** A PR is merged only into `main`, or — when the
+#   caller sets `MERGE_SYNC=true`, which only `sync-staging` does — into
+#   `staging` from the head `main`: the sync, whose content is `main`'s own
+#   history and which `staging: code owners` lets the dev App land past
+#   code-owner review. Any other base, or a head in another repository, is
+#   never merged, whatever number it was handed.
 # - **Every check is heard first, and any failure stops it,** required or not:
 #   the merge is asked for only once nothing is still running, so a red CodeQL
 #   run on a data PR gets a human look before it lands. Only each check's newest run
@@ -126,7 +131,7 @@ next_poll() {
 # would collapse an empty field and shift the ones after it. The title goes
 # last, so a `|` inside it stays in the last variable rather than shifting the
 # fields before it.
-PULL_JQ='[.state, (.merged | tostring), .head.sha, .base.ref, (.head.repo.full_name // ""), .title] | join("|")'
+PULL_JQ='[.state, (.merged | tostring), .head.sha, .base.ref, (.head.repo.full_name // ""), .head.ref, .title] | join("|")'
 # Newest run per check name, then: how many are still unsettled (queued,
 # running, or cancelled), the failed ones, and the ones that concluded.
 # shellcheck disable=SC2016 # `$latest` is a jq variable, not a shell one
@@ -150,7 +155,7 @@ while :; do
     next_poll
     continue
   fi
-  IFS='|' read -r state merged head base head_repo title <<<"$info"
+  IFS='|' read -r state merged head base head_repo head_ref title <<<"$info"
   if [ -z "$state" ]; then
     last_refusal="the pull request read came back empty"
     next_poll
@@ -164,8 +169,10 @@ while :; do
     report warning "PR #${pr} was closed unmerged; nothing to merge (${pr_url})."
     exit 0
   fi
-  if [ "$base" != "main" ] || [ "$head_repo" != "$REPO" ]; then
-    report warning "PR #${pr} is not a ${REPO} branch into main (base ${base}, head ${head_repo:-unknown}); not merged (${pr_url})."
+  if [ "$head_repo" != "$REPO" ] \
+    || { [ "$base" != "main" ] && { [ "${MERGE_SYNC:-}" != "true" ] \
+      || [ "$base" != "staging" ] || [ "$head_ref" != "main" ]; }; }; then
+    report warning "PR #${pr} is not a ${REPO} branch into main, nor the main → staging sync (base ${base}, head ${head_repo:-unknown}:${head_ref:-unknown}); not merged (${pr_url})."
     exit 0
   fi
   if [ "$head" != "$sha" ]; then

@@ -108,7 +108,7 @@ also on `corpus-write`, for the corpus writer jobs that bind it. Each workflow m
 | `run-pull` (chain-predict job), `run-predict` (chain job) | dispatch | actions write; pull-requests read | start an input-less `run-predict` on `main`: after a pull window commits, and after a round a cap stopped short once its collect PR merges. Both read the open PRs into `main` and their reviews first, standing down while a promotion is about to merge, and `chain` also reads its round's collect PR. The started round derives its own backlog and waits on the review hold unless its own plan auto-releases |
 | `promotion-prep` (`dispatch-gate` job) | dispatch | actions write | start `integration-test` `scenario=gate` (`offline-gate` when `main`'s `scripts/cell_reach.py` calls the batch cell-inert or the `promote:skip-engine-smoke` label is on, never under `promote:require-engine-smoke`) at a promotion candidate's `promote/<date>` branch, only while no dispatched integration run of any title sits at that head and ref: one paid suite per candidate, never re-dispatched by the train, and at most `max_gate_dispatches_per_day` (`config/promotion-train.yaml`) a UTC day across candidates. The run resolves the `staging` environment, spends staging's engine keys with no review hold, and is side-effect free like every integration run |
 | `corpus-check` (post job only) | none — the job's own token | pull-requests write | the one result comment on the PR the plan picked, its body's sha256 recorded in the job's run summary — since any workflow's comment-capable token posts as the same bot, that digest is what marks the lane's result. The ambient token, not an App's: the comment must start nothing, and the job runs no PR code, binds no environment and holds no `id-token`. The `run` job, which runs the PR's code, holds `contents: read` and `id-token` only, and runs that code as an account that can reach neither; `run-auto`, which runs `main`'s, holds the same |
-| `sync-staging` | dev | contents, pull-requests | open the main→staging sync PR and arm auto-merge. Deliberately the dev App, not the data App: an unattended scheduled job must not hold the one identity that bypasses `main: require PR`, and it needs no `main` write at all |
+| `sync-staging` | dev | contents, pull-requests | open the main→staging sync PR, arm auto-merge, and merge it once its checks pass with the dev App's `staging: code owners` bypass (`scripts/merge-when-green.sh`, pinned to the head it read, refusing any PR but a same-repository `main` head into `staging`). Deliberately the dev App, not the data App: an unattended scheduled job must not hold the one identity that bypasses `main: require PR`, and it needs no `main` write at all |
 
 **Repository permissions each App must grant** (App settings → Permissions), at
 the App level the union of what its workflows mint:
@@ -619,19 +619,22 @@ this policy.
   bounded repair sweeps do, each capped per run — but the
   deletion is itself a permanent, attributable commit, visible and revertible
   rather than silent.
-- **`staging: require PR`** — the pre-merge branch every feature PR targets
-  requires a pull request plus the required checks that can report on a
-  staging-targeted PR: `gate` and `paths`. (`main`'s other two,
-  `promotion-gate` and `main-base`, are structurally always-`skipped` here —
-  each keys on a base of `main` — so requiring them would add no
-  signal.) It also requires **review from a code owner**, and **dismisses
+- **`staging: require PR`** and **`staging: code owners`** — the pre-merge
+  branch every feature PR targets requires a pull request plus the required
+  checks that can report on a staging-targeted PR: `gate`, `paths` and
+  `staging-base`. (`main`'s other two, `promotion-gate` and `main-base`, are
+  structurally always-`skipped` here — each keys on a base of `main` — so
+  requiring them would add no signal.) `staging-base` is merge routing for the
+  dev App: it fails any dev App PR into `staging` whose head is not this
+  repository's `main`, so the one dev App PR that can merge here is the sync.
+  The second ruleset requires **review from a code owner**, and **dismisses
   stale approvals when new commits are pushed**: it binds only on a PR whose
   diff touches a path `.github/CODEOWNERS` names (the maintainer owns all of
   them), and a push after the approval dismisses it, so an approved PR cannot
   be extended and merged on the old approval. Approval of the most recent
-  push is **off**: with it on, GitHub asks one approval of every PR, owned
-  path or not, which would end both the agents' self-merge lane and the
-  sync's auto-merge. Every other PR still merges on
+  push is **off** on both: with it on, GitHub asks one approval of every PR,
+  owned path or not, which would end both the agents' self-merge lane and the
+  sync's merge. Every other PR still merges on
   the checks alone, at zero approving reviews. GitHub reads `CODEOWNERS` from the PR's base, so
   the rule binds on `staging` once the file is there. It binds the dev App,
   the agent account interactive sessions act as, and any other identity
@@ -642,21 +645,35 @@ this policy.
   maintainer's own owned-path PR merges through the admin bypass, which is
   visible afterwards as a bypassed merge, and so does one opened by a session
   holding the maintainer's credentials, for which the rule is discipline
-  again. The sync PR is not held by it in practice: its diff
-  against `staging` is the `main` commits `staging` lacks, which are writer
-  data commits and record fills to `docs/freeze-record.md`, an unowned path,
-  since code reaches `main` only from `staging`; a commit to an
-  owned path reaching `main` any other way would stall the sync's auto-merge
-  until the maintainer approves it or lands the sync through the bypass.
-  **Bypass: the repository
-  admin role only**, the escape hatch for a main→staging sync when the ordinary
-  PR path is unavailable; its content is by construction already-gated `main`
-  history merged with already-gated `staging` history.
+  again. The sync PR's diff against `staging` is the `main` commits `staging`
+  lacks: writer data commits, the unattended lanes' jailed PRs, and each
+  promotion's record commit, which fills `docs/freeze-record.md` and, after a
+  promotion that registers something, stamps the code-owned
+  `src/fedcourtsai/process_registry.json`. All of it is `main` history the
+  maintainer already approved in a promotion or a jail already bounded, so
+  **`staging: code owners` lets the dev App bypass it for pull requests**, and
+  `sync-staging` lands the sync with its own merge call
+  (`scripts/merge-when-green.sh`, which refuses any PR but a same-repository
+  `main` head into `staging` there); armed auto-merge alone would wait on the
+  review, since it never exercises a bypass. The bypass is the merging
+  actor's, so what confines it to the sync is the code that holds the dev App
+  key: its credentials live on the `prod` environment, which only `main` may
+  use, so only promoted code can mint the token, and the only such code that
+  merges into `staging` is that job. The required `staging-base` check is a
+  narrower second guard: it keys on the PR's author, not its merger, and fails
+  any PR the dev App opens into `staging` from a head other than `main`; it
+  does not stop the dev App merging a PR someone else opened, which only the
+  code holding the key prevents. **`staging: require
+  PR`'s bypass: the repository admin role only**, and `staging: code owners`
+  adds the dev App for pull requests alone; the admin role is the escape hatch
+  for a main→staging sync when the ordinary PR path is unavailable, its content
+  by construction already-gated `main` history merged with already-gated
+  `staging` history.
   (The GitHub Actions app is not offered as a ruleset bypass actor, and the
   `promote` workflow is deliberately read-only.) The scheduled `sync-staging`
-  workflow does hold a write token to this branch — but it **bypasses
-  nothing**: it opens an ordinary PR that must satisfy the same required checks
-  as any other, and merges it only through them. Worth being precise about what
+  workflow does hold a write token to this branch, and it bypasses the
+  code-owner review alone: it opens an ordinary PR that must satisfy the same
+  required checks as any other, and merges it only through them. Worth being precise about what
   binds there, since the sync PR is a special shape: `paths` is a genuine no-op
   for a head that is not a data-production branch, and the head sha may already
   carry a green `gate` from its push-to-`main` run. That push-run check covered
@@ -667,7 +684,7 @@ this policy.
   tree in every lane, then follows the merge rather than gating it.
   That is adequate for content that is by construction already-gated `main`
   history, and it is not the same as a human reading the diff.
-  **Neither App is a bypass actor here**, so the
+  **Neither App bypasses `staging: require PR`**, so the
   identity-enforced "everything agentic lands via a PR" invariant
   holds one hop before `main` as well: the dev App token minted in the agent
   runs has no zero-PR path onto `staging`. It can create a `promote/` ref —
