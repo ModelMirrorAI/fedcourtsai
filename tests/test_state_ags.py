@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+import yaml
 from pydantic import ValidationError
 from typer.testing import CliRunner
 
@@ -174,8 +175,10 @@ def test_holder_on_and_transition() -> None:
     registry = StateAgRegistry.model_validate(_registry(offices=offices))
     texas = registry.office("TX")
 
-    assert texas.holder_on(date(2026, 11, 5)).name == "Outgoing"
-    assert texas.holder_on(date(2027, 1, 1)).name == "Incoming"
+    assert texas.holder_on(date(2014, 1, 1)) is None
+    now, then = texas.holder_on(date(2026, 11, 5)), texas.holder_on(date(2027, 1, 1))
+    assert now is not None and now.name == "Outgoing"
+    assert then is not None and then.name == "Incoming"
     transition = texas.transition()
     assert transition is not None and transition.name == "Incoming"
     assert registry.office("WY").transition() is None
@@ -313,11 +316,12 @@ def test_board_rows_tiers_counts_and_transitions() -> None:
 
     assert len(rows) == 51
     assert rows["TX"].tier == 4 and rows["TX"].tier_label == "Sues"
-    assert rows["TX"].holder.name == "Outgoing"
+    assert rows["TX"].holder is not None and rows["TX"].holder.name == "Outgoing"
     assert rows["TX"].transition is not None and rows["TX"].transition.name == "Incoming"
     assert not rows["TX"].transition_overdue
     # An uncalled race whose start day has passed is flagged, and names nobody.
-    assert rows["KS"].transition_overdue and rows["KS"].holder.name is None
+    assert rows["KS"].transition_overdue
+    assert rows["KS"].holder is not None and rows["KS"].holder.name is None
     # A defense never raises the tier; CA stays at the letters' rung.
     assert rows["CA"].tier == 1
     assert rows["CA"].window_counts["defense"] == 1
@@ -342,8 +346,8 @@ def test_board_coalition_figures() -> None:
     assert pairs[("CA", "NY")].affinity == 1.0
     assert pairs[("CA", "TX")].joint == 1 and pairs[("CA", "TX")].either == 2
     assert coalition.pairs[0].affinity == 1.0
-    ranking = [(j.state, j.score) for j in coalition.join_rankings["CA"]]
-    assert ranking == [("NY", 1.0), ("TX", 0.25)]
+    ranking = [(j.state, j.score, j.joint, j.either) for j in coalition.join_rankings["CA"]]
+    assert ranking == [("NY", 1.0, 2, 2), ("TX", 0.25, 1, 2)]
     assert "WY" not in coalition.join_rankings
 
 
@@ -378,3 +382,29 @@ def test_cli_writes_the_board(tmp_path: Path) -> None:
 
     assert result.exit_code == 0, result.output
     assert read_model(out, StateAgsBoard).as_of == date(2026, 11, 5)
+
+
+def test_coalition_reads_only_actions_to_the_board_day() -> None:
+    board = build_board(_board_registry(), date(2026, 4, 15), frozenset({"Doe v. Model Co."}))
+
+    assert board.coalition.multistate_actions == 1
+    assert board.coalition.participation["TX"] == 1.0
+
+
+def test_cli_exits_1_on_an_unknown_watchlist_case(tmp_path: Path) -> None:
+    config = tmp_path / "config"
+    config.mkdir()
+    (config / "ai-watchlist.yaml").write_text(
+        _COMMITTED.parent.joinpath("ai-watchlist.yaml").read_text()
+    )
+    (config / "state-ags.yaml").write_text(
+        yaml.safe_dump(_registry(_action(watchlist_case="Nobody v. Nothing")))
+    )
+    result = CliRunner().invoke(
+        app,
+        ["state-ags", "--out", str(tmp_path / "out.json"), "--as-of", "2026-11-05"],
+        env={"FEDCOURTS_CONFIG_ROOT": str(config)},
+    )
+
+    assert result.exit_code == 1
+    assert "is not on the watchlist" in result.output

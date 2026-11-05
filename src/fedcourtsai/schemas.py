@@ -10423,7 +10423,9 @@ class StateAgOfficeRow(_Strict):
     selection: Literal["elected", "governor", "legislature", "court"] = Field(
         description="How the office is filled."
     )
-    holder: StateAgHolderRow = Field(description="The holder in office on the board's day.")
+    holder: StateAgHolderRow | None = Field(
+        description="The holder in office on the board's day; none before the first on record."
+    )
     transition: StateAgHolderRow | None = Field(
         description="The pending successor or uncalled race, when the office is changing hands."
     )
@@ -10484,6 +10486,8 @@ class StateAgJoin(_Strict):
 
     state: str
     affinity: float = Field(ge=0, le=1)
+    joint: int = Field(ge=1, description="Multistate actions the lead and this office both joined.")
+    either: int = Field(ge=1, description="Multistate actions either took part in.")
     participation: float = Field(ge=0, le=1)
     score: float = Field(
         ge=0, le=1, description="affinity times participation; a ranking, not a probability."
@@ -10494,10 +10498,12 @@ class StateAgCoalition(_Strict):
     """The coalition figures, over every multistate action on record."""
 
     multistate_actions: int = Field(
-        ge=0, description="The multistate actions every figure here rests on; read it beside them."
+        ge=0,
+        description="The multistate actions announced on or before the board's day that every "
+        "figure here rests on; read it beside them.",
     )
     participation: dict[str, float] = Field(
-        description="Each office's share of the multistate actions, every office present."
+        description="Each jurisdiction's share of the multistate actions, all 51 present."
     )
     pairs: list[StateAgPair] = Field(
         description="Every pair that co-signed at least once, highest affinity first."

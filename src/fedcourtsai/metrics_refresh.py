@@ -325,8 +325,8 @@ def _state_ags_headline(path: Path) -> str:
     share of it, so a refresh that adds one letter reads as the small change it is.
     """
     board = read_model(path, StateAgsBoard)
-    by_tier = Counter(office.tier_label for office in board.offices)
-    tiers = ", ".join(f"{label} {n}" for label, n in sorted(by_tier.items())) or "no roster"
+    by_tier = Counter((office.tier, office.tier_label) for office in board.offices)
+    tiers = ", ".join(f"{label} {n}" for (_, label), n in sorted(by_tier.items())) or "no roster"
     overdue = sum(1 for office in board.offices if office.transition_overdue)
     stale = f"; {overdue} transition(s) overdue" if overdue else ""
     return (

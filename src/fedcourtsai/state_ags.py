@@ -263,9 +263,12 @@ class Office(BaseModel):
             raise ValueError(f"{self.state}: at most one pending holder, and only last")
         return self
 
-    def holder_on(self, day: date) -> Holder:
-        """The holder in office on ``day``; a successor counts once their start has come."""
-        current = self.holders[0]
+    def holder_on(self, day: date) -> Holder | None:
+        """The holder in office on ``day``; a successor counts once their start has come.
+
+        A day before the first recorded holder's start has no holder on record.
+        """
+        current: Holder | None = None
         for holder in self.holders:
             if holder.start <= day:
                 current = holder
@@ -403,6 +406,10 @@ TIER_LABELS: dict[Rung, str] = {
 }
 
 
+def _holder_name(holder: Holder | None) -> str | None:
+    return None if holder is None else holder.name
+
+
 def _holder_row(holder: Holder) -> StateAgHolderRow:
     return StateAgHolderRow(
         name=holder.name,
@@ -413,22 +420,24 @@ def _holder_row(holder: Holder) -> StateAgHolderRow:
     )
 
 
-def _coalition(registry: StateAgRegistry, states: Sequence[str]) -> StateAgCoalition:
-    """Affinity, participation and join rankings over every multistate action."""
-    multistate = [frozenset(a.states) for a in registry.actions if a.multistate]
+def _coalition(registry: StateAgRegistry, states: Sequence[str], as_of: date) -> StateAgCoalition:
+    """Affinity, participation and join rankings over the multistate actions to ``as_of``."""
+    multistate = [
+        frozenset(a.states) for a in registry.actions if a.multistate and a.announced <= as_of
+    ]
     total = len(multistate)
     joined = {s: sum(1 for group in multistate if s in group) for s in states}
     participation = {s: (joined[s] / total if total else 0.0) for s in states}
-    affinity: dict[tuple[str, str], float] = {}
+    affinity: dict[tuple[str, str], StateAgPair] = {}
     pairs: list[StateAgPair] = []
     for a, b in combinations(states, 2):
         joint = sum(1 for group in multistate if a in group and b in group)
         if not joint:
             continue
         either = sum(1 for group in multistate if a in group or b in group)
-        value = joint / either
-        affinity[(a, b)] = affinity[(b, a)] = value
-        pairs.append(StateAgPair(a=a, b=b, joint=joint, either=either, affinity=value))
+        pair = StateAgPair(a=a, b=b, joint=joint, either=either, affinity=joint / either)
+        affinity[(a, b)] = affinity[(b, a)] = pair
+        pairs.append(pair)
     pairs.sort(key=lambda p: (-p.affinity, -p.joint, p.a, p.b))
     rankings: dict[str, list[StateAgJoin]] = {}
     for lead in states:
@@ -437,9 +446,11 @@ def _coalition(registry: StateAgRegistry, states: Sequence[str]) -> StateAgCoali
         joins = [
             StateAgJoin(
                 state=other,
-                affinity=affinity[(lead, other)],
+                affinity=affinity[(lead, other)].affinity,
+                joint=affinity[(lead, other)].joint,
+                either=affinity[(lead, other)].either,
                 participation=participation[other],
-                score=affinity[(lead, other)] * participation[other],
+                score=affinity[(lead, other)].affinity * participation[other],
             )
             for other in states
             if (lead, other) in affinity
@@ -477,12 +488,13 @@ def build_board(
         mine = [a for a in newest if state in a.states]
         window = [a for a in mine if since < a.announced <= as_of]
         pending = office.transition()
+        current = office.holder_on(as_of)
         tier = registry.tier(state, as_of)
         rows.append(
             StateAgOfficeRow(
                 state=state,
                 selection=office.selection.value,
-                holder=_holder_row(office.holder_on(as_of)),
+                holder=_holder_row(current) if current is not None else None,
                 transition=None if pending is None else _holder_row(pending),
                 transition_overdue=pending is not None and pending.start <= as_of,
                 tier=int(tier),
@@ -502,7 +514,7 @@ def build_board(
             states=list(a.states),
             lead=a.lead,
             holders={
-                s: offices[s].holder_on(a.announced).name if s in offices else None
+                s: _holder_name(offices[s].holder_on(a.announced)) if s in offices else None
                 for s in a.states
             },
             rungs={s: int(a.rung_for(s)) for s in a.states},
@@ -523,5 +535,5 @@ def build_board(
         offices=rows,
         actions=actions,
         defense_and_context=sum(1 for a in newest if track(a.kind) is not Track.enforcement),
-        coalition=_coalition(registry, sorted(JURISDICTIONS)),
+        coalition=_coalition(registry, sorted(JURISDICTIONS), as_of),
     )

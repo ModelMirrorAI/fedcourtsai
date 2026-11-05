@@ -181,7 +181,7 @@
           "type": "object"
         },
         "multistate_actions": {
-          "description": "The multistate actions every figure here rests on; read it beside them.",
+          "description": "The multistate actions announced on or before the board's day that every figure here rests on; read it beside them.",
           "minimum": 0,
           "title": "Multistate Actions",
           "type": "integer"
@@ -198,7 +198,7 @@
           "additionalProperties": {
             "type": "number"
           },
-          "description": "Each office's share of the multistate actions, every office present.",
+          "description": "Each jurisdiction's share of the multistate actions, all 51 present.",
           "title": "Participation",
           "type": "object"
         }
@@ -286,6 +286,18 @@
           "title": "Affinity",
           "type": "number"
         },
+        "either": {
+          "description": "Multistate actions either took part in.",
+          "minimum": 1,
+          "title": "Either",
+          "type": "integer"
+        },
+        "joint": {
+          "description": "Multistate actions the lead and this office both joined.",
+          "minimum": 1,
+          "title": "Joint",
+          "type": "integer"
+        },
         "participation": {
           "maximum": 1,
           "minimum": 0,
@@ -307,6 +319,8 @@
       "required": [
         "state",
         "affinity",
+        "joint",
+        "either",
         "participation",
         "score"
       ],
@@ -326,8 +340,15 @@
           "type": "array"
         },
         "holder": {
-          "$ref": "#/$defs/StateAgHolderRow",
-          "description": "The holder in office on the board's day."
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StateAgHolderRow"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The holder in office on the board's day; none before the first on record."
         },
         "selection": {
           "description": "How the office is filled.",
