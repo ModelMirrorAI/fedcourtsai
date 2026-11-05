@@ -1,0 +1,154 @@
+{
+  "big_case_rationale": "The constitutional status of AR-15 possession has national consequences for categorical rifle bans and for the boundary between protected civilian arms and regulable weapon classes.",
+  "big_case_score": 0.95,
+  "case_id": "scotus/73275179",
+  "claim_distributions": [
+    {
+      "claim_id": "majority-author",
+      "probabilities": {
+        "Alito": 0.1,
+        "Barrett": 0.15,
+        "Gorsuch": 0.06,
+        "Jackson": 0.005,
+        "Kagan": 0.005,
+        "Kavanaugh": 0.34,
+        "Roberts": 0.1,
+        "Sotomayor": 0.005,
+        "Thomas": 0.22,
+        "per-curiam": 0.015
+      }
+    },
+    {
+      "claim_id": "separate-writers",
+      "probabilities": {
+        "Alito": 0.2,
+        "Barrett": 0.3,
+        "Gorsuch": 0.22,
+        "Jackson": 0.35,
+        "Kagan": 0.22,
+        "Kavanaugh": 0.13,
+        "Roberts": 0.07,
+        "Sotomayor": 0.5,
+        "Thomas": 0.37
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.89
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "band_refused": null,
+    "cert_anchor": null,
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-10-22",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 22,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v6",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_contact_scrub": {
+      "blocks": 2,
+      "fields": 12,
+      "sides": [
+        "Other"
+      ]
+    },
+    "snapshot_date": "2026-10-22",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2025,
+    "vide_links": [
+      "25-566"
+    ]
+  },
+  "created_at": "2026-11-05T02:53:31.660235Z",
+  "engine": "codex",
+  "event_id": "evt-brief-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-10-22.json",
+  "judgment": "reversed",
+  "model": "gpt-6.1-sol",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.89,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:5b6efbbb2270718377da537c3ea04c727a2a855ffdae684da2a313c003699593",
+    "label": "proc-v17",
+    "pipeline_sha": "d188b8d658b37d241977fd882251f66a1ca7e56a",
+    "stamped_at": "2026-11-05T02:53:31.660235Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261105T015156Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority will hold that Heller's protection of arms in common lawful civilian use forecloses categorical bans on AR-15 platform and similar semiautomatic rifles; military resemblance and exceptional dangerousness do not supply an independent historical exception for this commonly possessed class."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The majority will announce a class-wide protection against categorical possession bans on AR-15 platform and similar semiautomatic rifles, rather than confining relief to these plaintiffs or merely requiring a better evidentiary record."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "dissent",
+      "writing": null
+    }
+  ]
+}

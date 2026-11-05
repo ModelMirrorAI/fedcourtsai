@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000527",
+  "run_id": "20261105T015156Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "CourtListener MCP search",
+    "CourtListener MCP search_document",
+    "web.run search/open",
+    "fedcourts validate"
+  ],
+  "helpful": [
+    "Frozen reached-band cert anchor with salience version and digest",
+    "Provisioned lower-court opinion and separately filed appendix",
+    "Paid-segment statistical cuts with resolved denominators"
+  ],
+  "gaps": [
+    "CourtListener opinion-text request returned HTTP 502 after successful citation search",
+    "Web requests returned no usable content",
+    "Default uv cache was read-only; commands required UV_CACHE_DIR=/tmp/uv-cache"
+  ],
+  "notes": "Completed from the common baseline and provisioned legal record. Corpus examples were selected denials rather than a representative sample. No package installation, direct CourtListener REST fallback, or target-outcome retrieval was attempted."
+}

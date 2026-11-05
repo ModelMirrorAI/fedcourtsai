@@ -1,0 +1,25 @@
+# Forecast of the Court's Decision: *Jasmine Younge v. Fulton Judicial Circuit District Attorney's Office, Georgia* (No. 25-352)
+
+## 1. Judgment Class and Vote Lineup
+
+- **Judgment**: `vacated` (the judgment of the Eleventh Circuit is vacated and the case is remanded for further proceedings consistent with the Court's opinion).
+- **Vote Lineup**: `9-0` unanimous decision. All nine Justices (`Roberts`, `Thomas`, `Alito`, `Sotomayor`, `Kagan`, `Gorsuch`, `Kavanaugh`, `Barrett`, and `Jackson`) join the judgment and opinion of the Court.
+
+## 2. Doctrinal Ground and Breadth
+
+### Majority Ground (`majority-ground`)
+The Court will hold that under the plain text and interlocking structure of Federal Rules of Civil Procedure 8(c)(1), 12(b), 15(a), and 16(b)(4), a defendant that omits an affirmative defense from its answer cannot raise that defense for the first time in a post-answer motion for summary judgment unless it satisfies the standards for amending its pleading under Rule 15(a)(2) and, where a scheduling-order deadline for amending pleadings has passed, Rule 16(b)(4)'s "good cause" requirement. The Court will reject the Eleventh Circuit's standalone "no prejudice" exception (*Hassan v. U.S. Postal Service*, 842 F.2d 260 (11th Cir. 1988)), explaining that *Hassan* improperly bypasses Rule 16(b)(4)'s diligence requirement and collapses the multi-factor *Foman v. Davis* / Rule 15(a)(2) inquiry into a single question of discovery prejudice, while also creating an unjustified asymmetry between plaintiffs (who must satisfy Rules 15 and 16 to add unpleaded claims at summary judgment) and defendants. The Court will also reject the District Attorney's Office's arguments that Rule 12(h)(1), *Dupree v. Younger*, or Rule 61's harmless-error rule license a party or district court to disregard the mandatory pleading and amendment framework of Rules 8(c), 15(a), and 16(b)(4).
+
+### Breadth of the Holding (`ground-breadth`)
+The Court's holding will be procedurally focused and measured in two respects:
+1. **Constructive Amendment Permitted**: Rather than requiring a rigid, formalistic separate filing styled as a motion to amend (the D.C. Circuit's approach in *Harris v. Secretary, U.S. Department of Veterans Affairs*), the Court will confirm that a district court may treat the assertion of an unpleaded affirmative defense at summary judgment as a constructive motion to amend the answer, so long as the court actually applies the substantive standards of Rule 15(a)(2) and (when a scheduling order deadline has expired) Rule 16(b)(4).
+2. **Threshold Title VII Characterization Left for Remand**: The Court will proceed on the assumption applied by the Eleventh Circuit below—that Title VII's "personal staff" exclusion in 42 U.S.C. § 2000e(f) is an affirmative defense—without deciding whether § 2000e(f)'s definition of "employee" is instead an element of a Title VII plaintiff's claim. The Court will leave for the Eleventh Circuit on remand whether the District Attorney's Office forfeited the argument that the personal-staff provision is an element rather than an affirmative defense, and whether the District Attorney's Office can satisfy the governing standards of Rules 15(a) and 16(b)(4).
+
+## 3. Procedural Exits (DIG / Equally Divided Court)
+
+A dismissal as improvidently granted (`dismissed-as-improvidently-granted`) is unlikely (~2%). Although several Justices noted at oral argument that Title VII's personal-staff exclusion in 42 U.S.C. § 2000e(f) may be an element of the plaintiff's claim rather than an affirmative defense, the Justices expressly indicated (e.g., Justices Gorsuch, Sotomayor, Kagan, and Alito) that because the Eleventh Circuit assumed without deciding that it was an affirmative defense and applied its categorical *Hassan* rule to excuse compliance with Rules 15 and 16, the Court can cleanly resolve the Federal Rules question presented on that assumption and remand for the lower courts to address any remaining issues. No Justice is recused, so an affirmance by an equally divided Court is not in play.
+
+## 4. Authorship Forecast
+
+- **Majority Author (`majority-author`)**: Justice Jackson (`0.23`) is the likeliest author of the Opinion of the Court, followed by Justice Sotomayor (`0.18`), Justice Kagan (`0.14`), and Justice Barrett (`0.14`). Justice Jackson led the questioning on the relationship between Rule 8(c) notice, Rule 15/16 amendment standards, and Rule 61 harmless error, and brings trial-court experience with Rule 16 scheduling orders.
+- **Separate Writings (`separate-writers`)**: Most likely none, as unanimous Federal Rules opinions typically command a single clean opinion. If any separate writing occurs, Justice Alito (`0.15`) or Justice Gorsuch (`0.12`) is the likeliest to write a brief concurrence emphasizing that the Court is assuming without deciding that 42 U.S.C. § 2000e(f)'s definition of "employee" is an affirmative defense and flagging that statutory definitions of covered employees are ordinarily elements of the claim.

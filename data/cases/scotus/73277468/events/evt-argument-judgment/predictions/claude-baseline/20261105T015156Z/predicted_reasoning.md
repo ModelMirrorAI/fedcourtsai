@@ -1,0 +1,19 @@
+# Forecast: Younge v. Fulton Judicial Circuit District Attorney's Office (No. 25-352), post-argument
+
+**Judgment class: vacated (and remanded).** The Court will set aside the Eleventh Circuit's judgment, which upheld summary judgment for the DA's office on an affirmative defense (the Title VII personal-staff exemption) that the office never pleaded. It will remand for the lower courts to decide whether the answer may be amended under the Rules' own standards. "Reversed and remanded" is the main alternative label, and I put it at about a third of the disturbed mass. An outright affirmance is the main undisturbed path. I do not expect a DIG: the question was argued cleanly, and both counsel accepted that the defense was an affirmative defense for purposes of the case.
+
+**Vote: 7–2.** Roberts, Sotomayor, Kagan, Gorsuch, Kavanaugh, Barrett and Jackson form the majority. Thomas and Alito dissent.
+- Kagan, Sotomayor and Jackson pressed the respondent that the Rules already give the standard for fixing a pleading mistake ("the rules are the rules"). Jackson added that a prejudice-only test gives parties a reason to skip motions to amend.
+- Gorsuch used repeated hypotheticals about undue delay and bad faith to show that Rule 15 can deny leave without any prejudice. He drew from respondent the concession that courts may look at bad faith, which he called an admission that Rule 15 applies.
+- Barrett got petitioner to concede that a formal motion is not required, and got respondent to say it had no real objection to the Foman factors being applied. That narrows the case to "apply Rules 15/16, construe the motion if you like," which is an easy disposition to join.
+- Kavanaugh's questions focused on whether good cause is required on top of prejudice. That is more consistent with joining a rules-based holding than with resisting one, though he is the least certain member of the majority.
+- Roberts asked nothing. He is placed by the base rate and by how easily the narrow holding can be joined.
+- Alito questioned whether undue delay can really differ from prejudice ("a sliver"). He warned about the cost of formalism given how unclear the line between affirmative defense and element is, and challenged whether Rule 16(b)(4) is even in the case. Thomas focused on the absence of prejudice. Both read as votes to affirm, or at most to concur in the judgment on narrow terms.
+
+A unanimous vacatur, with Alito and Thomas writing to stress that amendment should be freely allowed on remand, is a live alternative (about 25%).
+
+**Ground.** The majority holds that an unpleaded affirmative defense may be raised at summary judgment only through amendment, governed by Rule 15(a)(2) and, where a scheduling-order deadline has passed, by Rule 16(b)(4). The Eleventh Circuit's Hassan no-prejudice test is rejected as a substitute for those standards. The text of Rule 8(c), and the Rule 12(b) and 15(b)(2) carve-outs read as exceptions, support the reading.
+
+**Breadth: narrow.** The Court does not require a separate formal motion and endorses the Second/Tenth Circuit practice of construing the summary judgment motion as one for leave to amend. It leaves open whether Rule 16(b)(4) applies here (Alito's local-rules point), whether "mistake" can ever be good cause, and whether the exemption is an affirmative defense at all.
+
+**Who writes.** This is a November-sitting case. Kagan, Barrett and Gorsuch led the questioning toward the likely holding, so they are my leading candidates for the majority opinion, with Kagan slightly ahead. Alito is the most likely separate writer (a dissent or a concurrence in the judgment about formalism and the element/defense line), then Thomas. Gorsuch or Jackson may concur, Gorsuch on undue delay and Rule 61 harmlessness, Jackson on incentives and the 16(b)(4) good-cause question.
