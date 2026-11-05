@@ -1,0 +1,152 @@
+{
+  "big_case_rationale": "A recurring but technical civil-procedure question (unpleaded affirmative defenses at summary judgment); it matters to litigators across the circuits, not to the public at large.",
+  "big_case_score": 0.2,
+  "case_id": "scotus/73277468",
+  "claim_distributions": [
+    {
+      "claim_id": "majority-author",
+      "probabilities": {
+        "Alito": 0.05,
+        "Barrett": 0.17,
+        "Gorsuch": 0.13,
+        "Jackson": 0.1,
+        "Kagan": 0.18,
+        "Kavanaugh": 0.09,
+        "Roberts": 0.08,
+        "Sotomayor": 0.1,
+        "Thomas": 0.06,
+        "per-curiam": 0.04
+      }
+    },
+    {
+      "claim_id": "separate-writers",
+      "probabilities": {
+        "Alito": 0.5,
+        "Barrett": 0.12,
+        "Gorsuch": 0.25,
+        "Jackson": 0.25,
+        "Kagan": 0.08,
+        "Kavanaugh": 0.15,
+        "Roberts": 0.05,
+        "Sotomayor": 0.12,
+        "Thomas": 0.4
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.82
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "elevated",
+    "band_refused": null,
+    "cert_anchor": null,
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-11-03",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 3,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v6",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_contact_scrub": {
+      "blocks": 1,
+      "fields": 6,
+      "sides": [
+        "Other"
+      ]
+    },
+    "snapshot_date": "2026-11-03",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2025,
+    "vide_links": []
+  },
+  "created_at": "2026-11-05T02:49:03.409257Z",
+  "engine": "claude-code",
+  "event_id": "evt-argument-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-11-03.json",
+  "judgment": "vacated",
+  "model": "claude-opus-5-5",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.82,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:33a3f9f8f53a2f6cb53967a60d836c3ba29f0078c12306fb8696e15d7c674978",
+    "label": "proc-v17",
+    "pipeline_sha": "d188b8d658b37d241977fd882251f66a1ca7e56a",
+    "stamped_at": "2026-11-05T02:49:03.409257Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261105T015156Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority holds that a defendant who omitted an affirmative defense from its answer may rely on it at summary judgment only through amendment of the pleading, and that the court must apply the standards Rules 15(a)(2) and (where a scheduling-order deadline has passed) 16(b)(4) themselves supply \u2014 rejecting the Eleventh Circuit's Hassan rule, which permits the unpleaded defense whenever the plaintiff shows no prejudice, as a judge-made substitute for the rules' text."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The holding is narrow: it does not require a formal motion to amend (a district court may treat the summary judgment motion as a motion for leave to amend), does not decide whether Rule 16(b)(4) applies on this record or whether the personal-staff exemption is an affirmative defense, and does not decide whether amendment should be allowed here \u2014 those questions are left to the courts below on remand."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "majority",
+      "writing": null
+    }
+  ]
+}

@@ -1,0 +1,152 @@
+{
+  "big_case_rationale": "Routine but practically significant Federal Rules of Civil Procedure question resolving a multi-circuit split on raising unpleaded affirmative defenses at summary judgment.",
+  "big_case_score": 0.35,
+  "case_id": "scotus/73277468",
+  "claim_distributions": [
+    {
+      "claim_id": "majority-author",
+      "probabilities": {
+        "Alito": 0.04,
+        "Barrett": 0.14,
+        "Gorsuch": 0.1,
+        "Jackson": 0.23,
+        "Kagan": 0.14,
+        "Kavanaugh": 0.08,
+        "Roberts": 0.05,
+        "Sotomayor": 0.18,
+        "Thomas": 0.03,
+        "per-curiam": 0.01
+      }
+    },
+    {
+      "claim_id": "separate-writers",
+      "probabilities": {
+        "Alito": 0.15,
+        "Barrett": 0.04,
+        "Gorsuch": 0.12,
+        "Jackson": 0.04,
+        "Kagan": 0.03,
+        "Kavanaugh": 0.04,
+        "Roberts": 0.02,
+        "Sotomayor": 0.04,
+        "Thomas": 0.08
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.9
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "elevated",
+    "band_refused": null,
+    "cert_anchor": null,
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-11-03",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 3,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v6",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_contact_scrub": {
+      "blocks": 1,
+      "fields": 6,
+      "sides": [
+        "Other"
+      ]
+    },
+    "snapshot_date": "2026-11-03",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2025,
+    "vide_links": []
+  },
+  "created_at": "2026-11-05T02:55:06.782223Z",
+  "engine": "gemini",
+  "event_id": "evt-argument-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-11-03.json",
+  "judgment": "vacated",
+  "model": "gemini-4-argon",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "gemini-baseline",
+  "probability": 0.9,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:1389c40a89d22cb951b25dad96d18d307cef26db4f6b66cdd425ea8fcf0f49b6",
+    "label": "proc-v17",
+    "pipeline_sha": "d188b8d658b37d241977fd882251f66a1ca7e56a",
+    "stamped_at": "2026-11-05T02:55:06.782223Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261105T015156Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The Court holds that under the plain text and structure of Federal Rules of Civil Procedure 8(c)(1), 15(a), and 16(b)(4), a defendant that failed to plead an affirmative defense in its answer cannot assert that defense for the first time in a summary judgment motion unless it satisfies the governing standards for amending its answer under Rule 15(a) and, where a scheduling order deadline has expired, Rule 16(b)(4)'s good-cause requirement, rejecting the Eleventh Circuit's standalone no-prejudice rule."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The Court issues a narrow procedural holding confined to the Rule 15 and Rule 16(b)(4) standards governing unpleaded affirmative defenses at summary judgment (permitting district courts to treat a summary judgment motion as a constructive motion to amend if those substantive standards are met), while declining to decide in the first instance whether Title VII's personal-staff exclusion in 42 U.S.C. 2000e(f) is an affirmative defense or an element of the plaintiff's claim and leaving that issue and any forfeiture questions for remand."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "majority",
+      "writing": null
+    }
+  ]
+}

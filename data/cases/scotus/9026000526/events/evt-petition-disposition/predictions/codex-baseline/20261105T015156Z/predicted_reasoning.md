@@ -1,0 +1,11 @@
+# Forecast of the Court's action
+
+The Court will deny the petition, most likely in the ordinary orders following the November 13, 2026 conference, without an explanatory opinion. The snapshot shows **one distribution and zero relists**. The modal forecast is **no further distribution**; the probability of at least one more is 10%. On that less likely path, one additional distribution is more likely than a prolonged series, potentially after the Court requests Mississippi's response.
+
+The Court will not call for the Solicitor General's views; the probability of a new CVSG is 0.2%. This state criminal case does not present a distinctive federal institutional interest warranting that procedure.
+
+The petition will not attract four votes for review because its asserted conflict is more likely to be treated as an application of the settled distinction between a substantive acquittal and a defense-requested procedural dismissal. The fact that evidence had closed does not itself distinguish Scott. An unexplained denial will not affirm the lower court's reasoning or establish that retrial is constitutionally permissible.
+
+**If review is granted**, the Court will most likely address the petition's single question in a narrowed, functional formulation: whether this particular compulsory-process dismissal actually resolved criminal liability and therefore constituted an acquittal for federal double-jeopardy purposes, notwithstanding the lack of a separate insufficiency finding. It will not undertake a general reconsideration of compulsory-process remedies or Mississippi's appellate statute. Plenary briefing and argument are more likely than a summary order: **P(summary disposition | grant) = 22%**. A summary reversal is a more plausible summary route than a GVR, because no identified intervening decision supplies a remand trigger.
+
+No Justice will note a dissent or statement respecting the expected denial. **P(any such dissent or statement | denial) = 3.5%**. If a writing does appear, Sotomayor or Jackson is the most plausible author, with Gorsuch a lesser possibility; these are low-probability authorship alternatives, not predictions of a disclosed vote tally. No majority merits opinion accompanies the predicted denial.

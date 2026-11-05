@@ -1,0 +1,154 @@
+{
+  "big_case_rationale": "First plenary ruling on whether states/localities may ban AR-15-platform rifles; affects bans in roughly ten states and many localities.",
+  "big_case_score": 0.93,
+  "case_id": "scotus/73275179",
+  "claim_distributions": [
+    {
+      "claim_id": "majority-author",
+      "probabilities": {
+        "Alito": 0.13,
+        "Barrett": 0.15,
+        "Gorsuch": 0.07,
+        "Jackson": 0.02,
+        "Kagan": 0.02,
+        "Kavanaugh": 0.22,
+        "Roberts": 0.17,
+        "Sotomayor": 0.02,
+        "Thomas": 0.18,
+        "per-curiam": 0.02
+      }
+    },
+    {
+      "claim_id": "separate-writers",
+      "probabilities": {
+        "Alito": 0.3,
+        "Barrett": 0.4,
+        "Gorsuch": 0.35,
+        "Jackson": 0.6,
+        "Kagan": 0.25,
+        "Kavanaugh": 0.35,
+        "Roberts": 0.08,
+        "Sotomayor": 0.45,
+        "Thomas": 0.55
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.88
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "band_refused": null,
+    "cert_anchor": null,
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-10-22",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 22,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v6",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_contact_scrub": {
+      "blocks": 2,
+      "fields": 12,
+      "sides": [
+        "Other"
+      ]
+    },
+    "snapshot_date": "2026-10-22",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2025,
+    "vide_links": [
+      "25-566"
+    ]
+  },
+  "created_at": "2026-11-05T02:50:23.576324Z",
+  "engine": "claude-code",
+  "event_id": "evt-brief-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-10-22.json",
+  "judgment": "reversed",
+  "model": "claude-opus-5-5",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.88,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:33a3f9f8f53a2f6cb53967a60d836c3ba29f0078c12306fb8696e15d7c674978",
+    "label": "proc-v17",
+    "pipeline_sha": "d188b8d658b37d241977fd882251f66a1ca7e56a",
+    "stamped_at": "2026-11-05T02:50:23.576324Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261105T015156Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority holds that AR-15-platform and similar semiautomatic rifles are 'Arms' under the plain text, rejecting the Seventh Circuit's (Bevis) move of treating 'military-style' weapons as outside the text, and that under Heller's common-use rule (grounded in the 'dangerous and unusual' tradition) an arm commonly possessed by law-abiding citizens for lawful purposes cannot be categorically banned; it rejects the Second Circuit's 'unusually dangerous' historical-analogue test and the respondents' trap-gun/Bowie-knife analogues as a basis for a possession ban, treating Heller and Bruen as having already done the historical work."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The holding is a categorical rule, not a fact-bound remand: outright possession bans on arms in common use are unconstitutional, applied to the AR-15 class as a whole on the basis of its nationwide ownership and lawfulness in most States, without a case-specific empirical record of self-defense use; but the majority expressly reserves magazine-capacity limits, feature-based regulation short of a ban, and machine guns, and does not fix a numeric threshold for 'common use'."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "dissent",
+      "writing": null
+    }
+  ]
+}

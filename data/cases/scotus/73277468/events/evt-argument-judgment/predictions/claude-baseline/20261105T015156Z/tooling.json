@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/73277468",
+  "run_id": "20261105T015156Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "argument-features.json"],
+  "helpful": ["Full argument transcript and per-Justice turn counts", "Merits section with excluded count made the anchor straightforward"],
+  "gaps": ["Corpus query has no subject/QP filter, so finding civil-procedure merits priors (e.g., Rule 8/15 cases) is impractical"],
+  "notes": "Transcript dominated the forecast; corpus priors were not informative for a merits cell."
+}
