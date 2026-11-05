@@ -598,8 +598,10 @@ def test_the_trimmed_update_lists_the_biggest_cases_and_links_the_full_one(
         "Case J v. United States",
     ]
     assert (
-        "Showing the 3 of 12 cases that the models rated the biggest, by their mean big-case "
-        f"score. All 12 are in [the full update](https://fedcourts.ai/updates/{week}/)."
+        "Showing the 3 of 12 cases that the models rated the biggest, by the mean big-case "
+        "score of their forecasts. The pick is by stakes, not by how the forecasts fared, and "
+        "each count below covers every case in its group. All 12 are in "
+        f"[the full update](https://fedcourts.ai/updates/{week}/)."
     ) in trimmed
     # The count covers the whole group, so the trim cannot hide the base rate.
     assert "12 resolved: 10 denied, 2 another outcome. 3 of them shown." in trimmed
@@ -677,3 +679,63 @@ def test_the_email_draft_is_trimmed_and_the_history_is_not(
 
     archive_public_updates(data, metrics, week)
     assert archive_path(metrics, week).read_text().count("- **") == EMAIL_TOP + 2
+
+
+def test_a_resolved_group_with_nothing_listed_keeps_its_count_and_a_zero_read_counts(
+    tmp_path: Path,
+) -> None:
+    data = tmp_path / "data"
+    base = _base()
+    resolved_on = (base + timedelta(days=2)).date()
+    _event(data, 951, "Big v. Case")
+    _forecast(data, 951, at=base, probability=0.2, big_case_score=0.9)
+    _outcome(data, 951, on=resolved_on, disposition=Disposition.denied)
+    for docket in (952, 953):
+        _event(
+            data,
+            docket,
+            f"Small {docket} v. Case",
+            "evt-motion-disposition",
+            kind=EventKind.motion,
+            stage=Stage.interim,
+        )
+        _forecast(
+            data,
+            docket,
+            at=base,
+            probability=0.2,
+            big_case_score=0.0,
+            event_id="evt-motion-disposition",
+        )
+        _outcome(
+            data,
+            docket,
+            on=resolved_on,
+            disposition=Disposition.denied,
+            event_id="evt-motion-disposition",
+        )
+    _event(
+        data,
+        954,
+        "Unrated v. Case",
+        "evt-motion-disposition",
+        kind=EventKind.motion,
+        stage=Stage.interim,
+    )
+    _forecast(data, 954, at=base, probability=0.2, event_id="evt-motion-disposition")
+    _outcome(
+        data, 954, on=resolved_on, disposition=Disposition.denied, event_id="evt-motion-disposition"
+    )
+    update = build_public_update(data, _week_of(resolved_on))
+
+    one = render_public_update(update, top=1).split("## New forecasts")[0]
+    assert "Big v. Case" in one
+    assert "Small" not in one
+    assert "3 resolved: 3 denied, 0 another outcome. None of them shown." in one
+
+    # A 0.0 read is a rating; a case with none is never picked to fill the list.
+    three = render_public_update(update, top=3).split("## New forecasts")[0]
+    assert "Small 952 v. Case" in three
+    assert "Small 953 v. Case" in three
+    assert "Unrated v. Case" not in three
+    assert "Showing the 3 of 4 cases" in three

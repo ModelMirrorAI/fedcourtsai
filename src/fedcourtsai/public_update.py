@@ -25,12 +25,13 @@ out of the new-forecasts list.
 
 The email carries a trimmed copy: each section lists only the
 :data:`EMAIL_TOP` cases the models rated the biggest, by the mean
-``big_case_score`` of the forecasts shown beside them, and links the week's
+``big_case_score`` of every forecast shown on the case in that section, and links the week's
 full update on the site (:func:`site_update_url`), which the history under
 ``metrics/updates/`` always holds whole. A stakes read is a panel opinion about
 which cases matter, not a forecast, so it picks which lines a reader sees first
 and nothing else; each resolved group's outcome count is still taken over the
-whole group, so the trim cannot hide the base rate.
+whole group, and a resolved group none of whose cases is listed keeps its
+heading and count, so the trim cannot hide the base rate.
 
 The update **computes no score**. It states a forecast and an outcome side by
 side and links the committed cell; any accuracy figure belongs to a committed
@@ -208,10 +209,10 @@ class EventItem:
     #: Whether the resolution is the stage's usual one — a denial, or an
     #: affirmance on the merits. Always true for an unresolved item.
     usual: bool = True
-    #: The mean ``big_case_score`` of the forecasts shown, where any carries
-    #: one: how much the models read the case as mattering. It ranks the
-    #: emailed update's lines and is never shown or scored.
-    stakes: float | None = None
+    #: The ``big_case_score`` of each forecast shown that carries one: how much
+    #: the models read the case as mattering. It ranks the emailed update's
+    #: cases and is never shown or scored.
+    stakes: tuple[float, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -473,7 +474,7 @@ def _item(
         outcome=_outcome_words(stage, outcome) if outcome is not None else None,
         usual=_usual(stage, outcome) if outcome is not None else True,
         resolved_at=outcome.resolved_at if outcome is not None else None,
-        stakes=sum(scores) / len(scores) if scores else None,
+        stakes=tuple(scores),
     )
 
 
@@ -577,28 +578,39 @@ def _group_order(stage: Stage | None, moment: Moment | None) -> tuple[int, str]:
 def _biggest(items: Sequence[EventItem], top: int) -> set[str]:
     """The ``top`` cases the models rated biggest, as case ids.
 
-    A case is ranked by the highest :attr:`EventItem.stakes` among its events
-    in the section, descending; a case with no stakes read comes after every
-    case with one, and ties fall in caption order, so the same tree always
-    picks the same cases. Every event of a picked case is listed.
+    A case's rating is the mean of every stakes read on its events in the
+    section, and the highest ratings are picked, ties in caption order so the
+    same tree always picks the same cases. A case with no stakes read is never
+    picked, so fewer than ``top`` come back where fewer were rated. Every event
+    of a picked case is listed.
     """
-    best: dict[str, EventItem] = {}
-    for item in items:
-        held = best.get(item.case_id)
-        if held is None or (item.stakes or -1.0) > (held.stakes or -1.0):
-            best[item.case_id] = item
+    reads: dict[str, list[float]] = {}
+    first: dict[str, EventItem] = {}
+    for item in sorted(items, key=_order):
+        first.setdefault(item.case_id, item)
+        reads.setdefault(item.case_id, []).extend(item.stakes)
+    rated = [case_id for case_id, scores in reads.items() if scores]
     ranked = sorted(
-        best.values(),
-        key=lambda item: (item.stakes is None, -(item.stakes or 0.0), *_order(item)),
+        rated,
+        key=lambda case_id: (
+            -sum(reads[case_id]) / len(reads[case_id]),
+            *_order(first[case_id]),
+        ),
     )
-    return {item.case_id for item in ranked[:top]}
+    return set(ranked[:top])
 
 
-def _trim_note(shown: int, total: int, full_url: str | None) -> str:
+def _trim_note(shown: int, total: int, full_url: str | None, *, resolved: bool) -> str:
     where = f"[the full update]({full_url})" if full_url else "the full update"
+    counts = (
+        " The pick is by stakes, not by how the forecasts fared, and each count below "
+        "covers every case in its group."
+        if resolved
+        else ""
+    )
     return (
-        f"Showing the {shown} of {total} cases that the models rated the biggest, by their "
-        f"mean big-case score. All {total} are in {where}."
+        f"Showing the {shown} of {total} cases that the models rated the biggest, by the "
+        f"mean big-case score of their forecasts.{counts} All {total} are in {where}."
     )
 
 
@@ -618,8 +630,9 @@ def _section(
     not bury the cases that went the other way.
 
     With ``top``, only the events of the ``top`` cases the models rated biggest
-    are listed (:func:`_biggest`), and a group none of them falls in is left
-    out; a resolved group's outcome count still covers every event in it.
+    are listed (:func:`_biggest`). A new-forecasts group none of them falls in
+    is left out; a resolved group keeps its heading and an outcome count that
+    covers every event in it, however few of them are listed.
     """
     cases = len({item.case_id for item in items})
     keep = _biggest(items, top) if top is not None and cases > top else None
@@ -628,12 +641,14 @@ def _section(
         groups.setdefault((item.stage, item.moment), []).append(item)
     lines = [f"## {title}", ""]
     if keep is not None:
-        lines += [_trim_note(len(keep), cases, full_url), ""]
+        lines += [_trim_note(len(keep), cases, full_url, resolved=resolved), ""]
     explained: set[Stage | None] = set()
     for stage, moment in sorted(groups, key=lambda key: _group_order(*key)):
         members = groups[(stage, moment)]
         shown = [item for item in members if keep is None or item.case_id in keep]
-        if not shown:
+        # A resolved group keeps its heading and count when none of it is
+        # listed, so the trim never hides how a group went.
+        if not shown and not resolved:
             continue
         # How to read the percentages is said once per stage in a section,
         # under the stage's first group.
@@ -646,7 +661,16 @@ def _section(
         explained.add(stage)
         count = _outcome_count(stage, members) if resolved else ""
         if count and len(shown) < len(members):
-            count += f"{len(shown)} of them shown. "
+            count += f"{len(shown) or 'None'} of them shown. "
+        elif resolved and not shown:
+            # A lone event carries no count of its own, so say how it went.
+            usual_label, other_label = (
+                _USUAL_LABEL.get(stage, ("usual", "other"))
+                if stage is not None
+                else ("usual", "other")
+            )
+            went = usual_label if members[0].usual else other_label
+            count = f"1 resolved: {went}, not shown. "
         intro = (count + note).strip()
         lines += [_heading(stage, moment), ""] + ([intro, ""] if intro else [])
         usual = [item for item in shown if item.usual]
