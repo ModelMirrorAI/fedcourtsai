@@ -1,0 +1,283 @@
+{
+  "actor_id": "codex-baseline",
+  "calls": [
+    {
+      "call_source": "transcript_item",
+      "params_digest": "c5d9444a3ad0a72b",
+      "query": "{\"cmd\": \"pwd; rg --files -g AGENTS.md -g '.github/prompts/predict.md' -g 'data/cases/scotus/9026000379/**' -g '!**/.git/**' .; cat .github/prompts/predict.md\", \"max_output_tokens\": 12000}",
+      "result_capture": "captured",
+      "result_digest": "d4c710e422b91f95",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T22:05:27.600Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "41f36d19f4e6ebfb",
+      "query": "{\"cmd\": \"wc -l .github/prompts/predict.md; sed -n '85,255p' .github/prompts/predict.md; rg -n '^#|^\\\\*\\\\*|schemas/|statpack|stable' .github/prompts/predict.md; rg --files -g AGENTS.md -g '!data/**' -g '!**/predictions/**' -g '!**/evaluations/**'\", \"max_output_tokens\": 14500}",
+      "result_capture": "captured",
+      "result_digest": "da37f0854e39553b",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T22:05:31.785Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "eee7eaf331cb84c9",
+      "query": "{\"cmd\": \"cat schemas/prediction.schema.json; sed -n '165,435p' .github/prompts/predict.md\", \"max_output_tokens\": 21000}",
+      "result_capture": "captured",
+      "result_digest": "be82dd5f4ea57a06",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T22:05:34.031Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "218e6a3c78951f27",
+      "query": "{\"cmd\": \"sed -n '165,328p' .github/prompts/predict.md; sed -n '443,547p' .github/prompts/predict.md; sed -n '1046,1262p' .github/prompts/predict.md\", \"max_output_tokens\": 18500}",
+      "result_capture": "captured",
+      "result_digest": "40c386ef72a354dc",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T22:05:35.991Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "536fc4392ee8b57b",
+      "query": "{\"plan\": [{\"status\": \"in_progress\", \"step\": \"Read contract and case inputs\"}, {\"status\": \"pending\", \"step\": \"Assess priors and forecast outcomes\"}, {\"status\": \"pending\", \"step\": \"Write and validate cell outputs\"}]}",
+      "result_capture": "captured",
+      "result_digest": "53df1c0978995ecc",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T22:05:38.102Z",
+      "tool": "update_plan"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "9d31c68c6d5eaeb0",
+      "query": "{\"cmd\": \"sed -n '262,365p' .github/prompts/predict.md; sed -n '443,547p' .github/prompts/predict.md\", \"max_output_tokens\": 8500}",
+      "result_capture": "captured",
+      "result_digest": "f87f18ac0bcfcb3a",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T22:05:40.555Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "efcb92d8e268454c",
+      "query": "{\"cmd\": \"sed -n '1046,1144p' .github/prompts/predict.md\", \"max_output_tokens\": 6500}",
+      "result_capture": "captured",
+      "result_digest": "07c50a3c87c40642",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T22:05:42.521Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "d3a9a1f02d9849cd",
+      "query": "{\"cmd\": \"sed -n '1144,1208p' .github/prompts/predict.md; sed -n '1263,1413p' .github/prompts/predict.md\", \"max_output_tokens\": 8800}",
+      "result_capture": "captured",
+      "result_digest": "8e753da3c75dcbb8",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T22:05:44.901Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "99377f466b817d53",
+      "query": "{\"cmd\": \"sed -n '1271,1328p' .github/prompts/predict.md; cat data/cases/scotus/9026000379/events/evt-petition-arrival-disposition/event.yaml; cat data/cases/scotus/9026000379/record/snapshots/2026-09-21.json; cat data/cases/scotus/9026000379/record/context.json; cat data/cases/scotus/9026000379/record/same-question.json\", \"max_output_tokens\": 7500}",
+      "result_capture": "captured",
+      "result_digest": "7d4ffe259d5e5d80",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T22:05:48.647Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "b52c069c29c383cc",
+      "query": "{\"cmd\": \"uv run fedcourts paths --court scotus --docket 9026000379 --event evt-petition-arrival-disposition --role predictor; rg -n '^#|federal|Relist|relist|CVSG|amicus|2025|2024|2023|2022|2021|2020|2019|2018|2017|2016' metrics/statpack.md\", \"max_output_tokens\": 9500, \"yield_time_ms\": 10000}",
+      "result_capture": "captured",
+      "result_digest": "aa734823fc92d500",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T22:05:53.053Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "1229d523f7601a0e",
+      "query": "{\"cmd\": \"UV_CACHE_DIR=/tmp/fedcourts-uv-cache UV_NO_SYNC=1 uv run fedcourts paths --court scotus --docket 9026000379 --event evt-petition-arrival-disposition --role predictor; sed -n '62,150p' metrics/statpack.md; sed -n '201,218p' metrics/statpack.md; cat schemas/agent_tooling.schema.json\", \"max_output_tokens\": 7200}",
+      "result_capture": "captured",
+      "result_digest": "e8c7f59c65372854",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T22:05:56.570Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "fd8478a490ea1724",
+      "query": "{\"court\": \"ca2\", \"docket_number\": \"26-1396\", \"filed_before\": \"2026-09-22\", \"num_results\": 5, \"type\": \"o\"}",
+      "result_capture": "captured",
+      "result_digest": "ee8a168190ebd0cd",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T22:06:00.776Z",
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "ca885fbb60506bfe",
+      "query": "\"\" \"26-1396\" \"Genalo\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T22:06:33.594Z",
+      "tool": "web_search_call"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "d49a8b7df64bd9c2",
+      "query": "https://www.justice.gov/osg/media/1462101/dl?inline=",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T22:06:38.654Z",
+      "tool": "web_search_call"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "141f01612ed1a532",
+      "query": "site.supremecourt.gov \"25-886\" \"Jun 15 2026\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T22:06:44.831Z",
+      "tool": "web_search_call"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "d49a8b7df64bd9c2",
+      "query": "https://www.justice.gov/osg/media/1462101/dl?inline=",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T22:06:44.831Z",
+      "tool": "web_search_call"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "61858f154143a117",
+      "query": "{\"explanation\": \"Read the cert-arrival contract and staged inputs; retrieved the petition and verified the earlier replacement-case history against the Court\\u2019s docket.\", \"plan\": [{\"status\": \"completed\", \"step\": \"Read contract and case inputs\"}, {\"status\": \"completed\", \"step\": \"Assess priors and forecast outcomes\"}, {\"status\": \"in_progress\", \"step\": \"Write and validate cell outputs\"}]}",
+      "result_capture": "captured",
+      "result_digest": "53df1c0978995ecc",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T22:06:56.749Z",
+      "tool": "update_plan"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "56e74e4ef486ecd2",
+      "query": "{\"cmd\": \"sed -n '126,131p' metrics/statpack.md; sed -n '204,216p' metrics/statpack.md; cat schemas/agent_flags.schema.json; python - <<'PY'\\nimport json\\nfrom pathlib import Path\\nschema=json.loads(Path('schemas/prediction.schema.json').read_text())\\nprint('Required:',schema.get('required'))\\nprint('Top-level fields:',', '.join(schema['properties']))\\nfor key in ('claims','claim_distributions','context','granted','probability','big_case_score'):\\n print(key, json.dumps(schema['properties'][key])",
+      "result_capture": "captured",
+      "result_digest": "a8462b4295b96976",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T22:07:00.285Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "5210eb645a4135cd",
+      "query": "{\"cmd\": \"apply_patch <<'PATCH'\\n*** Begin Patch\\n*** Add File: data/cases/scotus/9026000379/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261105T213502Z/prediction.json\\n+{\\n+  \\\"schema_version\\\": \\\"1.0\\\",\\n+  \\\"case_id\\\": \\\"scotus/9026000379\\\",\\n+  \\\"event_id\\\": \\\"evt-petition-arrival-disposition\\\",\\n+  \\\"predictor_id\\\": \\\"codex-baseline\\\",\\n+  \\\"engine\\\": \\\"codex\\\",\\n+  \\\"model\\\": \\\"gpt-6.1-sol\\\",\\n+  \\\"run_id\\\": \\\"20261105T213502Z\\\",\\n+  \\\"created_at\\\": \\\"2026-11-05T21:",
+      "result_capture": "captured",
+      "result_digest": "8f47df8bfc18da4d",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T22:08:08.872Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "85eb2fdaf8f2d783",
+      "query": "{\"chars\": \"\", \"max_output_tokens\": 3000, \"session_id\": 25585, \"yield_time_ms\": 1000}",
+      "result_capture": "captured",
+      "result_digest": "34a2c64161dd91b2",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T22:08:21.489Z",
+      "tool": "write_stdin"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "5f1d88faaa0f4d8e",
+      "query": "{\"chars\": \"\", \"max_output_tokens\": 3500, \"session_id\": 25585, \"yield_time_ms\": 1000}",
+      "result_capture": "captured",
+      "result_digest": "5ddc3fd1133c4757",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T22:08:33.429Z",
+      "tool": "write_stdin"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "36227e675c64bde2",
+      "query": "{\"plan\": [{\"status\": \"completed\", \"step\": \"Read contract and case inputs\"}, {\"status\": \"completed\", \"step\": \"Assess priors and forecast outcomes\"}, {\"status\": \"completed\", \"step\": \"Write and validate cell outputs\"}]}",
+      "result_capture": "captured",
+      "result_digest": "53df1c0978995ecc",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T22:08:35.452Z",
+      "tool": "update_plan"
+    }
+  ],
+  "case_id": "scotus/9026000379",
+  "corpus_service": {
+    "open_events": 0,
+    "open_events_ok": 0,
+    "queries": 0,
+    "queries_ok": 0
+  },
+  "engine": "codex",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "result_capture_coverage": 0.8181818181818182,
+  "role": "predictor",
+  "run_id": "20261105T213502Z",
+  "schema_version": "1.0",
+  "self_provisioned_fetches": 0,
+  "throttled_calls": 0
+}

@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000379",
+  "run_id": "20261105T213502Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "The snapshot describes the filing only as a petition for certiorari. The official DOJ petition expressly seeks certiorari before judgment, a material vehicle distinction not visible in the staged docket text. Forecast incorporates that retrieved posture. Expected paper-only document absence is not a provisioning failure; no current-petition outcome was retrieved."
+    }
+  ]
+}

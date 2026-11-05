@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000218",
+  "run_id": "20261105T213502Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts paths", "fedcourts query", "CourtListener search", "CourtListener read_document", "CourtListener search_document", "web search/open", "fedcourts validate"],
+  "helpful": ["Frozen risk-set cert anchor", "Provisioned appendix containing the actual majority and dissent below", "Paid-segment amicus, relist and CVSG tables", "CourtListener historical opinion text"],
+  "gaps": ["A five-result era/disposition query returned no rows after 997 ranged GETs and 261160960 bytes", "The citation query returned no rows and warned of sparse citation coverage", "Web calls returned no visible payload", "Default uv cache is read-only; a temporary cache override was required"],
+  "notes": "Used the authoritative identifiers verbatim. Forecast rests on the moment-specific snapshot, staged filings and historical context, not the case's later docket. Both valid corpus queries completed but returned no comparators. No installation or direct CourtListener REST fallback was attempted. A response-request-conditioned historical base rate would improve calibration."
+}

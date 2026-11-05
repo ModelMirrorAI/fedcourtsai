@@ -1,0 +1,21 @@
+# Predicted Court Reasoning and Procedural Trajectory: *Kenneth Genalo, et al. v. D. C.*, No. 26-379
+
+## 1. Conference Distributions and Relist Trajectory (`relist-increment: 0.96`)
+As of the arrival snapshot (`2026-09-21.json`), the petition has just been docketed (`distribution_count: 0`, `cvsg_date: null`). Because `relist-increment` on an arrival cell measures whether the petition will be distributed at least once more past the zero distributions currently recorded on the snapshot, it will resolve true unless the petition is voluntarily dismissed under Rule 46 before ever reaching a conference distribution. Once respondent D.C.'s brief in opposition is filed, the petition will be distributed for conference (`0.96` probability) and is likely to be considered across one or two conferences (initial distribution plus at most one relist for vehicle verification) before the Court grants review in time for spring 2027 oral argument in October Term 2026.
+
+## 2. Call for the Views of the Solicitor General (`cvsg-increment: 0.001`)
+The Court will not issue a CVSG. Solicitor General D. John Sauer is counsel of record for the federal petitioners (`Kenneth Genalo, in His Official Capacity as Field Office Director, New York City Field Office, U.S. Immigration & Customs Enforcement, et al.`), so the United States' views are already before the Court in the petition itself.
+
+## 3. Questions Presented Likely to Be Taken
+When the Court grants certiorari, it will grant review of both Questions Presented in the petition as written—the identical two questions the Court previously granted on June 15, 2026 in *Genalo v. Black*, No. 25-886:
+1. Whether there is a point at which an alien's detention under 8 U.S.C. § 1226(c), pending a decision on whether he is to be removed, becomes "unreasonably prolonged," such that the Fifth Amendment Due Process Clause requires a bond hearing; and
+2. If so, whether, in such a bond hearing, due process requires placing the burden on the government to justify the alien's continued detention by clear and convincing evidence.
+
+## 4. Plenary Review vs. Summary Disposition (`summary-disposition-route: 0.02`)
+Conditional on granting review, the Court will set the case for full merits briefing and oral argument rather than disposing of it summarily in the certiorari order (`summary-disposition-route: 0.02`). No other pending Supreme Court merits case addresses prolonged mandatory detention under 8 U.S.C. § 1226(c) (*Rhoney v. Barbosa da Cunha*, No. 26-104, concerns the distinct statutory question whether an interior noncitizen who entered without inspection is "seeking admission" under 8 U.S.C. § 1225(b)(2)(A) versus detained under § 1226(a)). Because *Genalo v. D. C.* is the Solicitor General's lead replacement vehicle for *Genalo v. Black*, a summary disposition (such as a *Munsingwear* GVR or a hold GVR for another replacement petition) is very unlikely.
+
+## 5. Separate Writings on the Certiorari Order (`dissent-from-denial: 0.30`; `order-writers`)
+If the Court grants certiorari as expected, the grant order will issue without any separate writing. Conditional on the unlikely event that the Court denies certiorari (for example, due to concerns over the certiorari-before-judgment posture or respondent D.C.'s ~6.5-month detention duration), there is a meaningful probability (`0.30`) that Justice Alito or Justice Thomas (joined by one or more conservative colleagues) will author a dissent from denial or a statement respecting the denial emphasizing the need to resolve the circuit split created by *Black v. Decker*, 103 F.4th 133 (2d Cir. 2024), in a clean post-judgment vehicle.
+
+## 6. Conditional Merits Outlook (If Granted)
+If certiorari is granted, a majority of the Court is likely to reverse or vacate the judgment below under *Demore v. Kim*, 538 U.S. 510 (2003), and *Jennings v. Rodriguez*, 583 U.S. 281 (2018), holding at a minimum that the Second Circuit's *Mathews v. Eldridge* framework in *Black v. Decker* improperly overrides Congress's mandatory detention rule in 8 U.S.C. § 1226(c) after only 6.5 months of ongoing removal proceedings and improperly shifts a clear-and-convincing-evidence burden onto the government.

@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73275179",
+  "run_id": "20261105T213502Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts validate"
+  ],
+  "helpful": [
+    "Provisioned merits briefs (petitioner, respondent, and United States amicus) and companion docket 25-566 snapshot",
+    "metrics/statpack.md merits docket and per-Justice merits votes tables",
+    "fedcourts validate data --cell"
+  ],
+  "gaps": [],
+  "notes": "Provisioned merits record in record/documents/ was comprehensive and included both sides' merits briefs and the Solicitor General's amicus brief."
+}
