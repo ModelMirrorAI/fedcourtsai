@@ -35,8 +35,9 @@ runs) on the same table. With few replicates the run sd itself is imprecise —
 its chi-square interval on ``k - 1`` degrees of freedom is printed beside it —
 and the binomial error at ``n`` is a different estimand (item sampling: how far
 this block's rate stands from a frame's), so it is printed apart, never as a
-component of one total. All of it is descriptive input to a variance-aware
-gate not yet pre-registered; nothing here chooses a floor.
+component of one total. All of it is descriptive: the publication gate's
+per-run floor is registered in ``docs/qp-topic.md``, and nothing here chooses
+or moves it.
 """
 
 from __future__ import annotations
