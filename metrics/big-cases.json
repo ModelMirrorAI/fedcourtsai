@@ -1,10 +1,10 @@
 {
-  "cases": 358,
+  "cases": 362,
   "cases_out_of_scope": 0,
   "cases_without_score": 1,
   "coverage": [
     {
-      "cases": 321,
+      "cases": 325,
       "n": 3
     },
     {
@@ -16,7 +16,7 @@
       "n": 1
     }
   ],
-  "current_reads": 1072,
+  "current_reads": 1083,
   "declared_no_view": 26,
   "frozen_process": {
     "digests": [
@@ -249,7 +249,7 @@
   },
   "median_adjacent_gap": 0.0033,
   "median_score_range": 0.2,
-  "missing_reads": 11,
+  "missing_reads": 10,
   "predictors": [
     "claude-baseline",
     "codex-baseline",
@@ -388,7 +388,12 @@
           "side": "disturbed"
         }
       ],
-      "schedule": [],
+      "schedule": [
+        {
+          "date": "2026-12-02",
+          "kind": "argument"
+        }
+      ],
       "scheduled": null,
       "score_max": 0.97,
       "score_min": 0.94,
@@ -734,129 +739,6 @@
     },
     {
       "asking_declined": null,
-      "asking_party": "Viramontes",
-      "caption": "Cutberto Viramontes, et al. v. Cook County, Illinois, et al.",
-      "caption_event_id": "evt-order-judgment",
-      "case_id": "scotus/73275179",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "Whether the Second Amendment protects AR-15-platform rifles \u2014 the most widely owned rifle in America \u2014 decided on plenary review of consolidated CA7/CA2 cases, controls assault-weapons bans in roughly ten states and many localities.",
-          "big_case_score": 0.97,
-          "event_id": "evt-order-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20260816T173750Z"
-        },
-        {
-          "big_case_rationale": "The case asks whether governments may ban the country's most popular rifle platform, with nationwide consequences for assault-weapons laws and Second Amendment doctrine.",
-          "big_case_score": 0.93,
-          "event_id": "evt-order-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20260816T173750Z"
-        },
-        {
-          "big_case_rationale": "Directly addresses the constitutionality of AR-15 assault weapon bans, a highly salient and politically charged issue under the Second Amendment.",
-          "big_case_score": 0.95,
-          "event_id": "evt-order-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20260816T173750Z"
-        }
-      ],
-      "docket_id": 73275179,
-      "docket_number": "25-238",
-      "docket_number_source": "qp-topics",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-238.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-order-judgment",
-          "reads": [
-            {
-              "big_case_rationale": "Whether the Second Amendment protects AR-15-platform rifles \u2014 the most widely owned rifle in America \u2014 decided on plenary review of consolidated CA7/CA2 cases, controls assault-weapons bans in roughly ten states and many localities.",
-              "big_case_score": 0.97,
-              "cell_path": "data/cases/scotus/73275179/events/evt-order-judgment/predictions/claude-baseline/20260816T173750Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73275179/events/evt-order-judgment/predictions/claude-baseline/20260816T173750Z",
-              "confidence": 0.72,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "claude-baseline",
-              "probability": 0.86,
-              "run_id": "20260816T173750Z"
-            },
-            {
-              "big_case_rationale": "The case asks whether governments may ban the country's most popular rifle platform, with nationwide consequences for assault-weapons laws and Second Amendment doctrine.",
-              "big_case_score": 0.93,
-              "cell_path": "data/cases/scotus/73275179/events/evt-order-judgment/predictions/codex-baseline/20260816T173750Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73275179/events/evt-order-judgment/predictions/codex-baseline/20260816T173750Z",
-              "confidence": 0.82,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "codex-baseline",
-              "probability": 0.88,
-              "run_id": "20260816T173750Z"
-            },
-            {
-              "big_case_rationale": "Directly addresses the constitutionality of AR-15 assault weapon bans, a highly salient and politically charged issue under the Second Amendment.",
-              "big_case_score": 0.95,
-              "cell_path": "data/cases/scotus/73275179/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73275179/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.85,
-              "run_id": "20260816T173750Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Cutberto Viramontes, et al. v. Cook County, Illinois, et al."
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.95,
-      "moment": "evt-order-judgment",
-      "moment_opened_at": "2026-06-30",
-      "n": 3,
-      "other_party": "Cook County",
-      "outcome_lines": [
-        {
-          "action": "reversed",
-          "line": "Viramontes wins: the lower court's decision is overturned, and any remaining issues go back to that court.",
-          "side": "disturbed"
-        },
-        {
-          "action": "affirmed",
-          "line": "Cook County wins: the lower court's decision is upheld.",
-          "side": "undisturbed"
-        },
-        {
-          "action": "vacated",
-          "line": "The lower court's decision is set aside and the case goes back to that court, without the Court deciding it for either side.",
-          "side": "disturbed"
-        }
-      ],
-      "schedule": [],
-      "scheduled": null,
-      "score_max": 0.97,
-      "score_min": 0.93,
-      "score_range": 0.04,
-      "short_caption": "Viramontes v. Cook County",
-      "status": "pending"
-    },
-    {
-      "asking_declined": null,
       "asking_party": "United States",
       "caption": "United States, et al. v. Nicolas Talbott, et al.",
       "caption_event_id": "evt-petition-arrival-disposition",
@@ -1090,6 +972,161 @@
       "score_range": 0.07,
       "short_caption": "Khalid Shaikh Mohammad v. United States",
       "status": "resolved"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Viramontes",
+      "caption": "Cutberto Viramontes, et al. v. Cook County, Illinois, et al.",
+      "caption_event_id": "evt-brief-judgment",
+      "case_id": "scotus/73275179",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "First plenary ruling on whether states/localities may ban AR-15-platform rifles; affects bans in roughly ten states and many localities.",
+          "big_case_score": 0.93,
+          "event_id": "evt-brief-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261105T015156Z"
+        },
+        {
+          "big_case_rationale": "The constitutional status of AR-15 possession has national consequences for categorical rifle bans and for the boundary between protected civilian arms and regulable weapon classes.",
+          "big_case_score": 0.95,
+          "event_id": "evt-brief-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261105T015156Z"
+        }
+      ],
+      "docket_id": 73275179,
+      "docket_number": "25-238",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-238.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-brief-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "First plenary ruling on whether states/localities may ban AR-15-platform rifles; affects bans in roughly ten states and many localities.",
+              "big_case_score": 0.93,
+              "cell_path": "data/cases/scotus/73275179/events/evt-brief-judgment/predictions/claude-baseline/20261105T015156Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73275179/events/evt-brief-judgment/predictions/claude-baseline/20261105T015156Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.88,
+              "run_id": "20261105T015156Z"
+            },
+            {
+              "big_case_rationale": "The constitutional status of AR-15 possession has national consequences for categorical rifle bans and for the boundary between protected civilian arms and regulable weapon classes.",
+              "big_case_score": 0.95,
+              "cell_path": "data/cases/scotus/73275179/events/evt-brief-judgment/predictions/codex-baseline/20261105T015156Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73275179/events/evt-brief-judgment/predictions/codex-baseline/20261105T015156Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.89,
+              "run_id": "20261105T015156Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Cutberto Viramontes, et al. v. Cook County, Illinois, et al."
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "Whether the Second Amendment protects AR-15-platform rifles \u2014 the most widely owned rifle in America \u2014 decided on plenary review of consolidated CA7/CA2 cases, controls assault-weapons bans in roughly ten states and many localities.",
+              "big_case_score": 0.97,
+              "cell_path": "data/cases/scotus/73275179/events/evt-order-judgment/predictions/claude-baseline/20260816T173750Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73275179/events/evt-order-judgment/predictions/claude-baseline/20260816T173750Z",
+              "confidence": 0.72,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.86,
+              "run_id": "20260816T173750Z"
+            },
+            {
+              "big_case_rationale": "The case asks whether governments may ban the country's most popular rifle platform, with nationwide consequences for assault-weapons laws and Second Amendment doctrine.",
+              "big_case_score": 0.93,
+              "cell_path": "data/cases/scotus/73275179/events/evt-order-judgment/predictions/codex-baseline/20260816T173750Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73275179/events/evt-order-judgment/predictions/codex-baseline/20260816T173750Z",
+              "confidence": 0.82,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.88,
+              "run_id": "20260816T173750Z"
+            },
+            {
+              "big_case_rationale": "Directly addresses the constitutionality of AR-15 assault weapon bans, a highly salient and politically charged issue under the Second Amendment.",
+              "big_case_score": 0.95,
+              "cell_path": "data/cases/scotus/73275179/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73275179/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.85,
+              "run_id": "20260816T173750Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Cutberto Viramontes, et al. v. Cook County, Illinois, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.94,
+      "moment": "evt-brief-judgment",
+      "moment_opened_at": "2026-10-21",
+      "n": 2,
+      "other_party": "Cook County",
+      "outcome_lines": [
+        {
+          "action": "reversed",
+          "line": "Viramontes wins: the lower court's decision is overturned, and any remaining issues go back to that court.",
+          "side": "disturbed"
+        },
+        {
+          "action": "affirmed",
+          "line": "Cook County wins: the lower court's decision is upheld.",
+          "side": "undisturbed"
+        },
+        {
+          "action": "vacated",
+          "line": "The lower court's decision is set aside and the case goes back to that court, without the Court deciding it for either side.",
+          "side": "disturbed"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-12-02",
+          "kind": "argument"
+        }
+      ],
+      "scheduled": null,
+      "score_max": 0.95,
+      "score_min": 0.93,
+      "score_range": 0.02,
+      "short_caption": "Viramontes v. Cook County",
+      "status": "pending"
     },
     {
       "asking_declined": "short_form",
@@ -2042,7 +2079,12 @@
           "side": "disturbed"
         }
       ],
-      "schedule": [],
+      "schedule": [
+        {
+          "date": "2027-01-11",
+          "kind": "argument"
+        }
+      ],
       "scheduled": null,
       "score_max": 0.9,
       "score_min": 0.9,
@@ -2551,7 +2593,12 @@
           "side": "disturbed"
         }
       ],
-      "schedule": [],
+      "schedule": [
+        {
+          "date": "2026-12-08",
+          "kind": "argument"
+        }
+      ],
       "scheduled": null,
       "score_max": 0.9,
       "score_min": 0.85,
@@ -2965,6 +3012,352 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "St. Mary Catholic Parish",
+      "caption": "St. Mary Catholic Parish, Littleton, Colorado, et al. v. Lisa Roy, in Her Official Capacity as Executive Director of the Colorado Department of Early Childhood, et al.",
+      "caption_event_id": "evt-argument-judgment",
+      "case_id": "scotus/73279026",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Major Free Exercise case on state funding conditions vs. LGBT nondiscrimination; resolves an acknowledged 7-4 split on Smith's general-applicability test and the reach of Carson v. Makin.",
+          "big_case_score": 0.85,
+          "event_id": "evt-argument-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261105T031215Z"
+        },
+        {
+          "big_case_rationale": "Potentially national rule for religious-school participation in public tuition programs, resolving a substantial conflict between religious admissions practices and LGBTQ nondiscrimination conditions without plenary reconsideration of Smith.",
+          "big_case_score": 0.86,
+          "event_id": "evt-argument-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261105T031215Z"
+        },
+        {
+          "big_case_rationale": "Major Free Exercise Clause challenge defining whether public universal-preschool funding programs may condition participation on sexual-orientation, gender-identity, and religious-affiliation nondiscrimination rules that forbid religious schools' faith-based admissions standards.",
+          "big_case_score": 0.88,
+          "event_id": "evt-argument-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261105T031215Z"
+        }
+      ],
+      "docket_id": 73279026,
+      "docket_number": "25-581",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-581.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-argument-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "Major Free Exercise case on state funding conditions vs. LGBT nondiscrimination; resolves an acknowledged 7-4 split on Smith's general-applicability test and the reach of Carson v. Makin.",
+              "big_case_score": 0.85,
+              "cell_path": "data/cases/scotus/73279026/events/evt-argument-judgment/predictions/claude-baseline/20261105T031215Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279026/events/evt-argument-judgment/predictions/claude-baseline/20261105T031215Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.85,
+              "run_id": "20261105T031215Z"
+            },
+            {
+              "big_case_rationale": "Potentially national rule for religious-school participation in public tuition programs, resolving a substantial conflict between religious admissions practices and LGBTQ nondiscrimination conditions without plenary reconsideration of Smith.",
+              "big_case_score": 0.86,
+              "cell_path": "data/cases/scotus/73279026/events/evt-argument-judgment/predictions/codex-baseline/20261105T031215Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279026/events/evt-argument-judgment/predictions/codex-baseline/20261105T031215Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.94,
+              "run_id": "20261105T031215Z"
+            },
+            {
+              "big_case_rationale": "Major Free Exercise Clause challenge defining whether public universal-preschool funding programs may condition participation on sexual-orientation, gender-identity, and religious-affiliation nondiscrimination rules that forbid religious schools' faith-based admissions standards.",
+              "big_case_score": 0.88,
+              "cell_path": "data/cases/scotus/73279026/events/evt-argument-judgment/predictions/gemini-baseline/20261105T031215Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279026/events/evt-argument-judgment/predictions/gemini-baseline/20261105T031215Z",
+              "confidence": 0.85,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.85,
+              "run_id": "20261105T031215Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "St. Mary Catholic Parish, Littleton, Colorado, et al. v. Lisa Roy, in Her Official Capacity as Executive Director of the Colorado Department of Early Childhood, et al."
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-brief-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "A headline Free Exercise case: a Catholic-school challenge to an LGBTQ-inclusive nondiscrimination condition on public preschool funding, an acknowledged 7-4 circuit split on Smith's general-applicability test, the United States as amicus for petitioners, and about fifty amicus entries; stakes fall short of the top tier only because the Court declined the question whether to overrule Smith.",
+              "big_case_score": 0.8,
+              "cell_path": "data/cases/scotus/73279026/events/evt-brief-judgment/predictions/claude-baseline/20261004T201824Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279026/events/evt-brief-judgment/predictions/claude-baseline/20261004T201824Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.9,
+              "run_id": "20261004T201824Z"
+            },
+            {
+              "big_case_rationale": "The case concerns the nationwide boundary between religious participation in publicly funded education and states' nondiscrimination conditions, with direct consequences for religious schools and LGBTQ families; the limited grant does not include overruling Smith.",
+              "big_case_score": 0.86,
+              "cell_path": "data/cases/scotus/73279026/events/evt-brief-judgment/predictions/codex-baseline/20261004T201824Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279026/events/evt-brief-judgment/predictions/codex-baseline/20261004T201824Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.83,
+              "run_id": "20261004T201824Z"
+            },
+            {
+              "big_case_rationale": null,
+              "big_case_score": 0.85,
+              "cell_path": "data/cases/scotus/73279026/events/evt-brief-judgment/predictions/gemini-baseline/20261004T201824Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279026/events/evt-brief-judgment/predictions/gemini-baseline/20261004T201824Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.85,
+              "run_id": "20261004T201824Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "St. Mary Catholic Parish, Littleton, Colorado, et al. v. Lisa Roy, in Her Official Capacity as Executive Director of the Colorado Department of Early Childhood, et al."
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "Marquee free-exercise case on Smith's general-applicability standard at the religion/LGBTQ-nondiscrimination seam of a universal school-choice program; SG amicus support, a multistate amicus bloc, and 30+ merits amici mark it as one of the Term's most watched.",
+              "big_case_score": 0.85,
+              "cell_path": "data/cases/scotus/73279026/events/evt-order-judgment/predictions/claude-baseline/20260816T111104Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279026/events/evt-order-judgment/predictions/claude-baseline/20260816T111104Z",
+              "confidence": 0.75,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.93,
+              "run_id": "20260816T111104Z"
+            },
+            {
+              "big_case_rationale": "The case could define how Carson and Smith govern facially secular conditions on public education benefits nationwide.",
+              "big_case_score": 0.82,
+              "cell_path": "data/cases/scotus/73279026/events/evt-order-judgment/predictions/codex-baseline/20260816T111104Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279026/events/evt-order-judgment/predictions/codex-baseline/20260816T111104Z",
+              "confidence": 0.84,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.93,
+              "run_id": "20260816T111104Z"
+            },
+            {
+              "big_case_rationale": null,
+              "big_case_score": null,
+              "cell_path": "data/cases/scotus/73279026/events/evt-order-judgment/predictions/gemini-baseline/20260816T111104Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279026/events/evt-order-judgment/predictions/gemini-baseline/20260816T111104Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.9,
+              "run_id": "20260816T111104Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "St. Mary Catholic Parish, Littleton, Colorado, et al. v. Lisa Roy, in Her Official Capacity as Executive Director of the Colorado Department of Early Childhood, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.8633,
+      "moment": "evt-argument-judgment",
+      "moment_opened_at": "2026-11-03",
+      "n": 3,
+      "other_party": "Roy",
+      "outcome_lines": [
+        {
+          "action": "reversed",
+          "line": "St. Mary Catholic Parish wins: the lower court's decision is overturned, and any remaining issues go back to that court.",
+          "side": "disturbed"
+        },
+        {
+          "action": "affirmed",
+          "line": "Roy wins: the lower court's decision is upheld.",
+          "side": "undisturbed"
+        },
+        {
+          "action": "vacated",
+          "line": "The lower court's decision is set aside and the case goes back to that court, without the Court deciding it for either side.",
+          "side": "disturbed"
+        }
+      ],
+      "schedule": [],
+      "scheduled": null,
+      "score_max": 0.88,
+      "score_min": 0.85,
+      "score_range": 0.03,
+      "short_caption": "St. Mary Catholic Parish v. Roy",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Zeldin",
+      "caption": "Lee M. Zeldin, Administrator, Environmental Protection Agency, et al. v. Climate United Fund, et al.",
+      "caption_event_id": "evt-petition-arrival-disposition",
+      "case_id": "scotus/9026000589",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "$16B in terminated EPA grants, a fractured en banc D.C. Circuit, and the recurring Tucker Act question over grant-termination suits nationwide.",
+          "big_case_score": 0.8,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261104T225806Z"
+        },
+        {
+          "big_case_rationale": "The petition concerns access to approximately $16 billion in climate grants and the forum for challenges to federal grant terminations across many programs, with substantial fiscal and separation-of-powers implications.",
+          "big_case_score": 0.88,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261104T225806Z"
+        },
+        {
+          "big_case_rationale": "High-profile separation-of-powers, Tucker Act jurisdiction, and statutory-repeal dispute over $16 billion in terminated EPA Greenhouse Gas Reduction Fund grants after an en banc D.C. Circuit split.",
+          "big_case_score": 0.9,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261104T225806Z"
+        }
+      ],
+      "docket_id": 9026000589,
+      "docket_number": "26-589",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-589.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-arrival-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "$16B in terminated EPA grants, a fractured en banc D.C. Circuit, and the recurring Tucker Act question over grant-termination suits nationwide.",
+              "big_case_score": 0.8,
+              "cell_path": "data/cases/scotus/9026000589/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261104T225806Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000589/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261104T225806Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "claude-baseline",
+              "probability": 0.85,
+              "run_id": "20261104T225806Z"
+            },
+            {
+              "big_case_rationale": "The petition concerns access to approximately $16 billion in climate grants and the forum for challenges to federal grant terminations across many programs, with substantial fiscal and separation-of-powers implications.",
+              "big_case_score": 0.88,
+              "cell_path": "data/cases/scotus/9026000589/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261104T225806Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000589/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261104T225806Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "codex-baseline",
+              "probability": 0.86,
+              "run_id": "20261104T225806Z"
+            },
+            {
+              "big_case_rationale": "High-profile separation-of-powers, Tucker Act jurisdiction, and statutory-repeal dispute over $16 billion in terminated EPA Greenhouse Gas Reduction Fund grants after an en banc D.C. Circuit split.",
+              "big_case_score": 0.9,
+              "cell_path": "data/cases/scotus/9026000589/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261104T225806Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000589/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261104T225806Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.85,
+              "run_id": "20261104T225806Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Lee M. Zeldin, Administrator, Environmental Protection Agency, et al. v. Climate United Fund, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.86,
+      "moment": "evt-petition-arrival-disposition",
+      "moment_opened_at": "2026-11-04",
+      "n": 3,
+      "other_party": "Climate United Fund",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Zeldin's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Zeldin's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-12-04",
+          "kind": "response_due"
+        }
+      ],
+      "scheduled": null,
+      "score_max": 0.9,
+      "score_min": 0.8,
+      "score_range": 0.1,
+      "short_caption": "Zeldin v. Climate United Fund",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Department of Homeland Security",
       "caption": "Department of Homeland Security, et al., v. D.V.D., et al.",
       "caption_event_id": "evt-order-response-requested-disposition",
@@ -3130,129 +3523,6 @@
       "score_range": 0.16,
       "short_caption": "Department of Homeland Security v. D.V.D.",
       "status": "resolved"
-    },
-    {
-      "asking_declined": null,
-      "asking_party": "International Partners for Ethical Care",
-      "caption": "International Partners for Ethical Care, Inc., et al. v. Bob Ferguson, Governor of Washington, et al.",
-      "caption_event_id": "evt-order-judgment",
-      "case_id": "scotus/73280341",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "Parental rights meet youth gender-transition policy in a nationally watched culture-war posture; even a standing-only holding will shape dozens of pending parental-rights challenges and draw heavy coverage.",
-          "big_case_score": 0.75,
-          "event_id": "evt-order-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20260816T111104Z"
-        },
-        {
-          "big_case_rationale": "The case links Article III standing to parental authority over minors' gender-transition care and is likely to shape challenges to similar laws nationwide.",
-          "big_case_score": 0.9,
-          "event_id": "evt-order-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20260816T111104Z"
-        },
-        {
-          "big_case_rationale": "This case addresses the highly salient culture-war issue of transgender minors and parental rights, touching on both fundamental liberty interests and Article III standing doctrine.",
-          "big_case_score": 0.9,
-          "event_id": "evt-order-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20260816T111104Z"
-        }
-      ],
-      "docket_id": 73280341,
-      "docket_number": "25-840",
-      "docket_number_source": "qp-topics",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-840.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-order-judgment",
-          "reads": [
-            {
-              "big_case_rationale": "Parental rights meet youth gender-transition policy in a nationally watched culture-war posture; even a standing-only holding will shape dozens of pending parental-rights challenges and draw heavy coverage.",
-              "big_case_score": 0.75,
-              "cell_path": "data/cases/scotus/73280341/events/evt-order-judgment/predictions/claude-baseline/20260816T111104Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280341/events/evt-order-judgment/predictions/claude-baseline/20260816T111104Z",
-              "confidence": 0.6,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "claude-baseline",
-              "probability": 0.85,
-              "run_id": "20260816T111104Z"
-            },
-            {
-              "big_case_rationale": "The case links Article III standing to parental authority over minors' gender-transition care and is likely to shape challenges to similar laws nationwide.",
-              "big_case_score": 0.9,
-              "cell_path": "data/cases/scotus/73280341/events/evt-order-judgment/predictions/codex-baseline/20260816T111104Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280341/events/evt-order-judgment/predictions/codex-baseline/20260816T111104Z",
-              "confidence": 0.8,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "codex-baseline",
-              "probability": 0.86,
-              "run_id": "20260816T111104Z"
-            },
-            {
-              "big_case_rationale": "This case addresses the highly salient culture-war issue of transgender minors and parental rights, touching on both fundamental liberty interests and Article III standing doctrine.",
-              "big_case_score": 0.9,
-              "cell_path": "data/cases/scotus/73280341/events/evt-order-judgment/predictions/gemini-baseline/20260816T111104Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280341/events/evt-order-judgment/predictions/gemini-baseline/20260816T111104Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.85,
-              "run_id": "20260816T111104Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "International Partners for Ethical Care, Inc., et al. v. Bob Ferguson, Governor of Washington, et al."
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.85,
-      "moment": "evt-order-judgment",
-      "moment_opened_at": "2026-06-29",
-      "n": 3,
-      "other_party": "Ferguson",
-      "outcome_lines": [
-        {
-          "action": "reversed",
-          "line": "International Partners for Ethical Care wins: the lower court's decision is overturned, and any remaining issues go back to that court.",
-          "side": "disturbed"
-        },
-        {
-          "action": "affirmed",
-          "line": "Ferguson wins: the lower court's decision is upheld.",
-          "side": "undisturbed"
-        },
-        {
-          "action": "vacated",
-          "line": "The lower court's decision is set aside and the case goes back to that court, without the Court deciding it for either side.",
-          "side": "disturbed"
-        }
-      ],
-      "schedule": [],
-      "scheduled": null,
-      "score_max": 0.9,
-      "score_min": 0.75,
-      "score_range": 0.15,
-      "short_caption": "International Partners for Ethical Care v. Ferguson",
-      "status": "pending"
     },
     {
       "asking_declined": null,
@@ -4005,179 +4275,6 @@
       "score_min": 0.82,
       "score_range": 0.03,
       "short_caption": "Kian v. Florida",
-      "status": "pending"
-    },
-    {
-      "asking_declined": null,
-      "asking_party": "St. Mary Catholic Parish",
-      "caption": "St. Mary Catholic Parish, Littleton, Colorado, et al. v. Lisa Roy, in Her Official Capacity as Executive Director of the Colorado Department of Early Childhood, et al.",
-      "caption_event_id": "evt-brief-judgment",
-      "case_id": "scotus/73279026",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "A headline Free Exercise case: a Catholic-school challenge to an LGBTQ-inclusive nondiscrimination condition on public preschool funding, an acknowledged 7-4 circuit split on Smith's general-applicability test, the United States as amicus for petitioners, and about fifty amicus entries; stakes fall short of the top tier only because the Court declined the question whether to overrule Smith.",
-          "big_case_score": 0.8,
-          "event_id": "evt-brief-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20261004T201824Z"
-        },
-        {
-          "big_case_rationale": "The case concerns the nationwide boundary between religious participation in publicly funded education and states' nondiscrimination conditions, with direct consequences for religious schools and LGBTQ families; the limited grant does not include overruling Smith.",
-          "big_case_score": 0.86,
-          "event_id": "evt-brief-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20261004T201824Z"
-        },
-        {
-          "big_case_rationale": null,
-          "big_case_score": 0.85,
-          "event_id": "evt-brief-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20261004T201824Z"
-        }
-      ],
-      "docket_id": 73279026,
-      "docket_number": "25-581",
-      "docket_number_source": "qp-topics",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-581.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-brief-judgment",
-          "reads": [
-            {
-              "big_case_rationale": "A headline Free Exercise case: a Catholic-school challenge to an LGBTQ-inclusive nondiscrimination condition on public preschool funding, an acknowledged 7-4 circuit split on Smith's general-applicability test, the United States as amicus for petitioners, and about fifty amicus entries; stakes fall short of the top tier only because the Court declined the question whether to overrule Smith.",
-              "big_case_score": 0.8,
-              "cell_path": "data/cases/scotus/73279026/events/evt-brief-judgment/predictions/claude-baseline/20261004T201824Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279026/events/evt-brief-judgment/predictions/claude-baseline/20261004T201824Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "claude-baseline",
-              "probability": 0.9,
-              "run_id": "20261004T201824Z"
-            },
-            {
-              "big_case_rationale": "The case concerns the nationwide boundary between religious participation in publicly funded education and states' nondiscrimination conditions, with direct consequences for religious schools and LGBTQ families; the limited grant does not include overruling Smith.",
-              "big_case_score": 0.86,
-              "cell_path": "data/cases/scotus/73279026/events/evt-brief-judgment/predictions/codex-baseline/20261004T201824Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279026/events/evt-brief-judgment/predictions/codex-baseline/20261004T201824Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "codex-baseline",
-              "probability": 0.83,
-              "run_id": "20261004T201824Z"
-            },
-            {
-              "big_case_rationale": null,
-              "big_case_score": 0.85,
-              "cell_path": "data/cases/scotus/73279026/events/evt-brief-judgment/predictions/gemini-baseline/20261004T201824Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279026/events/evt-brief-judgment/predictions/gemini-baseline/20261004T201824Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.85,
-              "run_id": "20261004T201824Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "St. Mary Catholic Parish, Littleton, Colorado, et al. v. Lisa Roy, in Her Official Capacity as Executive Director of the Colorado Department of Early Childhood, et al."
-        },
-        {
-          "actual_disposition": null,
-          "event_id": "evt-order-judgment",
-          "reads": [
-            {
-              "big_case_rationale": "Marquee free-exercise case on Smith's general-applicability standard at the religion/LGBTQ-nondiscrimination seam of a universal school-choice program; SG amicus support, a multistate amicus bloc, and 30+ merits amici mark it as one of the Term's most watched.",
-              "big_case_score": 0.85,
-              "cell_path": "data/cases/scotus/73279026/events/evt-order-judgment/predictions/claude-baseline/20260816T111104Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279026/events/evt-order-judgment/predictions/claude-baseline/20260816T111104Z",
-              "confidence": 0.75,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "claude-baseline",
-              "probability": 0.93,
-              "run_id": "20260816T111104Z"
-            },
-            {
-              "big_case_rationale": "The case could define how Carson and Smith govern facially secular conditions on public education benefits nationwide.",
-              "big_case_score": 0.82,
-              "cell_path": "data/cases/scotus/73279026/events/evt-order-judgment/predictions/codex-baseline/20260816T111104Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279026/events/evt-order-judgment/predictions/codex-baseline/20260816T111104Z",
-              "confidence": 0.84,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "codex-baseline",
-              "probability": 0.93,
-              "run_id": "20260816T111104Z"
-            },
-            {
-              "big_case_rationale": null,
-              "big_case_score": null,
-              "cell_path": "data/cases/scotus/73279026/events/evt-order-judgment/predictions/gemini-baseline/20260816T111104Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279026/events/evt-order-judgment/predictions/gemini-baseline/20260816T111104Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.9,
-              "run_id": "20260816T111104Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "St. Mary Catholic Parish, Littleton, Colorado, et al. v. Lisa Roy, in Her Official Capacity as Executive Director of the Colorado Department of Early Childhood, et al."
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.8367,
-      "moment": "evt-brief-judgment",
-      "moment_opened_at": "2026-08-17",
-      "n": 3,
-      "other_party": "Roy",
-      "outcome_lines": [
-        {
-          "action": "reversed",
-          "line": "St. Mary Catholic Parish wins: the lower court's decision is overturned, and any remaining issues go back to that court.",
-          "side": "disturbed"
-        },
-        {
-          "action": "affirmed",
-          "line": "Roy wins: the lower court's decision is upheld.",
-          "side": "undisturbed"
-        },
-        {
-          "action": "vacated",
-          "line": "The lower court's decision is set aside and the case goes back to that court, without the Court deciding it for either side.",
-          "side": "disturbed"
-        }
-      ],
-      "schedule": [],
-      "scheduled": null,
-      "score_max": 0.86,
-      "score_min": 0.8,
-      "score_range": 0.06,
-      "short_caption": "St. Mary Catholic Parish v. Roy",
       "status": "pending"
     },
     {
@@ -5276,7 +5373,12 @@
           "side": "disturbed"
         }
       ],
-      "schedule": [],
+      "schedule": [
+        {
+          "date": "2026-11-10",
+          "kind": "argument"
+        }
+      ],
       "scheduled": null,
       "score_max": 0.82,
       "score_min": 0.8,
@@ -7237,6 +7339,184 @@
       "score_range": 0.15,
       "short_caption": "Mendenhall v. City and County of Denver",
       "status": "resolved"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "International Partners for Ethical Care",
+      "caption": "International Partners for Ethical Care, Inc., et al. v. Bob Ferguson, Governor of Washington, et al.",
+      "caption_event_id": "evt-brief-judgment",
+      "case_id": "scotus/73280341",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Sets the Article III threshold for parental-rights challenges to state gender-identity policies, a heavily litigated and closely watched area; the holding is jurisdictional, not a merits ruling on the Washington laws.",
+          "big_case_score": 0.72,
+          "event_id": "evt-brief-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261105T031215Z"
+        },
+        {
+          "big_case_rationale": "Nationally consequential access-to-court question at the intersection of parental authority, transgender minors' care, and Article III, although the judgment need not decide the laws' constitutionality.",
+          "big_case_score": 0.82,
+          "event_id": "evt-brief-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261105T031215Z"
+        },
+        {
+          "big_case_rationale": "High-profile intersection of Article III pre-enforcement standing doctrine and parental constitutional rights over minor children's gender-transition care and runaway-shelter notification, drawing United States merits participation and roughly thirty amicus briefs, though limited at this stage to threshold federal jurisdiction rather than the ultimate First and Fourteenth Amendment merits.",
+          "big_case_score": 0.78,
+          "event_id": "evt-brief-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261105T031215Z"
+        }
+      ],
+      "docket_id": 73280341,
+      "docket_number": "25-840",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-840.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-brief-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "Sets the Article III threshold for parental-rights challenges to state gender-identity policies, a heavily litigated and closely watched area; the holding is jurisdictional, not a merits ruling on the Washington laws.",
+              "big_case_score": 0.72,
+              "cell_path": "data/cases/scotus/73280341/events/evt-brief-judgment/predictions/claude-baseline/20261105T031215Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280341/events/evt-brief-judgment/predictions/claude-baseline/20261105T031215Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.7,
+              "run_id": "20261105T031215Z"
+            },
+            {
+              "big_case_rationale": "Nationally consequential access-to-court question at the intersection of parental authority, transgender minors' care, and Article III, although the judgment need not decide the laws' constitutionality.",
+              "big_case_score": 0.82,
+              "cell_path": "data/cases/scotus/73280341/events/evt-brief-judgment/predictions/codex-baseline/20261105T031215Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280341/events/evt-brief-judgment/predictions/codex-baseline/20261105T031215Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.73,
+              "run_id": "20261105T031215Z"
+            },
+            {
+              "big_case_rationale": "High-profile intersection of Article III pre-enforcement standing doctrine and parental constitutional rights over minor children's gender-transition care and runaway-shelter notification, drawing United States merits participation and roughly thirty amicus briefs, though limited at this stage to threshold federal jurisdiction rather than the ultimate First and Fourteenth Amendment merits.",
+              "big_case_score": 0.78,
+              "cell_path": "data/cases/scotus/73280341/events/evt-brief-judgment/predictions/gemini-baseline/20261105T031215Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280341/events/evt-brief-judgment/predictions/gemini-baseline/20261105T031215Z",
+              "confidence": 0.82,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.88,
+              "run_id": "20261105T031215Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "International Partners for Ethical Care, Inc., et al. v. Bob Ferguson, Governor of Washington, et al."
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "Parental rights meet youth gender-transition policy in a nationally watched culture-war posture; even a standing-only holding will shape dozens of pending parental-rights challenges and draw heavy coverage.",
+              "big_case_score": 0.75,
+              "cell_path": "data/cases/scotus/73280341/events/evt-order-judgment/predictions/claude-baseline/20260816T111104Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280341/events/evt-order-judgment/predictions/claude-baseline/20260816T111104Z",
+              "confidence": 0.6,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.85,
+              "run_id": "20260816T111104Z"
+            },
+            {
+              "big_case_rationale": "The case links Article III standing to parental authority over minors' gender-transition care and is likely to shape challenges to similar laws nationwide.",
+              "big_case_score": 0.9,
+              "cell_path": "data/cases/scotus/73280341/events/evt-order-judgment/predictions/codex-baseline/20260816T111104Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280341/events/evt-order-judgment/predictions/codex-baseline/20260816T111104Z",
+              "confidence": 0.8,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.86,
+              "run_id": "20260816T111104Z"
+            },
+            {
+              "big_case_rationale": "This case addresses the highly salient culture-war issue of transgender minors and parental rights, touching on both fundamental liberty interests and Article III standing doctrine.",
+              "big_case_score": 0.9,
+              "cell_path": "data/cases/scotus/73280341/events/evt-order-judgment/predictions/gemini-baseline/20260816T111104Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280341/events/evt-order-judgment/predictions/gemini-baseline/20260816T111104Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.85,
+              "run_id": "20260816T111104Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "International Partners for Ethical Care, Inc., et al. v. Bob Ferguson, Governor of Washington, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.7733,
+      "moment": "evt-brief-judgment",
+      "moment_opened_at": "2026-10-21",
+      "n": 3,
+      "other_party": "Ferguson",
+      "outcome_lines": [
+        {
+          "action": "reversed",
+          "line": "International Partners for Ethical Care wins: the lower court's decision is overturned, and any remaining issues go back to that court.",
+          "side": "disturbed"
+        },
+        {
+          "action": "affirmed",
+          "line": "Ferguson wins: the lower court's decision is upheld.",
+          "side": "undisturbed"
+        },
+        {
+          "action": "vacated",
+          "line": "The lower court's decision is set aside and the case goes back to that court, without the Court deciding it for either side.",
+          "side": "disturbed"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-12-07",
+          "kind": "argument"
+        }
+      ],
+      "scheduled": null,
+      "score_max": 0.82,
+      "score_min": 0.72,
+      "score_range": 0.1,
+      "short_caption": "International Partners for Ethical Care v. Ferguson",
+      "status": "pending"
     },
     {
       "asking_declined": null,
@@ -10168,7 +10448,12 @@
       "n": 3,
       "other_party": null,
       "outcome_lines": null,
-      "schedule": [],
+      "schedule": [
+        {
+          "date": "2026-11-30",
+          "kind": "argument"
+        }
+      ],
       "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.55,
@@ -11375,7 +11660,12 @@
           "side": "disturbed"
         }
       ],
-      "schedule": [],
+      "schedule": [
+        {
+          "date": "2026-11-09",
+          "kind": "argument"
+        }
+      ],
       "scheduled": null,
       "score_max": 0.73,
       "score_min": 0.65,
@@ -18706,7 +18996,12 @@
           "side": "disturbed"
         }
       ],
-      "schedule": [],
+      "schedule": [
+        {
+          "date": "2026-12-09",
+          "kind": "argument"
+        }
+      ],
       "scheduled": null,
       "score_max": 0.65,
       "score_min": 0.45,
@@ -20943,7 +21238,12 @@
           "side": "disturbed"
         }
       ],
-      "schedule": [],
+      "schedule": [
+        {
+          "date": "2026-11-09",
+          "kind": "argument"
+        }
+      ],
       "scheduled": null,
       "score_max": 0.65,
       "score_min": 0.42,
@@ -21425,6 +21725,132 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Tesla",
+      "caption": "Tesla, Inc. v. Granite Vehicle Ventures LLC, et al.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000136",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Reviewability of PTO discretionary IPR denials affects a large share of patent litigation and draws broad industry amici, but the question is technical and statutory.",
+          "big_case_score": 0.55,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261104T204911Z"
+        },
+        {
+          "big_case_rationale": "Judicial control of patent-review institution policies has substantial nationwide innovation and litigation consequences, although the immediate dispute is technical and procedurally constrained.",
+          "big_case_score": 0.62,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261104T204911Z"
+        },
+        {
+          "big_case_rationale": "Significant patent and administrative-law stakes for the technology and manufacturing sectors regarding PTAB discretionary IPR denials, though presented in a narrow mandamus vehicle.",
+          "big_case_score": 0.45,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261104T204911Z"
+        }
+      ],
+      "docket_id": 9026000136,
+      "docket_number": "26-136",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-136.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Reviewability of PTO discretionary IPR denials affects a large share of patent litigation and draws broad industry amici, but the question is technical and statutory.",
+              "big_case_score": 0.55,
+              "cell_path": "data/cases/scotus/9026000136/events/evt-petition-disposition/predictions/claude-baseline/20261104T204911Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000136/events/evt-petition-disposition/predictions/claude-baseline/20261104T204911Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.09,
+              "run_id": "20261104T204911Z"
+            },
+            {
+              "big_case_rationale": "Judicial control of patent-review institution policies has substantial nationwide innovation and litigation consequences, although the immediate dispute is technical and procedurally constrained.",
+              "big_case_score": 0.62,
+              "cell_path": "data/cases/scotus/9026000136/events/evt-petition-disposition/predictions/codex-baseline/20261104T204911Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000136/events/evt-petition-disposition/predictions/codex-baseline/20261104T204911Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.18,
+              "run_id": "20261104T204911Z"
+            },
+            {
+              "big_case_rationale": "Significant patent and administrative-law stakes for the technology and manufacturing sectors regarding PTAB discretionary IPR denials, though presented in a narrow mandamus vehicle.",
+              "big_case_score": 0.45,
+              "cell_path": "data/cases/scotus/9026000136/events/evt-petition-disposition/predictions/gemini-baseline/20261104T204911Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000136/events/evt-petition-disposition/predictions/gemini-baseline/20261104T204911Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.06,
+              "run_id": "20261104T204911Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Tesla, Inc. v. Granite Vehicle Ventures LLC, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.54,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-07-29",
+      "n": 3,
+      "other_party": "Granite Vehicle Ventures",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Tesla's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Tesla's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-12-04",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-12-04",
+        "kind": "conference"
+      },
+      "score_max": 0.62,
+      "score_min": 0.45,
+      "score_range": 0.17,
+      "short_caption": "Tesla v. Granite Vehicle Ventures",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Calce",
       "caption": "Nunzio Calce, et al. v. City of New York, New York, et al.",
       "caption_event_id": "evt-order-call-for-response-disposition",
@@ -21690,7 +22116,12 @@
       "n": 2,
       "other_party": null,
       "outcome_lines": null,
-      "schedule": [],
+      "schedule": [
+        {
+          "date": "2027-01-11",
+          "kind": "argument"
+        }
+      ],
       "scheduled": null,
       "score_max": 0.62,
       "score_min": 0.45,
@@ -23498,7 +23929,12 @@
           "side": "disturbed"
         }
       ],
-      "schedule": [],
+      "schedule": [
+        {
+          "date": "2027-01-12",
+          "kind": "argument"
+        }
+      ],
       "scheduled": null,
       "score_max": 0.6,
       "score_min": 0.35,
@@ -24524,7 +24960,12 @@
           "side": "disturbed"
         }
       ],
-      "schedule": [],
+      "schedule": [
+        {
+          "date": "2026-11-30",
+          "kind": "argument"
+        }
+      ],
       "scheduled": null,
       "score_max": 0.6,
       "score_min": 0.3,
@@ -30555,12 +30996,12 @@
       ],
       "schedule": [
         {
-          "date": "2026-11-06",
+          "date": "2026-12-04",
           "kind": "conference"
         }
       ],
       "scheduled": {
-        "date": "2026-11-06",
+        "date": "2026-12-04",
         "kind": "conference"
       },
       "score_max": 0.64,
@@ -32860,179 +33301,6 @@
     },
     {
       "asking_declined": null,
-      "asking_party": "Younge",
-      "caption": "Jasmine Younge v. Fulton Judicial Circuit District Attorney's Office, Georgia",
-      "caption_event_id": "evt-brief-judgment",
-      "case_id": "scotus/73277468",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "Transsubstantive FRCP question that matters to everyday civil litigation practice, but a technical pleading-procedure ruling with low public salience.",
-          "big_case_score": 0.25,
-          "event_id": "evt-brief-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20260816T173750Z"
-        },
-        {
-          "big_case_rationale": "The case will govern a recurring nationwide pleading issue, but its technical civil-procedure focus limits general newsworthiness.",
-          "big_case_score": 0.46,
-          "event_id": "evt-brief-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20260816T173750Z"
-        },
-        {
-          "big_case_rationale": null,
-          "big_case_score": null,
-          "event_id": "evt-brief-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20260816T173750Z"
-        }
-      ],
-      "docket_id": 73277468,
-      "docket_number": "25-352",
-      "docket_number_source": "qp-topics",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-352.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-brief-judgment",
-          "reads": [
-            {
-              "big_case_rationale": "Transsubstantive FRCP question that matters to everyday civil litigation practice, but a technical pleading-procedure ruling with low public salience.",
-              "big_case_score": 0.25,
-              "cell_path": "data/cases/scotus/73277468/events/evt-brief-judgment/predictions/claude-baseline/20260816T173750Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73277468/events/evt-brief-judgment/predictions/claude-baseline/20260816T173750Z",
-              "confidence": 0.55,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "claude-baseline",
-              "probability": 0.78,
-              "run_id": "20260816T173750Z"
-            },
-            {
-              "big_case_rationale": "The case will govern a recurring nationwide pleading issue, but its technical civil-procedure focus limits general newsworthiness.",
-              "big_case_score": 0.46,
-              "cell_path": "data/cases/scotus/73277468/events/evt-brief-judgment/predictions/codex-baseline/20260816T173750Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73277468/events/evt-brief-judgment/predictions/codex-baseline/20260816T173750Z",
-              "confidence": 0.61,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "codex-baseline",
-              "probability": 0.39,
-              "run_id": "20260816T173750Z"
-            },
-            {
-              "big_case_rationale": null,
-              "big_case_score": null,
-              "cell_path": "data/cases/scotus/73277468/events/evt-brief-judgment/predictions/gemini-baseline/20260816T173750Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73277468/events/evt-brief-judgment/predictions/gemini-baseline/20260816T173750Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.75,
-              "run_id": "20260816T173750Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Jasmine Younge v. Fulton Judicial Circuit District Attorney's Office, Georgia"
-        },
-        {
-          "actual_disposition": null,
-          "event_id": "evt-order-judgment",
-          "reads": [
-            {
-              "big_case_rationale": "A recurring, decades-old FRCP question touching everyday civil litigation in every district court, but technical and low-salience outside the procedure bar; the underlying employment dispute is individual, not systemic.",
-              "big_case_score": 0.3,
-              "cell_path": "data/cases/scotus/73277468/events/evt-order-judgment/predictions/claude-baseline/20260816T173750Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73277468/events/evt-order-judgment/predictions/claude-baseline/20260816T173750Z",
-              "confidence": 0.6,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "claude-baseline",
-              "probability": 0.72,
-              "run_id": "20260816T173750Z"
-            },
-            {
-              "big_case_rationale": "The case should settle a recurring federal civil-procedure split, but it is unlikely to draw broad public attention beyond litigation practice.",
-              "big_case_score": 0.48,
-              "cell_path": "data/cases/scotus/73277468/events/evt-order-judgment/predictions/codex-baseline/20260816T173750Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73277468/events/evt-order-judgment/predictions/codex-baseline/20260816T173750Z",
-              "confidence": 0.64,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "codex-baseline",
-              "probability": 0.76,
-              "run_id": "20260816T173750Z"
-            },
-            {
-              "big_case_rationale": "An important procedural rule circuit split, but not a blockbuster substantive issue.",
-              "big_case_score": 0.35,
-              "cell_path": "data/cases/scotus/73277468/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73277468/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.85,
-              "run_id": "20260816T173750Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Jasmine Younge v. Fulton Judicial Circuit District Attorney's Office, Georgia"
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.355,
-      "moment": "evt-brief-judgment",
-      "moment_opened_at": "2026-08-03",
-      "n": 2,
-      "other_party": "Fulton Judicial Circuit District Attorney's Office",
-      "outcome_lines": [
-        {
-          "action": "reversed",
-          "line": "Younge wins: the lower court's decision is overturned, and any remaining issues go back to that court.",
-          "side": "disturbed"
-        },
-        {
-          "action": "affirmed",
-          "line": "The Fulton Judicial Circuit District Attorney's Office wins: the lower court's decision is upheld.",
-          "side": "undisturbed"
-        },
-        {
-          "action": "vacated",
-          "line": "The lower court's decision is set aside and the case goes back to that court, without the Court deciding it for either side.",
-          "side": "disturbed"
-        }
-      ],
-      "schedule": [],
-      "scheduled": null,
-      "score_max": 0.46,
-      "score_min": 0.25,
-      "score_range": 0.21,
-      "short_caption": "Younge v. Fulton Judicial Circuit District Attorney's Office",
-      "status": "pending"
-    },
-    {
-      "asking_declined": null,
       "asking_party": "Nguyen",
       "caption": "Allison Nguyen v. Louisiana",
       "caption_event_id": "evt-order-call-for-response-disposition",
@@ -34520,6 +34788,229 @@
       "status": "pending"
     },
     {
+      "asking_declined": null,
+      "asking_party": "Younge",
+      "caption": "Jasmine Younge v. Fulton Judicial Circuit District Attorney's Office, Georgia",
+      "caption_event_id": "evt-argument-judgment",
+      "case_id": "scotus/73277468",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "A recurring but technical civil-procedure question (unpleaded affirmative defenses at summary judgment); it matters to litigators across the circuits, not to the public at large.",
+          "big_case_score": 0.2,
+          "event_id": "evt-argument-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261105T015156Z"
+        },
+        {
+          "big_case_rationale": "A broadly applicable federal civil-procedure rule affecting late defenses and litigation fairness, but not a decision resolving the underlying discrimination claim.",
+          "big_case_score": 0.46,
+          "event_id": "evt-argument-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261105T015156Z"
+        },
+        {
+          "big_case_rationale": "Routine but practically significant Federal Rules of Civil Procedure question resolving a multi-circuit split on raising unpleaded affirmative defenses at summary judgment.",
+          "big_case_score": 0.35,
+          "event_id": "evt-argument-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261105T015156Z"
+        }
+      ],
+      "docket_id": 73277468,
+      "docket_number": "25-352",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-352.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-argument-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "A recurring but technical civil-procedure question (unpleaded affirmative defenses at summary judgment); it matters to litigators across the circuits, not to the public at large.",
+              "big_case_score": 0.2,
+              "cell_path": "data/cases/scotus/73277468/events/evt-argument-judgment/predictions/claude-baseline/20261105T015156Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73277468/events/evt-argument-judgment/predictions/claude-baseline/20261105T015156Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.82,
+              "run_id": "20261105T015156Z"
+            },
+            {
+              "big_case_rationale": "A broadly applicable federal civil-procedure rule affecting late defenses and litigation fairness, but not a decision resolving the underlying discrimination claim.",
+              "big_case_score": 0.46,
+              "cell_path": "data/cases/scotus/73277468/events/evt-argument-judgment/predictions/codex-baseline/20261105T015156Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73277468/events/evt-argument-judgment/predictions/codex-baseline/20261105T015156Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.91,
+              "run_id": "20261105T015156Z"
+            },
+            {
+              "big_case_rationale": "Routine but practically significant Federal Rules of Civil Procedure question resolving a multi-circuit split on raising unpleaded affirmative defenses at summary judgment.",
+              "big_case_score": 0.35,
+              "cell_path": "data/cases/scotus/73277468/events/evt-argument-judgment/predictions/gemini-baseline/20261105T015156Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73277468/events/evt-argument-judgment/predictions/gemini-baseline/20261105T015156Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.9,
+              "run_id": "20261105T015156Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Jasmine Younge v. Fulton Judicial Circuit District Attorney's Office, Georgia"
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-brief-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "Transsubstantive FRCP question that matters to everyday civil litigation practice, but a technical pleading-procedure ruling with low public salience.",
+              "big_case_score": 0.25,
+              "cell_path": "data/cases/scotus/73277468/events/evt-brief-judgment/predictions/claude-baseline/20260816T173750Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73277468/events/evt-brief-judgment/predictions/claude-baseline/20260816T173750Z",
+              "confidence": 0.55,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.78,
+              "run_id": "20260816T173750Z"
+            },
+            {
+              "big_case_rationale": "The case will govern a recurring nationwide pleading issue, but its technical civil-procedure focus limits general newsworthiness.",
+              "big_case_score": 0.46,
+              "cell_path": "data/cases/scotus/73277468/events/evt-brief-judgment/predictions/codex-baseline/20260816T173750Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73277468/events/evt-brief-judgment/predictions/codex-baseline/20260816T173750Z",
+              "confidence": 0.61,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.39,
+              "run_id": "20260816T173750Z"
+            },
+            {
+              "big_case_rationale": null,
+              "big_case_score": null,
+              "cell_path": "data/cases/scotus/73277468/events/evt-brief-judgment/predictions/gemini-baseline/20260816T173750Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73277468/events/evt-brief-judgment/predictions/gemini-baseline/20260816T173750Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.75,
+              "run_id": "20260816T173750Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Jasmine Younge v. Fulton Judicial Circuit District Attorney's Office, Georgia"
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "A recurring, decades-old FRCP question touching everyday civil litigation in every district court, but technical and low-salience outside the procedure bar; the underlying employment dispute is individual, not systemic.",
+              "big_case_score": 0.3,
+              "cell_path": "data/cases/scotus/73277468/events/evt-order-judgment/predictions/claude-baseline/20260816T173750Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73277468/events/evt-order-judgment/predictions/claude-baseline/20260816T173750Z",
+              "confidence": 0.6,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.72,
+              "run_id": "20260816T173750Z"
+            },
+            {
+              "big_case_rationale": "The case should settle a recurring federal civil-procedure split, but it is unlikely to draw broad public attention beyond litigation practice.",
+              "big_case_score": 0.48,
+              "cell_path": "data/cases/scotus/73277468/events/evt-order-judgment/predictions/codex-baseline/20260816T173750Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73277468/events/evt-order-judgment/predictions/codex-baseline/20260816T173750Z",
+              "confidence": 0.64,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.76,
+              "run_id": "20260816T173750Z"
+            },
+            {
+              "big_case_rationale": "An important procedural rule circuit split, but not a blockbuster substantive issue.",
+              "big_case_score": 0.35,
+              "cell_path": "data/cases/scotus/73277468/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73277468/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.85,
+              "run_id": "20260816T173750Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Jasmine Younge v. Fulton Judicial Circuit District Attorney's Office, Georgia"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.3367,
+      "moment": "evt-argument-judgment",
+      "moment_opened_at": "2026-11-02",
+      "n": 3,
+      "other_party": "Fulton Judicial Circuit District Attorney's Office",
+      "outcome_lines": [
+        {
+          "action": "reversed",
+          "line": "Younge wins: the lower court's decision is overturned, and any remaining issues go back to that court.",
+          "side": "disturbed"
+        },
+        {
+          "action": "affirmed",
+          "line": "The Fulton Judicial Circuit District Attorney's Office wins: the lower court's decision is upheld.",
+          "side": "undisturbed"
+        },
+        {
+          "action": "vacated",
+          "line": "The lower court's decision is set aside and the case goes back to that court, without the Court deciding it for either side.",
+          "side": "disturbed"
+        }
+      ],
+      "schedule": [],
+      "scheduled": null,
+      "score_max": 0.46,
+      "score_min": 0.2,
+      "score_range": 0.26,
+      "short_caption": "Younge v. Fulton Judicial Circuit District Attorney's Office",
+      "status": "pending"
+    },
+    {
       "asking_declined": "in_re",
       "asking_party": null,
       "caption": "In Re Richard Devillier, et al.",
@@ -34899,6 +35390,124 @@
       "score_min": 0.28,
       "score_range": 0.12,
       "short_caption": null,
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Guardado",
+      "caption": "Jesse Guardado v. Richard Comerford, Secretary, Florida Department of Corrections, et al.",
+      "caption_event_id": "evt-motion-disposition",
+      "case_id": "scotus/9526000634",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Capital stay on a fact-bound Eighth Amendment maladministration claim against Florida's etomidate protocol; real stakes for the applicant and Florida's execution pace, but no doctrinal question the Court is likely to take up.",
+          "big_case_score": 0.15,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261104T225806Z"
+        },
+        {
+          "big_case_rationale": "An imminent execution and alleged systemic flaws in Florida's lethal-injection administration create substantial human and statewide stakes, although the immediate dispute is fact-bound.",
+          "big_case_score": 0.64,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261104T225806Z"
+        },
+        {
+          "big_case_rationale": "Capital execution-stay application raising recurring challenges to Florida's etomidate protocol and FDOC pharmacy-log alterations, but turning on fact-bound clear-error review after an evidentiary hearing rather than a broad doctrinal question.",
+          "big_case_score": 0.18,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261104T225806Z"
+        }
+      ],
+      "docket_id": 9526000634,
+      "docket_number": "26A634",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26a634.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-motion-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Capital stay on a fact-bound Eighth Amendment maladministration claim against Florida's etomidate protocol; real stakes for the applicant and Florida's execution pace, but no doctrinal question the Court is likely to take up.",
+              "big_case_score": 0.15,
+              "cell_path": "data/cases/scotus/9526000634/events/evt-motion-disposition/predictions/claude-baseline/20261104T225806Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000634/events/evt-motion-disposition/predictions/claude-baseline/20261104T225806Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.015,
+              "run_id": "20261104T225806Z"
+            },
+            {
+              "big_case_rationale": "An imminent execution and alleged systemic flaws in Florida's lethal-injection administration create substantial human and statewide stakes, although the immediate dispute is fact-bound.",
+              "big_case_score": 0.64,
+              "cell_path": "data/cases/scotus/9526000634/events/evt-motion-disposition/predictions/codex-baseline/20261104T225806Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000634/events/evt-motion-disposition/predictions/codex-baseline/20261104T225806Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.08,
+              "run_id": "20261104T225806Z"
+            },
+            {
+              "big_case_rationale": "Capital execution-stay application raising recurring challenges to Florida's etomidate protocol and FDOC pharmacy-log alterations, but turning on fact-bound clear-error review after an evidentiary hearing rather than a broad doctrinal question.",
+              "big_case_score": 0.18,
+              "cell_path": "data/cases/scotus/9526000634/events/evt-motion-disposition/predictions/gemini-baseline/20261104T225806Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000634/events/evt-motion-disposition/predictions/gemini-baseline/20261104T225806Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.02,
+              "run_id": "20261104T225806Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Jesse Guardado v. Richard Comerford, Secretary, Florida Department of Corrections, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.3233,
+      "moment": "evt-motion-disposition",
+      "moment_opened_at": "2026-11-03",
+      "n": 3,
+      "other_party": "Comerford",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "Guardado gets the relief requested for now, while the case continues in the lower courts.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Guardado does not get the relief requested for now, and things stay as the lower courts left them while the case continues.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [],
+      "scheduled": null,
+      "score_max": 0.64,
+      "score_min": 0.15,
+      "score_range": 0.49,
+      "short_caption": "Guardado v. Comerford",
       "status": "pending"
     },
     {
@@ -37260,6 +37869,182 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Lane Douglas Mitchell",
+      "caption": "Lane Douglas Mitchell v. Mississippi",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000526",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Recurring but fact-bound double-jeopardy classification question (acquittal vs. Scott-type dismissal) in one state attempted-murder prosecution; modest doctrinal reach.",
+          "big_case_score": 0.2,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261105T015156Z"
+        },
+        {
+          "big_case_rationale": "The scope of protection against retrial after a judicial acquittal is nationally important, but this noncapital prosecution presents a narrow, fact-dependent classification problem under established doctrine.",
+          "big_case_score": 0.4,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261105T015156Z"
+        },
+        {
+          "big_case_rationale": "A merits decision would clarify the boundary between United States v. Scott and Evans v. Michigan for post-evidence constitutional dismissals labeled as acquittals, a recurring but procedurally narrow Double Jeopardy question.",
+          "big_case_score": 0.22,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261105T015156Z"
+        }
+      ],
+      "docket_id": 9026000526,
+      "docket_number": "26-526",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-526.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-arrival-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A recurring but narrow Double Jeopardy characterization question (what counts as an acquittal after a mid-trial constitutional dismissal) in a single state attempted-murder prosecution; doctrinally tidy-up territory after Evans v. Michigan, low public salience.",
+              "big_case_score": 0.15,
+              "cell_path": "data/cases/scotus/9026000526/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261020T190956Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000526/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261020T190956Z",
+              "confidence": 0.8,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.035,
+              "run_id": "20261020T190956Z"
+            },
+            {
+              "big_case_rationale": "A significant protection against repeated criminal trials, but presented through a fact-specific compulsory-process dismissal rather than a broad change to criminal procedure.",
+              "big_case_score": 0.39,
+              "cell_path": "data/cases/scotus/9026000526/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261020T190956Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000526/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261020T190956Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.04,
+              "run_id": "20261020T190956Z"
+            },
+            {
+              "big_case_rationale": "Routine state criminal double-jeopardy dispute arising from an idiosyncratic mid-trial dismissal for an alleged compulsory-process violation; if granted, it would clarify the line between United States v. Scott procedural dismissals and Evans v. Michigan substantive acquittals.",
+              "big_case_score": 0.25,
+              "cell_path": "data/cases/scotus/9026000526/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261020T190956Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000526/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261020T190956Z",
+              "confidence": 0.85,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.04,
+              "run_id": "20261020T190956Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Lane Douglas Mitchell v. Mississippi"
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Recurring but fact-bound double-jeopardy classification question (acquittal vs. Scott-type dismissal) in one state attempted-murder prosecution; modest doctrinal reach.",
+              "big_case_score": 0.2,
+              "cell_path": "data/cases/scotus/9026000526/events/evt-petition-disposition/predictions/claude-baseline/20261105T015156Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000526/events/evt-petition-disposition/predictions/claude-baseline/20261105T015156Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.025,
+              "run_id": "20261105T015156Z"
+            },
+            {
+              "big_case_rationale": "The scope of protection against retrial after a judicial acquittal is nationally important, but this noncapital prosecution presents a narrow, fact-dependent classification problem under established doctrine.",
+              "big_case_score": 0.4,
+              "cell_path": "data/cases/scotus/9026000526/events/evt-petition-disposition/predictions/codex-baseline/20261105T015156Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000526/events/evt-petition-disposition/predictions/codex-baseline/20261105T015156Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.025,
+              "run_id": "20261105T015156Z"
+            },
+            {
+              "big_case_rationale": "A merits decision would clarify the boundary between United States v. Scott and Evans v. Michigan for post-evidence constitutional dismissals labeled as acquittals, a recurring but procedurally narrow Double Jeopardy question.",
+              "big_case_score": 0.22,
+              "cell_path": "data/cases/scotus/9026000526/events/evt-petition-disposition/predictions/gemini-baseline/20261105T015156Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000526/events/evt-petition-disposition/predictions/gemini-baseline/20261105T015156Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.01,
+              "run_id": "20261105T015156Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Lane Douglas Mitchell v. Mississippi"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.2733,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-10-20",
+      "n": 3,
+      "other_party": "Mississippi",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Lane Douglas Mitchell's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Lane Douglas Mitchell's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-11-13",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-11-13",
+        "kind": "conference"
+      },
+      "score_max": 0.4,
+      "score_min": 0.2,
+      "score_range": 0.2,
+      "short_caption": "Lane Douglas Mitchell v. Mississippi",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Casarez",
       "caption": "Christina Casarez v. Irigoyen Farms, Inc., et al.",
       "caption_event_id": "evt-order-call-for-response-disposition",
@@ -37734,124 +38519,6 @@
       "score_min": 0.12,
       "score_range": 0.3,
       "short_caption": "Jabateh v. United States",
-      "status": "pending"
-    },
-    {
-      "asking_declined": null,
-      "asking_party": "Lane Douglas Mitchell",
-      "caption": "Lane Douglas Mitchell v. Mississippi",
-      "caption_event_id": "evt-petition-arrival-disposition",
-      "case_id": "scotus/9026000526",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "A recurring but narrow Double Jeopardy characterization question (what counts as an acquittal after a mid-trial constitutional dismissal) in a single state attempted-murder prosecution; doctrinally tidy-up territory after Evans v. Michigan, low public salience.",
-          "big_case_score": 0.15,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20261020T190956Z"
-        },
-        {
-          "big_case_rationale": "A significant protection against repeated criminal trials, but presented through a fact-specific compulsory-process dismissal rather than a broad change to criminal procedure.",
-          "big_case_score": 0.39,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20261020T190956Z"
-        },
-        {
-          "big_case_rationale": "Routine state criminal double-jeopardy dispute arising from an idiosyncratic mid-trial dismissal for an alleged compulsory-process violation; if granted, it would clarify the line between United States v. Scott procedural dismissals and Evans v. Michigan substantive acquittals.",
-          "big_case_score": 0.25,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20261020T190956Z"
-        }
-      ],
-      "docket_id": 9026000526,
-      "docket_number": "26-526",
-      "docket_number_source": "case_id",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-526.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-petition-arrival-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "A recurring but narrow Double Jeopardy characterization question (what counts as an acquittal after a mid-trial constitutional dismissal) in a single state attempted-murder prosecution; doctrinally tidy-up territory after Evans v. Michigan, low public salience.",
-              "big_case_score": 0.15,
-              "cell_path": "data/cases/scotus/9026000526/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261020T190956Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000526/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261020T190956Z",
-              "confidence": 0.8,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "claude-baseline",
-              "probability": 0.035,
-              "run_id": "20261020T190956Z"
-            },
-            {
-              "big_case_rationale": "A significant protection against repeated criminal trials, but presented through a fact-specific compulsory-process dismissal rather than a broad change to criminal procedure.",
-              "big_case_score": 0.39,
-              "cell_path": "data/cases/scotus/9026000526/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261020T190956Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000526/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261020T190956Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.04,
-              "run_id": "20261020T190956Z"
-            },
-            {
-              "big_case_rationale": "Routine state criminal double-jeopardy dispute arising from an idiosyncratic mid-trial dismissal for an alleged compulsory-process violation; if granted, it would clarify the line between United States v. Scott procedural dismissals and Evans v. Michigan substantive acquittals.",
-              "big_case_score": 0.25,
-              "cell_path": "data/cases/scotus/9026000526/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261020T190956Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000526/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261020T190956Z",
-              "confidence": 0.85,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.04,
-              "run_id": "20261020T190956Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Lane Douglas Mitchell v. Mississippi"
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.2633,
-      "moment": "evt-petition-arrival-disposition",
-      "moment_opened_at": "2026-10-20",
-      "n": 3,
-      "other_party": "Mississippi",
-      "outcome_lines": [
-        {
-          "action": "granted",
-          "line": "The Court takes up Lane Douglas Mitchell's case. A grant alone decides nothing yet about who is right.",
-          "side": "granted"
-        },
-        {
-          "action": "denied",
-          "line": "Lane Douglas Mitchell's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
-          "side": "not-granted"
-        }
-      ],
-      "schedule": [],
-      "scheduled": null,
-      "score_max": 0.39,
-      "score_min": 0.15,
-      "score_range": 0.24,
-      "short_caption": "Lane Douglas Mitchell v. Mississippi",
       "status": "pending"
     },
     {
@@ -40469,6 +41136,121 @@
       "score_max": 0.44,
       "score_min": 0.08,
       "score_range": 0.36,
+      "short_caption": null,
+      "status": "pending"
+    },
+    {
+      "asking_declined": "short_form",
+      "asking_party": null,
+      "caption": "Cesari S.R.L. v. Peju Province Winery L.P., et al.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000527",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Narrow application of B&B Hardware issue preclusion to one private wine-mark dispute, decided below by non-precedential summary order.",
+          "big_case_score": 0.12,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261105T015156Z"
+        },
+        {
+          "big_case_rationale": "Clarifying when federal trademark-registration decisions bind infringement courts would matter nationally to trademark owners, but the dispute concerns a technical preclusion rule in private commercial litigation.",
+          "big_case_score": 0.35,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261105T015156Z"
+        },
+        {
+          "big_case_rationale": "Private commercial trademark dispute over whether a 2004 TTAB registration refusal precludes likelihood-of-confusion litigation in an infringement suit, arising in an interlocutory posture from a non-precedential Second Circuit summary order.",
+          "big_case_score": 0.15,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261105T015156Z"
+        }
+      ],
+      "docket_id": 9026000527,
+      "docket_number": "26-527",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-527.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Narrow application of B&B Hardware issue preclusion to one private wine-mark dispute, decided below by non-precedential summary order.",
+              "big_case_score": 0.12,
+              "cell_path": "data/cases/scotus/9026000527/events/evt-petition-disposition/predictions/claude-baseline/20261105T015156Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000527/events/evt-petition-disposition/predictions/claude-baseline/20261105T015156Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.025,
+              "run_id": "20261105T015156Z"
+            },
+            {
+              "big_case_rationale": "Clarifying when federal trademark-registration decisions bind infringement courts would matter nationally to trademark owners, but the dispute concerns a technical preclusion rule in private commercial litigation.",
+              "big_case_score": 0.35,
+              "cell_path": "data/cases/scotus/9026000527/events/evt-petition-disposition/predictions/codex-baseline/20261105T015156Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000527/events/evt-petition-disposition/predictions/codex-baseline/20261105T015156Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.025,
+              "run_id": "20261105T015156Z"
+            },
+            {
+              "big_case_rationale": "Private commercial trademark dispute over whether a 2004 TTAB registration refusal precludes likelihood-of-confusion litigation in an infringement suit, arising in an interlocutory posture from a non-precedential Second Circuit summary order.",
+              "big_case_score": 0.15,
+              "cell_path": "data/cases/scotus/9026000527/events/evt-petition-disposition/predictions/gemini-baseline/20261105T015156Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000527/events/evt-petition-disposition/predictions/gemini-baseline/20261105T015156Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.008,
+              "run_id": "20261105T015156Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Cesari S.R.L. v. Peju Province Winery L.P., et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.2067,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-10-20",
+      "n": 3,
+      "other_party": null,
+      "outcome_lines": null,
+      "schedule": [
+        {
+          "date": "2026-12-04",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-12-04",
+        "kind": "conference"
+      },
+      "score_max": 0.35,
+      "score_min": 0.12,
+      "score_range": 0.23,
       "short_caption": null,
       "status": "pending"
     },
@@ -49355,7 +50137,7 @@
       "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26a612.html",
       "events": [
         {
-          "actual_disposition": null,
+          "actual_disposition": "denied",
           "event_id": "evt-motion-disposition",
           "reads": [
             {
@@ -49401,7 +50183,7 @@
               "run_id": "20261103T203422Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-11-03",
           "title": "Martin Akerman v. Merit Systems Protection Board, et al."
         }
       ],
@@ -49429,7 +50211,7 @@
       "score_min": 0.02,
       "score_range": 0.01,
       "short_caption": "Akerman v. Merit Systems Protection Board",
-      "status": "pending"
+      "status": "resolved"
     },
     {
       "asking_declined": null,
@@ -50838,5 +51620,5 @@
   ],
   "rows_with_leakage_flag": 4,
   "schema_version": "1.4",
-  "scored_reads": 1035
+  "scored_reads": 1047
 }
