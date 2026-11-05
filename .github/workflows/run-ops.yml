@@ -300,7 +300,32 @@ jobs:
             echo "No ops change to persist."
           else
             git -C "$tree" commit -m "ops: snapshot ${stamp}"
-            git -C "$tree" push origin ops-metrics
+            # A push fails for one of two reasons: the validate writer advanced
+            # the branch (its files never overlap these, so a rebase absorbs
+            # it), or a transient GitHub error such as `remote: fatal error in
+            # commit_refs` that only needs outlasting. Rebase and retry with a
+            # doubling backoff, then fail loudly once the attempts run out.
+            # A rebase conflict is never transient and fails the step at once.
+            attempts=5
+            backoff=5
+            pushed=false
+            for attempt in $(seq 1 "$attempts"); do
+              if git -C "$tree" push origin ops-metrics; then
+                pushed=true
+                break
+              fi
+              if [ "$attempt" -lt "$attempts" ]; then
+                echo "::warning::ops-metrics push failed (attempt ${attempt}/${attempts}); rebasing and retrying in ${backoff}s"
+                sleep "$backoff"
+                backoff=$((backoff * 2))
+                git -C "$tree" fetch origin '+refs/heads/ops-metrics:refs/remotes/origin/ops-metrics' || true
+                git -C "$tree" rebase origin/ops-metrics
+              fi
+            done
+            if [ "$pushed" != true ]; then
+              echo "::error::could not push the ops snapshot to ops-metrics after ${attempts} attempts"
+              exit 1
+            fi
           fi
           git worktree remove --force "$tree"
 
