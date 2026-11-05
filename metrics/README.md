@@ -2965,7 +2965,9 @@ the rendered table) and
   each the `fedcourts public-update` render of that week, written by
   `fedcourts archive-public-updates` when a run first finds the week non-empty
   and never re-rendered once merged, not even for a later void or set-aside.
-  The fedcourts.ai site renders it as its updates page. It is display
+  The fedcourts.ai site renders it as its updates page, and the email, which
+  lists only the ten cases per section the models rated biggest, links that
+  page for the rest. It is display
   material like the email: it states forecasts and outcomes side by side,
   computes no score, and no metric reads it.
 

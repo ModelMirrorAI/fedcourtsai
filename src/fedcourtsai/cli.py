@@ -505,6 +505,7 @@ from .promotion_train import (
 )
 from .promotion_train import decide as promotion_train_decide
 from .public_update import (
+    EMAIL_TOP,
     archive_public_updates,
     build_public_update,
     last_complete_week,
@@ -16135,6 +16136,14 @@ def public_update_cmd(
         Path | None,
         typer.Option(help="Write the Markdown here; omit to print it."),
     ] = None,
+    top: Annotated[
+        int,
+        typer.Option(
+            min=0,
+            help="Cases listed per section, as the email trims them (the email's own is "
+            f"{EMAIL_TOP}); 0, the default, lists every case, as the site's history does.",
+        ),
+    ] = 0,
 ) -> None:
     """Render the weekly public update for the email list from the committed ledger.
 
@@ -16153,7 +16162,7 @@ def public_update_cmd(
     if update.empty:
         typer.echo(f"public-update: nothing to send for {chosen}.", err=True)
         raise typer.Exit(code=3)
-    text = render_public_update(update)
+    text = render_public_update(update, top=top or None)
     if out is None:
         typer.echo(text, nl=False)
     else:
@@ -16230,6 +16239,14 @@ def post_public_update_cmd(
             help="ISO week to post, as YYYY-Www; defaults to the last complete week (UTC)."
         ),
     ] = "",
+    top: Annotated[
+        int,
+        typer.Option(
+            min=0,
+            help="Cases listed per section, the ones the models rated biggest, with a link "
+            "to the week's full update on the site for the rest; 0 lists every case.",
+        ),
+    ] = EMAIL_TOP,
     dry_run: Annotated[
         bool,
         typer.Option(
@@ -16260,7 +16277,7 @@ def post_public_update_cmd(
         typer.echo(f"post-public-update: nothing to send for {chosen}.", err=True)
         raise typer.Exit(code=3)
     subject = public_update_subject(update)
-    body = render_public_update(update, title=False)
+    body = render_public_update(update, title=False, top=top or None)
     if dry_run:
         typer.echo(f"Subject: {subject}\nTag: {tag.strip() or tag_id.strip()}\n\n{body}", nl=False)
         return
