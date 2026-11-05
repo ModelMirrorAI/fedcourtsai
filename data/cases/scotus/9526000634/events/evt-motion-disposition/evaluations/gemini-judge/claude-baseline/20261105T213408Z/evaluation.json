@@ -1,0 +1,130 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.15,
+    "notes": "Fact-bound capital stay application challenging Florida's administration and pharmacy logging of its three-drug etomidate lethal-injection protocol under 42 U.S.C. \u00a7 1983 after a federal evidentiary hearing. Significant stakes for the condemned prisoner and ongoing scrutiny of Florida's execution recordkeeping, but routine summary denial posture with no doctrinal shift or circuit split."
+  },
+  "brier_score": 0.000225,
+  "brier_skill_score": 0.9834729197485207,
+  "case_id": "scotus/9526000634",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.015,
+        "score": 0.013389019934335404
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.07,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.85,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.005,
+          "Barrett": 0.005,
+          "Gorsuch": 0.005,
+          "Jackson": 0.07,
+          "Kagan": 0.02,
+          "Kavanaugh": 0.005,
+          "Roberts": 0.005,
+          "Sotomayor": 0.1,
+          "Thomas": 0.01
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.013389019934335404,
+    "total": 0.013389019934335404
+  },
+  "correct": 1,
+  "created_at": "2026-11-05T21:50:23.967127Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction run on 2026-11-04 (run_id 20261104T225806Z, cutoff 2026-11-04) before the 2026-11-05 referral and denial order. All 13 captured calls in retrieval_log.json (result_capture_coverage 1.0) are local file reads and `uv run fedcourts query` lookups with retrieved_doc_date <= 2026-11-03. No post-resolution or outcome material was retrieved.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-argon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.94,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The November 5, 2026 docket entry in snapshot 2026-11-05.json records an unsigned summary order denying both the stay application (26A634) and the certiorari petition (26-6051).",
+        "claim": "The Court will deny the application for a stay of execution in an unsigned summary order paired with a denial of certiorari in No. 26-6051 on November 5, 2026.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records `interim_signals.referred_to_court: true`, and the November 5, 2026 order states the application was 'presented to Justice Thomas and by him referred to the Court'.",
+        "claim": "Justice Thomas will refer the capital stay application to the full Court (`referral-increment` = 0.85).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records `interim_signals.response_requested: false`; Respondent filed its response on November 4, 2026 without a docketed call for a response.",
+        "claim": "The Court is unlikely to issue a formal `Response requested` entry because Florida routinely files its response voluntarily on an active death warrant (`response-requested-increment` = 0.07).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records `interim_signals.amicus_briefs: 0`.",
+        "claim": "No amicus brief will be filed on the 48-hour capital execution-warrant schedule (`amicus-increment` = 0.04).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records `noted_dissent_from_denial: null`, `votes: []`, and `writing_roles: null`; no Justice wrote separately.",
+        "claim": "The denial order will most likely issue with no separate writings, with Justices Sotomayor and Jackson as the only plausible authors of any separate dissent or statement.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261104T225806Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+    "label": "proc-v17",
+    "pipeline_sha": "e0fe020edebaf5090281f01b3523a76f9beb1f1d",
+    "stamped_at": "2026-11-05T21:50:23.967127Z"
+  },
+  "reasoning_quality": 0.88,
+  "run_id": "20261105T213408Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

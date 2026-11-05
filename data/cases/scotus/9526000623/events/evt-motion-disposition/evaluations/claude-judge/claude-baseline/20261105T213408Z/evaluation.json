@@ -1,0 +1,130 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.12,
+    "notes": "Individual Florida post-warrant capital stay on a successive state postconviction posture; the lead theory (Woodard clemency due process against a governor's categorical non-clemency stance) has been repeatedly rejected and no split or new doctrine was in play. Grave individual stakes, but the Court denied in a one-line unsigned order with the companion cert petition, with no noted dissent or writing; little reach beyond the applicant."
+  },
+  "brier_score": 0.000225,
+  "brier_skill_score": 0.9834729197485207,
+  "case_id": "scotus/9526000623",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.015,
+        "score": 0.013389019934335404
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.08,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.9,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.003,
+          "Barrett": 0.003,
+          "Gorsuch": 0.003,
+          "Jackson": 0.04,
+          "Kagan": 0.01,
+          "Kavanaugh": 0.003,
+          "Roberts": 0.003,
+          "Sotomayor": 0.06,
+          "Thomas": 0.003
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.013389019934335404,
+    "total": 0.013389019934335404
+  },
+  "correct": 1,
+  "created_at": "2026-11-05T21:41:47.776182Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell (retrieval_log mode=forward), predicted 2026-11-04 before the 2026-11-05 resolution. Captured log (coverage 1.0): only local prompt/record/statpack reads and corpus queries (recent denied applications; linked petition 26-6013, latest doc date 2026-10-30). No CourtListener or web calls. No call sought or surfaced this application's disposition; no retrieved_doc_date on or after 2026-11-05; no read of data/qp-topics/. Reasoning does not presuppose the result.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-opus-5-5",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.8,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Nov 5, 2026 entry denies the stay and the cert petition in one order.",
+        "claim": "The Court will deny the stay (P\u22481.5%), most likely on Nov 5 in the hours before the execution, together with a denial of cert petition 26-6013.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Nov 5 entries: 'referred to the Court' and 'presented to Justice Thomas and by him referred to the Court is denied.'",
+        "claim": "Thomas will refer the application and the order will read 'denied by the Court'.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Nov 2 'Response to application from respondent Florida filed'; no response-request entry; outcome response_requested false.",
+        "claim": "Florida will oppose, most likely without a formal docketed call for a response.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Order text records no dissent or statement.",
+        "claim": "No separate writing most likely; Sotomayor then Jackson if anyone writes.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Unexplained order; the cert denial is consistent but the staged record states no reasons.",
+        "claim": "The Court will not read the governor's stated policy as the Woodard 'coin flip'; no fair prospect of certiorari.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261104T014043Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+    "label": "proc-v17",
+    "pipeline_sha": "e0fe020edebaf5090281f01b3523a76f9beb1f1d",
+    "stamped_at": "2026-11-05T21:41:47.776182Z"
+  },
+  "reasoning_quality": 0.75,
+  "run_id": "20261105T213408Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

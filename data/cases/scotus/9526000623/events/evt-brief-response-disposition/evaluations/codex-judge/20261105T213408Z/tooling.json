@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000623",
+  "run_id": "20261105T213408Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell", "jq", "apply_patch", "python jsonschema"],
+  "helpful": [
+    "Blinded candidate staging with frozen context and captured retrieval queries",
+    "Resolved snapshot and structured interim outcome signals",
+    "Committed statpack finer-reading coverage counts"
+  ],
+  "gaps": [
+    "No staged complete writing census or disposing order body for verifying separate writings and stated grounds"
+  ],
+  "notes": "Grading required no external retrieval. Result-capture markers distinguish captured responses from execution-outcome-only records and unobserved searches; missing result dates were not treated as empty results. Historical predictor-time statpacks are not staged, so current coverage was not used to contradict their earlier coverage reports."
+}

@@ -1,0 +1,34 @@
+# Evaluation of `gemini-baseline` — *Jesse Guardado v. Florida* (`scotus/9526000623`, `evt-motion-disposition`)
+
+## Stage, Outcome, and Quantitative Scoring
+
+This cell evaluates `evt-motion-disposition` at the `interim` stage (`moment: arrival`) for capital stay application No. 26A623 (*Jesse Guardado v. Florida*). On November 5, 2026, Justice Thomas referred the application to the full Court, which denied it in a standard single-sentence unsigned order (`actual_disposition: "denied"`, `actual_granted: 0`, `interim_reading: "denied"`, `interim_granted: 0`, `interim_signals: {"amicus_briefs": 0, "referred_to_court": true, "response_requested": false}`). No Justice noted a dissent or authored a separate writing (`votes: []`, `noted_dissent_from_denial: null`).
+
+- **Interim baseline and skill (`segment_base_rate`, `brier_skill_score`, `base_rate_basis`):** Because this is an `interim`-stage cell, `segment_base_rate` and `brier_skill_score` are the harness's and are left `null` here for `fedcourts stamp-cell` to populate from `metrics/statpack.json`'s `interim` section (`base_rate_basis` stays structurally `null` because applications are not a salience-band product). In the committed statpack, the strictly-prior application-Term pool (OT2016–OT2025; OT2001–OT2015 are unparsed) clears `INTERIM_BASE_RATE_MIN_RESOLVED = 50` on both the coarse substantive slice (`1,366` resolved, `160` granted) and the backfilled finer interim reading (`1,337` finer-resolved, `156` finer-granted, `29` moot, `0` unread; at prediction time on November 4, 2026, the finer reading had not yet been backfilled into the statpack and stood at `finer_resolved = 0`, `finer_unread = 1,366`, which is why any stamp against that earlier statpack build returns `null` for a finer-reading baseline).
+- **Headline accuracy and Brier score:** `gemini-baseline` predicted `predicted_disposition: "denied"` (`correct = 1` against `interim_granted = 0`) with `probability = 0.02`, yielding `brier_score = 0.0004`.
+- **Votes and semantic claims:** Per stage rules, `vote_accuracy`, `judgment_correct`, and `semantic_grades` are omitted/`null` on an interim cell.
+
+## Reasoning Quality (`0.94`)
+
+`gemini-baseline` delivered an outstanding legal and empirical analysis in `reasoning.md`:
+
+1. **Retrieval and verification of the decision below:** Rather than relying solely on the 5-page stay application (`application.txt`), `gemini-baseline` used CourtListener MCP to locate and read the Florida Supreme Court's October 29, 2026 opinion in *Guardado v. State*, No. SC2026-1605 (opinion ID `11516852`). That lookup uncovered crucial record facts omitted or elided in the application:
+   - Guardado actually received a clemency proceeding (with notice in March 2026 for a July 2026 clemency interview, and an express certification in the October 5, 2026 death warrant that executive clemency was considered pursuant to the Rules of Executive Clemency and found inappropriate).
+   - The underlying proceeding raised two additional claims beyond the *Woodard* clemency issue: (a) successive penalty-phase and initial-postconviction ineffective-assistance/mitigation claims (including Dozier School for Boys allegations) that the Florida Supreme Court held untimely under Fla. R. Crim. P. 3.851(d) and procedurally barred as successive nearly two decades after sentencing—an adequate and independent state-law bar; and (b) a challenge to the 31-day post-warrant litigation schedule, rejected because Guardado received a *Huff* hearing and full briefing without identifying any matter on which notice or opportunity to be heard was denied.
+   - The decision below was unanimous (7–0 in result), with Justice Tanenbaum concurring separately to caution capital collateral counsel against filing meritless last-minute successive motions under Rule 3.851(h).
+2. **Doctrinal precision under `Nken` / `Barefoot` and `Woodard`:** `gemini-baseline` accurately explained why *Ohio Adult Parole Authority v. Woodard*, 523 U.S. 272 (1998), forecloses relief: Justice O'Connor's controlling concurrence requires only minimal procedural safeguards against total denial of access or arbitrary "coin flip" procedures, not judicial policing of a Governor's substantive offense-based criteria or historical grant rates.
+3. **Empirical calibration:** `gemini-baseline` properly separated the unconditioned all-substantive interim base rate from the arrival-moment capital execution stay cohort (`response_requested: false`, `referred_to_court: false`, `amicus_briefs: 0` at the cut), citing the immediately preceding Florida capital stay denial in *Reaves v. Florida* (`No. 26A524`, denied October 20, 2026) and arriving at a well-calibrated 2.0% probability.
+
+## Predicted reasoning (`0.88`)
+
+`gemini-baseline`'s forecast document (`predicted_reasoning.md`) was specific, well-structured, and borne out on every testable dimension:
+
+- **Central claims evaluated:**
+  1. *Referral and disposition (`borne-out`):* Forecast that Justice Thomas would refer Application `26A623` to the full Court rather than acting in chambers, and that the Court would deny the stay in a single-sentence unsigned order on or before November 5, 2026, alongside denial of the companion cert petition (`No. 26-6013`). Both occurred on November 5, 2026.
+  2. *Absence of a Court-ordered response call (`borne-out`):* Forecast that no formal response request would be entered by the Court (`response_requested: false`) because Florida would file its opposition voluntarily under capital warrant practice, and that `amicus_briefs` would remain `0`. Both matched `outcome.json` (`response_requested: false`, `amicus_briefs: 0`, with Florida filing its opposition on November 2 and Guardado replying on November 3).
+  3. *Lineup and separate writings (`borne-out`):* Forecast that the denial order would issue with no written opinions and no publicly recorded dissents from any Justice (noting at most a low tail chance of a bare noted dissent by Justice Sotomayor). The order issued with no dissents or writings (`votes: []`, `noted_dissent_from_denial: null`).
+  4. *Doctrinal ground for denial (`unresolved`):* Detailed why the application fails the *Nken* / *Barefoot* stay standard across all three claims adjudicated in `No. SC2026-1605`. Because the Court issued its customary one-sentence unsigned denial order with no stated reasoning, the staged record does not resolve the doctrinal ground on the face of the order.
+
+## Leakage Assessment
+
+`gemini-baseline` ran in `forward` mode on `2026-11-04T01:40:43Z`, prior to the November 5, 2026 disposition. The harness-captured `retrieval_log.json` shows only pre-resolution lookups (`retrieved_doc_date: "2026-10-29"` for the Florida Supreme Court decision below, plus local corpus queries on `26-6013` and `26A524`). `retrieved_outcome_material` is `false`, `influenced_prediction` is `not_applicable`, and `leakage_suspected` is `false`.

@@ -1,0 +1,130 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.03,
+    "notes": "A self-represented federal employee's interlocutory FOIA/whistleblower dispute with the MSPB and other agencies. He asked for an injunction pending certiorari, the Chief Justice denied it in chambers without calling for a response, and it raises no question reaching beyond the applicant."
+  },
+  "brier_score": 0.0001,
+  "brier_skill_score": 0.9926546309993426,
+  "case_id": "scotus/9526000612",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": 0.013514019934335405
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.35,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.002,
+          "Barrett": 0.001,
+          "Gorsuch": 0.002,
+          "Jackson": 0.002,
+          "Kagan": 0.001,
+          "Kavanaugh": 0.001,
+          "Roberts": 0.001,
+          "Sotomayor": 0.002,
+          "Thomas": 0.002
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.013514019934335405,
+    "total": 0.013514019934335405
+  },
+  "correct": 1,
+  "created_at": "2026-11-05T21:38:06.078548Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell (snapshot 2026-10-21, arrival-position cut). The case-specific retrieval targeted the lower-court record on CourtListener: CADC 26-5131 and 26-1285 docket entries through Oct 19 and Oct 10, 2026, DDC 1:23-cv-02574 entries through Oct 9, 2026, and the Oct 9 mandamus filings. It also queried the corpus for the applicant's earlier SCOTUS dockets (24A730/24A731, 23-6709/6710, 26A235). All of that predates the Nov 3 resolution and is legitimate forward signal. The log is outcome_only, so the calls are graded on their queries, and none targets 26A612's disposition. Clean.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-opus-5-5",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.6,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json: denied. The document misnames the relief: the docket says 'for an injunction'.",
+        "claim": "The application for an immediate administrative stay and stay pending appeal will be denied in full.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Docket, Oct 20 2026: 'submitted to The Chief Justice'. Nov 03: denied by The Chief Justice, with no referral.",
+        "claim": "The application was addressed to Justice Gorsuch rather than the Circuit Justice, and that, together with the applicant's history, makes referral to the full Court a substantial (~35%) path.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "interim_signals.response_requested false.",
+        "claim": "No response will be requested from the Solicitor General.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Docketed Oct 30, denied in chambers Nov 3, 2026.",
+        "claim": "If acted on by a single Justice in chambers, denial within about 1-10 days of docketing (early November).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Docket order text. No writing recorded.",
+        "claim": "The denial will be a one-sentence order with no separate writing.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261103T203422Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+    "label": "proc-v17",
+    "pipeline_sha": "e0fe020edebaf5090281f01b3523a76f9beb1f1d",
+    "stamped_at": "2026-11-05T21:38:06.078548Z"
+  },
+  "reasoning_quality": 0.55,
+  "run_id": "20261105T213408Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

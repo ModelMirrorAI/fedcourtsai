@@ -1,0 +1,130 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.2,
+    "notes": "An eve-of-execution Florida stay application. It turns on a clemency due-process theory under the Woodard concurrence that lower courts have repeatedly rejected. The stakes are irreversible for the applicant, but the Court denied the stay and cert together in an unsigned order with no noted writing, so the decision has little doctrinal or systemic reach."
+  },
+  "brier_score": 0.000225,
+  "brier_skill_score": 0.9834729197485207,
+  "case_id": "scotus/9526000623",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.015,
+        "score": 0.013389019934335404
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.95,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.003,
+          "Barrett": 0.003,
+          "Gorsuch": 0.005,
+          "Jackson": 0.03,
+          "Kagan": 0.008,
+          "Kavanaugh": 0.005,
+          "Roberts": 0.002,
+          "Sotomayor": 0.04,
+          "Thomas": 0.005
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.013389019934335404,
+    "total": 0.013389019934335404
+  },
+  "correct": 1,
+  "created_at": "2026-11-05T21:38:01.428260Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-brief-response-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward log (55 calls, all outcome_only so results not captured): structured corpus queries (companion petition 26-6013 row, prior capital application 26A415 decided 2026-09-29, generic application lists), and CourtListener reads of the Florida Supreme Court's 2026-10-29 decision below. All queries target material that predates the event; none seeks this application's disposition. Graded on queries per the capture rule. Prediction was created 2026-11-04 and the event resolved 2026-11-05. No retrieved_doc_date in the log falls on or after the resolution, and no call targets this application's disposition. The log shows no read of data/qp-topics/.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-opus-5-5",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.8,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Nov 5 2026 referral entry and denial order in that form.",
+        "claim": "Justice Thomas refers the application to the full Court and the order recites 'presented to Justice Thomas and by him referred to the Court is denied.'",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Nov 5 2026 docket: application referred to the Court; 'Application (26A623) for stay of execution ... presented to Justice Thomas and by him referred to the Court is denied. The petition for a writ of certiorari is denied.' No separate writing noted.",
+        "claim": "Summary order denying the stay in full on or before Nov 5, simultaneous with denial of cert in 26-6013.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "interim_signals: response_requested false, amicus_briefs 0.",
+        "claim": "No call for a response and no amicus briefs.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Denial order notes no dissent or statement.",
+        "claim": "Unsigned order with no separate writings and no recorded dissent.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The order is unexplained, and this content was conditional on a grant that did not happen.",
+        "claim": "If reached, review would focus on Woodard notice/categorical-refusal questions; procedural bars foreclose the IAC claims.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261104T014043Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+    "label": "proc-v17",
+    "pipeline_sha": "e0fe020edebaf5090281f01b3523a76f9beb1f1d",
+    "stamped_at": "2026-11-05T21:38:01.428260Z"
+  },
+  "reasoning_quality": 0.6,
+  "run_id": "20261105T213408Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,19 @@
+{
+  "actor_id": "gemini-judge",
+  "case_id": "scotus/9526000623",
+  "gaps": [],
+  "helpful": [
+    "Staged record documents (application.txt, application-response.txt, application-reply.txt) and 2026-11-05.json snapshot made verifying the interim briefing sequence and referral/disposition straightforward.",
+    "CourtListener MCP read_document allowed fast verification of gemini-baseline's citations to the Florida Supreme Court's October 29, 2026 decision below (opinion_id=11516852)."
+  ],
+  "notes": "All three blinded candidates ran in forward mode on 2026-11-04 prior to the 2026-11-05 denial order.",
+  "role": "evaluator",
+  "run_id": "20261105T213408Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts paths",
+    "mcp_courtlistener_read_document"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

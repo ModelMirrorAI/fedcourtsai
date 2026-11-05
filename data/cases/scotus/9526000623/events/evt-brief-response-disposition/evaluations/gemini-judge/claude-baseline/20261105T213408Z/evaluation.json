@@ -1,0 +1,125 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.25,
+    "notes": "Capital stay application facing an imminent November 5, 2026 execution, carrying the highest individual stakes for the applicant, but raising a post-warrant clemency due-process claim under Ohio Adult Parole Authority v. Woodard and untimely successive Rule 3.851 claims with no circuit split, no amicus participation, and limited doctrinal reach beyond routine capital warrant litigation."
+  },
+  "brier_score": 0.0001,
+  "brier_skill_score": 0.9926546309993426,
+  "case_id": "scotus/9526000623",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": 0.013514019934335405
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.9,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.005,
+          "Barrett": 0.005,
+          "Gorsuch": 0.005,
+          "Jackson": 0.05,
+          "Kagan": 0.01,
+          "Kavanaugh": 0.005,
+          "Roberts": 0.005,
+          "Sotomayor": 0.06,
+          "Thomas": 0.005
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.013514019934335405,
+    "total": 0.013514019934335405
+  },
+  "correct": 1,
+  "created_at": "2026-11-05T21:46:33.999537Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-brief-response-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward-mode prediction generated on 2026-11-04T02:07:05Z against cutoff 2026-11-03, more than a day before the November 5, 2026 referral and denial. retrieval_log.json records 14 calls (12 shell, 2 file-read) with result_capture_coverage = 1.0, throttled_calls = null, and retrieved_doc_date = null, matching retrieval.md (two fedcourts query commands and local statpack/case-record reads).",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-argon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.95,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The November 5, 2026 docket entry and disposing order state that Application 26A623 was referred to the Court by Justice Thomas (outcome.json interim_signals.referred_to_court = true).",
+        "claim": "Justice Thomas refers the capital stay application (26A623) to the full Court rather than acting in chambers.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The November 5, 2026 order in snapshot 2026-11-05.json reads verbatim: 'Application (26A623) for stay of execution of sentence of death presented to Justice Thomas and by him referred to the Court is denied. The petition for a writ of certiorari is denied.'",
+        "claim": "The Court denies the stay application on November 5, 2026, prior to the 6:00 p.m. scheduled execution, in a brief unsigned order reading 'presented to Justice Thomas and by him referred to the Court is denied' alongside denial of the linked certiorari petition (No. 26-6013).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json interim_signals records response_requested = false and amicus_briefs = 0.",
+        "claim": "The Court issues no formal call for a response and no amicus curiae briefs are filed before disposition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The November 5, 2026 order notes no dissents or separate statements, and outcome.json records votes = [] and writing_roles = null.",
+        "claim": "The denial order is issued with no noted dissents or separate writings.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261104T014043Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+    "label": "proc-v17",
+    "pipeline_sha": "e0fe020edebaf5090281f01b3523a76f9beb1f1d",
+    "stamped_at": "2026-11-05T21:46:33.999537Z"
+  },
+  "reasoning_quality": 0.86,
+  "run_id": "20261105T213408Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

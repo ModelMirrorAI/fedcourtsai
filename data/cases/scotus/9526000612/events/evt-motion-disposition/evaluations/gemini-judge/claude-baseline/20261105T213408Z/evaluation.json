@@ -1,0 +1,125 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.02,
+    "notes": "Pro se emergency injunction application arising from an individual federal-employment and FOIA/Privacy Act dispute (D.C. Circuit No. 26-5131; D.D.C. No. 1:23-cv-02574) with no broader doctrinal or public-policy significance; summarily denied in chambers by the Chief Justice."
+  },
+  "brier_score": 0.0004,
+  "brier_skill_score": 0.9706185239973701,
+  "case_id": "scotus/9526000612",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": 0.013214019934335405
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.25,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.003,
+          "Barrett": 0.002,
+          "Gorsuch": 0.004,
+          "Jackson": 0.004,
+          "Kagan": 0.002,
+          "Kavanaugh": 0.002,
+          "Roberts": 0.003,
+          "Sotomayor": 0.004,
+          "Thomas": 0.003
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.013214019934335405,
+    "total": 0.013214019934335405
+  },
+  "correct": 1,
+  "created_at": "2026-11-05T21:44:19.978334Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction placed on 2026-11-03T20:46Z-20:48Z before the November 3, 2026 denial was posted to the public docket; captured web-fetch of 26a612.html returned only the October 20 submission and October 30 docketing entries.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-argon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.85,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The November 3, 2026 docket entry in 2026-11-04.json reads: 'Application (26A612) denied by The Chief Justice.'",
+        "claim": "The application (26A612) will be denied in chambers by Chief Justice Roberts as Circuit Justice for the D.C. Circuit.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records interim_signals.response_requested = false and interim_signals.referred_to_court = false.",
+        "claim": "The Chief Justice will not request a response from the Solicitor General or refer the application to the full Court.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records votes = [] and writing_roles = null, and the docket shows an unsigned one-line chambers denial.",
+        "claim": "The denial will issue as a summary one-line order without any separate writing or recorded votes.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records resolved_at = '2026-11-03', four days after the October 30, 2026 docketing date (faster than the outer window but consistent with prompt in-chambers disposition).",
+        "claim": "Disposition is expected within a few weeks of docketing (by late November or December 2026).",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261103T203422Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+    "label": "proc-v17",
+    "pipeline_sha": "e0fe020edebaf5090281f01b3523a76f9beb1f1d",
+    "stamped_at": "2026-11-05T21:44:19.978334Z"
+  },
+  "reasoning_quality": 0.85,
+  "run_id": "20261105T213408Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}
