@@ -123,5 +123,6 @@ computes nothing. A pending holder whose start day has passed is flagged
 overdue, so a roster that has fallen behind shows on the board rather than
 silently attributing actions to the wrong AG. An action that names a
 `watchlist_case` the AI watchlist does not list is refused, so every case link
-the site renders resolves. The weekly metrics refresh does not run the command
-yet, and the roster and actions are not yet filled.
+the site renders resolves. The weekly metrics refresh (run-analytics' `metrics-refresh`)
+regenerates it, so tiers age through the window even when the registry does
+not change. The roster and actions are not yet filled.
