@@ -707,6 +707,10 @@ jobs:
           # branch from the current `main` and clears it; waiting for the next
           # weekly tick does the same up to seven days later.
           uv run fedcourts big-cases
+          # The state-AGs board reads only config/state-ags.yaml and the AI
+          # watchlist. Its tiers are read on the run's day, so actions age out of
+          # the 730-day window here even in a week the registry did not change.
+          uv run fedcourts state-ags
 
       # The branch name and PR prose come from the tested `metrics-refresh-plan`
       # (null pr = nothing changed); this step only runs git and gh, mirroring

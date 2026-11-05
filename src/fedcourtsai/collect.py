@@ -374,6 +374,7 @@ REFRESH_JAIL_PATHS = frozenset(
         "metrics/docket.md",
         "metrics/big-cases.json",
         "metrics/big-cases.md",
+        "metrics/state-ags.json",
         "data/scope/scope.json",
     }
 )
