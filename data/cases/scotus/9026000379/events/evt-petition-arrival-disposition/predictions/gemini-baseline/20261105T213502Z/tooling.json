@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000379",
+  "run_id": "20261105T213502Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "courtlistener MCP"
+  ],
+  "helpful": [
+    "fedcourts query (--docket-number 25-886 and 26-379)",
+    "CourtListener MCP (search, docket-entries, read_document)",
+    "metrics/statpack.md and context.json cert_anchor"
+  ],
+  "gaps": [
+    "A --counsel or --party filter on fedcourts query to locate Solicitor General petitions or official-capacity repeat petitioners without grepping"
+  ],
+  "notes": "fedcourts query and CourtListener MCP worked together seamlessly to identify No. 26-379 as the Solicitor General's replacement vehicle for Genalo v. Black, No. 25-886, and to retrieve Judge Engelmayer's underlying March 20, 2026 habeas decision (D.C. v. Noem, 2026 WL 794162) despite the paper-only Rule 34.6 Supreme Court filings."
+}

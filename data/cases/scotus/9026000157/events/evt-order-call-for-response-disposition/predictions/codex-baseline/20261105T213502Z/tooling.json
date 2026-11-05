@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000157",
+  "run_id": "20261105T213502Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "local record and schema reads",
+    "fedcourts paths",
+    "committed statpack",
+    "CourtListener MCP search",
+    "CourtListener MCP search_document",
+    "web.run search_query",
+    "fedcourts validate"
+  ],
+  "helpful": [
+    "Frozen sal-v7 cert anchor and explicit moment cutoff",
+    "Readable petition and separately indexed lower-court appendix",
+    "Paid-segment amicus, relist, and CVSG cuts",
+    "CourtListener opinion-text searches for narrow precedent checks"
+  ],
+  "gaps": [
+    "No committed response-request-conditioned cert base rate",
+    "Default uv cache path is read-only; /tmp/uv-cache works",
+    "CourtListener reporter search for 590 U.S. 1 matched broadly",
+    "Web search returned no usable results"
+  ],
+  "notes": "No packages installed. The absent opposition is expected at this response-requested moment, not a provisioning gap. No subject-case live docket or outcome retrieval was attempted."
+}

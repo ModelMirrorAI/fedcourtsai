@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000111",
+  "run_id": "20261105T213502Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "provisioned record and petition",
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "CourtListener MCP search",
+    "CourtListener MCP read_document",
+    "CourtListener MCP search_document",
+    "web search/open attempts",
+    "fedcourts validate"
+  ],
+  "helpful": [
+    "Arrival context freezes the zero-distribution baseline and scoring anchor.",
+    "The petition includes the lead-case hold request and lower-court appendix.",
+    "Companion corpus lookup confirms the separate lead case's grant.",
+    "CourtListener returned primary Goldey and Snowden opinion text."
+  ],
+  "gaps": [
+    "Default UV_CACHE_DIR is read-only; a writable temporary cache override was needed.",
+    "Web calls returned no visible results; CourtListener supplied usable primary sources.",
+    "Corpus reporter-citation coverage was sparse; the known Goldey lookup returned no match."
+  ],
+  "notes": "Kept the frozen baseline band despite substantive Solicitor General sponsorship of individual officer petitioners. Used the federal-class prior-Term pool only as a comparison. No installs, own-case outcome retrieval, or direct REST fallback. No durable provisioning or leakage issue required flags.json."
+}

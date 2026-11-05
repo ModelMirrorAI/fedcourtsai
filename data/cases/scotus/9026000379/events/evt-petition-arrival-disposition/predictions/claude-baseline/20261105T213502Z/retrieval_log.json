@@ -1,0 +1,217 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "call_source": "transcript_item",
+      "params_digest": "e2a81e91764e3d90",
+      "query": "cat .github/prompts/predict.md; ls -R data/cases/scotus/9026000379/",
+      "result_capture": "captured",
+      "result_digest": "5fd06d52baec80eb",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T22:02:49.879Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "f0282124297f24e0",
+      "query": "cat /home/runner/.claude/projects/-home-runner-work-fedcourtsai-fedcourtsai/03cad241-77f8-4661-bc35-a7fe7a6855e4/tool-results/bigghsph0.txt | head -c 60000",
+      "result_capture": "captured",
+      "result_digest": "8f1c3ffff5967212",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T22:02:52.655Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_capture": "captured",
+      "result_digest": "c90151accd9006ff",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T22:02:54.200Z",
+      "tool": "Read"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "eaeac2272a37c3b5",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\", \"limit\": 510, \"offset\": 960}",
+      "result_capture": "captured",
+      "result_digest": "cd31e82e13a0b2a5",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T22:02:56.724Z",
+      "tool": "Read"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "3724e8a9807d18ac",
+      "query": "cd data/cases/scotus/9026000379; find . -type f | head -50; cat events/evt-petition-arrival-disposition/event.yaml; cat record/context.json; ls record/snapshots",
+      "result_capture": "captured",
+      "result_digest": "46f32c41c89a47ce",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T22:02:59.262Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "da31b381703dd42a",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/9026000379; cat record/snapshots/2026-09-21.json; cat record/same-question.json",
+      "result_capture": "captured",
+      "result_digest": "9e4ee70b8c05f707",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T22:03:01.567Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "600ba08e0b6e91cc",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; grep -n \"Segment base rate by salience band\" -A 30 metrics/statpack.md | head -60",
+      "result_capture": "captured",
+      "result_digest": "17830aad53d7a9cd",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T22:03:06.593Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "b578e10a0d62f4df",
+      "query": "select:WebFetch,WebSearch",
+      "result_capture": "captured",
+      "result_digest": "e0a647fd70eb8461",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T22:03:09.202Z",
+      "tool": "ToolSearch"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "3c83590a2e3e8706",
+      "query": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-379.html\nList all docket entries (dates and text), the question presented if shown, and lower court info.",
+      "result_capture": "captured",
+      "result_digest": "16625835c05b882d",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T22:03:11.993Z",
+      "tool": "WebFetch"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "295646681d89dd9a",
+      "query": "Genalo v. D.C. Second Circuit ICE petition certiorari Solicitor General",
+      "result_capture": "captured",
+      "result_digest": "0b6502eced39f0e7",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T22:03:12.569Z",
+      "tool": "WebSearch"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "86382bd7dca53e85",
+      "query": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-886.html\nList all docket entries with dates, especially grant of certiorari, argument scheduling, dismissal. What was the question presented?",
+      "result_capture": "captured",
+      "result_digest": "a583d16a2f66a620",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T22:03:22.396Z",
+      "tool": "WebFetch"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "2b06f4890163f00d",
+      "query": "https://www.foxnews.com/politics/trump-revives-supreme-court-immigration-showdown-hochul-pardon-torpedoed-first-case.print\nSummarize: status of Genalo v. Black (was cert granted? argued? dismissed how?), the question presented in Genalo v. D.C., circuit split details, and what the government asked for.",
+      "result_capture": "captured",
+      "result_digest": "10b8af21d7f9f489",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T22:03:23.634Z",
+      "tool": "WebFetch"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "f37b4878cfd66b33",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; uv run fedcourts query --help 2>&1 | head -40; uv run fedcourts query --court scotus --era modern --disposition granted --limit 5 2>&1 | tail -30",
+      "result_capture": "captured",
+      "result_digest": "ffb3eafcad085332",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T22:03:36.731Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "e38958b79c79201f",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; uv run fedcourts query --docket-number 25-886 2>&1 | cut -c1-600; uv run fedcourts query --court scotus --era 2020s --disposition granted --limit 5 2>&1 | cut -c1-300",
+      "result_capture": "captured",
+      "result_digest": "8dcbaef5a2e8596a",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T22:03:45.927Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "cdcae5719004040b",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; D=data/cases/scotus/9026000379/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261105T213502Z; mkdir -p $D; cat > $D/prediction.json <<'EOF'\n{\n  \"schema_version\": \"1.0\",\n  \"case_id\": \"scotus/9026000379\",\n  \"event_id\": \"evt-petition-arrival-disposition\",\n  \"predictor_id\": \"claude-baseline\",\n  \"engine\": \"claude-code\",\n  \"model\": \"claude-opus-5-5\",\n  \"run_id\": \"20261105T213502Z\",\n  \"created_at\": \"2026-11-05T21:35:02Z\",\n  \"input_sna",
+      "result_capture": "captured",
+      "result_digest": "8ef2222d2920a05d",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T22:04:26.399Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "7cd7b739d8fc3696",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; D=data/cases/scotus/9026000379/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261105T213502Z; cat > $D/flags.json <<'EOF'\n{\n  \"case_id\": \"scotus/9026000379\",\n  \"run_id\": \"20261105T213502Z\",\n  \"role\": \"predictor\",\n  \"actor_id\": \"claude-baseline\",\n  \"flags\": [\n    {\"category\": \"data-quality\", \"severity\": \"info\", \"event_id\": \"evt-petition-arrival-disposition\",\n     \"message\": \"Snapshot's first entry reads 'Petition for a writ of c",
+      "result_capture": "captured",
+      "result_digest": "7aad8c56a47338f6",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-05T22:04:46.750Z",
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/9026000379",
+  "corpus_service": {
+    "open_events": 0,
+    "open_events_ok": 0,
+    "queries": 1,
+    "queries_ok": 1
+  },
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "result_capture_coverage": 1.0,
+  "role": "predictor",
+  "run_id": "20261105T213502Z",
+  "schema_version": "1.0",
+  "self_provisioned_fetches": 0,
+  "throttled_calls": null
+}

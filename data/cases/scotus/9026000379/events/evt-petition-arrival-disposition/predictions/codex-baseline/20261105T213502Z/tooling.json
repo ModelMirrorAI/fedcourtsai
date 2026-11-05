@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000379",
+  "run_id": "20261105T213502Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts paths", "fedcourts validate", "CourtListener MCP search", "web search", "official DOJ petition PDF", "official Supreme Court prior-case docket", "committed statpack"],
+  "helpful": ["Frozen federal-band cert anchor", "Explicit paper-only-filings indicator", "Official-source petition retrieval", "Independent confirmation of earlier-case procedural dates"],
+  "gaps": ["No lower-court opinion returned by targeted MCP search", "Default uv cache is outside writable sandbox"],
+  "notes": "Used UV_CACHE_DIR=/tmp/fedcourts-uv-cache and UV_NO_SYNC=1 to run the provisioned CLI without installations. Paper-only staged-document absence was expected, not a provisioning defect. No corpus query was necessary after the official petition and prior docket supplied unusually specific context."
+}

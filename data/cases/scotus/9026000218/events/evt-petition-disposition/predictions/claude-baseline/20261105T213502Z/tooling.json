@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000218",
+  "run_id": "20261105T213502Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md"],
+  "helpful": ["Provisioned petition text and questions presented", "Frozen cert_anchor in context.json"],
+  "gaps": ["No statpack cut conditioned on a called-for response (after a waiver)", "query cannot filter by originating state court or subject, so similar Brady/Louisiana priors are hard to surface"],
+  "notes": "The summary-reversal query on the 2020s era returned nothing; the label may be sparse in the corpus."
+}
