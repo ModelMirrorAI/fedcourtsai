@@ -622,7 +622,6 @@ from .serialize import read_model, write_json, write_raw_json, write_text, write
 from .set_aside import IncrementTiming, increment_timing
 from .slug_migration import converge_event_slugs
 from .spend import SpendVerdict, check_spend, iter_labeler_runs, spend_over, verdict_over
-from .state_ags import STATE_AGS_FILENAME, build_board, load_state_ags
 from .store import (
     StratifiedRun,
     cases_due_for_pull,
@@ -16553,44 +16552,6 @@ def daily_digest(
         write_text(out, body)
     else:
         typer.echo(body, nl=False)
-
-
-@app.command("state-ags")
-def state_ags_cmd(
-    out: Annotated[
-        Path | None,
-        typer.Option(help="JSON output path (default: <metrics_root>/state-ags.json)."),
-    ] = None,
-    as_of: Annotated[
-        str | None,
-        typer.Option(
-            help="The day tiers and transitions are read on (YYYY-MM-DD; default today, UTC)."
-        ),
-    ] = None,
-) -> None:
-    """Write the state-AGs board, ``metrics/state-ags.json``, from ``config/state-ags.yaml``.
-
-    Each office's ``ag-ai-ambition-v1`` tier, counts by kind and transition, every
-    recorded action with the rung it reaches for each office, and the coalition
-    figures over the multistate actions (``docs/state-ags.md``). Reads no corpus:
-    the registry and the AI watchlist, whose case names an action may cite, are
-    its only inputs. An action citing a case the watchlist does not list exits 1.
-    """
-    settings = get_settings()
-    day = date.fromisoformat(as_of) if as_of is not None else datetime.now(UTC).date()
-    registry = load_state_ags(settings.config_root / STATE_AGS_FILENAME)
-    watchlist = load_ai_watchlist(settings.config_root / AI_WATCHLIST_FILENAME)
-    try:
-        board = build_board(registry, day, frozenset(case.name for case in watchlist.cases))
-    except ValueError as exc:
-        typer.echo(str(exc), err=True)
-        raise typer.Exit(code=1) from exc
-    destination = out if out is not None else settings.metrics_root / "state-ags.json"
-    write_json(destination, board)
-    typer.echo(
-        f"state-ags: {len(board.offices)} office(s), {len(board.actions)} action(s), "
-        f"{board.coalition.multistate_actions} multistate, as of {day.isoformat()} -> {destination}"
-    )
 
 
 @app.command("export-schemas")
