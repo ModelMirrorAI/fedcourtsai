@@ -542,9 +542,12 @@ queues behind the production run of the same mode. The modes:
   missing week's public update to the site's running history,
   `metrics/updates/<YYYY-Www>.md`, with `fedcourts archive-public-updates`, and
   lands it as a PR to `main` on the fixed, force-pushed `metrics/public-updates`
-  branch. Each file is the `public-update` render the email draft carries, with
-  its title as a heading; `post-public-update` drafts at 12:57, so the page and
-  the draft read the same `main` unless a commit lands between the two runs. The
+  branch. Each file is the full `public-update` render, with its title as a
+  heading; the email draft carries the same render trimmed to the ten biggest
+  cases per section, linking this page for the rest. `post-public-update`
+  drafts at 12:57, so the page and the draft read the same `main` unless a
+  commit lands between the two runs, and the draft's link resolves once this
+  PR has merged and the site has rebuilt. The
   history starts at the first week the list was sent and is write-once once
   merged: a week on `main` is never re-rendered, not even for a later void or
   set-aside (a correction is a reviewed PR), while a week whose PR has not

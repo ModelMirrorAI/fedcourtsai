@@ -23,6 +23,15 @@ is never presented here as a forecast made in advance. The same rules keep a
 cell stamped on or after its outcome, and a cell on a listed set-aside event,
 out of the new-forecasts list.
 
+The email carries a trimmed copy: each section lists only the
+:data:`EMAIL_TOP` cases the models rated the biggest, by the mean
+``big_case_score`` of the forecasts shown beside them, and links the week's
+full update on the site (:func:`site_update_url`), which the history under
+``metrics/updates/`` always holds whole. A stakes read is a panel opinion about
+which cases matter, not a forecast, so it picks which lines a reader sees first
+and nothing else; each resolved group's outcome count is still taken over the
+whole group, so the trim cannot hide the base rate.
+
 The update **computes no score**. It states a forecast and an outcome side by
 side and links the committed cell; any accuracy figure belongs to a committed
 metrics artifact with its reading rule (``metrics/README.md``), never to this
@@ -66,6 +75,13 @@ _REPO_DATA_DIR: Final = Path("data")
 
 #: The cell mode whose case was pending when it ran (``record/context.json``).
 _FORWARD_MODE: Final = "forward"
+
+#: How many cases each section of the emailed update lists, ranked by the mean
+#: big-case score of their shown forecasts; the site's copy lists them all.
+EMAIL_TOP: Final = 10
+
+#: The site's updates pages, one per archived week at ``<SITE_UPDATES_URL>/<week>/``.
+SITE_UPDATES_URL: Final = "https://fedcourts.ai/updates"
 
 _WEEK_RE: Final = re.compile(r"^(\d{4})-W(\d{2})$")
 
@@ -192,6 +208,10 @@ class EventItem:
     #: Whether the resolution is the stage's usual one — a denial, or an
     #: affirmance on the merits. Always true for an unresolved item.
     usual: bool = True
+    #: The mean ``big_case_score`` of the forecasts shown, where any carries
+    #: one: how much the models read the case as mattering. It ranks the
+    #: emailed update's lines and is never shown or scored.
+    stakes: float | None = None
 
 
 @dataclass(frozen=True)
@@ -239,6 +259,12 @@ def weeks_through(first: str, last: str) -> list[str]:
         weeks.append(f"{year}-W{week:02d}")
         monday += timedelta(days=7)
     return weeks
+
+
+def site_update_url(week: str) -> str:
+    """The site page that shows ``week``'s full update, once its history file is merged."""
+    week_bounds(week)
+    return f"{SITE_UPDATES_URL}/{week}/"
 
 
 def archive_path(metrics_root: Path, week: str) -> Path:
@@ -415,6 +441,9 @@ def _item(
     stage = normalized_stage(event.kind, event.stage)
     declared = normalized_moment(stage, event.moment)
     moment = Moment(declared) if declared in _MOMENT_VALUES else None
+    scores = [
+        row.prediction.big_case_score for row in rows if row.prediction.big_case_score is not None
+    ]
     forecasts = tuple(
         sorted(
             (
@@ -444,6 +473,7 @@ def _item(
         outcome=_outcome_words(stage, outcome) if outcome is not None else None,
         usual=_usual(stage, outcome) if outcome is not None else True,
         resolved_at=outcome.resolved_at if outcome is not None else None,
+        stakes=sum(scores) / len(scores) if scores else None,
     )
 
 
@@ -544,20 +574,67 @@ def _group_order(stage: Stage | None, moment: Moment | None) -> tuple[int, str]:
     )
 
 
-def _section(title: str, items: Sequence[EventItem], repo_url: str, *, resolved: bool) -> list[str]:
+def _biggest(items: Sequence[EventItem], top: int) -> set[str]:
+    """The ``top`` cases the models rated biggest, as case ids.
+
+    A case is ranked by the highest :attr:`EventItem.stakes` among its events
+    in the section, descending; a case with no stakes read comes after every
+    case with one, and ties fall in caption order, so the same tree always
+    picks the same cases. Every event of a picked case is listed.
+    """
+    best: dict[str, EventItem] = {}
+    for item in items:
+        held = best.get(item.case_id)
+        if held is None or (item.stakes or -1.0) > (held.stakes or -1.0):
+            best[item.case_id] = item
+    ranked = sorted(
+        best.values(),
+        key=lambda item: (item.stakes is None, -(item.stakes or 0.0), *_order(item)),
+    )
+    return {item.case_id for item in ranked[:top]}
+
+
+def _trim_note(shown: int, total: int, full_url: str | None) -> str:
+    where = f"[the full update]({full_url})" if full_url else "the full update"
+    return (
+        f"Showing the {shown} of {total} cases that the models rated the biggest, by their "
+        f"mean big-case score. All {total} are in {where}."
+    )
+
+
+def _section(
+    title: str,
+    items: Sequence[EventItem],
+    repo_url: str,
+    *,
+    resolved: bool,
+    top: int | None = None,
+    full_url: str | None = None,
+) -> list[str]:
     """A section's lines, grouped by question and moment.
 
     Within a group, the events whose outcome is not the stage's usual one (a
     grant rather than a denial) come first, so a long conference's denials do
     not bury the cases that went the other way.
+
+    With ``top``, only the events of the ``top`` cases the models rated biggest
+    are listed (:func:`_biggest`), and a group none of them falls in is left
+    out; a resolved group's outcome count still covers every event in it.
     """
+    cases = len({item.case_id for item in items})
+    keep = _biggest(items, top) if top is not None and cases > top else None
     groups: dict[tuple[Stage | None, Moment | None], list[EventItem]] = {}
     for item in items:
         groups.setdefault((item.stage, item.moment), []).append(item)
     lines = [f"## {title}", ""]
+    if keep is not None:
+        lines += [_trim_note(len(keep), cases, full_url), ""]
     explained: set[Stage | None] = set()
     for stage, moment in sorted(groups, key=lambda key: _group_order(*key)):
         members = groups[(stage, moment)]
+        shown = [item for item in members if keep is None or item.case_id in keep]
+        if not shown:
+            continue
         # How to read the percentages is said once per stage in a section,
         # under the stage's first group.
         note = (
@@ -567,10 +644,13 @@ def _section(title: str, items: Sequence[EventItem], repo_url: str, *, resolved:
             + (_STAGE_NOTE.get(stage, "") if stage is not None else "")
         )
         explained.add(stage)
-        intro = ((_outcome_count(stage, members) if resolved else "") + note).strip()
+        count = _outcome_count(stage, members) if resolved else ""
+        if count and len(shown) < len(members):
+            count += f"{len(shown)} of them shown. "
+        intro = (count + note).strip()
         lines += [_heading(stage, moment), ""] + ([intro, ""] if intro else [])
-        usual = [item for item in members if item.usual]
-        lines += [_item_line(item, repo_url) for item in members if not item.usual]
+        usual = [item for item in shown if item.usual]
+        lines += [_item_line(item, repo_url) for item in shown if not item.usual]
         lines += [_item_line(item, repo_url) for item in usual]
         lines.append("")
     return lines
@@ -584,13 +664,21 @@ def public_update_subject(update: PublicUpdate) -> str:
 
 
 def render_public_update(
-    update: PublicUpdate, *, repo_url: str = REPO_TREE_URL, title: bool = True
+    update: PublicUpdate,
+    *,
+    repo_url: str = REPO_TREE_URL,
+    title: bool = True,
+    top: int | None = None,
 ) -> str:
     """The update as Markdown, ready for an email body.
 
     ``title=False`` drops the heading, for a channel that carries the title as
-    the message's subject instead.
+    the message's subject instead. ``top`` lists only that many cases per
+    section, the ones the models rated biggest, and links the week's full
+    update on the site (:func:`site_update_url`) for the rest; without it every
+    event is listed, which is what the site's history keeps.
     """
+    full_url = site_update_url(update.week) if top is not None else None
     lines = [f"# {public_update_subject(update)}", ""] if title else []
     if update.empty:
         lines += ["Nothing resolved and no new forecasts were committed this week.", ""]
@@ -600,8 +688,17 @@ def render_public_update(
             update.resolved,
             repo_url,
             resolved=True,
+            top=top,
+            full_url=full_url,
         )
     if update.new:
-        lines += _section("New forecasts this week", update.new, repo_url, resolved=False)
+        lines += _section(
+            "New forecasts this week",
+            update.new,
+            repo_url,
+            resolved=False,
+            top=top,
+            full_url=full_url,
+        )
     lines += ["---", "", _FOOTER, ""]
     return "\n".join(lines)

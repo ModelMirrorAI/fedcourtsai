@@ -12,6 +12,7 @@ from fedcourtsai import cli, public_update, set_aside
 from fedcourtsai.cli import app
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.public_update import (
+    EMAIL_TOP,
     archive_path,
     archive_public_updates,
     build_public_update,
@@ -83,7 +84,7 @@ def _event(
     )
 
 
-def _forecast(
+def _forecast(  # noqa: PLR0913 - one keyword per field a test varies
     data_root: Path,
     docket: int,
     *,
@@ -93,6 +94,7 @@ def _forecast(
     mode: str = "forward",
     stamped: bool = True,
     event_id: str = PETITION,
+    big_case_score: float | None = None,
 ) -> None:
     run_id = at.strftime("%Y%m%dT%H%M%SZ")
     write_json(
@@ -108,6 +110,7 @@ def _forecast(
             input_snapshot="record/snapshots/2026-01-01.json",
             granted=int(probability >= 0.5),
             probability=probability,
+            big_case_score=big_case_score,
             predicted_disposition=Disposition.granted if probability >= 0.5 else Disposition.denied,
             process_version=_stamp_at(at) if stamped else None,
             context=PredictionContext(mode=mode, snapshot_date=at.date(), signals_observable=False),
@@ -548,3 +551,129 @@ def test_archive_cli_refuses_a_week_still_in_progress(tmp_path: Path) -> None:
     result = runner.invoke(app, ["archive-public-updates", "--through", current], env=env)
     assert result.exit_code == 2
     assert "not complete yet" in result.output
+
+
+def _ranked_week(data: Path) -> tuple[str, date]:
+    """Twelve cases resolved in one week, docket ``700 + n`` scored ``n / 20``.
+
+    Docket 700 carries no stakes read, and the two biggest cases are the only
+    grants, so a trim that kept only the biggest would show grants alone.
+    """
+    base = _base()
+    resolved_on = (base + timedelta(days=2)).date()
+    for n in range(12):
+        docket = 700 + n
+        _event(data, docket, f"Case {chr(ord('A') + n)} v. United States")
+        _forecast(data, docket, at=base, probability=0.3, big_case_score=n / 20 if n else None)
+        _forecast(
+            data,
+            docket,
+            at=base,
+            probability=0.4,
+            predictor_id="codex-baseline",
+            big_case_score=n / 20 if n else None,
+        )
+        _outcome(
+            data,
+            docket,
+            on=resolved_on,
+            disposition=Disposition.granted if n >= 10 else Disposition.denied,
+        )
+    return _week_of(resolved_on), resolved_on
+
+
+def test_the_trimmed_update_lists_the_biggest_cases_and_links_the_full_one(
+    tmp_path: Path,
+) -> None:
+    data = tmp_path / "data"
+    week, _ = _ranked_week(data)
+    update = build_public_update(data, week)
+
+    trimmed = render_public_update(update, title=False, top=3)
+    resolved = trimmed.split("## New forecasts")[0]
+    listed = [line for line in resolved.splitlines() if line.startswith("- **")]
+    assert [line.split("**")[1] for line in listed] == [
+        "Case K v. United States",
+        "Case L v. United States",
+        "Case J v. United States",
+    ]
+    assert (
+        "Showing the 3 of 12 cases that the models rated the biggest, by their mean big-case "
+        f"score. All 12 are in [the full update](https://fedcourts.ai/updates/{week}/)."
+    ) in trimmed
+    # The count covers the whole group, so the trim cannot hide the base rate.
+    assert "12 resolved: 10 denied, 2 another outcome. 3 of them shown." in trimmed
+    assert render_public_update(update, title=False, top=3) == trimmed
+
+    full = render_public_update(update)
+    assert sum(line.startswith("- **") for line in full.splitlines()) == 24
+    assert "fedcourts.ai/updates" not in full
+    assert "of them shown" not in full
+
+
+def test_a_case_without_a_stakes_read_ranks_last_and_a_short_week_is_not_trimmed(
+    tmp_path: Path,
+) -> None:
+    data = tmp_path / "data"
+    week, _ = _ranked_week(data)
+    update = build_public_update(data, week)
+
+    eleven = render_public_update(update, top=11)
+    assert "Case A v. United States" not in eleven
+    assert "Case B v. United States" in eleven
+
+    assert render_public_update(update, top=12) == render_public_update(update)
+
+
+def test_a_picked_case_keeps_every_event_it_has_in_the_section(tmp_path: Path) -> None:
+    data = tmp_path / "data"
+    base = _base()
+    for docket, score in ((801, 0.9), (802, 0.5), (803, 0.1)):
+        _event(data, docket, f"Docket {docket} v. State")
+        _forecast(data, docket, at=base, probability=0.2, big_case_score=score)
+    _event(data, 801, "Docket 801 v. State", "evt-order-relist-disposition", moment=Moment.relist)
+    _forecast(
+        data,
+        801,
+        at=base,
+        probability=0.3,
+        big_case_score=0.2,
+        event_id="evt-order-relist-disposition",
+    )
+    text = render_public_update(build_public_update(data, _week_of(base.date())), top=1)
+
+    assert text.count("Docket 801 v. State") == 2
+    assert "Docket 802" not in text
+    assert "Showing the 1 of 3 cases" in text
+
+
+def test_the_email_draft_is_trimmed_and_the_history_is_not(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    data = tmp_path / "data"
+    metrics = tmp_path / "metrics"
+    base = _base()
+    for n in range(EMAIL_TOP + 2):
+        docket = 900 + n
+        _event(data, docket, f"Docket {docket} v. State")
+        _forecast(data, docket, at=base, probability=0.2, big_case_score=n / 20)
+    week = _week_of(base.date())
+    env = {"FEDCOURTS_DATA_ROOT": str(data)}
+
+    draft = runner.invoke(
+        app, ["post-public-update", "--tag", "weekly-scotus", "--week", week, "--dry-run"], env=env
+    )
+    assert draft.exit_code == 0, draft.output
+    assert draft.output.count("- **") == EMAIL_TOP
+    assert f"https://fedcourts.ai/updates/{week}/" in draft.output
+    assert "Docket 900 v. State" not in draft.output
+
+    everything = runner.invoke(
+        app,
+        ["post-public-update", "--tag", "weekly-scotus", "--week", week, "--dry-run", "--top", "0"],
+        env=env,
+    )
+    assert everything.output.count("- **") == EMAIL_TOP + 2
+
+    archive_public_updates(data, metrics, week)
+    assert archive_path(metrics, week).read_text().count("- **") == EMAIL_TOP + 2
