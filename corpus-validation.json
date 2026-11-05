@@ -9,15 +9,15 @@
       "problems": []
     },
     {
-      "checked": 2153952,
-      "detail": "2153952 rows vs baseline 2153940",
+      "checked": 2153965,
+      "detail": "2153965 rows vs baseline 2153952",
       "failures": 0,
       "name": "row_count_monotonic",
       "passed": true,
       "problems": []
     },
     {
-      "checked": 4311311,
+      "checked": 4311342,
       "detail": "",
       "failures": 0,
       "name": "required_columns_non_empty",
@@ -25,7 +25,7 @@
       "problems": []
     },
     {
-      "checked": 2153952,
+      "checked": 2153965,
       "detail": "no marked docket numbers stored (1 ***-shaped string(s) are legitimate separators)",
       "failures": 0,
       "name": "docket_numbers_carry_no_capital_marking",
@@ -34,7 +34,7 @@
     },
     {
       "checked": 3073,
-      "detail": "as of 2026-11-04",
+      "detail": "as of 2026-11-05",
       "failures": 0,
       "name": "snapshot_not_future_dated",
       "passed": true,
@@ -42,15 +42,15 @@
     },
     {
       "checked": 638,
-      "detail": "granted before 2024-11-04 (730 days); 13 resolved by termination (1 abated, 1 grant-vacated, 2 judgment-issued, 9 voluntary-dismissal)",
+      "detail": "granted before 2024-11-05 (730 days); 13 resolved by termination (1 abated, 1 grant-vacated, 2 judgment-issued, 9 voluntary-dismissal)",
       "failures": 0,
       "name": "no_stale_unparsed_grants",
       "passed": true,
       "problems": []
     },
     {
-      "checked": 2153952,
-      "detail": "0 future-dated, 66 decided-before-filed (21 docket rows vs accepted baseline 30, 45 SCOTUS application rows vs accepted baseline 50; as of 2026-11-04); faithful upstream data \u2014 investigate the climb upstream before raising a baseline",
+      "checked": 2153965,
+      "detail": "0 future-dated, 66 decided-before-filed (21 docket rows vs accepted baseline 30, 45 SCOTUS application rows vs accepted baseline 50; as of 2026-11-05); faithful upstream data \u2014 investigate the climb upstream before raising a baseline",
       "failures": 66,
       "name": "case_dates_ordered",
       "passed": true,
@@ -78,7 +78,7 @@
       ]
     },
     {
-      "checked": 4308238,
+      "checked": 4308269,
       "detail": "",
       "failures": 0,
       "name": "domain_values_valid",
@@ -86,7 +86,7 @@
       "problems": []
     },
     {
-      "checked": 4311311,
+      "checked": 4311342,
       "detail": "",
       "failures": 0,
       "name": "no_duplicate_cases_or_events",
@@ -94,7 +94,7 @@
       "problems": []
     },
     {
-      "checked": 17958,
+      "checked": 18011,
       "detail": "",
       "failures": 0,
       "name": "ledger_references_exist",
@@ -102,7 +102,7 @@
       "problems": []
     },
     {
-      "checked": 319,
+      "checked": 324,
       "detail": "",
       "failures": 0,
       "name": "minted_moments_defined_in_ledger",
@@ -110,7 +110,7 @@
       "problems": []
     },
     {
-      "checked": 29418,
+      "checked": 29443,
       "detail": "",
       "failures": 0,
       "name": "event_dirs_hold_only_ledger_entries",
@@ -118,7 +118,7 @@
       "problems": []
     },
     {
-      "checked": 1836,
+      "checked": 1854,
       "detail": "",
       "failures": 0,
       "name": "evaluation_targets_prediction",
@@ -134,7 +134,7 @@
       "problems": []
     },
     {
-      "checked": 3540,
+      "checked": 3604,
       "detail": "",
       "failures": 0,
       "name": "prediction_docs_exist",
@@ -142,7 +142,7 @@
       "problems": []
     },
     {
-      "checked": 1565,
+      "checked": 1597,
       "detail": "",
       "failures": 0,
       "name": "prediction_claims_scoreable",
@@ -150,7 +150,7 @@
       "problems": []
     },
     {
-      "checked": 185,
+      "checked": 196,
       "detail": "",
       "failures": 0,
       "name": "prediction_semantic_claims_conform",
@@ -166,7 +166,7 @@
       "problems": []
     },
     {
-      "checked": 1836,
+      "checked": 1854,
       "detail": "",
       "failures": 0,
       "name": "predicted_reasoning_grade_only_under_a_prompt_that_asks",
@@ -174,7 +174,7 @@
       "problems": []
     },
     {
-      "checked": 180,
+      "checked": 191,
       "detail": "",
       "failures": 0,
       "name": "merits_predictions_carry_judgment",
@@ -182,7 +182,7 @@
       "problems": []
     },
     {
-      "checked": 1836,
+      "checked": 1854,
       "detail": "",
       "failures": 0,
       "name": "vote_accuracy_only_on_merits_events",
@@ -190,7 +190,7 @@
       "problems": []
     },
     {
-      "checked": 14147,
+      "checked": 14150,
       "detail": "",
       "failures": 0,
       "name": "outcome_votes_await_a_registered_source",
@@ -198,7 +198,7 @@
       "problems": []
     },
     {
-      "checked": 591,
+      "checked": 597,
       "detail": "",
       "failures": 0,
       "name": "evaluation_correct_agrees",
@@ -206,7 +206,7 @@
       "problems": []
     },
     {
-      "checked": 14139,
+      "checked": 14142,
       "detail": "",
       "failures": 0,
       "name": "judgment_only_on_merits_outcomes",
@@ -214,8 +214,8 @@
       "problems": []
     }
   ],
-  "corpus_events": 2154286,
-  "corpus_rows": 2153952,
+  "corpus_events": 2154304,
+  "corpus_rows": 2153965,
   "ok": true,
   "schema_version": "1.0",
   "skipped": false
