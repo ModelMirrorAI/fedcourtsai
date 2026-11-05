@@ -1,0 +1,18 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/73275179",
+  "flags": [
+    {
+      "category": "other",
+      "event_id": null,
+      "issue": null,
+      "message": "Harness normalised this cell's flags.json so it validates (gemini-baseline): unknown top-level key(s) dropped: created_at='2026-11-05T01:51:56Z', engine='gemini-4-argon', event_id='evt-brief-judgment'; no usable flag survived.",
+      "normalised": false,
+      "severity": "info",
+      "source": "harness"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20261105T015156Z",
+  "schema_version": "1.0"
+}

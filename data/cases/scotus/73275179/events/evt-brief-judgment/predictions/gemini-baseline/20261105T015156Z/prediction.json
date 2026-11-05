@@ -1,0 +1,40 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73275179",
+  "event_id": "evt-brief-judgment",
+  "predictor_id": "gemini-baseline",
+  "engine": "gemini-4-argon",
+  "run_id": "20261105T015156Z",
+  "created_at": "2026-11-05T01:51:56Z",
+  "input_snapshot": "data/cases/scotus/73275179/record/snapshots/2026-10-22.json",
+  "granted": true,
+  "probability": 0.88,
+  "predicted_disposition": "reversed",
+  "disposition_probabilities": {
+    "reversed": 0.62,
+    "vacated": 0.26,
+    "affirmed": 0.11,
+    "dismissed": 0.01
+  },
+  "vote_margin": "6-3",
+  "vote_split": {
+    "Roberts": "grant",
+    "Thomas": "grant",
+    "Alito": "grant",
+    "Sotomayor": "deny",
+    "Kagan": "deny",
+    "Gorsuch": "grant",
+    "Kavanaugh": "grant",
+    "Barrett": "grant",
+    "Jackson": "deny"
+  },
+  "author": "Kavanaugh",
+  "precedential_Hypothesis": "The Second and Fourteenth Amendments protect the right of law-abiding citizens to possess AR-15 platform and similar semiautomatic rifles because such firearms are Arms in common use by millions of Americans for lawful purposes including self-defense, and cannot be categorically banned as 'dangerous and unusual' weapons.",
+  "key_factors": [
+    "Explicit prior public statements by four sitting Justices (Thomas, Alito, Gorsuch, and Kavanaugh in Harrel v. Raoul and Snope v. Brown) plus Kavanaugh's landmark Heller II dissent concluding that AR-15 bans are unconstitutional under Heller's common-use test.",
+    "The Court's 6-3 decision in Wolford v. Lopez (June 25, 2026), joined in full by Roberts, Thomas, Alito, Gorsuch, Kavanaugh, and Barrett, which strictly defined Bruen's two-step framework and explicitly rejected smuggling non-textual or regulatory limits into the Step One definition of 'Arms'.",
+    "Respondents' explicit concession in their joint merits brief (Resp. Br. 38) that the banned rifles are covered by the Second Amendment's plain text at Step One, abandoning the Seventh Circuit's holding in Bevis v. City of Naperville that AR-15s are not 'Arms' at Step One.",
+    "Unanimous empirical recognition by the Court in Smith & Wesson Brands, Inc. v. Estados Unidos Mexicanos, 605 U.S. 280, 297 (2025), that AR-15s are 'both widely legal and bought by many ordinary consumers' and that '[t]he AR-15 is the most popular rifle in the country,' bolstered by the United States' merits amicus brief supporting reversal.",
+    "Deliberate vehicle selection: the Court held Viramontes for 22 conferences to consolidate it with Grant v. Higgins (No. 25-566), insulating the merits question from Cook County's summary-judgment record objections while deciding a clean, single-issue Question Presented on AR-15 possession."
+  ]
+}
