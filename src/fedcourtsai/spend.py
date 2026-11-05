@@ -18,7 +18,7 @@ Two properties worth stating, because they bound what this can promise:
 
 - **The ledger lags.** A cell's ``usage.json`` reaches ``data/`` only when its
   run's collect PR merges (a summary's or a labeler run's record when its
-  reviewed PR does), so spend already incurred but not yet committed is
+  publish PR does), so spend already incurred but not yet committed is
   invisible here. The ceiling is therefore a floor on what has been spent, and
   should be set with that lag in mind rather than read as real-time.
 - **It is deliberately blunt.** It does not attribute, forecast, or pro-rate; it
@@ -47,7 +47,8 @@ consequences are worth stating here, because neither is visible in the verdict:
 **One measured total, three sources.** What the backstop sums and what the
 review hold's auto-release budget projects over are the same figure
 (:func:`measured_spend`): every committed ``usage.json`` (the agent cells), the
-usage each committed case summary's front matter records, and every topic
+usage each committed summary's front matter records (a case's, or an AI
+watchlist ruling's), and every topic
 labeler run's spend record under ``data/qp-topics/spend/`` — refused and
 incomplete runs included, since they spend as much as one that publishes. Each
 is windowed on its own stamp: a cell's ``created_at``, a summary's
@@ -61,9 +62,10 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from . import ai_rulings
 from .config import SpendConfig
 from .pipeline.qp_topics import run_spend_dir
-from .schemas import ModelUsage, QpTopicRunSpend
+from .schemas import CaseSummaryUsage, ModelUsage, QpTopicRunSpend
 from .serialize import read_model
 from .store import iter_usage
 from .summaries import parse_summary
@@ -159,18 +161,25 @@ def _aware(moment: datetime) -> datetime:
 
 
 def summary_spend(data_root: Path, *, window_days: int, now: datetime | None = None) -> float:
-    """The usage committed case summaries record, over the trailing window.
+    """The usage committed summaries record, over the trailing window.
 
-    Read from each summary's front matter (``usage.estimated_cost_usd``, by
-    ``generated_at``). A summary written without usage adds nothing; a file
-    that will not parse raises.
+    The summary lane's two kinds: case summaries, and the AI watchlist rulings'
+    summaries under ``ai-cases/summaries/``. Read from each file's front matter
+    (``usage.estimated_cost_usd``, by ``generated_at``). A summary written
+    without usage adds nothing; a file that will not parse raises.
     """
     cutoff = _cutoff(window_days, now)
     total = 0.0
+    fronts: list[tuple[datetime, CaseSummaryUsage | None]] = []
     for path in sorted((data_root / "cases").glob("*/*/summaries/*.md")):
         front, _ = parse_summary(path.read_text(encoding="utf-8"))
-        if front.usage is not None and _aware(front.generated_at) >= cutoff:
-            total += front.usage.estimated_cost_usd
+        fronts.append((front.generated_at, front.usage))
+    for path in sorted((data_root / ai_rulings.SUMMARY_DIR).glob("*.md")):
+        ruling, _ = ai_rulings.parse_summary(path.read_text(encoding="utf-8"))
+        fronts.append((ruling.generated_at, ruling.usage))
+    for generated_at, usage in fronts:
+        if usage is not None and _aware(generated_at) >= cutoff:
+            total += usage.estimated_cost_usd
     return total
 
 

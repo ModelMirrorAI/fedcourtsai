@@ -396,10 +396,16 @@ def shows_the_moment(payload: Mapping[str, Any], cutoff: date, event_id: str) ->
 
 #: Top-level payload fields carrying a date of the docket's own, so the rule
 #: that cuts the proceedings cuts these too. ``date_filed`` is deliberately
-#: absent: the docket's arrival precedes every moment by construction, and
+#: absent: the REST record's arrival precedes every moment by construction, and
 #: subjecting it to a fail-closed parse would drop the one field that identifies
-#: what the cell is looking at.
+#: what the cell is looking at. The live channel's ``DocketedDate`` is not that
+#: field, and is cut: it is the day the Clerk docketed the matter, which on an
+#: application can fall days after the submission the arrival moment opens on,
+#: so a docket reconstructed at that moment would otherwise name a docketing its
+#: proceedings have not reached. The docket number, not this date, identifies
+#: the docket.
 _DATE_KEYED_FIELDS: tuple[str, ...] = (
+    "DocketedDate",
     "date_argued",
     "date_reargued",
     "date_terminated",

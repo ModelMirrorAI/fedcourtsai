@@ -7,10 +7,14 @@ promotion can silently outlive one of them being edited away:
   anything but a recorded bypass merges into ``main``. A plain approval count
   would accept the agent account's approval, so the team requirement is the
   part that makes the approval the maintainer's.
-- ``staging: require PR``'s code-owner review — what holds an owned-path change
-  for the maintainer. Its most-recent-push approval must stay **off**: with
-  required approvals at zero, GitHub then asks one approval of every PR, which
-  ends the agents' self-merge lane and the sync's auto-merge.
+- ``staging``'s code-owner review — what holds an owned-path change for the
+  maintainer — in ``staging: code owners``, which the dev App bypasses for pull
+  requests so the main → staging sync lands unattended, while ``staging:
+  require PR`` keeps the required checks, ``staging-base`` among them, which
+  nothing but the admin role bypasses and which confine that bypass to the
+  sync. Most-recent-push approval must stay **off**: with required approvals at
+  zero, GitHub then asks one approval of every PR, which ends the agents'
+  self-merge lane and the sync's merge.
 - A tag ruleset blocking update and deletion of the three record namespaces.
 - A tag ruleset restricting their creation, so no identity but the writer (or
   the maintainer) can plant a name ahead of it.
@@ -40,6 +44,8 @@ from typing import Any
 
 MAIN_APPROVAL_RULESET = "main: require approval"
 STAGING_PR_RULESET = "staging: require PR"
+STAGING_OWNERS_RULESET = "staging: code owners"
+STAGING_REQUIRED_CONTEXTS = ("gate", "paths", "staging-base")
 RECORD_TAG_NAMESPACES = ("promotion", "prereg", "results")
 RECORD_CREATION_RULESET = "tags: restrict record creation"
 OTHER_CREATION_RULESET = "tags: restrict creation"
@@ -215,7 +221,41 @@ def _main_approval_problems(rulesets: Sequence[Mapping[str, Any]], expected: Exp
     return problems
 
 
+def _staging_owners_holders(
+    rulesets: Sequence[Mapping[str, Any]],
+    expected: Expected,
+    problems: list[str],
+) -> list[tuple[Mapping[str, Any], Mapping[str, Any]]]:
+    """`staging: code owners`, when present: its findings go to ``problems``, and
+    it is returned as a holder of the code-owner review when it holds one."""
+    owners = _by_name(rulesets, STAGING_OWNERS_RULESET)
+    if owners is None:
+        return []
+    problems += _bypass_problems(
+        owners,
+        {
+            ("RepositoryRole", ADMIN_ROLE_ID): frozenset({"always"}),
+            ("Integration", expected.dev_app_id): frozenset({"pull_request"}),
+        },
+        required=expected.require_bypass_lists,
+    )
+    params = _params(owners, "pull_request")
+    if not _active(owners) or not _targets_branch(owners, "staging", default=False):
+        problems.append(f"{STAGING_OWNERS_RULESET!r} is not active on staging")
+    elif params is None or not params.get("require_code_owner_review"):
+        problems.append(f"{STAGING_OWNERS_RULESET!r} does not require code-owner review")
+    else:
+        return [(owners, params)]
+    return []
+
+
 def _staging_problems(rulesets: Sequence[Mapping[str, Any]], expected: Expected) -> list[str]:
+    """`staging`'s two rulesets: the PR rule and its required checks, which no
+    App bypasses, and the code-owner review, which the dev App bypasses for
+    pull requests so the main -> staging sync lands unattended. The
+    `staging-base` check, required by the first, is what confines that bypass
+    to the sync. A code-owner review still carried by `staging: require PR`
+    itself holds too, bypassed by nothing but the admin role."""
     ruleset = _by_name(rulesets, STAGING_PR_RULESET)
     if ruleset is None:
         return [f"no ruleset named {STAGING_PR_RULESET!r}"]
@@ -229,21 +269,37 @@ def _staging_problems(rulesets: Sequence[Mapping[str, Any]], expected: Expected)
         {("RepositoryRole", ADMIN_ROLE_ID): frozenset({"always"})},
         required=expected.require_bypass_lists,
     )
+    checks = _params(ruleset, "required_status_checks") or {}
+    contexts = {str(c.get("context")) for c in checks.get("required_status_checks") or []}
+    missing = sorted(set(STAGING_REQUIRED_CONTEXTS) - contexts)
+    if missing:
+        problems.append(
+            f"{STAGING_PR_RULESET!r} does not require {missing}: `staging-base` is what "
+            + "confines the dev App's code-owner bypass to the main -> staging sync"
+        )
     params = _params(ruleset, "pull_request")
     if params is None:
         return [*problems, f"{STAGING_PR_RULESET!r} has no pull-request rule"]
-    if not params.get("require_code_owner_review"):
+    holders = _staging_owners_holders(rulesets, expected, problems)
+    if params.get("require_code_owner_review"):
+        holders.insert(0, (ruleset, params))
+    if not holders:
         problems.append(
-            f"{STAGING_PR_RULESET!r} does not require code-owner review: owned paths "
-            + "would merge without the maintainer"
+            f"neither {STAGING_PR_RULESET!r} nor {STAGING_OWNERS_RULESET!r} requires "
+            + "code-owner review: owned paths would merge without the maintainer"
         )
-    if not params.get("dismiss_stale_reviews_on_push"):
-        problems.append(f"{STAGING_PR_RULESET!r} keeps stale approvals")
-    if params.get("require_last_push_approval"):
-        problems.append(
-            f"{STAGING_PR_RULESET!r} requires approval of the most recent push, "
-            + "which asks an approval of every PR and stops the self-merge and sync lanes"
-        )
+    problems += [
+        f"{holder.get('name')!r} keeps stale approvals"
+        for holder, holder_params in holders
+        if not holder_params.get("dismiss_stale_reviews_on_push")
+    ]
+    checked = [(ruleset, params), *((h, p) for h, p in holders if h is not ruleset)]
+    problems += [
+        f"{holder.get('name')!r} requires approval of the most recent push, which "
+        + "asks an approval of every PR and stops the self-merge and sync lanes"
+        for holder, holder_params in checked
+        if holder_params.get("require_last_push_approval")
+    ]
     return problems
 
 

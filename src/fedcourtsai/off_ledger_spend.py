@@ -35,8 +35,9 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from . import ai_rulings
 from .pricing import DEFAULT_MODELS, MODEL_RATES, TokenCounts, estimate_cost_usd
-from .schemas import Engine, OffLedgerSpend, OffLedgerSpendLine
+from .schemas import CaseSummaryUsage, Engine, OffLedgerSpend, OffLedgerSpendLine
 from .serialize import read_model, write_json
 from .store import iter_usage
 from .summaries import parse_summary
@@ -150,17 +151,27 @@ def _cell_usage_lines(data_root: Path) -> list[OffLedgerSpendLine]:
 
 
 def _summary_lines(data_root: Path) -> list[OffLedgerSpendLine]:
-    """One line per model over the case summaries under ``data_root`` that carry usage."""
+    """One line per model over the summaries under ``data_root`` that carry usage.
+
+    The summary lane's two kinds: case summaries, and the AI watchlist rulings'
+    under ``ai-cases/summaries/``.
+    """
     groups: dict[str, _Group] = defaultdict(_Group)
+    fronts: list[tuple[str, CaseSummaryUsage | None]] = []
     for path in sorted((data_root / "cases").glob("*/*/summaries/*.md")):
         front, _ = parse_summary(path.read_text(encoding="utf-8"))
-        if front.usage is None:
+        fronts.append((front.model, front.usage))
+    for path in sorted((data_root / ai_rulings.SUMMARY_DIR).glob("*.md")):
+        ruling, _ = ai_rulings.parse_summary(path.read_text(encoding="utf-8"))
+        fronts.append((ruling.model, ruling.usage))
+    for model, usage in fronts:
+        if usage is None:
             continue
-        group = groups[front.model]
+        group = groups[model]
         group.records += 1
-        group.counts[0] += front.usage.input_tokens
-        group.counts[1] += front.usage.output_tokens
-        group.cost += front.usage.estimated_cost_usd
+        group.counts[0] += usage.input_tokens
+        group.counts[1] += usage.output_tokens
+        group.cost += usage.estimated_cost_usd
     return [
         _grouped_line("case-summaries", None, model, group)
         for model, group in sorted(groups.items())

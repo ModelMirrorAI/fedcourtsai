@@ -943,7 +943,7 @@ stays outside the gate:
   baseline / 17.40% elevated / 35.44% high / 75.82% federal / 22.82% state for
   an OT2025 docket and 5.09% / 17.00% / 35.69% / 73.30% / 23.52% for an OT2026
   one (`uv run fedcourts segment-anchors --term 2025 --term 2026
-  --salience-version sal-v4`; the bare command pools the active `sal-v6`). A band row
+  --salience-version sal-v4`; the bare command pools the active `sal-v7`). A band row
   that mixes docket Terms states its count per docket Term beside the anchors.
   Their complements are grant-family denial shares, not exact-match floors, so
   they are not comparable with `always_deny_accuracy`, and no lift is measured
@@ -2428,13 +2428,13 @@ the rendered table) and
   `selected_rank_fill` each cell publishes. A bare precision delta between
   versions is not a claim this artifact supports.
 
-  **The active `sal-v6`, the never-activated `sal-v5` and the registered
+  **The superseded `sal-v6`, the never-activated `sal-v5` and the active
   `sal-v7`.** Their cells and their statpack blocks cover a narrower population
   than every other version's: Rule 20 writs are outside their segment, so their
   `eligible`, recall and band pools leave them out, and a cross-version
   comparison spans that population change as well as the scoring. `sal-v6` is
   `sal-v5` with the petitioner class read through `caption-v2` rather than
-  `caption-v3`, and it is the active scorer: `sal-v5` is never
+  `caption-v3`, and it was active until `sal-v7` superseded it: `sal-v5` is never
   activated, because `caption-v3`'s counsel reading carries post-outcome
   information on resolved rows (a supporting United States amicus the Clerk
   lists under "Petitioner"). `sal-v5`'s statpack `alt_segments` block measures that
@@ -2442,7 +2442,7 @@ the rendered table) and
   call-for-response relist rule and the writ scope but never `caption-v3`,
   since the projection carries no counsel entry. `sal-v7` is `sal-v6` with
   the class read through `caption-v4`, which keeps the office only as counsel
-  of record for the captioned petitioner; it is registered and not active. Its
+  of record for the captioned petitioner; it is the active scorer. Its
   statpack block reads that class. Its replay cells read it through the one
   counsel fact the projection carries, read off the served snapshot before
   redaction, and only on a `dated` projection: a petition reconstructed by
@@ -2725,7 +2725,7 @@ the rendered table) and
   `record/context.json`'s `decided_before`).
 
   **The arrival cohort's claim rule** (the caption-banded scorers'
-  `cert@arrival` cells — the active `sal-v6`, and earlier versions' cells beside
+  `cert@arrival` cells — the active `sal-v7`, and earlier versions' cells beside
   it). The
   cohort is two selection rules with grant rates an order of magnitude apart —
   the unbiased random slice and the federal-petitioner carve-in — and the
@@ -2965,7 +2965,9 @@ the rendered table) and
   each the `fedcourts public-update` render of that week, written by
   `fedcourts archive-public-updates` when a run first finds the week non-empty
   and never re-rendered once merged, not even for a later void or set-aside.
-  The fedcourts.ai site renders it as its updates page. It is display
+  The fedcourts.ai site renders it as its updates page, and the email, which
+  lists only the ten cases per section the models rated biggest, links that
+  page for the rest. It is display
   material like the email: it states forecasts and outcomes side by side,
   computes no score, and no metric reads it.
 

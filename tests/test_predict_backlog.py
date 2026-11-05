@@ -331,6 +331,99 @@ def test_a_decision_below_row_alone_is_not_provisioning(tmp_path: Path) -> None:
     assert _derive(db, data) == ("scotus/1",)
 
 
+#: A Court link for a scanned filing: the OCR sweep re-fetches only from the
+#: Court's own host, so the unread-scan hold keys on one too.
+_SCAN_URL = "https://www.supremecourt.gov/DocketPDF/26/26A1/1/20260718_scan.pdf"
+
+
+def _store_scan(
+    db: Path,
+    case_id: str,
+    *,
+    stored: date,
+    text: str = "",
+    pages: int = 12,
+    url: str = _SCAN_URL,
+) -> None:
+    """Store one application as the fetch path stores a scan: pages, no text layer."""
+    with corpus.connect(db) as conn:
+        corpus.upsert_documents(
+            conn,
+            [
+                corpus.CaseDocument(
+                    case_id=case_id,
+                    kind="application",
+                    url=url,
+                    fetched_at=stored,
+                    pages=pages,
+                    ocr_derived=bool(text),
+                    text=text,
+                )
+            ],
+        )
+
+
+def test_a_fresh_unread_scan_holds_the_case_until_the_sweep_reads_it(tmp_path: Path) -> None:
+    """The live channel stores a filing every two hours, and a round can mint
+    within the hour; the OCR sweep that reads a scan runs on run-seed's windows,
+    about six hours apart. A cell minted in between reads the filing as empty for
+    its one forward run, so an owed case holding a fresh unread scan is held, and
+    the hold clears once the sweep has stored the text."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    _open_case(db, "scotus", 1)
+    _store_scan(db, "scotus/1", stored=TODAY)
+
+    held = _backlog(db, data)
+    assert held.entries == ()
+    assert held.held_unread_scan == 1
+    assert held.reconciliation is not None
+    assert held.reconciliation.sound
+    assert held.reconciliation.buckets == {"held_unread_scan": 1}
+
+    _store_scan(db, "scotus/1", stored=TODAY, text="The application, as OCR read it.")
+    assert _derive(db, data) == ("scotus/1",)
+
+
+def test_the_unread_scan_hold_lapses_after_its_bound(tmp_path: Path) -> None:
+    """A scan the sweep cannot read stays in its class, so the hold is bounded by
+    when the scan was stored: past :data:`pull.SCAN_HOLD_DAYS` the case mints with
+    the empty filing rather than waiting for good."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    _open_case(db, "scotus", 1)
+    _store_scan(db, "scotus/1", stored=TODAY - timedelta(days=pull.SCAN_HOLD_DAYS))
+    assert _backlog(db, data).held_unread_scan == 1
+
+    _store_scan(db, "scotus/1", stored=TODAY - timedelta(days=pull.SCAN_HOLD_DAYS + 1))
+    lapsed = _backlog(db, data)
+    assert lapsed.case_ids == ("scotus/1",)
+    assert lapsed.held_unread_scan == 0
+
+
+@pytest.mark.parametrize(
+    ("pages", "url"),
+    [
+        (0, _SCAN_URL),  # a PDF the extractor could not open: not OCR's to repair
+        (12, "https://example.invalid/scan.pdf"),  # off the Court's host: the sweep cannot fetch it
+    ],
+)
+def test_an_empty_filing_the_sweep_cannot_read_holds_nothing(
+    tmp_path: Path, pages: int, url: str
+) -> None:
+    """The hold waits only on what the sweep can recover. An empty row outside the
+    recovery class, or at a link the sweep refuses to fetch, would hold its case
+    for the whole bound and be no better read at the end of it."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    _open_case(db, "scotus", 1)
+    _store_scan(db, "scotus/1", stored=TODAY, pages=pages, url=url)
+
+    backlog = _backlog(db, data)
+    assert backlog.case_ids == ("scotus/1",)
+    assert backlog.held_unread_scan == 0
+
+
 def test_a_held_case_that_is_not_owed_is_not_counted_as_held(tmp_path: Path) -> None:
     """The counts are taken over the **owed** population alone. A case that is
     unprovisioned *and* fully predicted is not work this lane owes, so counting it

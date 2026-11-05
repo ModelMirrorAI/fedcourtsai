@@ -41,10 +41,11 @@ model forecast, and the forecasts newly committed) and a weekly **AI-cases
 feed** (new rulings and major filings on the AI-case watchlist below, each
 linked to the public docket). Each update's body is rendered from committed
 data, and each send is a draft a person approves; neither update is scored.
-Still to come for the AI-cases feed: that slice's forecasts as an opt-in
-addition, once the watchlist has forecasts, and an optional ruling summary
-labelled with its model. They cost almost nothing beyond those summaries, so
-they sit outside the scaling plan.
+A ruling in the AI-cases feed carries a short summary labelled with the
+model that wrote it, from the summary lane. Still to come for the feed: that
+slice's forecasts as an opt-in addition, once the watchlist has forecasts.
+The feeds cost almost nothing beyond those summaries, so they sit outside the
+scaling plan.
 
 ## The scaling plan
 
@@ -64,14 +65,17 @@ sit inside the bootstrapping envelope, so their funding figure is that
 envelope rather than the sum of the row. Other spend is assumed to step from the
 bootstrapping to the scaling level at milestone 3, when volume starts to grow.
 The model-spend column is priced at about $17 per fully evaluated SCOTUS
-event, the pinned planning table's total, and $30–60 per lower-court event.
-The table prices the gemini pair at `gemini-4-argon`'s first measured cells
-doubled for the rate in force from 2026-12-01, about $3.40 of each event;
+event, the pinned planning table's total rounded down (the table sums to
+$17.67, so the column reads up to about 4% low), and $30–60 per lower-court
+event. The table prices the gemini pair at `gemini-4-argon`'s measured cells
+doubled for the rate in force from 2026-12-01, about $4.30 of each event;
 the scaling is rough from milestone 5, where more predictors change each
 engine's share of an event. At milestone 2 the column fills the
 bootstrapping envelope, so any further spend inside it would outgrow it. At the about $10 per SCOTUS event [budget.md](budget.md)
-measures, today's row is ≈$8.5–11K and milestone 3's ≈$21–27K. The table
-stays the planning ceiling until a round of measured cells re-anchors it.
+budgets, today's row is ≈$8.5–11K and milestone 3's ≈$21–27K; at the about
+$6.60 it measures for the current engines once gemini's rate doubles, they
+are ≈$5.6–7.3K and ≈$14–18K. The table stays the planning ceiling until a
+round of measured cells re-anchors it.
 
 The order is deliberate. New moments are cheap and raise the value of every
 case already covered, so they come first. The AI-case watchlist comes next

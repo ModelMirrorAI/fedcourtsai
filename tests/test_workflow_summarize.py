@@ -119,13 +119,21 @@ def test_publication_is_fenced_to_main() -> None:
     publish = _jobs()["publish"]
     assert "github.ref == 'refs/heads/main'" in " ".join(str(publish["if"]).split())
     assert publish["environment"] == "prod"
-    assert publish["permissions"] == {"contents": "read"}
+    # `checks: read` is the merge's check-run listing on the ambient token.
+    assert publish["permissions"] == {"contents": "read", "checks": "read"}
     assert not _holds_cloud_credential(publish)
     body = yaml.safe_dump(publish)
     assert "summary-paths --strict" in body
     assert "scan-diff-for-secrets" in body
     assert "fedcourts validate data" in body
-    assert "gh pr merge" not in body and "--auto" not in body, "the refresh PR is reviewed"
+    # The PR merges unattended, through the committed script pinned to the
+    # pushed head — the jail, validator and scan above all run before the push.
+    run = next(
+        step["run"] for step in publish["steps"] if "merge-when-green.sh" in step.get("run", "")
+    )
+    assert run.index("scan-diff-for-secrets") < run.index("push --force")
+    assert run.index("push --force") < run.index("merge-when-green.sh")
+    assert 'bash "$script" "${url##*/}" "$(git rev-parse HEAD)" < /dev/null' in run
 
 
 def test_only_the_publish_job_withdraws_and_its_jail_admits_only_the_plan() -> None:
@@ -185,3 +193,30 @@ def test_the_staged_records_are_checked_before_they_leave_the_stage_job() -> Non
     # A failed check must stop the upload: no step-level override lets it run anyway.
     assert "if" not in steps[upload]
     assert "continue-on-error" not in steps[check]
+
+
+def test_the_ai_watchlist_rulings_are_planned_staged_and_checked() -> None:
+    jobs = _jobs()
+    plan_run = next(
+        step["run"]
+        for step in jobs["plan"]["steps"]
+        if step.get("name") == "Plan the owed summaries"
+    )
+    assert "--rulings" in plan_run
+    # A plan holding only rulings is work: it holds, stages and generates.
+    assert "(.rulings | length)" in plan_run
+    steps = jobs["stage"]["steps"]
+    names = [str(step.get("name", "")) for step in steps]
+    ruling = names.index("Stage each planned ruling's text")
+    check = names.index("Check the staged records before they leave this job")
+    assert ruling < check
+    assert "fedcourts ai-ruling-stage" in steps[ruling]["run"]
+    assert "set -euo pipefail" in steps[ruling]["run"]
+    assert "if" not in steps[ruling]
+    # A rehearsal's ruling summaries are recorded off-ledger with the cases'.
+    staged = next(
+        step["run"]
+        for step in jobs["generate"]["steps"]
+        if step.get("name") == "Stage the summaries this run wrote"
+    )
+    assert "data/ai-cases" in staged

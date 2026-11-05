@@ -508,20 +508,14 @@ def test_sal_v5_bands_and_carves_an_sg_represented_warden_as_federal() -> None:
     assert v5.band(respondent_side) == "state"
 
 
-def test_sal_v6_is_the_active_version() -> None:
-    """sal-v6 is the active scorer: the live pass scores, latches and stamps under
-    it, it leads every all-versions report, and it pins the default parse, so its
-    activation moved the version pointer alone."""
+def test_sal_v6_shares_sal_v5s_relist_rule_and_writ_scope() -> None:
+    """sal-v6 is sal-v5's relist rule and writ scope, as the same callables, over
+    sal-v4's band vocabulary, pinning the default parse."""
     assert "sal-v6" in SCORERS and "sal-v5" in SCORERS
-    assert SALIENCE_VERSION == "sal-v6"
-    assert scorer().version == "sal-v6"
-    assert registered_versions()[0] == "sal-v6"
-    assert scorer().distribution_parse == DEFAULT_DISTRIBUTION_PARSE
     v4, v5, v6 = scorer("sal-v4"), scorer("sal-v5"), scorer("sal-v6")
     assert v6.bands == v4.bands
     assert v6.distribution_parse == "dist-v2"
     assert v6.selects_arrivals is True
-    # sal-v5's relist rule and writ scope, as the same callables.
     assert v6.score is v5.score
     assert v6.admits is v5.admits
 
@@ -568,13 +562,16 @@ def test_sal_v6_reads_as_sal_v4_without_a_call_or_a_writ() -> None:
                 assert v6.in_segment(row), key
 
 
-def test_sal_v7_is_registered_and_sal_v6_stays_active() -> None:
-    """sal-v7 is registered beside sal-v6, inactive: the live pass still scores,
-    latches and stamps under sal-v6. It is sal-v6's relist rule, writ scope and
-    parse pin as the same callables."""
+def test_sal_v7_is_the_active_version() -> None:
+    """sal-v7 is the active scorer: the live pass scores, latches and stamps under
+    it, it leads every all-versions report, and it pins the default parse, so its
+    activation moved the version pointer alone. It is sal-v6's relist rule, writ
+    scope and parse pin as the same callables."""
     assert "sal-v7" in SCORERS
-    assert SALIENCE_VERSION == "sal-v6"
-    assert registered_versions()[0] == "sal-v6"
+    assert SALIENCE_VERSION == "sal-v7"
+    assert scorer().version == "sal-v7"
+    assert registered_versions()[0] == "sal-v7"
+    assert scorer().distribution_parse == DEFAULT_DISTRIBUTION_PARSE
     v6, v7 = scorer("sal-v6"), scorer("sal-v7")
     assert v7.bands == v6.bands
     assert v7.distribution_parse == v6.distribution_parse == "dist-v2"
@@ -698,11 +695,12 @@ def test_the_writ_scope_leaves_rule_20_writs_out_of_scoring_and_selection(versio
     assert set(v4_pick) == {"scotus/writ", "scotus/sealed", "scotus/unparsed"}
 
 
-def test_the_live_pass_leaves_a_rule_20_writ_out_under_the_active_sal_v6(
+def test_the_live_pass_leaves_a_rule_20_writ_out_under_the_active_version(
     tmp_path: Path,
 ) -> None:
-    """The live pass's scope is the active sal-v6's, so a Rule 20 writ is neither
-    scored nor latched, while a certiorari petition beside it is."""
+    """The live pass's scope is the active version's (sal-v6's writ scope, shared
+    by sal-v7), so a Rule 20 writ is neither scored nor latched, while a
+    certiorari petition beside it is."""
     writ = _v5_row("scotus/writ", distribution_count=3, opening_writ="rule-20")
     cert = _v5_row("scotus/cert", distribution_count=3, opening_writ="certiorari")
     db = _seed(tmp_path, [writ, cert])
@@ -714,7 +712,7 @@ def test_the_live_pass_leaves_a_rule_20_writ_out_under_the_active_sal_v6(
             apply=True,
             as_of=_PASS_DATE,
         )
-    assert result.version == "sal-v6"
+    assert result.version == "sal-v7"
     assert _selected_ids(db) == {"scotus/cert"}
 
 
@@ -1944,7 +1942,7 @@ def test_a_second_version_is_reachable_and_the_active_one_is_unchanged(
         "sal-v3",
         "sal-v4",
         "sal-v5",
-        "sal-v7",
+        "sal-v6",
     )
     row = _petition("scotus/1", distribution_count=3, cvsg=True)
     assert scorer("sal-toy").band(row) == "hot"
@@ -3089,7 +3087,7 @@ def test_no_other_counsel_field_reaches_the_base_row_or_the_cell(
 
 
 def test_sal_v6_cells_never_read_the_counsel_fact(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Under the active sal-v6 the fact moves nothing a cell freezes: an SG cell
+    """Under sal-v6 the fact moves nothing a cell freezes: an SG cell
     with the fact forced either way, forward and replay, freezes one context."""
     _activate(monkeypatch, "sal-v6")
     for mode in ("forward", "replay"):

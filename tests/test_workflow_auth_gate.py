@@ -440,7 +440,11 @@ def test_an_auto_released_round_marks_its_commit_for_the_daily_count(workflow: s
     text = (WORKFLOWS / workflow).read_text()
     if workflow == "summarize.yml":
         publish = _load(workflow)["jobs"]["publish"]
-        (step,) = [s for s in _steps(publish) if s.get("name") == "Open or update the review PR"]
+        (step,) = [
+            s
+            for s in _steps(publish)
+            if s.get("name") == "Open or update the summaries PR, and merge it once green"
+        ]
         assert step["env"]["AUTO_RELEASED"] == "${{ needs.plan.outputs.auto_release }}"
         assert "(run ${GITHUB_RUN_ID})" in step["run"]
         assert 'title="${title} [auto-released]"' in step["run"]
@@ -487,7 +491,7 @@ def test_the_topic_labeler_spends_only_behind_the_review_hold() -> None:
     (publish,) = [
         s
         for s in _steps(jobs["qp-topic-publish"])
-        if s.get("name") == "Open or update the review PR"
+        if s.get("name") == "Open or update the labels PR, and merge it once green"
     ]
     assert publish["env"]["AUTO_RELEASED"] == "${{ needs.qp-topic-extract.outputs.auto-release }}"
     assert "(run ${GITHUB_RUN_ID})${mark}" in publish["run"]

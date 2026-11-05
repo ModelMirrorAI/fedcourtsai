@@ -585,8 +585,12 @@ runbook, [docs/security.md](docs/security.md).
   whatever its pusher wrote — and a record dated after the round's plan keeps
   the hold. So a forged refusal or pending batch only holds rounds (fail
   safe), and a dropped or masked refusal can buy one retry that is still
-  bounded by the per-round cap, the daily count and the budget, and that lands
-  only through the frame's reviewed PR.
+  bounded by the per-round cap, the daily count and the budget. The publish
+  job merges a labels or spend-record PR unattended only when the run built its
+  tree from `main` and its own hand-off; a branch carrying an open PR's labels
+  or spend records forward is left for the maintainer, so nothing a write
+  holder pushes to that branch reaches `main` without an approval. The case
+  summaries lane holds the same rule for its `summaries/refresh` branch.
   The claude/codex agent steps on `run-predict` / `run-evaluate` allow exactly
   two bot logins through their own actor checks (the claude action's
   `allowed_bots`, the codex action's `allow-bot-users`), pinned to the data
@@ -616,8 +620,9 @@ runbook, [docs/security.md](docs/security.md).
   by identity, since the agent workflows authenticate as a separate **dev
   App** that bypasses no required check. `main: require approval` requires
   one approving review, which only the `maintainers` team can give, and
-  bypasses it for the dev App's pull requests (what lets its three unattended
-  lanes land, by the jobs' own merge call — GitHub's auto-merge never
+  bypasses it for the dev App's pull requests (what lets its unattended
+  lanes land — the collect runs, the big-case board, the update history, the
+  metrics refresh, the case summaries and the labeling runs — by the jobs' own merge call — GitHub's auto-merge never
   exercises a bypass, and the call's doing so is unverified until its first
   production run; still bound by the checks), for the data App, and for any pull request an
   admin merges (how the maintainer's own lands, since GitHub does not let an

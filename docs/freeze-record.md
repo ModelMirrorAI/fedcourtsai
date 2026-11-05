@@ -16497,3 +16497,208 @@ freeze commit is recorded here.
   until a fit is committed and a merits cell on a clean-coded case of its
   Term is graded; from then on, every object it counts also carries
   `alignment_score_brier` and `alignment_score_model_brier`.
+
+- **A reconstructed docket drops a `DocketedDate` on or after its cutoff;
+  recorded 2026-11-04.** A **conditioning** entry in the *what the pipeline
+  provisions* class, under unchanged digests: no prompt byte and no registry
+  field the digests read moves, and `uv run fedcourts process-digest --all` at
+  this commit prints what it prints at its parent on `staging`: `proc-v17` and
+  the six digests `33a3f9f8…` (claude-baseline), `5b6efbbb…`
+  (codex-baseline), `1389c40a…` (gemini-baseline), `3b78d93b…`
+  (claude-judge), `5c7cc4e6…` (codex-judge) and `8966bfb2…` (gemini-judge).
+
+  **What changes.** The live channel's top-level `DocketedDate` joins the
+  date-keyed fields a `truncated` placement cuts (`provision.cut_dated_fields`,
+  on the reconstructed branch and on a staged companion): dropped where it
+  falls on or after the cell's cutoff or cannot be parsed, kept otherwise. It
+  is the day the Clerk docketed the matter, which on an application can trail
+  the submission the arrival moment opens on, so a docket reconstructed at
+  that moment named a docketing its own proceedings had not reached. A
+  `dated` payload is untouched, as before.
+
+  **The executed check.** Three application cells flagged it on agent
+  feedback (predict runs 20261031T173439Z, 20261103T200528Z, 20261103T203422Z):
+  `scotus/9526000602`, `9526000606` and `9526000612`, each on
+  `evt-motion-disposition`. Provisioned from the production content store on
+  2026-11-04 (`provision-snapshot --corpus-backend ranged`), `9526000612`'s
+  staged snapshot (truncated, arrival-position, dated 2026-10-21, one entry
+  dated 2026-10-20) carries `DocketedDate` "October 30, 2026" at the parent
+  and none at this commit; `9526000602` (cut 2026-10-21) and `9526000606`
+  (cut 2026-10-17) carry none at this commit.
+
+  **A harness boundary under the 2026-10-11 pooled rule.** The change moves
+  what a predict cell reads under unchanged digests, so it is composition and
+  not a cut: the pooled default and the paired figure keep both sides and list
+  each engine's `n` before and after.
+  - **The registry row** is `truncated-docketed-date-cut`: every predictor,
+    reach `all`, not gradual, since provisioning cuts the payload at placement
+    and the next cell placed reads the change. It is registered **pending** in
+    the change's own PR (`fedcourts register-boundary`). Its `merge` and `at`
+    stay null until the promotion merge that carries it to `main` stamps them
+    (`promotion-record`); until then it is left out of
+    `process_version.HARNESS_BOUNDARIES`, so no cell has a side of it.
+  - **The side test** is the registered one: a stamped cell is after the
+    change if the carrying merge is an ancestor of, or equal to, its
+    `process_version.pipeline_sha`; a cell with no `pipeline_sha` is on
+    neither side, and its number is listed.
+  - **Evaluate cells are dated by this entry, not partitioned**: the boundary
+    registry splits predictor cells only.
+  - **Exposure is an upper bound and is not sized.** Which `truncated`
+    placements fall before their docket's `DocketedDate` was not counted for
+    this entry; the class includes interim arrival cells, whose application
+    is submitted before the Clerk dockets it.
+
+  **What a post-change cell reads.** On an affected placement, the same
+  snapshot less its `DocketedDate` field. Nothing a context freezes moves:
+  the base row reads the docket number and caption, not this date, and the
+  caption-v4 counsel fact is read on `dated` and `as-stored` payloads only.
+  No skill movement is predicted, and a movement in either direction across
+  this boundary may not be read as a model effect. No base rate re-prices, no
+  membership rule moves, no scored figure moves, and nothing is written to the
+  corpus.
+
+  The runnable effect check once it is live: `uv run pytest
+  tests/test_cli_provision.py -k top_level_date` is green; `uv run fedcourts
+  provision-snapshot --court scotus --docket 9526000612 --event
+  evt-motion-disposition --out /tmp/s.json && jq .DocketedDate /tmp/s.json`
+  prints `null`; and `uv run fedcourts process-digest --all` prints the same
+  label and six digests at the carrying merge as at its first parent.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+- **`sal-v7` activated; recorded 2026-11-04.** A distinct entry from the
+  `caption-v4` and `sal-v7` registration entry above, on the `sal-v6`
+  activation's pattern: that entry is landed, and its only editable content
+  was its own promotion placeholders. No freeze commit belongs to this entry:
+  the salience version sits outside the process digest, carries its own
+  data-visible boundary (`context.salience_version`), and a flip re-blesses
+  nothing. `uv run fedcourts process-digest --all` prints the same six
+  `proc-v17` digests before and after this change, and no harness boundary
+  is registered: `caption-v4`'s one counsel fact already rides the cell's
+  projected row and adds no field to `context.json`.
+
+  **The flip is one constant.** `SALIENCE_VERSION` goes `sal-v6` → `sal-v7`.
+  `sal-v7` pins `dist-v2`, which `cert_signals.DEFAULT_DISTRIBUTION_PARSE`
+  already names, and reads no corpus column `sal-v6` does not, so no
+  re-derivation or back-fill precedes it. Its relist rule, writ scope, parse,
+  cutpoints, band vocabulary and arrival draw are `sal-v6`'s callables; only
+  the band, the carve-in and the reachable ladder read the petitioner class
+  through `caption-v4` instead of `caption-v2`, and `caption-v4` can only
+  move a `private` or `state` read to `federal`.
+
+  **The census.** `uv run python scripts/checks/caption_v4_band_census.py`
+  on blob `ba0efacb…bc19e42` (newest pull 2026-11-04, newest stored
+  snapshot row 2026-07-13; `origin/main` `0d99f5b01`) finds the same 15
+  live-slice scored-segment rows the registration entry names, every one
+  moving into `federal`: 5 pending (25-952 from `elevated`, 26-111 and
+  26-145 from `baseline`, 26-146 and 26-379 from `state`) and 10 resolved
+  (6 from `baseline`, 2 from `elevated`, 2 from `high`; 7 grant-family, 3
+  denied).
+
+  **The statpack pools.** The metrics refresh merged to `main` as
+  `12f759dc9` rendered `metrics/statpack.json` on blob `2adbff38…9cfc`, the
+  first pack carrying a `sal-v7` block. Pooled over the complete Terms
+  OT2017–OT2024 (the anchor for an OT2025 docket, lookback 10; grant-family
+  rate, resolved `n`), by `uv run fedcourts segment-anchors --term 2025
+  --salience-version <v> --statpack metrics/statpack.json`:
+
+  | band | `sal-v7` terminal | `sal-v7` risk-set | `sal-v6` terminal | `sal-v6` risk-set |
+  | --- | --: | --: | --: | --: |
+  | federal | 75.54% (139/184) | 75.54% (n=184) | 75.98% (136/179) | 75.98% (n=179) |
+  | high | 34.55% (246/712) | 34.55% (n=712) | 34.55% (246/712) | 34.55% (n=712) |
+  | state | 18.56% (54/291) | 22.82% (n=390) | 18.56% (54/291) | 22.82% (n=390) |
+  | elevated | 20.41% (249/1,220) | 25.10% (n=1,833) | 20.48% (250/1,221) | 25.14% (n=1,834) |
+  | baseline | 1.48% (141/9,535) | 5.29% (n=11,368) | 1.50% (143/9,539) | 5.31% (n=11,373) |
+
+  Five complete-Term rows move, the five the registration census names (19-71
+  from `elevated`; 20-1044, 20-1478, 23-411 and 24-1246 from `baseline`),
+  three of them grant-family. `federal`'s rate moves by under half a point
+  on five more rows, and the bands they leave barely move. As the registration entry states, those
+  shapes were surfaced by flagged forecasts on petitions later granted, so no
+  recall gain is quoted from this table.
+
+  **The replay reading.** The salience-gate replay over OT2017–OT2024
+  (`uv run fedcourts salience-replay --terms <t>`, one Term per process, on
+  the blob above, retrospective stratum; not committed, since
+  `metrics/salience-replay.json` is the run-backtest lane's) reads, pooled
+  over the eight Terms:
+
+  | policy | version | eligible | selected | grants caught / realized | recall | precision |
+  | --- | --- | --: | --: | --: | --: | --: |
+  | resolution | `sal-v6` | 11,942 | 4,178 | 690 / 829 | 83.2% | 16.5% |
+  | resolution | `sal-v7` | 11,942 | 4,178 | 690 / 829 | 83.2% | 16.5% |
+  | distribution-1 | `sal-v6` | 11,942 | 3,253 | 376 / 829 | 45.4% | 11.6% |
+  | distribution-1 | `sal-v7` | 11,942 | 3,253 | 376 / 829 | 45.4% | 11.6% |
+
+  The `sal-v6` rows reproduce the 2026-10-31 run's exactly. The `sal-v7`
+  cells equal `sal-v6`'s in every Term and policy, and the reason is
+  structural, not a measured null: **no cell in the frame has a `dated`
+  projection** (every row is `truncated` or `blind`), and `caption-v4`'s
+  counsel fact reads false on both, so the replay cannot see `caption-v4` on
+  these Terms at all. The matched-recall reading the registration asked for,
+  over the `dated` provenance, therefore runs over zero rows: **that
+  registered leg is unmet, and this activation departs from the
+  registration on it.** It proceeds on the bar `sal-v3`'s activation cleared
+  alone: the census and its outcome-free precision (12 of the 15 moved
+  captions name a federal agency or an officer's title). The pools above are
+  read beside it, not as outcome-clean evidence: they band stored rows, and
+  8 of the 10 resolved moved rows have no stored snapshot from before their
+  outcome, so the post-grant substitution residual the registration entry
+  declares cannot be ruled out on them.
+
+  **What it moves.** The live pass scores, latches and stamps under
+  `sal-v7`. The activation dry run, `uv run python
+  scripts/checks/salience_activation_dry_run.py` on the blob above as of
+  2026-11-04, plans 4 new latches for the first pass under the flip: 26-111
+  and 26-379 as federal arrivals (both pending moved rows not yet selected),
+  and 26-157 and 26-218 in the 2026-10-09 cohort, where `sal-v7`'s top-N
+  differs from `sal-v6`'s and a cohort's capacity counts no existing latch.
+  The same dry run under `sal-v6` plans 0 new latches and refuses the same
+  257 rows the `sal-v7` run refuses (the segment is the same callable).
+  `unlatch-overselected` is not part of activation and is not run. The
+  scored window opens at the first post-promotion metrics refresh, as for
+  every earlier flip; a cell minted before it pools a `sal-v7` anchor from
+  the committed `alt_segments` block but reads `statpack.md`'s `sal-v6`
+  table as a version mismatch.
+
+  Carried to `main` by the promotion
+  tagged `<FILL: promotion tag>` (merge commit `<FILL: merge sha>`, merged
+  `<FILL: merged time utc>`).
+
+  The runnable effect check once it is live:
+  - on `main`, `uv run python -c "from fedcourtsai.pipeline.salience import
+    SALIENCE_VERSION; print(SALIENCE_VERSION)"` prints `sal-v7`;
+  - after the first post-promotion metrics refresh, `jq -r
+    '.terms[].salience_version' metrics/statpack.json | sort -u` prints
+    `sal-v7`, and every Term's `alt_segments` holds a `sal-v6` block;
+  - on the first predict run's collect PR after the carrying merge, `jq -r
+    '.context.salience_version'
+    data/cases/scotus/*/events/*/predictions/*/<run_id>/prediction.json |
+    sort -u` prints `sal-v7` (and `null` on an unbanded cell), and a cell on
+    scotus/9026000146 or scotus/9026000379 freezes `band` `federal`.
+
+- **The topic publication gate stays a fixed 80% per-run floor, read
+  against the measured run-to-run spread; recorded 2026-11-05.** A
+  **measurement-rule** entry; no digest moves, no constant changes and no
+  cell reads anything different. Five reference-only replicates per frame
+  ran on the default labeler under the labeling prompt in force on `main`
+  (applications: runs 41596798171, 41643360354, 41678323011, 41842471709,
+  41869898663; petitions: runs 41899368593, 41904968783, 41916670580,
+  41934121288, 42024930611), each measured against the reference file as
+  committed and recorded in its spend record under `data/qp-topics/spend/`.
+  `fedcourts qp-topic-replicates` pools them to: applications 93.2% mean over
+  241 items, run sd 1.12% (95% interval 0.67–3.22% on 4 df), Cochran's Q
+  6.95 (p = 0.14); petitions 91.6% mean over 351 items, run sd 0.77%
+  (0.46–2.21%), Q 6.21 (p = 0.18). The lowest run of either frame (90.6%)
+  sits over three run-sd upper bounds above 80%. Three gate forms were
+  weighed — a quantile floor, a per-run floor plus a pooled rate over recent
+  attempts, and per-input-kind floors — and the fixed per-run floor was kept:
+  Cochran's Q detects no run effect at five runs, the run sd's upper bound
+  covers any run component the point estimates leave, and a per-kind floor
+  would rest on the 35 application-text rows. The figures are agreement with each frame's
+  reference on its own items, in-sample, not accuracy. The reading binds the
+  labeler model and labeling prompt the replicates ran on; a new labeler or a
+  prompt revision owes its own replicate series before this entry's reading
+  is quoted for it, and the floor moves only by a later dated entry. Carried
+  to `main` by the promotion tagged `<FILL: promotion tag>` (merge commit
+  `<FILL: merge sha>`, merged `<FILL: merged time utc>`).

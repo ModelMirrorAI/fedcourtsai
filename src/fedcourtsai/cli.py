@@ -49,6 +49,7 @@ from typer.core import TyperCommand
 
 from . import (
     ai_activity,
+    ai_rulings,
     analytics,
     blinding,
     casestore,
@@ -148,6 +149,8 @@ from .collect import (
     ThrottleRollup,
     assert_board_within_jail,
     assert_cleanup_within_jail,
+    assert_labels_within_jail,
+    assert_refresh_within_jail,
     assert_updates_within_jail,
     assert_within_jail,
     attempted_corpus_query,
@@ -452,6 +455,7 @@ from .pipeline.party_rates import DEFAULT_RATES_RULE, party_rates
 from .pipeline.policy_area import policy_areas, policy_source
 from .pipeline.pull import (
     BACKLOG_MAX_POLL_AGE_DAYS,
+    SCAN_HOLD_DAYS,
     CaseDisposition,
     CaseReconciliation,
     IncrementalEntries,
@@ -501,6 +505,7 @@ from .promotion_train import (
 )
 from .promotion_train import decide as promotion_train_decide
 from .public_update import (
+    EMAIL_TOP,
     archive_public_updates,
     build_public_update,
     last_complete_week,
@@ -16131,6 +16136,14 @@ def public_update_cmd(
         Path | None,
         typer.Option(help="Write the Markdown here; omit to print it."),
     ] = None,
+    top: Annotated[
+        int,
+        typer.Option(
+            min=0,
+            help="Cases listed per section, as the email trims them (the email's own is "
+            f"{EMAIL_TOP}); 0, the default, lists every case, as the site's history does.",
+        ),
+    ] = 0,
 ) -> None:
     """Render the weekly public update for the email list from the committed ledger.
 
@@ -16149,7 +16162,7 @@ def public_update_cmd(
     if update.empty:
         typer.echo(f"public-update: nothing to send for {chosen}.", err=True)
         raise typer.Exit(code=3)
-    text = render_public_update(update)
+    text = render_public_update(update, top=top or None)
     if out is None:
         typer.echo(text, nl=False)
     else:
@@ -16226,6 +16239,14 @@ def post_public_update_cmd(
             help="ISO week to post, as YYYY-Www; defaults to the last complete week (UTC)."
         ),
     ] = "",
+    top: Annotated[
+        int,
+        typer.Option(
+            min=0,
+            help="Cases listed per section, the ones the models rated biggest, with a link "
+            "to the week's full update on the site for the rest; 0 lists every case.",
+        ),
+    ] = EMAIL_TOP,
     dry_run: Annotated[
         bool,
         typer.Option(
@@ -16256,7 +16277,7 @@ def post_public_update_cmd(
         typer.echo(f"post-public-update: nothing to send for {chosen}.", err=True)
         raise typer.Exit(code=3)
     subject = public_update_subject(update)
-    body = render_public_update(update, title=False)
+    body = render_public_update(update, title=False, top=top or None)
     if dry_run:
         typer.echo(f"Subject: {subject}\nTag: {tag.strip() or tag_id.strip()}\n\n{body}", nl=False)
         return
@@ -20801,6 +20822,15 @@ def summarize_plan_cmd(
     report_run_url: Annotated[
         str, typer.Option(help="Actions run URL named in the plan report.")
     ] = "",
+    rulings: Annotated[
+        bool,
+        typer.Option(
+            "--rulings",
+            help="Also plan the AI watchlist rulings owed a summary (recorded in the "
+            "last 30 days' activity records, a kind a court writes, no summary yet, text "
+            "in the corpus) and price them into the estimate. Not subject to --limit.",
+        ),
+    ] = False,
     corpus_backend: CorpusBackendOption = "",
 ) -> None:
     """Dry run of the case-summary lane: which cases are owed a summary, at what cost.
@@ -20844,6 +20874,12 @@ def summarize_plan_cmd(
         )
 
     plan = summaries.plan_summaries(settings.data_root, eligible, read, config, limit=limit)
+    if rulings:
+        owed = ai_rulings.owed_rulings(settings.data_root, datetime.now(UTC).date())
+        planned, without_text, cost = ai_rulings.plan_rulings(
+            owed, _ruling_payload_reader(backend, db_path), config
+        )
+        plan = ai_rulings.with_rulings(plan, planned, without_text, cost)
     document = json.dumps(plan.model_dump(mode="json"), indent=2, sort_keys=True) + "\n"
     if out is None:
         typer.echo(document, nl=False)
@@ -20855,9 +20891,62 @@ def summarize_plan_cmd(
         f"summaries: {plan.eligible} eligible, {plan.up_to_date} up to date, "
         f"{len(plan.cases)} planned, {plan.deferred} deferred, "
         f"{len(plan.no_snapshot)} without a snapshot, "
-        f"{len(plan.not_live_shaped)} not live-shaped; estimated "
+        f"{len(plan.not_live_shaped)} not live-shaped, {len(plan.rulings)} AI ruling(s) "
+        f"planned ({len(plan.rulings_without_text)} without text); estimated "
         f"${plan.estimated_cost_usd_low:.2f} to ${plan.estimated_cost_usd_high:.2f}",
         err=True,
+    )
+
+
+def _ruling_payload_reader(
+    backend: corpus.CorpusBackend, db_path: Path
+) -> Callable[[str, int], Mapping[str, Any] | None]:
+    """A docket's newest snapshot payload, read as a forward cell's provisioning reads it."""
+
+    def read(court: str, docket_id: int) -> Mapping[str, Any] | None:
+        found = _read_cell_inputs(
+            backend, db_path, ids.case_id(court, docket_id), "", want_row=False, cut=False
+        )
+        return None if found.latest is None else found.latest[1]
+
+    return read
+
+
+@app.command("ai-ruling-stage")
+def ai_ruling_stage_cmd(
+    plan_file: Annotated[
+        Path, typer.Option("--plan", help="The plan JSON `summarize-plan --rulings` wrote.")
+    ],
+    staged: Annotated[
+        Path,
+        typer.Option(
+            help="The stage root: each planned ruling is written to "
+            "<staged>/ai-rulings/<entry_id>.json."
+        ),
+    ],
+    corpus_backend: CorpusBackendOption = "",
+) -> None:
+    """Stage the planned AI watchlist rulings' text for the summary lane's generate job.
+
+    For each ruling the plan names, reads its docket's newest snapshot and
+    stages the main document's stored text alone, after the contact-detail
+    scrub, with its entry id and the stored text's digest. Nothing else of the
+    docket is staged. A ruling whose text changed since the plan, is gone, or
+    keeps a contact-shaped residual after the scrub is skipped with a
+    ``::warning::`` and stays owed. ``summary-stage-check`` then holds the
+    staged files to the plan before they leave the job.
+    """
+    settings = get_settings()
+    plan = SummaryPlan.model_validate_json(plan_file.read_text())
+    reader = _ruling_payload_reader(
+        _provision_backend(corpus_backend), corpus.corpus_db_path(settings.corpus_root)
+    )
+    skipped = ai_rulings.stage_rulings(plan, reader, staged)
+    for entry_id, reason in skipped:
+        typer.echo(f"::warning::ruling entry {entry_id} not staged: {reason}")
+    typer.echo(
+        f"ai-ruling-stage: {len(plan.rulings) - len(skipped)} ruling(s) staged, "
+        f"{len(skipped)} skipped"
     )
 
 
@@ -20891,6 +20980,10 @@ def summarize_cmd(
 ) -> None:
     """Write the planned case summaries: one Messages API call per case, no tools.
 
+    The plan's AI watchlist rulings, where ``summarize-plan --rulings`` planned
+    any, are written after the cases, from the texts ``ai-ruling-stage`` staged
+    under the same stage root, to the ruling contract (``fedcourtsai.ai_rulings``).
+
     Each call carries the summarizer prompt and the case's staged record and
     nothing else. A response is written to ``summaries/<snapshot day>.md`` only
     if it ends normally, carries exactly the current contract's sections in order,
@@ -20913,6 +21006,9 @@ def summarize_cmd(
     config = load_summaries_config(settings.config_root)
     plan = SummaryPlan.model_validate_json(plan_file.read_text())
     deadline = datetime.now(UTC) + timedelta(minutes=budget_minutes) if budget_minutes > 0 else None
+    if plan.rulings and not ai_rulings.PROMPT_PATH.is_file():
+        typer.echo(f"prompt {ai_rulings.PROMPT_PATH} not found (run from the repo root)", err=True)
+        raise typer.Exit(code=2)
     try:
         with httpx.Client(timeout=httpx.Timeout(300.0, connect=10.0)) as client:
             outcome = summaries.summarize_plan(
@@ -20925,14 +21021,27 @@ def summarize_cmd(
                 api_key=api_key,
                 deadline=deadline,
             )
+            if plan.rulings:
+                ai_rulings.summarize_rulings(
+                    plan,
+                    outcome,
+                    stage_root=staged,
+                    data_root=settings.data_root,
+                    config=config,
+                    prompt_bytes=ai_rulings.PROMPT_PATH.read_bytes(),
+                    client=client,
+                    api_key=api_key,
+                    deadline=deadline,
+                )
     except ValueError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=2) from exc
-    rendered = summaries.render_outcome_report(outcome, len(plan.cases))
+    planned = len(plan.cases) + len(plan.rulings)
+    rendered = summaries.render_outcome_report(outcome, planned)
     typer.echo(rendered, nl=False)
     if report is not None:
         write_text(report, rendered)
-    if plan.cases and not outcome.written:
+    if planned and not outcome.written:
         typer.echo("no summary was written from a non-empty plan", err=True)
         raise typer.Exit(code=1)
 
@@ -20971,11 +21080,12 @@ def summary_stage_check_cmd(
     for what, reason in removed:
         typer.echo(f"::warning::removed {what} from the staged records: {reason}")
     kept = sum(1 for p in (staged / "cases").glob("*/*") if p.is_dir())
+    rulings = sum(1 for p in (staged / summaries.RULING_STAGE_DIR).glob("*.json") if p.is_file())
     withheld = sum(1 for _, reason in removed if reason.startswith(summaries.DOCUMENT_WITHHELD))
     line = (
         f"stage check: {kept} staged case record(s) kept, {len(removed) - withheld} removed, "
         f"{withheld} document(s) withheld"
-    )
+    ) + (f"; {rulings} staged ruling(s) kept" if rulings else "")
     typer.echo(line)
     if summary is not None:
         with summary.open("a", encoding="utf-8") as fh:
@@ -21003,26 +21113,42 @@ def summary_paths_cmd(
             "withdraws is admitted rather than refused.",
         ),
     ] = None,
+    any_withdrawal: Annotated[
+        bool,
+        typer.Option(
+            "--any-withdrawal",
+            help="Admit the deletion of any case summary, as a withdrawal, without a "
+            "plan: the required `paths` check's form, which has no plan to read.",
+        ),
+    ] = False,
 ) -> None:
-    """Print the case summary files a change set writes; with --strict, the lane's jail.
+    """Print the summary files a change set writes; with --strict, the lane's jail.
 
-    The summaries lane writes one kind of file — ``data/cases/<court>/<docket>/
-    summaries/<YYYY-MM-DD>.md`` — so its branch may carry nothing else. Without
+    The summaries lane writes two kinds of file — case summaries,
+    ``data/cases/<court>/<docket>/summaries/<YYYY-MM-DD>.md``, and AI watchlist
+    ruling summaries, ``data/ai-cases/summaries/<entry_id>.md`` — so its branch
+    may carry nothing else. Without
     ``--strict`` this is the filter the workflow uses to carry an open refresh
     PR's summaries forward (other paths are ignored); with it, the check that
     refuses to publish a change set holding anything but summaries. With
     ``--plan``, the one deletion the lane makes, a summary that plan withdraws,
-    passes too; it is not printed.
+    passes too; it is not printed. With ``--any-withdrawal``, a deletion of any
+    case summary passes the same way: the required `paths` check runs that form
+    on the `summaries/refresh` branch, which merges unattended, and it bounds the
+    branch to summary files, while the producer's ``--plan`` form decides which
+    deletions it makes.
     """
     withdrawn: set[str] = set()
     if plan_file is not None:
         plan = SummaryPlan.model_validate_json(plan_file.read_text())
         withdrawn = {row.path for row in plan.withdrawn}
     changes = [(c.status, c.path) for c in parse_name_status(name_status_file.read_text())]
+    if any_withdrawal:
+        withdrawn |= {path for status, path in changes if status == "D"}
     writes, violations = summaries.summary_changes(changes, withdrawn)
     if strict and violations:
         for violation in violations:
-            typer.echo(f"::error::not a case summary write: {violation}", err=True)
+            typer.echo(f"::error::not a summary write: {violation}", err=True)
         raise typer.Exit(code=1)
     for path in writes:
         typer.echo(path)
@@ -21039,7 +21165,7 @@ def summary_withdraw_cmd(
     A summary written before the docketed date of the petition its docket
     number now holds describes another petition (a re-docketed number), and
     ``summarize-plan`` lists it under ``withdrawn``. The publish job runs this
-    on its checkout so the review PR carries the deletion, which
+    on its checkout so the summaries PR carries the deletion, which
     ``summary-paths --strict --plan`` then admits. A file already gone is
     skipped.
     """
@@ -23715,6 +23841,15 @@ def _report_predict_backlog(backlog: PredictBacklog, *, cap: int, prefix: str) -
             "resolve or a newer snapshot stops disclosing them.",
             err=True,
         )
+    if backlog.held_unread_scan:
+        typer.echo(
+            f"Predict backlog: held {backlog.held_unread_scan} owed case(s) holding a scanned "
+            f"filing stored no more than {SCAN_HOLD_DAYS} days before the plan day that the "
+            "OCR sweep has not read yet, "
+            "so a forward cell would read it as empty. The hold clears when a run-seed "
+            "window's sweep recovers the text, or when the bound lapses.",
+            err=True,
+        )
     for case_id, event_id, reason in backlog.decided_events:
         typer.echo(
             f"Predict backlog: dropped {case_id} {event_id}, its snapshot discloses the "
@@ -25114,11 +25249,12 @@ _SPEND_BASIS_CAVEATS: dict[str, list[str]] = {
         + "The ~+20% level gap to the 410-cell pre-freeze ledger is an UPPER "
         + "BOUND on any level effect, not a measurement of one.",
         "The codex row is PRE-CUTOVER, measured on gpt-5.6-sol, and projects "
-        + "HIGH: gpt-6.1-sol measures about $0.43 a prediction (5 cells) against the "
-        + "row's $1.88. The gemini row prices gemini-4-argon from its first "
-        + "few cells (5 predictions, about $1.06 each at the introductory "
-        + "$2/$10) doubled for the $4/$20 rate in force from 2026-12-01, so "
-        + "until then it projects about twice the measured cost. Only a deliberate "
+        + "HIGH: gpt-6.1-sol measures about $0.55 a prediction (134 cells) against "
+        + "the row's $1.88. The gemini row prices gemini-4-argon from its "
+        + "measured cells (137 predictions, about $1.34 each at the introductory "
+        + "$2/$10) doubled for the $4/$20 rate in force from 2026-12-01 and "
+        + "rounded up, so until then it projects about twice the measured cost. "
+        + "Only a deliberate "
         + "re-anchor of the pinned rows moves them.",
     ],
     "evaluate": [
@@ -25129,9 +25265,11 @@ _SPEND_BASIS_CAVEATS: dict[str, list[str]] = {
         + "of the two pre-freeze anchors; the pooled four-grading figure is the "
         + "more cautious one and is NOT what these rates carry. All four are "
         + "cert-stage, so the anchor is stage-narrow either way. The gemini "
-        + "row does not use that anchor: it prices gemini-4-argon's first 18 "
-        + "grading runs (about $0.64 each at the introductory $2/$10) doubled "
-        + "for the $4/$20 rate in force from 2026-12-01.",
+        + "row does not use that anchor: it prices gemini-4-argon's measured "
+        + "grading runs (31, about $0.79 each at the introductory $2/$10, "
+        + "mostly cert-stage) doubled for the $4/$20 rate in force from "
+        + "2026-12-01 and rounded up, so a merits grading, which reads more, "
+        + "has little margin under it.",
         "An evaluate measurement EXISTS outside the frozen partition, and these "
         + "rates do not use "
         + "it: two runs independently graded one six-event INTERIM population "
@@ -25205,7 +25343,7 @@ def _spend_verdict_json(verdict: SpendVerdict) -> dict[str, Any]:
         "basis": (
             "The ledger counts committed spend only — a cell's usage.json reaches data/ when "
             "its run's collect PR merges, a case summary's or a topic-labeler run's record "
-            "when its reviewed PR does — and `cells` counts the agent cells inside spent_usd, "
+            "when its publish PR does — and `cells` counts the agent cells inside spent_usd, "
             "which also sums those summaries and labeler runs; so spent_usd is a FLOOR on "
             "spend within the window, "
             "never a live figure. Null where no ceiling is configured: the backstop returns "
@@ -27747,6 +27885,53 @@ def assert_update_paths_cmd(
     typer.echo(f"update jail OK ({len(changes)} change(s))")
 
 
+@app.command("assert-label-paths")
+def assert_label_paths_cmd(
+    name_status_file: Annotated[
+        Path, typer.Option(help="File holding `git diff --name-status` output to check.")
+    ],
+    branch: Annotated[
+        str, typer.Option(help="The labeling branch the change set is on, which names its frame.")
+    ],
+) -> None:
+    """Enforce a labeling branch's path jail; exit non-zero on any violation.
+
+    A labels or spend-record PR merges unattended, so its diff is bounded: the
+    branch's frame's labels file, written, and spend records, added. CI runs this
+    as a required status check on the PR, independently of the workflow that
+    produced the branch.
+    """
+    changes = parse_name_status(name_status_file.read_text())
+    try:
+        assert_labels_within_jail(changes, branch=branch)
+    except PathJailError as exc:
+        typer.echo(f"::error::{exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(f"labels jail OK ({len(changes)} change(s))")
+
+
+@app.command("assert-refresh-paths")
+def assert_refresh_paths_cmd(
+    name_status_file: Annotated[
+        Path, typer.Option(help="File holding `git diff --name-status` output to check.")
+    ],
+) -> None:
+    """Enforce the metrics refresh's path jail; exit non-zero on any violation.
+
+    The refresh PR merges unattended, so its diff is bounded: the artifacts the
+    refresh regenerates, written, and nothing else. CI runs this as a required
+    status check on the PR, independently of the workflow that produced the
+    branch.
+    """
+    changes = parse_name_status(name_status_file.read_text())
+    try:
+        assert_refresh_within_jail(changes)
+    except PathJailError as exc:
+        typer.echo(f"::error::{exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(f"refresh jail OK ({len(changes)} change(s))")
+
+
 @app.command("collect-union")
 def collect_union_cmd(
     source: Annotated[
@@ -28126,7 +28311,7 @@ def cleanup_out_of_scope_predictions_cmd(
         typer.Option("--apply", help="Delete the directories; omit for a dry-run that only lists."),
     ] = False,
     run_id: Annotated[
-        str, typer.Option(help="Run id for the review PR's branch name; defaults to now (UTC).")
+        str, typer.Option(help="Run id the refresh PR's body names; defaults to now (UTC).")
     ] = "",
     issue: Annotated[int, typer.Option(help="Issue the PR closes on merge (0 = none).")] = 0,
 ) -> None:

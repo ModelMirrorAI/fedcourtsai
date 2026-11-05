@@ -1,0 +1,155 @@
+{
+  "$defs": {
+    "CaseSummaryUsage": {
+      "additionalProperties": false,
+      "description": "The token usage of the calls that wrote a case summary.\n\nOne call, or two when the first response was rejected on a mechanical rule\nof the body contract and retried; the figures sum both.",
+      "properties": {
+        "estimated_cost_usd": {
+          "description": "The calls' on-demand cost at `pricing.MODEL_RATES` for `model` \u2014 an estimate at the rate table's snapshot, like every figure it prices",
+          "minimum": 0,
+          "title": "Estimated Cost Usd",
+          "type": "number"
+        },
+        "input_tokens": {
+          "description": "Uncached input tokens billed",
+          "minimum": 0,
+          "title": "Input Tokens",
+          "type": "integer"
+        },
+        "output_tokens": {
+          "description": "Output tokens billed",
+          "minimum": 0,
+          "title": "Output Tokens",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "input_tokens",
+        "output_tokens",
+        "estimated_cost_usd"
+      ],
+      "title": "CaseSummaryUsage",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The YAML front matter of ``data/ai-cases/summaries/<entry_id>.md``.\n\nA plain-language summary of one AI watchlist ruling, for the AI-cases\nupdate (``docs/case-summaries.md``, *AI watchlist rulings*). Written by the\nharness, never by the model: the court-record identifiers the summary is\nfiled under, the digest of the ruling text it was written from, and the\nmodel and prompt that wrote it.",
+  "properties": {
+    "body_version": {
+      "const": 1,
+      "description": "The body contract the summary was written to (`ai_rulings.SECTION_HEADINGS`): 1, a one-sentence `In brief` headline and `What the court decided`",
+      "title": "Body Version",
+      "type": "integer"
+    },
+    "case": {
+      "description": "The watchlist case's name, as the watchlist gives it",
+      "minLength": 1,
+      "title": "Case",
+      "type": "string"
+    },
+    "court": {
+      "description": "CourtListener court id of the docket",
+      "minLength": 1,
+      "title": "Court",
+      "type": "string"
+    },
+    "date_filed": {
+      "description": "The day the ruling was filed",
+      "format": "date",
+      "title": "Date Filed",
+      "type": "string"
+    },
+    "docket_id": {
+      "description": "CourtListener docket id",
+      "exclusiveMinimum": 0,
+      "title": "Docket Id",
+      "type": "integer"
+    },
+    "docket_number": {
+      "description": "The court's own docket number",
+      "minLength": 1,
+      "title": "Docket Number",
+      "type": "string"
+    },
+    "entry_id": {
+      "description": "CourtListener's id for the docket entry; the file is named for it",
+      "exclusiveMinimum": 0,
+      "title": "Entry Id",
+      "type": "integer"
+    },
+    "entry_number": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The entry's number on the docket; unnumbered entries carry none",
+      "title": "Entry Number"
+    },
+    "generated_at": {
+      "description": "When the harness wrote the file (UTC)",
+      "format": "date-time",
+      "title": "Generated At",
+      "type": "string"
+    },
+    "kind": {
+      "description": "What the entry is, under the activity rule that recorded it",
+      "enum": [
+        "opinion",
+        "judgment",
+        "ruling"
+      ],
+      "title": "Kind",
+      "type": "string"
+    },
+    "model": {
+      "description": "The Messages API model id that wrote the body",
+      "title": "Model",
+      "type": "string"
+    },
+    "prompt_digest": {
+      "description": "sha256 of `.github/prompts/summarize-ai-ruling.md` as sent",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Prompt Digest",
+      "type": "string"
+    },
+    "text_digest": {
+      "description": "sha256 of the ruling's text as stored, before the contact scrub \u2014 the text the summary was written from",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Text Digest",
+      "type": "string"
+    },
+    "usage": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CaseSummaryUsage"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The token usage of the calls that wrote the summary (a rejected first response's included), where the responses carried it"
+    }
+  },
+  "required": [
+    "case",
+    "court",
+    "docket_id",
+    "docket_number",
+    "entry_id",
+    "date_filed",
+    "kind",
+    "text_digest",
+    "model",
+    "prompt_digest",
+    "body_version",
+    "generated_at"
+  ],
+  "title": "AiRulingSummaryFrontMatter",
+  "type": "object"
+}

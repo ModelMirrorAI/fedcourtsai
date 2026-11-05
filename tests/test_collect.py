@@ -22,6 +22,8 @@ from fedcourtsai.collect import (
     AUTO_RELEASED_MARKER,
     CODE_MODE_PARENT_TOOL,
     CODE_MODE_SHELL_BUILTINS,
+    REFRESH_BRANCH,
+    REFRESH_JAIL_PATHS,
     CellStatus,
     ExpectedCell,
     PathJailError,
@@ -31,6 +33,8 @@ from fedcourtsai.collect import (
     ThrottleRollup,
     assert_board_within_jail,
     assert_cleanup_within_jail,
+    assert_labels_within_jail,
+    assert_refresh_within_jail,
     assert_updates_within_jail,
     assert_within_jail,
     attempted_corpus_query,
@@ -54,6 +58,8 @@ from fedcourtsai.collect import (
     union_cell_tree,
 )
 from fedcourtsai.finalize import FinalizeRole
+from fedcourtsai.metrics_refresh import REFRESH_ARTIFACTS
+from fedcourtsai.metrics_refresh import REFRESH_BRANCH as PLAN_BRANCH
 from fedcourtsai.review_hold import count_auto_released
 from fedcourtsai.schemas import (
     AgentFlag,
@@ -293,6 +299,136 @@ def test_board_jail_rejects_a_deletion() -> None:
     # The board is a committed surface; the lane has no business removing it.
     with pytest.raises(PathJailError, match="the board PR only writes files"):
         assert_board_within_jail(parse_name_status("D\tmetrics/big-cases.md\n"))
+
+
+# --- labeling branch jail --------------------------------------------------
+
+
+def test_label_jail_admits_the_frames_labels_file_and_added_spend_records() -> None:
+    assert_labels_within_jail(
+        parse_name_status(
+            "M\tdata/qp-topics/qp-topics.json\nA\tdata/qp-topics/spend/41609568171-1.json\n"
+        ),
+        branch="qp-topics/refresh",
+    )
+    assert_labels_within_jail(
+        parse_name_status(
+            "A\tdata/merits-alignment/alignment-side-codes.json\n"
+            + "A\tdata/qp-topics/spend/41515227262-1.json\n"
+        ),
+        branch="merits-alignment/side-codes",
+    )
+    # A spend-record PR carries the record alone.
+    assert_labels_within_jail(
+        parse_name_status("A\tdata/qp-topics/spend/41869898663-1.json\n"),
+        branch="qp-topics/applications-refresh",
+    )
+
+
+def test_label_jail_refuses_another_frames_artifact() -> None:
+    with pytest.raises(
+        PathJailError, match=r"is not 'data/qp-topics/qp-topics-applications\.json'"
+    ):
+        assert_labels_within_jail(
+            parse_name_status("M\tdata/qp-topics/qp-topics.json\n"),
+            branch="qp-topics/applications-refresh",
+        )
+
+
+def test_label_jail_refuses_a_rewritten_or_deleted_spend_record_and_a_deleted_labels_file() -> None:
+    for status in ("M", "D"):
+        with pytest.raises(PathJailError, match="spend records are only added"):
+            assert_labels_within_jail(
+                parse_name_status(f"{status}\tdata/qp-topics/spend/41609568171-1.json\n"),
+                branch="qp-topics/refresh",
+            )
+    with pytest.raises(PathJailError, match="the labels file is only written"):
+        assert_labels_within_jail(
+            parse_name_status("D\tdata/qp-topics/qp-topics.json\n"), branch="qp-topics/refresh"
+        )
+
+
+def test_label_jail_refuses_any_other_path_and_any_other_branch() -> None:
+    for line in (
+        "A\tdata/qp-topics/qp-topic-reference.json",
+        "A\tdata/qp-topics/spend/notes.json",
+        "A\tdata/qp-topics/spend/sub/1-1.json",
+        "M\t.github/workflows/run-analytics.yml",
+        "A\tdata/qp-topics/CLAUDE.md",
+    ):
+        with pytest.raises(PathJailError):
+            assert_labels_within_jail(parse_name_status(line + "\n"), branch="qp-topics/refresh")
+    with pytest.raises(PathJailError, match="not a labeling branch"):
+        assert_labels_within_jail([], branch="merits-alignment/fits")
+
+
+def test_label_and_refresh_jails_refuse_a_rename_or_copy_whatever_its_source() -> None:
+    for line in (
+        "R100\tsrc/x.py\tdata/qp-topics/qp-topics.json",
+        "R100\tdata/qp-topics/spend/1-1.json\tdata/qp-topics/spend/2-1.json",
+        "C100\tdata/qp-topics/spend/1-1.json\tdata/qp-topics/spend/2-1.json",
+    ):
+        with pytest.raises(PathJailError):
+            assert_labels_within_jail(parse_name_status(line + "\n"), branch="qp-topics/refresh")
+    for line in (
+        "R100\tsrc/x.py\tmetrics/leaderboard.json",
+        "C100\tmetrics/README.md\tmetrics/statpack.md",
+    ):
+        with pytest.raises(PathJailError, match="the refresh only writes files"):
+            assert_refresh_within_jail(parse_name_status(line + "\n"))
+
+
+def test_assert_label_paths_cli_exits_1_with_an_error_and_0_when_clean(tmp_path: Path) -> None:
+    changes = tmp_path / "changes.txt"
+    changes.write_text("A\tdata/qp-topics/spend/41869898663-1.json\n")
+    args = ["assert-label-paths", "--branch", "qp-topics/refresh", "--name-status-file"]
+    ok = CliRunner().invoke(app, [*args, str(changes)])
+    assert ok.exit_code == 0
+    assert "labels jail OK" in ok.output
+    changes.write_text("M\tsrc/fedcourtsai/cli.py\n")
+    bad = CliRunner().invoke(app, [*args, str(changes)])
+    assert bad.exit_code == 1
+    assert "::error::" in bad.output
+
+
+# --- metrics refresh jail ---------------------------------------------------
+
+
+def test_refresh_jail_admits_the_refreshed_artifacts() -> None:
+    assert_refresh_within_jail(
+        parse_name_status(
+            "M\tdata/scope/scope.json\nM\tmetrics/leaderboard.json\nM\tmetrics/big-cases.md\n"
+        )
+    )
+
+
+def test_refresh_jail_refuses_any_other_path_and_a_deletion() -> None:
+    for line in (
+        "M\tmetrics/README.md",
+        "M\tmetrics/cert-backtest.json",
+        "A\tmetrics/updates/2026-W45.md",
+        "M\tdata/scope/other.json",
+    ):
+        with pytest.raises(PathJailError, match="not an artifact the metrics refresh writes"):
+            assert_refresh_within_jail(parse_name_status(line + "\n"))
+    with pytest.raises(PathJailError, match="the refresh only writes files"):
+        assert_refresh_within_jail(parse_name_status("D\tmetrics/leaderboard.json\n"))
+
+
+def test_refresh_jail_is_the_refreshs_own_artifact_list() -> None:
+    assert frozenset(REFRESH_ARTIFACTS) == REFRESH_JAIL_PATHS
+    assert REFRESH_BRANCH == PLAN_BRANCH
+
+
+def test_assert_refresh_paths_cli_exits_1_with_an_error_and_0_when_clean(tmp_path: Path) -> None:
+    changes = tmp_path / "changes.txt"
+    changes.write_text("M\tmetrics/statpack.md\n")
+    ok = CliRunner().invoke(app, ["assert-refresh-paths", "--name-status-file", str(changes)])
+    assert ok.exit_code == 0
+    assert "refresh jail OK" in ok.output
+    changes.write_text("M\tmetrics/README.md\n")
+    bad = CliRunner().invoke(app, ["assert-refresh-paths", "--name-status-file", str(changes)])
+    assert bad.exit_code == 1
 
 
 # --- weekly update history jail ---------------------------------------------

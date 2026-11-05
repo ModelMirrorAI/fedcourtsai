@@ -45,7 +45,7 @@ requests.
 | Dispatch only  | `run-repair`    | The **corpus-maintenance bench**: twenty-two dispatch-gated passes that rewrite stored corpus fields, back-fill corpus rows, remove ledger records, re-freeze frozen signal blocks, re-grade committed cells, or stamp vote records onto committed outcomes — one pass per dispatch, dry-run by default, and an apply only once a maintainer has read that dry run's ledger. Never scheduled; shares the corpus-write lock | Script |
 | Schedule ×2 + dispatch | `run-predict`   | Predict open events with **multiple competing predictors** (fan-out), over the cases the predict backlog still owes a forecast | Claude Code + Codex + Gemini |
 | Schedule + dispatch | `run-evaluate`  | Score past predictions against realized outcomes, over the gradings the evaluate backlog still owes — fan-out is one cell per evaluator, and each judge grades **every** predictor for its event | Claude Code + Codex + Gemini |
-| Schedule + dispatch (`limit`) | `summarize`     | Write a **plain-language summary** of each predicted case whose record changed — what happened, what the Court is being asked, where it stands — for site readers; one tool-less model call per case (a second when a rejected response is retried), every run behind the `review` release or auto-released within the trailing spend budget, landed as a reviewed PR ([`docs/case-summaries.md`](docs/case-summaries.md)) | Messages API (no agent) |
+| Schedule + dispatch (`limit`) | `summarize`     | Write a **plain-language summary** of each predicted case whose record changed — what happened, what the Court is being asked, where it stands — for site readers; one tool-less model call per case (a second when a rejected response is retried), every run behind the `review` release or auto-released within the trailing spend budget, landed as a PR that merges itself once its required checks pass ([`docs/case-summaries.md`](docs/case-summaries.md)) | Messages API (no agent) |
 | Biweekly schedule + dispatch | `run-backtest`  | Cert back-test: replay predictors over decided petitions (outcomes hidden), land `metrics/cert-backtest.json` as a reviewed PR. The schedule asks under pinned parameters and waits on the manual `review` release — a replay spends tokens, so no run spends without a human. A second dispatch mode replays the predictors over **decided argued merits cases** at the grant and briefed moments, into `metrics/merits-backtest.json`; a third replays the **deterministic salience gate** over past Terms instead — offline, token-free, into `metrics/salience-replay.json` | Claude Code + Codex + Gemini (replay); salience-gate replay is script-only |
 
 Plus `run-ops` (a read-only daily operations report with a performance digest
@@ -337,8 +337,8 @@ and `qp-topic-reference-applications.json`, its application block, authored
 the same way;
 and — once a labeling run has produced one — `qp-topics.json`, the
 machine-produced per-case labels, written by the agent-backed `qp-topic-label`
-run mode and landed the same way, as a reviewed PR to `main` that is never
-auto-merged. That file **accrues**: the labeling frame outruns one dispatch, so
+run mode and landed as a PR to `main` that merges unattended once its
+required checks pass, the `paths` jail among them. That file **accrues**: the labeling frame outruns one dispatch, so
 each run labels a derived batch and the artifact is the union of every batch,
 carrying a per-batch ledger of who labeled what. `qp-topics-applications.json`
 is the same kind of file for the emergency-application frame, written by the

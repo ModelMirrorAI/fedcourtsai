@@ -1064,10 +1064,10 @@ def test_summary_withdraw_deletes_the_planned_files_and_the_jail_admits_only_the
     )
     args = ["summary-paths", "--name-status-file", str(changes), "--strict"]
     without_plan = runner.invoke(app, args)
-    assert without_plan.output.count("not a case summary write") == 2
+    assert without_plan.output.count("not a summary write") == 2
     with_plan = runner.invoke(app, [*args, "--plan", str(plan_file)])
     assert with_plan.exit_code == 1
-    assert with_plan.output.count("not a case summary write") == 1
+    assert with_plan.output.count("not a summary write") == 1
     assert "D data/cases/scotus/1/summaries/2026-10-13.md" in with_plan.output
     only_planned = tmp_path / "planned.txt"
     only_planned.write_text(
@@ -1087,6 +1087,16 @@ def test_summary_withdraw_deletes_the_planned_files_and_the_jail_admits_only_the
     )
     assert clean.exit_code == 0, clean.output
     assert clean.stdout.split() == ["data/cases/scotus/2/summaries/2026-10-13.md"]
+    # The required `paths` check's form has no plan, so it admits any case
+    # summary deletion as a withdrawal, and still refuses every other change.
+    any_withdrawal = runner.invoke(app, [*args, "--any-withdrawal"])
+    assert any_withdrawal.exit_code == 0, any_withdrawal.output
+    assert any_withdrawal.stdout.split() == ["data/cases/scotus/2/summaries/2026-10-13.md"]
+    for line in ("D\tdata/ai-cases/summaries/7.md", "D\tmetrics/leaderboard.json"):
+        changes.write_text(line + "\n")
+        refused = runner.invoke(app, [*args, "--any-withdrawal"])
+        assert refused.exit_code == 1
+        assert "not a summary write" in refused.output
 
 
 def test_a_summary_written_on_the_docketed_day_is_kept(tmp_path: Path) -> None:
@@ -1191,7 +1201,7 @@ def test_summary_paths_admits_only_summary_writes(tmp_path: Path) -> None:
 
     strict = runner.invoke(app, ["summary-paths", "--name-status-file", str(changes), "--strict"])
     assert strict.exit_code == 1
-    assert strict.output.count("not a case summary write") == 4
+    assert strict.output.count("not a summary write") == 4
 
 
 def test_the_paths_helper_and_the_jail_agree() -> None:

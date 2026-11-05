@@ -113,11 +113,17 @@ its own `watchlist` share, sized for one run a day (the day's first run-pull
 pull window). It stores **facts only**: a dated snapshot when the docket changed and
 the `cases` row stamped `last_pulled`, with no event extraction, outcome
 detection or queue, since no moment is registered for a lower-court docket.
-Each run reads incrementally first, every docket refreshed before: the entries
-modified since its last refresh, less an overlap, merged by id into the stored
-docket, about two requests for a quiet one. Whole reads take what is left:
-onboarding a docket the corpus holds no snapshot of (each read whole or not at
-all, so onboarding the list spreads over several runs), and a weekly re-read on
+Each run opens with one onboard, a whole read of a docket the corpus holds no
+snapshot of (the lead rotates among them by day), while the whole share is
+there to cover it. It then reads incrementally every docket refreshed before:
+the entries modified since its last refresh, less an overlap, merged by id
+into the stored docket, about two requests for a quiet one; a long lead
+onboard can leave some of these to the next run, which reads from their own
+last refresh. Whole reads take what is left: further onboards, each started
+only when the share left covers the longest read the page cap allows
+(upstream does not say how long a docket is before it is read, and a read the
+share cut off would write nothing for what it spent), so the list onboards a
+docket each run whose lead read succeeds; and a weekly re-read on
 a day the docket id picks, which catches deletions and documents that did not
 move an entry's modification time, taken only where the share left covers the
 docket's stored length. Like pull, a run stops at a wall-clock budget or a run
@@ -545,8 +551,9 @@ each is edited only in an interactive session and only via its own reviewed stag
 neither the deterministic writers nor any workflow regenerates either. `qp-topics.json` is machine-produced and appears once a
 labeling run has produced one: the per-case labels, written by
 `run-analytics`'s agent-backed `qp-topic-label` mode (`fedcourts qp-topics`,
-which refuses to write below the publication gate) and landed as a reviewed PR
-to `main` on the fixed `qp-topics/refresh` branch, never auto-merged. It is an
+which refuses to write below the publication gate) and landed as a PR to
+`main` on the fixed `qp-topics/refresh` branch, which merges unattended once its
+required checks pass, the `paths` jail among them. It is an
 **accumulating** artifact — the labeling frame outruns one dispatch, so each run
 labels a batch derived from committed state and the file is the union of every
 batch, carrying a per-batch ledger and, on each row, the batch that first
@@ -1391,8 +1398,10 @@ or network.
   boundary. A forward cell runs once, usually within days of the filing it
   reads, so a scan stored between two dispatches would reach its cell with no
   text; on every window a scan a live window stored waits at most one seed
-  window. `ocr-sweep-projection` holds the read-only role, walks the recovery
-  class and writes the window's slice of at most `historical.sweep_caps.ocr`
+  window, and the predict backlog holds the case's forward cells while it
+  waits (`held_unread_scan`, bounded at `pull.SCAN_HOLD_DAYS`).
+  `ocr-sweep-projection` holds the read-only role, walks the recovery class
+  and writes the window's slice of at most `historical.sweep_caps.ocr`
   candidates: those a forward cell will read (an open event on an in-scope
   row that salience has not deferred, or an open merits event) stored within
   the last week first, newest first; then the older forward candidates and

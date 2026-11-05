@@ -118,6 +118,9 @@ from fedcourtsai.collect import (
     BOARD_ARTIFACTS,
     BOARD_BRANCH,
     BOARD_JAIL_PATHS,
+    LABEL_BRANCHES,
+    REFRESH_BRANCH,
+    SUMMARIES_BRANCH,
     UPDATES_BRANCH,
     is_agent_context_path,
 )
@@ -1948,7 +1951,11 @@ def test_the_qp_measure_composite_is_shared_by_the_paid_run_and_the_scenario() -
     ), "the hand-off must read the measured block from the composite's output"
     assert '"$RUNNER_TEMP/qp-publish/measured.txt"' in stage["run"]
     publish_steps = _load("run-analytics.yml")["jobs"]["qp-topic-publish"]["steps"]
-    pr_step = next(s for s in publish_steps if s.get("name") == "Open or update the review PR")
+    pr_step = next(
+        s
+        for s in publish_steps
+        if s.get("name") == ("Open or update the labels PR, and merge it once green")
+    )
     assert pr_step["env"]["MEASURED_FILE"] == "${{ runner.temp }}/qp-publish/measured.txt", (
         "the PR body must read the measured block the hand-off carried"
     )
@@ -2575,6 +2582,46 @@ def test_the_retried_listings_are_captured_before_they_are_filtered() -> None:
         assert not [
             line for line in _uncommented(block) if "gh_retry gh issue list" in line and "|" in line
         ]
+
+
+# The latched alarms that close themselves on a green check, with the title
+# each one files its issue under.
+SELF_CLEARING_ALARM_STEPS = (
+    ("run-seed.yml", "guard", "Escalate a cancelled or failed seed walk", "Seed walk failing"),
+    (
+        "run-ops.yml",
+        "ops",
+        "Escalate a failing data-validation verdict",
+        "Data validation failing",
+    ),
+)
+
+
+def test_a_self_clearing_alarm_closes_only_the_issue_it_filed() -> None:
+    """A green check closes the alarm's own issue, never another one under its label.
+
+    Both steps close the issue their lookup finds once the check is green
+    again. A lookup keyed on the label alone closes any open issue that carries
+    it, a hand-filed one included, with nothing to say the work it tracked was
+    not done. So the lookup must select on the exact title the step files under
+    and on the workflow bot as author, and the label-only shape must not
+    return.
+    """
+    for workflow, job, name, title in SELF_CLEARING_ALARM_STEPS:
+        run = str(_named_step(workflow, job, name)["run"])
+        code = "\n".join(_uncommented(run))
+        assert f'--title "{title}"' in code, f"{workflow}:{name} no longer files {title!r}"
+        assert f'select(.title == "{title}"' in code, (
+            f"{workflow}:{name} must match its own title before closing"
+        )
+        assert '.user.login == "github-actions[bot]"' in code, (
+            f"{workflow}:{name} must match the workflow bot as author before closing"
+        )
+        # The retried listing is captured before jq filters it, so an exhausted
+        # retry fails the assignment instead of reading as "no issue".
+        assert 'listing=$(gh_retry gh api "repos/${REPO}/issues?labels=' in code
+        assert '<<<"$listing")' in code
+        assert "--json number --jq '.[0].number'" not in code
 
 
 # The codex invocation surface, described in several places that certify each
@@ -4492,6 +4539,107 @@ def test_the_update_history_branch_is_spelled_the_same_in_all_three_places() -> 
     assert f"git add -A {staged}; fi\n" in analytics_wf
 
 
+def test_the_newer_unattended_branches_are_spelled_the_same_in_all_three_places() -> None:
+    """The board's three-literal argument, for the metrics refresh, the case
+    summaries and the labeling frames: each branch `collect` names is selected
+    by ci.yml's `paths` jail and allowed by `main-base`, so a drift cannot leave
+    an unattended lane on the jail's passing non-match path."""
+    ci = (WORKFLOWS / "ci.yml").read_text()
+    summarize = (WORKFLOWS / "summarize.yml").read_text()
+    assert f"\n            {REFRESH_BRANCH}) jail=refresh ;;" in ci
+    assert f"\n            {SUMMARIES_BRANCH}) jail=summaries ;;" in ci
+    assert f"\n            {'|'.join(LABEL_BRANCHES)}) jail=labels ;;" in ci
+    for branch in (REFRESH_BRANCH, SUMMARIES_BRANCH, *LABEL_BRANCHES):
+        assert f"github.head_ref == '{branch}'" in ci, f"main-base does not allow {branch}"
+    assert f"BRANCH: {SUMMARIES_BRANCH}" in summarize
+
+
+@pytest.mark.parametrize(
+    ("workflow", "job"),
+    [
+        ("summarize.yml", "publish"),
+        ("run-analytics.yml", "metrics-refresh"),
+        ("run-analytics.yml", "qp-topic-publish"),
+    ],
+)
+def test_the_newer_unattended_lanes_merge_through_the_pinned_script(
+    workflow: str, job: str
+) -> None:
+    """Each lane lands its PR as the board does: the merge script read from the
+    job's own commit, the check-run listing on the ambient token, and the
+    `checks: read` that listing needs."""
+    wf = yaml.safe_load((WORKFLOWS / workflow).read_text())
+    spec = wf["jobs"][job]
+    assert spec["permissions"].get("checks") == "read"
+    runs = "\n".join(str(step.get("run", "")) for step in spec["steps"])
+    assert 'git show "${GITHUB_SHA}:scripts/merge-when-green.sh" > "$script"' in runs
+    assert any(
+        (step.get("env") or {}).get("CHECKS_TOKEN") == "${{ github.token }}"
+        for step in spec["steps"]
+    )
+
+
+def test_a_carried_branch_and_a_side_coding_batch_wait_for_the_maintainer() -> None:
+    """The fixed summaries and labeling branches are unprotected, so a tree that
+    carried an open PR's content forward is never merged unattended, and the side
+    coder's codes, which have no reference gate, never are either."""
+    summarize = yaml.safe_load((WORKFLOWS / "summarize.yml").read_text())
+    (sum_run,) = [
+        str(s["run"])
+        for s in summarize["jobs"]["publish"]["steps"]
+        if "merge-when-green.sh" in str(s.get("run", ""))
+    ]
+    skip = sum_run.index('if [ "$open" != "0" ]; then\n  echo "Carries an open PR')
+    assert skip < sum_run.index("gh pr merge --auto")
+    analytics = yaml.safe_load((WORKFLOWS / "run-analytics.yml").read_text())
+    (label_run,) = [
+        str(s["run"])
+        for s in analytics["jobs"]["qp-topic-publish"]["steps"]
+        if "merge-when-green.sh" in str(s.get("run", ""))
+    ]
+    land = label_run[label_run.index("land() {") :]
+    assert land.index('if [ -n "$carried" ]; then') < land.index("gh pr merge --auto")
+    assert land.index('if [ "$QP_FRAME" = alignment-sides ]') < land.index("gh pr merge --auto")
+    assert label_run.count('carried="open-branch"') == 1
+    assert label_run.count('carried="spend-records"') == 1
+
+
+def test_staging_base_holds_a_dev_app_pr_into_staging_to_the_sync() -> None:
+    """The dev App bypasses `staging: code owners`, so `staging-base` fails any
+    dev App PR into `staging` whose head is not this repository's `main`. The
+    comparison is the shell's, exact: an expression's `==` ignores case."""
+    ci = yaml.safe_load((WORKFLOWS / "ci.yml").read_text())
+    job = ci["jobs"]["staging-base"]
+    condition = " ".join(str(job["if"]).split())
+    assert "github.base_ref == 'staging'" in condition
+    # The App the promotion gate resolves as `apps/fedcourtsai-dev`.
+    assert "github.event.pull_request.user.login == 'fedcourtsai-dev[bot]'" in condition
+    assert job["permissions"] == {}
+    (step,) = job["steps"]
+    assert step["env"]["HEAD_REF"] == "${{ github.head_ref }}"
+    assert step["env"]["HEAD_REPO"] == "${{ github.event.pull_request.head.repo.full_name }}"
+    assert 'if [ "$HEAD_REF" = main ] && [ "$HEAD_REPO" = "$REPO" ]; then' in step["run"]
+    assert step["run"].rstrip().endswith("exit 1")
+
+
+def test_the_sync_lands_through_the_pinned_merge_script() -> None:
+    """Armed auto-merge never exercises the code-owner bypass, so the sync job
+    merges its PR itself, with the script read from its own commit."""
+    wf = yaml.safe_load((WORKFLOWS / "sync-staging.yml").read_text())
+    job = wf["jobs"]["sync"]
+    assert job["permissions"] == {"contents": "read", "checks": "read"}
+    (step,) = [s for s in job["steps"] if "land_sync" in str(s.get("run", ""))]
+    assert step["env"]["CHECKS_TOKEN"] == "${{ github.token }}"
+    run = str(step["run"])
+    assert 'git show "${GITHUB_SHA}:scripts/merge-when-green.sh" > "$script"' in run
+    # The script refuses a staging base unless the caller opts in, and the
+    # head is re-read on each bounded try because `main` keeps moving.
+    assert 'MERGE_SYNC=true MERGE_WAIT_SECONDS=600 bash "$script" "$1" "$head" < /dev/null' in run
+    assert "for try in 1 2 3; do" in run
+    assert run.count('land_sync "') == 2
+    assert job["timeout-minutes"] >= 3 * 10 + 5
+
+
 def test_the_big_case_board_job_reaches_nothing_but_the_ledger_and_its_own_pr() -> None:
     """The board is ledger-only by contract, and the job is where that is
     enforceable: it must assume no cloud role, pull no corpus, and hold no
@@ -5293,7 +5441,7 @@ def test_the_application_labeling_mode_reads_its_frame_off_the_mode_alone() -> N
     publish = next(
         s
         for s in wf["jobs"]["qp-topic-publish"]["steps"]
-        if s.get("name") == "Open or update the review PR"
+        if s.get("name") == "Open or update the labels PR, and merge it once green"
     )
     branch = _norm(publish["env"]["BRANCH"])
     assert "'qp-topics/applications-refresh'" in branch and "'qp-topics/refresh'" in branch

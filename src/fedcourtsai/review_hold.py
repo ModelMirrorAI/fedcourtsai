@@ -37,10 +37,10 @@ round's planning-rate price with its engine mix, nor on a round released
 earlier whose collect PR is still open; and *estimate* is this round's price.
 The ledger is a floor on what was spent — a manually released round still in
 flight, an auto-released round whose collect PR is still open more than 24
-hours on, a summary run whose review PR has not merged (outside the summarize
+hours on, a summary run whose PR has not merged (outside the summarize
 plan, which carries the open refresh PR's summaries and so counts them), and a
 rejected summary response's tokens, and a labeler run's record whose
-reviewed PR has not merged (outside that frame's next label round, whose
+PR has not merged (outside that frame's next label round, whose
 extract job carries the open PR's records in and so counts them) are all
 invisible to it — so the budget sits below the backstop's ceiling, which
 stops minting outright, and a budget at or above that ceiling keeps every
@@ -174,12 +174,14 @@ _MARK = re.escape(AUTO_RELEASED_MARKER)
 #: One run id is one round either way, and it is read wherever it sits,
 #: before the mark. A summarize publish commit names its Actions run —
 #: ``data(summaries): N plain-language case summaries (run <n>) [auto-released]``
-#: — and its review PR is merged by hand, under the repository's default merge
-#: subject, which is the PR title (docs/security.md) so the mark lands dated at
-#: the merge as the unattended lanes' does. A topic-label publish commit has the
-#: same shape under its own scope — ``data(qp-topics): batch N — … (run <n>)
-#: [auto-released]`` for a labels PR, or a spend record's title for a run that
-#: published nothing — and is merged by hand the same way.
+#: — and its PR merges under its title, by the publish job's own merge
+#: (``scripts/merge-when-green.sh``) or, when left for review, by hand under
+#: the repository's default merge subject, which is the same title
+#: (docs/security.md), so the mark lands dated at the merge either way. A
+#: topic-label publish commit has the same shape under its own scope —
+#: ``data(qp-topics): batch N — … (run <n>) [auto-released]`` for a labels PR,
+#: or a spend record's title for a run that published nothing — and merges the
+#: same way.
 _AUTO_RELEASED_SUBJECTS = (
     re.compile(
         r"^(?P<lane>predict|evaluate)\b.*?\brun (?P<run>\d{8}T\d{6}Z)\b.*" + _MARK,

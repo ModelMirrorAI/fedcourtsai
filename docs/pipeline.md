@@ -491,10 +491,13 @@ queues behind the production run of the same mode. The modes:
   (input: the corpus) are deterministic stage commands that otherwise change
   only when someone reruns them locally. It reruns those tested
   `fedcourts` commands and — only when an artifact actually changed (they are
-  byte-stable, so a no-op refresh diffs empty) — opens a **reviewed** PR rendered
-  by the tested `metrics-refresh-plan` command: never a
-  direct commit to `main`, never auto-merged. It mints the dev App token to do
-  so; `big-cases`, `public-updates` and `qp-topic-publish` below are the only
+  byte-stable, so a no-op refresh diffs empty) — opens a PR rendered by the
+  tested `metrics-refresh-plan` command, never a direct commit to `main`, and
+  merges it itself once its required checks pass (`scripts/merge-when-green.sh`,
+  as `big-cases` below does). The required `paths` check holds that PR to the
+  artifacts listed here, written (`assert-refresh-paths`); `gate` re-runs the
+  regenerating commands' tests. It mints the dev App token to do so;
+  `big-cases`, `public-updates` and `qp-topic-publish` below are the only
   other jobs here that do. The branch is fixed
   (`metrics/refresh`) and force-pushed, so an unmerged refresh PR is updated in
   place by the next tick rather than stacking. It gates on the weekly cron by
@@ -539,9 +542,12 @@ queues behind the production run of the same mode. The modes:
   missing week's public update to the site's running history,
   `metrics/updates/<YYYY-Www>.md`, with `fedcourts archive-public-updates`, and
   lands it as a PR to `main` on the fixed, force-pushed `metrics/public-updates`
-  branch. Each file is the `public-update` render the email draft carries, with
-  its title as a heading; `post-public-update` drafts at 12:57, so the page and
-  the draft read the same `main` unless a commit lands between the two runs. The
+  branch. Each file is the full `public-update` render, with its title as a
+  heading; the email draft carries the same render trimmed to the ten biggest
+  cases per section, linking this page for the rest. `post-public-update`
+  drafts at 12:57, so the page and the draft read the same `main` unless a
+  commit lands between the two runs, and the draft's link resolves once this
+  PR has merged and the site has rebuilt. The
   history starts at the first week the list was sent and is write-once once
   merged: a week on `main` is never re-rendered, not even for a later void or
   set-aside (a correction is a reviewed PR), while a week whose PR has not
@@ -578,8 +584,18 @@ queues behind the production run of the same mode. The modes:
   population, row ceiling, and batching rule are in [qp-topic.md](qp-topic.md))
   and lands the
   measured per-case labels file
-  (`data/qp-topics/qp-topics.json`) as a **reviewed** PR to `main` — fixed
-  branch `qp-topics/refresh`, force-pushed, never auto-merged. The frame outruns
+  (`data/qp-topics/qp-topics.json`) as a PR to `main` on the fixed, force-pushed
+  branch `qp-topics/refresh`, which the publish job merges once its required
+  checks pass. The required `paths` check holds the PR to the frame's labels
+  file, written, and added spend records (`assert-label-paths`); the batch got
+  there only past the measure step's publication gate and the publish job's
+  accrual guard. A run that publishes nothing lands its spend record the same
+  way. A branch that carries an open PR's labels or spend records
+  forward is left for the maintainer, since that fixed branch takes any write
+  holder's push. The side coder's codes PR (`merits-alignment/side-codes`) is the one
+  labeling PR left for the maintainer: the codes have no reference gate, so
+  reading the coder's notes is the check; its spend-record-only PRs merge
+  unattended. The frame outruns
   one run, so each run labels a batch derived from committed state and the
   artifact **accrues**: the weekly cron works the frame down a batch at a time,
   and a dispatch adds one — dispatch it **from the ref carrying the newest
@@ -742,9 +758,10 @@ from the one its newest summary was written from — so a run that was declined
 or never fired is simply re-derived by the next. Every run holds on `review`
 before it spends, unless a `main` run's plan is within the auto-release caps
 and budget (*Auto-release*, below). The corpus role and the Anthropic API key never share
-a job; on `main` the result lands as one reviewed PR from the fixed branch
-`summaries/refresh`, never auto-merged, which later runs update in place until
-it merges. A `staging` dispatch is a rehearsal whose summaries stay in the run
+a job; on `main` the result lands as one PR from the fixed branch
+`summaries/refresh`, which the publish job merges once its required checks pass,
+the `paths` jail among them; a PR left open is updated in place by later runs
+until it merges. A `staging` dispatch is a rehearsal whose summaries stay in the run
 artifact. The contract, selection rule, credential split and residuals are in
 [case-summaries.md](case-summaries.md).
 
@@ -1746,8 +1763,13 @@ run-log issue means exactly "a window broke".
 
 **An open issue is one of exactly three things, and the reader can tell which
 from its label.** An **alarm** — `pull-log`, `live-log`, `data-validation`,
-`pipeline-health` — is filed only by a failure and closed by a human once
-triaged, so an open one always means something needs attention. A **digest** —
+`pipeline-health` — is filed only by a failure, so an open one always means
+something needs attention. A run-log alarm is closed by a human once triaged;
+the two latched alarms, `data-validation` and `pipeline-health`, also close
+themselves when their check is green again, and each closes only the issue it
+filed, matched by its fixed title and the workflow bot as author. Alarm
+labels are reserved for these jobs: a hand-filed issue takes a category
+label instead. A **digest** —
 `daily-digest` — is filed on the happy path and closed once
 read, so the open ones are the unread backlog and nothing more. The
 **`agent-feedback` tracker** is the one standing body a job writes to on a
@@ -2079,7 +2101,7 @@ The mechanics:
   `main`'s required checks are exactly `gate`, `paths`, `promotion-gate`, and
   **`main-base`**. `main-base` is the merge-routing jail — it runs, and fails,
   only on a PR to `main` whose head is not `staging`, a promotion train
-  candidate (`promote/…`), or a reviewed non-feature
+  candidate (`promote/…`), or a non-feature
   lane (the collect run branches, the maintainer's cleanup sweep, the
   metrics-refresh, cert-backtest, merits-backtest and salience-replay PRs,
   the qp-topic labeling runs' `qp-topics/refresh` and
@@ -2098,27 +2120,31 @@ The mechanics:
   lives as a check at all, and why the check deters mistakes while the human
   merge is what catches sabotage: a PR that edits ci.yml runs the edited
   definition. Dependabot targets `staging` for the same reason. The `staging`
-  ruleset itself requires a pull request plus the status checks that can report
-  on a staging-targeted PR — `gate` and `paths`; `main`'s other two,
+  rulesets require a pull request plus the status checks that can report
+  on a staging-targeted PR — `gate`, `paths` and `staging-base`, which holds
+  any dev App PR into `staging` to the head `main`; `main`'s other two,
   `promotion-gate` and `main-base`, key on a base of `main` and are always
-  `skipped` here — and a code owner's review, with stale approvals
-  dismissed on a new push, on a PR touching a path `.github/CODEOWNERS`
-  names, with the
+  `skipped` here — and, in `staging: code owners`, a code owner's review, with
+  stale approvals dismissed on a new push, on a PR touching a path
+  `.github/CODEOWNERS` names, which the dev App bypasses for pull requests so
+  the sync lands unattended; `staging: require PR` has the
   **repository admin
   role as its sole bypass actor** — a
   required-checks rule blocks direct pushes of commits that carry no passing
-  check runs, so the admin role is the only identity that can land the sync
-  merge below — a role the agent account does not hold; `AGENTS.md` carries
+  check runs, so the admin role is the only identity that can push to it
+  directly — a role the agent account does not hold; `AGENTS.md` carries
   the discipline rule for a session that holds the maintainer's credentials
-  instead. Neither GitHub App *bypasses* `staging`: the scheduled
-  `sync-staging` workflow holds a write token to it but opens an ordinary PR
-  that must satisfy the same required checks, and `promote` itself performs no
-  write at all.
+  instead. Neither GitHub App bypasses `staging`'s required checks: the
+  scheduled `sync-staging` workflow holds a write token to it but opens an
+  ordinary PR that must satisfy them, passing only the code-owner review by
+  the dev App's bypass, and `promote` itself performs no write at all.
 - **Scheduled sync.** `staging` never owns data, so it falls behind `main`
   as the writers and bot lanes commit there. The `sync-staging` workflow
-  merges `main` into `staging` daily by opening a PR that auto-merges once
-  the staging ruleset's checks pass — gated like any other change, not
-  bypassed. Syncing on a schedule rather than at batch time is what keeps the
+  merges `main` into `staging` daily by opening a PR and merging it, with the
+  dev App's own merge call, once the staging checks pass — gated like any
+  other change; the code-owner review, which a sync carrying a registering
+  promotion's registry stamp would otherwise wait on, is the one rule it
+  passes by bypass (docs/security.md). Syncing on a schedule rather than at batch time is what keeps the
   cost off the promotion path: the same merge done at promotion moves
   `staging`'s head, and integration freshness is per-SHA, so every scenario
   would have to be re-dispatched for a merge whose content is
@@ -2312,7 +2338,8 @@ The mechanics:
   or a `promote/` PR whose name the train would not have cut.
 
   **Cost.** One paid `gate` suite per candidate — three engine-smoke cells
-  plus three boot probes, about $8 of staging's engine keys, with no review
+  plus three boot probes, about $1.60 of staging's engine keys as measured
+  ([budget.md](budget.md)), with no review
   hold and outside the auto-release budget. The dispatch is refused while
   *any* dispatched integration run sits at the head, whatever its title, so a
   title the candidate's workflow renders differently can never read as "no
@@ -2453,12 +2480,14 @@ The full path of a change, operator's view:
    then reads *not yet*, not *didn't work* — say which you saw.
 
 One-time setup (maintainer): create the branch from main (`git push origin
-main:staging`); add the `staging` ruleset — require a pull request plus the
-checks that can report on a staging-targeted PR (`gate` and `paths`),
-require review from code owners and dismiss stale approvals on new commits
-(leave approval of the most recent push off: it asks an approval of every PR),
-**repository admin role as the only bypass actor** (docs/security.md
-inventories it); add the `main: require approval` ruleset, whose one approval
+main:staging`); add the `staging: require PR` ruleset — require a pull
+request plus the checks that can report on a staging-targeted PR (`gate`,
+`paths` and `staging-base`), leave approval of the most recent push off (it
+asks an approval of every PR), **repository admin role as the only bypass
+actor** — and the `staging: code owners` ruleset — require review from code
+owners and dismiss stale approvals on new commits, most-recent-push approval
+off, bypass the admin role always and the dev App for pull requests
+(docs/security.md inventories both); add the `main: require approval` ruleset, whose one approval
 comes from the `maintainers` team and whose bypass is the dev App and admin
 role for pull requests and the data App always (docs/security.md, *Branch
 protection*); and add `promotion-gate` — and, once the *Adding a required
@@ -3632,7 +3661,7 @@ The `run-seed` historical walker has its own instance of the latched-issue
 pattern: a `guard`
 job raises one long-lived **pipeline-health** issue if the checkpointed walk is
 ever cancelled or fails (e.g. a chunk overran the job's hard timeout), and clears
-it when a later walk finishes clean — so a silent, PR-less writer failure still
+that issue, and only that one, when a later walk finishes clean — so a silent, PR-less writer failure still
 reaches a durable home.
 Separately, every cell may also write a `tooling.json` self-report on its
 environment/tooling, committed with the cell's output; only its
