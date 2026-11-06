@@ -2483,7 +2483,7 @@ forward interim cell written on or after the decision date were denied, against
 12 of 18 overall — so the scored interim population is thinned unevenly by
 outcome. The same rule thins forward cert cells too, though none of the 394
 resolved forward cert cells in the committed ledger was written on or after its
-decision date. The run PR's pre-mint refusal roll-up is where that thinning is
+decision date. The run PR's forward-refusal roll-up is where that thinning is
 counted, per engine; a refusal repeats each round while the corpus still shows
 the event pending, so de-duplicate it by (event, engine) before reading it as
 cells removed.
