@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000047",
+  "run_id": "20261106T030335Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts validate",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_read_document"
+  ],
+  "helpful": [
+    "Provisioned petition.txt and appendix.txt with full lower-court opinions and declarations",
+    "Pre-pooled cert_anchor in record/context.json and metrics/statpack.md base-rate tables",
+    "mcp_courtlistener_read_document for reading the intervening May 28, 2026 Supreme Court opinion in Flowers Foods v. Brock",
+    "fedcourts query --docket-number for checking prior cert history in Brock (24-935) and Domino's Pizza v. Carmona (21-1572, 23-427)"
+  ],
+  "gaps": [],
+  "notes": "Provisioned documents and CourtListener MCP access to the intervening opinion in Flowers Foods v. Brock provided complete context for evaluating both plenary cert and GVR likelihood."
+}

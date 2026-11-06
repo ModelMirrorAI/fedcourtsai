@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000531",
+  "run_id": "20261106T030335Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["shell", "fedcourts paths", "fedcourts query", "fedcourts validate", "CourtListener MCP search", "CourtListener MCP search_document", "web search/open/find"],
+  "helpful": ["Frozen reached-band cert anchor", "Complete petition with lower-court opinions in its appendix", "Sparse-citation coverage warning", "CourtListener precedent excerpts"],
+  "gaps": ["Web calls returned no usable output", "Default uv cache is read-only; cache-disabled no-sync execution was required"],
+  "notes": "The corpus citation query returned no matching prior; its transfer was 10 GET(s), 2621440 bytes. CourtListener MCP verified historical doctrine. No substantive opposition was available because the United States had waived its response, not because a filed brief failed extraction. No packages were installed."
+}

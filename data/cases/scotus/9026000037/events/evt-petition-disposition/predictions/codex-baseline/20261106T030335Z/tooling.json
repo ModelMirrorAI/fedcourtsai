@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000037",
+  "run_id": "20261106T030335Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["exec_command", "fedcourts paths", "fedcourts query", "CourtListener MCP search", "CourtListener MCP search_document", "web.run", "apply_patch", "fedcourts validate"],
+  "helpful": ["Frozen cert_anchor agreed with the unrounded prior-Term state-band pool.", "The petition's bound appendix supplied the decision below despite no separate opinion file.", "CourtListener snippet searches made focused precedent verification efficient."],
+  "gaps": ["The default uv cache is read-only; UV_CACHE_DIR=/tmp/uv-cache with UV_NO_SYNC=1 worked without installation.", "Web search calls returned no readable content.", "The initial verbose combined output was truncated, obscuring its corpus transfer line; a compact repeated query retained the warm-cache report.", "The corpus citation lookup for Dixon was empty and explicitly warned of sparse citation coverage."],
+  "notes": "No outcome retrieval or input blocker. The provisioned opposition is absent because the docket's extended deadline remains in the future. Query priors were procedural context, not close subject-matched analogues. All authored outputs are confined to this cell."
+}

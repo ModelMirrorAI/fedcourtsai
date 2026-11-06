@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000037",
+  "run_id": "20261106T030335Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "metrics/statpack.json"
+  ],
+  "helpful": [
+    "Provisioned petition.txt with full New Mexico Supreme Court and Court of Appeals opinions",
+    "Frozen cert_anchor in record/context.json",
+    "Salience band and originating-court base rates in metrics/statpack.md and metrics/statpack.json"
+  ],
+  "gaps": [],
+  "notes": "All needed case filings (including the complete lower-court opinions in the petition appendix) and docket entries through November 6, 2026 were cleanly staged in record/."
+}

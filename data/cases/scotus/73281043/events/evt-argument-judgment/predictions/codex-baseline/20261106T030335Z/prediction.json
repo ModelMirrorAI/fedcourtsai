@@ -1,0 +1,150 @@
+{
+  "big_case_rationale": "A capital prisoner's access to review of intellectual disability is at stake, and the successive-petition rule also governs other state prisoners and the parallel federal statute; the issue remains a technical collateral-review gateway rather than the validity of the death penalty itself.",
+  "big_case_score": 0.66,
+  "case_id": "scotus/73281043",
+  "claim_distributions": [
+    {
+      "claim_id": "majority-author",
+      "probabilities": {
+        "Alito": 0.14,
+        "Barrett": 0.22,
+        "Gorsuch": 0.1,
+        "Jackson": 0.005,
+        "Kagan": 0.035,
+        "Kavanaugh": 0.13,
+        "Roberts": 0.1,
+        "Sotomayor": 0.01,
+        "Thomas": 0.25,
+        "per-curiam": 0.01
+      }
+    },
+    {
+      "claim_id": "separate-writers",
+      "probabilities": {
+        "Alito": 0.1,
+        "Barrett": 0.08,
+        "Gorsuch": 0.09,
+        "Jackson": 0.52,
+        "Kagan": 0.22,
+        "Kavanaugh": 0.07,
+        "Roberts": 0.04,
+        "Sotomayor": 0.36,
+        "Thomas": 0.1
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.94
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "band_refused": null,
+    "cert_anchor": null,
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-11-05",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 3,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v7",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_contact_scrub": {
+      "blocks": 0,
+      "fields": 0,
+      "sides": []
+    },
+    "snapshot_date": "2026-11-05",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2025,
+    "vide_links": []
+  },
+  "created_at": "2026-11-06T03:24:34.999561Z",
+  "engine": "codex",
+  "event_id": "evt-argument-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-11-05.json",
+  "judgment": "reversed",
+  "model": "gpt-6.1-sol",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.94,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:5b6efbbb2270718377da537c3ea04c727a2a855ffdae684da2a313c003699593",
+    "label": "proc-v17",
+    "pipeline_sha": "f2ffa55dbc5fa68112afe7d46c61c6818595f252",
+    "stamped_at": "2026-11-06T03:24:34.999561Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261106T030335Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority holds that section 2244(b)(2)(A) asks whether the constitutional rule, rather than a potentially meritorious claim under it, was previously unavailable: later diagnostic developments do not make the already-existing Atkins rule unavailable during Johnson's first federal habeas proceeding, so the Fifth Circuit's possibility-of-merit test cannot authorize this successive application."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The majority rejects the possibility-of-merit test generally for rules already announced before an initial federal habeas application, rather than deciding only whether Johnson's particular diagnosis meets that test, while reserving the precise availability cutoff for rules announced during an ongoing first habeas proceeding."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": "majority"
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "dissent",
+      "writing": "dissent"
+    }
+  ]
+}

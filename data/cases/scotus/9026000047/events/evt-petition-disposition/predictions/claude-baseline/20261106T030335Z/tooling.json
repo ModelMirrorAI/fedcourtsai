@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000047",
+  "run_id": "20261106T030335Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md"],
+  "helpful": ["Frozen cert_anchor in context.json", "Petition text with a clear GVR fallback section"],
+  "gaps": ["No statpack cut conditioned on a Court-requested response (response-requested) or on GVR-after-intervening-decision posture", "The intervening decision's opinion text (Brock) is not staged beside the petition"],
+  "notes": "This is a distribution cell, but the snapshot already shows a response request, so I forecast from the docket as it stands now."
+}

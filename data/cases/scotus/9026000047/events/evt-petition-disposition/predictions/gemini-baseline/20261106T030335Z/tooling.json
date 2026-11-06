@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000047",
+  "run_id": "20261106T030335Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_read_document",
+    "mcp_courtlistener_search_document"
+  ],
+  "helpful": [
+    "fedcourts query --docket-number 24-935 --full to retrieve the corpus record for Flowers Foods, Inc. v. Brock",
+    "metrics/statpack.md salience-band and signal-cut base rate tables",
+    "CourtListener MCP read_document and search_document for the full text of Flowers Foods, Inc. v. Brock and post-Brock California appellate decisions"
+  ],
+  "gaps": [
+    "Question-presented or keyword search on fedcourts query to locate other FAA Section 1 cert petitions in the corpus"
+  ],
+  "notes": "The --citation filter on fedcourts query only covers ~200 SCOTUS rows with populated own-case parallel citations, so looking up Flowers Foods, Inc. v. Brock required querying by --docket-number 24-935 instead of --citation."
+}
