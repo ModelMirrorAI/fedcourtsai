@@ -1709,9 +1709,9 @@
       "last_live_polled": "2026-11-06",
       "next_conference": "2026-11-06",
       "response_due": {
-        "set_for": "2026-11-12",
+        "set_for": "2026-12-14",
         "stale_reason": null,
-        "upcoming": "2026-11-12"
+        "upcoming": "2026-12-14"
       },
       "stale_reason": null
     },
@@ -2029,6 +2029,19 @@
         "set_for": "2026-12-04",
         "stale_reason": null,
         "upcoming": "2026-12-04"
+      },
+      "stale_reason": null
+    },
+    {
+      "argument": null,
+      "case_id": "scotus/9026000599",
+      "distributed_for_conference": null,
+      "last_live_polled": "2026-11-06",
+      "next_conference": null,
+      "response_due": {
+        "set_for": "2026-12-07",
+        "stale_reason": null,
+        "upcoming": "2026-12-07"
       },
       "stale_reason": null
     }

@@ -16706,8 +16706,8 @@ freeze commit is recorded here.
 - **`proc-v18`, the interim applicant-class cut: the statpack splits the
   interim pool by who applies and whether the case is capital, and the
   predict prompt tells an interim cell how to read the split; recorded
-  2026-11-06.** Carried to `main` by the promotion tagged `<FILL: promotion tag>`
-  (merge commit `<FILL: merge hash>`, merged `<FILL: merged-at>`), to be tagged
+  2026-11-06.** Carried to `main` by the promotion tagged `promotion/2026-11-06`
+  (merge commit `356dbdd2b9cb74025c0510cb7a1e6df2663c0701`, merged `2026-11-06T17:45:46Z`), to be tagged
   **`prereg/proc-v18`**. Registered under the merge-stamped rule, so its
   counting instant, its bless moments and every window edge it moves are the
   carrying merge's committer time. Only the predict prompt changes, so the
@@ -16924,8 +16924,8 @@ freeze commit is recorded here.
   dry run under `sal-v8`, and the forward re-placement re-run on the
   activation's blob (`docs/salience.md`, the `sal-v8` section).
 
-  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
-  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by the promotion tagged `promotion/2026-11-06` (merge
+  commit `356dbdd2b9cb74025c0510cb7a1e6df2663c0701`, merged `2026-11-06T17:45:46Z`).
 
   The runnable effect check once it is live:
   - on `main`, `uv run python -c "from fedcourtsai.pipeline.salience import
@@ -17032,8 +17032,8 @@ freeze commit is recorded here.
 
   **The amendment debt.** It is unchanged. This entry adds no new token.
 
-  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
-  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by the promotion tagged `promotion/2026-11-06` (merge
+  commit `356dbdd2b9cb74025c0510cb7a1e6df2663c0701`, merged `2026-11-06T17:45:46Z`).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_related_dockets.py tests/test_vided.py` is
