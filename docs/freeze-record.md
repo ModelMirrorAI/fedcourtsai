@@ -16702,3 +16702,155 @@ freeze commit is recorded here.
   is quoted for it, and the floor moves only by a later dated entry. Carried
   to `main` by the promotion tagged `promotion/2026-11-05` (merge commit
   `478003b709f6ddd1eab343a97a697c46463bad58`, merged `2026-11-05T14:54:07Z`).
+
+- **`proc-v18`, the interim applicant-class cut: the statpack splits the
+  interim pool by who applies and whether the case is capital, and the
+  predict prompt tells an interim cell how to read the split; recorded
+  2026-11-06.** Carried to `main` by the promotion tagged `<FILL: promotion tag>`
+  (merge commit `<FILL: merge hash>`, merged `<FILL: merged-at>`), to be tagged
+  **`prereg/proc-v18`**. Registered under the merge-stamped rule, so its
+  counting instant, its bless moments and every window edge it moves are the
+  carrying merge's committer time. Only the predict prompt changes, so the
+  three predictor digests move and the evaluator digests do not. No harness
+  boundary is registered and no scored number moves: the cut is context a
+  forecaster reads, and the interim yardstick stays `interim_base_rate` over
+  the whole pool.
+
+  **What changes.**
+  - The statpack interim section's per-Term `applicant_cuts`: each Term's
+    `finer_*` and `wide_finer_*` counts split by applicant class
+    (`caption-v2` over the applicant caption, `federal` / `state` /
+    `private`, stamped as the section's `applicant_class_rule`) and capital
+    marking (`capital` / `unmarked` / `unknown`, the cert `capital_case`
+    cut's key). The cells partition the Term's counts.
+  - `statpack.md`'s table *Substantive applications by applicant class*:
+    the cells and their margins pooled for an application in the section's
+    newest Term over the scored pool's own Terms and vocabulary
+    (`base_rates.interim_applicant_cut_pool`, inside
+    `salience.base_rate_lookback_terms` before OT2027 and the three-Term
+    window from it), with a rate only where a cell or margin reaches
+    `INTERIM_APPLICANT_CUT_MIN_RESOLVED = 30` resolved applications.
+  - The predict prompt's interim bullet: read the table as context, not as
+    the yardstick; read a margin where a cell is under the floor; never
+    substitute a grant history from memory for a cut the table publishes;
+    pool the per-Term `applicant_cuts` over the Terms its own scored pool
+    reads on a replay cell; and say in `reasoning.md` which cell or margin was read.
+
+  **Pre-registered.**
+  1. *The cut is descriptive.* No skill, Brier or claim is scored against a
+     cell, and no cell replaces the pool where the pool is under its floor.
+  2. *The floor is 30*, the cert and merits siblings' absolute-SE standard
+     (at most 0.091). The interim pool's 50 tightens that standard because
+     `brier_skill` divides by the baseline; nothing divides by a cell's rate.
+     The figure was chosen on that standard and not on which cells it
+     admits; the measurement below shows it withholds the rate of the
+     `state` × `capital` cell the motivating flag asked about. A cell under
+     the floor prints its granted and resolved counts and no rate, because
+     its margins would give the counts back by subtraction anyway: the floor
+     marks precision and hides nothing. The `state` margin pools that cell
+     with the State's non-capital asks, so it is a coarser fallback, not the
+     figure for that application.
+  3. *The class rule is `caption-v2`*, the caption-only rule, because an
+     application's counsel block is rarely stored and the rule re-derives
+     from the corpus pointer. A later class rule is a new
+     `applicant_class_rule` value beside this one.
+  4. *The ask is not an axis.* The substantive ask vocabulary does not
+     separate a stay from a vacatur of a stay, so the cut cannot either.
+
+  **Evidence for the change.** A `claude-baseline` interim cell on
+  `scotus/9526000428` (run-predict 36764606857) flagged that the pool mixes
+  every applicant class and that it adjusted on a from-memory grant history
+  for a State's application to vacate a stay of execution. No score
+  motivates the change.
+
+  **The measurement**, read 2026-11-06 from a dev checkout of this change
+  over blob
+  `255cf4c598000587f63ee10be8da5627610794ac31f9eaf818d257f67a164497`
+  (`freshness: latest pull 2026-11-06, latest snapshot 2026-07-13`, the
+  pointer on `origin/main` at `49a74841d`). The table for an OT2026
+  application, the ten Terms OT2016 to OT2025 on the finer counts (granted
+  over resolved):
+
+  | applicant | capital | unmarked | all |
+  | --- | --- | --- | --- |
+  | federal | 7/8, below floor | 68.4% (39/57) | 70.8% (46/65) |
+  | state | 13/20, below floor | 41.4% (24/58) | 47.4% (37/78) |
+  | private | 3.5% (10/288) | 7.0% (63/906) | 6.1% (73/1194) |
+  | all | 9.5% (30/316) | 12.3% (126/1021) | 11.7% (156/1337) |
+
+  No interim row is `unknown` on the marking at this vintage, so the table
+  prints no `unknown` column.
+
+  The cells partition the pool: 156/1,337 is the scored pool's own finer
+  counts over those Terms, the rate `interim_base_rate(2026, ...,
+  lookback_terms=10, reading="finer")` returns.
+
+  The runnable effect check once it is live:
+  - on `main`, `uv run python -c "from fedcourtsai.process_version import
+    CURRENT_PROCESS_LABEL as L; print(L)"` prints `proc-v18`, and `uv run
+    fedcourts process-digest --all` prints the predictor digests below;
+  - after the first post-promotion metrics refresh, `jq -r
+    '.interim.applicant_class_rule' metrics/statpack.json` prints
+    `caption-v2`, every interim Term carries `applicant_cuts`, and
+    `metrics/statpack.md` carries the table above;
+  - on the first predict run's collect PR after the carrying merge with an
+    interim cell, its `reasoning.md` names the applicant-class cell or
+    margin it read.
+
+  **The registration** (`uv run fedcourts register-process --label
+  proc-v18`, run 2026-11-06 over `staging` at `05ceb7185` with `proc-v17`
+  stamped). The three predictor digests move; the evaluator digests keep
+  their `proc-v17` blessings.
+
+  | Actor | Before (`proc-v17`) | `proc-v18` |
+  | --- | --- | --- |
+  | `claude-baseline` | `sha256:33a3f9f8f53a2f6cb53967a60d836c3ba29f0078c12306fb8696e15d7c674978` | `sha256:89efeee9de0ee0425d638a910357e3b772cd82f034c6fe8c43d1e1ece2ab8af5` (new) |
+  | `codex-baseline` | `sha256:5b6efbbb2270718377da537c3ea04c727a2a855ffdae684da2a313c003699593` | `sha256:591b96ed96dc8a9f7b95006f4a8a0efede0ad377229eb4080c0571612d59bafd` (new) |
+  | `gemini-baseline` | `sha256:1389c40a89d22cb951b25dad96d18d307cef26db4f6b66cdd425ea8fcf0f49b6` | `sha256:78c7ec8425f379a06571ff5ed115c650c41c8d2ceb40399f4b88077b2848c595` (new) |
+  | `claude-judge` | `sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf` | unchanged |
+  | `codex-judge` | `sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a` | unchanged |
+  | `gemini-judge` | `sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9` | unchanged |
+
+  **What was made under the retiring digests.** At `origin/main`
+  `49a74841d` (`2026-11-06T13:08:30Z`), committed `prediction.json` files
+  naming each `proc-v17` predictor digest: 38 `claude-baseline`, 38
+  `codex-baseline`, 39 `gemini-baseline`.
+
+  **Step 0.** At the same commit, the count of committed files under
+  `data/cases` naming `sha256:<digest>` is **0** for each of the three newly
+  blessed digests, and **3531** files there carry a `process_version` stamp.
+
+  **Windows** (`COUNTING_WINDOWS`, once the carrying merge stamps them):
+
+  | Predictor | Label | Opens | Closes |
+  | --- | --- | --- | --- |
+  | `claude-baseline` (`33a3f9f8…`) | `proc-v17` | `2026-11-02T17:51:42Z` | this label's instant (was open) |
+  | `codex-baseline` (`5b6efbbb…`) | `proc-v17` | `2026-11-02T17:51:42Z` | this label's instant (was open) |
+  | `gemini-baseline` (`1389c40a…`) | `proc-v17` | `2026-11-02T17:51:42Z` | this label's instant (was open) |
+  | `claude-baseline` (`89efeee9…`) | `proc-v18` | this label's instant | open (new) |
+  | `codex-baseline` (`591b96ed…`) | `proc-v18` | this label's instant | open (new) |
+  | `gemini-baseline` (`78c7ec84…`) | `proc-v18` | this label's instant | open (new) |
+
+  Earlier windows keep the closes earlier labels gave them.
+
+  **What the close owes, provisional.** Run with this commit's pending rows
+  stamped by hand at a provisional instant, `2026-11-07T00:00:00Z`, in a
+  scratch copy of the registry, over this branch's ledger (synced from
+  `main` by `05ceb7185`). `uv run fedcourts successor-disclosures --closed
+  proc-v17 --successor proc-v18`:
+
+  ```
+  successor proc-v18 closes proc-v17 at 2026-11-07T00:00:00+00:00
+    closed proc-v17 gemini-baseline: 27 counted event(s) — 5 resolved, 22 pending at close
+    closed proc-v17 claude-baseline: 27 counted event(s) — 5 resolved, 22 pending at close
+    closed proc-v17 codex-baseline: 27 counted event(s) — 5 resolved, 22 pending at close
+    split events: 0 (0 resolved) — in no complete grid
+    graded by claude-judge @ sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf: 15 grading(s), 0 at or after the instant
+    graded by codex-judge @ sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a: 15 grading(s), 0 at or after the instant
+    graded by gemini-judge @ sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9: 15 grading(s), 0 at or after the instant
+  ```
+
+  Cells keep landing until the instant, so the run is repeated once the
+  carrying merge has stamped the registry, and a dated follow-up entry quotes
+  it before any `proc-v17` window figure is quoted outside the committed
+  board.

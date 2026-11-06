@@ -3508,7 +3508,7 @@ characters, keeping the first fifth and the last four fifths. The default
 template whole loses the middle of its contract once its next call lands. Every
 workflow that writes `.gemini/settings.json` (the predict, evaluate and
 back-test cells, and the integration smokes that mirror them) sets the threshold
-to 200,000, which is at least twice the largest cell template. The CLI also caps it
+to 250,000, which is at least twice the largest cell template. The CLI also caps it
 at its own estimate of the context the model has left. A test holds every
 writer to that floor, so growing a template past half the threshold fails CI
 instead of silently truncating the cells.
