@@ -621,8 +621,8 @@ class CorpusRow(BaseModel):
         "entered on several dockets — as `<ISO date>|<filer text>` keys "
         "(`pipeline.vided.vided_amicus_keys`), sorted. Two dockets sharing a key "
         "share a brief, which is how a companion the Court never linked as `Vide` "
-        "is found (`vided_companions`). Written by the live cert branch at ingest; "
-        "fill-in latched, so a poll that discloses no proceedings keeps the stored "
+        "is found (`vided_companions`, asked with the keys a placed payload shows). "
+        "Written by the live cert branch at ingest; fill-in latched, so a poll that discloses no proceedings keeps the stored "
         "keys. Withheld from the retrieval surface (`RETRIEVAL_WITHHELD_COLUMNS`). "
         "None = no VIDED amicus entry seen, or not live-parsed since the column "
         "existed.",
@@ -5082,23 +5082,27 @@ class VidedCompanion:
     shared: tuple[str, ...]
 
 
-def vided_companions(conn: ReadConnection, case_id: str) -> list[VidedCompanion] | None:
-    """The SCOTUS dockets that share a VIDED amicus filing with ``case_id``, most shared first.
+def vided_companions(
+    conn: ReadConnection, keys: Iterable[str], *, own_case: str
+) -> list[VidedCompanion] | None:
+    """The SCOTUS dockets that carry any of ``keys``, most shared first.
 
-    Reads ``case_id``'s own ``vided_amicus`` keys and every other SCOTUS row
-    carrying any, through the partial index that holds exactly those rows, and
-    keeps a row sharing at least one key: a candidate, since one filer's two
-    unrelated VIDED briefs on a day read alike (:mod:`.pipeline.vided`), so the
-    shared count orders them and ties break on the case id. Empty
-    where the docket carries no key. ``None`` where the blob carries no such
-    index, which is not the same answer as no companion: nothing was looked up.
+    ``keys`` are VIDED amicus keys (:func:`fedcourtsai.pipeline.vided.vided_amicus_keys`)
+    read off the payload the caller holds, so a cell placed at a cutoff asks
+    only about the briefs its own docket showed by then; ``own_case`` is left
+    out of the answer. Every other SCOTUS row carrying a key is read through
+    the partial index that holds exactly those rows, and a row sharing at least
+    one is kept: a candidate, since one filer's two unrelated VIDED briefs on a
+    day read alike (:mod:`.pipeline.vided`), so the shared count orders them
+    and ties break on the case id. Empty for no keys. ``None`` where the blob
+    carries no such index, which is not the same answer as no companion:
+    nothing was looked up.
     """
     if not _has_index(conn, VIDED_AMICUS_INDEX):
         return None
-    own = get_row(conn, case_id)
-    if own is None or not own.vided_amicus:
+    wanted = set(keys)
+    if not wanted:
         return []
-    wanted = set(own.vided_amicus)
     found: list[VidedCompanion] = []
     for record in conn.execute(
         "SELECT case_id, docket_number, vided_amicus FROM cases "
@@ -5106,7 +5110,7 @@ def vided_companions(conn: ReadConnection, case_id: str) -> list[VidedCompanion]
         ("scotus",),
     ):
         other = str(record["case_id"])
-        if other == case_id:
+        if other == own_case:
             continue
         shared = wanted.intersection(json.loads(record["vided_amicus"]))
         if shared:

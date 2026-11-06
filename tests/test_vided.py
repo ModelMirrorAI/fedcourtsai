@@ -121,14 +121,16 @@ def test_companions_are_the_dockets_sharing_a_key_most_shared_first(tmp_path: Pa
         )
         conn.commit()
     with corpus.connect_readonly(db) as conn:
-        found = corpus.vided_companions(conn, "scotus/193")
+        found = corpus.vided_companions(conn, ["d|a", "d|b", "d|c"], own_case="scotus/193")
         assert found is not None
         assert [(c.case_id, c.docket_number, c.shared) for c in found] == [
             ("scotus/240", "26-240", ("d|a", "d|b", "d|c")),
             ("scotus/300", "26-300", ("d|c",)),
         ]
-        assert corpus.vided_companions(conn, "scotus/500") == []
-        assert corpus.vided_companions(conn, "scotus/999") == []
+        # A cell placed before the third brief asks about the first two only.
+        early = corpus.vided_companions(conn, ["d|a"], own_case="scotus/193")
+        assert [c.case_id for c in early or []] == ["scotus/240"]
+        assert corpus.vided_companions(conn, [], own_case="scotus/500") == []
 
 
 def test_the_column_is_withheld_from_the_retrieval_surface() -> None:
@@ -150,7 +152,7 @@ def test_companions_are_scotus_dockets_only_and_need_the_index(tmp_path: Path) -
         )
         conn.commit()
     with corpus.connect_readonly(db) as conn:
-        assert corpus.vided_companions(conn, "scotus/193") == []
+        assert corpus.vided_companions(conn, ["d|a"], own_case="scotus/193") == []
         plan = " ".join(
             str(row[3])
             for row in conn.execute(
@@ -162,4 +164,4 @@ def test_companions_are_scotus_dockets_only_and_need_the_index(tmp_path: Path) -
     with corpus.connect(db) as conn:
         conn.execute(f"DROP INDEX {corpus.VIDED_AMICUS_INDEX}")
         # A blob without the index answers "not looked up", never "none".
-        assert corpus.vided_companions(conn, "scotus/193") is None
+        assert corpus.vided_companions(conn, ["d|a"], own_case="scotus/193") is None
