@@ -12152,7 +12152,11 @@ def statpack(
     write_text(
         md_dest,
         analytics.render_statpack_markdown(
-            pack, markdown_terms=load_statpack_config(settings.config_root).markdown_terms
+            pack,
+            markdown_terms=load_statpack_config(settings.config_root).markdown_terms,
+            interim_lookback_terms=load_salience_config(
+                settings.config_root
+            ).base_rate_lookback_terms,
         ),
     )
     typer.echo(

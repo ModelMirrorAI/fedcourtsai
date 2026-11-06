@@ -11489,7 +11489,57 @@ class _StatPackInterimCounts(_Strict):
             ):
                 if getattr(self, name) is None:
                     payload.pop(name, None)
+            # The slice-specific later additions: the per-Term cut and the
+            # section's rule stamp beside it.
+            for name in ("applicant_cuts", "applicant_class_rule"):
+                if name in payload and payload[name] is None:
+                    payload.pop(name)
         return payload
+
+
+#: The applicant classes of the interim applicant-class cut: the caption rule's
+#: three petitioner classes, read off the application's applicant caption.
+InterimApplicantClass = Literal["federal", "state", "private"]
+
+#: The capital-marking axis of the interim applicant-class cut: the statpack's
+#: ``capital_case`` buckets, ``unknown`` being a row no live poll stamped.
+InterimCapitalMarking = Literal["capital", "unmarked", "unknown"]
+
+
+class StatPackInterimApplicantCut(_Strict):
+    """One applicant-class x capital-marking cell of one application-Term.
+
+    Descriptive context beside the scored interim pool, never a substitute for
+    it: the interim yardstick stays the whole substantive slice's pooled rate
+    (:func:`fedcourtsai.pipeline.base_rates.interim_base_rate`), and a cell of
+    this cut is a narrower population the yardstick does not condition on. The
+    counts are the finer reading's, on both ask vocabularies, so each cell sums
+    with its Term's siblings to that Term's ``finer_*`` and ``wide_finer_*``
+    counts. A cell holding no resolved application on either vocabulary is
+    omitted rather than written as zeros.
+    """
+
+    applicant_class: InterimApplicantClass = Field(
+        description="The applicant's class under the section's "
+        "`applicant_class_rule`, read off the applicant caption (the corpus "
+        "`petitioner_title`, else the pre-`v.` half of `case_name`)"
+    )
+    capital_marking: InterimCapitalMarking = Field(
+        description="`capital` where the Court's docket marks the case a capital "
+        "one (the latched `capital_case` flag), `unmarked` where a live poll "
+        "read the docket without the marking, `unknown` where no live poll "
+        "stamped the row"
+    )
+    finer_resolved: int = Field(
+        ge=0, description="This cell's share of the Term's `finer_resolved`"
+    )
+    finer_granted: int = Field(ge=0, description="This cell's share of the Term's `finer_granted`")
+    wide_finer_resolved: int = Field(
+        ge=0, description="This cell's share of the Term's `wide_finer_resolved`"
+    )
+    wide_finer_granted: int = Field(
+        ge=0, description="This cell's share of the Term's `wide_finer_granted`"
+    )
 
 
 class StatPackInterimTerm(_StatPackInterimCounts):
@@ -11503,6 +11553,13 @@ class StatPackInterimTerm(_StatPackInterimCounts):
     """
 
     term: int = Field(description="The October-Term year the application was docketed in")
+    applicant_cuts: list[StatPackInterimApplicantCut] | None = Field(
+        default=None,
+        description="The Term's finer-reading counts split by applicant class and "
+        "capital marking (descriptive; the scored pool stays the Term's whole "
+        "`finer_*` / `wide_finer_*` counts). Ordered by class, then marking. "
+        "Absent from a pack built before the cut existed",
+    )
 
 
 class StatPackInterim(_StatPackInterimCounts):
@@ -11525,6 +11582,12 @@ class StatPackInterim(_StatPackInterimCounts):
     terms: list[StatPackInterimTerm] = Field(
         default_factory=list,
         description="Per-application-Term detail, most recent Term first",
+    )
+    applicant_class_rule: str | None = Field(
+        default=None,
+        description="The caption rule the per-Term `applicant_cuts` read the "
+        "applicant class under (`pipeline.caption.CAPTION_RULES`). Absent with "
+        "the cuts",
     )
 
 

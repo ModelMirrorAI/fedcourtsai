@@ -262,6 +262,19 @@
       "additionalProperties": false,
       "description": "The statpack's interim-docket stage section: SCOTUS applications, by ask.\n\nThe stage axis beside the cert sections: applications (stays, injunctions,\nvacaturs \u2014 and the extension requests that dominate the docket) are a\ndifferent population resolving on a different standard, so they get their own\nsection rather than a salience band \u2014 this section deliberately carries no\n``salience_version``, because it is not a salience-band product. Pack-level\ncounts with a per-application-Term breakdown; the per-Term entries are what\nthe interim segment base rate pools strictly-prior, while the pack-level\nfigures beside them stay descriptive. A stage section exists only once its\ncorpus feed does: the pack\nomits it entirely while the corpus holds no application rows \u2014 the same\njoining rule the merits sibling (:class:`StatPackMerits`) follows on the\n``merits_judgment`` column.",
       "properties": {
+        "applicant_class_rule": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The caption rule the per-Term `applicant_cuts` read the applicant class under (`pipeline.caption.CAPTION_RULES`). Absent with the cuts",
+          "title": "Applicant Class Rule"
+        },
         "applications": {
           "default": 0,
           "description": "Application dockets (strict `YYAnnn` form \u2014 the live channel's addressable population) in this slice, each number counted once: a number the corpus stores under two case ids counts one row only (see `duplicate_rows`), here and in every count below",
@@ -513,10 +526,86 @@
       "title": "StatPackInterim",
       "type": "object"
     },
+    "StatPackInterimApplicantCut": {
+      "additionalProperties": false,
+      "description": "One applicant-class x capital-marking cell of one application-Term.\n\nDescriptive context beside the scored interim pool, never a substitute for\nit: the interim yardstick stays the whole substantive slice's pooled rate\n(:func:`fedcourtsai.pipeline.base_rates.interim_base_rate`), and a cell of\nthis cut is a narrower population the yardstick does not condition on. The\ncounts are the finer reading's, on both ask vocabularies, so each cell sums\nwith its Term's siblings to that Term's ``finer_*`` and ``wide_finer_*``\ncounts. A cell holding no resolved application on either vocabulary is\nomitted rather than written as zeros.",
+      "properties": {
+        "applicant_class": {
+          "description": "The applicant's class under the section's `applicant_class_rule`, read off the applicant caption (the corpus `petitioner_title`, else the pre-`v.` half of `case_name`)",
+          "enum": [
+            "federal",
+            "state",
+            "private"
+          ],
+          "title": "Applicant Class",
+          "type": "string"
+        },
+        "capital_marking": {
+          "description": "`capital` where the Court's docket marks the case a capital one (the latched `capital_case` flag), `unmarked` where a live poll read the docket without the marking, `unknown` where no live poll stamped the row",
+          "enum": [
+            "capital",
+            "unmarked",
+            "unknown"
+          ],
+          "title": "Capital Marking",
+          "type": "string"
+        },
+        "finer_granted": {
+          "description": "This cell's share of the Term's `finer_granted`",
+          "minimum": 0,
+          "title": "Finer Granted",
+          "type": "integer"
+        },
+        "finer_resolved": {
+          "description": "This cell's share of the Term's `finer_resolved`",
+          "minimum": 0,
+          "title": "Finer Resolved",
+          "type": "integer"
+        },
+        "wide_finer_granted": {
+          "description": "This cell's share of the Term's `wide_finer_granted`",
+          "minimum": 0,
+          "title": "Wide Finer Granted",
+          "type": "integer"
+        },
+        "wide_finer_resolved": {
+          "description": "This cell's share of the Term's `wide_finer_resolved`",
+          "minimum": 0,
+          "title": "Wide Finer Resolved",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "applicant_class",
+        "capital_marking",
+        "finer_resolved",
+        "finer_granted",
+        "wide_finer_resolved",
+        "wide_finer_granted"
+      ],
+      "title": "StatPackInterimApplicantCut",
+      "type": "object"
+    },
     "StatPackInterimTerm": {
       "additionalProperties": false,
       "description": "One application-Term's slice of the interim docket.\n\nThe Term is read from the application's own docket number (``24A1099`` ->\nOT2024), so the split needs no dates. Like the cert Term entries, the array\nis a replay self-selection surface: a time-masked cell anchors only on Term\nrows strictly preceding ``record/context.json``'s ``decided_before`` \u2014 the\ncell's own docket Term, never a Term derived from its retrieval boundary.",
       "properties": {
+        "applicant_cuts": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/StatPackInterimApplicantCut"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The Term's finer-reading counts split by applicant class and capital marking (descriptive; the scored pool stays the Term's whole `finer_*` / `wide_finer_*` counts). Ordered by class, then marking. Absent from a pack built before the cut existed",
+          "title": "Applicant Cuts"
+        },
         "applications": {
           "default": 0,
           "description": "Application dockets (strict `YYAnnn` form \u2014 the live channel's addressable population) in this slice, each number counted once: a number the corpus stores under two case ids counts one row only (see `duplicate_rows`), here and in every count below",

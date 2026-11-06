@@ -42,7 +42,14 @@ from .integrity import cell_clock, leakage_excluded
 from .paths import CasePaths
 from .pipeline import moments as moment_registry
 from .pipeline.authorship_rates import authorship_section
-from .pipeline.base_rates import INTERIM_BASE_RATE_MIN_RESOLVED
+from .pipeline.base_rates import (
+    INTERIM_APPLICANT_CUT_MIN_RESOLVED,
+    INTERIM_BASE_RATE_MIN_RESOLVED,
+    INTERIM_LOOKBACK_TERMS,
+    INTERIM_WINDOW_FROM_TERM,
+    interim_applicant_cut_pool,
+)
+from .pipeline.caption import CAPTION_RULE_VERSION_V2, caption_rule
 from .pipeline.cert_signals import DEFAULT_DISTRIBUTION_PARSE
 from .pipeline.interim_signals import ApplicationKind, InterimReading, interim_reading_granted
 from .pipeline.judgment import judgment_disturbed, judgment_rode_the_grant_order
@@ -92,6 +99,8 @@ from .schemas import (
     DocketPackTopicMix,
     FeeClass,
     GroupBy,
+    InterimApplicantClass,
+    InterimCapitalMarking,
     Judgment,
     Moment,
     Outcome,
@@ -106,6 +115,7 @@ from .schemas import (
     StatPackAuthorship,
     StatPackCoverage,
     StatPackInterim,
+    StatPackInterimApplicantCut,
     StatPackInterimTerm,
     StatPackJusticeVotes,
     StatPackMerits,
@@ -1444,6 +1454,51 @@ class _TermAcc:
 _APPLICATION_KINDS = frozenset(kind.value for kind in ApplicationKind)
 
 
+#: The caption rule the interim applicant-class cut reads the applicant under.
+#: ``caption-v2``, the caption-only rule: it reads the applicant caption alone, so
+#: the cut needs no counsel block (which an application docket rarely carries
+#: in the corpus) and re-derives from the corpus pointer.
+INTERIM_APPLICANT_CLASS_RULE: Final = CAPTION_RULE_VERSION_V2
+
+#: The cut's class and marking orders, which the per-Term cells follow.
+_APPLICANT_CLASSES: Final[tuple[InterimApplicantClass, ...]] = ("federal", "state", "private")
+_CAPITAL_MARKINGS: Final[tuple[InterimCapitalMarking, ...]] = ("capital", "unmarked", "unknown")
+
+
+def _applicant_cut_key(row: CorpusRow) -> tuple[str, str]:
+    """One application row's ``(applicant class, capital marking)`` cell.
+
+    The class is :data:`INTERIM_APPLICANT_CLASS_RULE` over the applicant caption
+    (an application docket's first-named side is its applicant); the marking is
+    the statpack's ``capital_case`` cut's own key (:func:`_capital_case_key`),
+    whose ``(unknown)`` bucket is spelled ``unknown`` here.
+    """
+    applicant = caption_rule(INTERIM_APPLICANT_CLASS_RULE)(row)
+    marking = _capital_case_key(row)
+    return applicant, ("unknown" if marking == _UNKNOWN_KEY else marking)
+
+
+def _applicant_cuts(acc: _InterimAcc) -> list[StatPackInterimApplicantCut]:
+    """One Term's non-empty applicant-class cells, in class then marking order."""
+    cells: list[StatPackInterimApplicantCut] = []
+    for applicant in _APPLICANT_CLASSES:
+        for marking in _CAPITAL_MARKINGS:
+            counts = acc.applicant_cuts.get((applicant, marking))
+            if counts is None or not (counts[0] or counts[2]):
+                continue
+            cells.append(
+                StatPackInterimApplicantCut(
+                    applicant_class=applicant,
+                    capital_marking=marking,
+                    finer_resolved=counts[0],
+                    finer_granted=counts[1],
+                    wide_finer_resolved=counts[2],
+                    wide_finer_granted=counts[3],
+                )
+            )
+    return cells
+
+
 class _InterimAcc:
     """Streaming accumulator for one slice of the interim application docket.
 
@@ -1464,6 +1519,7 @@ class _InterimAcc:
     """
 
     __slots__ = (
+        "applicant_cuts",
         "applications",
         "duplicate_rows",
         "finer_granted",
@@ -1488,6 +1544,11 @@ class _InterimAcc:
     def __init__(self) -> None:
         self.applications = 0
         self.duplicate_rows = 0
+        # (applicant class, capital marking) -> the four finer-reading counts,
+        # in `_CUT_COUNTS` order.
+        self.applicant_cuts: defaultdict[tuple[str, str], list[int]] = defaultdict(
+            lambda: [0, 0, 0, 0]
+        )
         self.kinds: Counter[str] = Counter()
         self.unparsed = 0
         self.substantive_resolved = 0
@@ -1536,7 +1597,7 @@ class _InterimAcc:
             if is_machine_readable(disposition):
                 self.substantive_resolved += 1
                 self.substantive_granted += granted_flag(disposition)
-                self._add_finer(row.interim_reading)
+                self._add_finer(row)
         if row.response_requested:
             self.response_requested += 1
         if row.referred_to_court:
@@ -1572,15 +1633,21 @@ class _InterimAcc:
             return
         self.wide_finer_resolved += 1
         self.wide_finer_granted += scored
+        cut = self.applicant_cuts[_applicant_cut_key(row)]
+        cut[2] += 1
+        cut[3] += scored
 
-    def _add_finer(self, reading: str | None) -> None:
+    def _add_finer(self, row: CorpusRow) -> None:
         """Count one resolved substantive row under the finer interim reading.
 
         Beside the registered counts and never in place of them: the finer
         reading is the stored ``interim_reading`` column, a moot dismissal leaves
         the finer pool altogether, and a row with no stored reading is counted
-        ``finer_unread`` rather than guessed onto either side.
+        ``finer_unread`` rather than guessed onto either side. A counted row
+        also joins its applicant-class cell, so the cells sum to the Term's
+        finer counts.
         """
+        reading = row.interim_reading
         if reading == InterimReading.dismissed_moot.value:
             self.finer_moot += 1
             return
@@ -1590,6 +1657,9 @@ class _InterimAcc:
             return
         self.finer_resolved += 1
         self.finer_granted += scored
+        cut = self.applicant_cuts[_applicant_cut_key(row)]
+        cut[0] += 1
+        cut[1] += scored
 
     def skip_duplicate(self) -> None:
         """Tally a second row for a number already counted; it joins no count."""
@@ -1599,6 +1669,10 @@ class _InterimAcc:
         """Fold another slice's counters into this one (for the pack-level totals)."""
         self.applications += other.applications
         self.duplicate_rows += other.duplicate_rows
+        for key, counts in other.applicant_cuts.items():
+            mine = self.applicant_cuts[key]
+            for index, value in enumerate(counts):
+                mine[index] += value
         self.kinds.update(other.kinds)
         self.unparsed += other.unparsed
         self.substantive_resolved += other.substantive_resolved
@@ -1669,10 +1743,14 @@ def _interim_section(accs: dict[int, _InterimAcc]) -> StatPackInterim | None:
     for acc in accs.values():
         total.merge(acc)
     terms = [
-        StatPackInterimTerm(term=year, **_interim_counts(accs[year]))
+        StatPackInterimTerm(
+            term=year, applicant_cuts=_applicant_cuts(accs[year]), **_interim_counts(accs[year])
+        )
         for year in sorted(accs, reverse=True)
     ]
-    return StatPackInterim(terms=terms, **_interim_counts(total))
+    return StatPackInterim(
+        terms=terms, applicant_class_rule=INTERIM_APPLICANT_CLASS_RULE, **_interim_counts(total)
+    )
 
 
 # The merits-judgment vocabulary, as stored strings — the membership check that
@@ -2684,7 +2762,9 @@ def _section_tables(sections: list[StatPackSection], *, sample_size: bool = Fals
     return lines
 
 
-def render_statpack_markdown(pack: StatPack, *, markdown_terms: int | None = None) -> str:
+def render_statpack_markdown(
+    pack: StatPack, *, markdown_terms: int | None = None, interim_lookback_terms: int = 0
+) -> str:
     """Render a :class:`StatPack` as a publishable Markdown document.
 
     Leads with headline counts, the overall base rate, coverage, and decision
@@ -2703,7 +2783,12 @@ def render_statpack_markdown(pack: StatPack, *, markdown_terms: int | None = Non
     window as instructed — the counterpart of
     ``salience.base_rate_lookback_terms``, which bounds the same window in code
     for the cert back-test. Both per-Term captions state the rendered window, so a
-    truncation is visible to the agent reading the table."""
+    truncation is visible to the agent reading the table.
+
+    ``interim_lookback_terms`` is the window the interim applicant-class table
+    pools over before the interim window's own Term (``0`` = unbounded): the CLI
+    seam passes ``salience.base_rate_lookback_terms``, the window the scored
+    interim pool reads, so the table pools what that yardstick pools."""
     lines = ["# Corpus statpack", ""]
     if pack.corpus_rows == 0:
         lines.append("_Empty — no corpus present. Regenerated once a corpus is available._")
@@ -2823,6 +2908,7 @@ def render_statpack_markdown(pack: StatPack, *, markdown_terms: int | None = Non
         ]
     if pack.interim is not None:
         lines += _interim_lines(pack.interim)
+        lines += _interim_applicant_lines(pack, interim_lookback_terms)
     if pack.merits is not None:
         lines += _merits_lines(pack.merits)
     if pack.justice_votes is not None:
@@ -2900,6 +2986,82 @@ def _interim_lines(interim: StatPackInterim) -> list[str]:
         "| --- | --: | --: | --: | --: | --: | --: | --: | --- | --: | --: | --: |",
     ]
     lines += [_interim_term_row(entry) for entry in interim.terms]
+    return lines
+
+
+def _interim_applicant_lines(pack: StatPack, lookback_terms: int) -> list[str]:
+    """The interim applicant-class table: the scored pool's Terms, split by applicant.
+
+    Pools the per-Term ``applicant_cuts`` for an application docketed in the
+    section's newest Term, over the Terms and vocabulary the scored interim pool
+    reads (:func:`~fedcourtsai.pipeline.base_rates.interim_applicant_cut_pool`),
+    with each class's and each marking's margin beside the cells. A cell or
+    margin below :data:`INTERIM_APPLICANT_CUT_MIN_RESOLVED` shows its resolved
+    count and no rate. Nothing renders for a pack whose Terms carry no cut.
+    """
+    interim = pack.interim
+    if interim is None or not interim.terms or interim.terms[0].applicant_cuts is None:
+        return []
+    term = interim.terms[0].term
+    pooled = interim_applicant_cut_pool(term, pack, lookback_terms=lookback_terms)
+    windowed = term >= INTERIM_WINDOW_FROM_TERM
+    span = INTERIM_LOOKBACK_TERMS if windowed else lookback_terms
+    window = (
+        f"the {span} application-Term(s) before OT{term}" if span else f"every Term before OT{term}"
+    )
+    counts = "`wide_finer_*`" if windowed else "`finer_*`"
+    lines = [
+        "",
+        "### Substantive applications by applicant class",
+        (
+            f"_The scored pool an application docketed in OT{term} reads — {window}, "
+            + f"the {counts} counts — split by who applies and whether the Court's docket "
+            + "marks the case capital. The applicant's class is "
+            + f"`{interim.applicant_class_rule}` over the applicant caption: `federal` is "
+            + "the United States, its agencies and officers; `state` a State, its "
+            + "officers and its subdivisions (a State asking to vacate a stay of "
+            + "execution reads `state`, in the `capital` column); `private` everyone "
+            + "else. **Descriptive context, not a yardstick**: an interim cell is still "
+            + "scored against the whole pool (the bottom-right cell), never against its "
+            + "own class's cell. "
+            + "A cell or margin under "
+            + f"{INTERIM_APPLICANT_CUT_MIN_RESOLVED} resolved applications "
+            + "(`INTERIM_APPLICANT_CUT_MIN_RESOLVED`) shows its count and no rate. "
+            + "Replay/backtest cells: pool the per-Term `applicant_cuts` in "
+            + "`statpack.json` strictly before your own Term instead._"
+        ),
+        "",
+    ]
+    if pooled is None:
+        lines.append(
+            "_No pool: a Term it covers predates the cut or still holds applications "
+            + "the `reread-applications` pass has not read._"
+        )
+        return lines
+    markings = [m for m in _CAPITAL_MARKINGS if m != "unknown" or any(k[1] == m for k in pooled)]
+
+    def _cell(granted: int, resolved: int) -> str:
+        if resolved == 0:
+            return "—"
+        if resolved < INTERIM_APPLICANT_CUT_MIN_RESOLVED:
+            return f"n={resolved}, below floor"
+        return f"{_pct(granted / resolved)} ({granted}/{resolved})"
+
+    def _sum(keys: list[tuple[str, str]]) -> tuple[int, int]:
+        cells = [pooled.get(key, (0, 0)) for key in keys]
+        return sum(c[0] for c in cells), sum(c[1] for c in cells)
+
+    lines += [
+        "| applicant | " + " | ".join(markings) + " | all |",
+        "| --- |" + " --- |" * (len(markings) + 1),
+    ]
+    for applicant in _APPLICANT_CLASSES:
+        row = [_cell(*pooled.get((applicant, m), (0, 0))) for m in markings]
+        row.append(_cell(*_sum([(applicant, m) for m in _CAPITAL_MARKINGS])))
+        lines.append(f"| {applicant} | " + " | ".join(row) + " |")
+    margin = [_cell(*_sum([(a, m) for a in _APPLICANT_CLASSES])) for m in markings]
+    margin.append(_cell(*_sum(list(pooled))))
+    lines.append("| all | " + " | ".join(margin) + " |")
     return lines
 
 

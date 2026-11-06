@@ -829,6 +829,74 @@ def _wide_counts(entry: StatPackInterimTerm, reading: InterimPoolReading) -> tup
     return entry.wide_finer_granted, entry.wide_finer_resolved
 
 
+#: The smallest pooled sample an interim applicant-class cell publishes a rate
+#: over. Thirty resolved applications, the figure
+#: :data:`REALIZED_BAND_RATE_MIN_RESOLVED` states and for its reason: a rate over
+#: thirty rows carries a standard error of at most ~0.09, and below that a cell's
+#: rate is mostly the handful of applications behind it. Lower than the scored
+#: pool's :data:`INTERIM_BASE_RATE_MIN_RESOLVED` because no skill ratio divides
+#: by this rate: it is context a forecaster reads, not a yardstick. A cell below
+#: the floor publishes its resolved count and no rate. A stated pre-registration
+#: choice, not a knob (``docs/salience.md``, *The interim docket*).
+INTERIM_APPLICANT_CUT_MIN_RESOLVED: Final = 30
+
+
+def interim_applicant_cut_pool(
+    application_term: int,
+    statpack: StatPack,
+    *,
+    lookback_terms: int = 0,
+) -> dict[tuple[str, str], tuple[int, int]] | None:
+    """The applicant-class cells' ``(granted, resolved)`` over the scored pool's Terms.
+
+    Pools each ``(applicant_class, capital_marking)`` cell of the interim
+    section's per-Term ``applicant_cuts`` over exactly the Terms and the ask
+    vocabulary :func:`interim_base_rate` pools on the finer reading for a cell
+    docketed in ``application_term``: strictly prior Terms within the caller's
+    ``lookback_terms`` and the finer counts before
+    :data:`INTERIM_WINDOW_FROM_TERM`, and from it the
+    :data:`INTERIM_LOOKBACK_TERMS` Terms before over the widened counts. It
+    refuses (``None``) where that pool would: no interim section, or a pooled
+    Term that predates the cut or still holds an unread row on the vocabulary it
+    pools. The cells sum to the scored pool, so the cut partitions the yardstick
+    rather than replacing it.
+
+    The floor is the reader's to apply (:data:`INTERIM_APPLICANT_CUT_MIN_RESOLVED`),
+    because the published table shows a thin cell's count without its rate.
+    """
+    if statpack.interim is None:
+        return None
+    windowed = application_term >= INTERIM_WINDOW_FROM_TERM
+    if windowed:
+        lookback_terms = INTERIM_LOOKBACK_TERMS
+    oldest = application_term - lookback_terms if lookback_terms > 0 else None
+    pooled: dict[tuple[str, str], tuple[int, int]] = {}
+    for entry in statpack.interim.terms:
+        if entry.term >= application_term:
+            continue  # leakage guard, as the scored pool's
+        if oldest is not None and entry.term < oldest:
+            continue
+        if entry.applicant_cuts is None:
+            return None  # a pooled Term built before the cut
+        if windowed:
+            if _wide_counts(entry, "finer") is None:
+                return None
+        elif entry.finer_resolved is None or entry.finer_unread:
+            return None
+        for cell in entry.applicant_cuts:
+            granted, resolved = (
+                (cell.wide_finer_granted, cell.wide_finer_resolved)
+                if windowed
+                else (cell.finer_granted, cell.finer_resolved)
+            )
+            if not resolved:
+                continue
+            key = (cell.applicant_class, cell.capital_marking)
+            prior_granted, prior_resolved = pooled.get(key, (0, 0))
+            pooled[key] = (prior_granted + granted, prior_resolved + resolved)
+    return pooled
+
+
 #: The ``majority-author`` label for a decision no Justice signs.
 PER_CURIAM_LABEL = "per-curiam"
 
