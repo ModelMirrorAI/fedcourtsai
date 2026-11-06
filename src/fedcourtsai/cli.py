@@ -53,6 +53,7 @@ from . import (
     analytics,
     blinding,
     casestore,
+    catch_up,
     cell_policy,
     cleanup,
     contexts_due,
@@ -81,6 +82,7 @@ from . import (
     repo_gate,
     retrieval,
     schedule,
+    schedule_delivery,
     scope_manifest,
     secretscan,
     site_status,
@@ -15949,6 +15951,14 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
         Path,
         typer.Option(help="Where the workflow files whose schedules `--status-out` reads live."),
     ] = Path(".github/workflows"),
+    schedule_runs: Annotated[
+        Path | None,
+        typer.Option(
+            help="JSON file of schedule-event runs (the REST `workflow_runs` pages, "
+            "e.g. `gh api --paginate --slurp`) for the schedule-delivery section; "
+            "omit to skip it. Ignored if missing or unreadable."
+        ),
+    ] = None,
     all_versions: Annotated[
         bool,
         typer.Option(
@@ -16016,6 +16026,18 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
             open_triggers = None
     when = generated_at or datetime.now(UTC).isoformat()
     scope: Literal["frozen", "all"] = "all" if all_versions else "frozen"
+    # Schedule delivery, best-effort like the other feeds: a missing or
+    # unreadable file just drops the section and the status page's slot counts.
+    delivery = None
+    if schedule_runs is not None and schedule_runs.exists():
+        try:
+            delivery = schedule_delivery.build_schedule_delivery(
+                json.loads(schedule_runs.read_text()),
+                workflows_root=workflows_root,
+                now=_parse_when(when),
+            )
+        except (OSError, ValueError) as error:
+            typer.echo(f"::warning::schedule delivery not read: {error}", err=True)
     # Same shared producer + default as the leaderboard, so the two surfaces
     # always agree on the frozen headline. The census (ledger_cell_counts) stays
     # version-blind — it counts committed predictions, not scored cells — and,
@@ -16059,6 +16081,8 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
         data_health=data_health,
         open_triggers=open_triggers,
     )
+    if delivery is not None:
+        report = report.model_copy(update={"schedule_delivery": delivery})
     if json_out is not None:
         write_json(json_out, report)
     if data_health_out is not None:
@@ -16088,12 +16112,15 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
                 frontier=frontier,
                 public_cases=len(scope_manifest.public_case_ids(settings.data_root)),
                 source_sha=_git("rev-parse", "HEAD"),
+                delivery=delivery,
             )
         except (OSError, ValueError) as error:
             typer.echo(f"::warning::status snapshot not written: {error}", err=True)
         else:
             write_json(status_out, status)
     typer.echo(render_markdown(report), nl=False)
+    if delivery is not None:
+        typer.echo("\n" + schedule_delivery.render_schedule_delivery(delivery), nl=False)
 
 
 #: The `daily-digest` label's appearance when the first run creates it. Blue,
@@ -26380,6 +26407,69 @@ def window_forecast_relevance_cmd(
         if path:
             changes.append((status, path))
     typer.echo(forecast_relevance(changes).model_dump_json())
+
+
+@app.command("catch-up")
+def catch_up_cmd(
+    runs_file: Annotated[
+        Path,
+        typer.Option(
+            "--runs-file",
+            help="Recent runs of run-pull, run-predict and the other corpus writers "
+            "(REST `workflow_runs` pages).",
+        ),
+    ],
+    run_id: Annotated[int, typer.Option(help="This window's own run id.")],
+    now: Annotated[
+        str, typer.Option(help="ISO time to judge the slots at; defaults to now (UTC).")
+    ] = "",
+    workflows_root: Annotated[
+        Path, typer.Option(help="Where the workflow files whose crons are read live.")
+    ] = Path(".github/workflows"),
+) -> None:
+    """Whether this run-pull window makes up a dropped pull slot or predict slot.
+
+    Prints a `CatchUp` (`pull` and `predict`, each with `action` and `reason`).
+    An unreadable runs file is refused, so the job dispatches nothing.
+    """
+    try:
+        rows = json.loads(runs_file.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise typer.BadParameter(f"--runs-file {runs_file}: {error}") from error
+    at = _parse_when(now) if now else datetime.now(UTC)
+    answer = catch_up.catch_up(
+        rows if isinstance(rows, list) else [rows],
+        workflows_root=workflows_root,
+        now=at,
+        run_id=run_id,
+    )
+    typer.echo(answer.model_dump_json())
+
+
+@app.command("slot-served")
+def slot_served_cmd(
+    runs_file: Annotated[
+        Path, typer.Option("--runs-file", help="Recent run-pull runs (REST pages).")
+    ],
+    schedule: Annotated[str, typer.Option(help="The cron that fired this window.")],
+    run_id: Annotated[int, typer.Option(help="This window's own run id.")],
+    created_at: Annotated[str, typer.Option(help="This window's creation time (ISO).")],
+) -> None:
+    """Whether a scheduled pull window's slot was already served by a made-up window.
+
+    Prints a `SlotVerdict` (`served`, `reason`).
+    """
+    try:
+        rows = json.loads(runs_file.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise typer.BadParameter(f"--runs-file {runs_file}: {error}") from error
+    verdict = catch_up.slot_served(
+        rows if isinstance(rows, list) else [rows],
+        schedule=schedule,
+        run_id=run_id,
+        created_at=_parse_when(created_at),
+    )
+    typer.echo(verdict.model_dump_json())
 
 
 @app.command("chain-step")

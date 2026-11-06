@@ -96,12 +96,13 @@ INERT_FILES = frozenset(
 )
 
 # src/fedcourtsai/ modules no cell path imports: the promotion gate and train
-# with the predict chain's dispatch decision, the settings checks, and the
-# metrics, reporting and public-update writers. Every other module is
+# with the predict chain's dispatch decision and run-pull's catch-up, the
+# settings checks, and the metrics, reporting and public-update writers. Every other module is
 # engine-relevant.
 INERT_SOURCE = frozenset(
     {
         "buttondown",
+        "catch_up",
         "claim_metrics",
         "contexts_due",
         "corpus_check",
@@ -117,6 +118,7 @@ INERT_SOURCE = frozenset(
         "release_sensitivity",
         "required_checks",
         "ruleset_checks",
+        "schedule_delivery",
         "site_status",
     }
 )

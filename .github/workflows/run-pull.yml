@@ -1,4 +1,10 @@
 name: run-pull
+# The mode in the title (`run-pull pull`, `run-pull live`), so the catch-up in
+# `chain-predict` and the late-tick check in `slot` can tell from the run list
+# which windows served a pull slot (src/fedcourtsai/catch_up.py).
+run-name: >-
+  ${{ format('run-pull {0}', inputs.mode
+  || (startsWith(github.event.schedule, '17 ') && 'pull' || 'live')) }}
 
 # Refresh tracked dockets — three writer jobs on one surface, at most one per
 # run: two scheduled forward writers and one dispatch-only enrichment pass.
@@ -162,13 +168,65 @@ jobs:
           --triggering-actor "$TRIGGERING_ACTOR" --run-attempt "$RUN_ATTEMPT"
           --github-output "$GITHUB_OUTPUT"
 
-  pull:
+  # A late tick for a pull slot that `chain-predict`'s catch-up already made
+  # up skips its pull, so a slot costs one window's CourtListener share rather
+  # than two (`fedcourts slot-served`). Scheduled pull windows only. It fails
+  # open: when it cannot read the runs, `served` is empty and the pull runs as
+  # scheduled. No environment, no secret, a read-only token.
+  slot:
     needs: [authorize]
-    # One writer job per run: the cron minute (17 = pull, 47 = live) or the
-    # dispatch `mode` input selects the job.
     if: >-
-      ${{ ((github.event_name == 'schedule' && startsWith(github.event.schedule, '17 ')) ||
+      ${{ github.event_name == 'schedule' && startsWith(github.event.schedule, '17 ')
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read # this window's run and run-pull's recent runs
+    outputs:
+      served: ${{ steps.check.outputs.served }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
+
+      - name: Check whether a made-up window already served this slot
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          SCHEDULE: ${{ github.event.schedule }}
+        run: |
+          set -euo pipefail
+          created=$(gh api "repos/${REPO}/actions/runs/${RUN_ID}" --jq .created_at)
+          # Seven hours back covers the slot a tick this late can belong to.
+          since=$(date -u -d "@$(( $(date -u -d "$created" +%s) - 25200 ))" +%Y-%m-%dT%H:%M:%SZ)
+          gh api --paginate --slurp \
+            "repos/${REPO}/actions/workflows/run-pull.yml/runs?created=%3E%3D${since}&per_page=100" \
+            > pull-runs.json
+          verdict=$(uv run fedcourts slot-served --runs-file pull-runs.json \
+            --schedule "$SCHEDULE" --run-id "$RUN_ID" --created-at "$created")
+          echo "served=$(jq -r '.served' <<<"$verdict")" >> "$GITHUB_OUTPUT"
+          echo "## Pull slot: $(jq -r '.reason' <<<"$verdict")." >> "$GITHUB_STEP_SUMMARY"
+
+  pull:
+    needs: [authorize, slot]
+    # One writer job per run: the cron minute (17 = pull, 47 = live) or the
+    # dispatch `mode` input selects the job. `!cancelled()` because `slot` is
+    # skipped on every dispatch; a scheduled window whose slot a made-up window
+    # already served skips the pull.
+    if: >-
+      ${{ !cancelled()
+      && ((github.event_name == 'schedule' && startsWith(github.event.schedule, '17 ')) ||
       (github.event_name == 'workflow_dispatch' && inputs.mode == 'pull'))
+      && needs.slot.outputs.served != 'true'
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
@@ -561,9 +619,13 @@ jobs:
     # Same corpus-writer shape, privileges (App token + the read-write corpus
     # role) and trigger surface as `pull` — schedule and dispatch, both already
     # gated by the platform, so this job needs no authorization step either.
+    # A bot never dispatches this job: the dispatch App's catch-up starts pull
+    # windows alone, and a dispatched live window spends CourtListener budget
+    # (the enrichment steps below run on every dispatch).
     if: >-
       ${{ ((github.event_name == 'schedule' && startsWith(github.event.schedule, '47 ')) ||
-      (github.event_name == 'workflow_dispatch' && inputs.mode == 'live'))
+      (github.event_name == 'workflow_dispatch' && inputs.mode == 'live'
+      && !endsWith(github.actor, '[bot]')))
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
@@ -963,8 +1025,11 @@ jobs:
     # pull windows (03, 05, 09, 11, 15, 17, 21, 23 from about :15) are the
     # quiet slots, and keeping off a pull window's hour keeps this pass's
     # CourtListener spend from stacking onto the pull's within one hour.
+    # A person's dispatch alone: the dispatch App's catch-up starts pull windows
+    # only.
     if: >-
       ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'enrich-opinions'
+      && !endsWith(github.actor, '[bot]')
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
@@ -1103,6 +1168,18 @@ jobs:
   # its head (`fedcourts chain-step`): the promotion gate's quiescence check
   # would fail on it.
   #
+  # The same job makes up the cron slots GitHub's scheduler dropped
+  # (`fedcourts catch-up`, src/fedcourtsai/catch_up.py), since whichever window
+  # does arrive can see them. Every window, whatever started it, asks about two
+  # slots. The latest pull slot, 40 minutes on with no pull-mode run created
+  # since it, gets a `mode=pull` dispatch of this workflow, unless a corpus
+  # writer waits for the lock (a dispatch would evict it). The latest predict
+  # slot, an hour on with no run-predict run created since it, gets the same
+  # predict dispatch a relevant change does, under the same promotion
+  # stand-down. A made-up run is created after its slot, so it serves the slot
+  # and no later window dispatches it again, and `slot` above skips the pull
+  # of a late tick for a slot already made up.
+  #
   # This job runs no corpus code and holds no corpus role. Its one token is the
   # dispatch App's, scoped to `actions: write` and PR read, so the writer jobs
   # above never hold a credential that can start a workflow. Off unless the
@@ -1111,7 +1188,7 @@ jobs:
   chain-predict:
     needs: [authorize, pull, live]
     if: >-
-      ${{ (!cancelled() && (needs.pull.outputs.forecast_relevant == 'true' || needs.live.outputs.forecast_relevant == 'true') && vars.DISPATCH_CHAIN_ENABLED == 'true')
+      ${{ !cancelled() && vars.DISPATCH_CHAIN_ENABLED == 'true'
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
@@ -1141,12 +1218,41 @@ jobs:
           permission-actions: write
           permission-pull-requests: read
 
-      - name: Dispatch a predict round unless a promotion is ready
+      - name: Make up dropped slots and chain a predict round
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          FORECAST_RELEVANT: >-
+            ${{ needs.pull.outputs.forecast_relevant == 'true'
+            || needs.live.outputs.forecast_relevant == 'true' }}
         run: |
           set -euo pipefail
+          # The last 14 hours of runs of this lane, the other corpus writers and
+          # run-predict: every slot the catch-up reads, and any writer waiting
+          # for the lock. A failed read makes up nothing.
+          since=$(date -u -d '14 hours ago' +%Y-%m-%dT%H:%M:%SZ)
+          if (for wf in run-pull.yml run-seed.yml run-repair.yml run-predict.yml; do
+                gh api --paginate --slurp \
+                  "repos/${REPO}/actions/workflows/${wf}/runs?created=%3E%3D${since}&per_page=100"
+              done) > recent-runs.pages && jq -s 'add' recent-runs.pages > recent-runs.json; then
+            catchup=$(uv run fedcourts catch-up --runs-file recent-runs.json --run-id "$RUN_ID")
+          else
+            catchup='{"pull":{"action":"none","reason":"pull: the recent runs could not be read"},"predict":{"action":"none","reason":"predict: the recent runs could not be read"}}'
+          fi
+          {
+            echo "## Catch-up"
+            echo "- $(jq -r '.pull.reason' <<<"$catchup")."
+            echo "- $(jq -r '.predict.reason' <<<"$catchup")."
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$(jq -r '.pull.action' <<<"$catchup")" = "dispatch" ]; then
+            gh workflow run run-pull.yml --repo "$REPO" --ref main -f mode=pull
+          fi
+          if [ "$FORECAST_RELEVANT" != "true" ] \
+            && [ "$(jq -r '.predict.action' <<<"$catchup")" != "dispatch" ]; then
+            echo "## Pull -> predict chain: the window changed nothing forecast-relevant and no predict slot is owed." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           # A read only (a GET with the query in the URL). A failed read drops
           # the file, which `chain-step` reads as unknown and stands down on.
           if gh api --paginate --slurp "repos/${REPO}/pulls?state=open&base=main&per_page=100" \
@@ -1185,7 +1291,7 @@ jobs:
   # not pass or this attempt is neither the one the gate judged nor a re-run by
   # a login the gate published. No checkout, no token, no environment.
   run-gate:
-    needs: [authorize, pull, live, enrich, chain-predict]
+    needs: [authorize, slot, pull, live, enrich, chain-predict]
     if: always()
     runs-on: ubuntu-26.04
     timeout-minutes: 5

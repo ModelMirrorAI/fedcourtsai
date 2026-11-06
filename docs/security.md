@@ -53,7 +53,9 @@ jail (the dev App's unattended merges), the writer jail (the data App), or
   the jobs' own merge call (GitHub's auto-merge does not exercise a bypass).
 - **dispatch App** — used only by three jobs: the two drain-chain jobs,
   `run-pull`'s `chain-predict` and `run-predict`'s `chain`, each of which
-  starts an input-less `run-predict` round on `main`, and the promotion
+  starts an input-less `run-predict` round on `main` (`chain-predict` also a
+  `mode=pull` `run-pull` window on `main` to make up a dropped pull slot, the
+  one mode whose jobs accept a bot's dispatch), and the promotion
   train's `dispatch-gate`, which starts `integration-test` `scenario=gate` at a
   promotion candidate's `promote/<date>` branch, once per head. Its client id is the
   `DISPATCH_APP_CLIENT_ID` variable and its private key the
@@ -62,7 +64,8 @@ jail (the dev App's unattended merges), the writer jail (the data App), or
   `run-evaluate` and `integration-test` allow its bot login
   (`fedcourtsai-dispatch[bot]`) past their actor checks — a chained round's
   actor, and the train's gate suite's — and `config/dispatchers.json` names it
-  as the one bot the run gate admits. It is its own App rather
+  as the one bot the run gate admits, for `run-predict`, `run-pull` and
+  `integration-test`. It is its own App rather
   than a scope added to the dev App because the dev App's key sits in jobs that
   run agent cells' collect step and open PRs; a dispatch-capable token there
   would let any of those jobs start any workflow. It is an App rather than
@@ -105,7 +108,7 @@ also on `corpus-write`, for the corpus writer jobs that bind it. Each workflow m
 | `run-analytics` (alignment-fit-publish job only) | dev | contents, pull-requests | open or update the reviewed frozen-fit PR on `merits-alignment/fits` (never auto-merged), after `assert-alignment-fits` holds the handed-off file to adding one Term to `main`'s. The job assumes no role and holds no `id-token`; the fit job that computed the file holds the read-only role and no App token. Minted on `main`-branch (prod-bound) runs only |
 | `summarize` (publish job only) | dev | contents, pull-requests | open or update the `summaries/refresh` PR and, once its required checks pass, merge it **unattended**; the required `paths` check bounds its diff independently (`summary-paths --strict --any-withdrawal`: summary files written, case summaries deleted, nothing else). The job runs on `main` only, binds `prod`, assumes no role and holds no model key: it mints after the generate job has jailed, validated and scanned the summaries, and re-runs all three over the whole change set before the push |
 | `promotion-prep` (`write` job only — the promotion train) | dev | contents, pull-requests | create a `promote/<date>` candidate branch at staging's tip (the one ref write; never an update, force push or deletion), open its draft PR into `main`, mark it ready, request the approvers' review, refresh the generated block of its body — and **merge it**, with a merge commit pinned to the head, using the dev App's `main: require approval` bypass. The merge runs only after the job re-reads, on the ambient token before minting, that the PR is open, ready and unchanged at the planned head, that an approver in `config/promotion-train.yaml` approved exactly that head with no change requested since, from every page of the reviews (`fedcourts promotion-train-approval`; a short or failed read is not approved), that no fan-out is in flight, and that the registry gate still passes; `main: require PR`'s required checks still bind the merge. The `plan` job before it decides and renders holding no write credential and no environment |
-| `run-pull` (chain-predict job), `run-predict` (chain job) | dispatch | actions write; pull-requests read | start an input-less `run-predict` on `main`: after a pull window commits, and after a round a cap stopped short once its collect PR merges. Both read the open PRs into `main` and their reviews first, standing down while a promotion is about to merge, and `chain` also reads its round's collect PR. The started round derives its own backlog and waits on the review hold unless its own plan auto-releases |
+| `run-pull` (chain-predict job), `run-predict` (chain job) | dispatch | actions write; pull-requests read | start an input-less `run-predict` on `main`: after a pull window commits, when a predict slot went unserved, and after a round a cap stopped short once its collect PR merges; and, from `chain-predict` alone, a `run-pull` `mode=pull` window on `main` when the latest pull slot went unserved and no corpus writer waits for the lock. `run-pull`'s `live` and `enrich` jobs refuse a bot's dispatch, so the App starts no CourtListener enrichment or opinion walk. Both read the open PRs into `main` and their reviews first, standing down while a promotion is about to merge, and `chain` also reads its round's collect PR. The started round derives its own backlog and waits on the review hold unless its own plan auto-releases |
 | `promotion-prep` (`dispatch-gate` job) | dispatch | actions write | start `integration-test` `scenario=gate` (`offline-gate` when `main`'s `scripts/cell_reach.py` calls the batch cell-inert or the `promote:skip-engine-smoke` label is on, never under `promote:require-engine-smoke`) at a promotion candidate's `promote/<date>` branch, only while no dispatched integration run of any title sits at that head and ref: one paid suite per candidate, never re-dispatched by the train, and at most `max_gate_dispatches_per_day` (`config/promotion-train.yaml`) a UTC day across candidates. The run resolves the `staging` environment, spends staging's engine keys with no review hold, and is side-effect free like every integration run |
 | `corpus-check` (post job only) | none — the job's own token | pull-requests write | the one result comment on the PR the plan picked, its body's sha256 recorded in the job's run summary — since any workflow's comment-capable token posts as the same bot, that digest is what marks the lane's result. The ambient token, not an App's: the comment must start nothing, and the job runs no PR code, binds no environment and holds no `id-token`. The `run` job, which runs the PR's code, holds `contents: read` and `id-token` only, and runs that code as an account that can reach neither; `run-auto`, which runs `main`'s, holds the same |
 | `sync-staging` | dev | contents, pull-requests | open the main→staging sync PR, arm auto-merge, and merge it once its checks pass with the dev App's `staging: code owners` bypass (`scripts/merge-when-green.sh`, pinned to the head it read, refusing any PR but a same-repository `main` head into `staging`). Deliberately the dev App, not the data App: an unattended scheduled job must not hold the one identity that bypasses `main: require PR`, and it needs no `main` write at all |
@@ -184,7 +187,8 @@ same guard.
   `bots`, a map from workflow file name to the App bot logins
   (`<slug>[bot]`) that may dispatch that one workflow — today the dispatch App
   for `run-predict`, whose `chain` and `chain-predict` jobs start chained
-  rounds, and for `integration-test`, whose `gate` suite the promotion train
+  rounds, for `run-pull`, whose `chain-predict` job makes up a dropped pull
+  slot, and for `integration-test`, whose `gate` suite the promotion train
   starts at each candidate. The gate reads the file from the dispatched ref, so
   the entry has to be on the candidate — a cut of `staging` — as well as on
   `main`. Unknown keys, duplicated keys, a login that is not one, and a bot
