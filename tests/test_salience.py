@@ -3244,6 +3244,21 @@ def test_a_replay_cell_bands_under_sal_v8_as_under_sal_v7(
     assert bands["sal-v8"] == ("federal" if provenance == "dated" else "state")
 
 
+def test_a_replay_cell_reading_its_own_truncated_payload_bands_as_under_sal_v7(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A replay cell whose caller passes no fact reads it off the payload itself,
+    with its own mode: on an unredacted truncated payload sal-v8 still refuses the
+    blocks, so the replay never widens, end to end."""
+    bands = {}
+    for version in ("sal-v7", "sal-v8"):
+        _activate(monkeypatch, version)
+        bands[version] = cell_context.build(
+            "scotus/100", _CUT, _warden_payload(), "replay", provenance="truncated", cutoff=_CUT
+        ).band
+    assert bands["sal-v8"] == bands["sal-v7"] == "state"
+
+
 def test_a_forward_truncated_cell_without_the_office_is_unchanged_under_sal_v8(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -3351,4 +3366,13 @@ def test_the_projection_carries_both_readings_and_refuses_the_forward_one_alone(
             cutoff=_CUT,
             provenance="truncated",
             sg_counsel_of_record_forward=True,
+        )
+    with pytest.raises(ValueError, match="must include the caption-v4 fact"):
+        asof.project_row(
+            base,
+            _warden_payload(),
+            cutoff=_CUT,
+            provenance="dated",
+            sg_counsel_of_record_for_petitioner=True,
+            sg_counsel_of_record_forward=False,
         )

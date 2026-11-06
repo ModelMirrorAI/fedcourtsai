@@ -7,14 +7,16 @@ Declared in a pull request's description as
     ```
 
 it walks every committed forward prediction whose context froze a band, keeps
-one cell per (case, event, cutoff), and re-places each truncated one the way a
-forward provisioning does: the case's newest stored snapshot from the per-case
-content store, cut to the cell's cutoff (`truncate_snapshot`, then
-`cut_dated_fields`), banded by `cell_context.build` in `forward` mode under
+one cell per (case, event, cutoff), and re-places each truncated one with a
+forward provisioning's date rule: the case's newest stored snapshot from the
+per-case content store, cut to the cell's cutoff (`truncate_snapshot`, then
+`cut_dated_fields`; the interim arrival anchor bound is not applied, since an
+application docket freezes no band), banded by `cell_context.build` in `forward` mode under
 sal-v7 and under sal-v8. sal-v8 differs only on a truncated forward payload,
 so the as-stored and dated cells are counted, not re-placed. It appends to the
 file named by `CHECK_SUMMARY` the corpus vintage, the cell count by provenance,
-how many re-placed sal-v7 bands reproduce the frozen band, and the cells whose
+how many re-placed sal-v7 bands reproduce the band of a cell frozen under
+sal-v7, and the cells whose
 band moves, with their case ids and docket numbers. The newest snapshot can be
 later than the pull a cell was placed on, so a re-placed band is a reading of
 the rule over today's counsel blocks, not a replay of the cell. Counts and
@@ -42,7 +44,7 @@ Cell = tuple[str, str, str]  # (case id, event id, cutoff)
 
 
 def ledger_cells(root: Path) -> dict[Cell, dict[str, object]]:
-    """One frozen forward context per (case, event, cutoff), banded cells only."""
+    """One frozen forward context per (case, event, cutoff), banded cells only, the last read."""
     cells: dict[Cell, dict[str, object]] = {}
     for path in sorted(root.glob("scotus/*/events/*/predictions/*/*/prediction.json")):
         context = json.loads(path.read_text(encoding="utf-8")).get("context") or {}
@@ -50,7 +52,9 @@ def ledger_cells(root: Path) -> dict[Cell, dict[str, object]]:
             continue
         case_id = f"scotus/{path.parts[-7]}"
         key = (case_id, path.parts[-5], str(context.get("cutoff")))
-        cells.setdefault(key, context)
+        # Paths sort by run id within a predictor, so the newest run's context
+        # of each predictor overwrites older ones; any one per key is kept.
+        cells[key] = context
     return cells
 
 
@@ -72,14 +76,17 @@ def main() -> int:
     ledger = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("data/cases")
     cells = ledger_cells(ledger)
     provenance: Counter[str] = Counter()
-    reproduced = replaced = unreadable = 0
+    reproduced = frozen_v7 = replaced = unreadable = 0
     moved: list[tuple[str, str, str, str]] = []
     for (case_id, event_id, cutoff_text), context in sorted(cells.items()):
         kind = str(context.get("snapshot_provenance"))
         provenance[kind] += 1
         if kind != "truncated" or cutoff_text == "None":
             continue
-        latest = source.latest_snapshot(case_id)
+        try:
+            latest = source.latest_snapshot(case_id)
+        except Exception:
+            latest = None
         if latest is None:
             unreadable += 1
             continue
@@ -89,7 +96,10 @@ def main() -> int:
         before = band_under("sal-v7", case_id, payload, cutoff)
         after = band_under("sal-v8", case_id, payload, cutoff)
         replaced += 1
-        reproduced += before == context.get("band")
+        # Only a cell frozen under sal-v7 can be reproduced by a sal-v7 band.
+        if context.get("salience_version") == "sal-v7":
+            frozen_v7 += 1
+            reproduced += before == context.get("band")
         if before != after:
             docket = str(latest[1].get("CaseNumber") or "")
             moved.append((docket, case_id, event_id, f"{before} → {after}"))
@@ -106,8 +116,9 @@ def main() -> int:
     lines += [f"| {kind} | {n} |" for kind, n in sorted(provenance.items())]
     lines += [
         "",
-        f"Truncated cells re-placed: {replaced} (no stored snapshot: {unreadable}); "
-        f"sal-v7 re-placement reproduces the frozen band on {reproduced}.",
+        f"Truncated cells re-placed: {replaced} (no readable snapshot: {unreadable}); "
+        f"of the {frozen_v7} frozen under sal-v7, the sal-v7 re-placement reproduces "
+        f"the frozen band on {reproduced}.",
         f"Cells whose band moves under sal-v8: {len(moved)}",
         "",
         "| docket | case | event | sal-v7 → sal-v8 |",

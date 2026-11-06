@@ -599,6 +599,10 @@ class CutRow(corpus.CorpusRow):
     def _carries_no_other_counsel(self) -> CutRow:
         if self.counsel or self.parties or self.attorneys:
             raise ValueError("a cut row carries one counsel fact and no counsel entry")
+        if self.sg_counsel_of_record_for_petitioner and not self.sg_counsel_of_record_forward:
+            # caption-v5 admits every payload caption-v4 does, under the same
+            # tests, so its reading can never be the narrower one.
+            raise ValueError("the forward counsel reading must include the caption-v4 fact")
         return self
 
 
@@ -705,10 +709,11 @@ def _office_counsel_of_record(payload: Mapping[str, Any], *, caption_text: str, 
 
 
 #: The provenances a forward cell's payload can carry, every one of them read
-#: by caption-v5. A forward cell's case is pending, so no payload it is placed
-#: on can record an outcome, and its record keeps the counsel blocks the fact is
-#: read from: the cell reads the entry whatever its provenance, and the band
-#: reads what the cell reads. ``blind`` is a replay provenance only.
+#: by caption-v5. A forward cell's case is pending (the predict lane provisions
+#: with ``--refuse-terminal``, which refuses a resolved case), so no payload it
+#: is placed on can record an outcome, and its record keeps the counsel blocks
+#: the fact is read from: the cell reads the entry whatever its provenance, and
+#: the band reads what the cell reads. ``blind`` is a replay provenance only.
 _SERVED_TO_A_FORWARD_CELL: Final[frozenset[str]] = frozenset({"as-stored", "dated", "truncated"})
 
 

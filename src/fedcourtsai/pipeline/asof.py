@@ -136,7 +136,8 @@ def project_row(
       reading every replay and back-test cell makes. Left ``None`` both, the
       row is a plain :class:`~fedcourtsai.corpus.CorpusRow` and ``caption-v4``
       and ``caption-v5`` read it as ``caption-v2``. The forward reading alone,
-      without the caption-v4 fact, is refused.
+      without the caption-v4 fact, is refused, and so is a forward reading
+      narrower than the caption-v4 fact (:class:`.caption.CutRow`).
 
     ``parse`` names the registered DISTRIBUTED reading
     (:data:`~fedcourtsai.pipeline.cert_signals.DISTRIBUTION_PARSES`) the

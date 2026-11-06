@@ -104,7 +104,9 @@ def build(  # noqa: PLR0913 - one context, each optional part a keyword
     active = scorer()
     # The caption-v5 reading differs from caption-v4's only on a forward cell,
     # which never passes the fact in: a caller that does is a redacting
-    # provisioner, a replay or back-test, where the two readings agree.
+    # provisioner, a replay or back-test, where the two readings agree. A
+    # forward caller that passed it would get caption-v4's narrower reading,
+    # the safe direction, so the forward path must leave it None.
     sg_counsel_of_record_forward: bool | None = None
     if sg_counsel_of_record_for_petitioner is None:
         sg_counsel_of_record_for_petitioner = counsel_fact(
