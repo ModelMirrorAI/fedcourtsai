@@ -249,7 +249,7 @@ before the first command rather than mid-task:
   produces — predictions, events, provisioned cells, reports — not by merged
   PRs. Know which produced artifact a change serves and say so briefly in the
   PR description; where it directly affects output, show a produced example.
-- **No claimed effect without an executed check.** (This norm and the two below
+- **No claimed effect without an executed check.** (This norm and the three below
   are development-lane: a cell agent's contract is its prompt template, and it
   runs none of these commands.) Any claim about run-time behavior — this filter
   now skips that case, this re-run mints those cells — cites the observation
@@ -324,6 +324,23 @@ before the first command rather than mid-task:
   feature PRs in the batch: give yours the effect
   check as its handover note. A promotion changes code, not state — without the
   post-check, a batch that did nothing looks exactly like one that worked.
+- **A check that has to wait becomes a scheduled routine, not an open
+  session.** When the only work left is a check that cannot run for days or
+  weeks — an effect check waiting on the next run of the job that produces
+  it, a close after a quiet period, a quota or data re-read — do not keep a
+  session open for it. (1) Comment on the issue (or the PR, where no issue
+  exists) what will be checked, when, the command or read that checks it, and
+  the result that closes it. (2) Schedule a routine for that date that starts
+  a fresh session — it inherits nothing, so its prompt names the issue, the
+  check and the pass criteria in full — runs the check, comments the result on
+  the issue, and closes the issue when the criteria pass, or otherwise says
+  what it saw and @-mentions the maintainer (`modelmirror`) so the follow-up
+  work gets a session of its own. The routine reads and comments; it closes
+  only on its stated criteria and pushes, dispatches and merges nothing.
+  (3) Record the routine and the issue where the next session looks first
+  (the project memory, in a Claude project session). (4) Then end the
+  session. A check due within hours stays with the session that owns it, as
+  does anything that still needs work.
 - **The schema is law.** Every artifact must validate. Run
   `uv run fedcourts validate data` before you finish; if it fails, fix it.
 - **Some fields are the harness's, not yours.** `usage.json`, `retrieval_log.json`,
