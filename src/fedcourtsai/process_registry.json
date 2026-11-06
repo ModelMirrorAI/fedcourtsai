@@ -85,8 +85,8 @@
     {
       "label": "proc-v18",
       "since": {
-        "at": null,
-        "merge": null,
+        "at": "2026-11-06T17:45:46Z",
+        "merge": "356dbdd2b9cb74025c0510cb7a1e6df2663c0701",
         "source": "merge"
       }
     }
@@ -98,8 +98,8 @@
       "actor_id": "claude-baseline",
       "label": "proc-v18",
       "blessed": {
-        "at": null,
-        "merge": null,
+        "at": "2026-11-06T17:45:46Z",
+        "merge": "356dbdd2b9cb74025c0510cb7a1e6df2663c0701",
         "source": "merge"
       }
     },
@@ -109,8 +109,8 @@
       "actor_id": "codex-baseline",
       "label": "proc-v18",
       "blessed": {
-        "at": null,
-        "merge": null,
+        "at": "2026-11-06T17:45:46Z",
+        "merge": "356dbdd2b9cb74025c0510cb7a1e6df2663c0701",
         "source": "merge"
       }
     },
@@ -120,8 +120,8 @@
       "actor_id": "gemini-baseline",
       "label": "proc-v18",
       "blessed": {
-        "at": null,
-        "merge": null,
+        "at": "2026-11-06T17:45:46Z",
+        "merge": "356dbdd2b9cb74025c0510cb7a1e6df2663c0701",
         "source": "merge"
       }
     },
@@ -554,8 +554,8 @@
         "source": "merge"
       },
       "closes": {
-        "at": null,
-        "merge": null,
+        "at": "2026-11-06T17:45:46Z",
+        "merge": "356dbdd2b9cb74025c0510cb7a1e6df2663c0701",
         "source": "merge"
       },
       "revoked_at": null
@@ -570,8 +570,8 @@
         "source": "merge"
       },
       "closes": {
-        "at": null,
-        "merge": null,
+        "at": "2026-11-06T17:45:46Z",
+        "merge": "356dbdd2b9cb74025c0510cb7a1e6df2663c0701",
         "source": "merge"
       },
       "revoked_at": null
@@ -586,8 +586,8 @@
         "source": "merge"
       },
       "closes": {
-        "at": null,
-        "merge": null,
+        "at": "2026-11-06T17:45:46Z",
+        "merge": "356dbdd2b9cb74025c0510cb7a1e6df2663c0701",
         "source": "merge"
       },
       "revoked_at": null
@@ -597,8 +597,8 @@
       "digest": "sha256:89efeee9de0ee0425d638a910357e3b772cd82f034c6fe8c43d1e1ece2ab8af5",
       "predictor_id": "claude-baseline",
       "opens": {
-        "at": null,
-        "merge": null,
+        "at": "2026-11-06T17:45:46Z",
+        "merge": "356dbdd2b9cb74025c0510cb7a1e6df2663c0701",
         "source": "merge"
       },
       "closes": null,
@@ -609,8 +609,8 @@
       "digest": "sha256:591b96ed96dc8a9f7b95006f4a8a0efede0ad377229eb4080c0571612d59bafd",
       "predictor_id": "codex-baseline",
       "opens": {
-        "at": null,
-        "merge": null,
+        "at": "2026-11-06T17:45:46Z",
+        "merge": "356dbdd2b9cb74025c0510cb7a1e6df2663c0701",
         "source": "merge"
       },
       "closes": null,
@@ -621,8 +621,8 @@
       "digest": "sha256:78c7ec8425f379a06571ff5ed115c650c41c8d2ceb40399f4b88077b2848c595",
       "predictor_id": "gemini-baseline",
       "opens": {
-        "at": null,
-        "merge": null,
+        "at": "2026-11-06T17:45:46Z",
+        "merge": "356dbdd2b9cb74025c0510cb7a1e6df2663c0701",
         "source": "merge"
       },
       "closes": null,
@@ -1012,8 +1012,8 @@
     },
     {
       "name": "vided-amicus-related-dockets",
-      "merge": null,
-      "at": null,
+      "merge": "356dbdd2b9cb74025c0510cb7a1e6df2663c0701",
+      "at": "2026-11-06T17:45:46Z",
       "predictors": null,
       "reach": "all",
       "gradual": true
