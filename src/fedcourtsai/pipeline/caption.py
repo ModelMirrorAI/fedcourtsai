@@ -105,6 +105,10 @@ CAPTION_RULE_VERSION_V3 = "caption-v3"
 #: counsel of record for the party the caption names.
 CAPTION_RULE_VERSION_V4 = "caption-v4"
 
+#: caption-v4 with its counsel fact read on a forward cell's reconstructed
+#: payload too: the same stored-row rule, a wider cut reading.
+CAPTION_RULE_VERSION_V5 = "caption-v5"
+
 #: Class labels in reporting order (strongest measured grant rate first).
 PETITIONER_CLASSES: Final[tuple[PetitionerClass, ...]] = ("federal", "state", "private")
 
@@ -561,25 +565,34 @@ def names_captioned_petitioner(party: str, caption_text: str) -> bool:
 
 
 class CutRow(corpus.CorpusRow):
-    """A row projected to a cell's cut, carrying caption-v4's one counsel fact and no counsel.
+    """A row projected to a cell's cut, carrying one counsel fact in two readings and no counsel.
 
     The base row a frozen cell band and the gate replay's projection read
     (:func:`.asof.project_row`) holds no counsel entry: a replay or back-test
     snapshot has its counsel blocks redacted, and an entry list is far more than
-    the band needs. The single fact caption-v4 turns on rides here instead,
-    read off the served payload before any redaction by
-    :func:`sg_counsel_of_record_at_cut`, so forward and replay cells band on one
-    rule. Every other counsel field must stay empty, and the validator refuses a
-    row that carries one, so nothing else about counsel reaches a band through
-    this type. Never written to the corpus: a projection, not a stored row.
+    the band needs. The single fact caption-v4 and caption-v5 turn on rides
+    here instead, read off the served payload before any redaction: as
+    caption-v4 admits payloads (:func:`sg_counsel_of_record_at_cut`, the same
+    rule for forward and replay cells) and as caption-v5 does
+    (:func:`sg_counsel_of_record_on_forward_cut`, which also reads a forward
+    cell's ``truncated`` payload). Every other counsel field must stay empty,
+    and the validator refuses a row that carries one, so nothing else about
+    counsel reaches a band through this type. Never written to the corpus: a
+    projection, not a stored row.
     """
 
     sg_counsel_of_record_for_petitioner: bool = Field(
         default=False,
         description="Whether the payload served at or before the cut lists the "
         "Solicitor General's office as counsel of record for the captioned "
-        "petitioner (`sg_counsel_of_record_at_cut`). The only counsel fact a "
-        "projected row carries.",
+        "petitioner (`sg_counsel_of_record_at_cut`), the fact caption-v4 reads.",
+    )
+    sg_counsel_of_record_forward: bool = Field(
+        default=False,
+        description="The same fact read under caption-v5's admission "
+        "(`sg_counsel_of_record_on_forward_cut`): on a forward cell, a "
+        "`truncated` payload is read too; on any other cell it equals "
+        "`sg_counsel_of_record_for_petitioner`.",
     )
 
     @model_validator(mode="after")
@@ -658,6 +671,16 @@ def sg_counsel_of_record_at_cut(
     """
     if provenance not in _SERVED_BY_THE_CUT:
         return False
+    return _office_counsel_of_record(payload, caption_text=caption_text, cut=cut)
+
+
+def _office_counsel_of_record(payload: Mapping[str, Any], *, caption_text: str, cut: date) -> bool:
+    """The three tests and the filing-date roster test over ``payload``'s ``Petitioner`` block.
+
+    The reading both cut facts share (:func:`sg_counsel_of_record_at_cut`,
+    :func:`sg_counsel_of_record_on_forward_cut`); which payloads each admits is
+    theirs to decide, before this runs.
+    """
     from .counsel import office_entries_at_filing  # noqa: PLC0415 - counsel<-party<-caption cycle
 
     filed = _docketed(payload.get("DocketedDate"))
@@ -681,6 +704,59 @@ def sg_counsel_of_record_at_cut(
     )
 
 
+#: The provenances a forward cell's payload can carry, every one of them read
+#: by caption-v5. A forward cell's case is pending, so no payload it is placed
+#: on can record an outcome, and its record keeps the counsel blocks the fact is
+#: read from: the cell reads the entry whatever its provenance, and the band
+#: reads what the cell reads. ``blind`` is a replay provenance only.
+_SERVED_TO_A_FORWARD_CELL: Final[frozenset[str]] = frozenset({"as-stored", "dated", "truncated"})
+
+
+def sg_counsel_of_record_on_forward_cut(
+    payload: Mapping[str, Any], *, caption_text: str, cut: date, provenance: str, mode: str
+) -> bool:
+    """caption-v5's counsel fact: caption-v4's, also read on a forward ``truncated`` payload.
+
+    On a ``forward`` cell, true where the payload's provenance is one a forward
+    cell is placed on (:data:`_SERVED_TO_A_FORWARD_CELL`) and the same tests
+    :func:`sg_counsel_of_record_at_cut` applies hold over it: the
+    ``Petitioner`` block, counsel of record, the captioned party, and
+    ``sg-office-v1``'s roster on the payload's ``DocketedDate``, itself on or
+    before ``cut``. On any other mode it is :func:`sg_counsel_of_record_at_cut`
+    exactly, so a replay or back-test cell bands as under caption-v4.
+
+    The admission is the forward cell's own information set. A ``truncated``
+    forward payload is a later pull of a pending docket cut to the moment; its
+    counsel blocks are undated, so they are the later pull's, but the case
+    has no outcome for them to carry, and the cell's record keeps them, so
+    the engine already reads the entry the band would otherwise ignore. The
+    residual is the office substituting for the captioned petitioner between
+    the cut and that pull, which the roster test still bounds to an attorney
+    in the office on the filing date. Pure and total.
+    """
+    if mode != "forward":
+        return sg_counsel_of_record_at_cut(
+            payload, caption_text=caption_text, cut=cut, provenance=provenance
+        )
+    if provenance not in _SERVED_TO_A_FORWARD_CELL:
+        return False
+    return _office_counsel_of_record(payload, caption_text=caption_text, cut=cut)
+
+
+def sg_counsel_of_record_for_petitioner_v5(row: corpus.CorpusRow) -> bool:
+    """caption-v5's counsel fact: caption-v4's on a stored row, the forward reading on a cut row.
+
+    A stored row reads exactly as under caption-v4
+    (:func:`sg_counsel_of_record_for_petitioner`), so every census, the band
+    census and the statpack's bands are caption-v4's. A :class:`CutRow` reads
+    the fact :func:`sg_counsel_of_record_on_forward_cut` produced
+    (``sg_counsel_of_record_forward``).
+    """
+    if isinstance(row, CutRow):
+        return row.sg_counsel_of_record_forward
+    return sg_counsel_of_record_for_petitioner(row)
+
+
 def petitioner_class_v4(row: corpus.CorpusRow) -> PetitionerClass:
     """The row's ``caption-v4`` petitioner class: the office for the captioned party, then v2.
 
@@ -692,6 +768,20 @@ def petitioner_class_v4(row: corpus.CorpusRow) -> PetitionerClass:
     read to ``federal``, and every row it moves v3 moves too.
     """
     if sg_counsel_of_record_for_petitioner(row):
+        return "federal"
+    return petitioner_class_v2(row)
+
+
+def petitioner_class_v5(row: corpus.CorpusRow) -> PetitionerClass:
+    """The row's ``caption-v5`` petitioner class: caption-v4 with the forward cut reading.
+
+    On a stored row it is :func:`petitioner_class_v4` exactly. On a
+    :class:`CutRow` the counsel check reads
+    :func:`sg_counsel_of_record_for_petitioner_v5`, which differs from
+    caption-v4's only on a forward cell placed on a ``truncated`` payload.
+    Every other row reads its ``caption-v2`` class, as under caption-v4.
+    """
+    if sg_counsel_of_record_for_petitioner_v5(row):
         return "federal"
     return petitioner_class_v2(row)
 
@@ -709,6 +799,7 @@ CAPTION_RULES: Final[Mapping[str, Callable[[corpus.CorpusRow], PetitionerClass]]
             CAPTION_RULE_VERSION_V2: petitioner_class_v2,
             CAPTION_RULE_VERSION_V3: petitioner_class_v3,
             CAPTION_RULE_VERSION_V4: petitioner_class_v4,
+            CAPTION_RULE_VERSION_V5: petitioner_class_v5,
         }
     )
 )

@@ -1289,7 +1289,15 @@ successor's name on a federal party) is never applied. The cost is declared: a
 replay or back-test cell reconstructed by truncation bands as `sal-v6` would on
 the class, so a `sal-v7` replay reading measures `caption-v4` on its `dated`
 cells only, and the provenance mix each replay cell reports says how many
-those are. Under `sal-v6` and every earlier version nothing reads the fact.
+those are. The same refusal binds a **forward** cell rebuilt by truncation,
+and that is most forward cells placed at a moment: a petition is usually first
+pulled after its docketing day, so its arrival cut precedes every stored
+snapshot. On the ledger at `main` `96544a9c9` (blob `7fd93dcc…`, newest pull
+2026-11-06), 126 of the 180 forward arrival cells are `truncated`, and an
+office-filed petition among them, such as 26-111's arrival cell, freezes its
+`caption-v2` band while its record carries the office's entry. `sal-v8` below
+reads the fact there. Under `sal-v6` and every earlier version nothing reads
+the fact.
 
 **Two readings of one rule.** The census, the band census script and the
 statpack's `sal-v7` block band **stored** rows, so they read the row's whole
@@ -1318,6 +1326,91 @@ it, proceeding on the bar `sal-v3`'s activation cleared alone: the census and
 its outcome-free precision.
 The 2026-11-04 entry of [freeze-record.md](freeze-record.md) carries the
 tables and the dry run's size.
+
+### `sal-v8`: `sal-v7` read through `caption-v5`
+
+`sal-v8` is `sal-v7` with the petitioner class read through `caption-v5`: the
+score, the relist count, the writ scope, the `dist-v2` parse pin, the
+cutpoints, the band vocabulary and the arrival draw are `sal-v7`'s, as the same
+callables, and the band, the carve-in and the reachable ladder read the class
+through `caption-v5` exactly as `sal-v7` reads it through `caption-v4`.
+
+`sal-v8` is **registered, inactive**: `SALIENCE_VERSION` still names `sal-v7`,
+so nothing live moves. Registration puts its bands in every rendered pack's
+`alt_segments` and its cells in every `salience-replay`, on the pattern every
+version since `sal-v5` set, so the pack carries a `sal-v8` block before any
+cell freezes a `sal-v8` band. Its activation is a separate step and a separate
+freeze-record entry.
+
+**`caption-v5`.** `caption-v5` (`pipeline.caption.petitioner_class_v5`,
+registered in `CAPTION_RULES` beside the four earlier rules, which are
+unchanged) is `caption-v4` with one wider admission for the cut fact. On a
+stored row it is `caption-v4` exactly: the same counsel-of-record check, the
+same party match, the same filing-date roster test, over the row's whole
+counsel list. On a projected row it reads the fact
+`caption.sg_counsel_of_record_on_forward_cut` produced, which applies the same
+tests to the same `Petitioner` block and differs from
+`caption.sg_counsel_of_record_at_cut` in one place: on a cell whose mode is
+`forward`, a `truncated` payload is read too. On a replay or back-test cell it
+is `caption-v4`'s fact, and a `blind` payload, a replay provenance, is never
+read. The projected row (`caption.CutRow`) carries the two readings as two
+booleans and still refuses every counsel entry, party and attorney, so the
+cell's `context.json` gains no field.
+
+**Why a forward truncated payload is read.** `caption-v4` refuses a
+`truncated` payload because its counsel blocks are undated, so they are the
+later pull's, not the record at the cut. On a replay cell that matters: the
+later pull may postdate the outcome, and the substitution residual under
+*When the reading exists* is outcome-adjacent. On a forward cell neither
+holds. The case is pending, so no pull of it can record an outcome, and the
+forward cell's record keeps the counsel blocks (the redaction runs on replay
+cells only), so the engine already reads the office's entry the band would
+ignore. The band then reads what the cell reads. The residual is the office
+substituting for the captioned petitioner between the cut and the pull the
+cell was rebuilt from; the roster test still bounds it to an attorney in the
+office on the filing date, and on an arrival cell the gap is the days between
+docketing and the first pull.
+
+**Two readings, one forward and one replay.** `sal-v8`'s forward cell and its
+replay cell on the same truncated docket can freeze different bands, which
+`sal-v7`'s never do. That is the forward cell's information set showing
+through: a replay cell is blind to counsel identity by construction
+(`provision.redact_snapshot`), a forward cell is not. So a `sal-v8` replay
+reading measures `caption-v5` exactly as a `sal-v7` one measures `caption-v4`,
+on the `dated` cells alone, and it says nothing about the forward truncated
+cells `sal-v8` moves.
+
+**What `sal-v8` moves.** On stored rows, nothing: the live pass, the latches,
+the census and the statpack's bands read `sal-v8` as `sal-v7`, so its
+`alt_segments` block equals `sal-v7`'s segments row for row. On frozen cell
+bands, only a forward cell placed on a `truncated` payload whose `Petitioner`
+block names the office as counsel of record for the captioned party, which
+moves into `federal`. `uv run python scripts/checks/sal_v8_forward_cells.py`
+re-places the ledger's banded forward cells that way and lists the moves.
+On the ledger at `main` `96544a9c9` (blob `7fd93dcc…`, newest pull
+2026-11-06, newest stored snapshot row 2026-07-13) it finds 457 banded forward
+cells, one per case, event and cutoff, across every moment (300 `as-stored`,
+37 `dated`, 120 `truncated`); of the 120, 3 move:
+26-111's arrival cell (`baseline` → `federal`), and the call-for-response
+cells of 26-145 (`baseline` → `federal`) and 26-146 (`state` → `federal`).
+The re-placement reads each case's newest stored snapshot, not the pull the
+cell was placed on, so it is a reading of the rule over today's counsel
+blocks rather than a replay of the cells; its `sal-v7` bands reproduce the
+frozen band on 108 of the 120.
+
+**The activation prerequisites,** stated here so the flip does not rediscover
+them:
+
+- the first metrics refresh after the promotion carrying this registration,
+  so the committed pack's `alt_segments` holds the `sal-v8` block a cell
+  minted under the flip pools its anchor from;
+- the forward re-placement above, re-run on the activation's blob, as the
+  activation's evidence. No outcome-clean reading exists for the move: every
+  moved cell is pending, and the replay cannot see a forward truncated cell
+  at all. The bar is the one `sal-v7`'s activation cleared, the rule's
+  outcome-free precision: each moved cell's caption and counsel entry are
+  read, and on the registration's ledger all 3 moved cells are among the 15
+  rows the `caption-v4` census moves on stored rows.
 
 ## Selection — deterministic rank-and-cap, sticky per conference
 

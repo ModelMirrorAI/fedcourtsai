@@ -2063,14 +2063,22 @@ def test_alt_segments_carry_exactly_the_non_active_versions(
     fixture_corpus: FixtureCorpus,
 ) -> None:
     """The block exists for every non-active registered version — today, sal-v1,
-    sal-v2, the superseded sal-v3, sal-v4 and sal-v6 and the never-activated
-    sal-v5, beside the active sal-v7 — and never
+    sal-v2, the superseded sal-v3, sal-v4 and sal-v6, the never-activated
+    sal-v5 and the registered sal-v8, beside the active sal-v7 — and never
     repeats the active one, so a prediction frozen at any registered version
     keeps a published base rate."""
     pack = _pack(fixture_corpus)
     for term in pack.terms:
         versions = {alt.salience_version for alt in term.alt_segments}
-        assert versions == {"sal-v1", "sal-v2", "sal-v3", "sal-v4", "sal-v5", "sal-v6"}, versions
+        assert versions == {
+            "sal-v1",
+            "sal-v2",
+            "sal-v3",
+            "sal-v4",
+            "sal-v5",
+            "sal-v6",
+            "sal-v8",
+        }, versions
     payload = pack.model_dump(mode="json")
     assert all("alt_segments" in term for term in payload["terms"])
 
@@ -2094,6 +2102,7 @@ def test_a_second_version_publishes_its_own_bands_beside_the_active_ones(
             "sal-v4",
             "sal-v5",
             "sal-v6",
+            "sal-v8",
         }
         # Each version's own vocabulary, not the active scorer's — a band name
         # means something only under the function that assigned it.
@@ -2102,14 +2111,18 @@ def test_a_second_version_publishes_its_own_bands_beside_the_active_ones(
         assert [s.band for s in alts["sal-v2"].segments] == list(
             _BANDS
         )  # one caption-banded vocabulary
-        # sal-v3, sal-v4 and sal-v6 share the active sal-v7's band vocabulary exactly;
+        # sal-v3, sal-v4, sal-v6 and sal-v8 share the active sal-v7's band vocabulary exactly;
         # the pack bands every version off the one column.
         assert [s.band for s in alts["sal-v3"].segments] == list(_BANDS)
         assert [s.band for s in alts["sal-v4"].segments] == list(_BANDS)
         assert [s.band for s in alts["sal-v6"].segments] == list(_BANDS)
+        assert [s.band for s in alts["sal-v8"].segments] == list(_BANDS)
+        # caption-v5 reads every stored row as caption-v4 does, so the registered
+        # sal-v8 pools exactly the active sal-v7's segments.
+        assert alts["sal-v8"].segments == term.segments
     # And it survives serialization rather than being dropped by the wrap serializer.
     payload = pack.model_dump(mode="json")
-    assert all(len(term["alt_segments"]) == 7 for term in payload["terms"])
+    assert all(len(term["alt_segments"]) == 8 for term in payload["terms"])
 
 
 def test_both_versions_count_the_same_rows_into_their_own_bands(

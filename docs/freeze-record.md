@@ -16702,3 +16702,79 @@ freeze commit is recorded here.
   is quoted for it, and the floor moves only by a later dated entry. Carried
   to `main` by the promotion tagged `promotion/2026-11-05` (merge commit
   `478003b709f6ddd1eab343a97a697c46463bad58`, merged `2026-11-05T14:54:07Z`).
+
+- **`caption-v5` and `sal-v8` registered, inactive; recorded 2026-11-06.** No
+  freeze commit belongs to this entry, on the `sal-v7` registration's pattern:
+  the salience version sits outside the process digest, carries its own
+  data-visible boundary (`context.salience_version`), and a registration
+  re-blesses nothing. `uv run fedcourts process-digest --all` prints the same
+  six `proc-v17` digests before and after this change, and no harness boundary
+  is registered: the second counsel reading rides the cell's projected row
+  beside the first and adds no field to `context.json`. `SALIENCE_VERSION`
+  stays `sal-v7`, so nothing the live pass selects, latches or stamps moves;
+  `statpack.json` and `salience-replay.json` carry an eighth version's bands
+  from their next render. No prompt text or other digest input changes.
+
+  **What `caption-v5` is.** `caption-v4` on every stored row, with one wider
+  admission for the cut fact a frozen cell band reads: on a cell whose mode is
+  `forward`, a `truncated` payload is read too
+  (`caption.sg_counsel_of_record_on_forward_cut`), under the same three tests
+  (the `Petitioner` block, counsel of record, the captioned party) and the
+  same filing-date roster test. On every other mode it is `caption-v4`'s fact;
+  a `blind` payload is never read. `caption-v1` to `caption-v4` are unchanged.
+
+  **What `sal-v8` is.** `sal-v7`'s score, writ scope, `dist-v2` pin,
+  cutpoints, band vocabulary and arrival draw, as the same callables, with the
+  band, the carve-in and the reachable ladder read through `caption-v5`.
+
+  **Why.** `caption-v4` refuses a `truncated` payload because its counsel
+  blocks are a later pull's. On a forward cell the case is pending, so no pull
+  carries an outcome, and the cell's record keeps the blocks, so the engine
+  reads the office's entry the band ignores. Most forward cells placed at a
+  moment are truncated: on the ledger at `main` `96544a9c9`, 126 of the 180
+  forward arrival cells. The 2026-11-05 runs `20261105T203825Z` and
+  `20261105T213502Z` froze 26-111's arrival cell `baseline` (cert anchor
+  5.15%) though the office files the petition for its captioned petitioners,
+  and the engine departed from the anchor on its own reading.
+
+  **What it moves.** On stored rows nothing, so the statpack's `sal-v8` block
+  equals `sal-v7`'s segments and the activation dry run plans no latch
+  `sal-v7` does not. On frozen cell bands,
+  `uv run python scripts/checks/sal_v8_forward_cells.py` over the ledger at
+  `main` `96544a9c9`, on blob
+  `7fd93dccd2e085a8ae5aca01dff6f78d9af01b9b341fe8486b34887614bdb0fe` (newest
+  pull 2026-11-06, newest stored snapshot row 2026-07-13), with each case's
+  newest content-store snapshot cut to the cell's cutoff, re-places the 120
+  `truncated` cells among 457 banded forward cells (one per case, event and
+  cutoff; 300 `as-stored`, 37 `dated`), and 3 move into `federal`: 26-111's
+  arrival cell from `baseline`, and the call-for-response cells of 26-145 from
+  `baseline` and 26-146 from `state`. All 3 are among the 15 rows the
+  `caption-v4` census moves on stored rows. The re-placement's `sal-v7` band
+  reproduces the frozen band on 108 of the 120; the rest read a newer pull or
+  were frozen under an earlier version.
+
+  **What a replay reading can and cannot say.** A `sal-v8` replay cell reads
+  `caption-v4`'s fact, so its replay readings equal `sal-v7`'s, and no replay
+  cell is a forward truncated cell. The move above has no outcome-clean
+  reading at registration: every moved cell is pending.
+
+  **Not owed by this registration, owed by an activation.** The first
+  metrics refresh after the promotion carrying this entry, so the committed
+  pack holds a `sal-v8` block, and the forward re-placement re-run on the
+  activation's blob (`docs/salience.md`, the `sal-v8` section).
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - on `main`, `uv run python -c "from fedcourtsai.pipeline.salience import
+    SALIENCE_VERSION, SCORERS; from fedcourtsai.pipeline.caption import
+    CAPTION_RULES; print(SALIENCE_VERSION, 'sal-v8' in SCORERS, 'caption-v5'
+    in CAPTION_RULES)"` prints `sal-v7 True True`;
+  - after the first post-promotion metrics refresh, `jq -r
+    '[.terms[].alt_segments[].salience_version] | unique | join(" ")'
+    metrics/statpack.json` includes `sal-v8`, and `.terms[].salience_version`
+    stays `sal-v7`;
+  - where the corpus is pulled and the content store addressed,
+    `CHECK_SUMMARY=<file> uv run python scripts/checks/sal_v8_forward_cells.py`
+    lists the moves above, with any forward cell minted since added.
