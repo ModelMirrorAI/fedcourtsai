@@ -2453,8 +2453,8 @@ the rendered table) and
   `sal-v7` with the class read through `caption-v5`, which reads every stored
   row and every replay cell exactly as `caption-v4` does, so its statpack
   block and its replay cells equal `sal-v7`'s; it differs only on a forward
-  cell rebuilt by truncation, which no replay cell is; it is the active
-  scorer. Any of these blocks over past Terms is
+  cell rebuilt by truncation, which no replay cell is. `sal-v8` is the
+  active scorer. Any of these blocks over past Terms is
   **not that version's pool** on a pack rendered before the run-repair
   back-fill filled `distributed_after_call` and `opening_writ` on the decided
   rows: on such a pack those rows read as `sal-v4` reads them, mixed with the

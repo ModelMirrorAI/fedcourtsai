@@ -287,7 +287,7 @@ widening under the old label would re-point a published constant at a
 population it was never measured on.
 
 `sal-v3` is a **frozen, superseded** scorer: `sal-v4` below is `sal-v3` read
-under a second distribution parse, and the active version is `sal-v7`. Everything in
+under a second distribution parse, and the active version is `sal-v8`. Everything in
 this section is `sal-v3`'s own record — the caption widening it registered, the
 review that licensed it, and the pools its frozen predictions still replay
 against — and none of it moved when the pointer did. Registration and activation are separate
@@ -429,7 +429,7 @@ unversioned, because an ancillary paper is distributed for the conference the
 petition is on and a case must sit in one cohort rather than one per parse.
 
 `sal-v1` through `sal-v3` pin `dist-v1`; `sal-v4` pins `dist-v2` (below), and
-so do `sal-v5`, `sal-v6` and the **active** `sal-v7`, which is also the reading the corpus's
+so do `sal-v5`, `sal-v6`, `sal-v7` and the **active** `sal-v8`, which is also the reading the corpus's
 `distribution_count` column now holds. The active scorer's parse and the column's therefore agree, which is the
 alignment that is load-bearing beyond banding: the relist-increment
 claim reads its prediction-time count from the frozen context (which follows the

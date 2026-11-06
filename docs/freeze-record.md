@@ -17077,9 +17077,9 @@ freeze commit is recorded here.
   == "sal-v8") | .segments)] | all' metrics/statpack.json` prints `true` on
   it, and `uv run fedcourts segment-anchors --term 2026 --salience-version
   <v> --statpack metrics/statpack.json` pools `sal-v7` and `sal-v8` to the
-  same anchors for an OT2026 docket (lookback 10, risk-set rate): federal
-  73.11% (n=212), high 34.76% (n=771), state 23.33% (n=420), elevated 24.78%
-  (n=2,006), baseline 5.15% (n=12,657).
+  same anchors for an OT2026 docket on that pack (lookback 10, risk-set rate,
+  denial-reweighted resolved n): federal 73.11% (212), high 34.76% (771),
+  state 23.33% (420), elevated 24.78% (2,006), baseline 5.15% (12,657).
 
   **The activation dry run.** `uv run python
   scripts/checks/salience_activation_dry_run.py` with each version active,
@@ -17092,7 +17092,9 @@ freeze commit is recorded here.
   **The forward re-placement.** `uv run python
   scripts/checks/sal_v8_forward_cells.py` over the ledger at `main`
   `ddea12254`, on the same blob, re-places the 120 `truncated` cells among
-  457 banded forward cells (one per case, event and cutoff; 300 `as-stored`,
+  457 banded forward cells, each from its case's newest stored snapshot cut
+  to the cell's cutoff, so it reads the rule over today's counsel blocks
+  rather than replaying the cells (one per case, event and cutoff; 300 `as-stored`,
   37 `dated`). The same 3 cells the registration entry names would freeze
   `federal` under `sal-v8`: 26-111's arrival cell (`baseline` under
   `sal-v7`), and the call-for-response cells of 26-145 (`baseline`) and
@@ -17103,13 +17105,17 @@ freeze commit is recorded here.
   the bar `sal-v7`'s activation cleared, the rule's outcome-free precision:
   all 3 are among the 15 rows the `caption-v4` census moves on stored rows,
   each with the office as counsel of record for its captioned petitioner.
+  26-145's and 26-146's captions name a Warden, so the office's appearance
+  for a federal officer moves them; 26-111's names private persons only
+  ("Noah A. Herzon, et al."), so its move rests on the counsel entry alone,
+  one of the 3 such captions the registration of `caption-v4` names.
 
   **What it moves.** No frozen band changes: a prediction keeps the version
   that banded it. The live pass scores, latches and stamps under `sal-v8`,
   with the same latches as `sal-v7`. A forward cell minted after the flip on
   a `truncated` payload whose `Petitioner` block lists the office as counsel
   of record for the captioned party freezes `federal` and pools the federal
-  anchor (73.11% for an OT2026 docket) where `sal-v7` froze its caption
+  anchor (73.11% for an OT2026 docket on the `47838bb39` pack) where `sal-v7` froze its caption
   class's. The scored window opens at the first post-promotion metrics
   refresh, as for every earlier flip; a cell minted before it pools a
   `sal-v8` anchor from the committed `alt_segments` block but reads
@@ -17127,5 +17133,8 @@ freeze commit is recorded here.
   - on the first predict run's collect PR after the carrying merge, `jq -r
     '.context.salience_version'
     data/cases/scotus/*/events/*/predictions/*/<run_id>/prediction.json |
-    sort -u` prints `sal-v8` (and `null` on an unbanded cell), and a new
-    forward cell on scotus/9026000111 freezes `band` `federal`.
+    sort -u` prints `sal-v8` (and `null` on an unbanded cell); and the first
+    new forward cell whose `context.snapshot_provenance` is `truncated` and
+    whose staged snapshot's `Petitioner` block lists the office as counsel of
+    record for the captioned party (a docket like 26-111) freezes `band`
+    `federal`, where `sal-v7` would have frozen its caption class.
