@@ -2492,12 +2492,15 @@ The three decisions are fixed here, before any interim cell has been scored, so
 none can be tuned to a result.
 
 **Pre-registered: the applicant-class cut is context, not a yardstick.** The
-pool mixes every applicant, and the classes resolve very differently: a
-government applicant is granted far more often than a private one, and a
-private capital applicant (a stay of execution) almost never. So the statpack
+pool mixes every applicant, and the classes resolve very differently (the
+`proc-v18` freeze-record entry measures them): a government applicant is
+granted far more often than a private one, and a private capital applicant (a
+stay of execution) almost never. So the statpack
 splits each Term's finer-reading counts by **applicant class** — `caption-v2`
 (`pipeline.caption`) over the applicant caption, `federal` / `state` /
-`private` — crossed with the **capital marking** the cert `capital_case` cut
+`private`, where a local officer the caption names by office (a sheriff, a
+warden) reads `state` and a city or county named as itself reads `private` —
+crossed with the **capital marking** the cert `capital_case` cut
 reads (`capital`, `unmarked`, and `unknown` for a row no live poll stamped),
 on both ask vocabularies (`applicant_cuts` on each interim Term, with the rule
 stamped as `applicant_class_rule`). The cells partition the Term's `finer_*`
@@ -2509,15 +2512,22 @@ margin, and prints a rate only where a cell or margin reaches
 `INTERIM_APPLICANT_CUT_MIN_RESOLVED = 30` resolved applications. Thirty is the
 siblings' absolute-SE standard (at most 0.091), and the reason the scored
 floor tightens to 50 does not apply: no skill ratio divides by a cell's rate.
-Below it the table shows the count and no rate. **The scored yardstick does
-not move**: an interim cell is scored against the whole pool, and a
+Below it the table shows the counts and no rate: thin evidence rather than a
+figure, and a reader can still recover a thin cell from its margins, so the
+floor marks precision rather than hiding anything. **The scored yardstick does
+not move**: an interim cell is scored against the whole pool, under its own
+floor of 50, and a
 predictor reading its own class's cell is a forecaster's input like the
 escalation ladder, stated in `reasoning.md`. The ask is not a third axis
 because the corpus does not separate it: the substantive ask vocabulary reads
 a stay and a vacatur of a stay alike, and the capital-state cell is where an
-application to vacate a stay of execution falls. A capital-state cell is
-small, a handful of applications a Term, so on the ten-Term pool it sits
-under the floor and its `state` margin is the figure to read.
+application to vacate a stay of execution falls. That cell is small, a
+handful of applications a Term, so on the ten-Term pool it sits under the
+floor; its `state` margin pools it with the State's non-capital asks, a
+different population, so the margin is a coarser fallback beside the thin
+cell, not the figure for it. The pool's caveats hold for every cell, and a
+missed capital marking can only read `unmarked`, so the gap between the
+columns is a lower bound.
 
 ## Shared discipline: leakage / timing
 

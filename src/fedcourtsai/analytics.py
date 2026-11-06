@@ -1465,7 +1465,7 @@ _APPLICANT_CLASSES: Final[tuple[InterimApplicantClass, ...]] = ("federal", "stat
 _CAPITAL_MARKINGS: Final[tuple[InterimCapitalMarking, ...]] = ("capital", "unmarked", "unknown")
 
 
-def _applicant_cut_key(row: CorpusRow) -> tuple[str, str]:
+def _applicant_cut_key(row: CorpusRow) -> tuple[InterimApplicantClass, InterimCapitalMarking]:
     """One application row's ``(applicant class, capital marking)`` cell.
 
     The class is :data:`INTERIM_APPLICANT_CLASS_RULE` over the applicant caption
@@ -1475,7 +1475,9 @@ def _applicant_cut_key(row: CorpusRow) -> tuple[str, str]:
     """
     applicant = caption_rule(INTERIM_APPLICANT_CLASS_RULE)(row)
     marking = _capital_case_key(row)
-    return applicant, ("unknown" if marking == _UNKNOWN_KEY else marking)
+    if marking == _UNKNOWN_KEY:
+        return applicant, "unknown"
+    return applicant, ("capital" if marking == "capital" else "unmarked")
 
 
 def _applicant_cuts(acc: _InterimAcc) -> list[StatPackInterimApplicantCut]:
@@ -1544,11 +1546,11 @@ class _InterimAcc:
     def __init__(self) -> None:
         self.applications = 0
         self.duplicate_rows = 0
-        # (applicant class, capital marking) -> the four finer-reading counts,
-        # in `_CUT_COUNTS` order.
-        self.applicant_cuts: defaultdict[tuple[str, str], list[int]] = defaultdict(
-            lambda: [0, 0, 0, 0]
-        )
+        # (applicant class, capital marking) -> [finer resolved, finer granted,
+        # wide finer resolved, wide finer granted].
+        self.applicant_cuts: defaultdict[
+            tuple[InterimApplicantClass, InterimCapitalMarking], list[int]
+        ] = defaultdict(lambda: [0, 0, 0, 0])
         self.kinds: Counter[str] = Counter()
         self.unparsed = 0
         self.substantive_resolved = 0
@@ -1669,10 +1671,6 @@ class _InterimAcc:
         """Fold another slice's counters into this one (for the pack-level totals)."""
         self.applications += other.applications
         self.duplicate_rows += other.duplicate_rows
-        for key, counts in other.applicant_cuts.items():
-            mine = self.applicant_cuts[key]
-            for index, value in enumerate(counts):
-                mine[index] += value
         self.kinds.update(other.kinds)
         self.unparsed += other.unparsed
         self.substantive_resolved += other.substantive_resolved
@@ -3018,17 +3016,27 @@ def _interim_applicant_lines(pack: StatPack, lookback_terms: int) -> list[str]:
             + f"the {counts} counts — split by who applies and whether the Court's docket "
             + "marks the case capital. The applicant's class is "
             + f"`{interim.applicant_class_rule}` over the applicant caption: `federal` is "
-            + "the United States, its agencies and officers; `state` a State, its "
-            + "officers and its subdivisions (a State asking to vacate a stay of "
-            + "execution reads `state`, in the `capital` column); `private` everyone "
-            + "else. **Descriptive context, not a yardstick**: an interim cell is still "
-            + "scored against the whole pool (the bottom-right cell), never against its "
-            + "own class's cell. "
+            + "the United States, its agencies and its officers named by federal office; "
+            + "`state` a State and its officers, a local officer the caption names by "
+            + "office (a sheriff, a warden, a district attorney) included, so a State "
+            + "asking to vacate a stay of execution reads `state`, in the `capital` "
+            + "column; `private` everyone else, a city or county named as itself "
+            + "included. **Descriptive context, not a yardstick**: an interim cell is "
+            + "still scored against the whole pool (the bottom-right cell, scored only "
+            + "where it reaches `INTERIM_BASE_RATE_MIN_RESOLVED` = "
+            + f"{INTERIM_BASE_RATE_MIN_RESOLVED}), never against its own class's cell. "
             + "A cell or margin under "
             + f"{INTERIM_APPLICANT_CUT_MIN_RESOLVED} resolved applications "
-            + "(`INTERIM_APPLICANT_CUT_MIN_RESOLVED`) shows its count and no rate. "
+            + "(`INTERIM_APPLICANT_CUT_MIN_RESOLVED`) shows its counts and no rate: "
+            + "thin evidence, not a figure. A margin pools its cells, so it is a coarser "
+            + "population than any one of them and can sit far from a thin cell. The "
+            + "pool's caveats hold for every cell: the scored applications are "
+            + "selected higher on the escalation ladder than this cohort, parse "
+            + "coverage is uneven across Terms, and a missed capital marking can only "
+            + "read `unmarked`, so the gap between the columns is a lower bound. The "
+            + "`federal` row spans administrations. "
             + "Replay/backtest cells: pool the per-Term `applicant_cuts` in "
-            + "`statpack.json` strictly before your own Term instead._"
+            + "`statpack.json` over the Terms your own scored pool reads instead._"
         ),
         "",
     ]
@@ -3044,10 +3052,10 @@ def _interim_applicant_lines(pack: StatPack, lookback_terms: int) -> list[str]:
         if resolved == 0:
             return "—"
         if resolved < INTERIM_APPLICANT_CUT_MIN_RESOLVED:
-            return f"n={resolved}, below floor"
+            return f"{granted}/{resolved}, below floor"
         return f"{_pct(granted / resolved)} ({granted}/{resolved})"
 
-    def _sum(keys: list[tuple[str, str]]) -> tuple[int, int]:
+    def _sum(keys: list[tuple[InterimApplicantClass, InterimCapitalMarking]]) -> tuple[int, int]:
         cells = [pooled.get(key, (0, 0)) for key in keys]
         return sum(c[0] for c in cells), sum(c[1] for c in cells)
 

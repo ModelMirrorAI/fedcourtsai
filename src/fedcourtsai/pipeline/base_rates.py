@@ -38,6 +38,8 @@ from ..schemas import (
     GRANTED_DISPOSITIONS,
     CertAnchor,
     FeeClass,
+    InterimApplicantClass,
+    InterimCapitalMarking,
     PredictionContext,
     StatPack,
     StatPackAuthorshipTerm,
@@ -846,7 +848,7 @@ def interim_applicant_cut_pool(
     statpack: StatPack,
     *,
     lookback_terms: int = 0,
-) -> dict[tuple[str, str], tuple[int, int]] | None:
+) -> dict[tuple[InterimApplicantClass, InterimCapitalMarking], tuple[int, int]] | None:
     """The applicant-class cells' ``(granted, resolved)`` over the scored pool's Terms.
 
     Pools each ``(applicant_class, capital_marking)`` cell of the interim
@@ -870,7 +872,7 @@ def interim_applicant_cut_pool(
     if windowed:
         lookback_terms = INTERIM_LOOKBACK_TERMS
     oldest = application_term - lookback_terms if lookback_terms > 0 else None
-    pooled: dict[tuple[str, str], tuple[int, int]] = {}
+    pooled: dict[tuple[InterimApplicantClass, InterimCapitalMarking], tuple[int, int]] = {}
     for entry in statpack.interim.terms:
         if entry.term >= application_term:
             continue  # leakage guard, as the scored pool's
@@ -881,7 +883,7 @@ def interim_applicant_cut_pool(
         if windowed:
             if _wide_counts(entry, "finer") is None:
                 return None
-        elif entry.finer_resolved is None or entry.finer_unread:
+        elif entry.finer_resolved is None or entry.finer_granted is None or entry.finer_unread:
             return None
         for cell in entry.applicant_cuts:
             granted, resolved = (

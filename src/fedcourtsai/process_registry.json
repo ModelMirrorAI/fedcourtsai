@@ -93,7 +93,7 @@
   ],
   "blessings": [
     {
-      "digest": "sha256:c0d1e87e53c57141a93257f6a722c039740f9cca0d8095ea0fb3e80b31391002",
+      "digest": "sha256:89efeee9de0ee0425d638a910357e3b772cd82f034c6fe8c43d1e1ece2ab8af5",
       "role": "predictor",
       "actor_id": "claude-baseline",
       "label": "proc-v18",
@@ -104,7 +104,7 @@
       }
     },
     {
-      "digest": "sha256:f6405dd5769e5c90403fda8cced329c6a053ac9a83da9e48a36f06047034306b",
+      "digest": "sha256:591b96ed96dc8a9f7b95006f4a8a0efede0ad377229eb4080c0571612d59bafd",
       "role": "predictor",
       "actor_id": "codex-baseline",
       "label": "proc-v18",
@@ -115,7 +115,7 @@
       }
     },
     {
-      "digest": "sha256:5c955b359e8592465f6acea8b7776352a400bfa49940674948f41095fa597241",
+      "digest": "sha256:78c7ec8425f379a06571ff5ed115c650c41c8d2ceb40399f4b88077b2848c595",
       "role": "predictor",
       "actor_id": "gemini-baseline",
       "label": "proc-v18",
@@ -594,7 +594,7 @@
     },
     {
       "label": "proc-v18",
-      "digest": "sha256:c0d1e87e53c57141a93257f6a722c039740f9cca0d8095ea0fb3e80b31391002",
+      "digest": "sha256:89efeee9de0ee0425d638a910357e3b772cd82f034c6fe8c43d1e1ece2ab8af5",
       "predictor_id": "claude-baseline",
       "opens": {
         "at": null,
@@ -606,7 +606,7 @@
     },
     {
       "label": "proc-v18",
-      "digest": "sha256:f6405dd5769e5c90403fda8cced329c6a053ac9a83da9e48a36f06047034306b",
+      "digest": "sha256:591b96ed96dc8a9f7b95006f4a8a0efede0ad377229eb4080c0571612d59bafd",
       "predictor_id": "codex-baseline",
       "opens": {
         "at": null,
@@ -618,7 +618,7 @@
     },
     {
       "label": "proc-v18",
-      "digest": "sha256:5c955b359e8592465f6acea8b7776352a400bfa49940674948f41095fa597241",
+      "digest": "sha256:78c7ec8425f379a06571ff5ed115c650c41c8d2ceb40399f4b88077b2848c595",
       "predictor_id": "gemini-baseline",
       "opens": {
         "at": null,

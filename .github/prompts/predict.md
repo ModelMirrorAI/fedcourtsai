@@ -675,22 +675,25 @@ of the requested relief**:
   number is not by itself evidence of forecast skill** — a positive value is
   consistent with the reserve's pick order alone (`docs/salience.md`).
 - **The interim section splits that pool by applicant.** Its table
-  **"Substantive applications by applicant class"** pools the scored pool's own
-  Terms for an application in the section's newest Term, split by who applies
-  (`federal`, `state` or `private`, read off the applicant caption) and
-  whether the Court's docket marks the case capital; a State asking to vacate
-  a stay of execution is the `state` row's `capital` column. It is context
-  for your number, not your yardstick: your cell is still scored against the
-  whole pool. A cell under the table's stated floor shows its count and no
-  rate, so read its row or column margin instead rather than computing a rate
-  the table withholds, and do not substitute a grant history from memory for
-  a cut the table publishes. Your application's class is the caption's; if
-  the caption misreads the applicant (a State officer the caption names
-  without the State, say), read the class you would assign and say so in
-  `reasoning.md`. A replay cell, or one in an older Term than the table's,
-  pools the per-Term `applicant_cuts` in `statpack.json` over the same Terms
-  its scored pool reads, under the same floor. Say in `reasoning.md` which
-  cell or margin you read and how far it moved your number.
+  **"Substantive applications by applicant class"** pools, for an
+  application docketed in the section's newest Term, the Terms its scored pool
+  reads, split by who applies (`federal`, `state` or `private`, read off the
+  applicant caption) and whether the Court's docket marks the case capital; a
+  State asking to vacate a stay of execution is the `state` row's `capital`
+  column. It is context for your number, not your yardstick: your cell is
+  still scored against the whole pool. A cell under the table's stated floor
+  shows its counts and no rate: treat it as thin evidence, not as a figure.
+  Its row and column margins pool it with other cells, so a margin is a
+  coarser population that can sit far from your cell, not a substitute for
+  it; weigh the two and say which you leaned on. Do not substitute a grant
+  history from memory for a cut the table publishes. The table's class is the
+  caption rule's; if the caption misreads your applicant (a State officer the
+  caption names without the State, say), name both the caption's class and
+  the one you would assign in `reasoning.md`, and say which cell you read. A
+  replay cell, or one in an older Term than the table's, pools the per-Term
+  `applicant_cuts` in `statpack.json` over the same Terms its scored pool
+  reads, under the same floor. Say in `reasoning.md` which cell or margin you
+  read and how far it moved your number.
 - **`predicted_reasoning.md` for an interim cell.** The legal standard — a
   fair prospect of certiorari (or of reversal) plus irreparable harm — is
   context you may reason about, but the claims that resolve against the

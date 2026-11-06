@@ -78,6 +78,10 @@ def _seed(db: Path) -> None:
                 _application("scotus/6", "24A6", "Richard Roe", interim_reading=None),
                 # No live poll stamped it: its marking is unknown, not unmarked.
                 _application("scotus/7", "23A1", "Mary Major", last_live_polled=None),
+                # A second row for 24A3's number joins no count, so no cell.
+                _application("scotus/8", "24A3", _FEDERAL),
+                # An ask only the widened vocabulary reads joins the wide counts alone.
+                _application("scotus/9", "24A9", "Jane Roe", application_kind="unknown"),
             ],
         )
 
@@ -105,7 +109,17 @@ def test_the_cut_partitions_each_terms_finer_counts(tmp_path: Path) -> None:
     }
     assert sum(c.finer_resolved for c in ot24.applicant_cuts) == ot24.finer_resolved == 4
     assert sum(c.finer_granted for c in ot24.applicant_cuts) == ot24.finer_granted == 2
-    assert sum(c.wide_finer_resolved for c in ot24.applicant_cuts) == ot24.wide_finer_resolved
+    wide = {
+        (c.applicant_class, c.capital_marking): (c.wide_finer_granted, c.wide_finer_resolved)
+        for c in ot24.applicant_cuts
+    }
+    assert wide == {
+        ("federal", "unmarked"): (1, 1),
+        ("state", "capital"): (1, 2),
+        ("private", "unmarked"): (1, 2),
+    }
+    assert sum(c.wide_finer_resolved for c in ot24.applicant_cuts) == ot24.wide_finer_resolved == 5
+    assert sum(c.wide_finer_granted for c in ot24.applicant_cuts) == ot24.wide_finer_granted == 3
     assert ot23.applicant_cuts == [
         StatPackInterimApplicantCut(
             applicant_class="private",
@@ -195,6 +209,8 @@ def test_the_table_shows_a_thin_cell_without_its_rate() -> None:
     assert "the 10 application-Term(s) before OT2026" in section
     assert "Descriptive context, not a yardstick" in section
     # 20 resolved is under the floor; 80 and the margins clear it.
-    assert "| state | n=20, below floor | — | n=20, below floor |" in section
+    assert "| state | 14/20, below floor | — | 14/20, below floor |" in section
     assert "| private | — | 10.0% (8/80) | 10.0% (8/80) |" in section
-    assert "| all | n=20, below floor | 10.0% (8/80) | 22.0% (22/100) |" in section
+    assert "| all | 14/20, below floor | 10.0% (8/80) | 22.0% (22/100) |" in section
+    # The whole pool is the yardstick only where it clears the scored floor.
+    assert "scored only where it reaches `INTERIM_BASE_RATE_MIN_RESOLVED` = 50" in section

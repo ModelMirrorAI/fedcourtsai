@@ -16733,8 +16733,8 @@ freeze commit is recorded here.
   - The predict prompt's interim bullet: read the table as context, not as
     the yardstick; read a margin where a cell is under the floor; never
     substitute a grant history from memory for a cut the table publishes;
-    pool the per-Term `applicant_cuts` strictly before the cell's own Term
-    on a replay cell; and say in `reasoning.md` which cell or margin was read.
+    pool the per-Term `applicant_cuts` over the Terms its own scored pool
+    reads on a replay cell; and say in `reasoning.md` which cell or margin was read.
 
   **Pre-registered.**
   1. *The cut is descriptive.* No skill, Brier or claim is scored against a
@@ -16743,9 +16743,13 @@ freeze commit is recorded here.
      (at most 0.091). The interim pool's 50 tightens that standard because
      `brier_skill` divides by the baseline; nothing divides by a cell's rate.
      The figure was chosen on that standard and not on which cells it
-     admits; the measurement below shows it withholds the `state` × `capital`
-     cell the motivating flag asked about, and the `state` margin is the
-     published figure for that application.
+     admits; the measurement below shows it withholds the rate of the
+     `state` × `capital` cell the motivating flag asked about. A cell under
+     the floor prints its granted and resolved counts and no rate, because
+     its margins would give the counts back by subtraction anyway: the floor
+     marks precision and hides nothing. The `state` margin pools that cell
+     with the State's non-capital asks, so it is a coarser fallback, not the
+     figure for that application.
   3. *The class rule is `caption-v2`*, the caption-only rule, because an
      application's counsel block is rarely stored and the rule re-derives
      from the corpus pointer. A later class rule is a new
@@ -16767,12 +16771,12 @@ freeze commit is recorded here.
   application, the ten Terms OT2016 to OT2025 on the finer counts (granted
   over resolved):
 
-  | Applicant | `capital` | `unmarked` | all |
+  | applicant | capital | unmarked | all |
   | --- | --- | --- | --- |
-  | `federal` | 8 resolved, under the floor | 39/57 (68.4%) | 46/65 (70.8%) |
-  | `state` | 20 resolved, under the floor | 24/58 (41.4%) | 37/78 (47.4%) |
-  | `private` | 10/288 (3.5%) | 63/906 (7.0%) | 73/1,194 (6.1%) |
-  | all | 30/316 (9.5%) | 126/1,021 (12.3%) | 156/1,337 (11.7%) |
+  | federal | 7/8, below floor | 68.4% (39/57) | 70.8% (46/65) |
+  | state | 13/20, below floor | 41.4% (24/58) | 47.4% (37/78) |
+  | private | 3.5% (10/288) | 7.0% (63/906) | 6.1% (73/1194) |
+  | all | 9.5% (30/316) | 12.3% (126/1021) | 11.7% (156/1337) |
 
   No interim row is `unknown` on the marking at this vintage, so the table
   prints no `unknown` column.
@@ -16800,9 +16804,9 @@ freeze commit is recorded here.
 
   | Actor | Before (`proc-v17`) | `proc-v18` |
   | --- | --- | --- |
-  | `claude-baseline` | `sha256:33a3f9f8f53a2f6cb53967a60d836c3ba29f0078c12306fb8696e15d7c674978` | `sha256:c0d1e87e53c57141a93257f6a722c039740f9cca0d8095ea0fb3e80b31391002` (new) |
-  | `codex-baseline` | `sha256:5b6efbbb2270718377da537c3ea04c727a2a855ffdae684da2a313c003699593` | `sha256:f6405dd5769e5c90403fda8cced329c6a053ac9a83da9e48a36f06047034306b` (new) |
-  | `gemini-baseline` | `sha256:1389c40a89d22cb951b25dad96d18d307cef26db4f6b66cdd425ea8fcf0f49b6` | `sha256:5c955b359e8592465f6acea8b7776352a400bfa49940674948f41095fa597241` (new) |
+  | `claude-baseline` | `sha256:33a3f9f8f53a2f6cb53967a60d836c3ba29f0078c12306fb8696e15d7c674978` | `sha256:89efeee9de0ee0425d638a910357e3b772cd82f034c6fe8c43d1e1ece2ab8af5` (new) |
+  | `codex-baseline` | `sha256:5b6efbbb2270718377da537c3ea04c727a2a855ffdae684da2a313c003699593` | `sha256:591b96ed96dc8a9f7b95006f4a8a0efede0ad377229eb4080c0571612d59bafd` (new) |
+  | `gemini-baseline` | `sha256:1389c40a89d22cb951b25dad96d18d307cef26db4f6b66cdd425ea8fcf0f49b6` | `sha256:78c7ec8425f379a06571ff5ed115c650c41c8d2ceb40399f4b88077b2848c595` (new) |
   | `claude-judge` | `sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf` | unchanged |
   | `codex-judge` | `sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a` | unchanged |
   | `gemini-judge` | `sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9` | unchanged |
@@ -16823,16 +16827,16 @@ freeze commit is recorded here.
   | `claude-baseline` (`33a3f9f8…`) | `proc-v17` | `2026-11-02T17:51:42Z` | this label's instant (was open) |
   | `codex-baseline` (`5b6efbbb…`) | `proc-v17` | `2026-11-02T17:51:42Z` | this label's instant (was open) |
   | `gemini-baseline` (`1389c40a…`) | `proc-v17` | `2026-11-02T17:51:42Z` | this label's instant (was open) |
-  | `claude-baseline` (`c0d1e87e…`) | `proc-v18` | this label's instant | open (new) |
-  | `codex-baseline` (`f6405dd5…`) | `proc-v18` | this label's instant | open (new) |
-  | `gemini-baseline` (`5c955b35…`) | `proc-v18` | this label's instant | open (new) |
+  | `claude-baseline` (`89efeee9…`) | `proc-v18` | this label's instant | open (new) |
+  | `codex-baseline` (`591b96ed…`) | `proc-v18` | this label's instant | open (new) |
+  | `gemini-baseline` (`78c7ec84…`) | `proc-v18` | this label's instant | open (new) |
 
   Earlier windows keep the closes earlier labels gave them.
 
   **What the close owes, provisional.** Run with this commit's pending rows
   stamped by hand at a provisional instant, `2026-11-07T00:00:00Z`, in a
   scratch copy of the registry, over this branch's ledger (synced from
-  `main` at `05ceb7185`). `uv run fedcourts successor-disclosures --closed
+  `main` by `05ceb7185`). `uv run fedcourts successor-disclosures --closed
   proc-v17 --successor proc-v18`:
 
   ```
