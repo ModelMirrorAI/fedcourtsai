@@ -2385,8 +2385,9 @@ def _update_clause(column: str) -> str:
     call-for-response and first-relist dates, the dated interim/merits signals beside them (a
     consolidated member's lead-filed respondent brief and the post-argument
     transcript's argument day among them), the merits decision record, and the
-    writ the opening petition entry names, and the conferences distributed
-    after a call for response) only ever fill in, so a writer that
+    writ the opening petition entry names, the VIDED amicus keys, and the
+    conferences distributed after a call for response) only ever fill in, so a
+    writer that
     does not carry the fact keeps what another channel stamped;
     ``distribution_count``, the interim escalation signals
     (``response_requested``, ``referred_to_court``, ``amicus_briefs``),
@@ -5086,7 +5087,9 @@ def vided_companions(conn: ReadConnection, case_id: str) -> list[VidedCompanion]
 
     Reads ``case_id``'s own ``vided_amicus`` keys and every other SCOTUS row
     carrying any, through the partial index that holds exactly those rows, and
-    keeps a row sharing at least one key. Ties break on the case id. Empty
+    keeps a row sharing at least one key: a candidate, since one filer's two
+    unrelated VIDED briefs on a day read alike (:mod:`.pipeline.vided`), so the
+    shared count orders them and ties break on the case id. Empty
     where the docket carries no key. ``None`` where the blob carries no such
     index, which is not the same answer as no companion: nothing was looked up.
     """

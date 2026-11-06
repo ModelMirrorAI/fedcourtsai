@@ -15,6 +15,12 @@ every run of punctuation and whitespace collapsed to one space. Two dockets
 that share a key share a brief. The live poll writes a docket's keys to the
 corpus (``cases.vided_amicus``), so a reader can find a docket's companions
 with one query over the few rows that carry any.
+
+A shared key makes a **candidate**, not a fact. A repeat filer who enters two
+separate VIDED briefs on one day, for two unrelated pairs of petitions, writes
+the same key on all four dockets; a reader that stages a companion says how it
+was found, and the number of keys two dockets share is the strength of the
+match.
 """
 
 from __future__ import annotations
@@ -25,12 +31,16 @@ from typing import Any, Final
 
 from .cert_signals import entry_date, proceedings_entries, snapshot_carries_proceedings
 
-#: The Clerk's mark, at the end of the entry, with or without a closing period.
-_VIDED_RE: Final = re.compile(r"\s*\bVIDED\b\.?\s*$", re.IGNORECASE)
+#: The Clerk's mark, at the end of the entry, with or without a closing period,
+#: and with any trailing parenthetical the Clerk adds after it: a brief filed
+#: after distribution reads "... filed.  VIDED. (Distributed)". The
+#: parenthetical goes with the mark, so the brief's key is the same on a
+#: docket where it arrived before distribution and one where it arrived after.
+_VIDED_RE: Final = re.compile(r"\s*\bVIDED\b\.?\s*(?:\([^()]*\)\s*)?$", re.IGNORECASE)
 
-#: The entries a key is read from: an amicus brief. A motion for leave to file
-#: one is entered as a "Motion ... for leave to file a brief as amicus curiae",
-#: which names amicus too, so the motion shares its brief's key shape.
+#: The entries a key is read from: an amicus filing. A motion for leave to file
+#: a brief as amicus curiae names amicus too and is entered on each docket the
+#: brief is, so it reads as a key of its own that both dockets carry.
 _AMICUS_RE: Final = re.compile(r"\bamic(?:us|i)\b", re.IGNORECASE)
 
 _SEPARATORS_RE: Final = re.compile(r"[\W_]+", re.UNICODE)

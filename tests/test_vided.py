@@ -35,6 +35,11 @@ def test_a_vided_amicus_entry_reads_as_its_day_and_filer() -> None:
     assert vided_key("Brief amici curiae of X filed. VIDED", "Sep 14 2026") == vided_key(
         "Brief amici curiae of X filed.  VIDED.", "Sep 14 2026"
     )
+    # A brief filed after distribution carries the Clerk's note after the mark,
+    # and keys the same as on a docket it reached before distribution.
+    assert vided_key("Brief amici curiae of X filed.  VIDED. (Distributed)", "Sep 14 2026") == (
+        vided_key("Brief amici curiae of X filed.  VIDED.", "Sep 14 2026")
+    )
 
 
 def test_only_a_dated_amicus_entry_marked_vided_is_a_key() -> None:
@@ -129,3 +134,32 @@ def test_companions_are_the_dockets_sharing_a_key_most_shared_first(tmp_path: Pa
 def test_the_column_is_withheld_from_the_retrieval_surface() -> None:
     assert "vided_amicus" in corpus.RETRIEVAL_WITHHELD_COLUMNS
     assert "vided_amicus" not in corpus.prior_payload(_row("scotus/1", "26-1", ["d|a"]))
+
+
+def test_companions_are_scotus_dockets_only_and_need_the_index(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                _row("scotus/193", "26-193", ["d|a"]),
+                corpus.CorpusRow(
+                    case_id="ca4/1", court="ca4", docket_number="25-1574", vided_amicus=["d|a"]
+                ),
+            ],
+        )
+        conn.commit()
+    with corpus.connect_readonly(db) as conn:
+        assert corpus.vided_companions(conn, "scotus/193") == []
+        plan = " ".join(
+            str(row[3])
+            for row in conn.execute(
+                "EXPLAIN QUERY PLAN SELECT case_id, docket_number, vided_amicus FROM cases "
+                "WHERE court = 'scotus' AND vided_amicus IS NOT NULL"
+            )
+        )
+        assert corpus.VIDED_AMICUS_INDEX in plan
+    with corpus.connect(db) as conn:
+        conn.execute(f"DROP INDEX {corpus.VIDED_AMICUS_INDEX}")
+        # A blob without the index answers "not looked up", never "none".
+        assert corpus.vided_companions(conn, "scotus/193") is None
