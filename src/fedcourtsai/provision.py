@@ -21,7 +21,8 @@ payload and documents a cell actually receives.
 *What lands on disk.* :func:`write_cell_record` writes that placement to the
 gitignored ``record/`` — the dated snapshot, the ``context.json`` conditioning
 stamp, ``documents/`` with its manifest, and ``related/`` with the
-``Vide``-linked dockets cut to the cell's moment and redacted
+``Vide``-linked dockets, and those sharing a VIDED amicus brief
+(:func:`read_vided`), cut to the cell's moment and redacted
 (:func:`place_related`), the snapshot and documents through the contact-detail
 scrubs. One writer, because a cell's record is one thing: the
 ``provision-snapshot`` command and the local cascade both reach it here, so
@@ -43,7 +44,7 @@ import yaml
 
 from . import casestore
 from .config import load_salience_config
-from .corpus import CaseDocument, CorpusEvent, CorpusRow, ReadConnection
+from .corpus import CaseDocument, CorpusEvent, CorpusRow, ReadConnection, VidedCompanion
 from .paths import CasePaths
 from .pipeline import (
     argument_features,
@@ -74,7 +75,8 @@ from .pipeline.documents import (
     unrepresented_sides,
 )
 from .pipeline.opinion_record import StoredText
-from .pipeline.vide_links import VIDE_RELATION
+from .pipeline.vide_links import MAX_RELATED_DOCKETS, VIDE_RELATION, related_file_number
+from .pipeline.vided import VIDED_AMICUS_RELATION
 from .schemas import (
     ArgumentFeatures,
     AuthorshipTally,
@@ -108,19 +110,24 @@ class UnanchorableMoment(ProvisionError):
 
 @dataclass(frozen=True)
 class RelatedRead:
-    """One ``Vide``-linked docket as the cell's read found it.
+    """One related docket as the cell's read found it.
 
-    ``case_id`` is ``None`` where no live corpus row carries the number, and
-    ``latest`` where the row has no stored snapshot; ``unread`` says why
-    nothing was looked up at all (no index to resolve through). Every link is
-    still recorded in the manifest, so a cell can tell a docket the corpus does
-    not hold from one the Court never linked.
+    ``relation`` says how it was found: linked by the Court as ``Vide``
+    (:data:`VIDE_RELATION`), or sharing a VIDED amicus brief with the cell's
+    docket (:data:`VIDED_AMICUS_RELATION`), in which case ``shared`` counts the
+    briefs. ``case_id`` is ``None`` where no live corpus row carries the
+    number, and ``latest`` where the row has no stored snapshot; ``unread``
+    says why nothing was looked up at all (no index to resolve through). Every
+    link is still recorded in the manifest, so a cell can tell a docket the
+    corpus does not hold from one the Court never linked.
     """
 
     docket_number: str
     case_id: str | None
     latest: tuple[date, dict[str, Any]] | None
     unread: str | None = None
+    relation: str = VIDE_RELATION
+    shared: int | None = None
 
 
 @dataclass(frozen=True)
@@ -1060,6 +1067,56 @@ def read_related(
     return tuple(reads)
 
 
+def read_vided(
+    keys: Sequence[str],
+    *,
+    own_case: str,
+    linked: Sequence[str],
+    find: Callable[[Sequence[str]], Sequence[VidedCompanion] | None],
+    snapshot: Callable[[str], tuple[date, dict[str, Any]] | None],
+) -> tuple[RelatedRead, ...]:
+    """The dockets sharing a VIDED amicus brief with the cell's, beyond those it links.
+
+    ``keys`` are the VIDED amicus keys of the payload the cell was placed on
+    (:func:`~.pipeline.vided.vided_amicus_keys`), so a placed cell asks only
+    about the briefs its own docket showed by its moment; ``find`` answers them
+    from the corpus index (:func:`~fedcourtsai.corpus.vided_companions`), most shared first.
+    A docket the cell already reads as ``Vide`` (``linked``) is not read again,
+    and the room left under :data:`MAX_RELATED_DOCKETS` is what the Court's
+    own links (every one served, staged or not) leave, so they come first. A
+    shared brief makes a candidate, not a link: the row carries the count it
+    shares, which is the match's strength.
+
+    Empty where ``find`` answers ``None``: with no index nothing was looked up,
+    and a candidate the read never found has no row to record.
+    """
+    room = MAX_RELATED_DOCKETS - len(linked)
+    if not keys or room <= 0:
+        return ()
+    found = find(keys)
+    if not found:
+        return ()
+    reads: list[RelatedRead] = []
+    seen = set(linked)
+    for companion in found:
+        number = related_file_number(companion.docket_number)
+        if number is None or number in seen or companion.case_id == own_case:
+            continue
+        seen.add(number)
+        reads.append(
+            RelatedRead(
+                number,
+                companion.case_id,
+                snapshot(companion.case_id),
+                relation=VIDED_AMICUS_RELATION,
+                shared=len(companion.shared),
+            )
+        )
+        if len(reads) == room:
+            break
+    return tuple(reads)
+
+
 @dataclass(frozen=True)
 class RelatedPlacement:
     """One linked docket as a cell receives it, or the reason it receives none.
@@ -1074,6 +1131,8 @@ class RelatedPlacement:
     snapshot_date: date | None
     payload: dict[str, Any] | None
     reason: str | None
+    relation: str = VIDE_RELATION
+    shared: int | None = None
 
 
 def place_related(
@@ -1104,7 +1163,15 @@ def place_related(
     """
 
     def withheld(reason: str) -> RelatedPlacement:
-        return RelatedPlacement(related.docket_number, related.case_id, None, None, reason)
+        return RelatedPlacement(
+            related.docket_number,
+            related.case_id,
+            None,
+            None,
+            reason,
+            related.relation,
+            related.shared,
+        )
 
     if related.unread is not None:
         return withheld(related.unread)
@@ -1135,15 +1202,23 @@ def place_related(
             if key != "RelatedCaseNumber"
         },
         None,
+        related.relation,
+        related.shared,
     )
 
 
 def related_manifest(placed: Sequence[RelatedPlacement]) -> list[dict[str, Any]]:
-    """The ``related.json`` rows: every link, staged or not, and why not."""
+    """The ``related.json`` rows: every link, staged or not, and why not.
+
+    ``shared_briefs`` is the number of VIDED amicus briefs a
+    ``vided-amicus`` row shares with the cell's docket, and null on a ``Vide``
+    row, which the Court linked itself.
+    """
     return [
         {
             "docket_number": item.docket_number,
-            "relation": VIDE_RELATION,
+            "relation": item.relation,
+            "shared_briefs": item.shared,
             "case_id": item.case_id,
             "staged": item.payload is not None,
             "file": f"{item.docket_number}.json" if item.payload is not None else None,

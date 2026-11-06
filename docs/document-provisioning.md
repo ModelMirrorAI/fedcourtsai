@@ -29,7 +29,7 @@ documents: `provision-opinion` stages a majority opinion in its own slot
 | Cut at the moment | A document is kept only if its proceedings entry is dated before the cell's moment cutoff, so a grant-moment cell never reads the merits briefs. The argument transcript is kept only for a post-argument cell, and a stored-not-staged kind for no cell. | `provision.py`: `moment_cutoff`, `documents_for_moment`, `documents_before` | data-pipeline.md, *Provisioning: how a cell gets its record* |
 | Scrub | On a docket with a self-represented side, contact details are withheld from the staged text and the staged snapshot. Where the shape pass ran, a residual detector re-reads the scrubbed text's opening and closing, and any match records the document as **not** scrubbed. The document is still staged. | `pipeline/documents.py`: `scrub_contact_details`, `contact_residual_matches`, `scrub_snapshot_contacts`; `provision.py`: `staged_scrub` | live-sources.md, from the paragraph introducing the contact-detail scrub through *What the scrub does not reach*; data-sources.md, *PII stance* |
 | Stage | Each kept document is written to `record/documents/<kind>.txt`, with a manifest at `record/documents/documents.json`. | `provision.py`: `write_cell_record`, `document_manifest` | predicted-artifacts.md, *Where the files land*; cli.md, `provision-snapshot` |
-| Companions | Not a document: a predict cell also gets the snapshot of each docket its placed snapshot links as `Vide`, cut by the date rule to its cutoff (or its own snapshot date where it has none) and redacted of undated outcome markers, under `record/related/` with a `related.json` listing every link. No filing text of a companion is staged. | `pipeline/vide_links.py`: `vide_docket_numbers`; `provision.py`: `place_related`, `related_manifest` | cli.md, `provision-snapshot` |
+| Companions | Not a document: a predict cell also gets the snapshot of each docket its placed snapshot links as `Vide`, and of each docket sharing a VIDED amicus brief its placed snapshot shows (`vided-amicus`, with the number shared), cut by the date rule to its cutoff (or its own snapshot date where it has none) and redacted of undated outcome markers, under `record/related/` with a `related.json` listing every link and its relation. No filing text of a companion is staged. | `pipeline/vide_links.py`: `vide_docket_numbers`; `pipeline/vided.py`: `vided_amicus_keys`; `provision.py`: `read_vided`, `place_related`, `related_manifest` | cli.md, `provision-snapshot` |
 
 ## What a cell can be given
 
@@ -102,8 +102,10 @@ which overrides the code's defaults.
 
 Each of these is stated, with its reason, where the code makes the choice:
 
-- **A petition raising the same question without a `Vide` link is not staged.**
-  Only linked companions reach `record/related/`. `fedcourts same-question`
+- **A petition raising the same question without a `Vide` link or a shared
+  VIDED brief is not staged.**
+  Only linked companions, and those sharing a VIDED amicus brief, reach
+  `record/related/`. `fedcourts same-question`
   lists the unlinked ones by questions-presented text similarity, cut to a date,
   and `fedcourts same-question-lists` builds a cert cell's list at its own
   cutoff, which provisioning stages as a forward cert cell's
