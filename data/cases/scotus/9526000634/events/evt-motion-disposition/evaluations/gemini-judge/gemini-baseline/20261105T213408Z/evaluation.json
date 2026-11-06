@@ -1,0 +1,130 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.15,
+    "notes": "Fact-bound capital stay application challenging Florida's administration and pharmacy logging of its three-drug etomidate lethal-injection protocol under 42 U.S.C. \u00a7 1983 after a federal evidentiary hearing. Significant stakes for the condemned prisoner and ongoing scrutiny of Florida's execution recordkeeping, but routine summary denial posture with no doctrinal shift or circuit split."
+  },
+  "brier_score": 0.0004,
+  "brier_skill_score": 0.9706185239973701,
+  "case_id": "scotus/9526000634",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": 0.013214019934335405
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.15,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.85,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.005,
+          "Barrett": 0.01,
+          "Gorsuch": 0.01,
+          "Jackson": 0.12,
+          "Kagan": 0.03,
+          "Kavanaugh": 0.01,
+          "Roberts": 0.005,
+          "Sotomayor": 0.22,
+          "Thomas": 0.01
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.013214019934335405,
+    "total": 0.013214019934335405
+  },
+  "correct": 1,
+  "created_at": "2026-11-05T21:50:23.967127Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction run on 2026-11-04 (run_id 20261104T225806Z, cutoff 2026-11-04) prior to the 2026-11-05 referral and denial order. All 58 calls in retrieval_log.json (local file reads, 19 `fedcourts query` calls, 12 CourtListener MCP lookups of lower-court records in `ca11` 26-14027 and `fla` SC2026-1605, and 3 `web_fetch` checks of supremecourt.gov dockets 26A634, 26-6051, and 26A627 on 2026-11-04 while 26A634 was still pending) occurred before the case was decided. No outcome material was retrieved.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-argon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.95,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records `actual_disposition: 'denied'` (`interim_reading: 'denied'`, `interim_granted: 0`) on `2026-11-05`, and snapshot 2026-11-05.json records the unsigned order denying both 26A634 and 26-6051.",
+        "claim": "The Court will deny the application for a stay of execution (26A634) alongside the linked petition for certiorari (26-6051) on November 5, 2026, in an unsigned summary order.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records `interim_signals.referred_to_court: true`, and the November 5, 2026 order uses that exact wording.",
+        "claim": "Justice Thomas will refer the capital stay application to the full Court (`referral-increment` = 0.85), producing the standard order phrasing 'presented to Justice Thomas and by him referred to the Court is denied'.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records `interim_signals.response_requested: false`.",
+        "claim": "No formal `Response requested` entry will appear on the docket because Respondent Richard Comerford already submitted his opposition voluntarily on November 4, 2026 (`response-requested-increment` = 0.15).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records `interim_signals.amicus_briefs: 0`.",
+        "claim": "No amicus brief will be docketed before the November 5, 2026 disposition (`amicus-increment` = 0.04).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records `noted_dissent_from_denial: null`, `votes: []`, and `writing_roles: null`.",
+        "claim": "The primary modal outcome is an unsigned summary denial with no separate opinions, with Justice Sotomayor (0.22) and Justice Jackson (0.12) as the most plausible authors if a separate statement or dissent is filed.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261104T225806Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+    "label": "proc-v17",
+    "pipeline_sha": "e0fe020edebaf5090281f01b3523a76f9beb1f1d",
+    "stamped_at": "2026-11-05T21:50:23.967127Z"
+  },
+  "reasoning_quality": 0.96,
+  "run_id": "20261105T213408Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,24 @@
+{
+  "actual_disposition": "denied",
+  "actual_granted": 0,
+  "case_id": "scotus/9526000634",
+  "disposition_basis": "standard",
+  "disposition_route": null,
+  "event_id": "evt-brief-response-disposition",
+  "interim_granted": 0,
+  "interim_reading": "denied",
+  "interim_signals": {
+    "amicus_briefs": 0,
+    "referred_to_court": true,
+    "response_requested": false
+  },
+  "judgment": null,
+  "noted_dissent_from_denial": null,
+  "resolved_at": "2026-11-05",
+  "schema_version": "1.0",
+  "signals": null,
+  "source": null,
+  "vote_provenance": null,
+  "votes": [],
+  "writing_roles": null
+}

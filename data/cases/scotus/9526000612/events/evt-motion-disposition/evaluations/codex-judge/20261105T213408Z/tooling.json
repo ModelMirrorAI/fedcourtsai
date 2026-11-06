@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000612",
+  "run_id": "20261105T213408Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell", "local file reads", "apply_patch", "Python jsonschema"],
+  "helpful": [
+    "Blinded candidate staging and per-call result-capture markers",
+    "Resolved docket snapshot, finer interim outcome and readable application OCR",
+    "Machine-readable schemas and committed interim statpack coverage fields"
+  ],
+  "gaps": [
+    "The original candidate snapshots and historical statpack bytes are not staged, limiting input-version comparisons",
+    "No disposing order body or complete writing record is staged",
+    "Outcome resolution has a date but no time for same-day forward chronology checks"
+  ],
+  "notes": "Used only local provisioned evidence and the committed statpack. No corpus, MCP or web retrieval. Captured-result digests do not expose full historical result bodies; outcome_only markers were not interpreted as empty results. Baselines and all quantitative claim scores are left to the harness."
+}

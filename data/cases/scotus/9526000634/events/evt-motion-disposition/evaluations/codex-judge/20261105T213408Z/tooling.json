@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000634",
+  "run_id": "20261105T213408Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell file inspection", "committed interim statpack", "apply_patch", "local JSON Schema validation"],
+  "helpful": ["Blinded per-candidate staging", "Resolved docket and finer interim outcome", "Per-call result-capture markers"],
+  "gaps": ["Prediction-time statpack contents are not frozen in the staged evaluation inputs"],
+  "notes": "The staged record sufficed to evaluate all three candidates without external retrieval. Outcome-only call records were assessed on queries and prose, not treated as captured empty results. Baseline values and claim scores remain for the harness."
+}

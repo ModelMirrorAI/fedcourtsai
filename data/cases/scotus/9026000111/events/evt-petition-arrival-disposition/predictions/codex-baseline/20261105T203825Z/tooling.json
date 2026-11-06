@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000111",
+  "run_id": "20261105T203825Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts paths", "fedcourts query", "committed statpack", "CourtListener MCP search", "CourtListener MCP search_document", "web.run", "fedcourts validate"],
+  "helpful": ["Frozen cert anchor", "Provisioned petition with bound lower-court opinions", "Exact companion-docket corpus filter", "Lower-court opinion snippet search"],
+  "gaps": ["Web calls returned no usable source content", "Default uv cache was outside the writable sandbox"],
+  "notes": "Using UV_CACHE_DIR=/tmp/uv-cache and uv run --offline restored the provisioned CLI without package installation. An invalid era token was corrected to 2020s. The named-officer caption receives the frozen baseline band despite substantive Solicitor General advocacy; retained the harness band and treated advocacy as case-specific evidence. No subsequent docket or outcome of this petition was retrieved."
+}

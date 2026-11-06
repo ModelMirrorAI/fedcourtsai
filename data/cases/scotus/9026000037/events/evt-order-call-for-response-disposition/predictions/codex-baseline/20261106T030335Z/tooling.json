@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000037",
+  "run_id": "20261106T030335Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["shell", "fedcourts paths", "fedcourts query", "CourtListener MCP search", "CourtListener MCP search_document", "web search", "fedcourts validate"],
+  "helpful": ["Frozen state-class cert anchor", "Petition with bound-in lower-court opinion", "CourtListener exact citation and opinion-snippet lookups"],
+  "gaps": ["No empirical grant-rate table conditional on a call for response", "Sparse corpus reporter-citation coverage", "Default uv cache is read-only in this runtime"],
+  "notes": "UV_CACHE_DIR=/tmp/fedcourts-uv-cache with uv run --offline resolves the cache failure without installation. No opposition is expected in the provisioned response-requested record. Web searches returned no usable sources; primary authorities were verified through MCP."
+}

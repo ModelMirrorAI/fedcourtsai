@@ -1,0 +1,5 @@
+{"schema_version":"1.0","case_id":"scotus/9526000612","run_id":"20261105T213408Z","role":"evaluator","actor_id":"claude-judge","used_corpus_query":false,"used_base_rates":true,
+ "tools_used":["shell","file-read"],
+ "helpful":["Blinded retrieval logs with result_capture markers made the leakage check direct","Provisioned snapshot carried the disposing order text, which settled route claims"],
+ "gaps":["A captured web-fetch result shows only a digest; for a same-day fetch of the case's own docket, an excerpt would let the judge verify the candidate's disclosure","The statpack the predictors read is not pinned in the staged view, so their divergent statements about finer interim counts cannot be checked against the pack they actually saw"],
+ "notes":"Interim cell; three denials, all correct."}

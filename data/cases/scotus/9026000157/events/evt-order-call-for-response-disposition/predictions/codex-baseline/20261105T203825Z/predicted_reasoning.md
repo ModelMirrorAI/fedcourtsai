@@ -1,0 +1,9 @@
+# Forecast of the Court's disposition and reasoning
+
+The Court will most likely **deny certiorari without an explanatory opinion**. Such an order will not endorse the Nevada Supreme Court's reasoning or decide whether the First Amendment permits the disputed civil claims.
+
+The snapshot already records **one distribution** and a later request for a response. I predict at least one additional distribution after the response is received or its time expires (**99%**), not necessarily a true relist following consideration at a conference. The modal path is denial at the first conference at which the completed briefing is considered, without an additional substantive relist. A grant path would more plausibly include closer conference scrutiny and possibly a true relist. I predict **no new invitation to the Solicitor General**; the probability of such an invitation is **2.5%**.
+
+If review is granted (**24%**), I expect the Court to take the sole question concerning the use of neutral principles in internal religious-governance disputes, potentially narrowing it to membership and leadership decisions rather than announcing immunity from all secular civil obligations. A grant would most likely set the case for briefing and argument. The probability of disposing of the case in the grant order itself is **12% conditional on a grant**; there is no identified intervening lead decision that makes a routine grant-vacate-remand order the natural route.
+
+If review is denied, I assign **18% conditional probability** to a dissent from or statement respecting denial by some Justice. My modal forecast is no separate writing. If a writing does appear, its likely concern is whether secular corporate-law labels allow civil courts to determine the religious organization's membership, leadership, and authority. Any discussion of that concern would be a separate Justice's explanation, not the Court's rationale for an otherwise unexplained denial.

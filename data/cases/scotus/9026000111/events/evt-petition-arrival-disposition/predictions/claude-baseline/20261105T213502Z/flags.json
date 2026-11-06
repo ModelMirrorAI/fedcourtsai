@@ -1,0 +1,9 @@
+{
+  "case_id": "scotus/9026000111",
+  "run_id": "20261105T213502Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {"category": "data-quality", "severity": "warning", "message": "Frozen band is 'baseline' (cert_anchor 5.15%), but this petition is filed by the Solicitor General (D. John Sauer, counsel of record) on behalf of individual federal DEA task-force officers. The caption names only the officers, so the caption-class scorer reads it as private. In substance it belongs in the 'federal' class (pooled reached rate ~70%). Forecast departs from the frozen anchor accordingly."}
+  ]
+}

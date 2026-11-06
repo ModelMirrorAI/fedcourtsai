@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/9026000111",
+  "run_id": "20261105T203825Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "message": "Frozen band is 'baseline' (anchor 5.2%), but the petitioners are federal DEA task-force officers represented by the Solicitor General (D. John Sauer, counsel of record). In substance this is a federal-petitioner case, whose class floor is ~73% pooled. The caption rule reads 'Noah A. Herzon, et al.' as private. My forecast (0.80) follows the federal reality, not the band.",
+      "event_id": "evt-petition-arrival-disposition"
+    }
+  ]
+}

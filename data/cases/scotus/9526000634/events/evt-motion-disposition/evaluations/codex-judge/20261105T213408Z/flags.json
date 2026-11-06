@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9526000634",
+  "flags": [
+    {
+      "category": "capture-gap",
+      "event_id": "evt-motion-disposition",
+      "message": "Prediction-time statpack coverage cannot be reconstructed from staged result contents: claude-baseline, codex-baseline and gemini-baseline all report zero finer-resolved observations in their earlier pack, whereas the current committed OT2016\u2013OT2025 pool has 1,337 finer-resolved and zero finer-unread observations. I preserved this apparent pack-vintage distinction, did not infer a candidate audit error from today's counts, and left baseline/skill values to the harness. This did not block evaluation.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261105T213408Z",
+  "schema_version": "1.0"
+}

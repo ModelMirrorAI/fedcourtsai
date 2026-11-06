@@ -1,0 +1,24 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/73275179",
+  "gaps": [
+    "An `--originating-court` filter on `fedcourts query` would help retrieve prior SCOTUS merits cases from a specific circuit."
+  ],
+  "helpful": [
+    "Provisioned merits briefs (`merits-brief-petitioner.txt`, `merits-brief-respondent.txt`, `merits-amicus-united-states.txt`) and `related/25-566.json`",
+    "Merits docket and per-Justice vote tables in `metrics/statpack.md`",
+    "CourtListener MCP `read_document` for recent opinions (`Wolford v. Lopez`, 3d Cir. en banc `ANJRPC`, and 7th Cir. `Barnett v. Raoul`)",
+    "`fedcourts query` for checking SCOTUS docket metadata and merits judgments"
+  ],
+  "notes": "Provisioned merits briefs and the Solicitor General's amicus brief provided thorough coverage of the record. CourtListener MCP `read_document` was particularly helpful for reading the June 2026 SCOTUS opinion in `Wolford v. Lopez` and the September 2026 Third Circuit en banc opinion in `ANJRPC`.",
+  "role": "predictor",
+  "run_id": "20261105T203825Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener MCP (search, read_document, search_document)"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

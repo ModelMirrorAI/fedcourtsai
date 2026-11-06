@@ -1,0 +1,150 @@
+{
+  "big_case_rationale": "Capital AEDPA case resolving an acknowledged circuit split on successive-petition gateways; important to habeas practice and Atkins litigation but technical and low public salience.",
+  "big_case_score": 0.45,
+  "case_id": "scotus/73281043",
+  "claim_distributions": [
+    {
+      "claim_id": "majority-author",
+      "probabilities": {
+        "Alito": 0.13,
+        "Barrett": 0.17,
+        "Gorsuch": 0.11,
+        "Jackson": 0.04,
+        "Kagan": 0.06,
+        "Kavanaugh": 0.14,
+        "Roberts": 0.1,
+        "Sotomayor": 0.04,
+        "Thomas": 0.16,
+        "per-curiam": 0.05
+      }
+    },
+    {
+      "claim_id": "separate-writers",
+      "probabilities": {
+        "Alito": 0.18,
+        "Barrett": 0.12,
+        "Gorsuch": 0.22,
+        "Jackson": 0.6,
+        "Kagan": 0.3,
+        "Kavanaugh": 0.15,
+        "Roberts": 0.05,
+        "Sotomayor": 0.6,
+        "Thomas": 0.25
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.85
+    }
+  ],
+  "confidence": 0.7,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "band_refused": null,
+    "cert_anchor": null,
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-11-05",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 3,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v7",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_contact_scrub": {
+      "blocks": 0,
+      "fields": 0,
+      "sides": []
+    },
+    "snapshot_date": "2026-11-05",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2025,
+    "vide_links": []
+  },
+  "created_at": "2026-11-06T03:20:43.718712Z",
+  "engine": "claude-code",
+  "event_id": "evt-argument-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-11-05.json",
+  "judgment": "reversed",
+  "model": "claude-opus-5-5",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.85,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:33a3f9f8f53a2f6cb53967a60d836c3ba29f0078c12306fb8696e15d7c674978",
+    "label": "proc-v17",
+    "pipeline_sha": "f2ffa55dbc5fa68112afe7d46c61c6818595f252",
+    "stamped_at": "2026-11-06T03:20:43.718712Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261106T030335Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority holds that whether a rule was 'previously unavailable' under 28 U.S.C. 2244(b)(2)(A) turns on whether this Court had announced the rule before the prisoner's earlier federal habeas application, not on whether a claim under it would then have had some possibility of merit; it rejects the Fifth Circuit's In re Cathey merit/futility test (siding with the Eleventh and Fourth Circuits) and treats post-Atkins changes in clinical criteria such as the DSM-5 as new factual predicates governed, and here barred, by 2244(b)(2)(B)(ii), so Johnson's Atkins claim cannot proceed."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The holding is a general rule for every successive state (2244) and federal (2255(h)(2)) application, not a ruling limited to Atkins or DSM claims, but the Court expressly reserves the question of a rule announced while the first federal habeas application was still pending, deciding only the case of a rule announced before that application was filed."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "dissent",
+      "writing": null
+    }
+  ]
+}

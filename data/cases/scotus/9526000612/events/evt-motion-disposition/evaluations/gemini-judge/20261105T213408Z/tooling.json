@@ -1,0 +1,26 @@
+{
+  "actor_id": "gemini-judge",
+  "case_id": "scotus/9526000612",
+  "gaps": [],
+  "helpful": [
+    "Blinded candidate directories with retrieval_log.json for auditing predictor tool usage",
+    "fedcourts query for verifying docket metadata in corpus.db",
+    "CourtListener MCP for verifying CADC 26-5131 and 26-1285 RECAP filings cited by gemini-baseline"
+  ],
+  "notes": "Evaluated three blinded predictions (claude-baseline, codex-baseline, gemini-baseline) for scotus/9526000612 evt-motion-disposition. Noted that application.txt was empty at prediction time (2026-11-03T20:46Z) before being backfilled with OCR text on 2026-11-04, and that metrics/statpack.json finer_* interim counts were 0 at prediction time before being populated on 2026-11-05.",
+  "role": "evaluator",
+  "run_id": "20261105T213408Z",
+  "schema_version": "1.0",
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "metrics/statpack.json",
+    "mcp:courtlistener"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

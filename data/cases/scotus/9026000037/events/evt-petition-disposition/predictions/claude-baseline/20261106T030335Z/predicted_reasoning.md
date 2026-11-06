@@ -1,0 +1,7 @@
+# Forecast — New Mexico v. Neal, No. 26-37
+
+- **Distributions:** The docket shows one distribution (for the 9/28/2026 conference), which was overtaken by the Court's Aug. 26 call for a response. Expect the petition to be redistributed after the BIO (due Nov. 25, 2026) and the reply, most likely for a January 2027 conference. Expect it to be decided at that conference or after at most one further relist. Several relists are unlikely.
+- **CVSG:** None expected. This is a state criminal prosecution with no federal party, and the federal approach is already visible from the circuits.
+- **Disposition:** Denial is the likelier outcome. The BIO will argue that the decision rests on the New Mexico Constitution as well, and that under *Missouri v. Hunter* the decisive question of legislative intent is one of New Mexico law.
+- **If granted:** The Court would take the question as written, possibly reformulated as "whether, in a multiple-punishment Blockburger analysis, a court may look beyond the statutory elements to the evidence, arguments and jury instructions at trial." It would set the case for plenary review, not dispose of it summarily. A GVR is not in view: no intervening decision bears on it. A per curiam summary reversal is a minority path.
+- **Separate writing on denial:** Unlikely. If one appears, Gorsuch, Thomas, or Alito are the most plausible authors, writing on the unsettled operation of Blockburger since *Dixon*.
