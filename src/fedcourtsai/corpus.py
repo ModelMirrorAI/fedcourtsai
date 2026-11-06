@@ -622,8 +622,9 @@ class CorpusRow(BaseModel):
         "(`pipeline.vided.vided_amicus_keys`), sorted. Two dockets sharing a key "
         "share a brief, which is how a companion the Court never linked as `Vide` "
         "is found (`vided_companions`, asked with the keys a placed payload shows). "
-        "Written by the live cert branch at ingest; fill-in latched, so a poll that discloses no proceedings keeps the stored "
-        "keys. Withheld from the retrieval surface (`RETRIEVAL_WITHHELD_COLUMNS`). "
+        "Written by the live cert branch at ingest; fill-in latched, so a poll "
+        "that discloses no proceedings keeps the stored keys. Withheld from the "
+        "retrieval surface (`RETRIEVAL_WITHHELD_COLUMNS`). "
         "None = no VIDED amicus entry seen, or not live-parsed since the column "
         "existed.",
     )
