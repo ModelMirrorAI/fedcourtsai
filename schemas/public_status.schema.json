@@ -199,6 +199,20 @@
       "additionalProperties": false,
       "description": "One scheduled pipeline lane on the public status page.\n\n``state`` answers \"is this lane running\" from two separate signals. A lane is\n**late** when no run of it started on the default branch since the most recent\ntick its schedule declares (taken a grace period before the snapshot, because\nGitHub starts scheduled runs late), and **failing** when its most recent\nconclusive run ended in failure. Late wins over failing: a lane that has\nstopped starting is the stronger signal. **no-runs** means the run history\nthe snapshot read holds no run of the lane at all.",
       "properties": {
+        "delivered_24h": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Of `slots_24h`, those GitHub's scheduler created a run for",
+          "title": "Delivered 24H"
+        },
         "expected_since": {
           "anyOf": [
             {
@@ -264,6 +278,19 @@
           "description": "When the newest run of the lane on the default branch was created, whatever it concluded",
           "title": "Last Started At"
         },
+        "lateness_p50_min": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Median minutes those delivered slots' runs were created after the slot; null when none was delivered",
+          "title": "Lateness P50 Min"
+        },
         "runs_7d": {
           "default": 0,
           "description": "Conclusive runs created in the 7 days before the snapshot",
@@ -275,6 +302,20 @@
           "description": "The lane's declared schedule, in words (UTC)",
           "title": "Schedule",
           "type": "string"
+        },
+        "slots_24h": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Settled cron slots in the 24 hours before the snapshot; null without the scheduled-run feed",
+          "title": "Slots 24H"
         },
         "state": {
           "enum": [

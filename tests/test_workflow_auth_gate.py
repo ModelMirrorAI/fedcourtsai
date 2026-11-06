@@ -861,12 +861,12 @@ def test_the_promotion_train_gate_is_dispatched_by_a_bot_the_allow_list_admits()
     """promotion-prep's `dispatch-gate` job starts integration-test's `gate`
     suite at a candidate branch with the dispatch App's token. The gate reads
     the allow-list from the dispatched ref — a cut of staging — so the entry
-    must be there, and must name that bot for integration-test alone: the
-    dispatch App gains no other workflow by it."""
+    must be there. The App's other entries are run-predict (the chained
+    rounds) and run-pull (a made-up pull window), and nothing else."""
     config = load_dispatchers(ROOT / DISPATCHERS_PATH)
     assert config.is_dispatch_bot("fedcourtsai-dispatch[bot]", "integration-test.yml")
     allowed = {wf for wf, bots in config.bots.items() if "fedcourtsai-dispatch[bot]" in bots}
-    assert allowed == {"integration-test.yml", "run-predict.yml"}
+    assert allowed == {"integration-test.yml", "run-predict.yml", "run-pull.yml"}
 
 
 def test_the_disjunction_check_reads_quotes_and_parentheses() -> None:

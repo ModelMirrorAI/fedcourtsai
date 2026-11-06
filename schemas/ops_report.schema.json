@@ -472,6 +472,70 @@
       "title": "DataHealth",
       "type": "object"
     },
+    "DeliveryWindow": {
+      "additionalProperties": false,
+      "description": "How many of one workflow's cron slots in a trailing window GitHub delivered.\n\nA slot is one instant a ``schedule:`` cron promises. Each schedule-event run is\nmatched to the newest slot at or before its creation time, so a run created\nhours late is read as that slot's delivery and any slot it skipped as dropped:\na scheduler backlog shows as drops plus bounded lateness, never as lateness\nlonger than the gap between two slots. Lateness is creation time (when GitHub\ncreated the run) against the slot, so it measures scheduler delivery, not\nrunner queueing.",
+      "properties": {
+        "delivered": {
+          "description": "Of `slots`, those with a schedule-event run",
+          "minimum": 0,
+          "title": "Delivered",
+          "type": "integer"
+        },
+        "dropped": {
+          "description": "Of `slots`, those with no schedule-event run",
+          "minimum": 0,
+          "title": "Dropped",
+          "type": "integer"
+        },
+        "hours": {
+          "description": "The window's length",
+          "minimum": 1,
+          "title": "Hours",
+          "type": "integer"
+        },
+        "lateness_max_min": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The largest of those lateness figures",
+          "title": "Lateness Max Min"
+        },
+        "lateness_p50_min": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Median minutes from slot to the first run matched to it, over the delivered slots; null when none was delivered",
+          "title": "Lateness P50 Min"
+        },
+        "slots": {
+          "description": "Cron slots in the window that have settled",
+          "minimum": 0,
+          "title": "Slots",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "hours",
+        "slots",
+        "delivered",
+        "dropped"
+      ],
+      "title": "DeliveryWindow",
+      "type": "object"
+    },
     "FlagCategory": {
       "description": "What kind of thing an agent flag is about, for maintainer triage.\n\n``provisioning`` is a cell's record that lacks something the pipeline should\nhave staged; ``capture-gap`` an outcome or docket record that cannot show\nwhat a forecast or grading needed; ``leakage-disclosure`` a note that\noutcome material about the case reached the cell or a candidate it grades\n(on a replay cell, material postdating its ``context.cutoff``).\n``blocked`` stays valid for every file that carries it; severity ``blocker``\nis what says a cell could not finish, under whatever category.",
       "enum": [
@@ -1021,6 +1085,30 @@
         "n"
       ],
       "title": "RubricCount",
+      "type": "object"
+    },
+    "ScheduleDelivery": {
+      "additionalProperties": false,
+      "description": "Whether GitHub's scheduler delivered every scheduled workflow's cron slots.",
+      "properties": {
+        "settle_minutes": {
+          "description": "How old a slot must be before it counts: a newer one may still be delivered, so it is neither delivered nor dropped yet",
+          "minimum": 0,
+          "title": "Settle Minutes",
+          "type": "integer"
+        },
+        "workflows": {
+          "items": {
+            "$ref": "#/$defs/WorkflowDelivery"
+          },
+          "title": "Workflows",
+          "type": "array"
+        }
+      },
+      "required": [
+        "settle_minutes"
+      ],
+      "title": "ScheduleDelivery",
       "type": "object"
     },
     "SetAsideRecord": {
@@ -1661,6 +1749,61 @@
       "title": "WindowShare",
       "type": "object"
     },
+    "WorkflowDelivery": {
+      "additionalProperties": false,
+      "description": "One scheduled workflow's delivery record over the last day and week.",
+      "properties": {
+        "crons": {
+          "description": "The `on.schedule` crons the workflow file declares",
+          "items": {
+            "type": "string"
+          },
+          "title": "Crons",
+          "type": "array"
+        },
+        "day": {
+          "$ref": "#/$defs/DeliveryWindow"
+        },
+        "flags": {
+          "description": "Why this workflow's delivery needs a look: its newest settled slot went undelivered and no scheduled run came in the last 24 hours, or fewer than half its slots in the last 24 hours were delivered",
+          "items": {
+            "type": "string"
+          },
+          "title": "Flags",
+          "type": "array"
+        },
+        "last_scheduled_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "When the newest schedule-event run of the workflow was created; null when the feed holds none",
+          "title": "Last Scheduled At"
+        },
+        "week": {
+          "$ref": "#/$defs/DeliveryWindow"
+        },
+        "workflow": {
+          "description": "The workflow's file stem, e.g. `run-pull`",
+          "title": "Workflow",
+          "type": "string"
+        }
+      },
+      "required": [
+        "workflow",
+        "crons",
+        "day",
+        "week"
+      ],
+      "title": "WorkflowDelivery",
+      "type": "object"
+    },
     "WorkflowHealth": {
       "additionalProperties": false,
       "description": "Recent-run health for one workflow, rolled up from the Actions run history.",
@@ -1836,6 +1979,18 @@
       "default": null,
       "description": "Open issues wearing a run:* fan-out label (stale markers), oldest first; null on a report built before the field existed or without the issue feed",
       "title": "Open Triggers"
+    },
+    "schedule_delivery": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ScheduleDelivery"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Each scheduled workflow's cron slots against the schedule-event runs GitHub created for them; null on a report built before the field existed or without the scheduled-run feed"
     },
     "schema_version": {
       "const": "1.0",
