@@ -615,6 +615,18 @@ class CorpusRow(BaseModel):
         "existed, never parsed until the `salience-cert-backfill` run-repair pass "
         "reads its stored snapshot.",
     )
+    vided_amicus: list[str] | None = Field(
+        default=None,
+        description="The amicus filings the docket marks `VIDED` — one brief "
+        "entered on several dockets — as `<ISO date>|<filer text>` keys "
+        "(`pipeline.vided.vided_amicus_keys`), sorted. Two dockets sharing a key "
+        "share a brief, which is how a companion the Court never linked as `Vide` "
+        "is found (`vided_companions`). Written by the live cert branch at ingest; "
+        "fill-in latched, so a poll that discloses no proceedings keeps the stored "
+        "keys. Withheld from the retrieval surface (`RETRIEVAL_WITHHELD_COLUMNS`). "
+        "None = no VIDED amicus entry seen, or not live-parsed since the column "
+        "existed.",
+    )
     argument_set_for: date | None = Field(
         default=None,
         description="The day the docket's newest 'SET FOR ARGUMENT on …' entry names "
@@ -1151,6 +1163,11 @@ CREATE TABLE IF NOT EXISTS cases (
     -- latched. Withheld from the retrieval surface. NULL = no opening petition
     -- entry disclosed, or not parsed.
     opening_writ TEXT,
+    -- The VIDED amicus keys (see CorpusRow and pipeline/vided.py): one
+    -- `<date>|<filer>` key per amicus filing the docket marks VIDED, as a
+    -- sorted JSON list. Written by the live poll's cert branch at ingest;
+    -- fill-in latched. Withheld from the retrieval surface. NULL = none seen.
+    vided_amicus TEXT,
     -- The conferences a cert petition was first distributed for after a call
     -- for response (see CorpusRow and pipeline/cert_signals.py). Written by the
     -- live poll's cert branch at ingest; fill-in latched. Withheld from the
@@ -1351,6 +1368,7 @@ _CASES_COLUMN_DDL: dict[str, str] = {
     "argument_transcript_at": "TEXT",
     "cert_amicus_briefs": "INTEGER",
     "opening_writ": "TEXT",
+    "vided_amicus": "TEXT",
     "distributed_after_call": "INTEGER",
     "argument_set_for": "TEXT",
     "response_due": "TEXT",
@@ -1407,6 +1425,16 @@ def _migrate_cases(conn: sqlite3.Connection) -> None:
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_cases_live_docket ON cases(court, docket_number) "
         "WHERE last_live_polled IS NOT NULL"
+    )
+    # The VIDED companion lookup (`vided_companions`) reads every row carrying
+    # a VIDED amicus key, a few hundred among millions, so a covering partial
+    # index makes it one short walk rather than a table scan: on the ranged
+    # backend, a few pages rather than the whole blob. Created here for the
+    # same reason as the index above.
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_cases_vided_amicus "
+        "ON cases(court, case_id, docket_number, vided_amicus) "
+        "WHERE vided_amicus IS NOT NULL"
     )
 
 
@@ -2200,6 +2228,7 @@ def _to_record(row: CorpusRow) -> dict[str, object]:
         ),
         "cert_amicus_briefs": row.cert_amicus_briefs,
         "opening_writ": row.opening_writ,
+        "vided_amicus": json.dumps(row.vided_amicus) if row.vided_amicus else None,
         "distributed_after_call": row.distributed_after_call,
         "argument_set_for": row.argument_set_for.isoformat() if row.argument_set_for else None,
         "response_due": row.response_due.isoformat() if row.response_due else None,
@@ -2231,6 +2260,14 @@ def _optional_int(record: RecordRow, column: str) -> int | None:
     except (KeyError, IndexError):
         return None
     return int(raw) if raw is not None else None
+
+
+def _optional_json_list(record: RecordRow, column: str) -> list[str] | None:
+    """Read a JSON-list text column an older remote blob lacks; ``None`` when empty."""
+    raw = _optional_str(record, column)
+    if raw is None:
+        return None
+    return [str(value) for value in json.loads(raw)] or None
 
 
 def _optional_str(record: RecordRow, column: str) -> str | None:
@@ -2328,6 +2365,7 @@ def _from_record(record: RecordRow) -> CorpusRow:
         argument_transcript_at=_optional_date(record, "argument_transcript_at"),
         cert_amicus_briefs=_optional_int(record, "cert_amicus_briefs"),
         opening_writ=_optional_str(record, "opening_writ"),
+        vided_amicus=_optional_json_list(record, "vided_amicus"),
         distributed_after_call=_optional_int(record, "distributed_after_call"),
         argument_set_for=_optional_date(record, "argument_set_for"),
         response_due=_optional_date(record, "response_due"),
@@ -2398,6 +2436,7 @@ def _update_clause(column: str) -> str:
         "relisted_at",
         "argument_transcript_at",
         "opening_writ",
+        "vided_amicus",
         "distributed_after_call",
         "interim_reading",
         "argument_set_for",
@@ -4511,6 +4550,7 @@ RETRIEVAL_WITHHELD_COLUMNS: frozenset[str] = frozenset(
         "argument_transcript_at",
         "cert_amicus_briefs",
         "opening_writ",
+        "vided_amicus",
         "distributed_after_call",
         "argument_set_for",
         "response_due",
@@ -5025,6 +5065,52 @@ def live_scotus_case_ids_by_docket_numbers(
         held = found.get(norm)
         if held is None or _docket_id_of(case_id) < _docket_id_of(held):
             found[norm] = case_id
+    return found
+
+
+#: The partial index over rows carrying a VIDED amicus key (`_migrate_cases`).
+VIDED_AMICUS_INDEX = "idx_cases_vided_amicus"
+
+
+@dataclass(frozen=True)
+class VidedCompanion:
+    """A docket sharing at least one VIDED amicus filing with the asked one."""
+
+    case_id: str
+    docket_number: str
+    shared: tuple[str, ...]
+
+
+def vided_companions(conn: ReadConnection, case_id: str) -> list[VidedCompanion] | None:
+    """The SCOTUS dockets that share a VIDED amicus filing with ``case_id``, most shared first.
+
+    Reads ``case_id``'s own ``vided_amicus`` keys and every other SCOTUS row
+    carrying any, through the partial index that holds exactly those rows, and
+    keeps a row sharing at least one key. Ties break on the case id. Empty
+    where the docket carries no key. ``None`` where the blob carries no such
+    index, which is not the same answer as no companion: nothing was looked up.
+    """
+    if not _has_index(conn, VIDED_AMICUS_INDEX):
+        return None
+    own = get_row(conn, case_id)
+    if own is None or not own.vided_amicus:
+        return []
+    wanted = set(own.vided_amicus)
+    found: list[VidedCompanion] = []
+    for record in conn.execute(
+        "SELECT case_id, docket_number, vided_amicus FROM cases "
+        f"INDEXED BY {VIDED_AMICUS_INDEX} WHERE court = ? AND vided_amicus IS NOT NULL",
+        ("scotus",),
+    ):
+        other = str(record["case_id"])
+        if other == case_id:
+            continue
+        shared = wanted.intersection(json.loads(record["vided_amicus"]))
+        if shared:
+            found.append(
+                VidedCompanion(other, str(record["docket_number"] or ""), tuple(sorted(shared)))
+            )
+    found.sort(key=lambda companion: (-len(companion.shared), companion.case_id))
     return found
 
 

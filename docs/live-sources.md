@@ -295,6 +295,18 @@ so is a sealed certiorari petition. It is the scope input of `sal-v5`,
 `sal-v6` and `sal-v7` ([salience.md](salience.md)). Cert branch only, fill-in latched, withheld from
 the `query` rows, and null on a row polled before the column existed.
 
+`vided_amicus` keys each amicus filing the docket marks `VIDED` — one brief the
+Clerk enters on several dockets — as `<ISO date>|<filer text>`
+(`pipeline.vided.vided_amicus_keys`). The Court does not always link such
+dockets as `Vide`, and each serves its own copy of the brief under its own
+path, so the shared entry is the trace: two dockets carrying one key share the
+brief, and `corpus.vided_companions` finds them through a partial index over
+the rows that carry any. Only amicus filings are keyed, because a filer's name
+is specific to the brief while a VIDED argument setting or a respondent's
+opposition by a repeat litigant can read alike across unrelated cases. Cert
+branch only, fill-in latched, withheld from the `query` rows, and null on a row
+polled before the column existed.
+
 `distributed_after_call` counts the conferences a petition was first
 distributed for after the Court called for a response
 (`cert_signals.distributions_after_call`): the distinct conference dates named
