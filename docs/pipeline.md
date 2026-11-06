@@ -2531,7 +2531,11 @@ The full path of a change, operator's view:
    changed nothing is indistinguishable from one that worked. Mind the timing:
    an effect visible only in produced output cannot be checked until the next
    run of the job that produces it, so a check that comes back empty before
-   then reads *not yet*, not *didn't work* — say which you saw.
+   then reads *not yet*, not *didn't work* — say which you saw. A check that
+   has to wait days for that run is handed to a scheduled routine that runs
+   it on the day, comments the result on its issue and closes it on the
+   stated criteria, rather than held open by a session (AGENTS.md, *A check
+   that has to wait*).
 
 One-time setup (maintainer): create the branch from main (`git push origin
 main:staging`); add the `staging: require PR` ruleset — require a pull
