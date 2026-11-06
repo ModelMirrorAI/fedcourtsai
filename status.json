@@ -242,18 +242,18 @@
     "predicted_resolved": 205,
     "predictions": 2063,
     "public_cases": 14300,
-    "watchlist": 657
+    "watchlist": 658
   },
   "data_ok": true,
-  "generated_at": "2026-11-06T12:24:23.508815Z",
+  "generated_at": "2026-11-06T15:39:08.842717Z",
   "lanes": [
     {
-      "expected_since": "2026-11-06T08:47:00Z",
+      "expected_since": "2026-11-06T13:17:00Z",
       "label": "Docket refresh",
       "lane": "run-pull",
-      "last_concluded_at": "2026-11-06T10:47:50Z",
+      "last_concluded_at": "2026-11-06T14:51:33Z",
       "last_conclusion": "success",
-      "last_started_at": "2026-11-06T10:47:50Z",
+      "last_started_at": "2026-11-06T14:51:33Z",
       "runs_7d": 53,
       "schedule": "16 times a day",
       "state": "up",
@@ -264,9 +264,9 @@
       "expected_since": "2026-11-06T08:31:00Z",
       "label": "Historical walker",
       "lane": "run-seed",
-      "last_concluded_at": "2026-11-06T09:40:17Z",
+      "last_concluded_at": "2026-11-06T14:36:01Z",
       "last_conclusion": "success",
-      "last_started_at": "2026-11-06T09:40:17Z",
+      "last_started_at": "2026-11-06T14:36:01Z",
       "runs_7d": 22,
       "schedule": "daily at 02:31, 08:31, 14:31 and 20:31 UTC",
       "state": "up",
@@ -277,9 +277,9 @@
       "expected_since": "2026-11-05T17:32:00Z",
       "label": "Predict",
       "lane": "run-predict",
-      "last_concluded_at": "2026-11-06T11:00:52Z",
+      "last_concluded_at": "2026-11-06T14:17:03Z",
       "last_conclusion": "success",
-      "last_started_at": "2026-11-06T11:00:52Z",
+      "last_started_at": "2026-11-06T14:17:03Z",
       "runs_7d": 27,
       "schedule": "daily at 14:12 and 17:32 UTC",
       "state": "up",
@@ -316,26 +316,26 @@
       "expected_since": "2026-11-06T04:36:00Z",
       "label": "Boards",
       "lane": "run-analytics",
-      "last_concluded_at": "2026-11-05T17:20:47Z",
+      "last_concluded_at": "2026-11-06T12:22:00Z",
       "last_conclusion": "success",
       "last_started_at": "2026-11-06T12:22:00Z",
-      "runs_7d": 27,
+      "runs_7d": 28,
       "schedule": "daily at 04:36 UTC, plus Mondays at 05:41 and 12:59 UTC, plus Tuesdays at 09:08 UTC, plus Wednesdays at 09:04 UTC, plus Thursdays at 09:14 UTC",
       "state": "up",
-      "successes_7d": 27,
+      "successes_7d": 28,
       "what": "Rebuilds the big-case board daily and the metrics roll-ups weekly."
     },
     {
       "expected_since": "2026-11-06T08:00:00Z",
       "label": "Status report",
       "lane": "run-ops",
-      "last_concluded_at": "2026-11-05T16:34:35Z",
-      "last_conclusion": "failure",
-      "last_started_at": "2026-11-06T12:23:24Z",
-      "runs_7d": 7,
+      "last_concluded_at": "2026-11-06T12:23:24Z",
+      "last_conclusion": "success",
+      "last_started_at": "2026-11-06T15:38:01Z",
+      "runs_7d": 8,
       "schedule": "daily at 08:00 UTC",
-      "state": "failing",
-      "successes_7d": 5,
+      "state": "up",
+      "successes_7d": 6,
       "what": "Checks the committed data and writes this page's snapshot."
     }
   ],
@@ -348,7 +348,7 @@
           "stage": "interim"
         },
         {
-          "cells": 127,
+          "cells": 123,
           "role": "predictor",
           "stage": "cert"
         },
@@ -363,10 +363,10 @@
           "stage": "merits"
         }
       ],
-      "cells": 191,
+      "cells": 187,
       "days": 7,
       "end": "2026-11-06",
-      "events": 48,
+      "events": 44,
       "start": "2026-10-30",
       "term": null,
       "window": "7d"
@@ -374,7 +374,7 @@
     {
       "by_stage": [
         {
-          "cells": 232,
+          "cells": 184,
           "role": "evaluator",
           "stage": "cert"
         },
@@ -389,7 +389,7 @@
           "stage": "cert"
         },
         {
-          "cells": 81,
+          "cells": 75,
           "role": "predictor",
           "stage": "interim"
         },
@@ -399,10 +399,10 @@
           "stage": "merits"
         }
       ],
-      "cells": 999,
+      "cells": 945,
       "days": 30,
       "end": "2026-11-06",
-      "events": 302,
+      "events": 288,
       "start": "2026-10-07",
       "term": null,
       "window": "30d"
@@ -445,5 +445,5 @@
     }
   ],
   "schema_version": "1.0",
-  "source_sha": "69a19f3138f35eb2c4f564e0a6335bb49094f76b"
+  "source_sha": "0e6f6c5422e599c9230284d2b7e11f9a99e03676"
 }
