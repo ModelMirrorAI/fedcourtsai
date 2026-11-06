@@ -1003,7 +1003,7 @@ entry, read past an extension application), fill-in latched and kept off the
 (`corpus.RETRIEVAL_WITHHELD_COLUMNS`). The release's sensitivity line reads the
 same entry through the same reader, so the two never disagree about which
 dockets are writs. The scope is `sal-v5`'s and `sal-v6`'s, not Tier 0: a writ
-stays in predict scope, and under the active `sal-v7`, whose segment is `sal-v6`'s, it is neither scored nor
+stays in predict scope, and under the active `sal-v8`, whose segment is `sal-v6`'s, it is neither scored nor
 selected. The live pass stamps it with the active version and no score, so the
 gate reads it as deferred, not as a row no pass has reached, which the gate's
 fail-open would fund; a writ latched under `sal-v4` keeps its latch, since the
@@ -1146,15 +1146,14 @@ the cutpoints, the band vocabulary and the arrival draw are `sal-v6`'s, as the
 same callables, and the band, the carve-in and the reachable ladder read the
 class through `caption-v4` exactly as `sal-v6` reads it through `caption-v2`.
 
-`sal-v7` is the **active** scorer: `SALIENCE_VERSION` names it, so the live
-pass scores, latches and stamps under it, every band a cell freezes is a
-`sal-v7` band, and the pack's `segments` are its bands from the first refresh
-after the promotion that carries the flip, with `sal-v6`'s in `alt_segments`. It
-pins `dist-v2`, the parse `DEFAULT_DISTRIBUTION_PARSE` already names, so the
-flip moved one constant. It was registered inactive first, which put its bands
-in every rendered pack's `alt_segments`, its cells in every `salience-replay`
-and its frame in the distribution census before any selection read it. The
-activation record is in [freeze-record.md](freeze-record.md).
+`sal-v7` is a **frozen, superseded** scorer: `sal-v8` below is `sal-v7` read
+through `caption-v5`, and its bands stay published in `alt_segments` for the
+cells that froze them. It pins `dist-v2`, the parse `DEFAULT_DISTRIBUTION_PARSE`
+already names, so its flip moved one constant. It was registered inactive
+first, which put its bands in every rendered pack's `alt_segments`, its cells
+in every `salience-replay` and its frame in the distribution census before any
+selection read it. The activation record is in
+[freeze-record.md](freeze-record.md).
 
 **`caption-v4`.** `caption-v4` (`pipeline.caption.petitioner_class_v4`,
 registered in `CAPTION_RULES` beside the three earlier rules, which are
@@ -1338,12 +1337,16 @@ cutpoints, the band vocabulary and the arrival draw are `sal-v7`'s, as the same
 callables, and the band, the carve-in and the reachable ladder read the class
 through `caption-v5` exactly as `sal-v7` reads it through `caption-v4`.
 
-`sal-v8` is **registered, inactive**: `SALIENCE_VERSION` still names `sal-v7`,
-so nothing live moves. Registration puts its bands in every rendered pack's
-`alt_segments` and its cells in every `salience-replay`, on the pattern every
-version since `sal-v5` set, so the pack carries a `sal-v8` block before any
-cell freezes a `sal-v8` band. Its activation is a separate step and a separate
-freeze-record entry.
+`sal-v8` is the **active** scorer: `SALIENCE_VERSION` names it, so the live
+pass scores, latches and stamps under it, every band a cell freezes is a
+`sal-v8` band, and the pack's `segments` are its bands from the first refresh
+after the promotion that carries the flip, with `sal-v7`'s in `alt_segments`.
+On stored rows it bands as `sal-v7` does, so the live pass, the latches and the
+pack's pools do not move at the flip; only a forward cell's frozen band can. It
+pins `dist-v2`, so the flip moved one constant. It was registered inactive
+first, which put its bands in every rendered pack's `alt_segments` and its
+cells in every `salience-replay` before any cell froze a `sal-v8` band. The
+registration and activation records are in [freeze-record.md](freeze-record.md).
 
 **`caption-v5`.** `caption-v5` (`pipeline.caption.petitioner_class_v5`,
 registered in `CAPTION_RULES` beside the four earlier rules, which are
@@ -1413,19 +1416,24 @@ also latches as `sal-v7`: the activation dry run
 plans 0 new latches and refuses the same 257 rows.
 
 **The activation prerequisites,** stated here so the flip does not rediscover
-them:
+them, with where each stands; the activation entry of
+[freeze-record.md](freeze-record.md) carries the readings:
 
-- the first metrics refresh after the promotion carrying this registration,
+- the first metrics refresh after the promotion carrying the registration,
   so the committed pack's `alt_segments` holds the `sal-v8` block a cell
-  minted under the flip pools its anchor from;
+  minted under the flip pools its anchor from. Met: the refresh merged to
+  `main` as `47838bb39`;
 - the committed pack's `sal-v8` block equal to its `sal-v7` segments, which
   `jq '[.terms[] | .segments == (.alt_segments[] | select(.salience_version
-  == "sal-v8") | .segments)] | all' metrics/statpack.json` prints as `true`;
-- the activation dry run under `sal-v8`, planning no latch `sal-v7` does not;
+  == "sal-v8") | .segments)] | all' metrics/statpack.json` prints as `true`.
+  Met on that pack, and `segment-anchors` pools the two versions to the same
+  anchors;
+- the activation dry run under `sal-v8`, planning no latch `sal-v7` does not.
+  Met: both plan 0 new latches and refuse the same 257 rows;
 - the forward re-placement above, re-run on the activation's blob, as the
-  activation's evidence. No outcome-clean reading exists for the move: every
-  moved cell is pending, and the replay cannot see a forward truncated cell
-  at all. The bar is the one `sal-v7`'s activation cleared, the rule's
+  activation's evidence. Met: the same 3 cells. No outcome-clean reading
+  exists for the move: every moved cell is pending, and the replay cannot see
+  a forward truncated cell at all. The bar is the one `sal-v7`'s activation cleared, the rule's
   outcome-free precision: each moved cell's caption and counsel entry are
   read, and all 3 cells the registration's re-placement finds are among the
   15 rows the `caption-v4` census moves on stored rows (blob `f6beb2e3…`,
