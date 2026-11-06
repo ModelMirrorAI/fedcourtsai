@@ -943,7 +943,7 @@ stays outside the gate:
   baseline / 17.40% elevated / 35.44% high / 75.82% federal / 22.82% state for
   an OT2025 docket and 5.09% / 17.00% / 35.69% / 73.30% / 23.52% for an OT2026
   one (`uv run fedcourts segment-anchors --term 2025 --term 2026
-  --salience-version sal-v4`; the bare command pools the active `sal-v7`). A band row
+  --salience-version sal-v4`; the bare command pools the active `sal-v8`). A band row
   that mixes docket Terms states its count per docket Term beside the anchors.
   Their complements are grant-family denial shares, not exact-match floors, so
   they are not comparable with `always_deny_accuracy`, and no lift is measured
@@ -2428,8 +2428,8 @@ the rendered table) and
   `selected_rank_fill` each cell publishes. A bare precision delta between
   versions is not a claim this artifact supports.
 
-  **The superseded `sal-v6`, the never-activated `sal-v5`, the active
-  `sal-v7` and the registered `sal-v8`.** Their cells and their statpack blocks cover a narrower population
+  **The superseded `sal-v6` and `sal-v7`, the never-activated `sal-v5` and
+  the active `sal-v8`.** Their cells and their statpack blocks cover a narrower population
   than every other version's: Rule 20 writs are outside their segment, so their
   `eligible`, recall and band pools leave them out, and a cross-version
   comparison spans that population change as well as the scoring. `sal-v6` is
@@ -2442,8 +2442,8 @@ the rendered table) and
   call-for-response relist rule and the writ scope but never `caption-v3`,
   since the projection carries no counsel entry. `sal-v7` is `sal-v6` with
   the class read through `caption-v4`, which keeps the office only as counsel
-  of record for the captioned petitioner; it is the active scorer. Its
-  statpack block reads that class. Its replay cells read it through the one
+  of record for the captioned petitioner; it was active until `sal-v8`
+  superseded it. Its statpack block reads that class. Its replay cells read it through the one
   counsel fact the projection carries, read off the served snapshot before
   redaction, and only on a `dated` projection: a petition reconstructed by
   truncating a later pull, or projected blind, reads `caption-v2`'s class
@@ -2453,7 +2453,8 @@ the rendered table) and
   `sal-v7` with the class read through `caption-v5`, which reads every stored
   row and every replay cell exactly as `caption-v4` does, so its statpack
   block and its replay cells equal `sal-v7`'s; it differs only on a forward
-  cell rebuilt by truncation, which no replay cell is. Any of these blocks over past Terms is
+  cell rebuilt by truncation, which no replay cell is. `sal-v8` is the
+  active scorer. Any of these blocks over past Terms is
   **not that version's pool** on a pack rendered before the run-repair
   back-fill filled `distributed_after_call` and `opening_writ` on the decided
   rows: on such a pack those rows read as `sal-v4` reads them, mixed with the
@@ -2729,7 +2730,7 @@ the rendered table) and
   `record/context.json`'s `decided_before`).
 
   **The arrival cohort's claim rule** (the caption-banded scorers'
-  `cert@arrival` cells — the active `sal-v7`, and earlier versions' cells beside
+  `cert@arrival` cells — the active `sal-v8`, and earlier versions' cells beside
   it). The
   cohort is two selection rules with grant rates an order of magnitude apart —
   the unbiased random slice and the federal-petitioner carve-in — and the

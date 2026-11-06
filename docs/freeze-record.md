@@ -17052,3 +17052,89 @@ freeze commit is recorded here.
     fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
     print('vided-amicus-related-dockets' in {b.name for b in H})"` prints
     `True`.
+
+- **`sal-v8` activated; recorded 2026-11-06.** A distinct entry from the
+  `caption-v5` and `sal-v8` registration entry above, on the `sal-v7`
+  activation's pattern. No freeze commit belongs to this entry: the salience
+  version sits outside the process digest, carries its own data-visible
+  boundary (`context.salience_version`), and a flip re-blesses nothing.
+  `uv run fedcourts process-digest --all` prints the same six digests before
+  and after this change, and no harness boundary is registered.
+
+  **The flip is one constant.** `SALIENCE_VERSION` goes `sal-v7` → `sal-v8`.
+  `sal-v8` pins `dist-v2`, which `cert_signals.DEFAULT_DISTRIBUTION_PARSE`
+  already names, and reads no corpus column `sal-v7` does not, so no
+  re-derivation or back-fill precedes it. Its score, relist rule, writ scope,
+  parse, cutpoints, band vocabulary and arrival draw are `sal-v7`'s
+  callables; the band, the carve-in and the reachable ladder read the class
+  through `caption-v5`, which is `caption-v4` on every stored row and differs
+  only in reading a forward cell's `truncated` payload.
+
+  **The statpack.** The metrics refresh merged to `main` as `47838bb39`, the
+  first after the promotion tagged `promotion/2026-11-06` carried the
+  registration, renders a `sal-v8` block in every Term's `alt_segments`.
+  `jq '[.terms[] | .segments == (.alt_segments[] | select(.salience_version
+  == "sal-v8") | .segments)] | all' metrics/statpack.json` prints `true` on
+  it, and `uv run fedcourts segment-anchors --term 2026 --salience-version
+  <v> --statpack metrics/statpack.json` pools `sal-v7` and `sal-v8` to the
+  same anchors for an OT2026 docket on that pack (lookback 10, risk-set rate,
+  denial-reweighted resolved n): federal 73.11% (212), high 34.76% (771),
+  state 23.33% (420), elevated 24.78% (2,006), baseline 5.15% (12,657).
+
+  **The activation dry run.** `uv run python
+  scripts/checks/salience_activation_dry_run.py` with each version active,
+  on blob `ff13501b8213df210f8148461a0e4105c28c046a2a65dac0e25258f962ec6d79`
+  (newest pull 2026-11-06, newest stored snapshot row 2026-07-13; `origin/main`
+  `ddea12254`) as of 2026-11-06, reads identically under both apart from the
+  label: 20,690 eligible and scored, 0 newly selected, 257 rows refused by the
+  segment. The live pass's latches do not move at the flip.
+
+  **The forward re-placement.** `uv run python
+  scripts/checks/sal_v8_forward_cells.py` over the ledger at `main`
+  `ddea12254`, on the same blob, re-places the 120 `truncated` cells among
+  457 banded forward cells, each from its case's newest stored snapshot cut
+  to the cell's cutoff, so it reads the rule over today's counsel blocks
+  rather than replaying the cells (one per case, event and cutoff; 300 `as-stored`,
+  37 `dated`). The same 3 cells the registration entry names would freeze
+  `federal` under `sal-v8`: 26-111's arrival cell (`baseline` under
+  `sal-v7`), and the call-for-response cells of 26-145 (`baseline`) and
+  26-146 (`state`), both frozen under `sal-v4`. Of the 120, 6 were frozen
+  under `sal-v7`, and the re-placement's `sal-v7` band reproduces all 6. No
+  outcome-clean reading exists for these moves: every moved cell is pending,
+  and no replay cell is a forward truncated cell. The activation proceeds on
+  the bar `sal-v7`'s activation cleared, the rule's outcome-free precision:
+  all 3 are among the 15 rows the `caption-v4` census moves on stored rows,
+  each with the office as counsel of record for its captioned petitioner.
+  26-145's and 26-146's captions name a Warden, so the office's appearance
+  for a federal officer moves them; 26-111's names private persons only
+  ("Noah A. Herzon, et al."), so its move rests on the counsel entry alone,
+  one of the 3 such captions the registration of `caption-v4` names.
+
+  **What it moves.** No frozen band changes: a prediction keeps the version
+  that banded it. The live pass scores, latches and stamps under `sal-v8`,
+  with the same latches as `sal-v7`. A forward cell minted after the flip on
+  a `truncated` payload whose `Petitioner` block lists the office as counsel
+  of record for the captioned party freezes `federal` and pools the federal
+  anchor (73.11% for an OT2026 docket on the `47838bb39` pack) where `sal-v7` froze its caption
+  class's. The scored window opens at the first post-promotion metrics
+  refresh, as for every earlier flip; a cell minted before it pools a
+  `sal-v8` anchor from the committed `alt_segments` block but reads
+  `statpack.md`'s `sal-v7` table as a version mismatch.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - on `main`, `uv run python -c "from fedcourtsai.pipeline.salience import
+    SALIENCE_VERSION; print(SALIENCE_VERSION)"` prints `sal-v8`;
+  - after the first post-promotion metrics refresh, `jq -r
+    '.terms[].salience_version' metrics/statpack.json | sort -u` prints
+    `sal-v8`, and every Term's `alt_segments` holds a `sal-v7` block;
+  - on the first predict run's collect PR after the carrying merge, `jq -r
+    '.context.salience_version'
+    data/cases/scotus/*/events/*/predictions/*/<run_id>/prediction.json |
+    sort -u` prints `sal-v8` (and `null` on an unbanded cell); and the first
+    new forward cell whose `context.snapshot_provenance` is `truncated` and
+    whose staged snapshot's `Petitioner` block lists the office as counsel of
+    record for the captioned party (a docket like 26-111) freezes `band`
+    `federal`, where `sal-v7` would have frozen its caption class.

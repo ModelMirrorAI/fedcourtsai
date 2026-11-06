@@ -564,22 +564,22 @@ def test_sal_v6_reads_as_sal_v4_without_a_call_or_a_writ() -> None:
                 assert v6.in_segment(row), key
 
 
-def test_sal_v7_is_the_active_version() -> None:
-    """sal-v7 is the active scorer: the live pass scores, latches and stamps under
+def test_sal_v8_is_the_active_version() -> None:
+    """sal-v8 is the active scorer: the live pass scores, latches and stamps under
     it, it leads every all-versions report, and it pins the default parse, so its
-    activation moved the version pointer alone. It is sal-v6's relist rule, writ
-    scope and parse pin as the same callables."""
-    assert "sal-v7" in SCORERS
-    assert SALIENCE_VERSION == "sal-v7"
-    assert scorer().version == "sal-v7"
-    assert registered_versions()[0] == "sal-v7"
+    activation moved the version pointer alone. It is sal-v7's relist rule, writ
+    scope and parse pin as the same callables, as sal-v7 is sal-v6's."""
+    assert "sal-v8" in SCORERS
+    assert SALIENCE_VERSION == "sal-v8"
+    assert scorer().version == "sal-v8"
+    assert registered_versions()[0] == "sal-v8"
     assert scorer().distribution_parse == DEFAULT_DISTRIBUTION_PARSE
-    v6, v7 = scorer("sal-v6"), scorer("sal-v7")
-    assert v7.bands == v6.bands
-    assert v7.distribution_parse == v6.distribution_parse == "dist-v2"
-    assert v7.selects_arrivals is True
-    assert v7.score is v6.score
-    assert v7.admits is v6.admits
+    v6, v7, v8 = scorer("sal-v6"), scorer("sal-v7"), scorer("sal-v8")
+    assert v8.bands == v7.bands == v6.bands
+    assert v8.distribution_parse == v7.distribution_parse == v6.distribution_parse == "dist-v2"
+    assert v8.selects_arrivals is v7.selects_arrivals is True
+    assert v8.score is v7.score is v6.score
+    assert v8.admits is v7.admits is v6.admits
 
 
 def _sg_for_petitioner(party: str, *, of_record: bool = True) -> corpus.CounselEntry:
@@ -701,7 +701,7 @@ def test_the_live_pass_leaves_a_rule_20_writ_out_under_the_active_version(
     tmp_path: Path,
 ) -> None:
     """The live pass's scope is the active version's (sal-v6's writ scope, shared
-    by sal-v7), so a Rule 20 writ is neither scored nor latched, while a
+    by sal-v7 and sal-v8), so a Rule 20 writ is neither scored nor latched, while a
     certiorari petition beside it is."""
     writ = _v5_row("scotus/writ", distribution_count=3, opening_writ="rule-20")
     cert = _v5_row("scotus/cert", distribution_count=3, opening_writ="certiorari")
@@ -714,7 +714,7 @@ def test_the_live_pass_leaves_a_rule_20_writ_out_under_the_active_version(
             apply=True,
             as_of=_PASS_DATE,
         )
-    assert result.version == "sal-v7"
+    assert result.version == "sal-v8"
     assert _selected_ids(db) == {"scotus/cert"}
 
 
@@ -1945,7 +1945,7 @@ def test_a_second_version_is_reachable_and_the_active_one_is_unchanged(
         "sal-v4",
         "sal-v5",
         "sal-v6",
-        "sal-v8",
+        "sal-v7",
     )
     row = _petition("scotus/1", distribution_count=3, cvsg=True)
     assert scorer("sal-toy").band(row) == "hot"
