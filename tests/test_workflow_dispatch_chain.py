@@ -3,11 +3,12 @@
 Its token can start any workflow on any ref, so the security argument for it
 (docs/security.md, *The GitHub Apps*) rests on the code that mints it rather than
 on the token's scope: exactly three jobs mint it, each binds `prod` (so only
-`main`'s promoted code reaches the key), holds nothing else, and starts exactly
-one thing — the two drain-chain jobs an input-less `run-predict` on `main`, the
-promotion train's `dispatch-gate` the integration `gate` suite at a validated
-`promote/<date>` candidate. A new minter, a wider grant or a different dispatch
-reopens that argument, so each is a failure here.
+`main`'s promoted code reaches the key), holds nothing else, and starts only
+what it names — the two drain-chain jobs an input-less `run-predict` on `main`,
+run-pull's `chain-predict` also a `mode=pull` run-pull window on `main` to make
+up a dropped slot, the promotion train's `dispatch-gate` the integration `gate`
+suite at a validated `promote/<date>` candidate. A new minter, a wider grant or
+a different dispatch reopens that argument, so each is a failure here.
 """
 
 from __future__ import annotations
@@ -41,7 +42,14 @@ TRAIN_DISPATCH = re.compile(
     r"\bgh workflow run integration-test\.yml --repo \"\$REPO\" "
     + r"--ref \"\$REF\" -f scenario=\"\$SCENARIO\"\s*$"
 )
-DISPATCHES = {**{job: DISPATCH for job in CHAIN_JOBS}, TRAIN_JOB: TRAIN_DISPATCH}
+PULL_DISPATCH = re.compile(
+    r"\bgh workflow run run-pull\.yml --repo \"\$REPO\" --ref main -f mode=pull\s*$"
+)
+DISPATCHES: dict[tuple[str, str], tuple[re.Pattern[str], ...]] = {
+    ("run-predict.yml", "chain"): (DISPATCH,),
+    ("run-pull.yml", "chain-predict"): (DISPATCH, PULL_DISPATCH),
+    TRAIN_JOB: (TRAIN_DISPATCH,),
+}
 # The actions a chain job may run: the checkout and env setup its tested
 # `fedcourts chain-step` needs, then the token mint, in that order.
 CHECKOUT = "actions/checkout@"
@@ -110,7 +118,7 @@ def test_each_minter_dispatches_only_its_one_workflow() -> None:
         dispatches = [line for line in runs.splitlines() if "gh workflow run" in line]
         assert dispatches, f"{workflow}:{job_name} dispatches nothing"
         for line in dispatches:
-            assert DISPATCHES[(workflow, job_name)].search(line), (
+            assert any(p.search(line) for p in DISPATCHES[(workflow, job_name)]), (
                 f"{workflow}:{job_name} dispatches {line.strip()!r}"
             )
         for line in runs.splitlines():
@@ -177,3 +185,13 @@ def test_no_workflow_hands_a_job_every_secret() -> None:
         text = path.read_text()
         assert "toJSON(secrets)" not in text.replace(" ", ""), path.name
         assert not re.search(r"secrets:\s*inherit", text), path.name
+
+
+def test_a_bot_dispatch_of_run_pull_reaches_the_pull_job_alone() -> None:
+    """The dispatch App may start run-pull to make up a pull slot. The live and
+    enrich jobs refuse a bot's dispatch, so the App cannot start the dispatched
+    live window's CourtListener enrichment or an opinion walk."""
+    jobs = _load(WORKFLOWS / "run-pull.yml")["jobs"]
+    for job_name in ("live", "enrich"):
+        assert "!endsWith(github.actor, '[bot]')" in jobs[job_name]["if"], job_name
+    assert "endsWith(github.actor" not in jobs["pull"]["if"]

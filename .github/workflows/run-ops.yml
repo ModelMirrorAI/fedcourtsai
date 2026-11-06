@@ -70,12 +70,13 @@ jobs:
     # listing up to 285s on its 90s bound: ~15 min of retry
     # alone. The off-ledger spend sweep makes a retried call per page and per
     # artifact, so it carries its own 10 min cap and gives up quietly rather
-    # than eat the escalation's share: ~25 min in all. Under a 15 min cap the
+    # than eat the escalation's share, and the scheduled-run listing its own
+    # 6 min cap the same way: ~31 min in all. Under a 15 min cap the
     # job would be killed mid-recovery, after the ops-metrics snapshot but
     # before the data-validation escalation. This job
     # holds no corpus lock, so a wider cap costs only runner minutes on a day
     # the API is already broken.
-    timeout-minutes: 30
+    timeout-minutes: 36
     permissions:
       contents: write # read the ledger + push the snapshot to the ops-metrics branch
       actions: read # read the workflow run history for the health section
@@ -118,6 +119,31 @@ jobs:
           GH_RETRY_TIMEOUT=90 gh_retry gh run list --repo "$REPO" --limit 1200 \
             --json workflowName,status,conclusion,createdAt,startedAt,updatedAt,headBranch \
             > runs.json
+
+      # Best-effort and bounded: the schedule-delivery section is a record, so a
+      # slow or failing listing drops it rather than delaying the snapshot and
+      # the escalation behind it. One listing per scheduled workflow, because
+      # the run-list API returns at most 1,000 runs for a filtered query and a
+      # week of every workflow's ticks is more than that.
+      - name: Collect scheduled runs
+        continue-on-error: true
+        timeout-minutes: 6
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # shellcheck disable=SC1091  # resolved on the runner; actionlint lints this block out of tree
+          source "${GITHUB_WORKSPACE}/scripts/gh_retry.sh"
+          since=$(date -u -d '8 days ago' +%Y-%m-%dT%H:%M:%SZ)
+          : > schedule-runs.pages
+          for file in .github/workflows/*.yml; do
+            grep -q -- '- cron:' "$file" || continue
+            GH_RETRY_TIMEOUT=60 gh_retry gh api --paginate --slurp \
+              "repos/${REPO}/actions/workflows/$(basename "$file")/runs?event=schedule&created=%3E%3D${since}&per_page=100" \
+              >> schedule-runs.pages
+          done
+          jq -s 'add' schedule-runs.pages > schedule-runs.json
 
       - name: Collect issues wearing a stale fan-out label
         env:
@@ -171,6 +197,10 @@ jobs:
           # section, catching anything that reached the default branch without the gate.
           # `--status-out` is the public status page's snapshot (`PublicStatus`),
           # published beside the ops snapshot below for the site to read.
+          # The schedule-delivery feed is read only when its step wrote it whole.
+          if [ -f schedule-runs.json ]; then
+            prev_args+=(--schedule-runs schedule-runs.json)
+          fi
           uv run fedcourts ops-report --runs runs.json --trigger-issues trigger-issues.json \
             "${prev_args[@]}" --json new-ops.json --data-health-out data-health.md \
             --digest-out digest.md --status-out status.json > ops.md

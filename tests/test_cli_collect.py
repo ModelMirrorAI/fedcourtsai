@@ -278,8 +278,8 @@ def test_collect_plan_no_cells_emits_nulls(tmp_path: Path) -> None:
         # census is silent on a clean run, so a bare "0 missing" line never
         # trains a reader to skip the place the warning will appear.
         "stakes_reads": "",
-        # Nor any cell a pre-mint poll refused.
-        "pre_mint_refusals": "",
+        # Nor any cell the forward gate refused as already resolved.
+        "forward_refusals": "",
         # Nor any usage record naming a model other than the requested one.
         "served_models": "",
         "feedback_comment": "",

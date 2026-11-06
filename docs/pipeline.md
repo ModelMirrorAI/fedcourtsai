@@ -151,6 +151,29 @@ watchlist view, escalating a failing verdict to one
 long-lived issue — so the report surfaces run-health, data-health, and
 substance while staying a read-only presenter that never touches the corpus.
 
+### Schedule delivery
+
+The report's **schedule delivery** section reads every schedule-event run
+GitHub created on `main` over the last eight days (one listing per workflow
+that declares a cron, because the run-list API returns at most 1,000 runs for
+a filtered query) and sets them against the slots each workflow's crons
+promise (`ops-report --schedule-runs`, `fedcourtsai.schedule_delivery`). Per
+workflow, over the last 24 hours and 7 days, it counts the slots, the
+delivered and the dropped, and the median and largest lateness of the
+delivered, measured from the slot to the run's creation time, so it measures
+the scheduler rather than runner queueing. A run is matched to the newest slot
+at or before it, so a backlog reads as dropped slots plus lateness no longer
+than the gap between two slots. A workflow's crons are read as one stream of
+slots, so `run-pull`'s pull and live windows, which interleave 30 to 90
+minutes apart, are one stream there: a pull tick later than the next live slot
+reads as that slot's delivery. A slot younger than two hours is not counted
+yet. A workflow is flagged when its newest counted slot went undelivered with
+no scheduled run in the last 24 hours, or when fewer than half its slots in the
+last 24 hours were delivered. The listing step is best-effort and capped at six
+minutes: when it fails, the section and the status page's slot counts drop,
+and nothing else does. Unlike the lane state below, a dispatched or chained
+run never stands in for a dropped tick here.
+
 ### The public status snapshot
 
 The same job writes `status.json` (`ops-report --status-out`, a `PublicStatus`)
@@ -169,6 +192,9 @@ stands. Four sections:
   failing. **No runs** means the listing the job reads (the newest 1,200 runs
   across every workflow, a few days) holds none of the lane. A dispatch counts
   as a start, so one made just before a tick with nothing after it reads late.
+  Each lane also carries the day's `slots_24h`, `delivered_24h` and
+  `lateness_p50_min` from the schedule-delivery section, null when that
+  section's feed was not read.
 - **Production**: the cell census over the trailing 7 days, 30 days and Term to
   date, the same windows as the weekly digest, without its spend.
 - **Coverage**: the public ledger's size and the live watchlist's document
@@ -1678,8 +1704,8 @@ checkpoint.
 
 ## Cascade
 
-Every arrow below is a **schedule**, and two are also a **dispatch**; none is a
-handoff. No stage tells the next one what to do; each reads committed state and
+Every arrow below is a **schedule**, and two are also a **dispatch**, with a
+third, the catch-up, that makes up dropped ticks; none is a handoff. No stage tells the next one what to do; each reads committed state and
 derives what it owes. That is what makes the whole cascade level-triggered: a
 window that failed, a round that was declined, a cron GitHub silently dropped —
 each is re-derived next cycle, and nothing has to be re-filed for it.
@@ -1705,6 +1731,34 @@ repository-level `DISPATCH_CHAIN_ENABLED` variable is `true`; and
 `run-predict`'s schedule stays as the backstop for a dispatch that never
 arrives. `run-evaluate` is not chained: a grading round needs the predictions
 it grades to have merged, and its daily slot already follows predict's.
+
+GitHub's scheduler drops and delays ticks under load, so the same
+`chain-predict` job also **makes up** a dropped slot (`fedcourts catch-up`,
+`fedcourtsai.catch_up`). Every `run-pull` window, whatever started it, asks
+about two slots. When the latest pull slot is 40 minutes old and no pull-mode
+run of `run-pull` was created since it, the job dispatches `run-pull`
+`mode=pull` on `main`, unless the next pull tick is under two hours away (that
+window serves it, and two windows within the hour would stack against the
+hourly CourtListener ceiling) or a corpus writer waits for the shared lock,
+which a dispatch would evict (GitHub keeps one pending run per concurrency
+group).
+When the latest predict slot is an hour old and no `run-predict` run of any
+event was created since it, the job sends the same predict dispatch a relevant
+window does, under the same promotion stand-down. A made-up run is created
+after its slot, so it serves the slot and no later window dispatches it again.
+A late tick that then arrives for a slot already made up skips its pull (the
+`slot` job, `fedcourts slot-served`), so a slot costs one window's
+CourtListener share. A run's mode is in its title (`run-pull pull`,
+`run-pull live`, set by the workflow's `run-name`); a title without a mode is
+read as a pull, so an unreadable history makes up nothing. The job lists 26
+hours of runs, longer than the widest gap between two predict slots plus its
+grace, so the run that served the latest slot is always in view. A waiting
+corpus writer is any `run-pull` or `run-seed` run queued for the lock, or any
+unfinished `run-repair` run, since run-repair takes the lock per job. The
+dispatch App starts `run-pull` for this alone: the `live` and `enrich` jobs
+refuse a bot's dispatch. The catch-up depends on some `run-pull` tick
+arriving, so it shortens an outage rather than replacing the scheduler; the
+schedule-delivery section above is where a total stall shows.
 
 ```
 daily ×4 → run-seed → walk Terms newest-first, ingest every decided petition
@@ -3156,10 +3210,17 @@ order was unpublished, since an order list or a press account can precede the
 docket JSON, so leakage is still judged from the retrieval log. A poll that cannot
 answer (no docket served, a body that is not JSON, a timeout, any error) records
 `unavailable`, and the cell proceeds on the stored-snapshot gates. A refused cell
-writes no usage record; its `status.json` carries the refusal, and `collect`
-rolls refusals up per engine in the run PR body and the agent-feedback comment,
-as designed refusals rather than no-output failures against the attempt cap. A
-round makes up to four GETs to the Court per forward cell that runs — a poll
+writes no usage record. When the gate refused because the event is already
+resolved — the record holds its outcome (`record`), the snapshot text shows it
+(`snapshot`), or the poll does (`poll`) — `--refusal-out` writes the gate, its
+time and its reason, and the status step copies that into the cell's
+`status.json` as `forward_refusal`. `collect` rolls those up per engine in the
+run PR body and the agent-feedback comment, as designed refusals rather than
+no-output failures against the attempt cap, and keeps them out of the
+missing-engine and stall checks. A cell the staleness bound refused records no
+`forward_refusal`, because a stale snapshot says the pipeline is behind rather
+than that the event is over, so `collect` books it as an ordinary no-output
+cell. A round makes up to four GETs to the Court per forward cell that runs — a poll
 before minting and one after, each a fetch and at most one retry — with at most six cells in
 flight. The fresh payload is evidence for the gate only; the cell still reads
 the stored snapshot. A second is the **arrival anchor**: an
@@ -3169,7 +3230,7 @@ date instead would restore the conditioning that bound replaces. A third is a
 **trigger absent**: a `cvsg`, interim `response-requested` or `response-filed` cell whose
 trigger entry no stored payload carries exits 5, since a cell placed before its
 own trigger is forecast from the previous moment under this one's name. A later
-round owes it again once a pull stores the entry; unlike a pre-mint refusal it
+round owes it again once a pull stores the entry; unlike a resolved-event refusal it
 is not rolled up as a designed refusal, so `collect` records it as a no-output
 cell against the attempt cap. The fourth is an
 **unprovisioned record**: provisioning wrote nothing (exit 1 — usually a corpus with no
@@ -3447,7 +3508,7 @@ characters, keeping the first fifth and the last four fifths. The default
 template whole loses the middle of its contract once its next call lands. Every
 workflow that writes `.gemini/settings.json` (the predict, evaluate and
 back-test cells, and the integration smokes that mirror them) sets the threshold
-to 200,000, which is at least twice the largest cell template. The CLI also caps it
+to 250,000, which is at least twice the largest cell template. The CLI also caps it
 at its own estimate of the context the model has left. A test holds every
 writer to that floor, so growing a template past half the threshold fails CI
 instead of silently truncating the cells.

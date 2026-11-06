@@ -72,9 +72,17 @@ def test_the_usage_step_records_the_post_run_poll() -> None:
     assert "--post-run-poll-file" in usage["run"]
 
 
-def test_a_poll_refused_cell_records_its_refusal_in_status_json() -> None:
+def test_the_forward_refusal_leaves_the_runner_as_a_step_output() -> None:
+    run = _step("provision")["run"]
+
+    assert '--refusal-out "$refusal"' in run
+    assert "forward_refusal=" in run
+    assert 'rm -f "$refusal"' in run
+
+
+def test_a_refused_cell_records_its_refusal_in_status_json() -> None:
     (status,) = [s for s in _predict_steps() if "> status.json" in str(s.get("run", ""))]
 
-    assert status["env"]["PRE_MINT_POLL"] == "${{ steps.provision.outputs.pre_mint_poll }}"
-    assert "pre_mint_refusal:$pre_mint_refusal" in status["run"]
-    assert '.state == "decided"' in status["run"]
+    assert status["env"]["FORWARD_REFUSAL"] == "${{ steps.provision.outputs.forward_refusal }}"
+    assert "forward_refusal:$forward_refusal" in status["run"]
+    assert "{gate, at, reason}" in status["run"]
