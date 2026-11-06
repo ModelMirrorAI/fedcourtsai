@@ -1013,7 +1013,14 @@ window (four a case) and about a hundred a day, with its 3-minute timeout
 bounding a worst-case window; `run-analytics`'s `decision-below` mode runs
 the same pass as a 25-case dry run. Both kinds are staged for cert and merits
 cells only (`provision.LOWER_COURT_STAGES`;
-[document-provisioning.md](document-provisioning.md)).
+[document-provisioning.md](document-provisioning.md)). Within the selection the
+newest petitions go first, so a petition docketed between two full windows is
+attempted at the next one, and the predict backlog holds its cert **arrival**
+cell until then (`held_decision_below`, bounded at
+`pull.DECISION_BELOW_HOLD_DAYS` from the day the event opened). The hold costs
+the cell nothing it would have read: the arrival cutoff is fixed at the day
+after the event opened, so a cell minted a window later is placed on the same
+snapshot and gains only the stored decision below.
 
 `provision-snapshot --refuse-terminal` (the forward predict path's guard —
 `run-predict` in production, mirrored by the integration harness) refuses a

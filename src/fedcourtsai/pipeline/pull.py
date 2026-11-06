@@ -19,7 +19,7 @@ discovery. ``pull`` drives this function for onboarding and refresh alike.
 from __future__ import annotations
 
 import time
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from enum import StrEnum
@@ -60,6 +60,7 @@ from ..store import (
     predictor_holds_no_counted_prediction,
 )
 from ..voids import is_voided
+from .decision_below import joins_lower_court
 from .documents import holds_docket_documents
 from .entry_reads import full_read_owed, merge_entries
 from .events import AmbiguousEntry, extract_events
@@ -929,6 +930,7 @@ class CaseDisposition(StrEnum):
     held_unswept = "held_unswept"
     held_decided = "held_decided"
     held_unread_scan = "held_unread_scan"
+    held_decision_below = "held_decision_below"
     dropped_already_queued = "dropped_already_queued"
     dropped_excluded = "dropped_excluded"
     dropped_not_funded = "dropped_not_funded"
@@ -947,6 +949,7 @@ _ADMITTED_DISPOSITIONS = frozenset(
         CaseDisposition.held_unswept,
         CaseDisposition.held_decided,
         CaseDisposition.held_unread_scan,
+        CaseDisposition.held_decision_below,
     }
 )
 
@@ -1135,7 +1138,7 @@ class PredictBacklog:
     stage's own schedule, which reads the committed record and derives its fan-out
     from it.
 
-    The four **hold** counts are the derivation's other output, and they are
+    The five **hold** counts are the derivation's other output, and they are
     counted over the *owed* population alone — a candidate is only counted as
     held if, but for the hold, it would have produced an entry. That is what
     makes them mean something: "work this lane owes and cannot mint yet",
@@ -1164,6 +1167,14 @@ class PredictBacklog:
       every dropped ``(case_id, event_id, reason)``, including events dropped
       from a case that is still derived, so each drop is traceable to its
       docket and the entry that tripped the scan.
+    - ``held_decision_below`` — every event the case is owed is a cert
+      **arrival** moment still waiting on the decision-below fill
+      (:func:`_decision_below_held`): a petition from a court of appeals the
+      fill joins, never attempted by it, within
+      :data:`DECISION_BELOW_HOLD_DAYS` of the day the event opened. Clears at
+      the fill's first attempt, whatever it finds, or when the bound lapses.
+      ``decision_below_events`` names every held ``(case_id, event_id)``,
+      including one held on a case still derived for another event.
 
     The classes are first-match, in that order, so a case in several counts
     once, under the first; the sum is the true held total.
@@ -1198,7 +1209,9 @@ class PredictBacklog:
     held_unswept: int = 0
     held_decided: int = 0
     held_unread_scan: int = 0
+    held_decision_below: int = 0
     decided_events: tuple[tuple[str, str, str], ...] = ()
+    decision_below_events: tuple[tuple[str, str], ...] = ()
     cap_reached: bool = False
     reconciliation: CaseReconciliation | None = None
 
@@ -1391,6 +1404,49 @@ def _reowed_pre_freeze_events(
     return reowed
 
 
+def _drop_unmintable(
+    conn: corpus.ReadConnection,
+    row: corpus.CorpusRow,
+    owed: list[str],
+    reowed: list[str],
+    *,
+    decided: list[tuple[str, str, str]],
+    awaiting_fill: list[tuple[str, str]],
+    day: date,
+) -> tuple[list[str], list[str], CaseDisposition | None]:
+    """Steps 10 and 11 of :func:`derive_predict_backlog`: the per-event drops.
+
+    The same textual disclosure scan provisioning runs on the same newest
+    snapshot (:func:`_drop_disclosed`), asked so an owed event whose docket
+    already shows its outcome is never derived: provisioning would refuse the
+    cell, but only after the round spent a runner on it, and the event stays
+    owed — and re-derived — at every round until its outcome is recorded. Keyed
+    per event, because one docket discloses different events' outcomes: the
+    grant that answers a cert event opens the merits event beside it. Then the
+    arrival moment's wait for the decision-below fill
+    (:func:`_decision_below_held`), per event too, so another owed event of the
+    same case is derived beside a held arrival.
+
+    Returns what is left of ``owed`` and ``reowed``, and the hold to file the
+    case under when nothing is: ``held_decided`` where the scan took the last
+    event, ``held_decision_below`` where the fill's wait did. Each dropped
+    event is appended to ``decided`` or ``awaiting_fill``.
+    """
+    court = row.court
+    owed, reowed = _drop_disclosed(conn, row.case_id, court, owed, reowed, decided)
+    if not owed and not reowed:
+        return owed, reowed, CaseDisposition.held_decided
+    held = _decision_below_held(conn, row, [*owed, *reowed], day=day)
+    if not held:
+        return owed, reowed, None
+    awaiting_fill.extend((row.case_id, event_id) for event_id in held)
+    owed = [event_id for event_id in owed if event_id not in held]
+    reowed = [event_id for event_id in reowed if event_id not in held]
+    if not owed and not reowed:
+        return owed, reowed, CaseDisposition.held_decision_below
+    return owed, reowed, None
+
+
 def _drop_disclosed(
     conn: corpus.ReadConnection,
     case_id: str,
@@ -1428,6 +1484,55 @@ def _drop_disclosed(
         [event_id for event_id in owed if event_id not in disclosed],
         [event_id for event_id in reowed if event_id not in disclosed],
     )
+
+
+#: How long, in days from the day a cert arrival event opened, the backlog
+#: holds its cell for the decision-below fill's first attempt before minting it
+#: anyway. The fill runs on four live windows a day and walks the selected,
+#: newest petitions first (:func:`fedcourtsai.pipeline.decision_below.fill_candidates`),
+#: so a petition docketed between two fill windows is attempted at the next one;
+#: the bound keeps a fill that cannot run, or one a rate wall defers, from
+#: holding the forecast for good. Inclusive: an event opened
+#: ``DECISION_BELOW_HOLD_DAYS`` days before the plan day still holds.
+DECISION_BELOW_HOLD_DAYS = 1
+
+
+def _decision_below_held(
+    conn: corpus.ReadConnection, row: corpus.CorpusRow, event_ids: Sequence[str], *, day: date
+) -> list[str]:
+    """The owed cert arrival events still waiting on the decision-below fill.
+
+    Step 11 of :func:`derive_predict_backlog`. An event is held when the
+    register declares it the cert stage's **arrival** moment, the row is a
+    SCOTUS docket whose lower court the fill joins
+    (:func:`~fedcourtsai.pipeline.decision_below.joins_lower_court`) and which
+    the fill has never attempted (``decision_below_attempted_at`` unset), and
+    the event opened no more than :data:`DECISION_BELOW_HOLD_DAYS` days before
+    ``day``. The stamp is written on every attempt, matched or not, so a
+    petition upstream holds nothing for is held once, not forever. An event
+    with no recorded ``opened_at`` is not held: its moment has no date to
+    bound the wait from.
+    """
+    if row.court != "scotus" or row.decision_below_attempted_at is not None:
+        return []
+    arrivals = [
+        event_id
+        for event_id in event_ids
+        if (spec := spec_for(event_id)) is not None
+        and spec.stage is Stage.cert
+        and spec.moment is Moment.arrival
+    ]
+    if not arrivals or not joins_lower_court(row):
+        return []
+    opened = {
+        event.event_id: event.opened_at for event in corpus.events_for_case(conn, row.case_id)
+    }
+    return [
+        event_id
+        for event_id in arrivals
+        if (opened_at := opened.get(event_id)) is not None
+        and 0 <= (day - opened_at).days <= DECISION_BELOW_HOLD_DAYS
+    ]
 
 
 def _timing_hold(
@@ -1546,7 +1651,7 @@ def derive_predict_backlog(
        per-cell attempt cap, over the event list the cohort narrowing below
        leaves.
 
-    Then four **holds**, which run only on a case step 6 found owed, so every
+    Then five **holds**, which run only on a case step 6 found owed, so every
     held case is one this lane genuinely owes and cannot mint yet:
 
     7. **Record freshness** — the case was observed by either ingestion channel
@@ -1584,6 +1689,18 @@ def derive_predict_backlog(
         a case left with none is counted on ``held_decided``. This is the plan
         seam's copy of the live routing's decided-docket diversion, which keeps
         such a docket off the queue but records nothing the backlog can read.
+    11. **Decision below tried** — per event, an owed cert **arrival** moment
+        is held while the decision-below fill has yet to attempt its petition
+        (:func:`_decision_below_held`). An event it holds is dropped; a case
+        left with none is counted on ``held_decision_below``. The arrival
+        moment forecasts at docketing, the fill runs on four of the twelve live
+        windows a day, and a petition first seen outside them would otherwise
+        be forecast, at every engine, before its lower court's opinion is
+        stored. Holding costs the cell nothing it would have seen: its cutoff
+        is fixed at the day after the event opened
+        (:func:`fedcourtsai.provision.moment_cutoff`), so a cell minted a day
+        later is placed on the same snapshot, and gains only the stored
+        decision below, whose entry date is the lower court's judgment.
 
     **Case-grain reconciliation.** Every step above that turns a case away files
     it under a :class:`CaseDisposition`, and so does every step that derives or
@@ -1605,9 +1722,10 @@ def derive_predict_backlog(
     keeps the store reads cheap under the corpus split: step 8 reads the store
     only for an owed, fresh, never-queued case, step 9 reads the stored
     documents in full (the manifest and each body) of an owed, fresh,
-    provisioned case, and step 10 reads one snapshot per owed case that passed
-    the other holds — a small fraction of the candidate set rather than all of
-    it. ``cap`` bounds model spend and PR
+    provisioned case, step 10 reads one snapshot per owed case that passed
+    the other holds, and step 11 reads the events of an owed arrival case — a
+    small fraction of the candidate set rather than all of it. ``cap`` bounds
+    model spend and PR
     volume: each queued case fans out one cell per predictor still owed the
     event.
 
@@ -1746,6 +1864,7 @@ def derive_predict_backlog(
     entries: list[BacklogEntry] = []
     reowed_only: list[BacklogEntry] = []
     decided: list[tuple[str, str, str]] = []
+    awaiting_fill: list[tuple[str, str]] = []
     cap_reached = False
     for position, (row, cohort_only) in enumerate(candidates):
         # Two different budgets, and the difference is what stops the re-predict
@@ -1852,16 +1971,14 @@ def derive_predict_backlog(
         if hold is not None:
             log.record(row.case_id, hold)
             continue
-        # The same textual disclosure scan provisioning runs on the same newest
-        # snapshot, asked here so an owed event whose docket already shows its
-        # outcome is never derived: provisioning would refuse the cell, but only
-        # after the round spent a runner on it, and the event stays owed — and
-        # re-derived — at every round until its outcome is recorded. Keyed per
-        # event, because one docket discloses different events' outcomes: the
-        # grant that answers a cert event opens the merits event beside it.
-        owed, reowed = _drop_disclosed(conn, row.case_id, court, owed, reowed, decided)
-        if not owed and not reowed:
-            log.record(row.case_id, CaseDisposition.held_decided)
+        # The per-event drops: an event whose docket already discloses its
+        # outcome, and an arrival moment still waiting on the decision-below
+        # fill (`_drop_unmintable` says why each is dropped, not refused).
+        owed, reowed, held = _drop_unmintable(
+            conn, row, owed, reowed, decided=decided, awaiting_fill=awaiting_fill, day=day
+        )
+        if held is not None:
+            log.record(row.case_id, held)
             continue
         # Never-predicted events lead the list, events re-owed and nothing else
         # follow, so a downstream reader that truncates an event list keeps the
@@ -1910,7 +2027,9 @@ def derive_predict_backlog(
         held_unswept=log.count(CaseDisposition.held_unswept),
         held_decided=log.count(CaseDisposition.held_decided),
         held_unread_scan=log.count(CaseDisposition.held_unread_scan),
+        held_decision_below=log.count(CaseDisposition.held_decision_below),
         decided_events=tuple(decided),
+        decision_below_events=tuple(awaiting_fill),
         cap_reached=cap_reached,
         reconciliation=_reconcile(universe, log, cap_reached=cap_reached),
     )

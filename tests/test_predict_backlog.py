@@ -2174,3 +2174,128 @@ def test_a_case_reached_past_a_full_re_predict_budget_is_filed_censored(tmp_path
     assert recon.sound
     assert recon.buckets == {"derived": 1, "dropped_cap_reached": 1}
     assert recon.counts_json()["cap_reached"] is True
+
+
+ARRIVAL = "evt-petition-arrival-disposition"
+
+
+def _arrival_case(
+    db: Path,
+    docket: int,
+    *,
+    opened_on: date | None = TODAY,
+    lower_court: str | None = "ca11",
+    attempted_on: date | None = None,
+    extra_event: str | None = None,
+) -> str:
+    """A just-docketed cert petition owed its arrival cell, from ``lower_court``."""
+    _open_case(db, "scotus", docket, event_id=ARRIVAL, stage=Stage.cert)
+    case_id = f"scotus/{docket}"
+    with corpus.connect(db) as conn:
+        conn.execute(
+            "UPDATE cases SET originating_court = ?, docket_number = ? WHERE case_id = ?",
+            (lower_court, f"26-{docket}", case_id),
+        )
+        conn.execute(
+            "UPDATE events SET opened_at = ? WHERE case_id = ?",
+            (opened_on.isoformat() if opened_on else None, case_id),
+        )
+        if attempted_on is not None:
+            corpus.stamp_decision_below_attempt(conn, case_id, attempted_on)
+        if extra_event is not None:
+            corpus.upsert_events(
+                conn,
+                [
+                    corpus.CorpusEvent(
+                        event_id=extra_event,
+                        case_id=case_id,
+                        court="scotus",
+                        kind=EventKind.petition,
+                        title="Disposition of the petition",
+                        resolved=False,
+                    )
+                ],
+            )
+        conn.commit()
+    return case_id
+
+
+def test_an_arrival_cell_waits_for_the_decision_below_fill(tmp_path: Path) -> None:
+    """A petition from a circuit the fill joins, docketed between two fill
+    windows, would otherwise be forecast at every engine before its lower
+    court's opinion is stored. The arrival event is held until the fill has
+    attempted the petition, and minted once it has, whatever it found."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    case_id = _arrival_case(db, 583)
+
+    held = _backlog(db, data)
+    assert held.entries == ()
+    assert held.held_decision_below == 1
+    assert held.decision_below_events == ((case_id, ARRIVAL),)
+    assert held.reconciliation is not None
+    assert held.reconciliation.sound
+    assert held.reconciliation.buckets == {"held_decision_below": 1}
+
+    with corpus.connect(db) as conn:
+        corpus.stamp_decision_below_attempt(conn, case_id, TODAY)
+        conn.commit()
+    tried = _backlog(db, data)
+    assert tried.case_ids == (case_id,)
+    assert tried.entries[0].events == (ARRIVAL,)
+    assert tried.held_decision_below == 0
+
+
+def test_the_decision_below_hold_lapses_after_its_bound(tmp_path: Path) -> None:
+    """A fill that cannot run, or one a rate wall defers, must not hold the
+    forecast for good: past :data:`pull.DECISION_BELOW_HOLD_DAYS` from the day
+    the event opened the cell mints without the decision below."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    bound = TODAY - timedelta(days=pull.DECISION_BELOW_HOLD_DAYS)
+    case_id = _arrival_case(db, 583, opened_on=bound)
+    assert _backlog(db, data).held_decision_below == 1
+
+    with corpus.connect(db) as conn:
+        conn.execute(
+            "UPDATE events SET opened_at = ? WHERE case_id = ?",
+            ((bound - timedelta(days=1)).isoformat(), case_id),
+        )
+        conn.commit()
+    lapsed = _backlog(db, data)
+    assert lapsed.case_ids == (case_id,)
+    assert lapsed.held_decision_below == 0
+
+
+@pytest.mark.parametrize(
+    ("lower_court", "opened_on"),
+    [
+        (None, TODAY),  # a state court or other tribunal the fill does not join
+        ("ca11", None),  # a moment with no recorded day to bound the wait from
+    ],
+)
+def test_the_decision_below_hold_waits_only_on_what_the_fill_reaches(
+    tmp_path: Path, lower_court: str | None, opened_on: date | None
+) -> None:
+    """The hold waits only where the fill can store something: a petition from a
+    court the fill never joins, or an event with no opened date, mints at once."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    case_id = _arrival_case(db, 583, lower_court=lower_court, opened_on=opened_on)
+    backlog = _backlog(db, data)
+    assert backlog.case_ids == (case_id,)
+    assert backlog.held_decision_below == 0
+
+
+def test_the_decision_below_hold_is_the_arrival_moments_alone(tmp_path: Path) -> None:
+    """Every other owed event of the case is derived beside the held arrival:
+    later cert moments come weeks after docketing, by when the fill has run, and
+    the hold names the one event it held."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    case_id = _arrival_case(db, 583, extra_event=EVENT)
+    backlog = _backlog(db, data)
+    assert backlog.case_ids == (case_id,)
+    assert backlog.entries[0].events == (EVENT,)
+    assert backlog.held_decision_below == 0
+    assert backlog.decision_below_events == ((case_id, ARRIVAL),)
