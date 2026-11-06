@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000037",
+  "run_id": "20261106T030335Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_get_endpoint_item",
+    "mcp_courtlistener_search_document",
+    "mcp_courtlistener_read_document"
+  ],
+  "helpful": [
+    "record/context.json cert_anchor and metrics/statpack.md band tables",
+    "record/documents/petition.txt containing full lower-court opinions",
+    "CourtListener MCP search surfacing Barrett v. United States (Jan. 14, 2026)"
+  ],
+  "gaps": [
+    "Filtering fedcourts query directly by salience band (--band state) or CFR status (--response-requested)"
+  ],
+  "notes": "CourtListener MCP search (bounded by filed_before=2026-08-27) surfaced Barrett v. United States, No. 24-5774 (decided Jan. 14, 2026), which directly informed the analysis of concurrent-prosecution Blockburger doctrine."
+}

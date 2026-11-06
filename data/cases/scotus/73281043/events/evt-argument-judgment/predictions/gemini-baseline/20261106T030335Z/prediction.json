@@ -1,0 +1,150 @@
+{
+  "big_case_rationale": "Resolves an entrenched circuit split over AEDPA's successive-petition bar in 28 U.S.C. 2244(b)(2)(A) and 2255(h)(2), with direct consequences for capital Atkins litigation and federal post-conviction finality.",
+  "big_case_score": 0.55,
+  "case_id": "scotus/73281043",
+  "claim_distributions": [
+    {
+      "claim_id": "majority-author",
+      "probabilities": {
+        "Alito": 0.14,
+        "Barrett": 0.14,
+        "Gorsuch": 0.15,
+        "Jackson": 0.01,
+        "Kagan": 0.1,
+        "Kavanaugh": 0.18,
+        "Roberts": 0.12,
+        "Sotomayor": 0.02,
+        "Thomas": 0.13,
+        "per-curiam": 0.01
+      }
+    },
+    {
+      "claim_id": "separate-writers",
+      "probabilities": {
+        "Alito": 0.12,
+        "Barrett": 0.07,
+        "Gorsuch": 0.14,
+        "Jackson": 0.42,
+        "Kagan": 0.08,
+        "Kavanaugh": 0.08,
+        "Roberts": 0.03,
+        "Sotomayor": 0.48,
+        "Thomas": 0.18
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.89
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "band_refused": null,
+    "cert_anchor": null,
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-11-05",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 3,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v7",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_contact_scrub": {
+      "blocks": 0,
+      "fields": 0,
+      "sides": []
+    },
+    "snapshot_date": "2026-11-05",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2025,
+    "vide_links": []
+  },
+  "created_at": "2026-11-06T03:24:37.829012Z",
+  "engine": "gemini",
+  "event_id": "evt-argument-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-11-05.json",
+  "judgment": "reversed",
+  "model": "gemini-4-argon",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "gemini-baseline",
+  "probability": 0.89,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:1389c40a89d22cb951b25dad96d18d307cef26db4f6b66cdd425ea8fcf0f49b6",
+    "label": "proc-v17",
+    "pipeline_sha": "f2ffa55dbc5fa68112afe7d46c61c6818595f252",
+    "stamped_at": "2026-11-06T03:24:37.829012Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261106T030335Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The Court holds that under the plain text and grammar of 28 U.S.C. 2244(b)(2)(A), the phrase 'that was previously unavailable' modifies 'a new rule of constitutional law, made retroactive to cases on collateral review by the Supreme Court,' rather than 'the claim,' so availability depends on whether this Court had announced the retroactive constitutional rule before the prior federal habeas petition concluded, not on whether the prisoner's claim had 'some possibility of merit' under the evidentiary record, diagnostic manuals, or non-retroactive case law."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The Court announces a categorical statutory interpretation of 28 U.S.C. 2244(b)(2)(A) rejecting the Fifth Circuit's 'some possibility of merit' test and holding across the board that a constitutional rule announced by this Court before a prisoner's prior federal habeas petition is not 'previously unavailable' under Section 2244(b)(2)(A), while declining to decide whether changes in diagnostic standards could ever render an execution challenge newly ripe on a non-successive theory under Panetti v. Quarterman."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "dissent",
+      "writing": null
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+# Forecast of the Court's action
+
+The Court will deny the petition, ordinarily by an unexplained order following the December 4, 2026 conference. The snapshot records **one distribution and zero relists**. I expect **zero further distributions**; the probability of at least one additional distribution is 6%. The Court will not call for the Solicitor General's views; I assign a new CVSG 0.1%. If the Court wants adversarial briefing, requesting a response from the already-party United States is the distinct, more natural step.
+
+The petition will not persuade the Court that a codefendant's separately pending certiorari petition creates a sufficiently important unresolved finality problem to warrant review. The certificate-of-appealability challenge will not independently secure review merely because no earlier case has identical facts. This is a forecast of the result, not a prediction that the denial order will explain those considerations.
+
+**If review is granted**, the likely focus is a narrowed version of Question 2: whether the certificate of appealability was properly refused on this particular limitations ruling, informed by Question 1's claim that consolidated direct appeals remain unfinished until all separate petitions conclude. The Court is less likely to adopt the petition's broad all-codefendants-finality formulation as the vehicle for full merits review.
+
+Conditional on a grant, **summary disposition is more likely than plenary review, 65% versus 35%**. The most plausible summary intervention is correction of the certificate ruling and remand for further proceedings, rather than a decision on Green's underlying constitutional claims. An ordinary GVR based on a newly intervening decision is not the expected route: none is identified in the record. The total probability of any grant remains only 1%.
+
+If the petition is denied, I expect **no dissent or statement respecting denial**; the conditional probability of any such writing is 1.2%. If a writing nevertheless appears, Sotomayor is my highest-probability individual author, followed by Jackson and Gorsuch, with each still very unlikely to write. The structured order-writers probabilities express those small individual chances rather than predicting an opinion accompanying the denial.

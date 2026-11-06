@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/73281043",
+  "run_id": "20261106T030335Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "argument-features.json"],
+  "helpful": ["Full argument transcript and argument-features coverage block", "Merits section with excluded count made the anchor straightforward"],
+  "gaps": ["Structured query cannot filter by subject (e.g., AEDPA/habeas) so priors were not on point", "No record of the current sitting's opinion assignments to inform majority-author"],
+  "notes": "Transcript was the decisive input; corpus priors added nothing for a merits forecast."
+}
