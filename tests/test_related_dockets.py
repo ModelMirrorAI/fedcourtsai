@@ -524,7 +524,9 @@ def test_a_vided_read_with_no_keys_room_or_index_reads_nothing() -> None:
     def never(_keys: Any) -> list[corpus.VidedCompanion]:
         raise AssertionError("asked the index with nothing to ask")
 
-    snapshot = lambda _case: None  # noqa: E731
+    def snapshot(_case: str) -> None:
+        return None
+
     assert read_vided(["a"], own_case="scotus/305", linked=[], find=find, snapshot=snapshot) == ()
     assert read_vided([], own_case="scotus/305", linked=[], find=never, snapshot=snapshot) == ()
     full = [f"24-{n}" for n in range(MAX_RELATED_DOCKETS)]

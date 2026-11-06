@@ -16961,8 +16961,8 @@ freeze commit is recorded here.
   reads the VIDED amicus keys of its **placed** snapshot
   (`pipeline.vided.vided_amicus_keys`), so a cell placed at a cutoff asks only
   about the briefs its own docket showed by then. It matches them in one read
-  of the index's partial VIDED index (`corpus.vided_companions`, most shared
-  first, then by case id), skips a docket the cell already reads as `Vide`,
+  through the corpus's partial VIDED index (`corpus.vided_companions`, most
+  shared first, then by case id), skips a docket the cell already reads as `Vide`,
   and stages the rest after the `Vide` links, up to the same four related
   dockets in all (`provision.read_vided`). Each is cut and redacted exactly
   as a `Vide` companion is (`provision.place_related`), on the same read
@@ -16971,8 +16971,8 @@ freeze commit is recorded here.
   `shared_briefs` (the number of briefs a `vided-amicus` row shares, null on
   a `Vide` row). A shared brief makes a candidate, not the Court's link: a
   repeat filer's two unrelated VIDED briefs on one day key alike, which is
-  why the row carries its strength. A blob without the partial index stages
-  none and records none.
+  why the row carries its strength. A blob without the partial index, or a
+  read that reaches no index, stages none and records none.
 
   No prompt byte and no registry field other than the boundary row moves, so
   no digest moves: `uv run fedcourts process-digest --all` prints `proc-v18`
@@ -16983,8 +16983,11 @@ freeze commit is recorded here.
   paragraph still describes only `Vide` links; a sentence naming
   `vided-amicus` rows waits for the next re-bless, so that the predictor
   digests move once (`proc-v18` is already pending and `register-process`
-  refuses a second label per promotion). Until then a cell finds a
-  `vided-amicus` row only by reading `related.json`.
+  refuses a second label per promotion). That leaves a residual, stated:
+  until the sentence lands, the prompt tells a cell that every file under
+  `record/related/` is a docket the Court links as `Vide`, so a cell that does
+  not read `related.json` can take a `vided-amicus` candidate, of strength one
+  where a repeat filer's briefs key alike, for the Court's own link.
 
   **A harness boundary under the 2026-10-11 pooled rule.** The change adds to
   what a predict cell reads under unchanged digests. It is composition, not a
@@ -17017,8 +17020,10 @@ freeze commit is recorded here.
   with 26-240, and 25-1019 shares five with 25-1017 and four with 25-1022.
   Where a docket shares one brief with each of several others (26-199,
   26-201, 26-332 and 26-335; 26-292, 26-293 and 26-294), the rows are
-  candidates of strength one. Today the column is empty on every row, so no
-  cell stages one until the post-promotion polls write it.
+  candidates of strength one. Today the production blob carries neither the
+  column nor its partial index (the migration rides the carrying promotion),
+  so no cell stages one until a post-promotion writer adds them and the live
+  polls fill the column.
 
   **What does not move.** No base rate re-prices, no membership rule moves
   and no scored figure moves. No skill movement is predicted, and a movement
@@ -17038,9 +17043,11 @@ freeze commit is recorded here.
     print(sqlite3.connect('corpus/corpus.db').execute('SELECT count(*) FROM
     cases WHERE vided_amicus IS NOT NULL').fetchone()[0])"` prints a count
     above 0;
-  - a predict run's provisioning log for a cert cell on 26-193 or 26-240
-    names the other docket with `[vided-amicus x<n>]`, `<n>` being the briefs
-    the cell's placed docket shares with it;
+  - where the corpus is pulled once those polls have re-read 26-193 and
+    26-240, `uv run fedcourts provision-snapshot --court scotus --docket
+    9026000193 --event evt-petition-disposition` prints `26-240
+    [vided-amicus x<n>]` on its `related` line, `<n>` being the briefs the
+    placed docket shares;
   - on `main` once the promotion has merged, `uv run python -c "from
     fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
     print('vided-amicus-related-dockets' in {b.name for b in H})"` prints

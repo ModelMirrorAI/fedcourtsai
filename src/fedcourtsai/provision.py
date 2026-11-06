@@ -1082,9 +1082,10 @@ def read_vided(
     about the briefs its own docket showed by its moment; ``find`` answers them
     from the corpus index (:func:`~fedcourtsai.corpus.vided_companions`), most shared first.
     A docket the cell already reads as ``Vide`` (``linked``) is not read again,
-    and the two kinds together stop at :data:`MAX_RELATED_DOCKETS`, the
-    Court's own links first. A shared brief makes a candidate, not a link: the
-    row carries the count it shares, which is the match's strength.
+    and the room left under :data:`MAX_RELATED_DOCKETS` is what the Court's
+    own links (every one served, staged or not) leave, so they come first. A
+    shared brief makes a candidate, not a link: the row carries the count it
+    shares, which is the match's strength.
 
     Empty where ``find`` answers ``None``: with no index nothing was looked up,
     and a candidate the read never found has no row to record.

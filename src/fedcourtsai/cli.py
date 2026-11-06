@@ -20265,8 +20265,9 @@ def _read_related(
     through the corpus index in one scan. Under the casestore backend, which
     carries no index, those scans run over the ordinary read backend the row
     gate also reaches (ranged in the cell workflows), and each companion's
-    snapshot comes from the content store as the cell's own did; a link with
-    no index reachable is recorded as such, never dropped.
+    snapshot comes from the content store as the cell's own did; a ``Vide``
+    link with no index reachable is recorded as such, never dropped, while a
+    VIDED companion the index could not find has no row to record.
     """
     numbers = vide_links.vide_docket_numbers(payload)
     keys = vided.vided_amicus_keys(payload) or []
@@ -20276,36 +20277,37 @@ def _read_related(
         source = _casestore_source()
         choice = corpus.resolve_backend(None)
 
-        def index_read[T](read: Callable[[corpus.ReadConnection], T | None]) -> T | None:
+        def index_read() -> tuple[Mapping[str, str] | None, list[corpus.VidedCompanion] | None]:
+            # Both kinds on one connection: under the ranged backend each
+            # connection is a setup of its own.
             if choice == "local" and not db_path.exists():
-                return None
+                return None, None
             try:
                 with corpus.connect_readonly(db_path, backend=choice) as conn:
-                    found = read(conn)
+                    found = (
+                        corpus.live_scotus_case_ids_by_docket_numbers(conn, numbers)
+                        if numbers
+                        else {}
+                    )
+                    companions = corpus.vided_companions(conn, keys, own_case=case) if keys else []
                     _echo_read_stats(conn)
-                    return found
+                    return found, companions
             except (OSError, corpus_ranged.RangedBackendError):
                 typer.echo(
-                    "::warning::companion links recorded unresolved: the corpus index "
-                    "did not answer from the casestore path",
+                    "::warning::Vide links recorded unresolved and VIDED companions "
+                    "unread: the corpus index did not answer from the casestore path",
                     err=True,
                 )
-                return None
+                return None, None
 
+        found, companions = index_read()
         return provision.read_related(
-            numbers,
-            own_case=case,
-            resolve=lambda wanted: index_read(
-                lambda conn: corpus.live_scotus_case_ids_by_docket_numbers(conn, wanted)
-            ),
-            snapshot=source.latest_snapshot,
+            numbers, own_case=case, resolve=lambda _wanted: found, snapshot=source.latest_snapshot
         ) + provision.read_vided(
             keys,
             own_case=case,
             linked=numbers,
-            find=lambda wanted: index_read(
-                lambda conn: corpus.vided_companions(conn, wanted, own_case=case)
-            ),
+            find=lambda _wanted: companions,
             snapshot=source.latest_snapshot,
         )
     with corpus.connect_readonly(db_path, backend=backend) as conn:
