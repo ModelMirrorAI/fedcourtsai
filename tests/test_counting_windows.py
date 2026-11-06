@@ -378,16 +378,23 @@ def test_proc_v16_closed_every_predictor_window_and_opened_one_for_each() -> Non
         assert opened.opens.at == v16
 
 
-def test_proc_v17_closes_every_predictor_window_and_opens_one_for_each() -> None:
+#: The predictor digests the proc-v17 entry registers, one proc-v17 window each.
+PROC_V17_PREDICTOR_DIGESTS = {
+    "claude-baseline": "sha256:33a3f9f8f53a2f6cb53967a60d836c3ba29f0078c12306fb8696e15d7c674978",
+    "codex-baseline": "sha256:5b6efbbb2270718377da537c3ea04c727a2a855ffdae684da2a313c003699593",
+    "gemini-baseline": "sha256:1389c40a89d22cb951b25dad96d18d307cef26db4f6b66cdd425ea8fcf0f49b6",
+}
+
+
+def test_proc_v17_closed_every_predictor_window_and_opened_one_for_each() -> None:
     """proc-v17's registry shape, as the freeze record's proc-v17 entries register it.
 
-    proc-v17 edits both the predict and the evaluate prompt, so all six digests
-    move. Each predictor's proc-v16 window closes at the proc-v17 instant, and a
-    proc-v17 window opens there for each live digest. Pending rows compare by
-    their null instants until the merge stamps them.
+    proc-v17 edited both the predict and the evaluate prompt, so all six digests
+    moved. Each predictor's proc-v16 window closed at the proc-v17 instant, and
+    a proc-v17 window opened there for each new digest.
     """
     v17 = _label_since("proc-v17")
-    live = _live_predictor_digests()
+    assert v17 is not None
     rows = process_version._REGISTRY.windows
     by_label = {(w.label, w.predictor_id): w for w in rows}
     for predictor, digest in PROC_V16_PREDICTOR_DIGESTS.items():
@@ -395,9 +402,31 @@ def test_proc_v17_closes_every_predictor_window_and_opens_one_for_each() -> None
         assert closed.digest == digest
         assert closed.closes is not None and closed.closes.at == v17
         opened = by_label[("proc-v17", predictor)]
+        assert opened.digest == PROC_V17_PREDICTOR_DIGESTS[predictor] != closed.digest
+        assert opened.opens.at == v17
+
+
+def test_proc_v18_closes_every_predictor_window_and_opens_one_for_each() -> None:
+    """proc-v18's registry shape, as the freeze record's proc-v18 entry registers it.
+
+    proc-v18 edits only the predict prompt, so the three predictor digests move
+    and the evaluator digests keep their blessings. Each predictor's proc-v17
+    window closes at the proc-v18 instant, and a proc-v18 window opens there for
+    each live digest. Pending rows compare by their null instants until the
+    merge stamps them.
+    """
+    v18 = _label_since("proc-v18")
+    live = _live_predictor_digests()
+    rows = process_version._REGISTRY.windows
+    by_label = {(w.label, w.predictor_id): w for w in rows}
+    for predictor, digest in PROC_V17_PREDICTOR_DIGESTS.items():
+        closed = by_label[("proc-v17", predictor)]
+        assert closed.digest == digest
+        assert closed.closes is not None and closed.closes.at == v18
+        opened = by_label[("proc-v18", predictor)]
         assert opened.digest == live[predictor] != closed.digest
-        assert opened.opens.at == v17 and opened.closes is None
-    assert len(rows) == 27
+        assert opened.opens.at == v18 and opened.closes is None
+    assert len(rows) == 30
 
 
 def test_the_counting_registry_is_well_formed() -> None:

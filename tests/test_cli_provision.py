@@ -9,6 +9,7 @@ from typer.testing import CliRunner, Result
 
 from fedcourtsai import casestore, corpus, provision
 from fedcourtsai.cli import app
+from fedcourtsai.collect import ForwardRefusal
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline import arrival_cut, cell_context, cert_signals, ingest, opinion_record
 from fedcourtsai.pipeline.base_rates import statpack_digest
@@ -3682,3 +3683,74 @@ def test_the_date_cut_drops_a_blank_or_unparseable_docketed_date() -> None:
         )
     kept = provision.cut_dated_fields({"DocketedDate": "October 20, 2026"}, date(2026, 10, 21))
     assert kept["DocketedDate"] == "October 20, 2026"
+
+
+def _forward_refusal_run(tmp_path: Path, *extra: str) -> tuple[Result, Path]:
+    out = tmp_path / "refusal.json"
+    result = runner.invoke(
+        app,
+        [
+            "provision-snapshot",
+            "--court",
+            "scotus",
+            "--docket",
+            "305",
+            "--refuse-terminal",
+            "--refusal-out",
+            str(out),
+            *extra,
+        ],
+    )
+    return result, out
+
+
+def test_a_record_gate_refusal_is_written_for_collect(
+    fixture_corpus: FixtureCorpus, tmp_path: Path
+) -> None:
+    # The corpus already records the event resolved: a designed refusal, which
+    # collect must read as one rather than as a cell that produced nothing.
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        corpus.set_event_resolved(conn, "scotus/305", "evt-petition-disposition", resolved=True)
+
+    result, out = _forward_refusal_run(tmp_path, "--event", "evt-petition-disposition")
+
+    assert result.exit_code == 3
+    refusal = json.loads(out.read_text())
+    assert refusal["gate"] == "record"
+    assert "corpus records evt-petition-disposition resolved" in refusal["reason"]
+    assert refusal["at"].endswith("Z")
+    assert ForwardRefusal.from_status(refusal) is not None
+
+
+def test_a_snapshot_text_refusal_is_written_for_collect(
+    fixture_corpus: FixtureCorpus, tmp_path: Path
+) -> None:
+    _seed_decided_snapshot(fixture_corpus)
+
+    result, out = _forward_refusal_run(tmp_path)
+
+    assert result.exit_code == 3
+    assert json.loads(out.read_text())["gate"] == "snapshot"
+
+
+def test_a_stale_snapshot_refusal_writes_no_resolved_record(
+    fixture_corpus: FixtureCorpus, tmp_path: Path
+) -> None:
+    # A stale snapshot says the pipeline is behind, not that the event is over:
+    # the cell stays an ordinary no-output cell against the attempt cap.
+    result, out = _forward_refusal_run(
+        tmp_path, "--event", "evt-petition-disposition", "--max-snapshot-age-days", "30"
+    )
+
+    assert result.exit_code == 3
+    assert "forward bound" in result.output
+    assert not out.exists()
+
+
+def test_an_open_forward_cell_writes_no_refusal(
+    fixture_corpus: FixtureCorpus, tmp_path: Path
+) -> None:
+    result, out = _forward_refusal_run(tmp_path, "--event", "evt-petition-disposition")
+
+    assert result.exit_code == 0, result.output
+    assert not out.exists()

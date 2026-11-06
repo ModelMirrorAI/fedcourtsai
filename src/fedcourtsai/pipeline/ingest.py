@@ -73,6 +73,7 @@ from .interim_signals import (
 from .judgment import last_judgment_entry
 from .merits_signals import respondent_brief_date
 from .schedule_signals import argument_set_date, response_deadline
+from .vided import vided_amicus_keys
 
 CORPUS_SCHEMA_VERSION: Final = "1.0"
 
@@ -207,6 +208,12 @@ class CorpusRow(BaseModel):
         "(`pipeline.cert_signals.opening_writ`: certiorari, rule-20, ambiguous or "
         "other). Live cert branch only; None elsewhere — the storage fill-in latch "
         "keeps a stored reading when a writer carries none.",
+    )
+    vided_amicus: list[str] | None = Field(
+        default=None,
+        description="The amicus filings the docket marks VIDED, as matchable keys "
+        "(`pipeline.vided.vided_amicus_keys`). Live cert branch only; None elsewhere "
+        "— the storage fill-in latch keeps stored keys when a writer carries none.",
     )
     argument_set_for: date | None = Field(
         default=None,
@@ -449,6 +456,13 @@ def _as_flag(value: Any) -> bool | None:
     return bool(value) if value is not None else None
 
 
+def _string_list(value: Any) -> list[str] | None:
+    """A list of non-empty strings, or ``None`` for anything else or an empty list."""
+    if not isinstance(value, list):
+        return None
+    return [text for item in value if (text := _clean(item))] or None
+
+
 def _as_count(value: Any) -> int | None:
     """Parse a non-negative integer count, or ``None`` for blanks/non-numeric."""
     text = _clean(value)
@@ -654,6 +668,7 @@ def _normalize(record: Mapping[str, Any], source: CorpusSource) -> CorpusRow:
         call_for_response_at=_date(record.get("call_for_response_at")),
         relisted_at=_date(record.get("relisted_at")),
         opening_writ=_clean(record.get("opening_writ")),
+        vided_amicus=_string_list(record.get("vided_amicus")),
         distributed_after_call=_as_count(record.get("distributed_after_call")),
         argument_set_for=_date(record.get("argument_set_for")),
         response_due=_date(record.get("response_due")),
@@ -1272,6 +1287,9 @@ def map_live_docket(
         # fixed at filing, and read off the entry text so a sealed certiorari
         # petition's "In re" caption never reads as a Rule 20 writ.
         "opening_writ": opening_writ(payload) if form == "cert" else None,
+        # The amicus filings marked VIDED, on the cert branch only: the keys a
+        # companion the Court never linked as `Vide` is matched on.
+        "vided_amicus": vided_amicus_keys(payload) if form == "cert" else None,
         # The conferences first distributed for after a call for response,
         # counted under the reading `distribution_count` holds.
         "distributed_after_call": distributions_after_call(payload) if form == "cert" else None,
@@ -1563,6 +1581,7 @@ def to_corpus_row(
         call_for_response_at=row.call_for_response_at,
         relisted_at=row.relisted_at,
         opening_writ=row.opening_writ,
+        vided_amicus=row.vided_amicus,
         distributed_after_call=row.distributed_after_call,
         argument_set_for=row.argument_set_for,
         response_due=row.response_due,

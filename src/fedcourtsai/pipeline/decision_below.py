@@ -955,6 +955,20 @@ def _walk_cases(
 JOINED_COURTS: Final = frozenset({f"ca{n}" for n in range(1, 12)} | {"cadc", "cafc"})
 
 
+def joins_lower_court(row: corpus.CorpusRow) -> bool:
+    """Whether ``row``'s lower court is one the fill joins to CourtListener.
+
+    The row's own originating court id where ingest latched one, else the
+    court the payload's ``LowerCourt`` name maps to, read against
+    :data:`JOINED_COURTS`. The court test :func:`fill_candidates` applies, asked
+    alone so the predict backlog's arrival hold
+    (:func:`fedcourtsai.pipeline.pull.derive_predict_backlog`) waits only on a
+    row the fill can reach.
+    """
+    court = row.originating_court or live_lower_court_id(row.originating_court_name)
+    return court in JOINED_COURTS
+
+
 def facts_for_row(conn: corpus.ReadConnection, row: corpus.CorpusRow) -> LowerCourtFacts:
     """A corpus case's lower-court facts, from its newest live snapshot.
 
@@ -1181,8 +1195,7 @@ def fill_candidates(
         serial = parse_scotus_docket_number(corpus.strip_docket_annotation(row.docket_number))
         if serial is None or row.date_cert_denied is not None or row.merits_decided is not None:
             continue
-        court = row.originating_court or live_lower_court_id(row.originating_court_name)
-        if court not in JOINED_COURTS:
+        if not joins_lower_court(row):
             continue
         attempted = row.decision_below_attempted_at
         if attempted is not None and (today - attempted).days < retry_days:

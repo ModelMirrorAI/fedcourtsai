@@ -480,33 +480,53 @@ def union_cell_tree(source: Path, dest: Path) -> UnionReport:
     return UnionReport(tuple(sorted(added)), tuple(sorted(identical)), tuple(sorted(refused)))
 
 
-@dataclass(frozen=True)
-class PreMintRefusal:
-    """A forward cell the pre-mint docket poll refused: the docket already showed its outcome.
+FORWARD_REFUSAL_GATES: tuple[str, ...] = ("record", "snapshot", "poll")
+"""The forward gates whose refusal means the event is already resolved.
 
-    Read from the cell's ``status.json``, where the status step records it from the
-    provisioning step's output. A designed refusal, not a failure: no engine ran,
-    so it is kept out of the no-output facts the attempt cap counts and out of the
-    missing-engine check, and rolled up on its own so the run says what it declined.
+``record``: the committed ledger or the corpus already holds the event's
+outcome. ``snapshot``: the stored snapshot's own text discloses it. ``poll``:
+the live docket, polled just before minting, shows it. The staleness bound is
+deliberately absent: a stale snapshot says the pipeline is behind, not that the
+event is over, so a cell it refuses stays an ordinary no-output cell.
+"""
+
+
+@dataclass(frozen=True)
+class ForwardRefusal:
+    """A forward cell the forward gate refused because its event is already resolved.
+
+    ``provision-snapshot --refusal-out`` writes it at the refusal, and the cell's
+    status step copies it into ``status.json``. A designed refusal, not a
+    failure: no engine ran, so it is kept out of the no-output facts the attempt
+    cap counts and out of the missing-engine and stall checks, and rolled up on
+    its own so the run says what it declined. ``gate`` is one of
+    :data:`FORWARD_REFUSAL_GATES`; ``at`` is when the gate read the state it
+    refused on (the poll's own time for ``poll``).
     """
 
-    polled_at: str
+    gate: str
+    at: str
     reason: str
 
+    def as_record(self) -> dict[str, str]:
+        return {"gate": self.gate, "at": self.at, "reason": self.reason}
+
     @classmethod
-    def from_status(cls, value: object) -> PreMintRefusal | None:
+    def from_status(cls, value: object) -> ForwardRefusal | None:
         if not isinstance(value, dict):
             return None
-        polled_at, reason = value.get("polled_at"), value.get("reason")
+        gate, at, reason = value.get("gate"), value.get("at"), value.get("reason")
+        if gate not in FORWARD_REFUSAL_GATES:
+            return None
         # The time reaches a PR body and an issue comment, so only a parseable
         # timestamp is kept; anything else reads as a malformed record.
-        if not isinstance(polled_at, str):
+        if not isinstance(at, str):
             return None
         try:
-            datetime.fromisoformat(polled_at)
+            datetime.fromisoformat(at)
         except ValueError:
             return None
-        return cls(polled_at=polled_at, reason=str(reason or ""))
+        return cls(gate=str(gate), at=at, reason=str(reason or ""))
 
 
 @dataclass(frozen=True)
@@ -535,7 +555,7 @@ class CellStatus:
     agent_ok: bool
     artifact_dir: str
     engine_deadline: bool = False
-    pre_mint_refusal: PreMintRefusal | None = None
+    forward_refusal: ForwardRefusal | None = None
 
     @property
     def ready(self) -> bool:
@@ -572,7 +592,7 @@ class CellStatus:
             agent_ok=bool(data["agent_ok"]),
             artifact_dir=artifact_dir,
             engine_deadline=data.get("engine_deadline") is True,
-            pre_mint_refusal=PreMintRefusal.from_status(data.get("pre_mint_refusal")),
+            forward_refusal=ForwardRefusal.from_status(data.get("forward_refusal")),
         )
 
 
@@ -831,8 +851,8 @@ class CollectPlan:
     self_provisioned_markdown: str = ""
     stakes_read_markdown: str = ""
     served_models_markdown: str = ""
-    pre_mint_refusals: tuple[CellStatus, ...] = ()
-    pre_mint_refusals_markdown: str = ""
+    forward_refusals: tuple[CellStatus, ...] = ()
+    forward_refusals_markdown: str = ""
     feedback_comment: str = ""
     stalled: bool = False
     dead_actors: tuple[str, ...] = ()
@@ -1636,33 +1656,37 @@ class StakesReadRollup:
     by_predictor: tuple[tuple[str, int, int], ...] = ()
 
 
-def render_pre_mint_refusals(cells: Sequence[CellStatus]) -> str:
-    """The forward cells the pre-mint docket poll refused, per engine, as Markdown.
+def render_forward_refusals(cells: Sequence[CellStatus]) -> str:
+    """The forward cells the forward gate refused as already resolved, per engine, as Markdown.
 
-    Each row is keyed by event, engine, the poll's time and what the poll read, so
-    a refusal is countable after its run's job log expires. The per-engine counts
-    lead because engines mint the same event hours apart: a later engine can lose
-    a fast-decided event an earlier one kept, which a pooled per-engine figure
-    does not show by itself. The reason is the Court's own docket text; it is
-    flattened to one table cell. Empty when the run refused no cell.
+    Each row is keyed by event, engine, the gate, the time it read and what it
+    read, so a refusal is countable after its run's job log expires. The
+    per-engine counts lead because engines mint the same event hours apart: a
+    later engine can lose a fast-decided event an earlier one kept, which a
+    pooled per-engine figure does not show by itself. The reason can quote the
+    Court's own docket text; it is flattened to one table cell. Empty when the
+    run refused no cell.
     """
-    refused = [c for c in cells if c.pre_mint_refusal is not None]
+    refused = [c for c in cells if c.forward_refusal is not None]
     if not refused:
         return ""
     per_engine = Counter(c.actor for c in refused)
     counts = ", ".join(f"`{actor}` {n}" for actor, n in sorted(per_engine.items()))
     rows = [
         f"| `{c.court}/{c.docket}` | `{c.event_id}` | `{c.actor}` | "
-        f"{_md_cell(c.pre_mint_refusal.polled_at)} | {_md_cell(c.pre_mint_refusal.reason)} |"
+        f"{c.forward_refusal.gate} | {_md_cell(c.forward_refusal.at)} | "
+        f"{_md_cell(c.forward_refusal.reason)} |"
         for c in sorted(refused, key=lambda c: (c.court, c.docket, c.event_id, c.actor))
-        if c.pre_mint_refusal is not None
+        if c.forward_refusal is not None
     ]
     return (
-        f"### Pre-mint refusals ({len(refused)})\n\n"
-        "Forward cells not minted because the Court's docket, polled just before "
-        f"provisioning, already showed the event's outcome. By engine: {counts}.\n\n"
-        "| case | event | engine | polled at | what the docket showed |\n"
-        "|---|---|---|---|---|\n" + "\n".join(rows)
+        f"### Forward-gate refusals ({len(refused)})\n\n"
+        "Forward cells not minted because the event was already resolved: the "
+        "record held its outcome (`record`), the stored snapshot's text showed it "
+        "(`snapshot`), or the Court's docket, polled just before provisioning, "
+        f"showed it (`poll`). By engine: {counts}.\n\n"
+        "| case | event | engine | gate | read at | what it showed |\n"
+        "|---|---|---|---|---|---|\n" + "\n".join(rows)
     )
 
 
@@ -1805,7 +1829,7 @@ def render_feedback_comment(
     so the single long-lived issue accrues one comment per such run, a durable
     home that survives even a fully-failed run that opens no PR.
 
-    The pre-mint refusal roll-up rides the same comment, ahead of the flags: it is
+    The forward-refusal roll-up rides the same comment, ahead of the flags: it is
     the harness's record of the forward cells the run declined, and the issue is
     the one home it has when every cell was refused and no PR opened.
     """
@@ -1957,10 +1981,11 @@ def collect_plan(  # noqa: PLR0913 - one arg per independent per-run input the p
     )
     ready = [c for c in cells if c.ready]
     salvage = [c for c in cells if c.produced and not c.ready]
-    # A cell the pre-mint poll refused ran no engine by design: it is not a
-    # no-output failure, so it records no fact against the attempt cap.
-    refused = tuple(c for c in cells if c.pre_mint_refusal is not None and not c.produced)
-    skipped = tuple(c for c in cells if not c.produced and c.pre_mint_refusal is None)
+    # A cell the forward gate refused as already resolved ran no engine by
+    # design: it is not a no-output failure, so it records no fact against the
+    # attempt cap.
+    refused = tuple(c for c in cells if c.forward_refusal is not None and not c.produced)
+    skipped = tuple(c for c in cells if not c.produced and c.forward_refusal is None)
 
     # An actor that produced 0 of its cells is a whole engine missing from the
     # run — and unlike a partial failure it leaves no salvage draft to mark the
@@ -1970,10 +1995,10 @@ def collect_plan(  # noqa: PLR0913 - one arg per independent per-run input the p
     # Keys on `produced` (not `agent_ok`): an engine that ran cleanly but
     # declined every cell is the same missing seat as a quota failure — the
     # tournament expects every seat to produce, so both withhold the close.
-    # A poll-refused cell is not a missing seat: an engine whose only cells the
-    # poll declined has nothing it failed to produce.
+    # A cell refused as already resolved is not a missing seat: an engine whose
+    # only cells the forward gate declined has nothing it failed to produce.
     produced_actors = {c.actor for c in cells if c.produced}
-    seated_actors = {c.actor for c in cells if c.pre_mint_refusal is None}
+    seated_actors = {c.actor for c in cells if c.forward_refusal is None}
     dead_actors = tuple(sorted(seated_actors - produced_actors))
 
     ready_plan: PrPlan | None = None
@@ -2050,7 +2075,7 @@ def collect_plan(  # noqa: PLR0913 - one arg per independent per-run input the p
     self_provisioned_md = render_self_provisioned_note(self_provisioned)
     stakes_md = render_stakes_read_note(stakes_reads)
     served_md = render_served_model_note(served_models)
-    refusals_md = render_pre_mint_refusals(refused)
+    refusals_md = render_forward_refusals(refused)
 
     # A wholesale-failed run — no ready PR and no draft — still has failure facts
     # to persist (skipped/salvage/uncovered), and no other PR to carry them. The
@@ -2096,10 +2121,10 @@ def collect_plan(  # noqa: PLR0913 - one arg per independent per-run input the p
         self_provisioned_markdown=self_provisioned_md,
         stakes_read_markdown=stakes_md,
         served_models_markdown=served_md,
-        pre_mint_refusals=refused,
-        pre_mint_refusals_markdown=refusals_md,
+        forward_refusals=refused,
+        forward_refusals_markdown=refusals_md,
         feedback_comment=render_feedback_comment(role, run_id, flags_md, refusals_md),
-        stalled=bool(seated := [c for c in cells if c.pre_mint_refusal is None])
+        stalled=bool(seated := [c for c in cells if c.forward_refusal is None])
         and not any(c.produced or c.agent_ok for c in seated),
         dead_actors=dead_actors,
         noun=noun,

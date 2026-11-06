@@ -66,7 +66,7 @@ from ..schemas import (
 )
 from ..serialize import write_json, write_yaml
 from ..validate import run_ledger_referential_checks, validate_ledger
-from . import same_question, vide_links
+from . import same_question, vide_links, vided
 from .documents import BIO_URL_JOIN, COMBINED_KINDS, select_documents, unheld_document_kinds
 from .outcome import (
     NO_ORDER_MARKERS,
@@ -345,17 +345,21 @@ def _read_related(
     case_id: str,
     placed: Mapping[str, provision.Placement | None],
 ) -> dict[str, tuple[provision.RelatedRead, ...]]:
-    """Each placed target's ``Vide``-linked dockets, read as ``provision-snapshot`` reads them.
+    """Each placed target's related dockets, read as ``provision-snapshot`` reads them.
 
-    Off the payload each target was placed on, after every target is placed,
-    on one connection opened only where some target links a docket.
+    Its ``Vide``-linked dockets, then those sharing one of its VIDED amicus
+    briefs, off the payload each target was placed on, after every target is
+    placed, on one connection opened only where some target has either.
     """
     linked = {
-        event_id: vide_links.vide_docket_numbers(placement.payload)
+        event_id: (
+            vide_links.vide_docket_numbers(placement.payload),
+            vided.vided_amicus_keys(placement.payload) or [],
+        )
         for event_id, placement in placed.items()
         if placement is not None
     }
-    if not any(linked.values()):
+    if not any(numbers or keys for numbers, keys in linked.values()):
         return {}
     with corpus.connect_readonly(db_path, backend=backend) as conn:
         return {
@@ -365,7 +369,14 @@ def _read_related(
                 resolve=lambda wanted: corpus.live_scotus_case_ids_by_docket_numbers(conn, wanted),
                 snapshot=lambda linked_case: corpus.latest_snapshot(conn, linked_case),
             )
-            for event_id, numbers in linked.items()
+            + provision.read_vided(
+                keys,
+                own_case=case_id,
+                linked=numbers,
+                find=lambda wanted: corpus.vided_companions(conn, wanted, own_case=case_id),
+                snapshot=lambda linked_case: corpus.latest_snapshot(conn, linked_case),
+            )
+            for event_id, (numbers, keys) in linked.items()
         }
 
 

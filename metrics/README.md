@@ -2428,8 +2428,8 @@ the rendered table) and
   `selected_rank_fill` each cell publishes. A bare precision delta between
   versions is not a claim this artifact supports.
 
-  **The superseded `sal-v6`, the never-activated `sal-v5` and the active
-  `sal-v7`.** Their cells and their statpack blocks cover a narrower population
+  **The superseded `sal-v6`, the never-activated `sal-v5`, the active
+  `sal-v7` and the registered `sal-v8`.** Their cells and their statpack blocks cover a narrower population
   than every other version's: Rule 20 writs are outside their segment, so their
   `eligible`, recall and band pools leave them out, and a cross-version
   comparison spans that population change as well as the scoring. `sal-v6` is
@@ -2449,12 +2449,16 @@ the rendered table) and
   truncating a later pull, or projected blind, reads `caption-v2`'s class
   there. So a `sal-v7` replay cell measures `caption-v4` on its `dated` rows
   alone, and its `provenance` mix says how many those are; a difference from
-  `sal-v6`'s cell is never a reading over the whole frame. Any of these blocks over past Terms is
+  `sal-v6`'s cell is never a reading over the whole frame. `sal-v8` is
+  `sal-v7` with the class read through `caption-v5`, which reads every stored
+  row and every replay cell exactly as `caption-v4` does, so its statpack
+  block and its replay cells equal `sal-v7`'s; it differs only on a forward
+  cell rebuilt by truncation, which no replay cell is. Any of these blocks over past Terms is
   **not that version's pool** on a pack rendered before the run-repair
   back-fill filled `distributed_after_call` and `opening_writ` on the decided
   rows: on such a pack those rows read as `sal-v4` reads them, mixed with the
   rows the live poll has re-read, and no figure from the block may be quoted
-  (`docs/salience.md`, the `sal-v5`, `sal-v6` and `sal-v7` sections).
+  (`docs/salience.md`, the `sal-v5`, `sal-v6`, `sal-v7` and `sal-v8` sections).
 
   **What may not.** Nothing here is predictor skill — no model
   ran — and nothing is ex-ante: every replayed petition had resolved before

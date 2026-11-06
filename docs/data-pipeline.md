@@ -1013,7 +1013,14 @@ window (four a case) and about a hundred a day, with its 3-minute timeout
 bounding a worst-case window; `run-analytics`'s `decision-below` mode runs
 the same pass as a 25-case dry run. Both kinds are staged for cert and merits
 cells only (`provision.LOWER_COURT_STAGES`;
-[document-provisioning.md](document-provisioning.md)).
+[document-provisioning.md](document-provisioning.md)). Within the selection the
+newest petitions go first, so a petition docketed between two full windows is
+attempted at the next one, and the predict backlog holds its cert **arrival**
+cell until then (`held_decision_below`, bounded at
+`pull.DECISION_BELOW_HOLD_DAYS` from the day the event opened). The provisioned
+record moves by that document alone: the arrival cutoff is fixed at the day
+after the event opened, so a cell minted a window later is cut to the same
+information set and gains only the stored decision below.
 
 `provision-snapshot --refuse-terminal` (the forward predict path's guard —
 `run-predict` in production, mirrored by the integration harness) refuses a
@@ -1843,6 +1850,7 @@ passes, commits from the same record.
 | `salience-cert-backfill` | `backfill-salience-cert-columns` | `--max-fills` (column fills across the three columns: the dry run's `total_fills`, not rows) | — | — |
 | `application-reread` | `reread-applications` | `--max-changes` (column values written: the dry run's `total_changes`, fills plus moves over both columns) | — | — |
 | `regrade-stale` | `stamp-cell --regrade` | — | cell list, **required in both modes** | — |
+| `refused-attempt-removal` | `remove-refused-attempts` | — | cell list (predict cells, one per line), **required in both modes** | — |
 | `opinion-votes` | `stamp-opinion-votes` (split: `--emit-corpus-projection`, `--projection --plan-out`, `--from-plan`) | `--max-stamps` (outcomes stamped, new records and replacements together) | — | `replace-differing` |
 | `order-votes` | `stamp-order-votes` (split, as above) | `--max-stamps` (outcomes stamped, new records and replacements together) | — | `replace-differing` |
 | `application-backfill` | `backfill-applications` (split, as above) | `--max-rows` (rows landed, onboarded and enriched together; the dry run's count is an upper bound) | two-digit October Term, **required in both modes** | — |
@@ -2017,9 +2025,11 @@ instead of promised by the workflow. An apply refuses where the binaries are
 absent, which is what keeps a failed install from reading as a converged class.
 **Least privilege per pass.** Twelve of the corpus passes run in the corpus job, holding the
 read-write corpus role, the data App token and the content-store env pair.
-`regrade-stale` runs in a separate job with none of those: it recomputes graded
-fields out of committed artifacts and writes `evaluation.json`, touching no
-corpus row, so it holds only the App token that pushes its `data/` commit.
+`regrade-stale` and `refused-attempt-removal` run in a separate job with none
+of those: the one recomputes graded fields out of committed artifacts and
+writes `evaluation.json`, the other deletes named `attempt.json` facts, and
+neither touches a corpus row, so the job holds only the App token that pushes
+its `data/` commit.
 Every pass that fetches and parses third-party content — `opinion-votes`,
 `order-votes`, `application-backfill`, `opinion-record`, `ocr-recovery`,
 `recut` and `document-backfill` — runs as a **credential split**, because a
@@ -2374,6 +2384,13 @@ gh workflow run run-repair.yml --ref main \
   -f repair=regrade-stale -f repair_mode=dry-run \
   -f repair_target='scotus/1119228/evt-petition-disposition/20260624T103000Z/claude-judge
 scotus/1119228/evt-petition-disposition/20260624T103000Z/codex-judge'
+
+# The refused-attempt removal takes the same cell grammar, one predict cell per
+# line, each read off its run log. Its dry run runs the same checks as an
+# apply, so it lists what an apply would delete or the refusals that stop it.
+gh workflow run run-repair.yml --ref main \
+  -f repair=refused-attempt-removal -f repair_mode=dry-run \
+  -f repair_target='scotus/9526000634/evt-brief-response-disposition/20261105T203825Z/claude-baseline'
 
 # The distribution re-derivation names its parse and takes no bound. Dispatch
 # the INCUMBENT parse first as a control: it must report `changed = 0`.

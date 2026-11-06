@@ -2016,6 +2016,7 @@ def test_the_staging_seed_accepts_the_only_list_shape_its_form_can_produce() -> 
 # to; every other one carries an inline copy instead — pinned identical below.
 SOURCING_OPS_STEPS = (
     "Collect recent workflow runs",
+    "Collect scheduled runs",
     "Collect issues wearing a stale fan-out label",
     "Escalate a failing data-validation verdict",
     "Sweep the off-ledger spend records",
@@ -2197,6 +2198,7 @@ REPAIR_PASS_STEPS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("repair", "Record the lost outcomes", ()),
     ("repair", "Back-fill the committed event definitions", ()),
     ("regrade", "Re-grade named cells", ()),
+    ("regrade", "Remove named refused attempts", ()),
     ("handoff-projection", "Write the application back-fill projection", ()),
     ("handoff-projection", "Write the OCR worklist", ()),
     ("handoff-projection", "Write the re-cut worklist", ()),
@@ -4455,11 +4457,14 @@ def test_run_pull_polls_live_every_two_hours_and_enriches_on_four_windows() -> N
     wf = _load("run-pull.yml")
     crons = _schedule("run-pull.yml")
     assert len(crons) == len(set(crons)), f"duplicate cron in run-pull: {crons}"
+    # `slot` reads the pull cron to guard the `pull` job, not to claim the
+    # window: it writes nothing.
     claims = {
         cron: [
             job_id
             for job_id, job in wf["jobs"].items()
-            if f"startsWith(github.event.schedule, '{cron.split()[0]} ')"
+            if job_id != "slot"
+            and f"startsWith(github.event.schedule, '{cron.split()[0]} ')"
             in str(job.get("if") or "")
         ]
         for cron in crons

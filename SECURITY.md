@@ -461,10 +461,12 @@ runbook, [docs/security.md](docs/security.md).
   themselves with the **dispatch App**, whose token holds Actions write (and
   PR read) and nothing else and whose key only `main`'s code can mint:
   `run-pull`'s `chain-predict` and `run-predict`'s `chain`, each starting an
-  input-less `run-predict` on `main`, and the promotion train's
+  input-less `run-predict` on `main` (and `chain-predict` a `mode=pull`
+  `run-pull` window on `main` that makes up a dropped pull slot, the one
+  `run-pull` mode whose jobs accept a bot's dispatch), and the promotion train's
   `dispatch-gate`, starting the side-effect-free `integration-test` `gate`
   suite at a frozen `promote/` candidate, once per head. The allow-list admits
-  the App for those two workflows alone. A dispatch from it enters through the
+  the App for those three workflows alone. A dispatch from it enters through the
   same gates as a maintainer's and reaches the same code; the round it starts
   still waits on the review hold unless its own plan is within the
   auto-release caps and budget. The train's suite has no review hold: it

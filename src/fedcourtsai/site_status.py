@@ -52,12 +52,14 @@ from .schemas import (
     OpsReport,
     PublicStatus,
     SalienceReplay,
+    ScheduleDelivery,
     StatusBacktest,
     StatusCoverage,
     StatusLane,
     StatusProduction,
     StatusStageCells,
     StatusTable,
+    WorkflowDelivery,
 )
 
 
@@ -270,8 +272,13 @@ def lane_status(
     crons: Sequence[str],
     runs: Iterable[Mapping[str, object]],
     generated_at: datetime,
+    delivery: WorkflowDelivery | None = None,
 ) -> StatusLane:
-    """Judge one lane against its own schedule and its own run history."""
+    """Judge one lane against its own schedule and its own run history.
+
+    ``delivery`` is the lane's schedule-delivery record, when the snapshot read
+    the scheduled-run feed; it adds the day's slot counts beside the state.
+    """
     own = sorted(
         (
             (stamp, run)
@@ -310,19 +317,28 @@ def lane_status(
         expected_since=expected,
         runs_7d=len(week),
         successes_7d=sum(1 for run in week if run.get("conclusion") == "success"),
+        slots_24h=delivery.day.slots if delivery else None,
+        delivered_24h=delivery.day.delivered if delivery else None,
+        lateness_p50_min=delivery.day.lateness_p50_min if delivery else None,
     )
 
 
 def build_lanes(
-    runs: Sequence[Mapping[str, object]], *, workflows_root: Path, generated_at: datetime
+    runs: Sequence[Mapping[str, object]],
+    *,
+    workflows_root: Path,
+    generated_at: datetime,
+    delivery: ScheduleDelivery | None = None,
 ) -> list[StatusLane]:
     """Every lane in :data:`LANES`, each judged against its workflow's schedule."""
+    by_stem = {w.workflow: w for w in delivery.workflows} if delivery else {}
     return [
         lane_status(
             lane,
             crons=workflow_crons(workflows_root, lane.stem),
             runs=runs,
             generated_at=generated_at,
+            delivery=by_stem.get(lane.stem),
         )
         for lane in LANES
     ]
@@ -601,6 +617,7 @@ def build_status(  # noqa: PLR0913 - one keyword per independent feed
     frontier: LiveFrontier | None,
     public_cases: int,
     source_sha: str | None,
+    delivery: ScheduleDelivery | None = None,
 ) -> PublicStatus:
     """The whole snapshot, anchored on the report's own ``generated_at``."""
     when = parse_iso(report.generated_at)
@@ -611,7 +628,9 @@ def build_status(  # noqa: PLR0913 - one keyword per independent feed
         generated_at=when,
         source_sha=source_sha,
         data_ok=report.data_health.ok if report.data_health is not None else None,
-        lanes=build_lanes(runs, workflows_root=workflows_root, generated_at=when),
+        lanes=build_lanes(
+            runs, workflows_root=workflows_root, generated_at=when, delivery=delivery
+        ),
         production=build_production(production),
         coverage=build_coverage(report, public_cases=public_cases, frontier=frontier),
         backtests=build_backtests(analytics, merits),

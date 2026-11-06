@@ -53,6 +53,7 @@ from . import (
     analytics,
     blinding,
     casestore,
+    catch_up,
     cell_policy,
     cleanup,
     contexts_due,
@@ -81,6 +82,7 @@ from . import (
     repo_gate,
     retrieval,
     schedule,
+    schedule_delivery,
     scope_manifest,
     secretscan,
     site_status,
@@ -140,6 +142,7 @@ from .collect import (
     CellStatus,
     CollectPlan,
     ExpectedCell,
+    ForwardRefusal,
     PathJailError,
     PriorAvailabilityRollup,
     PrPlan,
@@ -311,6 +314,7 @@ from .pipeline import (
     same_question,
     semantic,
     vide_links,
+    vided,
     vote_sources,
     watchlist_refresh,
 )
@@ -455,6 +459,7 @@ from .pipeline.party_rates import DEFAULT_RATES_RULE, party_rates
 from .pipeline.policy_area import policy_areas, policy_source
 from .pipeline.pull import (
     BACKLOG_MAX_POLL_AGE_DAYS,
+    DECISION_BELOW_HOLD_DAYS,
     SCAN_HOLD_DAYS,
     CaseDisposition,
     CaseReconciliation,
@@ -466,6 +471,7 @@ from .pipeline.pull import (
     pull_case,
     pull_cases,
 )
+from .pipeline.refused_attempts import parse_cell, remove_refused_attempts
 from .pipeline.response_backfill import backfill_response_fields
 from .pipeline.runner import (
     EngineFailed,
@@ -2043,7 +2049,7 @@ def caption_census_cmd(
     rule_version: str = typer.Option(
         CAPTION_RULE_VERSION,
         "--rule-version",
-        help="Which registered caption rule cuts the frame (caption-v1 to caption-v4).",
+        help="Which registered caption rule cuts the frame (caption-v1 to caption-v5).",
     ),
 ) -> None:
     """The petitioner-class census: per-Term grant-family rates by caption class.
@@ -5426,6 +5432,59 @@ def remove_ungranted_merits_events_cmd(
         typer.echo(f"  {verb} {ref}")
     for ref, reason in result.skipped:
         typer.echo(f"  skipped {ref}: {reason}")
+
+
+@app.command("remove-refused-attempts")
+def remove_refused_attempts_cmd(
+    cell: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--cell",
+            help=(
+                "One predict cell whose attempt.json to remove, as "
+                "court/docket/event/run_id/actor. Repeat for each cell; with none, "
+                "there is nothing to remove."
+            ),
+        ),
+    ] = None,
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Delete the named facts; omit for a dry-run report."),
+    ] = False,
+) -> None:
+    """Remove named predict failure facts that record a forward refusal on a resolved event.
+
+    The corpus record gate refuses a forward cell whose event the corpus
+    already records as resolved, and that refusal is not a failure; an
+    `attempt.json` written for one is counted against the attempt cap and read
+    by `successor-disclosures` as a failed earlier attempt. Each named cell is
+    one the maintainer read off its run log. The command refuses the whole list
+    unless every named run directory holds only `attempt.json`, the fact is a
+    predict `no_output` record naming the same cell, and the event carries a
+    committed outcome resolved on or before the run's date. Ledger-only: it
+    reads and writes `data/` and touches no corpus row. Dry-run by default;
+    `--apply` deletes. Its apply belongs in run-repair's
+    `refused-attempt-removal` pass, which commits the deletions to `main`.
+    """
+    settings = get_settings()
+    try:
+        cells = [parse_cell(text) for text in cell or []]
+    except ValueError as exc:
+        typer.echo(f"remove-refused-attempts: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    result = remove_refused_attempts(settings.data_root, cells, apply=apply)
+    for ref, reason in result.refused:
+        typer.echo(f"remove-refused-attempts: refusing {ref}: {reason}", err=True)
+    if result.refused:
+        typer.echo("remove-refused-attempts: refusing the whole list; nothing removed.", err=True)
+        raise typer.Exit(code=1)
+    verb = "removed" if apply else "would remove"
+    typer.echo(
+        f"remove-refused-attempts ({'applied' if apply else 'dry-run'}): "
+        f"{verb} {len(result.removed)} failure fact(s)"
+    )
+    for path in result.removed:
+        typer.echo(f"  {verb} {path}")
 
 
 #: The help text every fill sweep's ``--sweep`` option carries.
@@ -12152,7 +12211,11 @@ def statpack(
     write_text(
         md_dest,
         analytics.render_statpack_markdown(
-            pack, markdown_terms=load_statpack_config(settings.config_root).markdown_terms
+            pack,
+            markdown_terms=load_statpack_config(settings.config_root).markdown_terms,
+            interim_lookback_terms=load_salience_config(
+                settings.config_root
+            ).base_rate_lookback_terms,
         ),
     )
     typer.echo(
@@ -15949,6 +16012,14 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
         Path,
         typer.Option(help="Where the workflow files whose schedules `--status-out` reads live."),
     ] = Path(".github/workflows"),
+    schedule_runs: Annotated[
+        Path | None,
+        typer.Option(
+            help="JSON file of schedule-event runs (the REST `workflow_runs` pages, "
+            "e.g. `gh api --paginate --slurp`) for the schedule-delivery section; "
+            "omit to skip it. Ignored if missing or unreadable."
+        ),
+    ] = None,
     all_versions: Annotated[
         bool,
         typer.Option(
@@ -16016,6 +16087,18 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
             open_triggers = None
     when = generated_at or datetime.now(UTC).isoformat()
     scope: Literal["frozen", "all"] = "all" if all_versions else "frozen"
+    # Schedule delivery, best-effort like the other feeds: a missing or
+    # unreadable file just drops the section and the status page's slot counts.
+    delivery = None
+    if schedule_runs is not None and schedule_runs.exists():
+        try:
+            delivery = schedule_delivery.build_schedule_delivery(
+                json.loads(schedule_runs.read_text()),
+                workflows_root=workflows_root,
+                now=_parse_when(when),
+            )
+        except (OSError, ValueError) as error:
+            typer.echo(f"::warning::schedule delivery not read: {error}", err=True)
     # Same shared producer + default as the leaderboard, so the two surfaces
     # always agree on the frozen headline. The census (ledger_cell_counts) stays
     # version-blind — it counts committed predictions, not scored cells — and,
@@ -16059,6 +16142,8 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
         data_health=data_health,
         open_triggers=open_triggers,
     )
+    if delivery is not None:
+        report = report.model_copy(update={"schedule_delivery": delivery})
     if json_out is not None:
         write_json(json_out, report)
     if data_health_out is not None:
@@ -16088,12 +16173,15 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
                 frontier=frontier,
                 public_cases=len(scope_manifest.public_case_ids(settings.data_root)),
                 source_sha=_git("rev-parse", "HEAD"),
+                delivery=delivery,
             )
         except (OSError, ValueError) as error:
             typer.echo(f"::warning::status snapshot not written: {error}", err=True)
         else:
             write_json(status_out, status)
     typer.echo(render_markdown(report), nl=False)
+    if delivery is not None:
+        typer.echo("\n" + schedule_delivery.render_schedule_delivery(delivery), nl=False)
 
 
 #: The `daily-digest` label's appearance when the first run creates it. Blue,
@@ -20031,7 +20119,23 @@ def paths(
             typer.echo("outcome   (evaluator-only — never a predictor input)")
 
 
-def _refuse_forward_if_closed(
+def _record_forward_refusal(out: Path | None, gate: str, reason: str, at: datetime) -> None:
+    """Write a resolved-event refusal to ``out`` for the cell's ``status.json``.
+
+    Called just before the exit-3 refusal it records, by the gates whose refusal
+    means the event is already resolved (:data:`~fedcourtsai.collect.FORWARD_REFUSAL_GATES`),
+    so ``collect`` keeps the cell out of the no-output facts. No-op without
+    ``out``.
+    """
+    if out is None:
+        return
+    stamp = at.astimezone(UTC).isoformat().replace("+00:00", "Z")
+    record = ForwardRefusal(gate=gate, at=stamp, reason=reason).as_record()
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(record) + "\n", encoding="utf-8")
+
+
+def _refuse_forward_if_closed(  # noqa: PLR0913 - the gate's inputs plus where to record it
     backend: corpus.CorpusBackend,
     gate_events: Sequence[corpus.CorpusEvent],
     gate_row: corpus.CorpusRow | None,
@@ -20040,6 +20144,8 @@ def _refuse_forward_if_closed(
     event: str,
     snapshot_date: date,
     max_snapshot_age_days: int,
+    *,
+    refusal_out: Path | None = None,
 ) -> None:
     """The record and staleness gates of a forward cell; exit 3 on refusal.
 
@@ -20060,6 +20166,7 @@ def _refuse_forward_if_closed(
             corpus.corpus_db_path(settings.corpus_root), court, docket, event
         )
     if reason is not None:
+        _record_forward_refusal(refusal_out, "record", reason, datetime.now(UTC))
         typer.echo(
             f"::warning::refusing to provision forward cell for {case}: {reason}",
             err=True,
@@ -20082,6 +20189,7 @@ def _pre_mint_poll_gate(
     event: str,
     payload: Mapping[str, Any],
     out: Path | None,
+    refusal_out: Path | None = None,
 ) -> None:
     """Poll the live docket just before minting; exit 3 when the event is decided.
 
@@ -20098,6 +20206,7 @@ def _pre_mint_poll_gate(
         out.write_text(json.dumps(poll.as_record()) + "\n", encoding="utf-8")
     stamp = poll.polled_at.isoformat().replace("+00:00", "Z")
     if poll.state == "decided":
+        _record_forward_refusal(refusal_out, "poll", poll.reason or "", poll.polled_at)
         typer.echo(
             f"::warning::refusing to provision forward cell for {case}: the live docket "
             f"polled at {stamp} shows the outcome ({poll.reason})",
@@ -20201,47 +20310,71 @@ def _read_cell_inputs(
 def _read_related(
     backend: corpus.CorpusBackend, db_path: Path, case: str, payload: Mapping[str, Any]
 ) -> tuple[provision.RelatedRead, ...]:
-    """The ``Vide``-linked dockets of the payload a cell was placed on.
+    """The related dockets of the payload a cell was placed on.
 
-    A read of its own, taken after the cell's gates and placement, so a refused
-    cell spends nothing on companions and the links are the placed payload's.
-    The numbers resolve through the corpus index in one scan. Under the
-    casestore backend, which carries no index, that scan runs over the ordinary
-    read backend the row gate also reaches (ranged in the cell workflows), and
-    each companion's snapshot comes from the content store as the cell's own
-    did; a link with no index reachable is recorded as such, never dropped.
+    Those it links as ``Vide``, then those sharing one of its VIDED amicus
+    briefs (:func:`provision.read_vided`). A read of its own, taken after the
+    cell's gates and placement, so a refused cell spends nothing on companions
+    and the links and briefs are the placed payload's. Each kind resolves
+    through the corpus index in one scan. Under the casestore backend, which
+    carries no index, those scans run over the ordinary read backend the row
+    gate also reaches (ranged in the cell workflows), and each companion's
+    snapshot comes from the content store as the cell's own did; a ``Vide``
+    link with no index reachable is recorded as such, never dropped, while a
+    VIDED companion the index could not find has no row to record.
     """
     numbers = vide_links.vide_docket_numbers(payload)
-    if not numbers:
+    keys = vided.vided_amicus_keys(payload) or []
+    if not numbers and not keys:
         return ()
     if backend == "casestore":
         source = _casestore_source()
         choice = corpus.resolve_backend(None)
 
-        def resolve(wanted: Sequence[str]) -> Mapping[str, str] | None:
+        def index_read() -> tuple[Mapping[str, str] | None, list[corpus.VidedCompanion] | None]:
+            # Both kinds on one connection: under the ranged backend each
+            # connection is a setup of its own.
             if choice == "local" and not db_path.exists():
-                return None
+                return None, None
             try:
                 with corpus.connect_readonly(db_path, backend=choice) as conn:
-                    found = corpus.live_scotus_case_ids_by_docket_numbers(conn, wanted)
+                    found = (
+                        corpus.live_scotus_case_ids_by_docket_numbers(conn, numbers)
+                        if numbers
+                        else {}
+                    )
+                    companions = corpus.vided_companions(conn, keys, own_case=case) if keys else []
                     _echo_read_stats(conn)
-                    return found
+                    return found, companions
             except (OSError, corpus_ranged.RangedBackendError):
                 typer.echo(
-                    "::warning::companion links recorded unresolved: the corpus index "
-                    "did not answer from the casestore path",
+                    "::warning::Vide links recorded unresolved and VIDED companions "
+                    "unread: the corpus index did not answer from the casestore path",
                     err=True,
                 )
-                return None
+                return None, None
 
+        found, companions = index_read()
         return provision.read_related(
-            numbers, own_case=case, resolve=resolve, snapshot=source.latest_snapshot
+            numbers, own_case=case, resolve=lambda _wanted: found, snapshot=source.latest_snapshot
+        ) + provision.read_vided(
+            keys,
+            own_case=case,
+            linked=numbers,
+            find=lambda _wanted: companions,
+            snapshot=source.latest_snapshot,
         )
     with corpus.connect_readonly(db_path, backend=backend) as conn:
         reads = provision.read_related(
             numbers,
             own_case=case,
             resolve=lambda wanted: corpus.live_scotus_case_ids_by_docket_numbers(conn, wanted),
+            snapshot=lambda linked: corpus.latest_snapshot(conn, linked),
+        ) + provision.read_vided(
+            keys,
+            own_case=case,
+            linked=numbers,
+            find=lambda wanted: corpus.vided_companions(conn, wanted, own_case=case),
             snapshot=lambda linked: corpus.latest_snapshot(conn, linked),
         )
         _echo_read_stats(conn)
@@ -20541,6 +20674,17 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
             "provenance, not cell input.",
         ),
     ] = None,
+    refusal_out: Annotated[
+        Path | None,
+        typer.Option(
+            help="With --refuse-terminal on a forward cell, write the refusal "
+            "(gate, UTC time, reason) as JSON here when a gate refuses because the "
+            "event is already resolved: the record holds its outcome, the snapshot "
+            "text shows it, or the pre-mint poll does. Nothing is written for any "
+            "other exit, the staleness bound's included. Kept out of record/: it is "
+            "harness provenance, not cell input.",
+        ),
+    ] = None,
     same_question_file: Annotated[
         Path | None,
         typer.Option(
@@ -20609,6 +20753,9 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
       holds the outcome (:func:`fedcourtsai.store.forward_refusal_reason`), the
       snapshot is older than the forward staleness bound, or the snapshot text
       discloses the outcome (see :func:`~fedcourtsai.pipeline.outcome.forward_leakage`).
+      With ``--refusal-out``, a refusal that shows the event already resolved —
+      every exit 3 but the staleness bound's — is written there first, so the
+      collect job reads it as a designed refusal rather than a failure.
     * **4** — an interim arrival cell whose opening entry cannot be anchored in
       the snapshot (nothing written). Mode-independent and not gated on
       ``--refuse-terminal``: the arrival moment's information set cannot be
@@ -20686,16 +20833,18 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
             event,
             snapshot_date,
             max_snapshot_age_days,
+            refusal_out=refusal_out,
         )
         terminal = forward_leakage(payload, court, event)
         if terminal is not None:
+            _record_forward_refusal(refusal_out, "snapshot", terminal, datetime.now(UTC))
             typer.echo(
                 f"::warning::refusing to provision forward cell for {case}: {terminal}",
                 err=True,
             )
             raise typer.Exit(code=3)
         if pre_mint_poll:
-            _pre_mint_poll_gate(case, court, event, payload, pre_mint_poll_out)
+            _pre_mint_poll_gate(case, court, event, payload, pre_mint_poll_out, refusal_out)
     # Both gates ran on the LATEST payload, before the cut, and that ordering is
     # the point of putting the cut here. The staleness bound asks whether the
     # *pipeline* is live, which only the latest snapshot's date can answer — a
@@ -20780,9 +20929,12 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
         # Numbers and reasons only: the linked dockets are public, their text stays
         # in the record.
         linked = ", ".join(
-            item.docket_number
-            if item.payload is not None
-            else f"{item.docket_number} ({item.reason})"
+            (
+                item.docket_number
+                if item.relation == vide_links.VIDE_RELATION
+                else f"{item.docket_number} [{item.relation} x{item.shared}]"
+            )
+            + ("" if item.payload is not None else f" ({item.reason})")
             for item in written.related
         )
         typer.echo(f"{case} related ({linked}) -> {paths.related_dir}")
@@ -23850,6 +24002,20 @@ def _report_predict_backlog(backlog: PredictBacklog, *, cap: int, prefix: str) -
             "window's sweep recovers the text, or when the bound lapses.",
             err=True,
         )
+    if backlog.held_decision_below:
+        typer.echo(
+            f"Predict backlog: held {backlog.held_decision_below} owed case(s) whose only owed "
+            "event is a cert arrival moment the decision-below fill has not yet attempted, "
+            f"opened no more than {DECISION_BELOW_HOLD_DAYS} day(s) before the plan day. The "
+            "hold clears at the fill's first attempt on a full run-pull window, or when the "
+            "bound lapses.",
+            err=True,
+        )
+    for case_id, event_id in backlog.decision_below_events:
+        typer.echo(
+            f"Predict backlog: held {case_id} {event_id} for the decision-below fill",
+            err=True,
+        )
     for case_id, event_id, reason in backlog.decided_events:
         typer.echo(
             f"Predict backlog: dropped {case_id} {event_id}, its snapshot discloses the "
@@ -26382,6 +26548,69 @@ def window_forecast_relevance_cmd(
     typer.echo(forecast_relevance(changes).model_dump_json())
 
 
+@app.command("catch-up")
+def catch_up_cmd(
+    runs_file: Annotated[
+        Path,
+        typer.Option(
+            "--runs-file",
+            help="Recent runs of run-pull, run-predict and the other corpus writers "
+            "(REST `workflow_runs` pages).",
+        ),
+    ],
+    run_id: Annotated[int, typer.Option(help="This window's own run id.")],
+    now: Annotated[
+        str, typer.Option(help="ISO time to judge the slots at; defaults to now (UTC).")
+    ] = "",
+    workflows_root: Annotated[
+        Path, typer.Option(help="Where the workflow files whose crons are read live.")
+    ] = Path(".github/workflows"),
+) -> None:
+    """Whether this run-pull window makes up a dropped pull slot or predict slot.
+
+    Prints a `CatchUp` (`pull` and `predict`, each with `action` and `reason`).
+    An unreadable runs file is refused, so the job dispatches nothing.
+    """
+    try:
+        rows = json.loads(runs_file.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise typer.BadParameter(f"--runs-file {runs_file}: {error}") from error
+    at = _parse_when(now) if now else datetime.now(UTC)
+    answer = catch_up.catch_up(
+        rows if isinstance(rows, list) else [rows],
+        workflows_root=workflows_root,
+        now=at,
+        run_id=run_id,
+    )
+    typer.echo(answer.model_dump_json())
+
+
+@app.command("slot-served")
+def slot_served_cmd(
+    runs_file: Annotated[
+        Path, typer.Option("--runs-file", help="Recent run-pull runs (REST pages).")
+    ],
+    schedule: Annotated[str, typer.Option(help="The cron that fired this window.")],
+    run_id: Annotated[int, typer.Option(help="This window's own run id.")],
+    created_at: Annotated[str, typer.Option(help="This window's creation time (ISO).")],
+) -> None:
+    """Whether a scheduled pull window's slot was already served by a made-up window.
+
+    Prints a `SlotVerdict` (`served`, `reason`).
+    """
+    try:
+        rows = json.loads(runs_file.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise typer.BadParameter(f"--runs-file {runs_file}: {error}") from error
+    verdict = catch_up.slot_served(
+        rows if isinstance(rows, list) else [rows],
+        schedule=schedule,
+        run_id=run_id,
+        created_at=_parse_when(created_at),
+    )
+    typer.echo(verdict.model_dump_json())
+
+
 @app.command("chain-step")
 def chain_step_cmd(
     mode: Annotated[ChainMode, typer.Option(help="pull | drain: which chain job asks.")],
@@ -28494,11 +28723,11 @@ def _collect_plan_json(plan: CollectPlan, *, role: FinalizeRole, run_id: str) ->
         # no gate. Empty on a run where every cell placed the stakes, and on an
         # evaluate run.
         "stakes_reads": plan.stakes_read_markdown,
-        # The forward cells the pre-mint docket poll refused: designed refusals,
-        # not failures, so they carry no attempt-cap fact. The roll-up rides the
-        # PR body and the agent-feedback comment; it leaves the process here too
-        # for any surface that echoes the run's notes.
-        "pre_mint_refusals": plan.pre_mint_refusals_markdown,
+        # The forward cells the forward gate refused as already resolved:
+        # designed refusals, not failures, so they carry no attempt-cap fact.
+        # The roll-up rides the PR body and the agent-feedback comment; it
+        # leaves the process here too for any surface that echoes the run's notes.
+        "forward_refusals": plan.forward_refusals_markdown,
         "feedback_comment": plan.feedback_comment,
         "stalled": plan.stalled,
         "dead_actors": list(plan.dead_actors),

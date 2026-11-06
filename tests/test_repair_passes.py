@@ -24,6 +24,7 @@ import pytest
 import yaml
 
 from fedcourtsai import repair_passes
+from fedcourtsai.pipeline.refused_attempts import CELL as REMOVAL_CELL
 from fedcourtsai.repair_passes import PASSES, validate
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -150,6 +151,21 @@ def test_the_cell_list_names_every_malformed_line_then_refuses_the_whole_list() 
     assert validate("regrade-stale", mode="dry-run", target=" \n ").errors == (
         repair_passes.NO_CELLS,
     )
+
+
+def test_the_attempt_cell_list_is_refused_in_its_own_steps_words() -> None:
+    assert validate("refused-attempt-removal", mode="apply", target=f"{CELL}\n{CELL}").accepted
+    verdict = validate("refused-attempt-removal", mode="dry-run", target="bad/../cell")
+    assert verdict.errors == (
+        "malformed attempt cell (want court/docket/event/run_id/actor, e.g. "
+        "scotus/9526000634/evt-brief-response-disposition/20261105T203825Z/claude-baseline): "
+        "bad/../cell",
+        repair_passes.CELL_LIST_REFUSED,
+    )
+    assert validate("refused-attempt-removal", mode="dry-run", target="").errors == (
+        repair_passes.NO_ATTEMPT_CELLS,
+    )
+    assert not validate("refused-attempt-removal", mode="dry-run", target=CELL, bound="1").accepted
 
 
 def test_a_value_that_spells_a_placeholder_is_printed_as_typed() -> None:
@@ -298,14 +314,16 @@ def test_each_bound_reaches_the_flag_the_table_names() -> None:
         ), f"{name}: no step of the pass passes repair_bound as {p.bound_flag}"
 
 
-def test_the_regrade_steps_cell_grammar_is_the_tables() -> None:
-    step = next(
-        s
-        for s in _workflow()["jobs"]["regrade"]["steps"]
-        if s.get("name") == "Re-grade named cells"
-    )
+@pytest.mark.parametrize("step_name", ["Re-grade named cells", "Remove named refused attempts"])
+def test_the_cell_list_steps_grammar_is_the_tables(step_name: str) -> None:
+    step = next(s for s in _workflow()["jobs"]["regrade"]["steps"] if s.get("name") == step_name)
     (pattern,) = re.findall(r"pattern='([^']+)'", str(step["run"]))
     assert pattern == f"^{repair_passes.REGRADE_CELL.pattern}$"
+
+
+def test_the_removal_commands_cell_grammar_is_the_tables() -> None:
+    plain = re.sub(r"[()]", "", REMOVAL_CELL.pattern)
+    assert plain == repair_passes.REGRADE_CELL.pattern
 
 
 # --- the corpus job's persist step -----------------------------------------

@@ -11489,7 +11489,57 @@ class _StatPackInterimCounts(_Strict):
             ):
                 if getattr(self, name) is None:
                     payload.pop(name, None)
+            # The slice-specific later additions: the per-Term cut and the
+            # section's rule stamp beside it.
+            for name in ("applicant_cuts", "applicant_class_rule"):
+                if name in payload and payload[name] is None:
+                    payload.pop(name)
         return payload
+
+
+#: The applicant classes of the interim applicant-class cut: the caption rule's
+#: three petitioner classes, read off the application's applicant caption.
+InterimApplicantClass = Literal["federal", "state", "private"]
+
+#: The capital-marking axis of the interim applicant-class cut: the statpack's
+#: ``capital_case`` buckets, ``unknown`` being a row no live poll stamped.
+InterimCapitalMarking = Literal["capital", "unmarked", "unknown"]
+
+
+class StatPackInterimApplicantCut(_Strict):
+    """One applicant-class x capital-marking cell of one application-Term.
+
+    Descriptive context beside the scored interim pool, never a substitute for
+    it: the interim yardstick stays the whole substantive slice's pooled rate
+    (:func:`fedcourtsai.pipeline.base_rates.interim_base_rate`), and a cell of
+    this cut is a narrower population the yardstick does not condition on. The
+    counts are the finer reading's, on both ask vocabularies, so each cell sums
+    with its Term's siblings to that Term's ``finer_*`` and ``wide_finer_*``
+    counts. A cell holding no resolved application on either vocabulary is
+    omitted rather than written as zeros.
+    """
+
+    applicant_class: InterimApplicantClass = Field(
+        description="The applicant's class under the section's "
+        "`applicant_class_rule`, read off the applicant caption (the corpus "
+        "`petitioner_title`, else the pre-`v.` half of `case_name`)"
+    )
+    capital_marking: InterimCapitalMarking = Field(
+        description="`capital` where the Court's docket marks the case a capital "
+        "one (the latched `capital_case` flag), `unmarked` where a live poll "
+        "read the docket without the marking, `unknown` where no live poll "
+        "stamped the row"
+    )
+    finer_resolved: int = Field(
+        ge=0, description="This cell's share of the Term's `finer_resolved`"
+    )
+    finer_granted: int = Field(ge=0, description="This cell's share of the Term's `finer_granted`")
+    wide_finer_resolved: int = Field(
+        ge=0, description="This cell's share of the Term's `wide_finer_resolved`"
+    )
+    wide_finer_granted: int = Field(
+        ge=0, description="This cell's share of the Term's `wide_finer_granted`"
+    )
 
 
 class StatPackInterimTerm(_StatPackInterimCounts):
@@ -11503,6 +11553,13 @@ class StatPackInterimTerm(_StatPackInterimCounts):
     """
 
     term: int = Field(description="The October-Term year the application was docketed in")
+    applicant_cuts: list[StatPackInterimApplicantCut] | None = Field(
+        default=None,
+        description="The Term's finer-reading counts split by applicant class and "
+        "capital marking (descriptive; the scored pool stays the Term's whole "
+        "`finer_*` / `wide_finer_*` counts). Ordered by class, then marking. "
+        "Absent from a pack built before the cut existed",
+    )
 
 
 class StatPackInterim(_StatPackInterimCounts):
@@ -11525,6 +11582,12 @@ class StatPackInterim(_StatPackInterimCounts):
     terms: list[StatPackInterimTerm] = Field(
         default_factory=list,
         description="Per-application-Term detail, most recent Term first",
+    )
+    applicant_class_rule: str | None = Field(
+        default=None,
+        description="The caption rule the per-Term `applicant_cuts` read the "
+        "applicant class under (`pipeline.caption.CAPTION_RULES`). Absent with "
+        "the cuts",
     )
 
 
@@ -14997,6 +15060,63 @@ class SubstanceDigest(_Strict):
         )
 
 
+class DeliveryWindow(_Strict):
+    """How many of one workflow's cron slots in a trailing window GitHub delivered.
+
+    A slot is one instant a ``schedule:`` cron promises. Each schedule-event run is
+    matched to the newest slot at or before its creation time, so a run created
+    hours late is read as that slot's delivery and any slot it skipped as dropped:
+    a scheduler backlog shows as drops plus bounded lateness, never as lateness
+    longer than the gap between two slots. Lateness is creation time (when GitHub
+    created the run) against the slot, so it measures scheduler delivery, not
+    runner queueing.
+    """
+
+    hours: int = Field(ge=1, description="The window's length")
+    slots: int = Field(ge=0, description="Cron slots in the window that have settled")
+    delivered: int = Field(ge=0, description="Of `slots`, those with a schedule-event run")
+    dropped: int = Field(ge=0, description="Of `slots`, those with no schedule-event run")
+    lateness_p50_min: int | None = Field(
+        default=None,
+        description="Median minutes from slot to the first run matched to it, over the "
+        "delivered slots; null when none was delivered",
+    )
+    lateness_max_min: int | None = Field(
+        default=None, description="The largest of those lateness figures"
+    )
+
+
+class WorkflowDelivery(_Strict):
+    """One scheduled workflow's delivery record over the last day and week."""
+
+    workflow: str = Field(description="The workflow's file stem, e.g. `run-pull`")
+    crons: list[str] = Field(description="The `on.schedule` crons the workflow file declares")
+    day: DeliveryWindow
+    week: DeliveryWindow
+    last_scheduled_at: datetime | None = Field(
+        default=None,
+        description="When the newest schedule-event run of the workflow was created; "
+        "null when the feed holds none",
+    )
+    flags: list[str] = Field(
+        default_factory=list,
+        description="Why this workflow's delivery needs a look: its newest settled slot "
+        "went undelivered and no scheduled run came in the last 24 hours, or fewer than "
+        "half its slots in the last 24 hours were delivered",
+    )
+
+
+class ScheduleDelivery(_Strict):
+    """Whether GitHub's scheduler delivered every scheduled workflow's cron slots."""
+
+    settle_minutes: int = Field(
+        ge=0,
+        description="How old a slot must be before it counts: a newer one may still be "
+        "delivered, so it is neither delivered nor dropped yet",
+    )
+    workflows: list[WorkflowDelivery] = Field(default_factory=list)
+
+
 class OpsReport(_Strict):
     """``metrics/ops.json`` — an operational snapshot: health, substance, spend, cost.
 
@@ -15045,6 +15165,12 @@ class OpsReport(_Strict):
         description="Open issues wearing a run:* fan-out label (stale markers), oldest "
         "first; null on a report built before the field existed or without the issue feed",
     )
+    schedule_delivery: ScheduleDelivery | None = Field(
+        default=None,
+        description="Each scheduled workflow's cron slots against the schedule-event runs "
+        "GitHub created for them; null on a report built before the field existed or "
+        "without the scheduled-run feed",
+    )
 
 
 LaneState = Literal["up", "late", "failing", "no-runs"]
@@ -15089,6 +15215,22 @@ class StatusLane(_Strict):
         ge=0, default=0, description="Conclusive runs created in the 7 days before the snapshot"
     )
     successes_7d: int = Field(ge=0, default=0, description="Of `runs_7d`, those that succeeded")
+    slots_24h: int | None = Field(
+        default=None,
+        ge=0,
+        description="Settled cron slots in the 24 hours before the snapshot; null "
+        "without the scheduled-run feed",
+    )
+    delivered_24h: int | None = Field(
+        default=None,
+        ge=0,
+        description="Of `slots_24h`, those GitHub's scheduler created a run for",
+    )
+    lateness_p50_min: int | None = Field(
+        default=None,
+        description="Median minutes those delivered slots' runs were created after "
+        "the slot; null when none was delivered",
+    )
 
 
 class StatusStageCells(_Strict):

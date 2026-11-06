@@ -292,8 +292,21 @@ read past an extension application that precedes it, classified `certiorari`
 habeas corpus with no certiorari), `ambiguous` (both) or `other`. The entry
 text decides, never the caption: a Rule 20 petition is captioned "In re …", and
 so is a sealed certiorari petition. It is the scope input of `sal-v5`,
-`sal-v6` and `sal-v7` ([salience.md](salience.md)). Cert branch only, fill-in latched, withheld from
+`sal-v6`, `sal-v7` and `sal-v8` ([salience.md](salience.md)). Cert branch only, fill-in latched, withheld from
 the `query` rows, and null on a row polled before the column existed.
+
+`vided_amicus` keys each amicus filing the docket marks `VIDED` — one brief the
+Clerk enters on several dockets — as `<ISO date>|<filer text>`
+(`pipeline.vided.vided_amicus_keys`). The Court does not always link such
+dockets as `Vide`, and each serves its own copy of the brief under its own
+path, so the shared entry is the trace: two dockets carrying one key share the
+brief, and `corpus.vided_companions` finds them through a partial index over
+the rows that carry any, which is how a predict cell's `record/related/`
+stages such a companion (`provision.read_vided`). Only amicus filings are keyed, because a filer's name
+is specific to the brief while a VIDED argument setting or a respondent's
+opposition by a repeat litigant can read alike across unrelated cases. Cert
+branch only, fill-in latched, withheld from the `query` rows, and null on a row
+polled before the column existed.
 
 `distributed_after_call` counts the conferences a petition was first
 distributed for after the Court called for a response
@@ -301,7 +314,7 @@ distributed for after the Court called for a response
 by petition distributions (the entry-initial `dist-v2` reading) filed after the
 first `Response Requested` entry, less any conference a distribution filed on or
 before the call, or undated, also names. It is the relist-count input of
-`sal-v5`, `sal-v6` and `sal-v7`.
+`sal-v5`, `sal-v6`, `sal-v7` and `sal-v8`.
 Cert branch only, fill-in latched, withheld from the `query` rows, and null where
 the docket shows no dated call or on a row polled before the column existed.
 
