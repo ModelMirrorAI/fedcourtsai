@@ -84,8 +84,9 @@ BOUND_NOT_TAKEN = (
 )
 TARGET_NOT_TAKEN = (
     "repair=${REPAIR} takes no repair_target — only the distribution re-derivation "
-    "(a parse label), the re-grade (a cell list) and the application back-fill (a "
-    "Term) name a subject. Clear the field and re-dispatch."
+    "(a parse label), the re-grade and the refused-attempt removal (cell lists) and "
+    "the application back-fill (a Term) name a subject. Clear the field and "
+    "re-dispatch."
 )
 BOUND_NEEDED_ON_APPLY = (
     "repair=${REPAIR} with repair_mode=apply needs repair_bound set to a positive "
@@ -120,6 +121,11 @@ MALFORMED_CELL = (
 )
 CELL_LIST_REFUSED = "refusing the whole list — correct the lines above and re-dispatch."
 NO_CELLS = "repair=regrade-stale names no cells — set repair_target."
+MALFORMED_ATTEMPT_CELL = (
+    "malformed attempt cell (want court/docket/event/run_id/actor, e.g. "
+    "scotus/9526000634/evt-brief-response-disposition/20261105T203825Z/claude-baseline): ${line}"
+)
+NO_ATTEMPT_CELLS = "repair=refused-attempt-removal names no cells — set repair_target."
 
 #: Every refusal this gate can print, for the pairing test.
 REFUSALS = frozenset(
@@ -138,6 +144,8 @@ REFUSALS = frozenset(
         MALFORMED_CELL,
         CELL_LIST_REFUSED,
         NO_CELLS,
+        MALFORMED_ATTEMPT_CELL,
+        NO_ATTEMPT_CELLS,
     }
 )
 
@@ -157,7 +165,8 @@ class RepairPass:
 
     ``bound_flag`` is the CLI flag ``repair_bound`` reaches, or empty for a pass
     that takes none. ``target_kind`` is how ``repair_target`` is read — a parse
-    label, a cell list or a Term — or empty for a pass that names no subject.
+    label, a cell list (``cells`` for the re-grade, ``attempts`` for the
+    refused-attempt removal) or a Term — or empty for a pass that names no subject.
     ``options`` is the pass's closed vocabulary for ``repair_options``.
     ``jobs`` are the workflow jobs a dispatch of the pass runs.
     """
@@ -227,6 +236,7 @@ PASSES: Mapping[str, RepairPass] = {
         _bounded("salience-cert-backfill", "--max-fills"),
         _bounded("application-reread", "--max-changes"),
         RepairPass("regrade-stale", ("regrade",), target_kind="cells"),
+        RepairPass("refused-attempt-removal", ("regrade",), target_kind="attempts"),
         _bounded(
             "opinion-votes", "--max-stamps", (*_HANDOFF, "votes"), options=("replace-differing",)
         ),
@@ -415,6 +425,15 @@ def _field_refusal(
     return ""
 
 
+#: The two cell-list subjects, one grammar: the re-grade's evaluator cells and
+#: the refused-attempt removal's predict cells, each refused in its own step's
+#: words (malformed line, empty list).
+_CELL_LISTS: Mapping[str, tuple[str, str]] = {
+    "cells": (MALFORMED_CELL, NO_CELLS),
+    "attempts": (MALFORMED_ATTEMPT_CELL, NO_ATTEMPT_CELLS),
+}
+
+
 def _subject_refusals(selected: RepairPass, target: str) -> tuple[str, ...]:
     """The refusals of a target that does not name the pass's subject.
 
@@ -425,17 +444,18 @@ def _subject_refusals(selected: RepairPass, target: str) -> tuple[str, ...]:
         return (PARSE_LABEL_NEEDED,)
     if selected.target_kind == "term" and _TERM.fullmatch(target) is None:
         return (_render(TERM_NEEDED, repair=selected.name),)
-    if selected.target_kind == "cells":
+    if selected.target_kind in _CELL_LISTS:
+        malformed_template, empty = _CELL_LISTS[selected.target_kind]
         cells = _tokens(target, _CELL_SEPARATORS)
         malformed = tuple(
-            _render(MALFORMED_CELL, line=cell)
+            _render(malformed_template, line=cell)
             for cell in cells
             if REGRADE_CELL.fullmatch(cell) is None
         )
         if malformed:
             return (*malformed, CELL_LIST_REFUSED)
         if not cells:
-            return (NO_CELLS,)
+            return (empty,)
     return ()
 
 

@@ -1,6 +1,6 @@
 """`run-repair`'s embedded CLI strings, executed against the fixture corpus.
 
-`run-repair.yml` is dispatch-only, so its twenty-two maintenance passes are argv that
+`run-repair.yml` is dispatch-only, so its twenty-four maintenance passes are argv that
 nothing runs until a maintainer runs one — in front of the maintainer, at the
 moment they most want it to work. A flag renamed in `cli.py` leaves the workflow
 string behind, and the whole cost of that drift lands on the dispatch as a usage
@@ -36,8 +36,9 @@ The passes' own semantics are pinned at their unit seams
 `tests/test_document_recut.py`,
 `tests/test_arrival_backfill.py`,
 `tests/test_application_backfill.py`,
-`tests/test_opinion_record.py` and
-`tests/test_cli_stamp.py`), which is why a
+`tests/test_opinion_record.py`,
+`tests/test_cli_stamp.py` and
+`tests/test_refused_attempts.py`), which is why a
 near-empty fixture corpus is enough here — a pass with nothing to do still
 parses every flag it was given.
 """
@@ -68,6 +69,7 @@ from fedcourtsai.pipeline.ocr_recovery import (
 from fedcourtsai.supremecourt import SupremeCourtClient
 from tests.conftest import seed_evaluation, seed_prediction
 from tests.test_documents import _seed_qp_backfill_corpus
+from tests.test_refused_attempts import seed_refused_attempt
 from tests.workflow_argv import command_argv, expand, logical_lines, shell_arrays
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -101,6 +103,10 @@ OFFLINE_FETCHERS = frozenset({"backfill-applications", "backfill-opinion-record"
 #: workflow greps a dispatch's cell list against. Asserted against that pattern
 #: below, so this literal cannot drift from what a dispatch would accept.
 REGRADE_CELL = "scotus/1/evt-petition-disposition/20260101T000000Z/claude-judge"
+
+#: One refused-attempt subject, in the same grammar: a predict cell whose only
+#: committed output is a `no_output` fact, on an event resolved that day.
+ATTEMPT_CELL = "scotus/1/evt-petition-disposition/20260101T000000Z/claude-baseline"
 
 #: Invocations that move the blob itself. They reach the S3 corpus remote, which
 #: the offline gate holds no credentials for and must not acquire — so their
@@ -244,6 +250,8 @@ def _values(pass_name: str | None = None, handoff: Path | None = None) -> dict[s
         # below.
         "REPAIR_TARGET": REPAIR_TERM if pass_name == "application-backfill" else REPAIR_PARSE_LABEL,
         **_regrade_fields(),
+        # The refused-attempt removal splices each line of its cell list.
+        "line": ATTEMPT_CELL,
     }
 
 
@@ -297,6 +305,8 @@ def _run(argv: list[str], tmp_path: Path) -> None:
     fixture.build_fixture_corpus(corpus.corpus_db_path(corpus_root))
     if argv[0] == "stamp-cell":
         _seed_stamped_cell(data_root)
+    if argv[0] == "remove-refused-attempts":
+        _seed_refused_attempt(data_root)
     env = {
         "FEDCOURTS_CORPUS_ROOT": str(corpus_root),
         "FEDCOURTS_DATA_ROOT": str(data_root),
@@ -360,6 +370,16 @@ def _seed_stamped_cell(data_root: Path) -> None:
         env={"FEDCOURTS_DATA_ROOT": str(data_root)},
     )
     assert stamped.exit_code == 0, stamped.output
+
+
+def _seed_refused_attempt(data_root: Path) -> None:
+    """A committed refused-attempt fact for `ATTEMPT_CELL`, on a resolved event.
+
+    The removal refuses a cell whose fact could not be a refusal on a resolved
+    event, so the subject is laid down in exactly that shape.
+    """
+    court, docket, event, run, actor = ATTEMPT_CELL.split("/")
+    seed_refused_attempt(data_root, court, int(docket), event, run_id=run, actor=actor)
 
 
 @pytest.mark.parametrize("pass_name", _passes())

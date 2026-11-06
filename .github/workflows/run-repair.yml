@@ -82,6 +82,7 @@ on:
           - salience-cert-backfill
           - application-reread
           - regrade-stale
+          - refused-attempt-removal
           - opinion-votes
           - order-votes
           - application-backfill
@@ -103,7 +104,7 @@ on:
         default: ""
         type: string
       repair_target:
-        description: "The pass's subject: a distribution parse label, the cells to re-grade, or the Term to back-fill."
+        description: "The pass's subject: a distribution parse label, the cells to re-grade or whose refused attempts to remove, or the Term to back-fill."
         required: false
         default: ""
         type: string
@@ -3884,20 +3885,21 @@ jobs:
           bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
             "${label}"
 
-  # The ledger-only pass, in its own job because its credentials are a strict
-  # subset: it recomputes graded fields out of committed artifacts and writes
-  # `evaluation.json`, touching no corpus row. So no AWS role, no
-  # `id-token: write`, no corpus remote, no content-store env — only the App
-  # token that pushes the `data/` commit. A pass that cannot reach the corpus
-  # should not hold the credentials that reach it.
+  # The ledger-only passes, in their own job because their credentials are a
+  # strict subset: the re-grade recomputes graded fields out of committed
+  # artifacts and writes `evaluation.json`, and the refused-attempt removal
+  # deletes named `attempt.json` facts, and neither touches a corpus row. So no
+  # AWS role, no `id-token: write`, no corpus remote, no content-store env —
+  # only the App token that pushes the `data/` commit. A pass that cannot reach
+  # the corpus should not hold the credentials that reach it.
   #
-  # It needs no dedupe prerequisite either, for the same reason it needs no
+  # They need no dedupe prerequisite either, for the same reason they need no
   # corpus: an unmerged twin row cannot change what a committed outcome already
   # says.
   regrade:
     needs: [authorize, validate]
     if: >-
-      ${{ inputs.repair == 'regrade-stale'
+      ${{ (inputs.repair == 'regrade-stale' || inputs.repair == 'refused-attempt-removal')
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
@@ -3905,7 +3907,7 @@ jobs:
     # joins their lock rather than racing their pointer commits — and takes the
     # throwaway group when it will be skipped, for the corpus job's reason.
     concurrency:
-      group: ${{ (needs.authorize.result == 'success' && (needs.authorize.outputs.attempt == github.run_attempt || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor)))) && inputs.repair == 'regrade-stale' && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
+      group: ${{ (needs.authorize.result == 'success' && (needs.authorize.outputs.attempt == github.run_attempt || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor)))) && (inputs.repair == 'regrade-stale' || inputs.repair == 'refused-attempt-removal') && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
       cancel-in-progress: false
     runs-on: ubuntu-26.04
     # One local recompute per named cell over a maintainer-sized list, plus
@@ -3960,6 +3962,7 @@ jobs:
       # git history. This step names cells and invokes the command; it cannot
       # supply that property if the command does not.
       - name: Re-grade named cells
+        if: ${{ inputs.repair == 'regrade-stale' }}
         # One re-grade per line, so a cell graded by three judges is three
         # lines — the list is explicit on purpose: a re-grade rewrites a
         # committed evaluation, and which judge's is not a thing to infer.
@@ -4052,6 +4055,78 @@ jobs:
           git commit -m "repair: re-grade named cells"
           bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
             "re-grade ledger"
+
+      # Delete named predict failure facts that record a forward refusal on an
+      # already-resolved event (the corpus record gate's designed skip), which
+      # the attempt cap and `successor-disclosures` would otherwise read as
+      # failed attempts. The list is the maintainer's, read off each cell's run
+      # log; the command refuses the whole list unless every named run
+      # directory holds only `attempt.json`, the fact is a predict `no_output`
+      # record naming that cell, and the event's committed outcome resolved on
+      # or before the run's date.
+      - name: Remove named refused attempts
+        if: ${{ inputs.repair == 'refused-attempt-removal' }}
+        timeout-minutes: 10
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPAIR_MODE: ${{ inputs.repair_mode }}
+          REPAIR_TARGET: ${{ inputs.repair_target }}
+        run: |
+          set -euo pipefail
+          # The re-grade step's handling of `repair_target`, word for word: read
+          # from the environment, split on whitespace, every line matched
+          # against the same id grammar before a command sees it, and the whole
+          # list refused if any line is malformed. `repair_passes.py` holds the
+          # fail-fast copy of these refusals.
+          pattern='^[a-z0-9-]+/[0-9]+/evt-[a-z0-9-]+/[0-9]{8}T[0-9]{6}Z/[a-z0-9-]+$'
+          malformed=0
+          cell_args=()
+          touched=()
+          while IFS= read -r line; do
+            [ -n "$line" ] || continue
+            if [[ "$line" =~ $pattern ]]; then
+              IFS=/ read -r court docket event run actor <<<"$line"
+              cell_args+=(--cell "$line")
+              touched+=("data/cases/${court}/${docket}/events/${event}/predictions/${actor}/${run}/attempt.json")
+            else
+              echo "::error::malformed attempt cell (want court/docket/event/run_id/actor, e.g. scotus/9526000634/evt-brief-response-disposition/20261105T203825Z/claude-baseline): ${line}"
+              malformed=1
+            fi
+          done < <(printf '%s\n' "${REPAIR_TARGET}" | tr -s ' \t\r' '\n')
+          if [ "$malformed" -ne 0 ]; then
+            echo "::error::refusing the whole list — correct the lines above and re-dispatch."
+            exit 1
+          fi
+          if [ "${#cell_args[@]}" -eq 0 ]; then
+            echo "::error::repair=refused-attempt-removal names no cells — set repair_target."
+            exit 1
+          fi
+          apply_args=()
+          if [ "${REPAIR_MODE}" = "apply" ]; then
+            apply_args+=(--apply)
+            gh auth setup-git # persist-credentials is false on checkout
+            # Check and delete against the remote tip, as the re-grade does.
+            git fetch origin "$GITHUB_REF_NAME"
+            git merge --ff-only FETCH_HEAD
+          fi
+          # The dry run runs the same checks, so its ledger is the list an
+          # apply would delete, or the refusals that would stop it.
+          uv run fedcourts remove-refused-attempts "${cell_args[@]}" "${apply_args[@]}" 2>&1 \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "${REPAIR_MODE}" != "apply" ]; then
+            echo "dry-run only; nothing written."
+            exit 0
+          fi
+          # Stage only the named facts' deletions, never a blanket `git add
+          # data/`: the grammar-checked paths are the jail, as in the re-grade.
+          git add -A -- "${touched[@]}"
+          if git diff --cached --quiet; then
+            echo "No named fact was present; nothing to persist."
+            exit 0
+          fi
+          git commit -m "repair: remove refused-attempt failure facts"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "refused-attempt ledger"
 
   # The run gate's verdict on the run as a whole. A refused partial re-run
   # skips every job it re-runs, which alone would leave the earlier attempt's
