@@ -154,7 +154,9 @@ Each of these is stated, with its reason, where the code makes the choice:
   record (panel, a petition for rehearing en banc, its disposition and any
   dissent noted) as `lower-court-docket` (`pipeline/decision_below.py`,
   [cli.md](cli.md)); `run-pull`'s live job runs it on six petitions each full
-  window, four windows a day. The en banc reading is matched from entry text filed
+  window, four windows a day, and the predict backlog holds a cert arrival
+  cell until the fill has attempted its petition (`held_decision_below`,
+  `pipeline/pull.py`). The en banc reading is matched from entry text filed
   before the SCOTUS docketing, so a petition on remand cannot leak back. Both
   kinds are staged for cert and merits cells only
   (`provision.LOWER_COURT_STAGES`): an interim application comes from a court

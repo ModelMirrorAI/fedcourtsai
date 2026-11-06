@@ -455,6 +455,7 @@ from .pipeline.party_rates import DEFAULT_RATES_RULE, party_rates
 from .pipeline.policy_area import policy_areas, policy_source
 from .pipeline.pull import (
     BACKLOG_MAX_POLL_AGE_DAYS,
+    DECISION_BELOW_HOLD_DAYS,
     SCAN_HOLD_DAYS,
     CaseDisposition,
     CaseReconciliation,
@@ -23848,6 +23849,20 @@ def _report_predict_backlog(backlog: PredictBacklog, *, cap: int, prefix: str) -
             "OCR sweep has not read yet, "
             "so a forward cell would read it as empty. The hold clears when a run-seed "
             "window's sweep recovers the text, or when the bound lapses.",
+            err=True,
+        )
+    if backlog.held_decision_below:
+        typer.echo(
+            f"Predict backlog: held {backlog.held_decision_below} owed case(s) whose only owed "
+            "event is a cert arrival moment the decision-below fill has not yet attempted, "
+            f"opened no more than {DECISION_BELOW_HOLD_DAYS} day(s) before the plan day. The "
+            "hold clears at the fill's first attempt on a full run-pull window, or when the "
+            "bound lapses.",
+            err=True,
+        )
+    for case_id, event_id in backlog.decision_below_events:
+        typer.echo(
+            f"Predict backlog: held {case_id} {event_id} for the decision-below fill",
             err=True,
         )
     for case_id, event_id, reason in backlog.decided_events:
