@@ -1228,16 +1228,25 @@ jobs:
             || needs.live.outputs.forecast_relevant == 'true' }}
         run: |
           set -euo pipefail
-          # The last 14 hours of runs of this lane, the other corpus writers and
-          # run-predict: every slot the catch-up reads, and any writer waiting
-          # for the lock. A failed read makes up nothing.
-          since=$(date -u -d '14 hours ago' +%Y-%m-%dT%H:%M:%SZ)
+          # The last 26 hours of runs of this lane, the other corpus writers and
+          # run-predict (`catch_up.LISTING_HOURS`): past the longest gap between
+          # two slots plus its grace, so the run that served the latest slot is
+          # always in view, and any writer waiting for the lock. A failed read
+          # makes up nothing.
+          since=$(date -u -d '26 hours ago' +%Y-%m-%dT%H:%M:%SZ)
           if (for wf in run-pull.yml run-seed.yml run-repair.yml run-predict.yml; do
                 gh api --paginate --slurp \
-                  "repos/${REPO}/actions/workflows/${wf}/runs?created=%3E%3D${since}&per_page=100"
+                  "repos/${REPO}/actions/workflows/${wf}/runs?created=%3E%3D${since}&per_page=100" \
+                  || exit 1
               done) > recent-runs.pages && jq -s 'add' recent-runs.pages > recent-runs.json; then
-            catchup=$(uv run fedcourts catch-up --runs-file recent-runs.json --run-id "$RUN_ID")
+            # A failed answer makes up nothing and leaves the relevant-change
+            # chain below as it was.
+            catchup=$(uv run fedcourts catch-up --runs-file recent-runs.json --run-id "$RUN_ID") \
+              || catchup=''
           else
+            catchup=''
+          fi
+          if [ -z "$catchup" ]; then
             catchup='{"pull":{"action":"none","reason":"pull: the recent runs could not be read"},"predict":{"action":"none","reason":"predict: the recent runs could not be read"}}'
           fi
           {

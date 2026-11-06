@@ -163,7 +163,10 @@ delivered and the dropped, and the median and largest lateness of the
 delivered, measured from the slot to the run's creation time, so it measures
 the scheduler rather than runner queueing. A run is matched to the newest slot
 at or before it, so a backlog reads as dropped slots plus lateness no longer
-than the gap between two slots. A slot younger than two hours is not counted
+than the gap between two slots. A workflow's crons are read as one stream of
+slots, so `run-pull`'s pull and live windows, which interleave 30 to 90
+minutes apart, are one stream there: a pull tick later than the next live slot
+reads as that slot's delivery. A slot younger than two hours is not counted
 yet. A workflow is flagged when its newest counted slot went undelivered with
 no scheduled run in the last 24 hours, or when fewer than half its slots in the
 last 24 hours were delivered. The listing step is best-effort and capped at six
@@ -1734,8 +1737,11 @@ GitHub's scheduler drops and delays ticks under load, so the same
 `fedcourtsai.catch_up`). Every `run-pull` window, whatever started it, asks
 about two slots. When the latest pull slot is 40 minutes old and no pull-mode
 run of `run-pull` was created since it, the job dispatches `run-pull`
-`mode=pull` on `main`, unless a corpus writer waits for the shared lock, which
-a dispatch would evict (GitHub keeps one pending run per concurrency group).
+`mode=pull` on `main`, unless the next pull tick is under two hours away (that
+window serves it, and two windows within the hour would stack against the
+hourly CourtListener ceiling) or a corpus writer waits for the shared lock,
+which a dispatch would evict (GitHub keeps one pending run per concurrency
+group).
 When the latest predict slot is an hour old and no `run-predict` run of any
 event was created since it, the job sends the same predict dispatch a relevant
 window does, under the same promotion stand-down. A made-up run is created
@@ -1743,8 +1749,12 @@ after its slot, so it serves the slot and no later window dispatches it again.
 A late tick that then arrives for a slot already made up skips its pull (the
 `slot` job, `fedcourts slot-served`), so a slot costs one window's
 CourtListener share. A run's mode is in its title (`run-pull pull`,
-`run-pull live`, set by the workflow's `run-name`); a run titled plainly
-`run-pull` is read as a pull, so an unreadable history makes up nothing. The
+`run-pull live`, set by the workflow's `run-name`); a title without a mode is
+read as a pull, so an unreadable history makes up nothing. The job lists 26
+hours of runs, longer than the widest gap between two predict slots plus its
+grace, so the run that served the latest slot is always in view. A waiting
+corpus writer is any `run-pull` or `run-seed` run queued for the lock, or any
+unfinished `run-repair` run, since run-repair takes the lock per job. The
 dispatch App starts `run-pull` for this alone: the `live` and `enrich` jobs
 refuse a bot's dispatch. The catch-up depends on some `run-pull` tick
 arriving, so it shortens an outage rather than replacing the scheduler; the

@@ -8,7 +8,10 @@ and run-pull's `chain-predict` job dispatches what this module answers:
 - **The latest pull slot** (the ``17 *`` cron). It is made up when it is at
   least :data:`PULL_GRACE` old and no pull-mode run of run-pull was created
   since it, so whichever window does arrive serves the pull a dropped tick
-  owed. The made-up run is dispatched with ``mode=pull`` only, never ``live``
+  owed, unless the next pull tick is under :data:`PULL_HORIZON` away, since
+  that window serves the pull and a second one within the hour would stack
+  two windows' CourtListener spend against the hourly ceiling. The made-up
+  run is dispatched with ``mode=pull`` only, never ``live``
   or ``enrich-opinions``, and only while no corpus writer is waiting in the
   shared lock: GitHub keeps one pending run per concurrency group, so a
   dispatch would evict a waiting seed or repair run.
@@ -20,13 +23,21 @@ and run-pull's `chain-predict` job dispatches what this module answers:
 A late tick then arrives for a slot already made up: :func:`slot_served` tells
 a scheduled pull window to skip its pull when another pull-mode run was created
 between its slot and itself, so a slot costs one window's CourtListener share,
-not two. Each answer reads only runs created since the slot, so a made-up run
-serves its slot and no window dispatches a second one; nothing here loops.
+not two. Each answer reads the runs created since the slot, so a made-up run
+serves its slot and no window dispatches a second one; nothing here loops. That
+holds only while the run listing reaches back past the slot, so the workflow
+lists :data:`LISTING_HOURS` of runs, longer than any gap between two slots plus
+its grace (a test holds the two together).
+
+A make-up for an older slot dispatched after the next slot's time serves that
+next slot too, so its late tick skips: two slots then cost one window, which
+errs toward spending less. A pull-titled run the run gate refused also counts
+as serving, which stands the make-up down rather than guessing.
 
 A run-pull run's mode is in its title (``run-pull pull``, ``run-pull live``),
-which the workflow's ``run-name`` sets. A run titled plainly ``run-pull``
-predates that and is read as serving a pull, so an unreadable run stands the
-make-up down rather than doubling a window.
+which the workflow's ``run-name`` sets. A title without a mode is read as
+serving a pull, so an unreadable run stands the make-up down rather than
+doubling a window.
 """
 
 from __future__ import annotations
@@ -39,14 +50,21 @@ from pathlib import Path
 from pydantic import BaseModel
 
 from .ops import parse_iso
+from .schedule_delivery import slots_between
 from .site_status import last_tick, parse_cron, workflow_crons
 
 #: How long after a pull slot a window waits for its tick before making it up.
 #: Healthy ticks arrive within about a quarter of an hour.
 PULL_GRACE = timedelta(minutes=40)
 
+#: A pull slot is not made up when the next pull tick is this close.
+PULL_HORIZON = timedelta(hours=2)
+
 #: How long after a predict slot before it is made up.
 PREDICT_GRACE = timedelta(minutes=60)
+
+#: How many hours of runs run-pull's chain job lists for :func:`catch_up`.
+LISTING_HOURS = 26
 
 #: The cron prefix that selects run-pull's pull job.
 PULL_CRON_PREFIX = "17 "
@@ -193,8 +211,9 @@ def catch_up(
 
     ``rows`` is the recent runs of run-pull, run-predict and the other corpus
     writers (REST pages); ``run_id`` is this window's own run, which never
-    counts as a waiting writer.
+    counts as a waiting writer. A naive ``now`` is read as UTC.
     """
+    now = now if now.tzinfo is not None else now.replace(tzinfo=UTC)
     runs = read_runs(rows)
     slot, answer = _lane(
         "pull",
@@ -208,9 +227,28 @@ def catch_up(
         waiting = [
             run
             for run in runs
-            if run.workflow in CORPUS_WRITERS and run.status in _WAITING and run.id != run_id
+            if run.id != run_id
+            and run.workflow in CORPUS_WRITERS
+            # run-repair takes the lock per job, so a running repair run may
+            # hold a job waiting for it: any unfinished one counts.
+            and (
+                run.status in _WAITING
+                or (run.workflow == "run-repair" and run.status != "completed")
+            )
         ]
-        if waiting:
+        coming = slots_between(
+            [parse_cron(c) for c in pull_crons(workflows_root)], now, now + PULL_HORIZON
+        )
+        if coming:
+            answer = LaneCatchUp(
+                action=CatchUpAction.NONE,
+                slot=slot,
+                reason=(
+                    f"pull: the {slot:%H:%MZ} slot went unserved, but the {coming[0]:%H:%MZ} "
+                    "tick is due within two hours and serves it"
+                ),
+            )
+        elif waiting:
             answer = LaneCatchUp(
                 action=CatchUpAction.NONE,
                 slot=slot,
@@ -257,8 +295,11 @@ def slot_served(
     """Whether another pull-mode run served this scheduled window's slot first.
 
     ``schedule`` is the cron that fired this run and ``created_at`` its creation
-    time; the slot is that cron's newest tick at or before it.
+    time (a naive one is read as UTC); the slot is that cron's newest tick at or
+    before it.
     """
+    if created_at.tzinfo is None:
+        created_at = created_at.replace(tzinfo=UTC)
     slot = last_tick([parse_cron(schedule)], created_at)
     if slot is None:
         return SlotVerdict(served=False, reason="no slot found for this window's cron")

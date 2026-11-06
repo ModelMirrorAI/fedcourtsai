@@ -1,5 +1,6 @@
+import itertools
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import yaml
@@ -7,6 +8,8 @@ from typer.testing import CliRunner
 
 from fedcourtsai import catch_up as cu
 from fedcourtsai.cli import app
+from fedcourtsai.schedule_delivery import slots_between
+from fedcourtsai.site_status import parse_cron, workflow_crons
 
 runner = CliRunner()
 
@@ -194,3 +197,72 @@ def test_run_pull_titles_each_run_with_its_mode() -> None:
     assert "format('run-pull {0}'" in title
     assert f"startsWith(github.event.schedule, '{cu.PULL_CRON_PREFIX}')" in title
     assert cu.pull_crons(WORKFLOWS) == ["17 1,7,13,19 * * *"]
+
+
+def test_the_run_listing_reaches_past_every_slot_gap_and_its_grace() -> None:
+    """The catch-up reads only the runs the chain job listed. A listing shorter
+    than the widest gap between two slots plus its grace would hide the run that
+    served the latest slot and make up a slot that was served."""
+    for crons, grace in (
+        (cu.pull_crons(WORKFLOWS), cu.PULL_GRACE),
+        (workflow_crons(WORKFLOWS, "run-predict"), cu.PREDICT_GRACE),
+    ):
+        slots = slots_between(
+            [parse_cron(c) for c in crons], _at("2026-11-01T00:00"), _at("2026-11-08T00:00")
+        )
+        widest = max(b - a for a, b in itertools.pairwise(slots))
+        assert timedelta(hours=cu.LISTING_HOURS) > widest + grace, crons
+    job = yaml.safe_load((WORKFLOWS / "run-pull.yml").read_text())["jobs"]["chain-predict"]
+    runs = "\n".join(str(step.get("run", "")) for step in job["steps"])
+    assert f"date -u -d '{cu.LISTING_HOURS} hours ago'" in runs
+
+
+def test_an_enrich_window_does_not_serve_a_pull_slot() -> None:
+    rows = _pages(
+        _run(1, "run-pull", "2026-11-06T13:40:00Z", title="run-pull enrich-opinions"), PREDICT_OK
+    )
+    answer = cu.catch_up(rows, workflows_root=WORKFLOWS, now=_at("2026-11-06T15:00"), run_id=9)
+    assert answer.pull.action == "dispatch"
+
+
+def test_a_running_repair_run_holds_the_make_up_and_the_own_run_does_not() -> None:
+    own = _pages(
+        _run(2, "run-pull", "2026-11-06T14:50:00Z", title="run-pull live", status="pending"),
+        PREDICT_OK,
+    )
+    answer = cu.catch_up(own, workflows_root=WORKFLOWS, now=_at("2026-11-06T15:10"), run_id=2)
+    assert answer.pull.action == "dispatch"
+    repair = _pages(
+        _run(2, "run-pull", "2026-11-06T14:50:00Z", title="run-pull live"),
+        _run(4, "run-repair", "2026-11-06T14:00:00Z", status="in_progress", conclusion=None),
+        PREDICT_OK,
+    )
+    answer = cu.catch_up(repair, workflows_root=WORKFLOWS, now=_at("2026-11-06T15:10"), run_id=2)
+    assert answer.pull.action == "none"
+    assert "run-repair" in answer.pull.reason
+
+
+def test_slot_served_ignores_the_window_itself_and_runs_at_or_after_it() -> None:
+    rows = _pages(
+        _run(8, "run-pull", "2026-11-06T13:40:00Z", title="run-pull pull"),
+        _run(9, "run-pull", "2026-11-06T13:45:00Z", title="run-pull pull"),
+    )
+    verdict = cu.slot_served(
+        rows, schedule="17 1,7,13,19 * * *", run_id=8, created_at=_at("2026-11-06T13:40")
+    )
+    assert not verdict.served
+    naive = cu.slot_served(
+        rows,
+        schedule="17 1,7,13,19 * * *",
+        run_id=9,
+        created_at=datetime(2026, 11, 6, 13, 45),
+    )
+    assert naive.served
+
+
+def test_a_pull_slot_is_left_to_the_next_tick_when_it_is_under_two_hours_away() -> None:
+    rows = _pages(_run(2, "run-pull", "2026-11-07T00:50:00Z", title="run-pull live"))
+    answer = cu.catch_up(rows, workflows_root=WORKFLOWS, now=_at("2026-11-07T00:10"), run_id=2)
+    assert answer.pull.slot == _at("2026-11-06T19:17")
+    assert answer.pull.action == "none"
+    assert "01:17Z tick is due within two hours" in answer.pull.reason

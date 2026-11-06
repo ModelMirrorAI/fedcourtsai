@@ -97,8 +97,8 @@ INERT_FILES = frozenset(
 
 # src/fedcourtsai/ modules no cell path imports: the promotion gate and train
 # with the predict chain's dispatch decision and run-pull's catch-up, the
-# settings checks, and the metrics, reporting and public-update writers. Every other module is
-# engine-relevant.
+# settings checks, and the metrics, reporting and public-update writers.
+# Every other module is engine-relevant.
 INERT_SOURCE = frozenset(
     {
         "buttondown",

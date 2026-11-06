@@ -198,3 +198,16 @@ def test_an_unreadable_schedule_feed_drops_only_its_section(tmp_path: Path) -> N
     assert result.exit_code == 0, result.output
     assert "## Schedule delivery" not in result.output
     assert OpsReport.model_validate_json(json_out.read_text()).schedule_delivery is None
+
+
+def test_several_slurped_listings_merged_by_jq_read_as_one_feed() -> None:
+    # run-ops appends one `gh api --paginate --slurp` output per workflow and
+    # merges them with `jq -s add`: a flat list of page objects.
+    merged = [
+        {"workflow_runs": [_run("run-pull", "2026-11-06T01:20:00Z")]},
+        {"workflow_runs": [_run("run-pull", "2026-11-06T02:50:00Z")]},
+        {"workflow_runs": [_run("run-ops", "2026-11-06T08:05:00Z")]},
+    ]
+    runs = sd.schedule_runs(merged)
+    assert len(runs["run-pull"]) == 2
+    assert len(runs["run-ops"]) == 1
