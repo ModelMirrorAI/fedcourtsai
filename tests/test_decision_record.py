@@ -403,6 +403,7 @@ def test_the_decision_record_never_reaches_the_retrieval_surface() -> None:
         "argument_transcript_at",
         "cert_amicus_briefs",
         "opening_writ",
+        "vided_amicus",
         "distributed_after_call",
         "argument_set_for",
         "response_due",
