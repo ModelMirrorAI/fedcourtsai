@@ -1017,10 +1017,10 @@ cells only (`provision.LOWER_COURT_STAGES`;
 newest petitions go first, so a petition docketed between two full windows is
 attempted at the next one, and the predict backlog holds its cert **arrival**
 cell until then (`held_decision_below`, bounded at
-`pull.DECISION_BELOW_HOLD_DAYS` from the day the event opened). The hold costs
-the cell nothing it would have read: the arrival cutoff is fixed at the day
-after the event opened, so a cell minted a window later is placed on the same
-snapshot and gains only the stored decision below.
+`pull.DECISION_BELOW_HOLD_DAYS` from the day the event opened). The provisioned
+record moves by that document alone: the arrival cutoff is fixed at the day
+after the event opened, so a cell minted a window later is cut to the same
+information set and gains only the stored decision below.
 
 `provision-snapshot --refuse-terminal` (the forward predict path's guard —
 `run-predict` in production, mirrored by the integration harness) refuses a

@@ -2270,8 +2270,9 @@ def test_the_decision_below_hold_lapses_after_its_bound(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     ("lower_court", "opened_on"),
     [
-        (None, TODAY),  # a state court or other tribunal the fill does not join
+        (None, TODAY),  # no court the fill joins, by id or by name
         ("ca11", None),  # a moment with no recorded day to bound the wait from
+        ("ca11", TODAY + timedelta(days=1)),  # opened after the plan day
     ],
 )
 def test_the_decision_below_hold_waits_only_on_what_the_fill_reaches(
@@ -2288,9 +2289,9 @@ def test_the_decision_below_hold_waits_only_on_what_the_fill_reaches(
 
 
 def test_the_decision_below_hold_is_the_arrival_moments_alone(tmp_path: Path) -> None:
-    """Every other owed event of the case is derived beside the held arrival:
-    later cert moments come weeks after docketing, by when the fill has run, and
-    the hold names the one event it held."""
+    """The hold is keyed on the arrival moment, so any other owed event of the
+    case — here the undeclared baseline id — is derived beside the held arrival,
+    and the hold names the one event it held."""
     db = corpus.corpus_db_path(tmp_path / "corpus")
     data = tmp_path / "data"
     case_id = _arrival_case(db, 583, extra_event=EVENT)
@@ -2299,3 +2300,24 @@ def test_the_decision_below_hold_is_the_arrival_moments_alone(tmp_path: Path) ->
     assert backlog.entries[0].events == (EVENT,)
     assert backlog.held_decision_below == 0
     assert backlog.decision_below_events == ((case_id, ARRIVAL),)
+
+
+def test_the_decision_below_hold_reads_the_lower_court_name_too(tmp_path: Path) -> None:
+    """A row with no latched court id is joined by its payload's court name, as
+    the fill joins it, so a circuit petition is held and a state court's is not."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    circuit = _arrival_case(db, 583, lower_court=None)
+    state = _arrival_case(db, 584, lower_court=None)
+    with corpus.connect(db) as conn:
+        for case_id, name in (
+            (circuit, "United States Court of Appeals for the Eleventh Circuit"),
+            (state, "Supreme Court of Texas"),
+        ):
+            conn.execute(
+                "UPDATE cases SET originating_court_name = ? WHERE case_id = ?", (name, case_id)
+            )
+        conn.commit()
+    backlog = _backlog(db, data)
+    assert backlog.case_ids == (state,)
+    assert backlog.decision_below_events == ((circuit, ARRIVAL),)

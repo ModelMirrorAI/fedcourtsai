@@ -1696,11 +1696,12 @@ def derive_predict_backlog(
         moment forecasts at docketing, the fill runs on four of the twelve live
         windows a day, and a petition first seen outside them would otherwise
         be forecast, at every engine, before its lower court's opinion is
-        stored. Holding costs the cell nothing it would have seen: its cutoff
-        is fixed at the day after the event opened
+        stored. Holding moves nothing in the provisioned record but that
+        document: its cutoff is fixed at the day after the event opened
         (:func:`fedcourtsai.provision.moment_cutoff`), so a cell minted a day
-        later is placed on the same snapshot, and gains only the stored
-        decision below, whose entry date is the lower court's judgment.
+        later is cut to the same information set and gains only the stored
+        decision below, whose entry date is the lower court's judgment. A
+        forward cell's own retrieval is unrestricted either way.
 
     **Case-grain reconciliation.** Every step above that turns a case away files
     it under a :class:`CaseDisposition`, and so does every step that derives or
