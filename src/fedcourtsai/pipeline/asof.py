@@ -60,6 +60,7 @@ def project_row(
     provenance: Literal["dated", "truncated", "blind"],
     parse: str = cert_signals.DEFAULT_DISTRIBUTION_PARSE,
     sg_counsel_of_record_for_petitioner: bool | None = None,
+    sg_counsel_of_record_forward: bool | None = None,
 ) -> AsOfRow:
     """Project ``base`` to what ``payload`` disclosed, as an :class:`AsOfRow`.
 
@@ -128,8 +129,15 @@ def project_row(
       (:func:`.caption.sg_counsel_of_record_at_cut`, read before redaction).
       Given, the row is a :class:`.caption.CutRow`, which carries that boolean
       and refuses any other counsel field, and ``caption-v4`` reads it there.
-      Left ``None``, the row is a plain :class:`~fedcourtsai.corpus.CorpusRow`
-      and ``caption-v4`` reads it as ``caption-v2``.
+      ``sg_counsel_of_record_forward`` is the same fact under ``caption-v5``'s
+      admission (:func:`.caption.sg_counsel_of_record_on_forward_cut`, which
+      also reads a forward cell's ``truncated`` payload); left ``None`` beside
+      a given ``sg_counsel_of_record_for_petitioner``, it takes that value, the
+      reading every replay and back-test cell makes. Left ``None`` both, the
+      row is a plain :class:`~fedcourtsai.corpus.CorpusRow` and ``caption-v4``
+      and ``caption-v5`` read it as ``caption-v2``. The forward reading alone,
+      without the caption-v4 fact, is refused, and so is a forward reading
+      narrower than the caption-v4 fact (:class:`.caption.CutRow`).
 
     ``parse`` names the registered DISTRIBUTED reading
     (:data:`~fedcourtsai.pipeline.cert_signals.DISTRIBUTION_PARSES`) the
@@ -151,9 +159,16 @@ def project_row(
     )
     fields: dict[str, Any] = {}
     row_type: type[corpus.CorpusRow] = corpus.CorpusRow
+    if sg_counsel_of_record_for_petitioner is None and sg_counsel_of_record_forward is not None:
+        raise ValueError("the forward counsel reading needs the caption-v4 fact beside it")
     if sg_counsel_of_record_for_petitioner is not None:
         row_type = caption.CutRow
         fields["sg_counsel_of_record_for_petitioner"] = sg_counsel_of_record_for_petitioner
+        fields["sg_counsel_of_record_forward"] = (
+            sg_counsel_of_record_for_petitioner
+            if sg_counsel_of_record_forward is None
+            else sg_counsel_of_record_forward
+        )
     return AsOfRow(
         row=row_type(
             **fields,

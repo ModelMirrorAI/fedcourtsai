@@ -207,6 +207,8 @@ def test_the_carve_out_set_is_exactly_the_strongest_band(version: str) -> None:
         "sal-v6": ("federal", "high"),
         # sal-v7 is sal-v6 with the carve-in read through caption-v4.
         "sal-v7": ("federal", "high"),
+        # sal-v8 is sal-v7 with the carve-in read through caption-v5.
+        "sal-v8": ("federal", "high"),
         # Indexed, never `.get` with a self-satisfying fallback: a prefix
         # compared against a prefix of its own length passes for any version,
         # so a new registration must state its carve prefix here or KeyError.
@@ -1943,6 +1945,7 @@ def test_a_second_version_is_reachable_and_the_active_one_is_unchanged(
         "sal-v4",
         "sal-v5",
         "sal-v6",
+        "sal-v8",
     )
     row = _petition("scotus/1", distribution_count=3, cvsg=True)
     assert scorer("sal-toy").band(row) == "hot"
@@ -2276,6 +2279,7 @@ def test_every_registered_scorer_pins_a_registered_distribution_parse(version: s
         "sal-v5": "dist-v2",
         "sal-v6": "dist-v2",
         "sal-v7": "dist-v2",
+        "sal-v8": "dist-v2",
     }
     assert SCORERS[version].distribution_parse in DISTRIBUTION_PARSES
     assert SCORERS[version].distribution_parse == expected[version]
@@ -3188,3 +3192,187 @@ def test_a_private_petition_filed_before_its_counsel_took_office_never_reads_fed
     assert caption.petitioner_class_v4(stored) == "private"
     filed_in_office = stored.model_copy(update={"date_filed": date(2025, 4, 4)})
     assert caption.petitioner_class_v4(filed_in_office) == "federal"
+
+
+# --- caption-v5: the counsel fact on a forward cell's reconstructed payload -------
+
+
+def _forward_context(
+    payload: dict[str, object], *, provenance: Literal["as-stored", "dated", "truncated"]
+) -> PredictionContext:
+    """A forward cell as `provision` builds it: the served payload, no redaction."""
+    return cell_context.build(
+        "scotus/100", _CUT, payload, "forward", provenance=provenance, cutoff=_CUT
+    )
+
+
+def test_a_forward_truncated_sg_cell_bands_federal_under_sal_v8_only(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A forward arrival cell rebuilt by truncation keeps its counsel blocks in the
+    record, so the engine reads the office's entry: sal-v8 bands it `federal`,
+    where sal-v7 refuses the truncated payload and freezes the sub-national
+    officer fallback's `state`. On a payload the docket served by the cut the two
+    versions freeze the same band."""
+    _activate(monkeypatch, "sal-v7")
+    assert _forward_context(_warden_payload(), provenance="truncated").band == "state"
+    _activate(monkeypatch, "sal-v8")
+    built = _forward_context(_warden_payload(), provenance="truncated")
+    assert built.band == "federal" and built.salience_version == "sal-v8"
+    assert "Petitioner" in _warden_payload()  # the record the cell reads carries the entry
+    for provenance in ("as-stored", "dated"):
+        bands = set()
+        for version in ("sal-v7", "sal-v8"):
+            _activate(monkeypatch, version)
+            bands.add(_forward_context(_warden_payload(), provenance=provenance).band)
+        assert bands == {"federal"}, provenance
+
+
+@pytest.mark.parametrize("provenance", ["dated", "truncated"])
+def test_a_replay_cell_bands_under_sal_v8_as_under_sal_v7(
+    monkeypatch: pytest.MonkeyPatch, provenance: Literal["dated", "truncated"]
+) -> None:
+    """caption-v5 widens the admission on a forward cell only: a replay cell, whose
+    redacting provisioner passes the caption-v4 fact in, freezes the same band
+    under both versions on either provenance, so a truncated replay cell still
+    reads the caption class."""
+    bands = {}
+    for version in ("sal-v7", "sal-v8"):
+        _activate(monkeypatch, version)
+        bands[version] = _replay_context(_warden_payload(), provenance=provenance).band
+    assert bands["sal-v8"] == bands["sal-v7"]
+    assert bands["sal-v8"] == ("federal" if provenance == "dated" else "state")
+
+
+def test_a_replay_cell_reading_its_own_truncated_payload_bands_as_under_sal_v7(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A replay cell whose caller passes no fact reads it off the payload itself,
+    with its own mode: on an unredacted truncated payload sal-v8 still refuses the
+    blocks, so the replay never widens, end to end."""
+    bands = {}
+    for version in ("sal-v7", "sal-v8"):
+        _activate(monkeypatch, version)
+        bands[version] = cell_context.build(
+            "scotus/100", _CUT, _warden_payload(), "replay", provenance="truncated", cutoff=_CUT
+        ).band
+    assert bands["sal-v8"] == bands["sal-v7"] == "state"
+
+
+def test_a_forward_truncated_cell_without_the_office_is_unchanged_under_sal_v8(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The wider admission reads the same three tests and roster test: no office
+    entry, the office not of record, a supporting United States amicus, or a
+    petition filed before its counsel took office freeze the band sal-v7 does."""
+    not_of_record = _warden_payload()
+    not_of_record["Petitioner"] = [{"PartyName": "Michael Smith", "Attorney": "D. John Sauer"}]
+    amicus = {
+        **_warden_payload(),
+        "PetitionerTitle": "Acme Corp., Petitioner",
+        "Petitioner": [
+            {"PartyName": "Acme Corp.", "Attorney": "Jane Private", "IsCounselofRecord": True},
+            {"PartyName": "United States", "Attorney": "D. John Sauer", "IsCounselofRecord": True},
+        ],
+    }
+    before_office = {**_warden_payload(), "DocketedDate": "September 16, 2024"}
+    for payload in (_warden_payload(sg=False), not_of_record, amicus, before_office):
+        bands = {}
+        for version in ("sal-v7", "sal-v8"):
+            _activate(monkeypatch, version)
+            bands[version] = _forward_context(payload, provenance="truncated").band
+        assert bands["sal-v8"] == bands["sal-v7"] != "federal", payload
+
+
+def test_the_forward_reading_admits_a_truncated_payload_on_a_forward_cell_only() -> None:
+    """`sg_counsel_of_record_on_forward_cut` reads a `truncated` payload on a
+    forward cell and is caption-v4's fact on every other mode; a `blind` payload,
+    a replay provenance, is never read."""
+    title = "Michael Smith, Warden"
+
+    def forward_cut(payload: dict[str, object], provenance: str, mode: str) -> bool:
+        return caption.sg_counsel_of_record_on_forward_cut(
+            payload, caption_text=title, cut=_CUT, provenance=provenance, mode=mode
+        )
+
+    for provenance in ("as-stored", "dated", "truncated"):
+        assert forward_cut(_warden_payload(), provenance, "forward"), provenance
+    assert not forward_cut(_warden_payload(), "blind", "forward")
+    for provenance in ("as-stored", "dated", "truncated", "blind"):
+        at_cut = caption.sg_counsel_of_record_at_cut(
+            _warden_payload(), caption_text=title, cut=_CUT, provenance=provenance
+        )
+        assert forward_cut(_warden_payload(), provenance, "replay") is at_cut, provenance
+    undated = {key: value for key, value in _warden_payload().items() if key != "DocketedDate"}
+    assert not forward_cut(undated, "truncated", "forward")
+
+
+def test_sal_v8_reads_every_stored_row_as_sal_v7() -> None:
+    """caption-v5 is caption-v4 on a stored row, so the live pass, the statpack's
+    bands and every census read sal-v8 exactly as sal-v7: the band, the ladder
+    and the carve-in agree with the office for the captioned petitioner and
+    without it."""
+    v7, v8 = scorer("sal-v7"), scorer("sal-v8")
+    floor = load_salience_config(Path("config")).floor
+    for counsel in (
+        [],
+        [_sg_for_petitioner("Baltazar, Warden, et al.")],
+        [_sg_for_petitioner("Baltazar, Warden, et al.", of_record=False)],
+        [_sg_for_petitioner("United States")],
+    ):
+        for distribution_count in (None, 1, 3):
+            row = _v5_row(
+                distribution_count=distribution_count,
+                petitioner_title="Juan Baltazar, Warden, et al.",
+                counsel=counsel,
+            )
+            assert caption.petitioner_class_v5(row) == caption.petitioner_class_v4(row)
+            assert v8.band(row) == v7.band(row)
+            assert v8.reachable_bands(row) == v7.reachable_bands(row)
+            assert v8.carve_out(row, v8.score(row), floor) == v7.carve_out(
+                row, v7.score(row), floor
+            )
+
+
+def test_the_projection_carries_both_readings_and_refuses_the_forward_one_alone() -> None:
+    """A cut row carries the caption-v5 reading beside caption-v4's: it takes the
+    caption-v4 value when not given, the reading every replay cell makes, and the
+    forward reading without the caption-v4 fact is refused."""
+    base = corpus.CorpusRow(case_id="scotus/100", court="scotus", docket_number="25-100")
+    defaulted = asof.project_row(
+        base,
+        _warden_payload(),
+        cutoff=_CUT,
+        provenance="truncated",
+        sg_counsel_of_record_for_petitioner=False,
+    )
+    assert isinstance(defaulted.row, caption.CutRow)
+    assert defaulted.row.sg_counsel_of_record_forward is False
+    forward = asof.project_row(
+        base,
+        _warden_payload(),
+        cutoff=_CUT,
+        provenance="truncated",
+        sg_counsel_of_record_for_petitioner=False,
+        sg_counsel_of_record_forward=True,
+    )
+    assert isinstance(forward.row, caption.CutRow)
+    assert caption.petitioner_class_v4(forward.row) != "federal"
+    assert caption.petitioner_class_v5(forward.row) == "federal"
+    with pytest.raises(ValueError, match="caption-v4 fact"):
+        asof.project_row(
+            base,
+            _warden_payload(),
+            cutoff=_CUT,
+            provenance="truncated",
+            sg_counsel_of_record_forward=True,
+        )
+    with pytest.raises(ValueError, match="must include the caption-v4 fact"):
+        asof.project_row(
+            base,
+            _warden_payload(),
+            cutoff=_CUT,
+            provenance="dated",
+            sg_counsel_of_record_for_petitioner=True,
+            sg_counsel_of_record_forward=False,
+        )

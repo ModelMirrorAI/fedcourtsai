@@ -79,15 +79,18 @@ def build(  # noqa: PLR0913 - one context, each optional part a keyword
     ``band_refused="outside-segment"``, so the null band is told apart from an
     unobservable docket and from an application without inference.
 
-    The base row carries exactly one counsel fact, for ``caption-v4``: whether
-    the payload the docket served by the cut lists the Solicitor General's
-    office as counsel of record for the captioned petitioner
-    (:func:`counsel_fact`). A caller that redacts the payload before this call
-    — the replay and back-test provisioners — reads the fact off the payload it
-    redacted and passes it as ``sg_counsel_of_record_for_petitioner``; left
-    ``None``, it is read off ``payload`` itself, which for a forward cell is
-    the served payload. Nothing the cell reads carries it: it can reach the
-    record only as the band of a version that reads ``caption-v4``.
+    The base row carries exactly one counsel fact, in two readings: whether
+    the payload lists the Solicitor General's office as counsel of record for
+    the captioned petitioner, as ``caption-v4`` admits payloads (served by the
+    cut, :func:`counsel_fact`) and as ``caption-v5`` does (a forward cell's
+    ``truncated`` payload too, :func:`forward_counsel_fact`). A caller that
+    redacts the payload before this call — the replay and back-test
+    provisioners — reads the fact off the payload it redacted and passes it as
+    ``sg_counsel_of_record_for_petitioner``, and both readings take it, since
+    they agree off a forward cell; left ``None``, both are read off ``payload``
+    itself, which for a forward cell is the served payload. Nothing the cell
+    reads carries either: the fact can reach the record only as the band of a
+    version that reads ``caption-v4`` or ``caption-v5``.
     """
     # Both payload shapes: the REST record carries `docket_number`, the live
     # supremecourt.gov JSON carries `CaseNumber`. Only the live shape carries
@@ -99,9 +102,23 @@ def build(  # noqa: PLR0913 - one context, each optional part a keyword
     # which band the context freezes below.
     application = corpus.is_scotus_application_form(docket_number)
     active = scorer()
+    # The caption-v5 reading differs from caption-v4's only on a forward cell,
+    # which never passes the fact in: a caller that does is a redacting
+    # provisioner, a replay or back-test, where the two readings agree. A
+    # forward caller that passed it would get caption-v4's narrower reading,
+    # the safe direction, so the forward path must leave it None.
+    sg_counsel_of_record_forward: bool | None = None
     if sg_counsel_of_record_for_petitioner is None:
         sg_counsel_of_record_for_petitioner = counsel_fact(
             case_id, payload, snapshot_date=snapshot_date, provenance=provenance, cutoff=cutoff
+        )
+        sg_counsel_of_record_forward = forward_counsel_fact(
+            case_id,
+            payload,
+            snapshot_date=snapshot_date,
+            provenance=provenance,
+            cutoff=cutoff,
+            mode=mode,
         )
     projected = project_row(
         base,
@@ -124,6 +141,7 @@ def build(  # noqa: PLR0913 - one context, each optional part a keyword
         # re-derivation.
         parse=active.distribution_parse,
         sg_counsel_of_record_for_petitioner=sg_counsel_of_record_for_petitioner,
+        sg_counsel_of_record_forward=sg_counsel_of_record_forward,
     )
     observable = projected.observable
     count = projected.row.distribution_count
@@ -229,6 +247,31 @@ def _base_row(case_id: str, payload: Mapping[str, Any]) -> corpus.CorpusRow:
         case_name=case_name,
         petitioner_title=petitioner_title,
         opening_writ=None if application else cert_signals.opening_writ(payload),
+    )
+
+
+def forward_counsel_fact(
+    case_id: str,
+    payload: Mapping[str, Any],
+    *,
+    snapshot_date: date,
+    provenance: str,
+    cutoff: date | None,
+    mode: str,
+) -> bool:
+    """The counsel fact under ``caption-v5``'s admission, read off ``payload``.
+
+    :func:`.caption.sg_counsel_of_record_on_forward_cut` over the same caption
+    and cut :func:`counsel_fact` reads, with the cell's ``mode``: on a
+    ``forward`` cell a ``truncated`` payload is read too, and on any other mode
+    it is :func:`counsel_fact` exactly.
+    """
+    return caption.sg_counsel_of_record_on_forward_cut(
+        payload,
+        caption_text=caption.petitioner_caption(_base_row(case_id, payload)),
+        cut=cutoff if cutoff is not None else snapshot_date,
+        provenance=provenance,
+        mode=mode,
     )
 
 

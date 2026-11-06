@@ -292,7 +292,7 @@ read past an extension application that precedes it, classified `certiorari`
 habeas corpus with no certiorari), `ambiguous` (both) or `other`. The entry
 text decides, never the caption: a Rule 20 petition is captioned "In re …", and
 so is a sealed certiorari petition. It is the scope input of `sal-v5`,
-`sal-v6` and `sal-v7` ([salience.md](salience.md)). Cert branch only, fill-in latched, withheld from
+`sal-v6`, `sal-v7` and `sal-v8` ([salience.md](salience.md)). Cert branch only, fill-in latched, withheld from
 the `query` rows, and null on a row polled before the column existed.
 
 `vided_amicus` keys each amicus filing the docket marks `VIDED` — one brief the
@@ -313,7 +313,7 @@ distributed for after the Court called for a response
 by petition distributions (the entry-initial `dist-v2` reading) filed after the
 first `Response Requested` entry, less any conference a distribution filed on or
 before the call, or undated, also names. It is the relist-count input of
-`sal-v5`, `sal-v6` and `sal-v7`.
+`sal-v5`, `sal-v6`, `sal-v7` and `sal-v8`.
 Cert branch only, fill-in latched, withheld from the `query` rows, and null where
 the docket shows no dated call or on a row polled before the column existed.
 
