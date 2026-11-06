@@ -2198,6 +2198,7 @@ REPAIR_PASS_STEPS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("repair", "Record the lost outcomes", ()),
     ("repair", "Back-fill the committed event definitions", ()),
     ("regrade", "Re-grade named cells", ()),
+    ("regrade", "Remove named refused attempts", ()),
     ("handoff-projection", "Write the application back-fill projection", ()),
     ("handoff-projection", "Write the OCR worklist", ()),
     ("handoff-projection", "Write the re-cut worklist", ()),

@@ -471,6 +471,7 @@ from .pipeline.pull import (
     pull_case,
     pull_cases,
 )
+from .pipeline.refused_attempts import parse_cell, remove_refused_attempts
 from .pipeline.response_backfill import backfill_response_fields
 from .pipeline.runner import (
     EngineFailed,
@@ -5431,6 +5432,59 @@ def remove_ungranted_merits_events_cmd(
         typer.echo(f"  {verb} {ref}")
     for ref, reason in result.skipped:
         typer.echo(f"  skipped {ref}: {reason}")
+
+
+@app.command("remove-refused-attempts")
+def remove_refused_attempts_cmd(
+    cell: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--cell",
+            help=(
+                "One predict cell whose attempt.json to remove, as "
+                "court/docket/event/run_id/actor. Repeat for each cell; with none, "
+                "there is nothing to remove."
+            ),
+        ),
+    ] = None,
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Delete the named facts; omit for a dry-run report."),
+    ] = False,
+) -> None:
+    """Remove named predict failure facts that record a forward refusal on a resolved event.
+
+    The corpus record gate refuses a forward cell whose event the corpus
+    already records as resolved, and that refusal is not a failure; an
+    `attempt.json` written for one is counted against the attempt cap and read
+    by `successor-disclosures` as a failed earlier attempt. Each named cell is
+    one the maintainer read off its run log. The command refuses the whole list
+    unless every named run directory holds only `attempt.json`, the fact is a
+    predict `no_output` record naming the same cell, and the event carries a
+    committed outcome resolved on or before the run's date. Ledger-only: it
+    reads and writes `data/` and touches no corpus row. Dry-run by default;
+    `--apply` deletes. Its apply belongs in run-repair's
+    `refused-attempt-removal` pass, which commits the deletions to `main`.
+    """
+    settings = get_settings()
+    try:
+        cells = [parse_cell(text) for text in cell or []]
+    except ValueError as exc:
+        typer.echo(f"remove-refused-attempts: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    result = remove_refused_attempts(settings.data_root, cells, apply=apply)
+    for ref, reason in result.refused:
+        typer.echo(f"remove-refused-attempts: refusing {ref}: {reason}", err=True)
+    if result.refused:
+        typer.echo("remove-refused-attempts: refusing the whole list; nothing removed.", err=True)
+        raise typer.Exit(code=1)
+    verb = "removed" if apply else "would remove"
+    typer.echo(
+        f"remove-refused-attempts ({'applied' if apply else 'dry-run'}): "
+        f"{verb} {len(result.removed)} failure fact(s)"
+    )
+    for path in result.removed:
+        typer.echo(f"  {verb} {path}")
 
 
 #: The help text every fill sweep's ``--sweep`` option carries.
