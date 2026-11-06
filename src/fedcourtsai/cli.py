@@ -140,6 +140,7 @@ from .collect import (
     CellStatus,
     CollectPlan,
     ExpectedCell,
+    ForwardRefusal,
     PathJailError,
     PriorAvailabilityRollup,
     PrPlan,
@@ -20031,7 +20032,23 @@ def paths(
             typer.echo("outcome   (evaluator-only — never a predictor input)")
 
 
-def _refuse_forward_if_closed(
+def _record_forward_refusal(out: Path | None, gate: str, reason: str, at: datetime) -> None:
+    """Write a resolved-event refusal to ``out`` for the cell's ``status.json``.
+
+    Called just before the exit-3 refusal it records, by the gates whose refusal
+    means the event is already resolved (:data:`~fedcourtsai.collect.FORWARD_REFUSAL_GATES`),
+    so ``collect`` keeps the cell out of the no-output facts. No-op without
+    ``out``.
+    """
+    if out is None:
+        return
+    stamp = at.astimezone(UTC).isoformat().replace("+00:00", "Z")
+    record = ForwardRefusal(gate=gate, at=stamp, reason=reason).as_record()
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(record) + "\n", encoding="utf-8")
+
+
+def _refuse_forward_if_closed(  # noqa: PLR0913 - the gate's inputs plus where to record it
     backend: corpus.CorpusBackend,
     gate_events: Sequence[corpus.CorpusEvent],
     gate_row: corpus.CorpusRow | None,
@@ -20040,6 +20057,8 @@ def _refuse_forward_if_closed(
     event: str,
     snapshot_date: date,
     max_snapshot_age_days: int,
+    *,
+    refusal_out: Path | None = None,
 ) -> None:
     """The record and staleness gates of a forward cell; exit 3 on refusal.
 
@@ -20060,6 +20079,7 @@ def _refuse_forward_if_closed(
             corpus.corpus_db_path(settings.corpus_root), court, docket, event
         )
     if reason is not None:
+        _record_forward_refusal(refusal_out, "record", reason, datetime.now(UTC))
         typer.echo(
             f"::warning::refusing to provision forward cell for {case}: {reason}",
             err=True,
@@ -20082,6 +20102,7 @@ def _pre_mint_poll_gate(
     event: str,
     payload: Mapping[str, Any],
     out: Path | None,
+    refusal_out: Path | None = None,
 ) -> None:
     """Poll the live docket just before minting; exit 3 when the event is decided.
 
@@ -20098,6 +20119,7 @@ def _pre_mint_poll_gate(
         out.write_text(json.dumps(poll.as_record()) + "\n", encoding="utf-8")
     stamp = poll.polled_at.isoformat().replace("+00:00", "Z")
     if poll.state == "decided":
+        _record_forward_refusal(refusal_out, "poll", poll.reason or "", poll.polled_at)
         typer.echo(
             f"::warning::refusing to provision forward cell for {case}: the live docket "
             f"polled at {stamp} shows the outcome ({poll.reason})",
@@ -20541,6 +20563,17 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
             "provenance, not cell input.",
         ),
     ] = None,
+    refusal_out: Annotated[
+        Path | None,
+        typer.Option(
+            help="With --refuse-terminal on a forward cell, write the refusal "
+            "(gate, UTC time, reason) as JSON here when a gate refuses because the "
+            "event is already resolved: the record holds its outcome, the snapshot "
+            "text shows it, or the pre-mint poll does. Nothing is written for any "
+            "other exit, the staleness bound's included. Kept out of record/: it is "
+            "harness provenance, not cell input.",
+        ),
+    ] = None,
     same_question_file: Annotated[
         Path | None,
         typer.Option(
@@ -20609,6 +20642,9 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
       holds the outcome (:func:`fedcourtsai.store.forward_refusal_reason`), the
       snapshot is older than the forward staleness bound, or the snapshot text
       discloses the outcome (see :func:`~fedcourtsai.pipeline.outcome.forward_leakage`).
+      With ``--refusal-out``, a refusal that shows the event already resolved —
+      every exit 3 but the staleness bound's — is written there first, so the
+      collect job reads it as a designed refusal rather than a failure.
     * **4** — an interim arrival cell whose opening entry cannot be anchored in
       the snapshot (nothing written). Mode-independent and not gated on
       ``--refuse-terminal``: the arrival moment's information set cannot be
@@ -20686,16 +20722,18 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
             event,
             snapshot_date,
             max_snapshot_age_days,
+            refusal_out=refusal_out,
         )
         terminal = forward_leakage(payload, court, event)
         if terminal is not None:
+            _record_forward_refusal(refusal_out, "snapshot", terminal, datetime.now(UTC))
             typer.echo(
                 f"::warning::refusing to provision forward cell for {case}: {terminal}",
                 err=True,
             )
             raise typer.Exit(code=3)
         if pre_mint_poll:
-            _pre_mint_poll_gate(case, court, event, payload, pre_mint_poll_out)
+            _pre_mint_poll_gate(case, court, event, payload, pre_mint_poll_out, refusal_out)
     # Both gates ran on the LATEST payload, before the cut, and that ordering is
     # the point of putting the cut here. The staleness bound asks whether the
     # *pipeline* is live, which only the latest snapshot's date can answer — a
@@ -28494,11 +28532,11 @@ def _collect_plan_json(plan: CollectPlan, *, role: FinalizeRole, run_id: str) ->
         # no gate. Empty on a run where every cell placed the stakes, and on an
         # evaluate run.
         "stakes_reads": plan.stakes_read_markdown,
-        # The forward cells the pre-mint docket poll refused: designed refusals,
-        # not failures, so they carry no attempt-cap fact. The roll-up rides the
-        # PR body and the agent-feedback comment; it leaves the process here too
-        # for any surface that echoes the run's notes.
-        "pre_mint_refusals": plan.pre_mint_refusals_markdown,
+        # The forward cells the forward gate refused as already resolved:
+        # designed refusals, not failures, so they carry no attempt-cap fact.
+        # The roll-up rides the PR body and the agent-feedback comment; it
+        # leaves the process here too for any surface that echoes the run's notes.
+        "forward_refusals": plan.forward_refusals_markdown,
         "feedback_comment": plan.feedback_comment,
         "stalled": plan.stalled,
         "dead_actors": list(plan.dead_actors),

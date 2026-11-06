@@ -185,3 +185,33 @@ def test_poll_docket_records_the_post_run_poll_and_never_fails(
     record = json.loads(out.read_text())
     assert record["state"] == "decided"
     assert record["docket_number"] == "24-12"
+
+
+def test_a_decided_poll_records_a_poll_refusal(
+    granted_pending: FixtureCorpus, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _with_live_docket(monkeypatch, _LIVE_DECIDED)
+    poll_out, refusal_out = tmp_path / "poll.json", tmp_path / "refusal.json"
+
+    result = _provision(
+        "--pre-mint-poll", "--pre-mint-poll-out", str(poll_out), "--refusal-out", str(refusal_out)
+    )
+
+    assert result.exit_code == 3, result.output
+    refusal = json.loads(refusal_out.read_text())
+    assert refusal["gate"] == "poll"
+    # The refusal's time is the poll's own, so the two records agree.
+    assert refusal["at"] == json.loads(poll_out.read_text())["polled_at"]
+    assert refusal["reason"]
+
+
+def test_an_open_poll_records_no_refusal(
+    granted_pending: FixtureCorpus, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _with_live_docket(monkeypatch, _LIVE_PENDING)
+    refusal_out = tmp_path / "refusal.json"
+
+    result = _provision("--pre-mint-poll", "--refusal-out", str(refusal_out))
+
+    assert result.exit_code == 0, result.output
+    assert not refusal_out.exists()

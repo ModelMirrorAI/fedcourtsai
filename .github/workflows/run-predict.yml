@@ -808,11 +808,12 @@ jobs:
           set -euo pipefail
           status=0
           poll="$RUNNER_TEMP/pre-mint-poll.json"
+          refusal="$RUNNER_TEMP/forward-refusal.json"
           lists=()
           if [ -f "$RUNNER_TEMP/same-question/same-question-lists.json" ]; then
             lists=(--same-question-file "$RUNNER_TEMP/same-question/same-question-lists.json")
           fi
-          uv run fedcourts provision-snapshot --court "$COURT_ID" --docket "$DOCKET_ID" --event "$EVENT_ID" --mode forward --refuse-terminal --max-snapshot-age-days 10 --pre-mint-poll --pre-mint-poll-out "$poll" "${lists[@]}" || status=$?
+          uv run fedcourts provision-snapshot --court "$COURT_ID" --docket "$DOCKET_ID" --event "$EVENT_ID" --mode forward --refuse-terminal --max-snapshot-age-days 10 --pre-mint-poll --pre-mint-poll-out "$poll" --refusal-out "$refusal" "${lists[@]}" || status=$?
           # The round's lists file holds every cell's list, and only what
           # provisioning staged is this cell's input: the claude and gemini
           # engines read the runner's temp directory, so the file goes before
@@ -824,6 +825,13 @@ jobs:
           if [ -f "$poll" ]; then
             echo "pre_mint_poll=$(tr -d '\n' < "$poll")" >> "$GITHUB_OUTPUT"
             rm -f "$poll"
+          fi
+          # A refusal that shows the event already resolved (record, snapshot
+          # text or poll) travels the same way, for the status step: collect
+          # reads it as a designed refusal rather than a no-output failure.
+          if [ -f "$refusal" ]; then
+            echo "forward_refusal=$(tr -d '\n' < "$refusal")" >> "$GITHUB_OUTPUT"
+            rm -f "$refusal"
           fi
           if [ "$status" -eq 1 ]; then
             # Nothing was written, so there is no cell to run. The usual cause
@@ -1996,10 +2004,10 @@ jobs:
           ENGINE_DEADLINE: ${{ steps.disarm.outputs.deadline == 'true' }}
           # Either gate refused the cell, so no engine ran.
           CELL_REFUSED: ${{ steps.provision.outputs.refused == 'true' || steps.record.outputs.refused == 'true' }}
-          # The pre-mint poll's record, for a cell it refused: the collect job
-          # rolls those up as designed refusals rather than counting them as
-          # cells that produced nothing.
-          PRE_MINT_POLL: ${{ steps.provision.outputs.pre_mint_poll }}
+          # The forward gate's record, for a cell it refused as already
+          # resolved: the collect job rolls those up as designed refusals rather
+          # than counting them as cells that produced nothing.
+          FORWARD_REFUSAL: ${{ steps.provision.outputs.forward_refusal }}
         run: |
           set -euo pipefail
           # The event.yaml is materialized before the agent runs, so a staged change
@@ -2021,18 +2029,19 @@ jobs:
           if [ "$produced" = "true" ] && uv run fedcourts validate data; then
             validated=true
           fi
-          # A poll-refused cell records the refusal; anything else records null. A
-          # malformed poll output is read as no refusal, never as a failed step.
-          refusal=$(jq -c 'if .state == "decided" then {polled_at, reason} else null end' \
-            <<<"${PRE_MINT_POLL:-null}" 2>/dev/null) || refusal=null
+          # A cell refused as already resolved records the refusal; anything else
+          # records null. A malformed record is read as no refusal, never as a
+          # failed step.
+          refusal=$(jq -c 'if type == "object" then {gate, at, reason} else null end' \
+            <<<"${FORWARD_REFUSAL:-null}" 2>/dev/null) || refusal=null
           [ -n "$refusal" ] || refusal=null
           jq -n \
             --arg court "$COURT_ID" --argjson docket "$DOCKET_ID" \
             --arg event_id "$EVENT_ID" --arg actor "$PREDICTOR_ID" --arg run_id "$RUN_ID" \
             --argjson produced "$produced" --argjson validated "$validated" \
             --argjson agent_ok "$AGENT_OK" --argjson engine_deadline "$ENGINE_DEADLINE" \
-            --argjson pre_mint_refusal "$refusal" \
-            '{court:$court,docket:$docket,event_id:$event_id,actor:$actor,run_id:$run_id,produced:$produced,validated:$validated,agent_ok:$agent_ok,engine_deadline:$engine_deadline,pre_mint_refusal:$pre_mint_refusal}' \
+            --argjson forward_refusal "$refusal" \
+            '{court:$court,docket:$docket,event_id:$event_id,actor:$actor,run_id:$run_id,produced:$produced,validated:$validated,agent_ok:$agent_ok,engine_deadline:$engine_deadline,forward_refusal:$forward_refusal}' \
             > status.json
 
       # One artifact per cell: its status.json, its own matrix event directory

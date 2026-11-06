@@ -3156,10 +3156,17 @@ order was unpublished, since an order list or a press account can precede the
 docket JSON, so leakage is still judged from the retrieval log. A poll that cannot
 answer (no docket served, a body that is not JSON, a timeout, any error) records
 `unavailable`, and the cell proceeds on the stored-snapshot gates. A refused cell
-writes no usage record; its `status.json` carries the refusal, and `collect`
-rolls refusals up per engine in the run PR body and the agent-feedback comment,
-as designed refusals rather than no-output failures against the attempt cap. A
-round makes up to four GETs to the Court per forward cell that runs — a poll
+writes no usage record. When the gate refused because the event is already
+resolved — the record holds its outcome (`record`), the snapshot text shows it
+(`snapshot`), or the poll does (`poll`) — `--refusal-out` writes the gate, its
+time and its reason, and the status step copies that into the cell's
+`status.json` as `forward_refusal`. `collect` rolls those up per engine in the
+run PR body and the agent-feedback comment, as designed refusals rather than
+no-output failures against the attempt cap, and keeps them out of the
+missing-engine and stall checks. A cell the staleness bound refused records no
+`forward_refusal`, because a stale snapshot says the pipeline is behind rather
+than that the event is over, so `collect` books it as an ordinary no-output
+cell. A round makes up to four GETs to the Court per forward cell that runs — a poll
 before minting and one after, each a fetch and at most one retry — with at most six cells in
 flight. The fresh payload is evidence for the gate only; the cell still reads
 the stored snapshot. A second is the **arrival anchor**: an
@@ -3169,7 +3176,7 @@ date instead would restore the conditioning that bound replaces. A third is a
 **trigger absent**: a `cvsg`, interim `response-requested` or `response-filed` cell whose
 trigger entry no stored payload carries exits 5, since a cell placed before its
 own trigger is forecast from the previous moment under this one's name. A later
-round owes it again once a pull stores the entry; unlike a pre-mint refusal it
+round owes it again once a pull stores the entry; unlike a resolved-event refusal it
 is not rolled up as a designed refusal, so `collect` records it as a no-output
 cell against the attempt cap. The fourth is an
 **unprovisioned record**: provisioning wrote nothing (exit 1 — usually a corpus with no
