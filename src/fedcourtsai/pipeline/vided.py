@@ -18,9 +18,10 @@ with one query over the few rows that carry any.
 
 A shared key makes a **candidate**, not a fact. A repeat filer who enters two
 separate VIDED briefs on one day, for two unrelated pairs of petitions, writes
-the same key on all four dockets; a reader that stages a companion says how it
-was found, and the number of keys two dockets share is the strength of the
-match.
+the same key on all four dockets, so a predict cell's ``related.json`` names
+such a companion ``vided-amicus`` rather than ``Vide``, with the number of
+keys the two dockets share as the strength of the match
+(:func:`~fedcourtsai.provision.read_vided`).
 """
 
 from __future__ import annotations
@@ -30,6 +31,11 @@ from collections.abc import Mapping
 from typing import Any, Final
 
 from .cert_signals import entry_date, proceedings_entries, snapshot_carries_proceedings
+
+#: The relation a ``related.json`` row names for a docket found through a
+#: shared VIDED amicus brief rather than linked by the Court as ``Vide``
+#: (:data:`~.vide_links.VIDE_RELATION`).
+VIDED_AMICUS_RELATION: Final = "vided-amicus"
 
 #: The Clerk's mark, at the end of the entry, with or without a closing period,
 #: and with any trailing parenthetical the Clerk adds after it: a brief filed

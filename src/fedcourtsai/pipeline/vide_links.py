@@ -32,6 +32,19 @@ MAX_RELATED_DOCKETS: Final = 4
 _RELATED_NUMBER_RE = re.compile(r"^\d{2}[-AO]\d{1,5}$")
 
 
+def related_file_number(raw: str) -> str | None:
+    """``raw`` as a docket number a ``record/related/`` file may be named by, or ``None``.
+
+    Normalized (:func:`~fedcourtsai.corpus.normalize_docket_number`) and shaped
+    as a SCOTUS docket number, so every reader that stages a related docket
+    names its file by one rule.
+    """
+    number = normalize_docket_number(raw)
+    if number is None or not _RELATED_NUMBER_RE.match(number):
+        return None
+    return number
+
+
 def vide_docket_numbers(payload: Mapping[str, Any]) -> tuple[str, ...]:
     """The docket numbers ``payload`` links as ``Vide``, normalized, in served order.
 
@@ -54,8 +67,8 @@ def vide_docket_numbers(payload: Mapping[str, Any]) -> tuple[str, ...]:
             continue
         if str(item.get("RelatedType") or "").strip().lower() != VIDE_RELATION.lower():
             continue
-        number = normalize_docket_number(str(item.get("DisplayCaseNumber") or ""))
-        if number is None or not _RELATED_NUMBER_RE.match(number):
+        number = related_file_number(str(item.get("DisplayCaseNumber") or ""))
+        if number is None:
             continue
         if number == own or number in numbers:
             continue

@@ -314,6 +314,7 @@ from .pipeline import (
     same_question,
     semantic,
     vide_links,
+    vided,
     vote_sources,
     watchlist_refresh,
 )
@@ -20255,29 +20256,32 @@ def _read_cell_inputs(
 def _read_related(
     backend: corpus.CorpusBackend, db_path: Path, case: str, payload: Mapping[str, Any]
 ) -> tuple[provision.RelatedRead, ...]:
-    """The ``Vide``-linked dockets of the payload a cell was placed on.
+    """The related dockets of the payload a cell was placed on.
 
-    A read of its own, taken after the cell's gates and placement, so a refused
-    cell spends nothing on companions and the links are the placed payload's.
-    The numbers resolve through the corpus index in one scan. Under the
-    casestore backend, which carries no index, that scan runs over the ordinary
-    read backend the row gate also reaches (ranged in the cell workflows), and
-    each companion's snapshot comes from the content store as the cell's own
-    did; a link with no index reachable is recorded as such, never dropped.
+    Those it links as ``Vide``, then those sharing one of its VIDED amicus
+    briefs (:func:`provision.read_vided`). A read of its own, taken after the
+    cell's gates and placement, so a refused cell spends nothing on companions
+    and the links and briefs are the placed payload's. Each kind resolves
+    through the corpus index in one scan. Under the casestore backend, which
+    carries no index, those scans run over the ordinary read backend the row
+    gate also reaches (ranged in the cell workflows), and each companion's
+    snapshot comes from the content store as the cell's own did; a link with
+    no index reachable is recorded as such, never dropped.
     """
     numbers = vide_links.vide_docket_numbers(payload)
-    if not numbers:
+    keys = vided.vided_amicus_keys(payload) or []
+    if not numbers and not keys:
         return ()
     if backend == "casestore":
         source = _casestore_source()
         choice = corpus.resolve_backend(None)
 
-        def resolve(wanted: Sequence[str]) -> Mapping[str, str] | None:
+        def index_read[T](read: Callable[[corpus.ReadConnection], T | None]) -> T | None:
             if choice == "local" and not db_path.exists():
                 return None
             try:
                 with corpus.connect_readonly(db_path, backend=choice) as conn:
-                    found = corpus.live_scotus_case_ids_by_docket_numbers(conn, wanted)
+                    found = read(conn)
                     _echo_read_stats(conn)
                     return found
             except (OSError, corpus_ranged.RangedBackendError):
@@ -20289,13 +20293,32 @@ def _read_related(
                 return None
 
         return provision.read_related(
-            numbers, own_case=case, resolve=resolve, snapshot=source.latest_snapshot
+            numbers,
+            own_case=case,
+            resolve=lambda wanted: index_read(
+                lambda conn: corpus.live_scotus_case_ids_by_docket_numbers(conn, wanted)
+            ),
+            snapshot=source.latest_snapshot,
+        ) + provision.read_vided(
+            keys,
+            own_case=case,
+            linked=numbers,
+            find=lambda wanted: index_read(
+                lambda conn: corpus.vided_companions(conn, wanted, own_case=case)
+            ),
+            snapshot=source.latest_snapshot,
         )
     with corpus.connect_readonly(db_path, backend=backend) as conn:
         reads = provision.read_related(
             numbers,
             own_case=case,
             resolve=lambda wanted: corpus.live_scotus_case_ids_by_docket_numbers(conn, wanted),
+            snapshot=lambda linked: corpus.latest_snapshot(conn, linked),
+        ) + provision.read_vided(
+            keys,
+            own_case=case,
+            linked=numbers,
+            find=lambda wanted: corpus.vided_companions(conn, wanted, own_case=case),
             snapshot=lambda linked: corpus.latest_snapshot(conn, linked),
         )
         _echo_read_stats(conn)
@@ -20850,9 +20873,12 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
         # Numbers and reasons only: the linked dockets are public, their text stays
         # in the record.
         linked = ", ".join(
-            item.docket_number
-            if item.payload is not None
-            else f"{item.docket_number} ({item.reason})"
+            (
+                item.docket_number
+                if item.relation == vide_links.VIDE_RELATION
+                else f"{item.docket_number} [{item.relation} x{item.shared}]"
+            )
+            + ("" if item.payload is not None else f" ({item.reason})")
             for item in written.related
         )
         typer.echo(f"{case} related ({linked}) -> {paths.related_dir}")

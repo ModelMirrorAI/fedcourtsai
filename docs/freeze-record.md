@@ -16941,3 +16941,107 @@ freeze commit is recorded here.
   - where the corpus is pulled and the content store addressed,
     `CHECK_SUMMARY=<file> uv run python scripts/checks/sal_v8_forward_cells.py`
     lists the moves above, with any forward cell minted since added.
+
+- **A predict cell also stages the dockets sharing a VIDED amicus brief with
+  its own under `record/related/`; recorded 2026-11-06.** A
+  **provisioning-cutoff** change with a harness boundary, recorded ahead of
+  the promotion that carries it. It extends the 2026-10-22
+  `vide-related-dockets` entry, which is not otherwise edited.
+
+  **Why.** One amicus brief supporting two petitions is entered on each
+  docket and ends `VIDED`. The Court does not always link those dockets as
+  `Vide`, so a petition considered with another can reach a cell with no
+  record of its companion. Each docket serves its own copy of the brief, so
+  the shared entry (the same filer, filed the same day, marked `VIDED` on
+  both) is the only trace. The corpus column `cases.vided_amicus` and
+  `corpus.vided_companions` record and match those entries; this change is
+  what puts the match in front of a cell.
+
+  **What moved.** `provision-snapshot`, for a cell that names its `--event`,
+  reads the VIDED amicus keys of its **placed** snapshot
+  (`pipeline.vided.vided_amicus_keys`), so a cell placed at a cutoff asks only
+  about the briefs its own docket showed by then. It matches them in one read
+  of the index's partial VIDED index (`corpus.vided_companions`, most shared
+  first, then by case id), skips a docket the cell already reads as `Vide`,
+  and stages the rest after the `Vide` links, up to the same four related
+  dockets in all (`provision.read_vided`). Each is cut and redacted exactly
+  as a `Vide` companion is (`provision.place_related`), on the same read
+  paths, `local-cascade` and the `casestore` backend included. `related.json`
+  gains two fields on every row: `relation` (`Vide`, or `vided-amicus`) and
+  `shared_briefs` (the number of briefs a `vided-amicus` row shares, null on
+  a `Vide` row). A shared brief makes a candidate, not the Court's link: a
+  repeat filer's two unrelated VIDED briefs on one day key alike, which is
+  why the row carries its strength. A blob without the partial index stages
+  none and records none.
+
+  No prompt byte and no registry field other than the boundary row moves, so
+  no digest moves: `uv run fedcourts process-digest --all` prints `proc-v18`
+  and the six digests `89efeee9…` (claude-baseline), `591b96ed…`
+  (codex-baseline), `78c7ec84…` (gemini-baseline), `3b78d93b…`
+  (claude-judge), `5c7cc4e6…` (codex-judge) and `8966bfb2…` (gemini-judge),
+  identical with and without it. The predict prompt's `record/related/`
+  paragraph still describes only `Vide` links; a sentence naming
+  `vided-amicus` rows waits for the next re-bless, so that the predictor
+  digests move once (`proc-v18` is already pending and `register-process`
+  refuses a second label per promotion). Until then a cell finds a
+  `vided-amicus` row only by reading `related.json`.
+
+  **A harness boundary under the 2026-10-11 pooled rule.** The change adds to
+  what a predict cell reads under unchanged digests. It is composition, not a
+  cut: the pooled default and the paired figure keep both sides and list each
+  engine's `n` before and after. It cuts only a figure that reads its own
+  effect, such as a per-stratum reading over dockets with a VIDED companion.
+  - **The registry row** is `vided-amicus-related-dockets`. It applies to
+    every predictor and its reach is `all`, because no narrower registered
+    reach names these dockets, so a figure reading its own effect selects
+    them by `related.json`. It is **gradual**: the column is written by the
+    live poll's cert branch at ingest, so a companion is found only once both
+    dockets have been polled after the carrying merge. It is registered
+    **pending** in this change's own PR (`fedcourts register-boundary`), under
+    the 2026-10-14 merge-stamping declaration, and its `merge` and `at` stay
+    null until the promotion merge that carries it to `main` stamps them
+    (`promotion-record`).
+  - **The side test** is the registered one, against the carrying merge.
+    Because the boundary is gradual, an after-side cell provisioned before
+    its docket and its companion were both re-polled stages none, so the
+    after-side `n` is an upper bound on exposure.
+
+  **The population.** Measured read-only over blob
+  `7fd93dccd2e085a8ae5aca01dff6f78d9af01b9b341fe8486b34887614bdb0fe` (newest
+  pull 2026-11-06, newest stored snapshot row 2026-07-13), keying each
+  docket's latest live snapshot as the column will hold it once re-polled,
+  over the 1,121 OT2023–OT2026 cert dockets that carry a cert-stage amicus
+  brief. 96 carry a VIDED amicus key. 56 of them would stage at least one
+  `vided-amicus` row (32 one, 15 two, 4 three, 5 four), and 25 of the 96 have
+  no disposition, of which 17 would. Among those 17, 26-193 shares six briefs
+  with 26-240, and 25-1019 shares five with 25-1017 and four with 25-1022.
+  Where a docket shares one brief with each of several others (26-199,
+  26-201, 26-332 and 26-335; 26-292, 26-293 and 26-294), the rows are
+  candidates of strength one. Today the column is empty on every row, so no
+  cell stages one until the post-promotion polls write it.
+
+  **What does not move.** No base rate re-prices, no membership rule moves
+  and no scored figure moves. No skill movement is predicted, and a movement
+  in **either** direction across this boundary may not be read as a model
+  effect.
+
+  **The amendment debt.** It is unchanged. This entry adds no new token.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_related_dockets.py tests/test_vided.py` is
+    green;
+  - after the first live poll windows following the promotion, where the
+    corpus is pulled, `uv run python -c "import sqlite3;
+    print(sqlite3.connect('corpus/corpus.db').execute('SELECT count(*) FROM
+    cases WHERE vided_amicus IS NOT NULL').fetchone()[0])"` prints a count
+    above 0;
+  - a predict run's provisioning log for a cert cell on 26-193 or 26-240
+    names the other docket with `[vided-amicus x<n>]`, `<n>` being the briefs
+    the cell's placed docket shares with it;
+  - on `main` once the promotion has merged, `uv run python -c "from
+    fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
+    print('vided-amicus-related-dockets' in {b.name for b in H})"` prints
+    `True`.

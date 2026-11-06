@@ -301,7 +301,8 @@ Clerk enters on several dockets — as `<ISO date>|<filer text>`
 dockets as `Vide`, and each serves its own copy of the brief under its own
 path, so the shared entry is the trace: two dockets carrying one key share the
 brief, and `corpus.vided_companions` finds them through a partial index over
-the rows that carry any. Only amicus filings are keyed, because a filer's name
+the rows that carry any, which is how a predict cell's `record/related/`
+stages such a companion (`provision.read_vided`). Only amicus filings are keyed, because a filer's name
 is specific to the brief while a VIDED argument setting or a respondent's
 opposition by a repeat litigant can read alike across unrelated cases. Cert
 branch only, fill-in latched, withheld from the `query` rows, and null on a row
