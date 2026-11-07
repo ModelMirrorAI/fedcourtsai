@@ -16560,16 +16560,13 @@ def ai_cases_update_cmd(
     """Render the AI-cases update from the committed watchlist activity records.
 
     Read-only and deterministic: the same tree and span render the same bytes.
-    Exits 3, writing nothing, when the span recorded no significant entry.
+    A span with nothing recorded renders the quiet note.
     """
     settings = get_settings()
     start, end = _ai_cases_span(week, day)
     update = build_ai_cases_update(
         settings.data_root, start, end, _ai_cases_watchlist(settings.config_root)
     )
-    if update.empty:
-        typer.echo(f"ai-cases-update: nothing to send for {start} to {end}.", err=True)
-        raise typer.Exit(code=3)
     text = render_ai_cases_update(update)
     if out is None:
         typer.echo(text, nl=False)
@@ -16610,9 +16607,9 @@ def post_ai_cases_update_cmd(
 
     Draft only: a person reads it and presses send in Buttondown. Idempotent per
     span, since an email already carrying the span's subject is returned rather
-    than duplicated. Exits 3 on a span with nothing to send, 2 on a bad span or a
-    missing key, 1 when Buttondown refuses. The key is read from the environment
-    and never printed.
+    than duplicated; a span with nothing recorded posts the quiet note. Exits 2
+    on a bad span or a missing key, 1 when Buttondown refuses. The key is read
+    from the environment and never printed.
     """
     settings = get_settings()
     if bool(tag.strip()) == bool(tag_id.strip()):
@@ -16626,9 +16623,6 @@ def post_ai_cases_update_cmd(
     update = build_ai_cases_update(
         settings.data_root, start, end, _ai_cases_watchlist(settings.config_root)
     )
-    if update.empty:
-        typer.echo(f"post-ai-cases-update: nothing to send for {start} to {end}.", err=True)
-        raise typer.Exit(code=3)
     subject = ai_cases_subject(update)
     body = render_ai_cases_update(update, title=False)
     if dry_run:
