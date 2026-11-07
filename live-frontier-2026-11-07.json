@@ -78,7 +78,7 @@
     },
     {
       "conference": "2018-09-24",
-      "petitions": 9
+      "petitions": 10
     },
     {
       "conference": "2018-10-26",
@@ -190,7 +190,7 @@
     },
     {
       "conference": "2026-09-28",
-      "petitions": 77
+      "petitions": 74
     },
     {
       "conference": "2026-10-09",
@@ -210,7 +210,7 @@
     },
     {
       "conference": "2026-12-04",
-      "petitions": 11
+      "petitions": 36
     }
   ],
   "documents_provisioned": 162,
@@ -219,5 +219,5 @@
   "next_conference_petitions": 125,
   "schema_version": "1.0",
   "skipped": false,
-  "watchlist": 662
+  "watchlist": 685
 }
