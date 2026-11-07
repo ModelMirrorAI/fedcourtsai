@@ -35,7 +35,7 @@ from urllib.parse import quote
 import httpx
 import typer
 import yaml
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, TypeAdapter, ValidationError
 
 # Typer vendors click, and re-exports neither the base command class a `cls=`
 # override needs nor the parse-time error it raises. `typer.core` is the
@@ -288,6 +288,7 @@ from .ops import (
 )
 from .paths import CasePaths, EventPaths
 from .pipeline import (
+    ai_candidates,
     alignment_baseline,
     alignment_fits,
     alignment_positions,
@@ -17736,6 +17737,131 @@ def order_scan_command(
         # The report is printed first, so a failing run still leaves it to read.
         typer.echo(f"order-scan: failed: {failed}", err=True)
         raise typer.Exit(code=1)
+
+
+@app.command("ai-candidates")
+def ai_candidates_command(
+    config: Annotated[
+        Path | None,
+        typer.Option(help="The saved searches; defaults to config/ai-candidates.yaml."),
+    ] = None,
+    max_requests: Annotated[
+        int | None,
+        typer.Option(
+            help="Requests this run may spend; defaults to the config's "
+            "max_requests_per_run, and may only lower it.",
+        ),
+    ] = None,
+    plan: Annotated[
+        bool,
+        typer.Option(
+            "--plan",
+            help="Print the searches and the worst-case spend, sending no request.",
+        ),
+    ] = False,
+    raised: Annotated[
+        Path | None,
+        typer.Option(
+            help="The docket ids earlier runs raised, as `ai-candidates-issue "
+            "--raised-out` writes them; without it nothing counts as raised.",
+        ),
+    ] = None,
+    comment_out: Annotated[
+        Path | None,
+        typer.Option(
+            help="Write the issue comment for the new candidates here; a run with "
+            "none writes no file.",
+        ),
+    ] = None,
+) -> None:
+    """Search CourtListener for newly filed federal cases the AI watchlist may want.
+
+    Runs each saved search in `config/ai-candidates.yaml` over the dockets
+    filed in the config's lookback window, keeps federal district (civil and
+    multidistrict), circuit and JPML dockets, and drops every docket the
+    watchlist names and every docket in `--raised`. Prints the report as JSON
+    on stdout and a summary on stderr, and with `--comment-out` writes the
+    comment that raises the rest (`post-issue-comment` posts it).
+
+    Nothing here changes the watchlist: a maintainer adds a case by a PR. No
+    corpus, content-store, ledger or `data/` write, no RECAP Fetch purchase, no
+    GitHub call. It spends one request per search page, stopping before the
+    request that would pass the run cap; `--plan` shows the spend first and
+    needs no token. Exits 1 after printing the report when the credential was
+    refused or every search failed.
+    """
+    settings = get_settings()
+    path = config if config is not None else settings.config_root / "ai-candidates.yaml"
+    try:
+        watchlist = load_ai_watchlist(settings.config_root / AI_WATCHLIST_FILENAME)
+        search_config = ai_candidates.load_candidates_config(path, watchlist)
+    except (OSError, ValueError) as exc:
+        typer.echo(f"ai-candidates: cannot read the config: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    cap = search_config.max_requests_per_run
+    if max_requests is not None:
+        if not 0 < max_requests <= cap:
+            typer.echo(
+                f"ai-candidates: --max-requests must be between 1 and the config's {cap}",
+                err=True,
+            )
+            raise typer.Exit(code=2)
+        cap = max_requests
+    if plan:
+        today = datetime.now(UTC).date()
+        for line in ai_candidates.plan_lines(search_config, max_requests=cap, today=today):
+            typer.echo(line)
+        return
+    raised_ids: list[int] = []
+    if raised is not None:
+        try:
+            raised_ids = TypeAdapter(list[int]).validate_json(raised.read_text())
+        except (OSError, ValueError) as exc:
+            typer.echo(f"ai-candidates: cannot read --raised {raised}: {exc}", err=True)
+            raise typer.Exit(code=2) from exc
+    if not settings.courtlistener_api_token:
+        typer.echo("ai-candidates: no CourtListener API token is configured", err=True)
+        raise typer.Exit(code=2)
+    with _client("ai-candidates") as client:
+        report = ai_candidates.check(
+            client, search_config, watchlist, raised=raised_ids, max_requests=cap
+        )
+    typer.echo(report.model_dump_json(indent=2))
+    for line in ai_candidates.summary_lines(report):
+        typer.echo(line, err=True)
+    comment = ai_candidates.render_comment(report)
+    if comment_out is not None and comment:
+        comment_out.write_text(comment, encoding="utf-8")
+    failed = ai_candidates.failure(report)
+    if failed is not None:
+        typer.echo(f"ai-candidates: failed: {failed}", err=True)
+        raise typer.Exit(code=1)
+
+
+@app.command("ai-candidates-issue")
+def ai_candidates_issue_command(
+    repo: Annotated[str, typer.Option(help="owner/name of the repository.")],
+    issue_out: Annotated[Path, typer.Option(help="Write the open issue's number here.")],
+    raised_out: Annotated[
+        Path, typer.Option(help="Write the docket ids earlier runs raised here, as JSON.")
+    ],
+) -> None:
+    """Find (or open) the long-lived `ai-candidates` issue and read what was raised on it.
+
+    The issue side of `ai-candidates`, run with a token that may write issues
+    and no CourtListener token. Writes the open issue's number (opening it,
+    with its non-triggering label, when none is open) and the docket ids this
+    check's earlier comments raised, read from every issue under the label,
+    open or closed, and only from comments by the workflow's own identity.
+    """
+    if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo):
+        typer.echo(f"ai-candidates-issue: --repo must be owner/name, not {repo!r}", err=True)
+        raise typer.Exit(code=2)
+    number = ai_candidates.candidates_issue(repo)
+    ids = sorted(ai_candidates.raised_docket_ids(ai_candidates.issue_comments(repo)))
+    issue_out.write_text(f"{number}\n", encoding="utf-8")
+    raised_out.write_text(json.dumps(ids) + "\n", encoding="utf-8")
+    typer.echo(f"ai-candidates-issue: #{number}, {len(ids)} dockets raised before")
 
 
 @app.command("order-notations")
