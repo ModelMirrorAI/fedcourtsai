@@ -17855,3 +17855,40 @@ freeze commit is recorded here.
   carrying merge has stamped the registry, and a dated follow-up entry quotes
   it before any `proc-v19` window figure is quoted outside the committed
   board.
+
+- **Readings the `proc-v19` entry owes, recorded 2026-11-07.** No rule moves
+  here. The `proc-v19` entry (dated 2026-11-07), carried to `main` by
+  `promotion/2026-11-07` (merge `18f62b8a7`, registry stamped by `aae734d87`)
+  and tagged `prereg/proc-v19`, quoted its `successor-disclosures` lines at
+  a provisional instant and owed them again once the carrying merge had
+  stamped the registry, before any figure of a `proc-v18` window is quoted
+  outside the committed board. That entry is not otherwise edited.
+
+  The run reads the ledger and registry at `origin/main`'s `80955ad65`
+  (`2026-11-07T18:19:10Z`), after the stamp and after `promotion/2026-11-07-2`,
+  which stamps no label. No `proc-v19` predict cell
+  had landed by then: the 17:33Z round's plan owed none.
+
+  **`proc-v19` closes `proc-v18`.** `uv run fedcourts successor-disclosures
+  --closed proc-v18 --successor proc-v19` prints:
+
+  ```
+  successor proc-v19 closes proc-v18 at 2026-11-07T15:59:33+00:00
+    closed proc-v18 codex-baseline: 4 counted event(s) — 0 resolved, 4 pending at close
+    closed proc-v18 gemini-baseline: 4 counted event(s) — 0 resolved, 4 pending at close
+    closed proc-v18 claude-baseline: 4 counted event(s) — 0 resolved, 4 pending at close
+    split events: 0 (0 resolved) — in no complete grid
+  ```
+
+  The closed lines match the provisional run's (4 counted events per engine,
+  none resolved), though the stamped instant, `2026-11-07T15:59:33Z`, fell
+  earlier than the provisional `2026-11-08T00:00:00Z`. No successor-counted
+  line prints because no engine has committed a `proc-v19` cell yet, so
+  there is no earlier-window failure, uncounted cell or missing cell to
+  disclose, and no `graded by` line prints because no grading of a
+  `proc-v18`-window cell is recorded yet.
+
+  The closed-window resolved counts can still move: an outcome dated on or
+  before the close's day may land late, and an event void de-counts what it
+  names. The split, partition and grading lines also move as cells,
+  outcomes and gradings land.
