@@ -60,9 +60,9 @@ def vide_docket_numbers(payload: Mapping[str, Any]) -> tuple[str, ...]:
     list stops at :data:`MAX_RELATED_DOCKETS`. One entry may list several
     dockets in its ``DisplayCaseNumber`` ("26-199, 26-201"); each is read in the
     order written, under the same rules, so a malformed part drops only itself.
-    A caller passes the payload the cell is placed on, so a link the Court added after the cell's moment is not
-    read off a ``dated`` snapshot; a ``truncated`` one keeps the latest list,
-    since the field is undated.
+    A caller passes the payload the cell is placed on, so a link the Court
+    added after the cell's moment is not read off a ``dated`` snapshot; a
+    ``truncated`` one keeps the latest list, since the field is undated.
     """
     linked = payload.get("RelatedCaseNumber")
     if not isinstance(linked, list):
