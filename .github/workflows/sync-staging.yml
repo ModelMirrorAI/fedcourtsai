@@ -106,6 +106,7 @@ jobs:
     permissions:
       contents: read # ancestry check only; the PR is opened on the App token
       checks: read # the merge lists the sync PR's check runs (GITHUB_TOKEN)
+      actions: read # and the Actions runs the sync PR started, whose suites judge it
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -138,8 +139,8 @@ jobs:
       - name: Open or refresh the main -> staging sync PR
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          # Checks read for the merge's check-run listing, so the dev App needs
-          # none.
+          # Checks and actions read for the merge's listings of the sync PR's
+          # own runs and their check runs, so the dev App needs neither.
           CHECKS_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
         run: |

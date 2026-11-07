@@ -1,0 +1,123 @@
+# The AI-case candidate check (`fedcourts ai-candidates`,
+# src/fedcourtsai/pipeline/ai_candidates.py): saved CourtListener searches for
+# newly filed federal cases that may meet the watchlist's rule
+# (config/ai-watchlist.yaml). The check only raises candidates. A maintainer
+# reads each one against the rule and adds it to the watchlist by a PR, or
+# leaves it; nothing here changes the list, the selection or a forecast.
+#
+# Each run searches dockets filed in the last `lookback_days`, drops every
+# docket the watchlist already names (its own and its related rows) and every
+# docket an earlier run already raised, and comments the rest on the
+# long-lived `ai-candidates` issue. Sized for a weekly run: the lookback is
+# three times that, so a missed run is caught up by the next; the raised set
+# keeps the overlap from raising a docket twice.
+#
+# Spend. A search reads at most `max_pages_per_search` pages (twenty dockets a
+# page), one request each, and the run stops before the request that would
+# pass `max_requests_per_run`. The cap is the `ai-candidates` lane's share in
+# config/tracking.yaml. A search that reaches its page cap is reported
+# truncated, which says to narrow it.
+max_requests_per_run: 40
+max_pages_per_search: 2
+lookback_days: 21
+
+# Which dockets a result may raise. A district docket counts only when its
+# number's case type is listed (civil and multidistrict; a criminal or
+# magistrate docket that cites a judge's standing order on AI use does not);
+# a circuit docket and the JPML's always count. Every other court (bankruptcy,
+# the Court of Federal Claims, state courts, the Supreme Court) is dropped:
+# the watchlist's rule covers federal district courts and circuits only.
+district_case_types: [cv, md]
+
+# The phrases a search marked `ai_terms: true` requires in the docket's
+# documents, as one upstream query. "artificial intelligence" alone is left
+# out: judges' standing orders on AI use carry it into thousands of unrelated
+# dockets.
+ai_terms: >-
+  "large language model" OR "generative AI" OR "generative artificial intelligence"
+  OR chatbot OR "training data" OR "AI model"
+
+# Each search's `params` are upstream's search filters, verbatim
+# (`party_name` matches the docket's parties, `q` the docket and its
+# documents). `type` is `d` (dockets alone, one result a docket) or `r`
+# (dockets with their matching documents, needed when `q` reads document
+# text). `category` is the watchlist category the search suggests for what it
+# finds; the maintainer assigns the final one when a case is added.
+searches:
+  # AI developers as parties: any new suit naming one is a candidate.
+  - name: openai
+    type: d
+    params:
+      party_name: '"OpenAI"'
+  - name: anthropic
+    type: d
+    params:
+      party_name: '"Anthropic"'
+  - name: model-developers
+    type: d
+    params:
+      party_name: >-
+        "Stability AI" OR "Midjourney" OR "Perplexity AI" OR "X.AI" OR "xAI"
+        OR "Character Technologies" OR "Cohere" OR "Mistral AI" OR "Runway AI"
+        OR "Suno" OR "Uncharted Labs" OR "Black Forest Labs" OR "Hugging Face"
+        OR "Inflection AI" OR "Scale AI" OR "Ross Intelligence"
+  # Large platforms are parties to many suits that have nothing to do with AI,
+  # so their search also requires the AI phrases.
+  - name: platforms-ai
+    type: r
+    ai_terms: true
+    params:
+      party_name: >-
+        "Google LLC" OR "Alphabet Inc" OR "Meta Platforms" OR "Microsoft Corporation"
+        OR "Amazon.com" OR "Apple Inc" OR "NVIDIA"
+  # Claim searches: the AI phrases in a suit of a given nature, whoever the
+  # parties are. The nature of suit is the civil cover sheet's, so it also
+  # keeps out criminal dockets, which carry none.
+  - name: ai-copyright
+    type: r
+    ai_terms: true
+    category: copyright
+    params:
+      q: 'suitNature:(Copyright OR Trademark)'
+  - name: ai-product-liability
+    type: r
+    ai_terms: true
+    category: product-liability
+    params:
+      q: 'suitNature:(Liability OR Injury)'
+  - name: ai-antitrust
+    type: r
+    ai_terms: true
+    category: antitrust
+    params:
+      q: 'suitNature:Antitrust'
+  - name: ai-employment
+    type: r
+    ai_terms: true
+    category: employment
+    params:
+      q: 'suitNature:(Jobs OR Employment)'
+  - name: ai-civil-rights
+    type: r
+    ai_terms: true
+    category: civil-rights
+    params:
+      q: 'suitNature:"Civil Rights" AND NOT suitNature:(Jobs OR Employment OR Prisoner)'
+  - name: ai-privacy
+    type: r
+    ai_terms: true
+    category: privacy
+    params:
+      q: 'suitNature:(Privacy OR Fraud OR "Other Statutory")'
+  - name: ai-government
+    type: r
+    ai_terms: true
+    category: government
+    params:
+      q: 'suitNature:(Constitutional OR "Administrative Procedure")'
+  - name: ai-trade-secrets
+    type: r
+    ai_terms: true
+    category: competitor
+    params:
+      q: 'suitNature:"Trade Secret"'
