@@ -688,6 +688,12 @@ this policy.
   tree in every lane, then follows the merge rather than gating it.
   That is adequate for content that is by construction already-gated `main`
   history, and it is not the same as a human reading the diff.
+  The sync's own merge call judges a narrower set than the platform: of all
+  the check runs on `main`'s tip, which every workflow run there reports to, it
+  hears only the suites of the Actions runs the sync PR itself started, so a
+  failed or slow `run-repair` or `run-ops` job at that tip neither stops nor
+  delays it, while the push run's `gate` does not stand in for the PR's own.
+  That listing is what the job's ambient token holds `actions: read` for.
   **Neither App bypasses `staging: require PR`**, so the
   identity-enforced "everything agentic lands via a PR" invariant
   holds one hop before `main` as well: the dev App token minted in the agent
