@@ -211,8 +211,6 @@ class PlacedBuild:
 
     build: CommittedBuild
     """The build: the one the recorded digest names, else the build in force."""
-    named: bool
-    """Whether a recorded digest picked ``build`` out, rather than the bound alone."""
     alternative: CommittedBuild | None
     """Where no digest was recorded and the build in force landed within
     :data:`CHECKOUT_SLACK` before the bound, the build it replaced, which the
@@ -224,7 +222,8 @@ def placed_build(
 ) -> PlacedBuild | str:
     """The build a cell placed by ``provisioned_by`` read, or why none can be named.
 
-    The candidates are the ones :func:`verify_cert_anchor` accepts: the build in
+    The candidate builds are the ones :func:`verify_cert_anchor` accepts (a
+    digest names a build, not a pooling window, so no window is checked): the build in
     force on ``main`` at the predict run id, and the build it replaced where the
     replacement landed within :data:`CHECKOUT_SLACK` before it. A ``recorded``
     digest (``context.statpack_digest``, or a cert cell's
@@ -243,12 +242,12 @@ def placed_build(
         else None
     )
     if recorded is None:
-        return PlacedBuild(build=build, named=False, alternative=replaced)
+        return PlacedBuild(build=build, alternative=replaced)
     for candidate in (build, replaced):
         if candidate is None or candidate.statpack is None:
             continue
         if statpack_digest(candidate.statpack) == recorded:
-            return PlacedBuild(build=candidate, named=True, alternative=None)
+            return PlacedBuild(build=candidate, alternative=None)
     return (
         f"the recorded {recorded} is not the build in force at {provisioned_by.isoformat()} "
         f"({build.sha[:12]}) or one it replaced within the checkout slack"

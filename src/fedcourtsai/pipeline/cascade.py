@@ -776,8 +776,9 @@ def run_cascade(  # noqa: PLR0913 - the cell contract's independent knobs, one a
     ambient env) while these in-process reads — which the service surface
     deliberately does not serve, and :func:`~fedcourtsai.corpus.connect_readonly`
     therefore rejects — go straight to the blob via ``ranged``.
-    ``metrics_root`` is where the committed statpack a cert cell's anchor is
-    frozen from is read, as ``provision-snapshot`` reads it.
+    ``metrics_root`` is where the committed statpack is read, as
+    ``provision-snapshot`` reads it: a cert cell's anchor is frozen from it, and
+    every predict cell records its digest.
     """
     runner = get_runner(engine)
     anchor_pool = provision.read_anchor_pool(metrics_root, config_root)
@@ -850,7 +851,9 @@ def run_cascade(  # noqa: PLR0913 - the cell contract's independent knobs, one a
                 if provision.freezes_cert_anchor(case_paths.event(event_id).event_file, event_id)
                 else None
             ),
-            statpack_digest=None if anchor_pool is None else anchor_pool.digest,
+            # Predict cells only: the evaluate placement names no event, and
+            # `provision-snapshot` records no build for it either.
+            statpack_digest=(anchor_pool.digest if event_id and anchor_pool is not None else None),
         )
         placements.append(record.placement)
 

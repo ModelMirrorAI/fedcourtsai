@@ -327,7 +327,8 @@ prompt bytes and the resolved registry config are what it hashes. The restraint
 is the point: degrading the block instead would have moved a scored number,
 which is what would have put this in the freeze record.
 
-`context.statpack_digest` sits on the same footing. Provisioning records on
+`context.statpack_digest` sits on the same footing, though provisioning
+writes it rather than the stamp, which only copies it on. Provisioning records on
 every predict cell, whatever its stage, the digest of the
 `metrics/statpack.json` checked out at placement, so a judge grading after a
 refresh can rebuild the pack the predictor read (`fedcourts statpack-at`). It

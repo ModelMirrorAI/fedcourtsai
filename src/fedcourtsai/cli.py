@@ -10950,16 +10950,17 @@ def statpack_at_command(
     cert cell's ``cert_anchor.statpack_digest``), checked against ``ref``'s
     first-parent statpack history at the run id the same way the stamp checks a
     frozen cert anchor — the build in force then, or the one it replaced where
-    the replacement landed inside the checkout slack. A cell placed before
-    either record names the build in force at its run id, and the replaced one
-    beside it where the slack leaves both possible.
+    the replacement landed inside the checkout slack. A cell with neither record
+    gets the build in force at its run id, and the replaced one beside it where
+    the slack leaves both possible.
 
     JSON on stdout: the run id, the recorded digest and which field carried it,
     the build's landing commit and time, and the alternative, if any.
     ``--out-dir`` writes that commit's ``statpack.json`` and ``statpack.md``,
     the files the cell's prompt sent it to. Exit 1 where the run id does not
-    parse, the prediction does not read, or a recorded digest names neither
-    candidate. Needs the full history (a shallow clone holds too little).
+    parse, the prediction does not read, no build landed by the run id, a
+    recorded digest names neither candidate, or a file ``--out-dir`` asks for
+    is missing at the build's commit. Needs the full history (a shallow clone holds too little).
     """
     cell = prediction.parent if prediction.name == "prediction.json" else prediction
     try:
@@ -14851,7 +14852,7 @@ _statpack_history: Callable[[Settings], statpack_history.StatpackHistory] = _git
 
 
 def _cert_anchor_pool(
-    settings: Settings, paths: CasePaths, event: str
+    paths: CasePaths, event: str, pool: provision.AnchorPool | None
 ) -> provision.AnchorPool | None:
     """The statpack build and window a cert cell's anchor is frozen from, or ``None``.
 
@@ -14861,11 +14862,11 @@ def _cert_anchor_pool(
     warning, where no statpack is readable: the cell then carries no frozen
     anchor and its grading pools at stamp time. The window is the configured
     ``salience.base_rate_lookback_terms``, the one :func:`_pool_cert_anchor`
-    reads at grading.
+    reads at grading. ``pool`` is the one read the caller took, which also
+    gives every predict cell's ``statpack_digest``, so the two cannot disagree.
     """
     if not provision.freezes_cert_anchor(paths.event(event).event_file, event):
         return None
-    pool = provision.read_anchor_pool(settings.metrics_root, settings.config_root)
     if pool is None:
         typer.echo(
             "::warning::provision: no readable metrics/statpack.json — this cert cell's "
@@ -14873,21 +14874,6 @@ def _cert_anchor_pool(
             err=True,
         )
     return pool
-
-
-def _placed_statpack_digest(settings: Settings, event: str) -> str | None:
-    """The digest of the statpack build a predict cell is placed against, or ``None``.
-
-    Every stage: an interim or merits cell anchors on the same committed pack a
-    cert cell does, and only a cert cell's ``cert_anchor`` would otherwise name
-    the build. ``None`` for a cell that names no event (an evaluate cell) and
-    where no statpack is readable, which ``_cert_anchor_pool`` already warns
-    about for the cert cells it concerns.
-    """
-    if not event:
-        return None
-    pool = provision.read_anchor_pool(settings.metrics_root, settings.config_root)
-    return None if pool is None else pool.digest
 
 
 def _pool_cert_anchor(
@@ -21134,7 +21120,12 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
     # staged copy through the contact-detail scrubs — goes through the one
     # writer the local cascade shares (`provision.write_cell_record`), so the
     # record a cell reads here and the record the engine smoke certifies cannot
-    # be written differently.
+    # be written differently. One read of the committed statpack serves both
+    # the cert anchor and the build every predict cell records (an evaluate
+    # cell names no event and records none).
+    committed_pack = (
+        provision.read_anchor_pool(settings.metrics_root, settings.config_root) if event else None
+    )
     try:
         written = provision.write_cell_record(
             paths,
@@ -21146,8 +21137,8 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
             related=related,
             authorship_tally=tally,
             same_question=listed,
-            anchor_pool=_cert_anchor_pool(settings, paths, event),
-            statpack_digest=_placed_statpack_digest(settings, event),
+            anchor_pool=_cert_anchor_pool(paths, event, committed_pack),
+            statpack_digest=None if committed_pack is None else committed_pack.digest,
         )
     except provision.ProvisionError as exc:
         typer.echo(f"::error::{exc}", err=True)

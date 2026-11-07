@@ -75,7 +75,7 @@ def test_a_recorded_digest_names_the_build_in_force() -> None:
 
     assert isinstance(found, PlacedBuild)
     assert found.build.sha == "a" * 40
-    assert found.named and found.alternative is None
+    assert found.alternative is None
 
 
 def test_a_refresh_after_placement_is_never_the_build_read() -> None:
@@ -103,7 +103,7 @@ def test_with_no_record_the_bound_names_the_build_and_any_it_cannot_rule_out() -
     found = placed_build(None, _PROVISIONED, history)
 
     assert isinstance(found, PlacedBuild)
-    assert found.build.sha == "b" * 40 and not found.named
+    assert found.build.sha == "b" * 40
     assert found.alternative is not None and found.alternative.sha == "a" * 40
     outside = placed_build(None, _PROVISIONED, _history(_OLD))
     assert isinstance(outside, PlacedBuild) and outside.alternative is None
