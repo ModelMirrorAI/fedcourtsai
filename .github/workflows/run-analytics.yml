@@ -189,7 +189,7 @@ run-name: "run-analytics: ${{ github.event_name == 'workflow_dispatch' && inputs
 # run belongs on a staging ref.
 on:
   schedule:
-    # Six crons, and every scheduled job gates on **which** one fired
+    # Seven crons, and every scheduled job gates on **which** one fired
     # (`github.event.schedule`): an `event_name == 'schedule'` gate is fail-open
     # on any cron it does not name, so a second entry would otherwise run the
     # weekly refresh daily. The mode-gated jobs stay skipped either way — a
@@ -3729,7 +3729,7 @@ jobs:
             args+=(--raised "$raised")
           fi
           summary="$RUNNER_TEMP/ai-candidates-summary.txt"
-          uv run fedcourts ai-candidates "${args[@]}" > "$RUNNER_TEMP/ai-candidates.json" \
+          uv run fedcourts ai-candidates "${args[@]}" > /dev/null \
             2> "$summary" || status=$?
           {
             echo "## ai-candidates — $(date -u +%Y-%m-%d)"
@@ -3743,10 +3743,12 @@ jobs:
       - name: Post the new candidates
         # A failed search step still writes the comment for what the searches
         # it finished found, so this runs whenever the search wrote one; a quiet
-        # week writes none and posts nothing. The once-only key is the run, so a
-        # re-run of the job, which re-reads the raised set first, never stacks a
-        # second copy. The comment's raised-ids marker sits on the line below it,
-        # where `ai-candidates-issue` reads it.
+        # week writes none and posts nothing. The raised set keeps a re-run
+        # from raising a docket twice; the once-only key is the run attempt, so
+        # a repeated post of one attempt's comment is dropped while a re-run
+        # that finds new candidates posts its own. The comment's raised-ids
+        # marker sits on the line below that key, where `ai-candidates-issue`
+        # reads it.
         if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
         timeout-minutes: 5
         env:
@@ -3761,7 +3763,7 @@ jobs:
           fi
           issue=$(cat "$RUNNER_TEMP/ai-candidates-issue.txt")
           uv run fedcourts post-issue-comment --issue "$issue" --repo "$REPO" \
-            --marker "<!-- ai-candidates-run: ${GITHUB_RUN_ID} -->" \
+            --marker "<!-- ai-candidates-run: ${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT} -->" \
             --body-file "$comment"
 
       - name: Note the rehearsal boundary (posting fenced off this ref)
@@ -3769,6 +3771,7 @@ jobs:
         env:
           COMMENT: ${{ runner.temp }}/ai-candidates-comment.md
         run: |
+          set -euo pipefail
           {
             echo "ai-candidates rehearsal: the comment is fenced to main-branch runs, and this run read no raised set; nothing was posted."
             if [ -s "$COMMENT" ]; then
