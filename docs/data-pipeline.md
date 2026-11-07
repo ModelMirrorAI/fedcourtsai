@@ -138,8 +138,14 @@ those motions, complaints, appeals, settlements and dismissals; routine business
 dropped) in the committed `data/ai-cases/activity/<YYYY-MM-DD>.json`, which the
 weekly AI-cases email renders. An entry filed more than 14 days before it was
 first seen is old history and is not recorded, and a docket's first refresh
-records nothing. The record carries identifiers, dates, kinds (with the
-principal motion an entry names) and links, never docket text.
+records nothing. The same refresh records, under a second rule
+(`ai-availability-v1`), entries the stored docket already held whose documents
+became readable since: opinions, judgments, rulings and complaints; exhibits
+filed with a principal motion, an opposition or reply to one, or a motion to
+exclude an expert; unsealed documents and public redacted versions; and
+transcripts other than of status conferences, for entries filed within 60 days.
+The record carries identifiers, dates, kinds (with the principal motion an
+entry names), document counts and links, never docket text.
 
 Because pull runs headless inside a CI job, budget pressure and a degraded
 upstream must **degrade a run, never hang it**. Three guards enforce that, all

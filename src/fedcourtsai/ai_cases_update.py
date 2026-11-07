@@ -18,6 +18,13 @@ item. Each case is introduced by its category, its court and the watchlist's
 own one-line account of why it is listed, which is the project's sentence, not
 the docket's.
 
+A last *Newly available* section lists, by case, the entries filed earlier
+whose documents became readable on CourtListener in the span (the record's
+``available`` list, :data:`fedcourtsai.ai_activity.AVAILABILITY_RULE`), at most
+:data:`AVAILABLE_PER_CASE` per case, the rest counted beside a link to the
+docket, since a sealed summary-judgment record unsealed at once can make
+dozens of entries readable in a day.
+
 A ruling with a committed model summary (``data/ai-cases/summaries/``,
 :mod:`fedcourtsai.ai_rulings`) carries it under its item, quoted and labeled
 with the model that wrote it. The summary is written from the ruling's own
@@ -38,7 +45,7 @@ from typing import Final
 from .ai_activity import ACTIVITY_DIR
 from .ai_rulings import RulingSummary, committed_summaries
 from .ai_watchlist import AiWatchlist
-from .schemas import AiCaseActivity, AiCaseActivityEntry
+from .schemas import AiCaseActivity, AiCaseActivityEntry, AiCaseAvailableEntry
 from .serialize import read_model
 
 #: The kinds in the reader's words.
@@ -79,6 +86,14 @@ _TALLY: Final[tuple[tuple[str, str, frozenset[str]], ...]] = (
     ("appeal", "appeals", frozenset({"appeal"})),
     ("settlement or dismissal", "settlements or dismissals", frozenset({"resolution"})),
     ("new filing", "new filings", frozenset({"complaint", "motion"})),
+)
+
+#: The most newly readable entries listed for one case in one update; the rest
+#: are counted, with a link to the docket.
+AVAILABLE_PER_CASE: Final = 5
+
+_AVAILABLE_INTRO: Final = (
+    "Documents filed earlier that became readable on CourtListener in this span."
 )
 
 #: CourtListener court ids in the standard short form readers know. An id
@@ -174,6 +189,9 @@ class AiCasesUpdate:
     cases: tuple[tuple[str, str, tuple[AiCaseActivityEntry, ...]], ...]
     # The committed ruling summaries of the span's items, by entry id.
     summaries: Mapping[int, RulingSummary] = field(default_factory=dict)
+    # Entries filed earlier whose documents became readable in the span, by
+    # case, cases in the order of their first entry.
+    available: tuple[tuple[str, str, tuple[AiCaseAvailableEntry, ...]], ...] = ()
     # How many cases the watchlist follows, and each listed case's introduction
     # by name; empty when rendered without a watchlist.
     followed: int = 0
@@ -181,11 +199,11 @@ class AiCasesUpdate:
 
     @property
     def empty(self) -> bool:
-        return not self.cases
+        return not self.cases and not self.available
 
     @property
     def items(self) -> int:
-        return sum(len(entries) for _, _, entries in self.cases)
+        return sum(len(entries) for _, _, entries in (*self.cases, *self.available))
 
 
 def build_ai_cases_update(
@@ -193,18 +211,30 @@ def build_ai_cases_update(
 ) -> AiCasesUpdate:
     """The span's items from the activity records of the days ``start`` through ``end``."""
     found: dict[int, AiCaseActivityEntry] = {}
+    readable: dict[int, AiCaseAvailableEntry] = {}
     day = start
     while day <= end:
         path = data_root / ACTIVITY_DIR / f"{day.isoformat()}.json"
         if path.is_file():
-            for entry in read_model(path, AiCaseActivity).entries:
+            record = read_model(path, AiCaseActivity)
+            for entry in record.entries:
                 found.setdefault(entry.entry_id, entry)
+            for later in record.available:
+                prior = readable.get(later.entry_id)
+                readable[later.entry_id] = (
+                    later.model_copy(update={"documents": prior.documents + later.documents})
+                    if prior is not None and prior.kind == later.kind
+                    else prior or later
+                )
         day += timedelta(days=1)
+    by_case: dict[str, list[AiCaseAvailableEntry]] = {}
+    for later in sorted(readable.values(), key=lambda e: (e.date_filed, e.case, e.entry_id)):
+        by_case.setdefault(later.case, []).append(later)
     ordered = sorted(found.values(), key=lambda e: (e.date_filed, e.case, e.entry_id))
     grouped: dict[str, list[AiCaseActivityEntry]] = {}
     for entry in ordered:
         grouped.setdefault(entry.case, []).append(entry)
-    written = committed_summaries(data_root) if found else {}
+    written = committed_summaries(data_root) if found or readable else {}
     listed = watchlist.cases if watchlist is not None else []
     return AiCasesUpdate(
         start=start,
@@ -212,7 +242,10 @@ def build_ai_cases_update(
         cases=tuple(
             (name, entries[0].category, tuple(entries)) for name, entries in grouped.items()
         ),
-        summaries={k: v for k, v in written.items() if k in found},
+        summaries={k: v for k, v in written.items() if k in found or k in readable},
+        available=tuple(
+            (name, entries[0].category, tuple(entries)) for name, entries in by_case.items()
+        ),
         followed=len(listed),
         intros={case.name: CaseIntro(court=case.court, why=case.why) for case in listed},
     )
@@ -279,6 +312,9 @@ def tally(update: AiCasesUpdate) -> str:
         n = sum(kinds[kind] for kind in counted)
         if n:
             parts.append(f"{n} {one if n == 1 else many}")
+    readable = sum(len(entries) for _, _, entries in update.available)
+    if readable:
+        parts.append(f"{readable} newly readable")
     return " \N{MIDDLE DOT} ".join(parts)
 
 
@@ -292,19 +328,68 @@ def section_of(entries: tuple[AiCaseActivityEntry, ...]) -> int:
     )
 
 
-def _case_lines(
-    update: AiCasesUpdate, name: str, category: str, entries: tuple[AiCaseActivityEntry, ...]
-) -> list[str]:
+def _case_heading(update: AiCasesUpdate, name: str, category: str) -> list[str]:
+    """A case's heading and the line that introduces it."""
     intro = update.intros.get(name)
     about = [category.replace("-", " ").capitalize()]
     if intro is not None:
         about += [court_name(intro.court), intro.why]
-    lines = [f"### {_escape(name)}", "", f"*{_escape(' · '.join(about))}*", ""]
+    return [f"### {_escape(name)}", "", f"*{_escape(' · '.join(about))}*", ""]
+
+
+def _case_lines(
+    update: AiCasesUpdate, name: str, category: str, entries: tuple[AiCaseActivityEntry, ...]
+) -> list[str]:
+    lines = _case_heading(update, name, category)
     for entry in entries:
         lines.append(_item(entry))
         summary = update.summaries.get(entry.entry_id)
         if summary is not None:
             lines += _summary(summary)
+    return [*lines, ""]
+
+
+def available_line(entry: AiCaseAvailableEntry) -> str:
+    """What became readable, in the reader's words: "Ruling … of Oct 3 is now readable"."""
+    when = f"{entry.date_filed:%b} {entry.date_filed.day}"
+    motion = MOTION_LABELS.get(entry.motion or "")
+    on = f" on a motion {motion}" if motion else ""
+    n = entry.documents
+    if entry.kind == "exhibits":
+        what = "exhibit" if n == 1 else "exhibits"
+        return f"{n} {what} filed {when}{on} {'is' if n == 1 else 'are'} now readable"
+    if entry.kind == "unsealed":
+        count = "1 document" if n == 1 else f"{n} documents"
+        return f"Unsealed or public version of a filing of {when}{on} ({count}) now readable"
+    if entry.kind == "transcript":
+        return f"Transcript filed {when} is now readable"
+    if entry.kind == "ruling":
+        label = f"Ruling on a motion {motion}" if motion else "Ruling on a motion"
+    else:
+        label = KIND_LABELS[entry.kind] + on
+    return f"{label} of {when} is now readable"
+
+
+def _available_lines(
+    update: AiCasesUpdate, name: str, category: str, entries: tuple[AiCaseAvailableEntry, ...]
+) -> list[str]:
+    lines = _case_heading(update, name, category)
+    for entry in entries[:AVAILABLE_PER_CASE]:
+        where = f"{court_name(entry.court)} {entry.docket_number}"
+        if entry.entry_number is not None:
+            where += f", entry {entry.entry_number}"
+        lines.append(
+            f"- {available_line(entry)} ({_escape(where)}). [View on CourtListener]({entry.url})"
+        )
+        summary = update.summaries.get(entry.entry_id)
+        if summary is not None:
+            lines += _summary(summary)
+    rest = entries[AVAILABLE_PER_CASE:]
+    if rest:
+        dockets = {e.docket_id for e in rest}
+        docket = f"https://www.courtlistener.com/docket/{rest[0].docket_id}/"
+        link = f" [View the docket]({docket})" if len(dockets) == 1 else ""
+        lines.append(f"- And {len(rest)} more in this case.{link}")
     return [*lines, ""]
 
 
@@ -325,5 +410,9 @@ def render_ai_cases_update(update: AiCasesUpdate, *, title: bool = True) -> str:
         lines += [f"## {heading}", ""]
         for name, category, entries in cases:
             lines += _case_lines(update, name, category, entries)
+    if update.available:
+        lines += ["## Newly available", "", _AVAILABLE_INTRO, ""]
+        for name, category, readable in update.available:
+            lines += _available_lines(update, name, category, readable)
     lines += ["---", "", _FOOTER, ""]
     return "\n".join(lines)

@@ -550,6 +550,7 @@ from .schemas import (
     AgentFlags,
     AgentToolingFeedback,
     AiCaseActivityEntry,
+    AiCaseAvailableEntry,
     AlignmentFits,
     AlignmentSideCode,
     AlignmentSideCodes,
@@ -17352,6 +17353,7 @@ def watchlist_refresh_cmd(
         for court, docket_id in case.dockets()
     }
     recorded: list[AiCaseActivityEntry] = []
+    became: list[AiCaseAvailableEntry] = []
 
     def record(done: watchlist_refresh.Refreshed) -> None:
         # Recorded docket by docket, as each write lands: an entry the corpus
@@ -17360,9 +17362,13 @@ def watchlist_refresh_cmd(
         found = ai_activity.activity_entries(
             *named[done.case_id], done.docket, done.added, today=today
         )
-        if found:
-            ai_activity.record_activity(settings.data_root, today, found)
+        readable = ai_activity.available_entries(
+            *named[done.case_id], done.docket, done.gained, today=today
+        )
+        if found or readable:
+            ai_activity.record_activity(settings.data_root, today, found, readable)
             recorded.extend(found)
+            became.extend(readable)
 
     with _client("watchlist") as client:
         result = watchlist_refresh.refresh_watchlist(
@@ -17377,9 +17383,12 @@ def watchlist_refresh_cmd(
             on_refreshed=record,
         )
     _ensure_corpus_layout(db)
-    if recorded:
+    if recorded or became:
         path = ai_activity.activity_path(settings.data_root, today)
-        typer.echo(f"watchlist-refresh: {len(recorded)} significant new entr(ies) -> {path}")
+        typer.echo(
+            f"watchlist-refresh: {len(recorded)} significant new entr(ies), "
+            + f"{len(became)} newly readable -> {path}"
+        )
     if report is not None:
         write_raw_json(report, result.as_json())
     changed = sum(1 for r in result.refreshed if r.changed)

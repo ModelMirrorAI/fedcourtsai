@@ -58,6 +58,7 @@ from typing import Any
 import httpx
 
 from .. import corpus, ids
+from ..ai_activity import became_available
 from ..courtlistener import (
     CourtListenerClient,
     EntryPageCapExceeded,
@@ -234,6 +235,9 @@ class Refreshed:
     # Entries the stored docket lacked; empty on an onboard, which has no
     # stored docket to be new against.
     added: tuple[Mapping[str, Any], ...] = field(default=(), compare=False)
+    # Entries the stored docket held whose documents became readable, each with
+    # the ids of those documents; empty on an onboard.
+    gained: tuple[tuple[Mapping[str, Any], frozenset[int]], ...] = field(default=(), compare=False)
 
 
 def refresh_docket(
@@ -333,6 +337,7 @@ def refresh_docket(
     upsert_to_corpus(corpus_db_path, [from_api_docket(fresh)], last_pulled=today)
     known = {e.get("id") for e in stored} if isinstance(stored, list) else None
     added = () if known is None else tuple(e for e in entries if e.get("id") not in known)
+    gained = () if not isinstance(stored, list) else tuple(became_available(stored, entries))
     return Refreshed(
         case_id=case_id,
         mode=mode,
@@ -341,6 +346,7 @@ def refresh_docket(
         requests=sent,
         docket=docket,
         added=added,
+        gained=gained,
     )
 
 

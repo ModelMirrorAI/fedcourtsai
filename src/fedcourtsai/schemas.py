@@ -10414,26 +10414,88 @@ class AiCaseActivityEntry(_Strict):
     )
 
 
+AiAvailableKind = Literal[
+    "opinion", "judgment", "ruling", "complaint", "exhibits", "unsealed", "transcript"
+]
+
+
+class AiCaseAvailableEntry(_Strict):
+    """A docket entry, filed earlier, whose documents became readable on CourtListener."""
+
+    case: str = Field(
+        min_length=1, description="The watchlist case's name, as the watchlist gives it."
+    )
+    category: str = Field(
+        min_length=1, description="The case's category in the watchlist's closed vocabulary."
+    )
+    court: str = Field(min_length=1, description="CourtListener court id of the docket.")
+    docket_id: int = Field(gt=0, description="CourtListener docket id.")
+    docket_number: str = Field(min_length=1, description="The court's own docket number.")
+    entry_id: int = Field(gt=0, description="CourtListener's id for the docket entry.")
+    entry_number: int | None = Field(
+        default=None, description="The entry's number on the docket; unnumbered entries carry none."
+    )
+    date_filed: date = Field(description="The day the entry was filed.")
+    kind: AiAvailableKind = Field(
+        description="What became readable, under the record's availability rule."
+    )
+    documents: int = Field(
+        ge=1, description="How many of the entry's documents became readable this day."
+    )
+    motion: AiActivityMotion | None = Field(
+        default=None,
+        description=(
+            "The principal motion the entry names, or the one its exhibits support; "
+            "none where it names none."
+        ),
+    )
+    url: str = Field(
+        pattern=r"^https://www\.courtlistener\.com/[A-Za-z0-9/_.~%#-]*$",
+        description="The entry on CourtListener: its main document's page, else the docket.",
+    )
+
+
 class AiCaseActivity(_Strict):
     """``data/ai-cases/activity/<YYYY-MM-DD>.json`` — a day's significant AI-case docket entries.
 
     Written by ``watchlist-refresh`` for the entries a refresh found that the
     stored docket lacked and that the rule (:data:`fedcourtsai.ai_activity.ACTIVITY_RULE`)
-    keeps. Identifiers, dates, kinds and links only: no docket text is copied.
+    keeps, and for the entries the stored docket already held whose documents
+    became readable and that the availability rule
+    (:data:`fedcourtsai.ai_activity.AVAILABILITY_RULE`) keeps. Identifiers,
+    dates, kinds, counts and links only: no docket text is copied.
     """
 
     schema_version: Literal["1.0"] = SCHEMA_VERSION
     day: date = Field(description="The UTC day the refresh found these entries.")
     rule: str = Field(min_length=1, description="The significance rule's label.")
     entries: list[AiCaseActivityEntry] = Field(
-        min_length=1, description="The day's entries, oldest filing first; a quiet day has no file."
+        default_factory=list,
+        description="The day's new significant entries, oldest filing first.",
+    )
+    available_rule: str | None = Field(
+        default=None,
+        min_length=1,
+        description="The availability rule's label; present exactly when `available` is.",
+    )
+    available: list[AiCaseAvailableEntry] = Field(
+        default_factory=list,
+        description=(
+            "Entries filed earlier whose documents became readable this day, oldest filing "
+            "first. A day with neither list has no file."
+        ),
     )
 
     @model_validator(mode="after")
     def _distinct(self) -> AiCaseActivity:
-        ids = [e.entry_id for e in self.entries]
-        if len(set(ids)) != len(ids):
-            raise ValueError("an entry appears twice")
+        if not self.entries and not self.available:
+            raise ValueError("a record lists at least one entry; a quiet day has no file")
+        if (self.available_rule is None) != (not self.available):
+            raise ValueError("available_rule is present exactly when available entries are")
+        for name, listed in (("entries", self.entries), ("available", self.available)):
+            ids = [e.entry_id for e in listed]
+            if len(set(ids)) != len(ids):
+                raise ValueError(f"an entry appears twice in {name}")
         return self
 
 
