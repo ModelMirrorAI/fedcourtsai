@@ -41,6 +41,7 @@ from fedcourtsai.pipeline.documents import (
     DocumentFetchLosses,
     LeadFetch,
     _derived_questions_document,
+    _is_bio_entry,
     _qp_change_reason,
     _qp_stored_is_fragment,
     backfill_questions_presented,
@@ -493,6 +494,8 @@ def test_select_documents_recognizes_respondent_and_submitted_bios(entry_text: s
         # A memorandum about a side question, not the answer to the petition:
         "Memorandum of respondent United States in opposition to motion for leave filed.",
         "Memorandum of respondent United States in response to application filed.",
+        "Memorandum of respondent United States in opposition to rehearing filed.",
+        "Memorandum of petitioners responding to United States filed.",  # the plural
     ],
 )
 def test_select_documents_excludes_non_opposition_briefs(entry_text: str) -> None:
@@ -580,6 +583,12 @@ def test_the_federal_respondents_memorandum_joins_a_private_respondents_brief() 
         (KIND_BRIEF_IN_OPPOSITION, "https://www.supremecourt.gov/private.pdf"),
         (KIND_BRIEF_IN_OPPOSITION, "https://www.supremecourt.gov/federal.pdf"),
     ]
+
+
+def test_a_post_grant_memorandum_is_not_the_opposition() -> None:
+    entry = "Memorandum of respondent United States filed."
+    assert _is_bio_entry(entry, filed=date(2026, 9, 1), granted_on=date(2026, 10, 1))
+    assert not _is_bio_entry(entry, filed=date(2026, 11, 1), granted_on=date(2026, 10, 1))
 
 
 def test_fetch_case_documents_combines_multiple_bios() -> None:

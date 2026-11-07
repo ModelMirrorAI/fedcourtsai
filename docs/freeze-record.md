@@ -17206,7 +17206,9 @@ freeze commit is recorded here.
   exclusions apply (a motion, an application, a rehearing petition, a letter,
   an order or a suggestion of mootness), and so do the common exclusions
   (amicus, reply, supplemental, petitioner, in support) and the post-grant
-  bound. The memorandum joins the combined `brief-in-opposition` row under its
+  bound, and a memorandum naming the petitioners, singular or plural, is
+  refused. The `brief-in-opposition` `kind_description` names the
+  memorandum. The memorandum joins the combined `brief-in-opposition` row under its
   own header, like a second respondent's brief. No other kind's selection
   moves.
 
@@ -17215,9 +17217,11 @@ freeze commit is recorded here.
   and the six digests `89efeee9…` (claude-baseline), `591b96ed…`
   (codex-baseline), `78c7ec84…` (gemini-baseline), `3b78d93b…`
   (claude-judge), `5c7cc4e6…` (codex-judge) and `8966bfb2…` (gemini-judge),
-  with and without the change. The predict prompt already describes
-  `brief-in-opposition.txt` as the respondents' opposition, which the
-  memorandum is.
+  with and without the change. The prompt names `brief-in-opposition.txt`
+  only by file; the description a cell reads in `documents.json`
+  (`kind_description`) now names a memorandum beside a brief and a response,
+  and no digest input reads it. A memorandum worded "in support of" the
+  petition stays out, as a brief so worded does.
 
   **A harness boundary under the 2026-10-11 pooled rule.** The change adds to
   what a predict cell reads under unchanged digests. It is composition, not a
@@ -17231,7 +17235,7 @@ freeze commit is recorded here.
     only when its docket's documents are fetched again: a live poll's
     provisioning, or the freshness pass over predict-relevant cases, which
     fetches any case whose stored set lacks a selected link. A decided docket
-    is not re-fetched. It is registered **pending** in this change's own PR
+    is not re-fetched for it. It is registered **pending** in this change's own PR
     (`fedcourts register-boundary`), under the 2026-10-14 merge-stamping
     declaration, and its `merge` and `at` stay null until the promotion merge
     that carries it to `main` stamps them (`promotion-record`).
@@ -17245,9 +17249,11 @@ freeze commit is recorded here.
   pull 2026-11-07, newest stored snapshot row 2026-07-13), over each
   OT2023–OT2026 cert docket's latest stored snapshot (13,875 dockets, 13,821
   with a snapshot). 246 entries open with "Memorandum", on 244 dockets (55
-  OT2023, 76 OT2024, 85 OT2025, 30 OT2026). 20 of them say "in opposition"
-  and 226 do not. 238 carry a link. The previous selector took none of them,
-  and the changed one takes all 238. 26 of the 244 dockets are undecided, and
+  OT2023, 74 OT2024, 85 OT2025, 30 OT2026). 20 of the entries say "in
+  opposition" and 226 do not. 238 carry a link. The previous selector would
+  select none of them, and the changed one selects all 238. The six entries
+  in the bare "Memorandum for the United States" form sit on five dockets,
+  each with the United States as respondent. 26 of the 244 dockets are undecided, and
   25 of those carry a linked memorandum. 45 of the 244 dockets have committed
   cells under `data/cases/`, one of them undecided (26-430).
 
@@ -17266,9 +17272,9 @@ freeze commit is recorded here.
     memorandum"` is green;
   - after the first live cycles following the promotion, where the corpus is
     pulled, `uv run fedcourts provision-snapshot --court scotus --docket
-    9026000430 --event evt-petition-disposition` stages a
-    `brief-in-opposition.txt` whose block headers include the memorandum's
-    entry text;
+    9026000430 --event evt-petition-disposition` prints its `documents (…)
+    -> <dir>` line, and `<dir>/brief-in-opposition.txt` carries a
+    `=== Memorandum … ===` block header;
   - on `main` once the promotion has merged, `uv run python -c "from
     fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
     print('sg-memorandum-opposition' in {b.name for b in H})"` prints `True`.
