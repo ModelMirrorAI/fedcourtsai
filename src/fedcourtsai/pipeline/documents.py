@@ -395,6 +395,19 @@ _APPLICATION_ENTRY_RE = re.compile(
 # because those are papers about a side question, and the opposition row is one
 # combined document a cell reads as the respondent's whole answer to the
 # petition.
+#
+# A respondent's **memorandum** is the fourth: the short form the Solicitor
+# General files for the federal respondents in place of a full brief, with or
+# without the words "in opposition" — "Memorandum of respondent United States
+# filed.", "Memorandum of Federal Respondents in opposition filed.",
+# "Memorandum for the United States filed." It is the same answer to the
+# petition, whether it opposes, acquiesces or suggests a hold, and often the
+# most telling one at the cert stage, so it takes the response's start anchor
+# (up to three words between the preposition and the party word, which may be
+# "United States" itself, the respondent the Solicitor General names) and the
+# response's collateral exclusions: a memorandum about a motion or an
+# application is about a side question. The United States as amicus or as
+# petitioner stays out on the common exclusion.
 _BIO_VERB_RE = re.compile(r"\b(?:filed|submitted)\b", re.IGNORECASE)
 _BIO_OPPOSITION_RE = re.compile(r"\bin opposition\b", re.IGNORECASE)
 _BIO_RESPONDENT_BRIEF_RE = re.compile(
@@ -405,6 +418,11 @@ _BIO_RESPONDENT_BRIEF_RE = re.compile(
 _BIO_RESPONSE_RE = re.compile(
     r"^\s*response\s+(?:of|from)\s+(?:the\s+)?(?:\S+\s+){0,3}?respondents?\b"
     r"|^\s*response\s+to\s+(?:the\s+)?petition\b",
+    re.IGNORECASE,
+)
+_BIO_MEMORANDUM_RE = re.compile(
+    r"^\s*memorandum\s+(?:of|for|from)\s+(?:the\s+)?(?:\S+\s+){0,3}?"
+    r"(?:respondents?|united\s+states)\b",
     re.IGNORECASE,
 )
 _BIO_RESPONSE_EXCLUDE_RE = re.compile(
@@ -425,7 +443,9 @@ def _is_bio_entry(text: str, *, filed: date | None, granted_on: date | None) -> 
     amicus, petitioner, reply, supplemental, or in-support brief — or a
     respondent's **response** to the petition (:data:`_BIO_RESPONSE_RE`), which
     the Clerk enters without the word "brief", and which is not a response to a
-    motion, an application, a rehearing petition, a letter or an order.
+    motion, an application, a rehearing petition, a letter or an order — or a
+    respondent's **memorandum** (:data:`_BIO_MEMORANDUM_RE`), the Solicitor
+    General's short form, under the same exclusions.
 
     Bounded to the cert stage, because the words alone cannot see the stage. Once
     the Court has called for a response the respondent's cert-stage filing reads
@@ -453,7 +473,7 @@ def _is_bio_entry(text: str, *, filed: date | None, granted_on: date | None) -> 
         return False
     if not _BIO_VERB_RE.search(text) or _BIO_EXCLUDE_RE.search(text):
         return False
-    if _BIO_RESPONSE_RE.search(text):
+    if _BIO_RESPONSE_RE.search(text) or _BIO_MEMORANDUM_RE.search(text):
         return not _BIO_RESPONSE_EXCLUDE_RE.search(text)
     if "brief" not in text.lower():
         return False

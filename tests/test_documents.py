@@ -467,6 +467,13 @@ def _bio_url(entry_text: str, *, links: list[dict[str, str]] | None = None) -> s
         "Brief of respondent Washington filed.",  # 25-901: no "in opposition"
         "Brief of respondents Philip R. Taft Psy D and Associates, et al. filed.",  # 25-1128
         "Brief of respondents Bette Eakin, et al. in opposition filed.  VIDED.",  # 25-962
+        # The Solicitor General's short form, with and without "in opposition":
+        "Memorandum of respondent United States in opposition filed.",
+        "Memorandum of Federal Respondents in opposition filed. VIDED.",
+        "Memorandum of respondent United States filed.",
+        "Memorandum for the United States filed.",  # 24-241
+        "Memorandum for the United States in Opposition of United States submitted.",  # 26-5334
+        "Memorandum of respondent Merrick B. Garland, Attorney General filed.",
     ],
 )
 def test_select_documents_recognizes_respondent_and_submitted_bios(entry_text: str) -> None:
@@ -481,6 +488,11 @@ def test_select_documents_recognizes_respondent_and_submitted_bios(entry_text: s
         "Supplemental brief of respondent Washington filed.",  # supplemental, not the BIO
         "Brief of respondent in support of the petition filed.",  # supports cert, not opposition
         "Waiver of right of respondent Berks County to respond filed.",  # a waiver, no brief
+        "Memorandum of the United States as amicus curiae filed.",  # amicus, not a party
+        "Memorandum of petitioner United States filed.",  # the petitioner's side
+        # A memorandum about a side question, not the answer to the petition:
+        "Memorandum of respondent United States in opposition to motion for leave filed.",
+        "Memorandum of respondent United States in response to application filed.",
     ],
 )
 def test_select_documents_excludes_non_opposition_briefs(entry_text: str) -> None:
@@ -529,6 +541,44 @@ def test_select_documents_returns_every_distinct_bio() -> None:
     assert [(r.kind, r.url) for r in refs] == [
         (KIND_BRIEF_IN_OPPOSITION, "https://www.supremecourt.gov/lead.pdf"),
         (KIND_BRIEF_IN_OPPOSITION, "https://www.supremecourt.gov/second.pdf"),
+    ]
+
+
+def test_the_federal_respondents_memorandum_joins_a_private_respondents_brief() -> None:
+    # 26-430: a private respondent's brief and the Solicitor General's memorandum
+    # for the federal respondents are both oppositions, combined in one row.
+    payload = {
+        "ProceedingsandOrder": [
+            {
+                "Date": "Oct 09 2026",
+                "Text": "Brief of respondent Acme Corp. in opposition filed.",
+                "Links": [
+                    {
+                        "Description": "Main Document",
+                        "DocumentUrl": "https://www.supremecourt.gov/private.pdf",
+                    }
+                ],
+            },
+            {
+                "Date": "Oct 13 2026",
+                "Text": "Memorandum of the federal respondents in opposition filed.",
+                "Links": [
+                    {
+                        "Description": "Main Document",
+                        "DocumentUrl": "https://www.supremecourt.gov/federal.pdf",
+                    },
+                    {
+                        "Description": "Proof of Service",
+                        "DocumentUrl": "https://www.supremecourt.gov/service.pdf",
+                    },
+                ],
+            },
+        ]
+    }
+    refs = [(r.kind, r.url) for r in select_documents(payload)]
+    assert refs == [
+        (KIND_BRIEF_IN_OPPOSITION, "https://www.supremecourt.gov/private.pdf"),
+        (KIND_BRIEF_IN_OPPOSITION, "https://www.supremecourt.gov/federal.pdf"),
     ]
 
 
