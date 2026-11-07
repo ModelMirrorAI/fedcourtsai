@@ -17138,3 +17138,49 @@ freeze commit is recorded here.
     whose staged snapshot's `Petitioner` block lists the office as counsel of
     record for the captioned party (a docket like 26-111) freezes `band`
     `federal`, where `sal-v7` would have frozen its caption class.
+
+- **Readings the `proc-v18` entry owes, recorded 2026-11-07.** No rule moves
+  here. The `proc-v18` entry (dated 2026-11-06), carried to `main` by
+  `promotion/2026-11-06` (merge `356dbdd2b`, registry stamped by `116d1569f`)
+  and tagged `prereg/proc-v18`, quoted its `successor-disclosures` lines at
+  a provisional instant and owed them again once the carrying merge had
+  stamped the registry, before any figure of a `proc-v17` window is quoted
+  outside the committed board. That entry is not otherwise edited.
+
+  The run reads the ledger and registry at `origin/main`'s `7bef3efc2`
+  (`2026-11-07T07:07:42Z`), after the stamp, after the run-repair
+  `refused-attempt-removal` apply (`a7fea7ea2`) that deleted the three
+  forward-refusal failure facts of run `20261105T203825Z` on
+  `scotus/9526000634` `evt-brief-response-disposition`, and after the first
+  `proc-v18` predict round (run `20261107T010601Z`) landed.
+
+  **`proc-v18` closes `proc-v17`.** `uv run fedcourts successor-disclosures
+  --closed proc-v17 --successor proc-v18` prints:
+
+  ```
+  successor proc-v18 closes proc-v17 at 2026-11-06T17:45:46+00:00
+    closed proc-v17 gemini-baseline: 27 counted event(s) — 5 resolved, 22 pending at close
+    closed proc-v17 claude-baseline: 27 counted event(s) — 5 resolved, 22 pending at close
+    closed proc-v17 codex-baseline: 27 counted event(s) — 5 resolved, 22 pending at close
+    split events: 0 (0 resolved) — in no complete grid
+    claude-baseline: 4 successor-counted event(s); earlier window proc-v17: 0 failed, 0 uncounted cell, 0 missing, 4 not reached before the close
+    codex-baseline: 4 successor-counted event(s); earlier window proc-v17: 0 failed, 0 uncounted cell, 0 missing, 4 not reached before the close
+    gemini-baseline: 4 successor-counted event(s); earlier window proc-v17: 0 failed, 0 uncounted cell, 0 missing, 4 not reached before the close
+    graded by claude-judge @ sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf: 15 grading(s), 0 at or after the instant
+    graded by codex-judge @ sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a: 15 grading(s), 0 at or after the instant
+    graded by gemini-judge @ sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9: 15 grading(s), 0 at or after the instant
+  ```
+
+  The closed lines match the provisional run's (27 counted events per
+  engine, 5 resolved), though the stamped instant, `2026-11-06T17:45:46Z`,
+  fell earlier than the provisional `2026-11-07T00:00:00Z`. The resolved
+  count is an upper bound: it counts every outcome dated on or before the
+  close's UTC day. Every successor-counted event falls in the not-reached
+  bucket: no engine left a failure fact or a cell on it in its earlier span,
+  and no predictor had committed a cell on it before the close. No closed-window
+  grading is stamped at or after the instant.
+
+  The closed-window resolved counts can still move: an outcome dated on or
+  before the close's day may land late, and an event void de-counts what it
+  names. The split, partition and grading lines also move as cells, outcomes
+  and gradings land.
