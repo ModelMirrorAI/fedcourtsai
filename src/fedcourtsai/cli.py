@@ -309,6 +309,7 @@ from .pipeline import (
     opinion_record,
     order_lineups,
     order_scan,
+    osg_urls,
     pre_mint,
     qp_replicates,
     qp_topics,
@@ -21218,6 +21219,11 @@ def summarize_plan_cmd(
                 if doc.kind != KIND_ARGUMENT_TRANSCRIPT
                 and doc.kind not in provision.WITHHELD_KINDS
                 and doc.kind not in LOWER_COURT_KINDS
+                # The Solicitor General's posted copy on a paper-only docket is
+                # a cell's input, not the summary lane's, whose staged record
+                # crosses a public artifact holding the Court's content only
+                # (`summaries.prune_stage`).
+                and not osg_urls.is_osg_url(doc.url)
             ],
         )
 

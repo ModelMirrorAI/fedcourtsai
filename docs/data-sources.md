@@ -618,16 +618,21 @@ though the Court does not.
   *Petition Stage Reply Brief* onto `cert-reply`. A waiver of response posts
   no brief at all. The listing's own table carries every field the fill reads
   (docket number, type, filing date and the PDF link), so one search of it by
-  docket number finds a docket's briefs without opening the brief pages. On
-  2026-11-07 the Office's listing carried the government's filing for three of
-  the four paper-only dockets with one that the 2026-10-31 sizing named
-  (25-1415, 26-572 and 26-55; not 25-1343).
+  docket number finds a docket's briefs without opening the brief pages.
 - **Crawling.** `www.justice.gov/robots.txt`, read 2026-11-07, sets
   `Crawl-delay: 10` for every agent and disallows nothing under `/osg/`; it
   disallows the listing's paging (`?page=`) and facet (`f[…]`) parameters,
   which the fill never builds, since a docket-number search answers on its
   first page. Every request waits the crawl delay and stays on the Office's
-  section of that host, redirects included.
+  section of that host, redirects included, under a user agent naming the
+  project.
+- **Where the text goes.** A stored copy is a cell's input like the Court's
+  own filing, under the same no-republication posture. It stays out of the
+  two public run artifacts that carry document text on the footing that the
+  text is the Court's own record: the questions-presented extract skips a row
+  cut from the Office's petition, and the case-summary lane neither digests
+  nor stages one (`summary-stage-check` withholds a staged copy as it
+  withholds a contact-residual document).
 - **Terms.** The Department of Justice's legal-policies page states that,
   unless otherwise indicated, information on its sites is in the public domain
   and may be copied and distributed without permission; the stated exceptions

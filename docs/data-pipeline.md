@@ -1034,8 +1034,10 @@ the Solicitor General posts its own filing, and `enrich-sg-briefs`
 cert cell already reads: the Office's petition as `petition`, its opposition
 as `brief-in-opposition`, its cert-stage reply as `cert-reply`. Each row is
 dated by the Court's own docket entry for the filing, read with the selector's
-predicates, so it is cut against a moment exactly as the Court's copy would
-be, and a brief whose entry the stored docket does not show yet waits. It
+predicates: the earliest entry of its kind dated on or after the Office's
+filing date (the latest, for an opposition), so it is cut against a moment no
+earlier than the Court's copy would be, and a brief whose entry the stored
+docket does not show yet waits. It
 keeps no cursor: a docket leaves the class by holding every kind its entries
 show, or by the Court lifting the rule, at which point the selector finds the
 Court's own links and the freshness pass replaces these rows. The `run-pull`

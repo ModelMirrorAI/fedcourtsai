@@ -852,7 +852,8 @@ jobs:
 
       # The Solicitor General's posted briefs for a docket the Court keeps on
       # paper only (Rule 34.6), where it posts no filing at all
-      # (`fedcourts enrich-sg-briefs`; docs/live-sources.md): the Office's
+      # (`fedcourts enrich-sg-briefs`; docs/data-sources.md, *The Solicitor
+      # General's posted briefs*): the Office's
       # petition, opposition or cert-stage reply, read from its pages on
       # www.justice.gov and stored under the kind a cert cell is given, dated
       # by the docket's own entry. No token: the pages are public, and the
@@ -862,8 +863,8 @@ jobs:
       # bound as the steps above. `--max-cases 4` keeps a window to four
       # listing searches and a PDF for each brief found, every request 10s
       # apart (the site's robots.txt crawl delay), so the 4-minute inner
-      # timeout covers the class's worst window; a docket it cuts off is
-      # searched again next window.
+      # timeout usually covers a window; a docket it cuts off is searched
+      # again next window, and what was stored before the cut stays stored.
       - name: Store the Solicitor General's posted briefs for paper-only dockets
         id: enrich-sg-briefs
         if: github.event_name != 'schedule' || github.event.schedule == '47 4,10,16,22 * * *'

@@ -61,6 +61,7 @@ from . import ids, secretscan
 from .config import SummariesConfig
 from .paths import CasePaths
 from .pipeline.documents import contact_residuals
+from .pipeline.osg_urls import is_osg_url
 from .pricing import MODEL_RATES, TokenCounts, estimate_cost_usd
 from .provision import GENERATION_STAMPS
 from .schemas import (
@@ -715,6 +716,11 @@ def _withhold_residuals(case_dir: Path) -> list[tuple[str, str]]:
     kept: list[Any] = []
     withheld: list[tuple[str, str]] = []
     for entry in entries:
+        if is_osg_url(str(entry.get("url", "")).strip()):
+            kind = entry["kind"]
+            (case_dir / f"record/documents/{kind}.txt").unlink(missing_ok=True)
+            withheld.append((kind, f"{DOCUMENT_WITHHELD}: the Solicitor General's posted copy"))
+            continue
         count = entry.get("contact_residuals")
         if isinstance(count, int) and not isinstance(count, bool) and count == 0:
             kept.append(entry)
@@ -795,7 +801,12 @@ def _entry_problem(entry: Any, kind: object) -> str:
         return "documents manifest entry has no kind"
     if not _STAGED_KIND.match(kind):
         return f"documents manifest entry has a malformed kind {kind!r}"
-    if not all(_is_court_url(url) for url in str(entry.get("url", "")).split("|")):
+    url = str(entry.get("url", ""))
+    if is_osg_url(url.strip()):
+        # Withheld from the kept case rather than refused with it
+        # (:func:`_withhold_residuals`).
+        return ""
+    if not all(_is_court_url(part) for part in url.split("|")):
         return f"document {kind!r} was not fetched from supremecourt.gov"
     return ""
 

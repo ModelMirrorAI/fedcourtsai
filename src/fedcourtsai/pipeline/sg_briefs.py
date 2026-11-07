@@ -11,16 +11,16 @@ as ``brief-in-opposition`` and its *Petition Stage Reply Brief* as
 
 **Dated by the docket, never by the Office.** A stored row is placed against a
 cell's moment cutoff by its ``entry_date``, so each row carries the date of the
-proceedings entry on the Court's own docket that records the filing — the
-case-opening entry for a petition, the latest opposition entry for an
-opposition, the first cert-stage reply entry for a reply — read by the
-selector's own predicates (:mod:`.documents`). A brief the Office has posted
-whose filing the stored docket does not yet show is not stored: the docket entry
-is what tells a moment the filing exists, and storing ahead of it would hand a
-cell a filing the docket it was placed on had not received. The latest
-opposition entry rather than the first, because a docket with a second
-respondent shows both, the entry text does not always say which is the
-government's, and the later date can only place the row late, never early.
+proceedings entry on the Court's own docket that records the filing, read by
+the selector's own predicates (:mod:`.documents`). The Office's listing gives
+each brief's filing date, and only an entry of the same kind dated on or after
+it can record that filing (:func:`entry_for`): the earliest such entry for a
+petition or a reply, the latest for an opposition, because on a docket with a
+second respondent the entry text does not always say which opposition is the
+government's. A brief the stored docket shows no such entry for yet is not
+stored: the docket entry is what tells a moment the filing exists, and storing
+ahead of it would hand a cell a filing the docket it was placed on had not
+received.
 
 **One source, one host.** Every request goes to the Office's pages on
 ``www.justice.gov`` (:func:`is_osg_url`), redirects included, paced at the
@@ -35,7 +35,7 @@ built here.
 briefing and argument), the selector finds the Court's links for the same kinds
 and the freshness pass replaces these rows by ``(case_id, kind)``, latest wins.
 The OCR and re-cut passes re-fetch only the Court's own URLs, so an Office row
-is never re-read by them.
+is never re-read by them, and a posted brief with no text layer is not stored.
 
 The ``sg-posted-briefs`` harness boundary dates the cells that can read these
 rows (``docs/freeze-record.md``). Terms of use: ``docs/data-sources.md``, *The
@@ -54,13 +54,12 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Any, Literal
-from urllib.parse import urlencode, urljoin, urlsplit
+from urllib.parse import urlencode, urljoin
 
 import httpx
 from pydantic import BaseModel, ConfigDict, Field
 
 from .. import corpus
-from ..supremecourt import BROWSER_USER_AGENT
 from .cert_signals import cert_grant_date, match_disposition_signal
 from .cert_signals import entry_date as parse_entry_date
 from .document_backfill import is_predict_relevant
@@ -75,16 +74,12 @@ from .documents import (
     extract_filing_text,
     extract_questions_presented,
 )
+from .osg_urls import OSG_HOST, OSG_PATH_PREFIX, is_osg_url
 from .paper_only import paper_only_filings
 from .prefetch import prefetch_by_case
 
 logger = logging.getLogger(__name__)
 
-#: The host the Office of the Solicitor General's pages are served from, and
-#: the only one this module requests.
-OSG_HOST = "www.justice.gov"
-#: The path prefix every request stays under: the Office's own section.
-OSG_PATH_PREFIX = "/osg/"
 #: The Office's briefs listing, searched by docket number.
 OSG_LISTING_URL = f"https://{OSG_HOST}/osg/supreme-court-briefs"
 #: ``robots.txt`` on ``www.justice.gov`` sets ``Crawl-delay: 10`` for every
@@ -92,7 +87,10 @@ OSG_LISTING_URL = f"https://{OSG_HOST}/osg/supreme-court-briefs"
 CRAWL_DELAY_SECONDS = 10.0
 _RETRY_PAUSE_SECONDS = 10.0
 _MAX_REDIRECTS = 5
-#: A ceiling on one fetched brief. The Office's petitions run to a few hundred
+#: The client names the project, as a crawler honouring ``robots.txt`` should;
+#: the Office's pages serve it.
+USER_AGENT = "fedcourtsai (+https://github.com/ModelMirrorAI/fedcourtsai)"
+#: A ceiling on one fetched body, read as it streams. The Office's petitions run to a few hundred
 #: pages with the appendix; a body past this is not a brief.
 MAX_BRIEF_BYTES = 64 * 1024 * 1024
 
@@ -112,30 +110,7 @@ SG_BRIEF_KINDS: tuple[str, ...] = (KIND_PETITION, KIND_BRIEF_IN_OPPOSITION, KIND
 DEFAULT_FILL_CASES = 6
 MAX_FILL_CASES = 20
 
-SgStatus = Literal["stored", "nothing-posted", "failed"]
-
-
-def is_osg_url(url: str) -> bool:
-    """Whether ``url`` is HTTPS on the Office's section of ``www.justice.gov``.
-
-    The same posture as :func:`fedcourtsai.supremecourt.is_court_url`: a link
-    out of a listing row is upstream text and what it returns is stored as a
-    filed document, so the scheme, the exact host, the default port and the
-    path prefix are all checked, userinfo is refused, and so is any character
-    that is not printable (``urlsplit`` drops tabs and newlines before parsing).
-    """
-    if any(not char.isprintable() for char in url):
-        return False
-    try:
-        parts = urlsplit(url)
-        port = parts.port
-    except ValueError:
-        return False
-    if parts.scheme != "https" or (parts.hostname or "").lower() != OSG_HOST:
-        return False
-    if parts.username or parts.password or port not in (None, 443):
-        return False
-    return parts.path.startswith(OSG_PATH_PREFIX)
+SgStatus = Literal["stored", "nothing-posted", "not-docketed", "failed"]
 
 
 def listing_search_url(docket_number: str) -> str:
@@ -271,7 +246,7 @@ class OsgClient:
         self._sleep = sleep
         self._own_client = client is None
         self._client = client or httpx.Client(
-            headers={"User-Agent": BROWSER_USER_AGENT}, timeout=httpx.Timeout(60.0)
+            headers={"User-Agent": USER_AGENT}, timeout=httpx.Timeout(60.0)
         )
         self._first_request = True
         self.requests = 0
@@ -298,8 +273,6 @@ class OsgClient:
         response = self._fetch(url)
         if response is None:
             return None
-        if len(response.content) > MAX_BRIEF_BYTES:
-            raise OversizedBrief(f"{url}: {len(response.content)} bytes")
         if not response.content.startswith(b"%PDF"):
             return None
         return response.content
@@ -314,7 +287,8 @@ class OsgClient:
         for attempt in (1, 2):
             try:
                 response = self._walk(url)
-            except (OffSectionFetch, httpx.TooManyRedirects):
+            except (OffSectionFetch, OversizedBrief, httpx.TooManyRedirects):
+                # None is retried: asking again returns the same refusal.
                 raise
             except httpx.HTTPError:
                 if attempt == 1:
@@ -334,61 +308,108 @@ class OsgClient:
     def _walk(self, url: str) -> httpx.Response:
         if not is_osg_url(url):
             raise OffSectionFetch(url)
-        response = self._get(url)
+        current = url
+        response = self._get(current)
         hops = 0
-        while response.is_redirect and response.next_request is not None:
-            target = str(response.next_request.url)
-            response.close()
+        while response.is_redirect and response.headers.get("location"):
+            target = urljoin(current, response.headers["location"].strip())
             if hops == _MAX_REDIRECTS:
                 raise httpx.TooManyRedirects(f"too many redirects fetching {url}")
             if not is_osg_url(target):
                 raise OffSectionFetch(target)
             hops += 1
-            response = self._get(target)
+            current = target
+            response = self._get(current)
         return response
 
     def _get(self, url: str) -> httpx.Response:
+        """One paced, unfollowed GET, its body read as it streams up to :data:`MAX_BRIEF_BYTES`."""
         self._pace()
         self.requests += 1
         try:
-            return self._client.get(url, follow_redirects=False)
+            with self._client.stream("GET", url, follow_redirects=False) as streamed:
+                body = bytearray()
+                for chunk in streamed.iter_bytes():
+                    body.extend(chunk)
+                    if len(body) > MAX_BRIEF_BYTES:
+                        raise OversizedBrief(f"{url}: over {MAX_BRIEF_BYTES} bytes")
+                # The body is already decoded, so the encoding headers go.
+                headers = [
+                    (name, value)
+                    for name, value in streamed.headers.multi_items()
+                    if name.lower() not in ("content-encoding", "content-length")
+                ]
+                return httpx.Response(
+                    streamed.status_code,
+                    headers=headers,
+                    content=bytes(body),
+                    request=streamed.request,
+                )
         except (ValueError, httpx.InvalidURL) as exc:
             raise httpx.RemoteProtocolError(f"unusable URL at {url}") from exc
 
 
-def paper_entry_dates(payload: Mapping[str, Any]) -> dict[str, str]:
-    """The docket entry date each fillable kind's filing carries, kind → date.
+@dataclass(frozen=True)
+class PaperEntry:
+    """One docket entry recording a fillable kind's filing: its date and its verbatim date text."""
+
+    filed: date
+    text_date: str
+
+
+def paper_entries(payload: Mapping[str, Any]) -> dict[str, tuple[PaperEntry, ...]]:
+    """The docket entries recording each fillable kind's filing, kind → entries in docket order.
 
     Read with the selector's own predicates over the docket's entries in
     order, without asking for a link: the case-opening entry for
-    ``petition``; the **latest** cert-stage opposition entry for
-    ``brief-in-opposition`` (see the module docstring); the first cert-stage
-    reply entry before any disposition for ``cert-reply``. The date is the
-    entry's own, verbatim. A kind whose entry the docket does not show is
-    absent.
+    ``petition``; every cert-stage opposition entry for
+    ``brief-in-opposition``; every cert-stage reply entry before any
+    disposition for ``cert-reply``. An entry whose date does not parse is
+    left out, since it could not be placed against a filing date. A kind whose
+    entry the docket does not show is absent.
     """
     granted_on = cert_grant_date(payload)
-    found: dict[str, str] = {}
+    found: dict[str, list[PaperEntry]] = {}
     disposed = False
     for entry in payload.get("ProceedingsandOrder") or []:
         if not isinstance(entry, Mapping):
             continue
         text = str(entry.get("Text") or "")
-        entry_date = str(entry.get("Date") or "").strip()
-        filed = parse_entry_date(entry_date or None)
-        if entry_date:
-            if KIND_PETITION not in found and _CASE_OPENING_ENTRY_RE.search(text):
-                found[KIND_PETITION] = entry_date
-            elif _is_bio_entry(text, filed=filed, granted_on=granted_on):
-                found[KIND_BRIEF_IN_OPPOSITION] = entry_date
-            elif (
-                KIND_CERT_REPLY not in found
-                and not disposed
-                and _is_cert_reply_entry(text, filed=filed, granted_on=granted_on)
-            ):
-                found[KIND_CERT_REPLY] = entry_date
+        text_date = str(entry.get("Date") or "").strip()
+        filed = parse_entry_date(text_date or None)
+        kind: str | None = None
+        if KIND_PETITION not in found and _CASE_OPENING_ENTRY_RE.search(text):
+            kind = KIND_PETITION
+        elif _is_bio_entry(text, filed=filed, granted_on=granted_on):
+            kind = KIND_BRIEF_IN_OPPOSITION
+        elif not disposed and _is_cert_reply_entry(text, filed=filed, granted_on=granted_on):
+            kind = KIND_CERT_REPLY
+        if kind is not None and filed is not None:
+            found.setdefault(kind, []).append(PaperEntry(filed=filed, text_date=text_date))
         disposed = disposed or match_disposition_signal(text) is not None
-    return found
+    return {kind: tuple(entries) for kind, entries in found.items()}
+
+
+def entry_for(
+    kind: str, entries: Sequence[PaperEntry], posted_filed: date | None
+) -> PaperEntry | None:
+    """The docket entry that dates the Office's brief of ``kind`` filed on ``posted_filed``.
+
+    Only an entry dated on or after the Office's filing date can record that
+    filing: the Court dockets a filing the day it arrives or later. Of those,
+    the earliest for a petition or a reply, and the **latest** for an
+    opposition, because on a docket with a second respondent the entry text
+    does not always say which opposition is the government's, and the later
+    date can only place the row late. ``None`` where the Office gives no
+    filing date or the docket shows no such entry yet: the brief waits for
+    the docket.
+    """
+    if posted_filed is None:
+        return None
+    after = [entry for entry in entries if entry.filed >= posted_filed]
+    if not after:
+        return None
+    return after[-1] if kind == KIND_BRIEF_IN_OPPOSITION else after[0]
 
 
 @dataclass(frozen=True)
@@ -397,7 +418,7 @@ class FillCandidate:
 
     row: corpus.CorpusRow
     docket_number: str
-    entry_dates: Mapping[str, str]
+    entries: Mapping[str, tuple[PaperEntry, ...]]
     owed: tuple[str, ...]
 
 
@@ -448,7 +469,7 @@ def fill_candidates(
         for case_id, snapshot in fetched:
             if snapshot is None or paper_only_filings(snapshot[1]) is not True:
                 continue
-            dates = paper_entry_dates(snapshot[1])
+            dates = paper_entries(snapshot[1])
             if not dates:
                 continue
             held = corpus.document_urls_for_case(conn, case_id)
@@ -457,7 +478,7 @@ def fill_candidates(
                 continue
             row = rows[case_id]
             number = corpus.strip_docket_annotation(row.docket_number).strip().upper()
-            candidate = FillCandidate(row=row, docket_number=number, entry_dates=dates, owed=owed)
+            candidate = FillCandidate(row=row, docket_number=number, entries=dates, owed=owed)
             first = 0 if case_id in priority else 1
             picked.append(((first, _rotation_key(case_id, today)), candidate))
     picked.sort(key=lambda pair: pair[0])
@@ -474,7 +495,10 @@ class SgBriefCase(BaseModel):
     status: SgStatus = Field(
         description="stored (at least one row stored, or would be under a dry run) | "
         "nothing-posted (the Office's listing has no brief of an owed kind for this "
-        "docket number) | failed (a request failed; the docket is retried next time)"
+        "docket number) | not-docketed (the Office posts a brief of an owed kind, but "
+        "the stored docket shows no entry for it on or after its filing date yet; "
+        "searched again next time) | failed (a request failed; the docket is retried "
+        "next time)"
     )
     owed: list[str] = Field(description="The kinds the docket's entries show and the store lacks")
     stored: list[str] = Field(default_factory=list, description="The kinds stored")
@@ -504,13 +528,18 @@ class SgBriefReport(BaseModel):
 
 
 def _pick(listings: Sequence[OsgListing], docket_number: str, kind: str) -> OsgListing | None:
-    """The listing row of ``kind`` for this docket, the latest filed where several."""
+    """The listing row of ``kind`` for this docket, the latest filed where several.
+
+    A row with no filing date is never picked: nothing could then tie it to a
+    docket entry (:func:`entry_for`).
+    """
     matching = [
         listing
         for listing in listings
         if listing.kind == kind
         and docket_number in listing.docket_numbers
         and listing.pdf_url is not None
+        and listing.filed is not None
     ]
     if not matching:
         return None
@@ -524,20 +553,26 @@ def brief_documents(
     *,
     today: date,
     char_cap: int,
-) -> list[corpus.CaseDocument]:
+) -> tuple[list[corpus.CaseDocument], list[str]]:
     """The rows one docket's posted briefs make, fetched and extracted.
 
     One row for each owed kind the listing carries, under the kind's own cut
     (:func:`~fedcourtsai.pipeline.documents.extract_filing_text`), dated by the
-    docket entry (:func:`paper_entry_dates`), its ``url`` the Office's PDF
-    link. A stored petition also yields its derived ``questions-presented``
-    row, as the selector's fetch does. A PDF the Office no longer serves is
-    skipped.
+    docket entry that records it (:func:`entry_for`), its ``url`` the Office's
+    PDF link. A stored petition also yields its derived ``questions-presented``
+    row, as the selector's fetch does. A brief the docket shows no entry for
+    yet is not fetched, and its kind is returned in the second list; a PDF the
+    Office no longer serves, or one with no text layer, is skipped.
     """
     documents: list[corpus.CaseDocument] = []
+    waiting: list[str] = []
     for kind in candidate.owed:
         listing = _pick(listings, candidate.docket_number, kind)
         if listing is None or listing.pdf_url is None:
+            continue
+        entry = entry_for(kind, candidate.entries.get(kind, ()), listing.filed)
+        if entry is None:
+            waiting.append(kind)
             continue
         data = client.get_pdf(listing.pdf_url)
         if data is None:
@@ -549,11 +584,22 @@ def brief_documents(
             )
             continue
         extracted = extract_filing_text(data, kind=kind, char_cap=char_cap)
+        if not extracted.text.strip():
+            # A scan with no text layer. Not stored: the OCR recovery pass
+            # re-fetches only the Court's own links, so the row would sit in its
+            # class unrecoverable, and an empty row hides nothing a cell lacks.
+            logger.warning(
+                "sg-briefs: %s %s: the Office's PDF has no text layer (%s)",
+                candidate.row.case_id,
+                kind,
+                listing.pdf_url,
+            )
+            continue
         document = corpus.CaseDocument(
             case_id=candidate.row.case_id,
             kind=kind,
             url=listing.pdf_url,
-            entry_date=candidate.entry_dates[kind],
+            entry_date=entry.text_date,
             fetched_at=today,
             pages=extracted.pages,
             truncated=extracted.truncated,
@@ -565,7 +611,7 @@ def brief_documents(
             questions = extract_questions_presented(document.text)
             if questions is not None:
                 documents.append(_derived_questions_document(document, questions, fetched_at=today))
-    return documents
+    return documents, waiting
 
 
 def fill_sg_briefs(
@@ -604,13 +650,21 @@ def fill_sg_briefs(
                     if candidate.docket_number in listing.docket_numbers
                 }
             )
-            documents = brief_documents(client, candidate, listings, today=today, char_cap=char_cap)
+            documents, waiting = brief_documents(
+                client, candidate, listings, today=today, char_cap=char_cap
+            )
         except httpx.HTTPError as exc:
             case.status = "failed"
             case.detail = f"{type(exc).__name__}: {exc}"
             logger.warning("sg-briefs: %s: %s", candidate.row.case_id, case.detail)
             continue
+        if waiting:
+            case.detail = "posted, no docket entry on or after its filing date yet: " + ", ".join(
+                waiting
+            )
         if not documents:
+            if waiting:
+                case.status = "not-docketed"
             continue
         case.status = "stored"
         case.stored = [document.kind for document in documents]

@@ -17512,12 +17512,15 @@ freeze commit is recorded here.
   nothing before.
 
   **The cut is the docket's.** Each row's `entry_date` is the Court's own
-  proceedings entry for the filing, read with the selector's predicates: the
-  case-opening entry, the latest cert-stage opposition entry, or the first
-  cert-stage reply entry before a disposition. A brief the Office posts whose
-  entry the stored docket does not show yet is not stored. The moment cut
-  therefore places these rows exactly where it would place the Court's copy,
-  or later for an opposition on a docket with a second respondent. No
+  proceedings entry for the filing, read with the selector's predicates and
+  tied to the Office's filing date: the earliest entry of the kind dated on
+  or after it (the case-opening entry, a cert-stage reply entry before a
+  disposition), or for an opposition the latest such entry, since the entry
+  text does not always say which respondent's it is. A brief whose entry the
+  stored docket does not show yet is not stored, and neither is one with no
+  text layer. The moment cut therefore places these rows where it would place
+  the Court's copy, or later. The case summaries and the questions-presented
+  extract leave these rows out, so neither public artifact's text moves. No
   undecided docket outside the paper-only class is touched, and a docket
   with a disposition is not walked.
 

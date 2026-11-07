@@ -11,15 +11,18 @@ import httpx
 import pytest
 
 from fedcourtsai import corpus
+from fedcourtsai.pipeline.osg_urls import is_osg_url
 from fedcourtsai.pipeline.sg_briefs import (
     FillCandidate,
     OffSectionFetch,
     OsgClient,
+    OversizedBrief,
+    PaperEntry,
+    entry_for,
     fill_candidates,
     fill_sg_briefs,
-    is_osg_url,
     listing_search_url,
-    paper_entry_dates,
+    paper_entries,
     parse_listing,
 )
 from tests.test_documents import _pdf
@@ -82,6 +85,9 @@ _PAGE_URL = listing_search_url("26-55")
         ("https://user@www.justice.gov/osg/media/1/dl", False),
         ("https://www.justice.gov:8443/osg/media/1/dl", False),
         ("https://www.justice.gov/osg/media/1/dl\t", False),
+        ("https://www.justice.gov/osg/../media/x.pdf", False),
+        ("https://www.justice.gov/osg/%2e%2e/media/x.pdf", False),
+        ("https://www.justice.gov/osg/./brief/x", False),
     ],
 )
 def test_is_osg_url_holds_the_fetch_to_the_offices_section(url: str, ok: bool) -> None:
@@ -127,34 +133,66 @@ def test_an_unmapped_brief_type_has_no_kind() -> None:
     assert row.kind is None
 
 
-def test_paper_entry_dates_read_each_kind_off_its_docket_entry() -> None:
-    payload = _entries(
-        ("Jul 01 2026", "Petition for a writ of certiorari filed. (Response due August 3, 2026)"),
-        ("Jul 02 2026", _PAPER_ONLY),
-        (
-            "Sep 24 2026",
-            "Brief of respondent Todd Blanche, Acting Attorney General in opposition filed.",
-        ),
-        ("Sep 30 2026", "Brief of respondent Jane Roe in opposition filed."),
-        ("Oct 07 2026", "Reply of petitioner Asif Momin filed."),
-        ("Oct 08 2026", "DISTRIBUTED for Conference of 10/30/2026."),
-    )
-    assert paper_entry_dates(payload) == {
-        "petition": "Jul 01 2026",
-        # The latest opposition: the entry text cannot always tell the
-        # government's brief apart, and the later date only places it late.
-        "brief-in-opposition": "Sep 30 2026",
-        "cert-reply": "Oct 07 2026",
+def _dates(found: dict[str, tuple[PaperEntry, ...]]) -> dict[str, list[str]]:
+    return {kind: [entry.text_date for entry in entries] for kind, entries in found.items()}
+
+
+_TWO_RESPONDENTS = _entries(
+    ("Jul 01 2026", "Petition for a writ of certiorari filed. (Response due August 3, 2026)"),
+    ("Jul 02 2026", _PAPER_ONLY),
+    ("Sep 10 2026", "Brief of respondent Jane Roe in opposition filed."),
+    (
+        "Sep 25 2026",
+        "Brief of respondent Todd Blanche, Acting Attorney General in opposition filed.",
+    ),
+    ("Oct 07 2026", "Reply of petitioner Asif Momin filed."),
+    ("Oct 08 2026", "DISTRIBUTED for Conference of 10/30/2026."),
+)
+
+
+def test_paper_entries_read_each_kind_off_its_docket_entries() -> None:
+    assert _dates(paper_entries(_TWO_RESPONDENTS)) == {
+        "petition": ["Jul 01 2026"],
+        "brief-in-opposition": ["Sep 10 2026", "Sep 25 2026"],
+        "cert-reply": ["Oct 07 2026"],
     }
 
 
-def test_paper_entry_dates_take_no_reply_after_a_disposition() -> None:
+def test_paper_entries_take_no_reply_after_a_disposition() -> None:
     payload = _entries(
         ("Jul 01 2026", "Petition for a writ of certiorari filed."),
         ("Oct 05 2026", "Petition DENIED."),
         ("Oct 20 2026", "Reply of petitioner Asif Momin filed."),
     )
-    assert paper_entry_dates(payload) == {"petition": "Jul 01 2026"}
+    assert _dates(paper_entries(payload)) == {"petition": ["Jul 01 2026"]}
+
+
+def test_entry_for_never_dates_a_brief_before_its_filing() -> None:
+    found = paper_entries(_TWO_RESPONDENTS)
+    oppositions = found["brief-in-opposition"]
+    # The government's opposition, filed after the other respondent's entry,
+    # takes the entry docketed on or after its own filing date.
+    picked = entry_for("brief-in-opposition", oppositions, date(2026, 9, 24))
+    assert picked is not None and picked.text_date == "Sep 25 2026"
+    # Filed before both: the latest entry, which only places it late.
+    picked = entry_for("brief-in-opposition", oppositions, date(2026, 9, 1))
+    assert picked is not None and picked.text_date == "Sep 25 2026"
+    # Posted, but the stored docket shows no entry on or after it yet.
+    assert entry_for("brief-in-opposition", oppositions, date(2026, 9, 28)) is None
+    # No filing date: nothing ties it to an entry.
+    assert entry_for("petition", found["petition"], None) is None
+
+
+def test_entry_for_takes_the_reply_its_filing_date_reaches() -> None:
+    replies = paper_entries(
+        _entries(
+            ("Jul 01 2026", "Petition for a writ of certiorari filed."),
+            ("Sep 01 2026", "Reply of petitioner United States filed."),
+            ("Sep 20 2026", "Reply of petitioner United States filed."),
+        )
+    )["cert-reply"]
+    picked = entry_for("cert-reply", replies, date(2026, 9, 18))
+    assert picked is not None and picked.text_date == "Sep 20 2026"
 
 
 class _Upstream:
@@ -225,7 +263,7 @@ def _seed(db: Path, payload: dict[str, Any], **extra: Any) -> None:
 _PAPER_DOCKET = _entries(
     ("Jul 01 2026", "Petition for a writ of certiorari filed."),
     ("Jul 02 2026", _PAPER_ONLY),
-    ("Sep 24 2026", "Brief of respondent Todd Blanche in opposition filed."),
+    ("Sep 25 2026", "Brief of respondent Todd Blanche in opposition filed."),
 )
 
 
@@ -304,7 +342,7 @@ def test_an_applied_fill_stores_the_posted_brief_dated_by_its_docket_entry(
         (document,) = corpus.documents_for_case(conn, "scotus/1")
     assert document.kind == "brief-in-opposition"
     assert document.url == _PDF_URL
-    assert document.entry_date == "Sep 24 2026"
+    assert document.entry_date == "Sep 25 2026"
     assert "in opposition" in document.text
 
 
@@ -332,3 +370,46 @@ def test_a_failed_search_is_reported_and_the_pass_moves_on(tmp_path: Path) -> No
             conn, client, [candidate, candidate], apply=True, today=_TODAY, char_cap=10_000
         )
     assert [case.status for case in report.cases] == ["failed", "failed"]
+
+
+def test_the_client_refuses_a_body_past_the_ceiling(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("fedcourtsai.pipeline.sg_briefs.MAX_BRIEF_BYTES", 10)
+    upstream = _Upstream({_PDF_URL: httpx.Response(200, content=b"%PDF" + b"x" * 20)})
+    with _client(upstream, []) as client, pytest.raises(OversizedBrief):
+        client.get_pdf(_PDF_URL)
+    assert upstream.seen == [_PDF_URL]
+
+
+def test_the_client_follows_a_redirect_that_stays_on_the_section() -> None:
+    moved = "https://www.justice.gov/osg/media/1463386/dl"
+    upstream = _Upstream(
+        {
+            _PDF_URL: httpx.Response(301, headers={"Location": "/osg/media/1463386/dl"}),
+            moved: httpx.Response(200, content=_pdf("Brief")),
+        }
+    )
+    with _client(upstream, []) as client:
+        assert client.get_pdf(_PDF_URL) is not None
+    assert upstream.seen == [_PDF_URL, moved]
+
+
+def test_a_brief_the_docket_does_not_show_yet_waits(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    _seed(db, _PAPER_DOCKET)
+    candidate = _candidate(db)
+    upstream = _Upstream(
+        {
+            _PAGE_URL: httpx.Response(
+                200,
+                text=_listing(_listing_row("26-55", "Petition Stage Response", day="2026-10-02")),
+            ),
+        }
+    )
+    with corpus.connect(db) as conn, _client(upstream, []) as client:
+        report = fill_sg_briefs(
+            conn, client, [candidate], apply=True, today=_TODAY, char_cap=10_000
+        )
+        assert corpus.documents_for_case(conn, "scotus/1") == []
+    (case,) = report.cases
+    assert case.status == "not-docketed"
+    assert upstream.seen == [_PAGE_URL]  # the PDF is not fetched

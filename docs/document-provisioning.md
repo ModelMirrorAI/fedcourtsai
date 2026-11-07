@@ -153,8 +153,12 @@ Each of these is stated, with its reason, where the code makes the choice:
   dates the cells that can read them. An opposition the Office posts for a
   docket with a second respondent is stored alone, dated by the docket's
   latest opposition entry, since the entry text does not always say which is
-  the government's. A scanned posted brief is not OCR'd: the recovery and
-  re-cut passes re-fetch only the Court's own links.
+  the government's. Each copy is dated by the earliest docket entry of its
+  kind on or after the Office's filing date (the latest, for an opposition),
+  so a brief the docket shows no entry for yet waits. A posted brief with no
+  text layer is not stored, since the recovery and re-cut passes re-fetch
+  only the Court's own links. The case summaries and the questions-presented
+  extract leave these copies out (data-sources.md).
 - **A consolidated member is checked for freshness on its own docket.** A merits
   filing entered only on the lead is left to the selection sweep
   (live-sources.md, *Document freshness*).
