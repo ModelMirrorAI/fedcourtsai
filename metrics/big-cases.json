@@ -1,10 +1,10 @@
 {
-  "cases": 368,
+  "cases": 372,
   "cases_out_of_scope": 0,
   "cases_without_score": 1,
   "coverage": [
     {
-      "cases": 332,
+      "cases": 336,
       "n": 3
     },
     {
@@ -16,7 +16,7 @@
       "n": 1
     }
   ],
-  "current_reads": 1102,
+  "current_reads": 1114,
   "declared_no_view": 26,
   "frozen_process": {
     "digests": [
@@ -1324,16 +1324,8 @@
       "n": 3,
       "other_party": null,
       "outcome_lines": null,
-      "schedule": [
-        {
-          "date": "2026-11-06",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-06",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.95,
       "score_min": 0.92,
       "score_range": 0.03,
@@ -1780,7 +1772,12 @@
           "side": "disturbed"
         }
       ],
-      "schedule": [],
+      "schedule": [
+        {
+          "date": "2026-12-09",
+          "kind": "argument"
+        }
+      ],
       "scheduled": null,
       "score_max": 0.95,
       "score_min": 0.9,
@@ -4729,6 +4726,118 @@
       "status": "pending"
     },
     {
+      "asking_declined": "short_form",
+      "asking_party": null,
+      "caption": "National Park Service, et al. v. National Trust for Historic Preservation in the United States",
+      "caption_event_id": "evt-petition-arrival-disposition",
+      "case_id": "scotus/9026000599",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Presidential construction project at the White House, a 5-4 stay with a per curiam opinion and a Chief Justice dissent; standing doctrine for aesthetic injury is the legal stake.",
+          "big_case_score": 0.72,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261107T010601Z"
+        },
+        {
+          "big_case_rationale": "The dispute concerns control of White House construction, congressional authorization, national-security equities, and potentially consequential limits on aesthetic standing.",
+          "big_case_score": 0.9,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261107T010601Z"
+        },
+        {
+          "big_case_rationale": "High-profile constitutional and statutory dispute over Executive authority to demolish the White House East Wing and build a privately funded state ballroom without express congressional authorization, plus Article III standing to challenge alterations to historic national monuments.",
+          "big_case_score": 0.85,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261107T010601Z"
+        }
+      ],
+      "docket_id": 9026000599,
+      "docket_number": "26-599",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-599.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-arrival-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Presidential construction project at the White House, a 5-4 stay with a per curiam opinion and a Chief Justice dissent; standing doctrine for aesthetic injury is the legal stake.",
+              "big_case_score": 0.72,
+              "cell_path": "data/cases/scotus/9026000599/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261107T010601Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000599/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261107T010601Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "claude-baseline",
+              "probability": 0.88,
+              "run_id": "20261107T010601Z"
+            },
+            {
+              "big_case_rationale": "The dispute concerns control of White House construction, congressional authorization, national-security equities, and potentially consequential limits on aesthetic standing.",
+              "big_case_score": 0.9,
+              "cell_path": "data/cases/scotus/9026000599/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261107T010601Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000599/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261107T010601Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "summary-reversal",
+              "predictor_id": "codex-baseline",
+              "probability": 0.94,
+              "run_id": "20261107T010601Z"
+            },
+            {
+              "big_case_rationale": "High-profile constitutional and statutory dispute over Executive authority to demolish the White House East Wing and build a privately funded state ballroom without express congressional authorization, plus Article III standing to challenge alterations to historic national monuments.",
+              "big_case_score": 0.85,
+              "cell_path": "data/cases/scotus/9026000599/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261107T010601Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000599/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261107T010601Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "gvr",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.88,
+              "run_id": "20261107T010601Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "National Park Service, et al. v. National Trust for Historic Preservation in the United States"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.8233,
+      "moment": "evt-petition-arrival-disposition",
+      "moment_opened_at": "2026-11-06",
+      "n": 3,
+      "other_party": null,
+      "outcome_lines": null,
+      "schedule": [
+        {
+          "date": "2026-12-07",
+          "kind": "response_due"
+        }
+      ],
+      "scheduled": null,
+      "score_max": 0.9,
+      "score_min": 0.72,
+      "score_range": 0.18,
+      "short_caption": null,
+      "status": "pending"
+    },
+    {
       "asking_declined": null,
       "asking_party": "Gator's Custom Guns",
       "caption": "Gator's Custom Guns, Inc., et al. v. Washington",
@@ -5818,7 +5927,12 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [],
+      "schedule": [
+        {
+          "date": "2026-11-30",
+          "kind": "response_due"
+        }
+      ],
       "scheduled": null,
       "score_max": 0.9,
       "score_min": 0.72,
@@ -9320,16 +9434,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-06",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-06",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.76,
       "score_min": 0.72,
       "score_range": 0.04,
@@ -10002,18 +10108,11 @@
       ],
       "schedule": [
         {
-          "date": "2026-11-06",
-          "kind": "conference"
-        },
-        {
           "date": "2026-11-27",
           "kind": "response_due"
         }
       ],
-      "scheduled": {
-        "date": "2026-11-06",
-        "kind": "conference"
-      },
+      "scheduled": null,
       "score_max": 0.73,
       "score_min": 0.72,
       "score_range": 0.01,
@@ -13573,16 +13672,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-06",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-06",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.72,
       "score_min": 0.6,
       "score_range": 0.12,
@@ -13817,20 +13908,138 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-06",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-06",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.75,
       "score_min": 0.55,
       "score_range": 0.2,
       "short_caption": "GEO Group v. Ferguson",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "National Horsemen's Benevolent and Protective Association",
+      "caption": "National Horsemen's Benevolent and Protective Association, et al. v. Horseracing Integrity and Safety Authority, Incorporated, et al.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000430",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Part of the HISA package: whether a federal statute that hands rulemaking to a private corporation is constitutional; the companion enforcement question is the larger one.",
+          "big_case_score": 0.6,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261107T010601Z"
+        },
+        {
+          "big_case_rationale": "National horseracing regulation and the constitutional limits on private rulemaking have consequences beyond this industry, although the timing-of-agency-review question is narrower than the companion enforcement dispute.",
+          "big_case_score": 0.7,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261107T010601Z"
+        },
+        {
+          "big_case_rationale": "Private-nondelegation challenge to the rulemaking framework of a nationwide federal regulatory statute (HISA) on remand after FCC v. Consumers' Research, cross-petitioning alongside the high-profile HISA enforcement petitions.",
+          "big_case_score": 0.65,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261107T010601Z"
+        }
+      ],
+      "docket_id": 9026000430,
+      "docket_number": "26-430",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-430.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Part of the HISA package: whether a federal statute that hands rulemaking to a private corporation is constitutional; the companion enforcement question is the larger one.",
+              "big_case_score": 0.6,
+              "cell_path": "data/cases/scotus/9026000430/events/evt-petition-disposition/predictions/claude-baseline/20261107T010601Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000430/events/evt-petition-disposition/predictions/claude-baseline/20261107T010601Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.18,
+              "run_id": "20261107T010601Z"
+            },
+            {
+              "big_case_rationale": "National horseracing regulation and the constitutional limits on private rulemaking have consequences beyond this industry, although the timing-of-agency-review question is narrower than the companion enforcement dispute.",
+              "big_case_score": 0.7,
+              "cell_path": "data/cases/scotus/9026000430/events/evt-petition-disposition/predictions/codex-baseline/20261107T010601Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000430/events/evt-petition-disposition/predictions/codex-baseline/20261107T010601Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.18,
+              "run_id": "20261107T010601Z"
+            },
+            {
+              "big_case_rationale": "Private-nondelegation challenge to the rulemaking framework of a nationwide federal regulatory statute (HISA) on remand after FCC v. Consumers' Research, cross-petitioning alongside the high-profile HISA enforcement petitions.",
+              "big_case_score": 0.65,
+              "cell_path": "data/cases/scotus/9026000430/events/evt-petition-disposition/predictions/gemini-baseline/20261107T010601Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000430/events/evt-petition-disposition/predictions/gemini-baseline/20261107T010601Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.12,
+              "run_id": "20261107T010601Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "National Horsemen's Benevolent and Protective Association, et al. v. Horseracing Integrity and Safety Authority, Incorporated, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.65,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-09-30",
+      "n": 3,
+      "other_party": "Horseracing Integrity and Safety Authority",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up the National Horsemen's Benevolent and Protective Association's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "The National Horsemen's Benevolent and Protective Association's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-12-04",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-12-04",
+        "kind": "conference"
+      },
+      "score_max": 0.7,
+      "score_min": 0.6,
+      "score_range": 0.1,
+      "short_caption": "National Horsemen's Benevolent and Protective Association v. Horseracing Integrity and Safety Authority",
       "status": "pending"
     },
     {
@@ -15714,16 +15923,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-06",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-06",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.79,
       "score_min": 0.5,
       "score_range": 0.29,
@@ -17243,16 +17444,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-06",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-06",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.65,
       "score_min": 0.55,
       "score_range": 0.1,
@@ -21277,7 +21470,12 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [],
+      "schedule": [
+        {
+          "date": "2026-11-25",
+          "kind": "response_due"
+        }
+      ],
       "scheduled": null,
       "score_max": 0.58,
       "score_min": 0.52,
@@ -22975,18 +23173,11 @@
       ],
       "schedule": [
         {
-          "date": "2026-11-06",
-          "kind": "conference"
-        },
-        {
           "date": "2026-12-18",
           "kind": "response_due"
         }
       ],
-      "scheduled": {
-        "date": "2026-11-06",
-        "kind": "conference"
-      },
+      "scheduled": null,
       "score_max": 0.6,
       "score_min": 0.45,
       "score_range": 0.15,
@@ -24157,18 +24348,11 @@
       "outcome_lines": null,
       "schedule": [
         {
-          "date": "2026-11-06",
-          "kind": "conference"
-        },
-        {
           "date": "2026-12-28",
           "kind": "response_due"
         }
       ],
-      "scheduled": {
-        "date": "2026-11-06",
-        "kind": "conference"
-      },
+      "scheduled": null,
       "score_max": 0.6,
       "score_min": 0.35,
       "score_range": 0.25,
@@ -24631,7 +24815,12 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [],
+      "schedule": [
+        {
+          "date": "2026-11-12",
+          "kind": "response_due"
+        }
+      ],
       "scheduled": null,
       "score_max": 0.6,
       "score_min": 0.35,
@@ -27359,16 +27548,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-06",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-06",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.56,
       "score_min": 0.35,
       "score_range": 0.21,
@@ -27653,16 +27834,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-06",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-06",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.52,
       "score_min": 0.42,
       "score_range": 0.1,
@@ -28762,16 +28935,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-06",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-06",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.52,
       "score_min": 0.3,
       "score_range": 0.22,
@@ -30328,16 +30493,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-06",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-06",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.5,
       "score_min": 0.35,
       "score_range": 0.15,
@@ -30677,16 +30834,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-06",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-06",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.58,
       "score_min": 0.3,
       "score_range": 0.28,
@@ -30853,16 +31002,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-06",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-06",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.48,
       "score_min": 0.3,
       "score_range": 0.18,
@@ -32060,16 +32201,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-06",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-06",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.58,
       "score_min": 0.25,
       "score_range": 0.33,
@@ -32236,16 +32369,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-06",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-06",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.48,
       "score_min": 0.35,
       "score_range": 0.13,
@@ -33072,16 +33197,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-06",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-06",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.62,
       "score_min": 0.2,
       "score_range": 0.42,
@@ -38532,16 +38649,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-06",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-06",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.36,
       "score_min": 0.22,
       "score_range": 0.14,
@@ -38826,16 +38935,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-06",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-06",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.42,
       "score_min": 0.05,
       "score_range": 0.37,
@@ -39530,16 +39631,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-06",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-06",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.45,
       "score_min": 0.1,
       "score_range": 0.35,
@@ -41054,16 +41147,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-06",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-06",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.38,
       "score_min": 0.08,
       "score_range": 0.3,
@@ -41996,16 +42081,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-06",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-06",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.4,
       "score_min": 0.1,
       "score_range": 0.3,
@@ -42279,16 +42356,8 @@
       "n": 3,
       "other_party": null,
       "outcome_lines": null,
-      "schedule": [
-        {
-          "date": "2026-11-06",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-06",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.44,
       "score_min": 0.08,
       "score_range": 0.36,
@@ -43110,20 +43179,138 @@
           "side": "not-granted"
         }
       ],
+      "schedule": [],
+      "scheduled": null,
+      "score_max": 0.3,
+      "score_min": 0.12,
+      "score_range": 0.18,
+      "short_caption": "Gengshu Scott He v. Rubio",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Rydberg",
+      "caption": "Christopher Rydberg v. United States",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000441",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Narrow statutory question (whether FECA is a 'health care benefit program' under 18 U.S.C. 24(b)) affecting a niche set of health-fraud prosecutions; the lenity QP is broad but poorly presented here.",
+          "big_case_score": 0.12,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261107T010601Z"
+        },
+        {
+          "big_case_rationale": "Potentially consequential for federal workers' compensation fraud prosecutions and criminal statutory interpretation, but the concrete question concerns one benefits scheme and a factually complicated conviction.",
+          "big_case_score": 0.3,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261107T010601Z"
+        },
+        {
+          "big_case_rationale": "Routine federal health-care fraud and workers'-compensation statutory interpretation challenge with no circuit split, arising from an unpublished Fifth Circuit affirmance.",
+          "big_case_score": 0.15,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261107T010601Z"
+        }
+      ],
+      "docket_id": 9026000441,
+      "docket_number": "26-441",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-441.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Narrow statutory question (whether FECA is a 'health care benefit program' under 18 U.S.C. 24(b)) affecting a niche set of health-fraud prosecutions; the lenity QP is broad but poorly presented here.",
+              "big_case_score": 0.12,
+              "cell_path": "data/cases/scotus/9026000441/events/evt-petition-disposition/predictions/claude-baseline/20261107T010601Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000441/events/evt-petition-disposition/predictions/claude-baseline/20261107T010601Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.025,
+              "run_id": "20261107T010601Z"
+            },
+            {
+              "big_case_rationale": "Potentially consequential for federal workers' compensation fraud prosecutions and criminal statutory interpretation, but the concrete question concerns one benefits scheme and a factually complicated conviction.",
+              "big_case_score": 0.3,
+              "cell_path": "data/cases/scotus/9026000441/events/evt-petition-disposition/predictions/codex-baseline/20261107T010601Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000441/events/evt-petition-disposition/predictions/codex-baseline/20261107T010601Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.018,
+              "run_id": "20261107T010601Z"
+            },
+            {
+              "big_case_rationale": "Routine federal health-care fraud and workers'-compensation statutory interpretation challenge with no circuit split, arising from an unpublished Fifth Circuit affirmance.",
+              "big_case_score": 0.15,
+              "cell_path": "data/cases/scotus/9026000441/events/evt-petition-disposition/predictions/gemini-baseline/20261107T010601Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000441/events/evt-petition-disposition/predictions/gemini-baseline/20261107T010601Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.008,
+              "run_id": "20261107T010601Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Christopher Rydberg v. United States"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.19,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-10-02",
+      "n": 3,
+      "other_party": "United States",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Rydberg's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Rydberg's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
       "schedule": [
         {
-          "date": "2026-11-06",
+          "date": "2026-12-04",
           "kind": "conference"
         }
       ],
       "scheduled": {
-        "date": "2026-11-06",
+        "date": "2026-12-04",
         "kind": "conference"
       },
       "score_max": 0.3,
       "score_min": 0.12,
       "score_range": 0.18,
-      "short_caption": "Gengshu Scott He v. Rubio",
+      "short_caption": "Rydberg v. United States",
       "status": "pending"
     },
     {
@@ -43286,16 +43473,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-06",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-06",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.38,
       "score_min": 0.05,
       "score_range": 0.33,
@@ -45413,16 +45592,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-06",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-06",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.25,
       "score_min": 0.04,
       "score_range": 0.21,
@@ -45943,16 +46114,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-06",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-06",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.3,
       "score_min": 0.05,
       "score_range": 0.25,
@@ -46058,7 +46221,12 @@
       "n": 3,
       "other_party": null,
       "outcome_lines": null,
-      "schedule": [],
+      "schedule": [
+        {
+          "date": "2026-11-27",
+          "kind": "response_due"
+        }
+      ],
       "scheduled": null,
       "score_max": 0.35,
       "score_min": 0.02,
@@ -46462,16 +46630,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-06",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-06",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.22,
       "score_min": 0.04,
       "score_range": 0.18,
@@ -46824,16 +46984,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-06",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-06",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.2,
       "score_min": 0.03,
       "score_range": 0.17,
@@ -47461,16 +47613,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-06",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-06",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.28,
       "score_min": 0.001,
       "score_range": 0.279,
@@ -47712,6 +47856,132 @@
       "score_range": 0.15,
       "short_caption": "Goodley v. Supreme Rice",
       "status": "resolved"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Houssam Eddine Hamrit",
+      "caption": "Houssam Eddine Hamrit v. Citigroup Global Markets, Inc., et al.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000432",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Pro se challenge to a Second Circuit summary frivolousness dismissal of one litigant's failure-to-prosecute appeal; no broader stakes.",
+          "big_case_score": 0.03,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261107T010601Z"
+        },
+        {
+          "big_case_rationale": "Notice before appellate dismissal matters beyond this litigant, but the petition concerns a narrow, unpublished procedural ruling and does not seek review of arbitration law generally.",
+          "big_case_score": 0.22,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261107T010601Z"
+        },
+        {
+          "big_case_rationale": "Private arbitration-refusal dispute raising a narrow procedural challenge to a Second Circuit motions-panel dismissal order; low national or doctrinal salience even if decided.",
+          "big_case_score": 0.05,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261107T010601Z"
+        }
+      ],
+      "docket_id": 9026000432,
+      "docket_number": "26-432",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-432.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Pro se challenge to a Second Circuit summary frivolousness dismissal of one litigant's failure-to-prosecute appeal; no broader stakes.",
+              "big_case_score": 0.03,
+              "cell_path": "data/cases/scotus/9026000432/events/evt-petition-disposition/predictions/claude-baseline/20261107T010601Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000432/events/evt-petition-disposition/predictions/claude-baseline/20261107T010601Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.004,
+              "run_id": "20261107T010601Z"
+            },
+            {
+              "big_case_rationale": "Notice before appellate dismissal matters beyond this litigant, but the petition concerns a narrow, unpublished procedural ruling and does not seek review of arbitration law generally.",
+              "big_case_score": 0.22,
+              "cell_path": "data/cases/scotus/9026000432/events/evt-petition-disposition/predictions/codex-baseline/20261107T010601Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000432/events/evt-petition-disposition/predictions/codex-baseline/20261107T010601Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.018,
+              "run_id": "20261107T010601Z"
+            },
+            {
+              "big_case_rationale": "Private arbitration-refusal dispute raising a narrow procedural challenge to a Second Circuit motions-panel dismissal order; low national or doctrinal salience even if decided.",
+              "big_case_score": 0.05,
+              "cell_path": "data/cases/scotus/9026000432/events/evt-petition-disposition/predictions/gemini-baseline/20261107T010601Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000432/events/evt-petition-disposition/predictions/gemini-baseline/20261107T010601Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.005,
+              "run_id": "20261107T010601Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Houssam Eddine Hamrit v. Citigroup Global Markets, Inc., et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.1,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-09-30",
+      "n": 3,
+      "other_party": "Citigroup Global Markets",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Houssam Eddine Hamrit's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Houssam Eddine Hamrit's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-12-04",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-12-04",
+        "kind": "conference"
+      },
+      "score_max": 0.22,
+      "score_min": 0.03,
+      "score_range": 0.19,
+      "short_caption": "Houssam Eddine Hamrit v. Citigroup Global Markets",
+      "status": "pending"
     },
     {
       "asking_declined": null,
@@ -48408,16 +48678,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-06",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-06",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.22,
       "score_min": 0.02,
       "score_range": 0.2,
@@ -48660,16 +48922,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-06",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-06",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.1,
       "score_min": 0.08,
       "score_range": 0.02,
@@ -51660,7 +51914,12 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [],
+      "schedule": [
+        {
+          "date": "2026-11-23",
+          "kind": "response_due"
+        }
+      ],
       "scheduled": null,
       "score_max": 0.03,
       "score_min": 0.01,
@@ -52834,5 +53093,5 @@
   ],
   "rows_with_leakage_flag": 4,
   "schema_version": "1.4",
-  "scored_reads": 1066
+  "scored_reads": 1078
 }
