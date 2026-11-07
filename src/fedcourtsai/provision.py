@@ -1263,6 +1263,11 @@ class AnchorPool:
     statpack: StatPack
     lookback_terms: int
 
+    @property
+    def digest(self) -> str:
+        """The build's :func:`fedcourtsai.pipeline.base_rates.statpack_digest`."""
+        return base_rates.statpack_digest(self.statpack)
+
 
 def read_anchor_pool(metrics_root: Path, config_root: Path) -> AnchorPool | None:
     """The committed statpack and the configured lookback window, or ``None``.
@@ -1334,6 +1339,7 @@ def write_cell_record(  # noqa: PLR0913 - one record, each optional part a keywo
     same_question: SameQuestionList | None = None,
     decided_before: str | None = None,
     anchor_pool: AnchorPool | None = None,
+    statpack_digest: str | None = None,
     sg_counsel_of_record_for_petitioner: bool | None = None,
 ) -> RecordWrite:
     """Materialize one cell's whole ``record/`` from its placement.
@@ -1382,6 +1388,11 @@ def write_cell_record(  # noqa: PLR0913 - one record, each optional part a keywo
     over the band the context froze, so the grading reads the pool of the build
     in force when the forecast was placed. Without it, or over a context that
     froze no band, ``cert_anchor`` is null.
+
+    ``statpack_digest``, given for a predict cell of any stage, records which
+    ``metrics/statpack.json`` build the cell was placed against
+    (``context.statpack_digest``), so a judge grading it after a refresh can
+    rebuild the pack the predictor read (``fedcourts statpack-at``).
 
     ``sg_counsel_of_record_for_petitioner`` is the one counsel fact the band's
     base row carries (:func:`fedcourtsai.pipeline.cell_context.counsel_fact`),
@@ -1432,12 +1443,13 @@ def write_cell_record(  # noqa: PLR0913 - one record, each optional part a keywo
     )
     write_raw_json(
         paths.cell_context,
-        # The two fields not read off the payload. The scrub above ran over a
+        # The fields not read off the payload. The scrub above ran over a
         # copy of it, so only this writer can say what it withheld — stated
         # beside the trigger it keyed on, so a snapshot with no placeholder
         # reads as scrubbed and clean or as never scrubbed, not as either. The
         # cert anchor is pooled over the band just frozen and the statpack the
-        # caller read, so the grading scores against the build in force now.
+        # caller read, so the grading scores against the build in force now;
+        # the statpack digest names that build on every stage, for the judge.
         context.model_copy(
             update={
                 "snapshot_contact_scrub": SnapshotContactScrub(
@@ -1452,6 +1464,7 @@ def write_cell_record(  # noqa: PLR0913 - one record, each optional part a keywo
                         context, anchor_pool.statpack, lookback_terms=anchor_pool.lookback_terms
                     )
                 ),
+                "statpack_digest": statpack_digest,
             }
         ).model_dump(mode="json"),
     )

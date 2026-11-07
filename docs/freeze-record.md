@@ -17491,6 +17491,103 @@ freeze commit is recorded here.
     fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
     print('vide-multi-number-entries' in {b.name for b in H})"` prints `True`.
 
+- **A paper-only docket stages the Solicitor General's own posted filing;
+  recorded 2026-11-07.** A **provisioning-cutoff** change with a harness
+  boundary, recorded ahead of the promotion that carries it. It extends the
+  2026-10-23 entry that froze `paper_only_filings` into a predict cell's
+  context, which is not otherwise edited.
+
+  **Why.** On a docket the Court keeps on paper only under Rule 34.6 and
+  Paragraph 9 of its electronic filing guidelines, it posts no party filing,
+  so a cell's `record/documents/` is empty. These are mostly immigration and
+  detention cases with the United States as a party, and the Office of the
+  Solicitor General posts its own filings on its site. `fedcourts
+  enrich-sg-briefs` (`pipeline/sg_briefs.py`), run by `run-pull`'s live job on
+  its four full windows a day, searches the Office's briefs listing on
+  www.justice.gov by docket number and stores the Office's *Petition for Writ
+  of Certiorari* as `petition` (with its derived `questions-presented`), its
+  *Petition Stage Response* as `brief-in-opposition` and its *Petition Stage
+  Reply Brief* as `cert-reply`. These are kinds a cert cell is already given,
+  so a cell on such a docket reads the government's filing where it read
+  nothing before.
+
+  **The cut is the docket's.** Each row's `entry_date` is the Court's own
+  proceedings entry for the filing, read with the selector's predicates and
+  tied to the Office's filing date: the earliest entry of the kind dated on
+  or after it (the case-opening entry, a cert-stage reply entry before a
+  disposition), or for an opposition the latest such entry, since the entry
+  text does not always say which respondent's it is. A brief whose entry the
+  stored docket does not show yet is not stored, and neither is one with no
+  text layer. The moment cut therefore places these rows where it would place
+  the Court's copy, or later. The case summaries and the questions-presented
+  extract leave these rows out, so neither public artifact's text moves. No
+  undecided docket outside the paper-only class is touched, and a docket
+  with a disposition is not walked.
+
+  No prompt byte and no registry field other than the boundary row moves, so
+  no digest moves. `uv run fedcourts process-digest --all` prints `proc-v19`
+  and the six digests `1789dc26…` (claude-baseline), `a939a164…`
+  (codex-baseline), `889d53dc…` (gemini-baseline), `3b78d93b…`
+  (claude-judge), `5c7cc4e6…` (codex-judge) and `8966bfb2…` (gemini-judge),
+  with and without the change. The predict prompt's paper-only sentence says
+  an empty or missing `record/documents/` is expected there; it stays true
+  of the other side's filings, and a cell given the government's filing
+  reads it like any staged document.
+
+  **A harness boundary under the 2026-10-11 pooled rule.** The change adds to
+  what a predict cell reads under unchanged digests. It is composition, not a
+  cut. The pooled default and the paired figure keep both sides and list each
+  engine's `n` before and after. It cuts only a figure that reads its own
+  effect, such as a per-stratum reading over paper-only dockets.
+  - **The registry row** is `sg-posted-briefs`. It applies to every
+    predictor, and its reach is `all`, because no narrower registered reach
+    names these dockets. It is **gradual**: a docket gains its rows only when
+    the live job's rotation reaches it and the Office has posted, four
+    dockets a window. It is registered **pending** in this change's own PR
+    (`fedcourts register-boundary`), under the 2026-10-14 merge-stamping
+    declaration, and its `merge` and `at` stay null until the promotion merge
+    that carries it to `main` stamps them (`promotion-record`).
+  - **The side test** is the registered one, against the carrying merge.
+    Because the boundary is gradual, an after-side cell provisioned before its
+    docket's rows were stored still lacks them, so the after-side `n` is an
+    upper bound on exposure.
+
+  **The population.** Measured read-only over blob
+  `3b7591263af9cef33a8b234a70faf6d86f7cdb4727be2bce207469edbc7fdcf2` (newest
+  pull 2026-11-07, newest stored snapshot row 2026-07-13), with a dry run of
+  `fedcourts enrich-sg-briefs --max-cases 20` on 2026-11-07. 694 undecided,
+  predict-relevant SCOTUS rows in the live slice; 6 of them carry no
+  disposition and are paper-only with a fillable kind unheld (25-1415, 26-43,
+  26-55, 26-146, 26-379, 26-572). The Office's listing carried a filing for 3:
+  the petitions in 25-1415 and 26-572 and the opposition in 26-55. The dry run
+  would store 2 `petition`, 2 `questions-presented` and 1
+  `brief-in-opposition` rows, in 9 requests to www.justice.gov.
+
+  **What does not move.** No base rate re-prices, no membership rule moves
+  and no scored figure moves. No skill movement is predicted, and a movement
+  in **either** direction across this boundary may not be read as a model
+  effect.
+
+  **The amendment debt.** It is unchanged. This entry adds no new token.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_sg_briefs.py` is green;
+  - the first `run-pull` live full window after the promotion carries a
+    *Solicitor General's posted briefs for paper-only dockets* section whose
+    tally line reads `enrich-sg-briefs (applied)` and names at least one
+    stored row while the class above is unfilled;
+  - where the corpus is pulled after that window, `uv run fedcourts
+    provision-snapshot --court scotus --docket <docket_id> --event
+    evt-petition-disposition` for a docket that window's report lists as
+    `stored` prints its `documents (…) -> <dir>` line, and the stored kind's
+    file under `<dir>` opens with that docket's own number in the caption;
+  - on `main` once the promotion has merged, `uv run python -c "from
+    fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
+    print('sg-posted-briefs' in {b.name for b in H})"` prints `True`.
+
 - **OT2015's applications are back-filled into the interim docket, through
   the Court's legacy docket pages, 2026-11-07.** The last Term of the
   OT2015 to OT2025 interim series. The interim base rate's pool is every

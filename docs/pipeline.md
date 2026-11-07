@@ -1008,9 +1008,13 @@ lands before the next evaluate tick (*The evaluate queue is level-triggered
 too*, below). A second step on the same windows, `enrich-decision-below
 --apply --max-cases 6`, stores the decision below for up to six pending cert
 petitions from the federal courts of appeals, staged for cert and merits cells
-([document-provisioning.md](document-provisioning.md)). Those two steps alone in
-the live job hold the CourtListener token, and both are `continue-on-error`: a
-failed or slow enrichment never fails the live pull, whose facts the push and
+([document-provisioning.md](document-provisioning.md)). A third,
+`enrich-sg-briefs --apply --max-cases 4`, stores the Solicitor General's own
+posted briefs for up to four dockets the Court keeps on paper only (Rule
+34.6), read from the Office's pages on www.justice.gov; it holds no token.
+The first two steps alone in
+the live job hold the CourtListener token, and all three are
+`continue-on-error`: a failed or slow enrichment never fails the live pull, whose facts the push and
 commit carry either way. The **pull** job runs one more CourtListener step after
 `pull-all`, `watchlist-refresh --once-a-day`: the AI watchlist's lower-court
 dockets, facts only, on their own share, taken by the day's first pull window

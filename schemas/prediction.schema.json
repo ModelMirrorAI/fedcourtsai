@@ -418,6 +418,19 @@
           "description": "Whether the cell's own `input_snapshot` named the snapshot the harness provisioned. Judged by `stamp-cell`, which normalizes both sides to the provisioned file's day, so the several spellings the field carries across the committed set all read as agreement. 'read' is agreement \u2014 the cell's SELF-REPORT that it read that file, never verified uptake. 'unread' is a cell that reported no snapshot, or named a different one, while the provisioned file sat on disk: it says the forecast may have been formed without the baseline every predictor is supposed to share, which is the one thing the rest of this block cannot say. Null where the stamp could not judge: a record stamped before the comparison existed, or a context with no provisioned snapshot file beside it to compare against. **It masks nothing.** The fields beside it stay as provisioning derived them, because they are not all payload-uptake facts \u2014 `band` and `salience_version` reach the cell through `record/context.json`, a different file, and are the population label the evaluator prices the cell against rather than an input it conditions on; nulling them would move the cell to the `terminal` basis, which is the band re-derived at evaluation. So this field reports, and every scoring surface goes on reading the same conditioning it did before",
           "title": "Snapshot Uptake"
         },
+        "statpack_digest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "`pipeline.base_rates.statpack_digest` of the `metrics/statpack.json` checked out when the cell was placed, on a predict cell of any stage: the build whose figures the cell's `metrics/statpack.md` rendered. Names the pack a judge rebuilds the predictor's view from (`fedcourts statpack-at`) after a refresh has moved the committed one. A provisioned claim the cell's workspace can reach, read by no scoring surface; `statpack-at` checks it against the build in force at the predict run id. Null on an evaluate cell, where no statpack was readable at provisioning, and on cells placed before the record",
+          "title": "Statpack Digest"
+        },
         "term": {
           "anyOf": [
             {

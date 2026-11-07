@@ -417,7 +417,11 @@ the side of the job boundary that holds the corpus credentials
 (`summary-stage-check`), as an allowlist: a case crosses only if it was
 planned and its tree holds exactly what provisioning writes — the planned day's
 snapshot in the Court's own shape, `context.json`, and the documents manifest
-with one text file per listed document, each fetched from supremecourt.gov. A
+with one text file per listed document, each fetched from supremecourt.gov.
+The one other source a stored document can have, the Solicitor General's own
+posted copy on a docket the Court keeps on paper only, is left out of the
+plan's record digest and withheld from a staged case document by document,
+with its manifest row, so the case crosses with the Court's content alone. A
 symlink removes the case rather than being followed, and anything else under
 the stage root is removed. A removed case is reported skipped and planned again
 by the next run. The same check withholds any document the contact scrub left

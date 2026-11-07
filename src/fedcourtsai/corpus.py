@@ -968,7 +968,9 @@ class CaseDocument(BaseModel):
         "cert-reply) | questions-presented | …"
     )
     url: str = Field(
-        description="The supremecourt.gov DocumentUrl fetched; for a combined "
+        description="The supremecourt.gov DocumentUrl fetched (on a docket the Court "
+        "keeps on paper only, the Solicitor General's own posted PDF on www.justice.gov "
+        "for a petition, opposition or cert-stage reply); for a combined "
         "brief-in-opposition (multiple respondents) the '|'-joined set of fetched "
         "URLs, an idempotency key rather than a single fetchable link. Every "
         "other kind names a single link — the merits briefs included, stored per "

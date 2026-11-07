@@ -327,6 +327,18 @@ prompt bytes and the resolved registry config are what it hashes. The restraint
 is the point: degrading the block instead would have moved a scored number,
 which is what would have put this in the freeze record.
 
+`context.statpack_digest` sits on the same footing, though provisioning
+writes it rather than the stamp, which only copies it on. Provisioning records on
+every predict cell, whatever its stage, the digest of the
+`metrics/statpack.json` checked out at placement, so a judge grading after a
+refresh can rebuild the pack the predictor read (`fedcourts statpack-at`). It
+is a field added to the block and read by no scoring surface: the cert anchor a
+grading stamps still comes from `cert_anchor`, and an interim or merits
+grading still pools the statpack checked out at grading. So no digest moves
+and no freeze-record entry is owed. Like the rest of the block it is
+agent-reachable, and `statpack-at` checks it against the same harness-side
+bound `verify_cert_anchor` uses before naming a build.
+
 **On an evaluate cell the stamp runs after un-aliasing, and the order is not
 interchangeable.** The stamp joins each evaluation to the prediction it scored on
 the `predictor_id` field, so under a blind-grading alias the join simply misses
