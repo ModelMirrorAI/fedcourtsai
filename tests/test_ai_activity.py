@@ -39,6 +39,7 @@ from fedcourtsai.schemas import (
     AiActivityMotion,
     AiCaseActivity,
     AiCaseActivityEntry,
+    AiCaseAvailableEntry,
 )
 from fedcourtsai.serialize import read_model
 from fedcourtsai.validate import validate_ledger
@@ -509,6 +510,69 @@ def test_became_available_lists_held_entries_that_gained_readable_documents() ->
             None,
         ),
         ("NOTICE of Appearance by Y.", _docs((10, None, True, "")), {10}, None),
+        (
+            "MOTION to Unseal Document 45 filed by Intervenor.",
+            _docs((10, None, True, "")),
+            {10},
+            None,
+        ),
+        ("ORDER granting 50 Motion to Unseal.", _docs((10, None, True, "")), {10}, None),
+        (
+            "MEMORANDUM OPINION AND ORDER re 30 MOTION to Dismiss (public redacted version).",
+            _docs((10, None, True, "")),
+            {10},
+            (AvailableKind.opinion, 1, "dismiss"),
+        ),
+        (
+            "MOTION for Leave to File Excess Pages for Opposition to Motion for Summary "
+            + "Judgment. (Attachments: # 1 Exhibit)",
+            _docs((10, None, True, ""), (11, 1, True, "")),
+            {11},
+            None,
+        ),
+        (
+            "MOTION for Extension of Time to File Response as to 20 MOTION to Dismiss. "
+            + "(Attachments: # 1 Exhibit)",
+            _docs((10, None, True, ""), (11, 1, True, "")),
+            {11},
+            None,
+        ),
+        (
+            "MOTION to Seal exhibits to motion for summary judgment. (Attachments: # 1 Exhibit)",
+            _docs((10, None, True, ""), (11, 1, True, "")),
+            {11},
+            None,
+        ),
+        (
+            "MOTION to Dismiss filed by OpenAI. (Attachments: # 1 Proposed Order)",
+            _docs((10, None, True, ""), (11, 1, True, "Proposed Order")),
+            {11},
+            None,
+        ),
+        (
+            "Defendant's Notice of Motion and Motion to Exclude Expert Testimony of Dr. X.",
+            _docs((10, None, False, ""), (11, 1, True, "Exhibit 1")),
+            {11},
+            (AvailableKind.exhibits, 1, None),
+        ),
+        (
+            "TRANSCRIPT REQUEST by Plaintiff for proceedings held on 10/1/2026.",
+            _docs((10, None, True, "")),
+            {10},
+            None,
+        ),
+        (
+            "TRANSCRIPT of Discovery Conference held on 10/1/2026.",
+            _docs((10, None, True, "")),
+            {10},
+            None,
+        ),
+        (
+            "DECLARATION of X in Opposition to Motion. (Attachments: # 1 Exhibit A)",
+            _docs((10, None, False, ""), (11, 1, True, "Redacted Exhibit A")),
+            {11},
+            (AvailableKind.unsealed, 1, None),
+        ),
     ],
 )
 def test_the_availability_rule_keeps_significant_documents(
@@ -550,7 +614,7 @@ def test_available_entries_skip_old_history_and_render_last_by_case(tmp_path: Pa
     assert "**This update:** 7 newly readable" in text
     assert "## Newly available" in text
     assert "- Ruling on a motion to dismiss of Oct 10 is now readable (N.D. Cal." in text
-    assert "1 exhibit filed Oct 10 on a motion for summary judgment is now readable" in text
+    assert "1 exhibit filed Oct 10 with a motion for summary judgment is now readable" in text
     assert text.count("exhibit filed") == AVAILABLE_PER_CASE - 1
     assert "- And 2 more in this case. [View the docket]" in text
     assert "MOTION for Summary" not in text
@@ -577,3 +641,29 @@ def test_a_record_needs_an_entry_and_the_availability_label_with_its_list() -> N
     entry = _activity("A v. B", "copyright", 1, "complaint", TODAY)
     with pytest.raises(ValueError, match="available_rule"):
         AiCaseActivity(day=TODAY, rule=ACTIVITY_RULE, entries=[entry], available_rule="x")
+
+
+def test_one_entry_recorded_twice_keeps_the_weightier_kind(tmp_path: Path) -> None:
+    def readable(kind: str, documents: int) -> AiCaseAvailableEntry:
+        return AiCaseAvailableEntry.model_validate(
+            {
+                "case": "A v. B",
+                "category": "copyright",
+                "court": "cand",
+                "docket_id": 1,
+                "docket_number": "3:26-cv-00001",
+                "entry_id": 9,
+                "date_filed": "2026-10-20",
+                "kind": kind,
+                "documents": documents,
+                "url": "https://www.courtlistener.com/docket/1/#entry-9",
+            }
+        )
+
+    record_activity(tmp_path, TODAY, [], [readable("ruling", 1)])
+    record_activity(tmp_path, TODAY, [], [readable("exhibits", 3)])
+    path = record_activity(tmp_path, TODAY, [], [readable("exhibits", 2)])
+    assert path is not None
+    [kept] = read_model(path, AiCaseActivity).available
+    assert (kept.kind, kept.documents) == ("ruling", 1)
+    assert [e.entry_id for e in owed_rulings(tmp_path, TODAY)] == [9]

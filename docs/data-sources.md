@@ -653,7 +653,7 @@ though the Court does not.
 
 **Model summaries of the AI watchlist's rulings** are a public surface:
 the AI-cases update carries, under an activity record for an opinion, a
-ruling or a judgment, a short plain-language summary of that ruling, labeled
+ruling or a judgment (new, or newly readable), a short plain-language summary of that ruling, labeled
 with the model that wrote it, as the case summaries are
 ([case-summaries.md](case-summaries.md), *AI watchlist rulings*). The update
 renders without it. The question is what such a summary may be

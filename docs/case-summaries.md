@@ -516,7 +516,7 @@ sections. A ruling is summarized once; the file is never rewritten.
 
 **Which rulings.** A ruling is owed a summary when an activity record dated
 within the last 30 days lists it as an opinion, a ruling on a motion or a
-judgment, the kinds a court writes, and no summary exists for its entry. It is
+judgment, as a new entry or as one whose document became readable, the kinds a court writes, and no summary exists for its entry. It is
 planned when the corpus's newest snapshot of its docket holds the text of the
 entry's main document and the entry is not a party's draft: an entry whose
 description reads "proposed" or "stipulat…" (proposed findings, a stipulated

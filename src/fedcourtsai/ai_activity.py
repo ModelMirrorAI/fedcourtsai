@@ -35,14 +35,17 @@ are, it keeps:
   expert), with an opposition or reply to one, or in an exhibit or declaration
   entry that names one: where discovery material usually becomes public;
 - **unsealed** documents and public redacted versions of any filing;
-- **transcripts**, except of a status or case-management conference.
+- **transcripts**, except of a conference (status, scheduling, discovery,
+  pretrial), which is routine.
 
 An entry whose documents were readable when it first appeared is not "newly
-available": it was an ordinary item.
+available": it was an ordinary item. An incremental refresh sees a document
+arrive only if upstream marks its entry modified; the weekly whole re-read
+sees every one, so an arrival is recorded within a week of it at the latest.
 
 The record carries identifiers, dates, the kind this rule assigns (with the
-principal motion a motion, ruling or opinion names) and a link to the entry on
-CourtListener: never the entry's text. CourtListener's docket
+principal motion a motion, ruling or opinion names), how many documents became
+readable, and a link to the entry on CourtListener: never the entry's text. CourtListener's docket
 content is CC BY-ND, so what is published is a pointer to the public record,
 not a copy of it (``docs/data-sources.md``).
 """
@@ -325,27 +328,58 @@ _AVAILABLE_MAIN: Final = {
     EntryKind.ruling: AvailableKind.ruling,
     EntryKind.complaint: AvailableKind.complaint,
 }
+# A document that is itself the public form of sealed material: its own text
+# opens by saying so. A motion or an order *about* unsealing is not.
 _UNSEALED = re.compile(
-    r"\bunseal|redacted\s+version|public(?:ly\s+filed)?\s+(?:redacted\s+)?version", re.I
+    r"^\W*(?:unsealed|(?:public(?:ly\s+filed)?\s+)?redacted|public(?:ly\s+filed)?\s+version)\b",
+    re.I,
 )
-_TRANSCRIPT = re.compile(r"^\s*(?:official\s+|certified\s+)?transcript", re.I)
-_CONFERENCE = re.compile(r"status\s+conference|case\s+management|scheduling\s+conference", re.I)
-# A filing whose exhibits carry the evidence a principal motion is argued on:
-# the motion itself, an opposition or reply to one, an exhibit or declaration
-# entry that names one, or a motion to exclude an expert.
+_TRANSCRIPT = re.compile(
+    r"^\s*(?:official\s+|certified\s+)?transcript\b(?!\s+(?:request|order|designation))", re.I
+)
+# A transcript of a conference (status, scheduling, discovery, pretrial) is routine.
+_CONFERENCE = re.compile(r"conference|case\s+management", re.I)
+# An attachment that is not evidence: the filing's paperwork.
+_PAPERWORK = re.compile(
+    r"proposed\s+order|certificate|cover\s+sheet|summons|text\s+of\s+proposed", re.I
+)
+# A filing whose exhibits carry the evidence a principal motion is argued on.
+# The motion itself is read by the significance rule (so a routine motion
+# that only mentions one never qualifies); an opposition or reply to one, an
+# exhibit or declaration entry that names one, and a motion to exclude an
+# expert are read here, each from the start of the entry.
 _EXHIBIT_TOPIC = (
     r"(?:summary\s+judgment|class\s+certification|preliminary\s+injunction|"
     r"temporary\s+restraining\s+order|to\s+dismiss|judgment\s+on\s+the\s+pleadings|"
-    r"compel\s+arbitration|to\s+exclude|daubert)"
+    r"compel\s+arbitration|to\s+(?:partially\s+)?exclude|daubert)"
 )
 _EXHIBIT_PARENT = re.compile(
-    r"^\s*(?:(?:joint|cross|renewed|notice\s+of|administrative)\s+)*motion\b[^.;]{0,120}?"
+    r"^\s*(?:opposition|response|reply|memorandum)\b[^.;]{0,160}?"
     + _EXHIBIT_TOPIC
-    + r"|^\s*(?:opposition|response|reply|memorandum)\b[^.;]{0,160}?"
+    + r"|^\s*(?:additional\s+)?(?:exhibits?|declaration|affidavit|appendix)\b.{0,240}?"
     + _EXHIBIT_TOPIC
-    + r"|^\s*(?:exhibits?|declaration|affidavit|appendix)\b.{0,240}?"
-    + _EXHIBIT_TOPIC,
+    + r"|^\s*(?:[\w']+\s+){0,6}?motion\s+to\s+(?:partially\s+)?exclude\b",
     re.I | re.DOTALL,
+)
+# Business that makes a filing routine even when it names a principal motion:
+# the significance rule's routine list, less the briefing and sealing words
+# these filings carry by nature.
+_EXHIBIT_ROUTINE = re.compile(
+    r"extension\s+of\s+time|extend\s+(?:the\s+)?(?:time|deadline)|excess\s+pages|"
+    r"page\s+limit|leave\s+to\s+file|discovery|deposition|subpoena|\bto\s+seal\b|"
+    r"\bwithdraw|proposed\s+order|\bschedul",
+    re.IGNORECASE,
+)
+# Which kind wins when one entry is recorded twice with different kinds: the
+# court's own document first, then unsealed material, a transcript, exhibits.
+_AVAILABLE_RANK: Final = (
+    "opinion",
+    "judgment",
+    "ruling",
+    "complaint",
+    "unsealed",
+    "transcript",
+    "exhibits",
 )
 
 
@@ -379,7 +413,7 @@ def became_available(
     return found
 
 
-def classify_available(
+def classify_available(  # noqa: PLR0911 - one return per kind the rule keeps
     entry: Mapping[str, Any], gained: frozenset[int]
 ) -> tuple[AvailableKind, int, str | None] | None:
     """What the availability rule keeps of an entry's newly readable documents.
@@ -390,21 +424,51 @@ def classify_available(
     """
     docs = _readable(entry)
     main = [i for i in gained if docs[i].get("attachment_number") is None]
-    attached = [i for i in gained if docs[i].get("attachment_number") is not None]
+    attached = [
+        i
+        for i in gained
+        if docs[i].get("attachment_number") is not None
+        and not _PAPERWORK.search(str(docs[i].get("description") or ""))
+    ]
     texts = _texts(entry)
-    described = [str(docs[i].get("description") or "") for i in gained]
-    if any(_UNSEALED.search(t) for t in [*texts, *described]):
-        return AvailableKind.unsealed, len(gained), _exhibit_motion(texts)
     kind = classify(entry)
     if main and kind in _AVAILABLE_MAIN:
         return _AVAILABLE_MAIN[kind], 1, principal_motion(entry)
+    if any(_UNSEALED.search(t) for t in texts):
+        return AvailableKind.unsealed, len(main) + len(attached), _exhibit_motion(texts)
+    unsealed = [i for i in attached if _UNSEALED.search(str(docs[i].get("description") or ""))]
+    if unsealed:
+        return AvailableKind.unsealed, len(unsealed), _exhibit_motion(texts)
     if main and any(_TRANSCRIPT.search(t) for t in texts):
         if any(_CONFERENCE.search(t) for t in texts):
             return None
         return AvailableKind.transcript, 1, None
-    if attached and any(_EXHIBIT_PARENT.search(t) for t in texts):
+    if attached and _carries_evidence(entry, kind, texts):
         return AvailableKind.exhibits, len(attached), _exhibit_motion(texts)
     return None
+
+
+def _carries_evidence(entry: Mapping[str, Any], kind: EntryKind | None, texts: list[str]) -> bool:
+    """Whether the entry's exhibits are the evidence a principal motion is argued on."""
+    if kind is EntryKind.motion and principal_motion(entry) is not None:
+        return True
+    for text in texts:
+        match = _EXHIBIT_PARENT.search(text)
+        if match is not None and not _EXHIBIT_ROUTINE.search(text, 0, match.end()):
+            return True
+    return False
+
+
+def merge_available(
+    prior: AiCaseAvailableEntry | None, later: AiCaseAvailableEntry
+) -> AiCaseAvailableEntry:
+    """One entry recorded twice: one kind sums its documents, else the weightier kind stands."""
+    if prior is None:
+        return later
+    if prior.kind == later.kind:
+        return later.model_copy(update={"documents": prior.documents + later.documents})
+    rank = _AVAILABLE_RANK.index
+    return prior if rank(prior.kind) <= rank(later.kind) else later
 
 
 def _exhibit_motion(texts: list[str]) -> str | None:
@@ -547,13 +611,7 @@ def record_activity(
         readable = {e.entry_id: e for e in record.available}
     merged.update({e.entry_id: e for e in entries})
     for found in available:
-        prior = readable.get(found.entry_id)
-        same = prior is not None and prior.kind == found.kind
-        readable[found.entry_id] = (
-            found.model_copy(update={"documents": prior.documents + found.documents})
-            if same and prior is not None
-            else found
-        )
+        readable[found.entry_id] = merge_available(readable.get(found.entry_id), found)
     if not merged and not readable:
         return None
     write_json(

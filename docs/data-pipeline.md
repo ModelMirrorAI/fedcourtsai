@@ -143,7 +143,9 @@ records nothing. The same refresh records, under a second rule
 became readable since: opinions, judgments, rulings and complaints; exhibits
 filed with a principal motion, an opposition or reply to one, or a motion to
 exclude an expert; unsealed documents and public redacted versions; and
-transcripts other than of status conferences, for entries filed within 60 days.
+transcripts other than of conferences, for entries filed within 60 days. An
+incremental refresh sees an arrival only when upstream marks the entry
+modified, so the weekly whole re-read is what guarantees it is seen.
 The record carries identifiers, dates, kinds (with the principal motion an
 entry names), document counts and links, never docket text.
 

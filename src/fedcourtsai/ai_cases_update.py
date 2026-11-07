@@ -42,7 +42,7 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Final
 
-from .ai_activity import ACTIVITY_DIR
+from .ai_activity import ACTIVITY_DIR, merge_available
 from .ai_rulings import RulingSummary, committed_summaries
 from .ai_watchlist import AiWatchlist
 from .schemas import AiCaseActivity, AiCaseActivityEntry, AiCaseAvailableEntry
@@ -220,12 +220,7 @@ def build_ai_cases_update(
             for entry in record.entries:
                 found.setdefault(entry.entry_id, entry)
             for later in record.available:
-                prior = readable.get(later.entry_id)
-                readable[later.entry_id] = (
-                    later.model_copy(update={"documents": prior.documents + later.documents})
-                    if prior is not None and prior.kind == later.kind
-                    else prior or later
-                )
+                readable[later.entry_id] = merge_available(readable.get(later.entry_id), later)
         day += timedelta(days=1)
     by_case: dict[str, list[AiCaseAvailableEntry]] = {}
     for later in sorted(readable.values(), key=lambda e: (e.date_filed, e.case, e.entry_id)):
@@ -354,10 +349,11 @@ def available_line(entry: AiCaseAvailableEntry) -> str:
     when = f"{entry.date_filed:%b} {entry.date_filed.day}"
     motion = MOTION_LABELS.get(entry.motion or "")
     on = f" on a motion {motion}" if motion else ""
+    with_motion = f" with a motion {motion}" if motion else ""
     n = entry.documents
     if entry.kind == "exhibits":
         what = "exhibit" if n == 1 else "exhibits"
-        return f"{n} {what} filed {when}{on} {'is' if n == 1 else 'are'} now readable"
+        return f"{n} {what} filed {when}{with_motion} {'is' if n == 1 else 'are'} now readable"
     if entry.kind == "unsealed":
         count = "1 document" if n == 1 else f"{n} documents"
         return f"Unsealed or public version of a filing of {when}{on} ({count}) now readable"
@@ -374,6 +370,7 @@ def _available_lines(
     update: AiCasesUpdate, name: str, category: str, entries: tuple[AiCaseAvailableEntry, ...]
 ) -> list[str]:
     lines = _case_heading(update, name, category)
+    listed = {e.entry_id for _, _, items in update.cases for e in items}
     for entry in entries[:AVAILABLE_PER_CASE]:
         where = f"{court_name(entry.court)} {entry.docket_number}"
         if entry.entry_number is not None:
@@ -381,8 +378,9 @@ def _available_lines(
         lines.append(
             f"- {available_line(entry)} ({_escape(where)}). [View on CourtListener]({entry.url})"
         )
+        # A ruling also listed above already carries its summary there.
         summary = update.summaries.get(entry.entry_id)
-        if summary is not None:
+        if summary is not None and entry.entry_id not in listed:
             lines += _summary(summary)
     rest = entries[AVAILABLE_PER_CASE:]
     if rest:
