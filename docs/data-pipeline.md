@@ -1025,6 +1025,24 @@ record moves by that document alone: the arrival cutoff is fixed at the day
 after the event opened, so a cell minted a window later is cut to the same
 information set and gains only the stored decision below.
 
+The **Solicitor General's posted briefs** fill a gap no supremecourt.gov fetch
+can: a docket the Court keeps on paper only under Rule 34.6 has no link behind
+any party filing, so the selector stores nothing for it
+(`pipeline/paper_only.py`). Where the United States is a party, the Office of
+the Solicitor General posts its own filing, and `enrich-sg-briefs`
+(`pipeline/sg_briefs.py`) stores it through `upsert_documents` under the kind a
+cert cell already reads: the Office's petition as `petition`, its opposition
+as `brief-in-opposition`, its cert-stage reply as `cert-reply`. Each row is
+dated by the Court's own docket entry for the filing, read with the selector's
+predicates, so it is cut against a moment exactly as the Court's copy would
+be, and a brief whose entry the stored docket does not show yet waits. It
+keeps no cursor: a docket leaves the class by holding every kind its entries
+show, or by the Court lifting the rule, at which point the selector finds the
+Court's own links and the freshness pass replaces these rows. The `run-pull`
+live job runs it as `enrich-sg-briefs --apply --max-cases 4` on the same four
+full windows as the two steps above, with no token, `continue-on-error` and a
+4-minute timeout.
+
 `provision-snapshot --refuse-terminal` (the forward predict path's guard —
 `run-predict` in production, mirrored by the integration harness) refuses a
 forward cell at the provisioning seam through three gates, mechanical-first:

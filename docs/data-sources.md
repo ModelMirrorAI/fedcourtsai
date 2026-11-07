@@ -599,12 +599,12 @@ a corrected or extended span is a new rule label, never an edit to
 carry no copyright, and the committed roster republishes only names and the
 dates of public office.
 
-**The Solicitor General's posted briefs** are a candidate document source,
-assessed and not adopted. The question it would answer is narrow: on a docket
+**The Solicitor General's posted briefs** are a document source for one
+narrow class (`pipeline/sg_briefs.py`, `fedcourts enrich-sg-briefs`): on a docket
 the Court has put under Rule 34.6 and Paragraph 9 of its electronic filing
 guidelines (`PredictionContext.paper_only_filings`), the Court posts no party
 filing, so a cell gets no `documents/`; where the United States is a party,
-the Office of the Solicitor General may post its own brief on its site even
+the Office of the Solicitor General posts its own brief on its site even
 though the Court does not.
 
 - **Source and shape.** `justice.gov/osg/supreme-court-briefs` lists the
@@ -614,8 +614,20 @@ though the Court does not.
   (the Office's label for a brief in opposition), with the PDF linked from it.
   The docket number is the join to a corpus row, and the types map onto the
   existing kinds in `pipeline/documents.py`: the Office's petition onto
-  `petition`, a *Petition Stage Response* onto `brief-in-opposition`. A
-  waiver of response posts no brief at all.
+  `petition`, a *Petition Stage Response* onto `brief-in-opposition`, a
+  *Petition Stage Reply Brief* onto `cert-reply`. A waiver of response posts
+  no brief at all. The listing's own table carries every field the fill reads
+  (docket number, type, filing date and the PDF link), so one search of it by
+  docket number finds a docket's briefs without opening the brief pages. On
+  2026-11-07 the Office's listing carried the government's filing for three of
+  the four paper-only dockets with one that the 2026-10-31 sizing named
+  (25-1415, 26-572 and 26-55; not 25-1343).
+- **Crawling.** `www.justice.gov/robots.txt`, read 2026-11-07, sets
+  `Crawl-delay: 10` for every agent and disallows nothing under `/osg/`; it
+  disallows the listing's paging (`?page=`) and facet (`f[…]`) parameters,
+  which the fill never builds, since a docket-number search answers on its
+  first page. Every request waits the crawl delay and stays on the Office's
+  section of that host, redirects included.
 - **Terms.** The Department of Justice's legal-policies page states that,
   unless otherwise indicated, information on its sites is in the public domain
   and may be copied and distributed without permission; the stated exceptions

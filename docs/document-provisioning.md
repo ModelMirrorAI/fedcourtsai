@@ -22,6 +22,7 @@ documents: `provision-opinion` stages a majority opinion in its own slot
 | Fetch | `live.provision_documents` fetches when a lane queues a case for prediction: on the distribution transition, on a pending application's change, and in the frontier catch-up. The salience selection sweep fetches for selected cases, which is how the merits kinds arrive. Every live cycle ends with a freshness pass over the cases it polled. A `(kind, url)` already stored is never fetched again. Multi-respondent oppositions are combined into one row, and so are a docket's supplemental briefs and its party letters, one row per kind. Losses are recorded by reason. | `pipeline/documents.py`: `fetch_case_documents`; `pipeline/live.py`: `provision_documents`, `refresh_stale_documents` | live-sources.md, *Document freshness* |
 | Transcripts | The argument transcript is linked by no docket entry, so each live cycle reads the Court's per-Term transcript lists and stores the transcripts a corpus case lacks, dated by the argument day. | `supremecourt.py`: `parse_transcript_listing`; `pipeline/live.py`: `fetch_argument_transcripts` | live-sources.md, *Argument transcripts* |
 | Argument features | Not a document: a deterministic parse of the transcript a post-argument cell is staged counts each Justice's turns and words by the side of the advocate whose time it was, read from the segment headers, and reports what it could not attribute. Written beside the documents as `record/argument-features.json`, from the staged copy, so the counts describe the text the cell reads; a parse whose totals do not reconcile writes no file. | `pipeline/argument_features.py`: `parse_argument_features`; `provision.py`: `staged_argument_features`; `fedcourts argument-features` | live-sources.md, *Argument transcripts* |
+| Paper-only fill | On a docket the Court keeps on paper only (Rule 34.6), where no filing has a link, the Solicitor General's own posted petition, opposition or cert-stage reply is read from the Office's pages on www.justice.gov and stored under that kind, dated by the docket's entry for the filing. `run-pull`'s live job runs it on four dockets each full window. | `pipeline/sg_briefs.py`: `fill_candidates`, `fill_sg_briefs`; `fedcourts enrich-sg-briefs` | data-sources.md, *The Solicitor General's posted briefs* |
 | Back-fill | A dispatched pass fetches the selection for predict-relevant cases whose stored set is missing kinds. | `pipeline/document_backfill.py`; `fedcourts backfill-documents` | live-sources.md, *Contract for the document back-fill pass* |
 | Extract | pypdf text, cut at the cap. Petitions, applications and appendices are cut around the appendix so the argument survives. A combined row of several filings is cut filing by filing, every filing's own text before any appendix, the cap shared between them. Each cut leaves a `[pipeline note: …]` line. The questions presented are cut from the petition text, from the QUESTION(S) PRESENTED heading (or a "Questions to/for Review" heading) to the next front-matter heading, at most 4,000 characters; a section cut at that cap is stored `truncated`, and `backfill-questions-presented` re-derives stored rows when the cutter changes. An argument transcript is cleaned of its line numbers, headers and word index before the plain cut. | `extract_pdf_text`, `extract_filing_text`, `extract_questions_presented`, `extract_transcript_text` | live-sources.md, *The appendix-aware cut* |
 | Re-cut | A stored petition, application or appendix still under the plain head cut (truncated, not OCR-derived, no `[pipeline note:` line) is re-fetched by its stored URL and re-cut by the appendix-aware rule. run-repair's `recut` pass applies it a slice at a time. | `pipeline/document_recut.py`; `fedcourts recut-documents` | live-sources.md, *Contract for the re-cut pass* |
@@ -141,10 +142,19 @@ Each of these is stated, with its reason, where the code makes the choice:
   `record/documents/` from a provisioning failure, and the predict prompt
   tells the cell an empty `record/documents/` is expected there. The flag
   clears once the Court quotes the rule to call for electronic versions, after
-  briefing and argument are scheduled (`pipeline/paper_only.py`). The
-  Solicitor General's own posted filings are an assessed, not adopted,
-  fallback for the government's side (*The Solicitor General's posted briefs*
-  in [data-sources.md](data-sources.md)).
+  briefing and argument are scheduled (`pipeline/paper_only.py`). Where the
+  United States is a party, the government's side is filled from the
+  Solicitor General's own posted briefs: `fedcourts enrich-sg-briefs` stores
+  the Office's petition, opposition or cert-stage reply under that kind, dated
+  by the docket entry that records it, so such a docket stages the
+  government's filing and nothing of the other side's
+  (`pipeline/sg_briefs.py`; *The Solicitor General's posted briefs* in
+  [data-sources.md](data-sources.md)). The `sg-posted-briefs` harness boundary
+  dates the cells that can read them. An opposition the Office posts for a
+  docket with a second respondent is stored alone, dated by the docket's
+  latest opposition entry, since the entry text does not always say which is
+  the government's. A scanned posted brief is not OCR'd: the recovery and
+  re-cut passes re-fetch only the Court's own links.
 - **A consolidated member is checked for freshness on its own docket.** A merits
   filing entered only on the lead is left to the selection sweep
   (live-sources.md, *Document freshness*).

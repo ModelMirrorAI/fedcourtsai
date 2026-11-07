@@ -28,7 +28,10 @@ run-name: >-
 #   petitions (a few CourtListener requests a case, capped per window). Both
 #   run on four of the twelve live windows a day (the `47 4,10,16,22` cron and
 #   every dispatch), never on the eight live-only ones, so the live cadence
-#   never multiplies that spend.
+#   never multiplies that spend. On the same windows, and holding no token,
+#   `enrich-sg-briefs` stores the Solicitor General's own posted briefs for a
+#   few dockets whose filings the Court keeps on paper only (Rule 34.6), read
+#   from the Office's pages on www.justice.gov at its crawl delay.
 # - `enrich` (dispatch mode=enrich-opinions only, never scheduled): walks
 #   granted SCOTUS rows to their published opinion cluster and lands the
 #   reporter citations and the opinion body (`fedcourts enrich-opinions`,
@@ -847,6 +850,45 @@ jobs:
           fi
           exit "$status"
 
+      # The Solicitor General's posted briefs for a docket the Court keeps on
+      # paper only (Rule 34.6), where it posts no filing at all
+      # (`fedcourts enrich-sg-briefs`; docs/live-sources.md): the Office's
+      # petition, opposition or cert-stage reply, read from its pages on
+      # www.justice.gov and stored under the kind a cert cell is given, dated
+      # by the docket's own entry. No token: the pages are public, and the
+      # client is held to the Office's section of that one host.
+      #
+      # The same full windows, failure tolerance and two-layer wall-clock
+      # bound as the steps above. `--max-cases 4` keeps a window to four
+      # listing searches and a PDF for each brief found, every request 10s
+      # apart (the site's robots.txt crawl delay), so the 4-minute inner
+      # timeout covers the class's worst window; a docket it cuts off is
+      # searched again next window.
+      - name: Store the Solicitor General's posted briefs for paper-only dockets
+        id: enrich-sg-briefs
+        if: github.event_name != 'schedule' || github.event.schedule == '47 4,10,16,22 * * *'
+        continue-on-error: true
+        timeout-minutes: 5
+        run: |
+          # No -e, as in the steps above. The report JSON goes to the log; the
+          # one-line tally (stderr) to the summary.
+          set -uo pipefail
+          status=0
+          timeout --signal=INT --kill-after=30 240 \
+            .venv/bin/fedcourts enrich-sg-briefs --apply --max-cases 4 \
+            2> sg-briefs.txt || status=$?
+          cat sg-briefs.txt
+          {
+            echo "### Solicitor General's posted briefs for paper-only dockets"
+            echo '```'
+            cat sg-briefs.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$status" -ne 0 ]; then
+            echo "::warning::the SG-briefs fill failed (exit ${status}); the live pull carries on, and the next full live window retries"
+          fi
+          exit "$status"
+
       - name: Push the corpus blob to the remote
         run: |
           # live-poll wrote fresh snapshots, rows, and cursors into
@@ -904,6 +946,7 @@ jobs:
           # here on every window it fails, not only an annotation.
           ENRICH_OUTCOME: ${{ steps.enrich-awaiting.outcome }}
           DECISION_BELOW_OUTCOME: ${{ steps.enrich-decision-below.outcome }}
+          SG_BRIEFS_OUTCOME: ${{ steps.enrich-sg-briefs.outcome }}
         run: |
           set -euo pipefail
           count() {
@@ -934,6 +977,7 @@ jobs:
             echo "| outcomes left unrecorded | ${unrecorded} |"
             echo "| opinion enrichment (awaiting grading) | ${ENRICH_OUTCOME:-—} |"
             echo "| decision below (pending cert petitions) | ${DECISION_BELOW_OUTCOME:-—} |"
+            echo "| SG posted briefs (paper-only dockets) | ${SG_BRIEFS_OUTCOME:-—} |"
           } >> "$GITHUB_STEP_SUMMARY"
           # Per-case triage list — see the pull job's copy for the rationale.
           triage=$(jq -r '.[] | "- `\(.court)/\(.docket)` — \(.reason)"' \
