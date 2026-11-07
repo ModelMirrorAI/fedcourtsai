@@ -1017,6 +1017,14 @@
       "predictors": null,
       "reach": "all",
       "gradual": true
+    },
+    {
+      "name": "vide-multi-number-entries",
+      "merge": null,
+      "at": null,
+      "predictors": null,
+      "reach": "all",
+      "gradual": false
     }
   ]
 }

@@ -211,11 +211,28 @@ def test_a_number_not_shaped_as_a_docket_number_is_refused() -> None:
         "CaseNumber": "25-1",
         "RelatedCaseNumber": [
             {"DisplayCaseNumber": "../../../x", "RelatedType": "Vide"},
-            {"DisplayCaseNumber": "24-99, 24-100", "RelatedType": "Vide"},
+            {"DisplayCaseNumber": "24-99/24-100", "RelatedType": "Vide"},
             {"DisplayCaseNumber": "25A123", "RelatedType": "Vide"},
         ],
     }
     assert vide_docket_numbers(payload) == ("25A123",)
+
+
+def test_an_entry_listing_several_dockets_links_each() -> None:
+    # The Court writes a group of companions into one entry; each number is a
+    # link, read in the order written, past the docket's own number and a repeat.
+    payload = {
+        "CaseNumber": "26-430",
+        "RelatedCaseNumber": [
+            {"DisplayCaseNumber": "26-199, 26-201, 26-332, 26-335", "RelatedType": "Vide"},
+            {"DisplayCaseNumber": "26-201; 26-430 and 26-9", "RelatedType": "Vide"},
+        ],
+    }
+    assert vide_docket_numbers(payload) == ("26-199", "26-201", "26-332", "26-335")
+    payload["RelatedCaseNumber"] = [
+        {"DisplayCaseNumber": "26-199, ../x, 26-430 & 26-9", "RelatedType": "Vide"}
+    ]
+    assert vide_docket_numbers(payload) == ("26-199", "26-9")
 
 
 def test_no_index_is_recorded_as_unread_and_the_own_case_is_dropped() -> None:
