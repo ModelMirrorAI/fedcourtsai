@@ -406,12 +406,13 @@ def test_committed_courtlistener_lanes_fit_the_account() -> None:
     assert used <= {name for name, lane in budget.lanes.items() if lane.enforced}
 
 
-def test_a_watchlist_run_can_finish_its_longest_full_read() -> None:
-    # A full read is one docket request plus its entry pages; a share smaller
-    # than that would stop every run inside the same docket.
+def test_a_watchlist_run_can_finish_an_onboard_at_the_page_cap() -> None:
+    # An onboard at the page cap is the entry count, the docket and its entry
+    # pages; a share smaller than that would stop every run inside the same
+    # docket.
     budget = load_courtlistener_budget(_REPO / "config")
     cfg = load_watchlist_refresh_config(_REPO / "config")
-    assert cfg.max_entry_pages + 1 <= budget.lane("watchlist").per_run
+    assert cfg.max_entry_pages + 2 <= budget.lane("watchlist").per_run
 
 
 def test_pull_lane_is_sized_for_every_scheduled_pull_window() -> None:

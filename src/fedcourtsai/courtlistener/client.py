@@ -259,6 +259,20 @@ class CourtListenerClient:
             params["date_modified__gte"] = date_modified_gte.isoformat()
         return self._get("docket-entries/", params)
 
+    def count_docket_entries(self, docket_id: int) -> int | None:
+        """How many entries a docket holds upstream, in one request, or ``None``.
+
+        Upstream answers ``count=on`` with the list's size alone, so a caller
+        can size a whole read before paying for its pages. ``None`` means the
+        answer carried no usable count, and the caller sizes the read as it
+        would without one.
+        """
+        payload = self._get("docket-entries/", {"docket": docket_id, "count": "on"})
+        found = payload.get("count")
+        if isinstance(found, bool) or not isinstance(found, int) or found < 0:
+            return None
+        return found
+
     def docket_entries(
         self,
         docket_id: int,
