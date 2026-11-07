@@ -781,7 +781,9 @@ nothing), which is the only reason a workflow here ever reaches for the App
 token — so issue-write deliberately stays **off** the App token that
 carries `contents: write` and opens and merges the run PR. This mirrors `run-ops`,
 which posts its `data-validation` / `daily-digest` issues with the same
-ambient token — each of those labels
+ambient token, and `run-analytics`' ai-candidates job, which comments the
+week's AI-case candidates on the long-lived `ai-candidates` issue with it —
+each of those labels
 non-triggering, so a reporting job opening an issue can never start a spending
 run — and `run-pull`, whose failure-only
 run-log issues ride the ambient token for the same reason (its App token is
@@ -868,7 +870,9 @@ enrichment — the dispatched enrich job's step and, step-scoped, the live job's
 awaiting-grading enrichment step and its decision-below fill step, the only two
 steps of that job holding it; by
 `run-analytics`'s order-scan job, step-scoped to its scan step, in a job that
-assumes no cloud role and mints no App token; by its decision-below job,
+assumes no cloud role and mints no App token; by its ai-candidates job,
+step-scoped to its search step, in a job that likewise assumes no role and
+mints no App token; by its decision-below job,
 step-scoped to its dry-run step, in a job that holds the read-only role for
 its corpus pull and mints no App token; by the MCP
 sidecar composite's launch step — the cells', `integration-test`'s
@@ -1706,6 +1710,7 @@ Access mirrors each workflow's role in the pipeline:
 | `run-analytics` — big-cases               | none          | rolls the committed `data/` predictions into the big-case board — no corpus, no network, no `id-token`. It binds the branch-resolved environment (unlike tool-usage) because it publishes, and mints the PR token there; it assumes no role |
 | `run-analytics` — public-updates          | none          | adds the committed `data/` ledger's missing weeks to the update history — no corpus, no network, no `id-token`. It binds the branch-resolved environment, never `website`, because it publishes, and mints the PR token there; it assumes no role |
 | `run-analytics` — order-scan              | none          | reads CourtListener's REST API only — no corpus, no `id-token`, no App token. It binds the branch-resolved environment for the CourtListener token, scoped to its scan step. Its runtime token adds `actions: read`, to fetch the previous run's report artifact the scan resumes |
+| `run-analytics` — ai-candidates          | none          | reads CourtListener's search index only — no corpus, no `id-token`, no App token. It binds the branch-resolved environment for the CourtListener token, scoped to its search step; its runtime token adds `issues: write`, on the steps that read the `ai-candidates` issue's raised set and post the week's comment, which only a `main`-ref run does |
 | `run-analytics` — decision-below          | read-only     | the fill's rotation (full `corpus-pull`, then each case's newest snapshot from the content store), then CourtListener's REST API; a dry run, it writes nothing. It binds the branch-resolved environment for the CourtListener token, scoped to its dry-run step, and mints no App token |
 | `run-analytics` — alignment-fit           | read-only     | the merits judgments and lineups the fit reads (full `corpus-pull`); it writes no corpus, mints no App token, and hands the fits file to the publish job, which assumes no role, as a one-day artifact |
 | `run-analytics` — qp-topic-label          | none          | the agent job assumes no role and has no `id-token: write`: its whole *evidentiary* input is that artifact, and a step asserts both the AWS and the OIDC variables are absent before the agent runs |

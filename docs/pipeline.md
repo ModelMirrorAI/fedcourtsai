@@ -464,6 +464,30 @@ queues behind the production run of the same mode. The modes:
   staging environment holds no CourtListener token today, so a staging
   dispatch stops at the scan's no-token refusal; the first scan that reads
   upstream is a production one.
+- **`ai-candidates`** (weekly, Friday 21:11 UTC, or dispatch) runs the AI-case
+  candidate check: `fedcourts ai-candidates-issue` finds or opens the
+  long-lived `ai-candidates` issue and reads which dockets earlier runs raised
+  there; `fedcourts ai-candidates` runs the saved searches in
+  `config/ai-candidates.yaml` over the last three weeks' federal filings, drops
+  the watchlist's dockets and the raised ones, and writes a comment for the
+  rest, which `post-issue-comment` posts on the issue. A quiet week posts
+  nothing, and a docket is raised once. The maintainer reads each candidate
+  against the rule in `config/ai-watchlist.yaml` and adds a case by a PR, or
+  leaves it; nothing in the job changes the watchlist. It reads
+  CourtListener's search index only, within the `ai-candidates` lane share (40
+  requests, about a dozen in a typical week), at the search endpoint's 8 a
+  minute with the cap as the governor's hourly limit, as `order-scan` does;
+  the slot is a quiet odd hour clear of the pull windows. The CourtListener
+  token rides the search step alone, and the ambient token, with job-scoped
+  `issues: write`, the steps that read the raised set and post; the raised set
+  trusts only comments that token wrote. Only a run on the `main` branch ref
+  reads the raised set and posts: a staging dispatch searches against an empty
+  raised set and puts the comment it would post in the step summary, so a
+  rehearsal never marks a docket raised (and, with no CourtListener token on
+  `staging` today, stops at the no-token refusal). The run fails when the
+  credential is refused, the run stopped before its first request, or every
+  search failed; the step summary carries the per-search counts and the
+  spend.
 - **`decision-below`** (dispatch) runs `fedcourts enrich-decision-below
   --max-cases 25`, the decision-below fill's dry run: for the next 25 cases of
   its rotation, whether CourtListener holds the lower court's docket and the
