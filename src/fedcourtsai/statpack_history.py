@@ -172,6 +172,10 @@ class GitStatpackHistory:
                 return None
         return None
 
+    def file_at(self, sha: str, path: str) -> str | None:
+        """``path`` as committed at ``sha``, or ``None`` where it cannot be read."""
+        return _git(self._repo, "cat-file", "blob", f"{sha}:{path}")
+
     def lookback_terms_at(self, sha: str) -> int | None:
         text = _git(self._repo, "cat-file", "blob", f"{sha}:{TRACKING_PATH}")
         if text is None:
@@ -199,6 +203,56 @@ def _git(cwd: Path, *args: str) -> str | None:
     except (OSError, subprocess.SubprocessError):
         return None
     return out.stdout
+
+
+@dataclass(frozen=True)
+class PlacedBuild:
+    """The statpack build a predict cell was placed against, as :func:`placed_build` finds it."""
+
+    build: CommittedBuild
+    """The build: the one the recorded digest names, else the build in force."""
+    named: bool
+    """Whether a recorded digest picked ``build`` out, rather than the bound alone."""
+    alternative: CommittedBuild | None
+    """Where no digest was recorded and the build in force landed within
+    :data:`CHECKOUT_SLACK` before the bound, the build it replaced, which the
+    cell may have checked out instead. ``None`` otherwise."""
+
+
+def placed_build(
+    recorded: str | None, provisioned_by: datetime, history: StatpackHistory
+) -> PlacedBuild | str:
+    """The build a cell placed by ``provisioned_by`` read, or why none can be named.
+
+    The candidates are the ones :func:`verify_cert_anchor` accepts: the build in
+    force on ``main`` at the predict run id, and the build it replaced where the
+    replacement landed within :data:`CHECKOUT_SLACK` before it. A ``recorded``
+    digest (``context.statpack_digest``, or a cert cell's
+    ``cert_anchor.statpack_digest``) must name one of them, since the record is
+    reachable from the cell's workspace; any other digest is refused. With no
+    digest recorded, the build in force is returned and the replaced one, where
+    the slack reaches it, is named beside it as the reading the bound cannot
+    rule out.
+    """
+    build = history.newest_build(provisioned_by)
+    if build is None:
+        return f"no committed statpack build at or before {provisioned_by.isoformat()}"
+    replaced = (
+        history.build_before(build)
+        if provisioned_by - build.committed_at <= CHECKOUT_SLACK
+        else None
+    )
+    if recorded is None:
+        return PlacedBuild(build=build, named=False, alternative=replaced)
+    for candidate in (build, replaced):
+        if candidate is None or candidate.statpack is None:
+            continue
+        if statpack_digest(candidate.statpack) == recorded:
+            return PlacedBuild(build=candidate, named=True, alternative=None)
+    return (
+        f"the recorded {recorded} is not the build in force at {provisioned_by.isoformat()} "
+        f"({build.sha[:12]}) or one it replaced within the checkout slack"
+    )
 
 
 def verify_cert_anchor(

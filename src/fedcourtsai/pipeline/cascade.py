@@ -254,6 +254,7 @@ def _provision_record(  # noqa: PLR0913
     authorship_tally: AuthorshipTally | None = None,
     same_question_list: SameQuestionList | None = None,
     anchor_pool: provision.AnchorPool | None = None,
+    statpack_digest: str | None = None,
 ) -> _Record:
     """Write one cell's ``record/`` exactly as the workflow's provisioning step does.
 
@@ -261,10 +262,11 @@ def _provision_record(  # noqa: PLR0913
     mode and conditioning, and the documents cut with the snapshot — through the
     same placement and writer ``provision-snapshot`` uses, contact scrubs,
     the ``Vide``-linked companions under ``record/related/``, a merits cell's
-    authorship tally, a cert cell's same-question list and its frozen anchor
-    included. A cascade that wrote only the snapshot would hand the agent no
-    frozen mode, band or cutoff, and the cell would have to guess the posture
-    that provisioning exists to settle.
+    authorship tally, a cert cell's same-question list and its frozen anchor,
+    and the statpack build every predict cell was placed against, included. A
+    cascade that wrote only the snapshot would hand the agent no frozen mode,
+    band or cutoff, and the cell would have to guess the posture that
+    provisioning exists to settle.
     """
     try:
         written = provision.write_cell_record(
@@ -286,6 +288,7 @@ def _provision_record(  # noqa: PLR0913
             authorship_tally=authorship_tally,
             same_question=same_question_list,
             anchor_pool=anchor_pool,
+            statpack_digest=statpack_digest,
         )
     except provision.ProvisionError as exc:
         raise CascadeError(str(exc)) from exc
@@ -847,6 +850,7 @@ def run_cascade(  # noqa: PLR0913 - the cell contract's independent knobs, one a
                 if provision.freezes_cert_anchor(case_paths.event(event_id).event_file, event_id)
                 else None
             ),
+            statpack_digest=None if anchor_pool is None else anchor_pool.digest,
         )
         placements.append(record.placement)
 
