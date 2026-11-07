@@ -89,39 +89,47 @@
         "merge": "356dbdd2b9cb74025c0510cb7a1e6df2663c0701",
         "source": "merge"
       }
+    },
+    {
+      "label": "proc-v19",
+      "since": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      }
     }
   ],
   "blessings": [
     {
-      "digest": "sha256:89efeee9de0ee0425d638a910357e3b772cd82f034c6fe8c43d1e1ece2ab8af5",
+      "digest": "sha256:3b6c8dba122fca7a2a4f01bdc19cc1480f85d2e7cf99328c36b8e7f1b8780b6a",
       "role": "predictor",
       "actor_id": "claude-baseline",
-      "label": "proc-v18",
+      "label": "proc-v19",
       "blessed": {
-        "at": "2026-11-06T17:45:46Z",
-        "merge": "356dbdd2b9cb74025c0510cb7a1e6df2663c0701",
+        "at": null,
+        "merge": null,
         "source": "merge"
       }
     },
     {
-      "digest": "sha256:591b96ed96dc8a9f7b95006f4a8a0efede0ad377229eb4080c0571612d59bafd",
+      "digest": "sha256:4b02697b2cb01b4518ba2aa554e1e63104cc530fa62c208cf01f9b33187e4b41",
       "role": "predictor",
       "actor_id": "codex-baseline",
-      "label": "proc-v18",
+      "label": "proc-v19",
       "blessed": {
-        "at": "2026-11-06T17:45:46Z",
-        "merge": "356dbdd2b9cb74025c0510cb7a1e6df2663c0701",
+        "at": null,
+        "merge": null,
         "source": "merge"
       }
     },
     {
-      "digest": "sha256:78c7ec8425f379a06571ff5ed115c650c41c8d2ceb40399f4b88077b2848c595",
+      "digest": "sha256:8d4eb4f56bdd87eb3875d05649c352648e8d5baccdff39372d2b0cc36583db58",
       "role": "predictor",
       "actor_id": "gemini-baseline",
-      "label": "proc-v18",
+      "label": "proc-v19",
       "blessed": {
-        "at": "2026-11-06T17:45:46Z",
-        "merge": "356dbdd2b9cb74025c0510cb7a1e6df2663c0701",
+        "at": null,
+        "merge": null,
         "source": "merge"
       }
     },
@@ -601,7 +609,11 @@
         "merge": "356dbdd2b9cb74025c0510cb7a1e6df2663c0701",
         "source": "merge"
       },
-      "closes": null,
+      "closes": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      },
       "revoked_at": null
     },
     {
@@ -613,7 +625,11 @@
         "merge": "356dbdd2b9cb74025c0510cb7a1e6df2663c0701",
         "source": "merge"
       },
-      "closes": null,
+      "closes": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      },
       "revoked_at": null
     },
     {
@@ -623,6 +639,46 @@
       "opens": {
         "at": "2026-11-06T17:45:46Z",
         "merge": "356dbdd2b9cb74025c0510cb7a1e6df2663c0701",
+        "source": "merge"
+      },
+      "closes": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      },
+      "revoked_at": null
+    },
+    {
+      "label": "proc-v19",
+      "digest": "sha256:3b6c8dba122fca7a2a4f01bdc19cc1480f85d2e7cf99328c36b8e7f1b8780b6a",
+      "predictor_id": "claude-baseline",
+      "opens": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      },
+      "closes": null,
+      "revoked_at": null
+    },
+    {
+      "label": "proc-v19",
+      "digest": "sha256:4b02697b2cb01b4518ba2aa554e1e63104cc530fa62c208cf01f9b33187e4b41",
+      "predictor_id": "codex-baseline",
+      "opens": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      },
+      "closes": null,
+      "revoked_at": null
+    },
+    {
+      "label": "proc-v19",
+      "digest": "sha256:8d4eb4f56bdd87eb3875d05649c352648e8d5baccdff39372d2b0cc36583db58",
+      "predictor_id": "gemini-baseline",
+      "opens": {
+        "at": null,
+        "merge": null,
         "source": "merge"
       },
       "closes": null,
@@ -693,15 +749,18 @@
     ],
     "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf": [
       "proc-v17",
-      "proc-v18"
+      "proc-v18",
+      "proc-v19"
     ],
     "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a": [
       "proc-v17",
-      "proc-v18"
+      "proc-v18",
+      "proc-v19"
     ],
     "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9": [
       "proc-v17",
-      "proc-v18"
+      "proc-v18",
+      "proc-v19"
     ]
   },
   "harness_boundaries": [

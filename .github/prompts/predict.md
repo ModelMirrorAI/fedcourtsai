@@ -182,10 +182,20 @@ the output directory you will write to.
    cross-petition, a companion, the petition this one asks to be held for),
    `record/related/` holds that docket's snapshot as `<docket number>.json`,
    cut by the same date rule to strictly before your cutoff, or before your
-   own snapshot's date where you have none. `related.json` lists each link it
-   read, staged or not, and why not (`reason`). Read a companion's distribution,
-   grant or hold there rather than fetching it, and say in `reasoning.md` where
-   your forecast rests on it. Its absence means the docket links none.
+   own snapshot's date where you have none. After those links, the same
+   directory can also hold, cut the same way, a docket that shares an amicus
+   brief the Court marks `VIDED` with this one: the same filer's brief, filed
+   the same day, entered on both dockets. `related.json` lists each link it
+   read, staged or not, and why not (`reason`), with its `relation`: `Vide`
+   for the Court's own link, `vided-amicus` for a shared brief, whose
+   `shared_briefs` counts the briefs the two dockets share. A `vided-amicus`
+   docket is a candidate, not the Court's link: a repeat filer's unrelated
+   briefs filed on one day match alike, so one shared brief is weak evidence
+   and several are stronger. Read the docket before you treat it as a
+   companion. Read a companion's distribution, grant or hold there rather than
+   fetching it, and say in `reasoning.md` where your forecast rests on it, and
+   on which `relation`. An empty `record/related/` means neither kind was
+   found.
 
    On a cert-stage cell in `forward` mode, `record/same-question.json` lists
    other petitions whose questions presented read like this petition's, best
