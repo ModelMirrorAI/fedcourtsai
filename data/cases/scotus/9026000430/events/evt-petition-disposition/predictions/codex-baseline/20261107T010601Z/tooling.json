@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000430",
+  "run_id": "20261107T010601Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["shell", "fedcourts paths", "fedcourts query", "web search/open", "fedcourts validate"],
+  "helpful": ["Frozen exact cert anchor", "Readable petition, opposition, reply and relevant appendix", "Paid-segment signal cuts", "Structured historical precedent lookup"],
+  "gaps": ["Separately docketed federal opposition was not in the provisioned BIO text", "Web tool returned no usable content", "Default uv cache path is read-only; UV_NO_CACHE=1 worked"],
+  "notes": "The successful general granted-priors query included substantive applications, so those rows were not treated as cert comparators. No packages installed and no direct CourtListener REST fallback attempted. Prediction rests chiefly on provisioned filings and the committed anchor."
+}

@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000599",
+  "run_id": "20261107T010601Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts validate",
+    "metrics/statpack.md",
+    "courtlistener MCP (search)"
+  ],
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "helpful": [
+    "provisioned petition.txt including Appendix A (Supreme Court stay opinion and dissent in 26A203)",
+    "metrics/statpack.md salience band and relist tables",
+    "fedcourts query --docket-number for inspecting prior stay application 26A203 and GVR/grant priors"
+  ],
+  "gaps": [],
+  "notes": "Provisioned petition.txt and decision-below.txt provided complete coverage of the Supreme Court's August 31, 2026 stay opinion in No. 26A203 and the D.C. Circuit's August 7, 2026 opinion."
+}

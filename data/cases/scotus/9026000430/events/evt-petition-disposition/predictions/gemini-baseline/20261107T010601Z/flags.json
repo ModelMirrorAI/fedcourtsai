@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000430",
+  "run_id": "20261107T010601Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "flags": [
+    {
+      "category": "provisioning",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "In record/snapshots/2026-11-07.json, RelatedCaseNumber[0] has DisplayCaseNumber='26-199, 26-201, 26-332, 26-335' and RelatedType='Vide', but context.json has vide_links=[] and no record/related/ snapshots were provisioned, likely because DisplayCaseNumber contained comma-separated docket numbers in one entry. Companion dockets were inspected via fedcourts query --court scotus --docket-number."
+    }
+  ]
+}

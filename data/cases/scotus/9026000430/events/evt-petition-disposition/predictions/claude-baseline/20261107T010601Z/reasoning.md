@@ -1,0 +1,13 @@
+# Reasoning: P(grant) = 0.18
+
+**Inputs read.** The snapshot `record/snapshots/2026-11-07.json`. The QP file: QP 2, with a footnote saying the Horsemen agree the Court should grant QP 1 (enforcement) in the Authority's and FTC's petitions. The Authority's combined BIO to 26-332/26-335/26-430: no lower-court conflict on rulemaking (5th, 6th and 8th Circuits all uphold it), and the rulemaking scheme is consistent with *FCC v. Consumers' Research*, while it urges a grant of its own petition on enforcement. The Horsemen's cert reply: the question is important and new, the FTC's "consistency" review is not policy control, and rulemaking and enforcement are intertwined. I skimmed the petition and appendix but did not read them in full. `context.json`: band `baseline` (sal-v7), one distribution, no CVSG, and `cert_anchor.rate` 0.0515.
+
+**Anchor.** The baseline-band reached rate is 0.052. Checked against the statpack's paid-segment cuts: relist bucket 1 is 8.3% granted plus 5.2% GVR, and the 2+ amicus bucket (this docket has 3 amicus entries) is 18.2% granted plus 4.5% GVR.
+
+**Adjustments up.** The band does not capture the main fact here. This is a cross-petition to a near-certain grant on the same statute and the same Fifth Circuit judgment. The Solicitor General petitioned (26-201), the statute was held unconstitutional, and the 6th Circuit split from the 5th on enforcement. All five dockets go to the 12/4/2026 conference; I checked supremecourt.gov for 26-199 and 26-201. That creates two grant paths a standalone petition lacks. (a) The Court takes the whole statute and consolidates. A State cross-petitioner (Texas, 26-335) and the Justices' interest in private nondelegation make this plausible. (b) The cross-petition is held and then GVR'd if the merits opinion states a test that touches rulemaking.
+
+**Adjustments down.** There is no split on rulemaking. Both the government and the Authority oppose the cross-petitions. The Court usually limits a grant to the question the government brings and holds or denies the cross-petition. A cross-petitioner who won below can already defend the judgment on alternative grounds, so the Court loses little by denying.
+
+**Number.** About 11% plenary grant plus about 7% hold-then-GVR gives 0.18. My main uncertainty is whether the Court wants the full statute before it. That is a judgment call, and no table conditions on it.
+
+**Caveats.** The Vide-linked dockets (26-199, 26-201, 26-332, 26-335) were not staged under `record/related/`, even though `context.json` has `vide_links: []`. I read their status from supremecourt.gov instead. `same-question.json` lists no petitions.

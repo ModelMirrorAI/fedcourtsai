@@ -1,0 +1,13 @@
+# Forecast of the Court's disposition
+
+The Court will grant the petition and summarily reverse the judgment sustaining the preliminary injunction. It will resolve the dispute without full merits briefing and argument, relying primarily on the standing and equitable-relief reasoning already expressed in its August 31, 2026 stay opinion. It will not need to decide every question about the President's statutory construction and funding authority.
+
+The snapshot records **zero distributions**. The petition will receive an initial distribution after the response process and will most likely be relisted once or twice while the Court prepares its order and any separate writing: approximately two or three distributions in total. The probability of at least one distribution beyond the current count is 0.995; that claim includes the initial distribution and is not a claim that a genuine relist is virtually certain. The expected disposition follows during the winter or spring of 2027 rather than after a full argument cycle.
+
+The Court will not call for the Solicitor General's views. The government is already the petitioner, with the Solicitor General as counsel of record; an invitation would not add a distinct government position. The probability of a new CVSG is 0.001.
+
+The question presented asks whether the district court erred in enjoining the ongoing East Wing renovation. If the Court grants review, it will take that question as the vehicle for a narrower ruling on the Trust's Article III standing and, if necessary, the prerequisites for preliminary equitable relief. It will distinguish disagreement with the project's design from the concrete, particularized injury needed to invoke federal jurisdiction. A standing disposition would leave the project's ultimate statutory legality unresolved.
+
+Conditional on a grant, the probability of a cert-order disposition is 0.90. Summary reversal is the most likely individual route; a grant, vacatur, and remand in light of the prior stay opinion is the main alternative. Plenary review is less likely because the existing opinion already addresses the most immediate grounds for setting the injunction aside.
+
+A separate writing opposing summary relief is likely, with Chief Justice Roberts the most likely author and some or all of the prior stay dissenters likely to join. Joining is not authorship. This predicts a writing on the expected grant, not a dissent from denial. If the Court instead denies review, I assign 0.35 to a dissent from, or statement respecting, denial; a government-favoring Justice would be the more natural source on that contrary branch. No merits vote lineup or majority author is forecast for this cert-stage event.

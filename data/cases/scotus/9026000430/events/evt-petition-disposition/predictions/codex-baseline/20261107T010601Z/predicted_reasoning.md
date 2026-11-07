@@ -1,0 +1,15 @@
+# Forecast of the Court's action
+
+The Court will most likely **deny the cross-petition in No. 26-430** without a separate writing. The probability of any grant, including a grant followed immediately by a remand, is **18%**. The Court can address the enforcement dispute presented by the lead petitions without accepting this additional rulemaking challenge, on which the lower courts agree.
+
+The snapshot contains **one distribution**, for the **December 4, 2026 conference**, and no relist. I assign **45%** to at least one further distribution beyond that count. The modal path is a denial without another distribution, likely in the December 7 orders if the Court disposes of it at the first listed conference. If it is distributed again, I expect one or two additional distributions while the related petitions are coordinated; a longer hold is a secondary possibility. A companion merits hold could instead postpone resolution into 2027. These are alternative paths, not observed docket events.
+
+I expect **no new CVSG**; the probability is **1%**. Federal respondents already have a memorandum on the docket, making an additional invitation unnecessary in the ordinary path. If an invitation nevertheless issues, the likely window is December 2026 or early 2027.
+
+**If review is granted**, the likely question is the petition's own rulemaking question, labeled QP #2, potentially reformulated to ask whether the FTC's combined approval and independent rulemaking authority under § 3053 suffices to keep the Authority subordinate to the government. This would be an additional question alongside, not a substitute name for, the lead petitions' enforcement question. The Court is less likely to use this cross-petition to add the distinct Appointments Clause challenge pressed by other petitioners.
+
+Conditional on a grant, I assign **80%** to briefing and argument and **20%** to disposition in the cert order itself. The principal summary possibility is a later grant, vacatur, and remand after a companion decision changes the governing analysis. Immediate summary reversal is not the expected route: the contested statutory-supervision issue merits fuller treatment if accepted, and the lower court has already addressed the existing Consumers' Research precedent.
+
+Conditional on denial, I assign **3.5%** to a noted dissent or statement respecting denial. Silence is strongly favored. If someone writes, Thomas or Gorsuch is more plausible than most colleagues, with Alito another possibility; no individual writing is the modal forecast. The per-Justice probabilities in `prediction.json` are unconditional probabilities of authoring or coauthoring a writing on this petition's dispositive order, not of joining another Justice's writing.
+
+A denial will not announce a majority opinion endorsing HISA, and it will not determine the outcome of the lead enforcement petitions. If the cross-petition instead receives plenary review, the likely analytical focus is whether effective governmental control requires contemporaneous policy revision or can rest on the FTC's broader supervisory tools.

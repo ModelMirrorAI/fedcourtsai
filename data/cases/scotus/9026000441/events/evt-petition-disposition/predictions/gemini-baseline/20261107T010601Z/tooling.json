@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000441",
+  "run_id": "20261107T010601Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_search_document"
+  ],
+  "helpful": [
+    "provisioned petition.txt and questions-presented.txt",
+    "record/context.json cert_anchor",
+    "metrics/statpack.md",
+    "record/same-question.json",
+    "fedcourts query"
+  ],
+  "gaps": [
+    "CourtListener MCP hit HTTP 429 rate limit after two search calls"
+  ],
+  "notes": "Provisioned petition.txt included the full Fifth Circuit opinion and rehearing denial in its appendix, providing complete lower-court context despite CourtListener MCP rate-limiting."
+}
