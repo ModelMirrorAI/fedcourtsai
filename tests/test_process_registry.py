@@ -51,9 +51,10 @@ _V14 = datetime(2026, 10, 29, 14, 16, 26, tzinfo=UTC)
 _V15 = datetime(2026, 10, 30, 16, 38, 43, tzinfo=UTC)
 _V16 = datetime(2026, 11, 1, 17, 45, 59, tzinfo=UTC)
 _V17 = datetime(2026, 11, 2, 17, 51, 42, tzinfo=UTC)
+_V18 = datetime(2026, 11, 6, 17, 45, 46, tzinfo=UTC)
 _CODEX_AND_GEMINI = frozenset({"codex-baseline", "gemini-baseline"})
 
-# proc-v18 replaces the three predictor blessings with its own pending three,
+# proc-v19 replaces the three predictor blessings with its own pending three,
 # which bless nothing until the carrying merge stamps them, so the carried map
 # holds the three evaluator digests proc-v17 blessed.
 GOLDEN_DIGESTS: dict[str, datetime] = {
@@ -236,18 +237,39 @@ GOLDEN_WINDOWS = (
         digest="sha256:33a3f9f8f53a2f6cb53967a60d836c3ba29f0078c12306fb8696e15d7c674978",
         predictor_id="claude-baseline",
         opens=_V17,
+        closes=_V18,
     ),
     CountingWindow(
         label="proc-v17",
         digest="sha256:5b6efbbb2270718377da537c3ea04c727a2a855ffdae684da2a313c003699593",
         predictor_id="codex-baseline",
         opens=_V17,
+        closes=_V18,
     ),
     CountingWindow(
         label="proc-v17",
         digest="sha256:1389c40a89d22cb951b25dad96d18d307cef26db4f6b66cdd425ea8fcf0f49b6",
         predictor_id="gemini-baseline",
         opens=_V17,
+        closes=_V18,
+    ),
+    CountingWindow(
+        label="proc-v18",
+        digest="sha256:89efeee9de0ee0425d638a910357e3b772cd82f034c6fe8c43d1e1ece2ab8af5",
+        predictor_id="claude-baseline",
+        opens=_V18,
+    ),
+    CountingWindow(
+        label="proc-v18",
+        digest="sha256:591b96ed96dc8a9f7b95006f4a8a0efede0ad377229eb4080c0571612d59bafd",
+        predictor_id="codex-baseline",
+        opens=_V18,
+    ),
+    CountingWindow(
+        label="proc-v18",
+        digest="sha256:78c7ec8425f379a06571ff5ed115c650c41c8d2ceb40399f4b88077b2848c595",
+        predictor_id="gemini-baseline",
+        opens=_V18,
     ),
 )
 
@@ -288,14 +310,17 @@ GOLDEN_BLESSING_LABELS = {
     "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf": (
         "proc-v17",
         "proc-v18",
+        "proc-v19",
     ),
     "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a": (
         "proc-v17",
         "proc-v18",
+        "proc-v19",
     ),
     "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9": (
         "proc-v17",
         "proc-v18",
+        "proc-v19",
     ),
 }
 
@@ -486,6 +511,7 @@ _GOLDEN_MERGES = frozenset(
         "a3b2daec8ba19b6c3b3aecb9316bd62c15d568df",
         "d8569e75e00e3500f6484884884a95f21d73c83a",
         "9b1139f042258266a54bed4fd1b3d74948cfb2ae",
+        "356dbdd2b9cb74025c0510cb7a1e6df2663c0701",
     }
 )
 
@@ -519,9 +545,9 @@ def test_the_bless_map_reproduces_its_golden_values_in_order() -> None:
 
 
 def test_the_counting_instant_reproduces_its_golden_value() -> None:
-    assert counting_instant(_as_the_goldens_know_it()) == _V17
+    assert counting_instant(_as_the_goldens_know_it()) == _V18
     assert FROZEN_SINCE is not None and FROZEN_SINCE.tzinfo is UTC
-    assert FROZEN_SINCE >= _V17
+    assert FROZEN_SINCE >= _V18
 
 
 def test_the_counting_windows_reproduce_their_golden_values_in_order() -> None:
