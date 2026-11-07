@@ -1,7 +1,7 @@
 """Whether a URL is on the Office of the Solicitor General's section of www.justice.gov.
 
 A leaf, like :mod:`.paper_only`, so the readers that must tell a stored row the
-Solicitor General's posted copy (the QP extract, the case-summary stage check)
+Solicitor General's posted copy (the QP extract, the case-summary plan and its stage check)
 ask it without importing the fetcher (:mod:`.sg_briefs`).
 """
 

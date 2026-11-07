@@ -11,6 +11,7 @@ import httpx
 import pytest
 
 from fedcourtsai import corpus
+from fedcourtsai.pipeline.documents import questions_presented_extract
 from fedcourtsai.pipeline.osg_urls import is_osg_url
 from fedcourtsai.pipeline.sg_briefs import (
     FillCandidate,
@@ -413,3 +414,36 @@ def test_a_brief_the_docket_does_not_show_yet_waits(tmp_path: Path) -> None:
     (case,) = report.cases
     assert case.status == "not-docketed"
     assert upstream.seen == [_PAGE_URL]  # the PDF is not fetched
+
+
+def test_the_qp_extract_skips_questions_cut_from_the_offices_petition(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(case_id="scotus/1", court="scotus", docket_number="26-55"),
+                corpus.CorpusRow(case_id="scotus/2", court="scotus", docket_number="26-56"),
+            ],
+        )
+        corpus.upsert_documents(
+            conn,
+            [
+                corpus.CaseDocument(
+                    case_id="scotus/1",
+                    kind="questions-presented",
+                    url="https://www.supremecourt.gov/DocketPDF/26/26-55/1/20260701.pdf",
+                    fetched_at=_TODAY,
+                    text="Whether the court below erred.",
+                ),
+                corpus.CaseDocument(
+                    case_id="scotus/2",
+                    kind="questions-presented",
+                    url=_PDF_URL,
+                    fetched_at=_TODAY,
+                    text="Whether the court below erred too.",
+                ),
+            ],
+        )
+        extract = questions_presented_extract(conn, scoped=False)
+    assert [row.case_id for row in extract.rows] == ["scotus/1"]

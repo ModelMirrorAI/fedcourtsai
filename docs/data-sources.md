@@ -623,7 +623,9 @@ though the Court does not.
   `Crawl-delay: 10` for every agent and disallows nothing under `/osg/`; it
   disallows the listing's paging (`?page=`) and facet (`f[…]`) parameters,
   which the fill never builds, since a docket-number search answers on its
-  first page. Every request waits the crawl delay and stays on the Office's
+  first page. A brief whose Office filing date falls after every docket entry
+  of its kind waits, and is searched again each time the rotation reaches its
+  docket. Every request waits the crawl delay and stays on the Office's
   section of that host, redirects included, under a user agent naming the
   project.
 - **Where the text goes.** A stored copy is a cell's input like the Court's

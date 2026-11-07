@@ -697,7 +697,12 @@ _STAGED_KIND = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
 
 def _withhold_residuals(case_dir: Path) -> list[tuple[str, str]]:
-    """Remove each staged document the contact scrub left a contact-shaped match on.
+    """Remove each staged document the contact scrub left a contact-shaped match on,
+    and each that is the Solicitor General's posted copy rather than the Court's.
+
+    The posted copy (:func:`~fedcourtsai.pipeline.osg_urls.is_osg_url`) is a
+    cell's input on a paper-only docket, not the Court's record this artifact
+    carries; the plan leaves it out of the record digest too.
 
     Provisioning stages such a document unchanged and records what the scrub's
     residual detector still found as the manifest row's ``contact_residuals``.
