@@ -17389,3 +17389,104 @@ freeze commit is recorded here.
   - on `main` once the promotion has merged, `uv run python -c "from
     fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
     print('sg-memorandum-opposition' in {b.name for b in H})"` prints `True`.
+
+- **A `Vide` entry listing several dockets links each of them; recorded
+  2026-11-07.** A **provisioning-cutoff** change with a harness boundary,
+  recorded ahead of the promotion that carries it. It extends the 2026-10-22
+  `vide-related-dockets` and `context-vide-links` entries, which are not
+  otherwise edited.
+
+  **Why.** The Court sometimes writes a group of companions into one
+  `RelatedCaseNumber` entry, as in `"DisplayCaseNumber": "26-199, 26-201,
+  26-332, 26-335"`. `pipeline.vide_links.vide_docket_numbers` normalized the
+  whole string, which fails the docket-number shape, so it dropped the whole
+  entry. A cell on such a docket staged none of its companions under
+  `record/related/` and froze `context.vide_links` empty, which also filed
+  the forecast as unlinked on the leaderboard's `by_link` cut. Two of the
+  three engines' cells on 26-430 (claude-baseline and gemini-baseline)
+  flagged it in run `20261107T010601Z`.
+
+  **What moved.** `vide_docket_numbers` splits each `DisplayCaseNumber` on
+  commas, semicolons, `&` and the word "and", and reads each part under the
+  existing rules: the docket-number shape, the docket's own number, a repeat
+  and `MAX_RELATED_DOCKETS`. A malformed part drops only itself. The
+  single-number entries are read first, in served order, and the groups'
+  numbers after them, so a large group cannot crowd a cross-petition or the
+  petition a docket is held for out of the four. Every reader
+  shares the function: the provisioner's `record/related/` staging, the
+  frozen `context.vide_links`, the cascade and `same_question`.
+
+  No prompt byte and no registry field other than the boundary row moves, so
+  no digest moves. `uv run fedcourts process-digest --all` prints `proc-v19`
+  and the six digests `1789dc26…` (claude-baseline), `a939a164…`
+  (codex-baseline), `889d53dc…` (gemini-baseline), `3b78d93b…`
+  (claude-judge), `5c7cc4e6…` (codex-judge) and `8966bfb2…` (gemini-judge),
+  with and without the change.
+
+  **A harness boundary under the 2026-10-11 pooled rule.** The change adds to
+  what a predict cell reads, and to the `vide_links` it freezes, under
+  unchanged digests. It is composition, not a cut. The pooled default and
+  the paired figure keep both sides and list each engine's `n` before and
+  after. It cuts a figure that reads its own effect, and the `by_link` cut is
+  one. That cut reads the **frozen** `context.vide_links`, which is never
+  re-read, so a before-side cell on such a docket stays `unlinked` for good
+  (a cell frozen before the `context-vide-links` merge carries `null` and sits
+  under `(none)`). The `by_link` blocks list no boundaries, so the split is
+  not visible on the cut itself. The committed cells it misfiles today are
+  three: claude-baseline, codex-baseline and gemini-baseline on 26-430, each
+  with `vide_links: []` and none graded; the six cells on 25-1318 froze
+  `null`, and no other of the 30 dockets has a committed cell. A
+  `linked`/`unlinked` reading across this boundary is cut at the carrying
+  merge, or lists those three cells.
+
+  It also meets the stamped `vided-amicus-related-dockets` boundary. That
+  reader skips a docket already linked as `Vide`, and both kinds share the
+  four-docket bound. On a docket such as 26-292, 26-293 or 26-294, whose
+  companions the 2026-11-06 entry counted as `vided-amicus` candidates, a
+  companion now reads as `Vide`, and new `Vide` links can push a
+  `vided-amicus` row out of the bound. A reading of that boundary's effect
+  that selects by `related.json`'s `relation` reads after this merge.
+  `same-question --vide-check` reads the same function, and no recorded
+  figure cites it.
+  - **The registry row** is `vide-multi-number-entries`. It applies to every
+    predictor, and its reach is `all`, because no narrower registered reach
+    names these dockets. It is **not gradual**. The function reads the
+    snapshot a cell is placed on, so every cell provisioned after the
+    carrying merge reads the change, with no back-fill. It is registered
+    **pending** in this change's own PR (`fedcourts register-boundary`),
+    under the 2026-10-14 merge-stamping declaration, and its `merge` and `at`
+    stay null until the promotion merge that carries it to `main` stamps them
+    (`promotion-record`).
+  - **The side test** is the registered one, against the carrying merge.
+
+  **The population.** Measured read-only over blob
+  `941b8e5aee2a3b71d202c2ea8643e71c6ab379e58163c9361528f53813094865` (newest
+  pull 2026-11-07, newest stored snapshot row 2026-07-13), over each
+  OT2023–OT2026 cert docket's latest stored snapshot (13,875 dockets, 13,821
+  with a snapshot). 212 `Vide` entries are stored, and 30 of them, on 30
+  dockets, list more than one number (18 list two, 6 list four and 6 list
+  five). Every one separates its numbers by commas alone. The previous reader
+  dropped all 30. The six five-number entries are on decided OT2023 dockets,
+  and each stages at most four of its numbers. 7 of the 30 dockets are undecided: 26-292, 26-293 and 26-294; 26-402,
+  26-407 and 26-450; and 26-430.
+
+  **What does not move.** No base rate re-prices, no membership rule moves
+  and no scored figure moves. No skill movement is predicted, and a movement
+  in **either** direction across this boundary may not be read as a model
+  effect.
+
+  **The amendment debt.** It is unchanged. This entry adds no new token.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_related_dockets.py` is green;
+  - where the corpus is pulled, `uv run fedcourts provision-snapshot --court
+    scotus --docket 9026000430 --event evt-petition-disposition` names 26-199,
+    26-201, 26-332 and 26-335 on its `related` line;
+  - the first predict cell committed on one of the seven undecided dockets
+    after the promotion carries a non-empty `context.vide_links`;
+  - on `main` once the promotion has merged, `uv run python -c "from
+    fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
+    print('vide-multi-number-entries' in {b.name for b in H})"` prints `True`.
