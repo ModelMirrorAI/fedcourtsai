@@ -181,6 +181,7 @@ def test_statpack_at_writes_the_build_the_cell_read_not_the_refresh(tmp_path: Pa
     assert result.exit_code == 0, result.output
     summary = json.loads(result.stdout)
     assert summary["recorded_in"] == "statpack_digest"
+    assert summary["run_id_from"] == "directory"
     assert summary["digest"] == statpack_digest(_pack(1))
     assert summary["alternative_sha"] is None
     assert StatPack.model_validate_json((out / "statpack.json").read_text()) == _pack(1)
@@ -228,3 +229,49 @@ def test_statpack_at_refuses_an_unreadable_cell(tmp_path: Path, name: str) -> No
     result = runner.invoke(app, ["statpack-at", str(cell)])
 
     assert result.exit_code == 1
+
+
+def test_statpack_at_reads_a_judges_blinded_copy_by_its_document_run_id(tmp_path: Path) -> None:
+    """The evaluate cell stages each candidate under `record/blinded/<alias>/`,
+    masked (no engine, no process version): the directory is no run id, so the
+    document's own run id bounds the build."""
+    repo = _repo(tmp_path)
+    cell = _cell(tmp_path, _context(statpack_digest=statpack_digest(_pack(1))))
+    masked = json.loads((cell / "prediction.json").read_text())
+    masked |= {"predictor_id": "candidate-a", "engine": None, "model": None}
+    masked.pop("process_version", None)
+    blinded = tmp_path / "record" / "blinded" / "candidate-a"
+    blinded.mkdir(parents=True)
+    (blinded / "prediction.json").write_text(json.dumps(masked))
+    out = tmp_path / "out"
+
+    args = ["statpack-at", str(blinded), "--repo", str(repo), "--ref", "main"]
+    result = runner.invoke(app, [*args, "--out-dir", str(out)])
+
+    assert result.exit_code == 0, result.output
+    summary = json.loads(result.stdout)
+    assert summary["run_id"] == _RUN
+    assert summary["run_id_from"] == "document"
+    assert summary["digest"] == statpack_digest(_pack(1))
+    assert (out / "statpack.md").read_text() == "# Corpus statpack 1\n"
+
+
+def test_statpack_at_writes_both_builds_where_the_slack_leaves_two(tmp_path: Path) -> None:
+    """An unrecorded cell whose run id falls inside the checkout slack after a
+    refresh: the judge gets both builds, since either may have been read."""
+    repo = _repo(tmp_path)
+    late = "20261106T020000Z"  # two hours after the 2026-11-06 refresh landed
+    cell = _cell(tmp_path, None)
+    moved = cell.parent / late
+    cell.rename(moved)
+    out = tmp_path / "out"
+
+    args = ["statpack-at", str(moved), "--repo", str(repo), "--ref", "main"]
+    result = runner.invoke(app, [*args, "--out-dir", str(out)])
+
+    assert result.exit_code == 0, result.output
+    summary = json.loads(result.stdout)
+    assert summary["digest"] == statpack_digest(_pack(2))
+    assert summary["alternative_sha"] is not None
+    assert (out / "statpack.md").read_text() == "# Corpus statpack 2\n"
+    assert (out / "alternative" / "statpack.md").read_text() == "# Corpus statpack 1\n"
