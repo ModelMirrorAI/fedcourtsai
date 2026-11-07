@@ -17864,8 +17864,9 @@ freeze commit is recorded here.
   stamped the registry, before any figure of a `proc-v18` window is quoted
   outside the committed board. That entry is not otherwise edited.
 
-  The run reads the ledger and registry at `origin/main`'s `80955ad65`, after
-  the stamp and after `promotion/2026-11-07-2`. No `proc-v19` predict cell
+  The run reads the ledger and registry at `origin/main`'s `80955ad65`
+  (`2026-11-07T18:19:10Z`), after the stamp and after `promotion/2026-11-07-2`,
+  which stamps no label. No `proc-v19` predict cell
   had landed by then: the 17:33Z round's plan owed none.
 
   **`proc-v19` closes `proc-v18`.** `uv run fedcourts successor-disclosures
@@ -17884,8 +17885,10 @@ freeze commit is recorded here.
   earlier than the provisional `2026-11-08T00:00:00Z`. No successor-counted
   line prints because no engine has committed a `proc-v19` cell yet, so
   there is no earlier-window failure, uncounted cell or missing cell to
-  disclose.
+  disclose, and no `graded by` line prints because no grading of a
+  `proc-v18`-window cell is recorded yet.
 
   The closed-window resolved counts can still move: an outcome dated on or
   before the close's day may land late, and an event void de-counts what it
-  names. The split and partition lines also move as cells and outcomes land.
+  names. The split, partition and grading lines also move as cells,
+  outcomes and gradings land.
