@@ -17185,6 +17185,117 @@ freeze commit is recorded here.
   names. The split, partition and grading lines also move as cells, outcomes
   and gradings land.
 
+- **`proc-v19`, the predict prompt names a `vided-amicus` related docket;
+  recorded 2026-11-07.** Carried to `main` by the promotion tagged `<FILL: promotion tag>`
+  (merge commit `<FILL: merge hash>`, merged `<FILL: merged-at>`), to be tagged
+  **`prereg/proc-v19`**. Registered under the merge-stamped rule, so its
+  counting instant, its bless moments and every window edge it moves are the
+  carrying merge's committer time. Only the predict prompt changes, so the
+  three predictor digests move and the evaluator digests do not. No harness
+  boundary is registered and no scored number moves: what a cell is given
+  does not change, only what the prompt says about it.
+
+  **What changes.** The predict prompt's `record/related/` paragraph. It
+  described only the dockets the Court links as `Vide`, and said an absent
+  directory means the docket links none. It now also says that the directory
+  can hold, after those links and cut the same way, a docket sharing an
+  amicus brief the Court marks `VIDED`; that `related.json` gives each row's
+  `relation` (`Vide` or `vided-amicus`) and, on a `vided-amicus` row,
+  `shared_briefs`; that such a docket is a candidate rather than the Court's
+  link, since a repeat filer's unrelated briefs filed on one day match alike,
+  so one shared brief is weak evidence; that a cell reads the docket before
+  treating it as a companion and says in `reasoning.md` on which `relation`
+  its forecast rests; and that an absent directory means the docket links
+  none and no shared brief was found, or none could be looked up, since a
+  corpus without the partial VIDED index stages none and records none.
+
+  **Why.** This is the sentence the 2026-11-06 entry *A predict cell also
+  stages the dockets sharing a VIDED amicus brief with its own under
+  `record/related/`* left for the next re-bless, so that the predictor
+  digests moved once. That entry is not otherwise edited. It pays the
+  residual that entry stated: until now the prompt told a cell that every
+  file under `record/related/` is a docket the Court links as `Vide`, so a
+  cell that did not read `related.json` could take a `vided-amicus`
+  candidate of strength one for the Court's own link. The boundary,
+  `vided-amicus-related-dockets`, was stamped by `promotion/2026-11-06` and
+  is not re-registered: cells on either side of this label are given the
+  same related dockets, and only the instruction for reading them differs.
+  No score motivates the change.
+
+  **Pre-registered.** No skill movement is predicted. A movement in
+  **either** direction across this label on dockets with a `vided-amicus`
+  row is not read as an effect of the sentence: the population is small
+  (56 dockets across OT2023–OT2026 in the boundary entry's projection, 17
+  of them undisposed) and still filling as the live polls re-read dockets.
+
+  **The amendment debt.** It is unchanged. This entry pays the residual the
+  2026-11-06 VIDED entry stated and adds no new token.
+
+  The runnable effect check once it is live:
+  - on `main`, `uv run python -c "from fedcourtsai.process_version import
+    CURRENT_PROCESS_LABEL as L; print(L)"` prints `proc-v19`, and `uv run
+    fedcourts process-digest --all` prints the predictor digests below;
+  - `grep -c 'vided-amicus' .github/prompts/predict.md` on `main` prints a
+    count above 0;
+  - on the first predict run's collect PR after the carrying merge with a
+    cell whose `related.json` lists a `vided-amicus` row, its `reasoning.md`
+    names that row's `relation` wherever it leans on the docket.
+
+  **The registration** (`uv run fedcourts register-process --label
+  proc-v19`, run 2026-11-07 over `staging` at `49857bb98` with `proc-v18`
+  stamped). The three predictor digests move; the evaluator digests keep
+  their `proc-v17` blessings.
+
+  | Actor | Before (`proc-v18`) | `proc-v19` |
+  | --- | --- | --- |
+  | `claude-baseline` | `sha256:89efeee9de0ee0425d638a910357e3b772cd82f034c6fe8c43d1e1ece2ab8af5` | `sha256:1789dc26189e0e14ae71d9ed1f622751dd2c849d8fba4a85542336fab0b15080` (new) |
+  | `codex-baseline` | `sha256:591b96ed96dc8a9f7b95006f4a8a0efede0ad377229eb4080c0571612d59bafd` | `sha256:a939a164bc3cb0658e12c0c98b2300a878aecea15a93189e96579103382002d8` (new) |
+  | `gemini-baseline` | `sha256:78c7ec8425f379a06571ff5ed115c650c41c8d2ceb40399f4b88077b2848c595` | `sha256:889d53dc033d7303ca39cf2bf3faa859dc0886a296ed2f0ad5ac00edf96705b7` (new) |
+  | `claude-judge` | `sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf` | unchanged |
+  | `codex-judge` | `sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a` | unchanged |
+  | `gemini-judge` | `sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9` | unchanged |
+
+  **What was made under the retiring digests.** At `origin/main`
+  `6d9f14956` (`2026-11-07T13:22:25Z`), committed `prediction.json` files
+  naming each `proc-v18` predictor digest: 4 `claude-baseline`, 4
+  `codex-baseline`, 4 `gemini-baseline`.
+
+  **Step 0.** At the same commit, the count of committed files under
+  `data/cases` naming `sha256:<digest>` is **0** for each of the three newly
+  blessed digests, and **3543** files there carry a `process_version` stamp.
+
+  **Windows** (`COUNTING_WINDOWS`, once the carrying merge stamps them):
+
+  | Predictor | Label | Opens | Closes |
+  | --- | --- | --- | --- |
+  | `claude-baseline` (`89efeee9…`) | `proc-v18` | `2026-11-06T17:45:46Z` | this label's instant (was open) |
+  | `codex-baseline` (`591b96ed…`) | `proc-v18` | `2026-11-06T17:45:46Z` | this label's instant (was open) |
+  | `gemini-baseline` (`78c7ec84…`) | `proc-v18` | `2026-11-06T17:45:46Z` | this label's instant (was open) |
+  | `claude-baseline` (`1789dc26…`) | `proc-v19` | this label's instant | open (new) |
+  | `codex-baseline` (`a939a164…`) | `proc-v19` | this label's instant | open (new) |
+  | `gemini-baseline` (`889d53dc…`) | `proc-v19` | this label's instant | open (new) |
+
+  Earlier windows keep the closes earlier labels gave them.
+
+  **What the close owes, provisional.** Run with this commit's pending rows
+  stamped by hand at a provisional instant, `2026-11-08T00:00:00Z`, in a
+  scratch copy of the registry, over the ledger at `origin/main`
+  `6d9f14956`. `uv run fedcourts successor-disclosures --closed proc-v18
+  --successor proc-v19`:
+
+  ```
+  successor proc-v19 closes proc-v18 at 2026-11-08T00:00:00+00:00
+    closed proc-v18 codex-baseline: 4 counted event(s) — 0 resolved, 4 pending at close
+    closed proc-v18 gemini-baseline: 4 counted event(s) — 0 resolved, 4 pending at close
+    closed proc-v18 claude-baseline: 4 counted event(s) — 0 resolved, 4 pending at close
+    split events: 0 (0 resolved) — in no complete grid
+  ```
+
+  Cells keep landing until the instant, so the run is repeated once the
+  carrying merge has stamped the registry, and a dated follow-up entry quotes
+  it before any `proc-v18` window figure is quoted outside the committed
+  board.
+
 - **A `Vide` entry listing several dockets links each of them; recorded
   2026-11-07.** A **provisioning-cutoff** change with a harness boundary,
   recorded ahead of the promotion that carries it. It extends the 2026-10-22
@@ -17212,9 +17323,9 @@ freeze commit is recorded here.
   frozen `context.vide_links`, the cascade and `same_question`.
 
   No prompt byte and no registry field other than the boundary row moves, so
-  no digest moves. `uv run fedcourts process-digest --all` prints `proc-v18`
-  and the six digests `89efeee9…` (claude-baseline), `591b96ed…`
-  (codex-baseline), `78c7ec84…` (gemini-baseline), `3b78d93b…`
+  no digest moves. `uv run fedcourts process-digest --all` prints `proc-v19`
+  and the six digests `1789dc26…` (claude-baseline), `a939a164…`
+  (codex-baseline), `889d53dc…` (gemini-baseline), `3b78d93b…`
   (claude-judge), `5c7cc4e6…` (codex-judge) and `8966bfb2…` (gemini-judge),
   with and without the change.
 

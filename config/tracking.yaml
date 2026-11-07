@@ -743,6 +743,10 @@ courtlistener_budget:
     # page cap allows. `--once-a-day` keeps later windows
     # from spending it again.
     watchlist: {per_run: 160, runs_per_day: 1}
+    # ai-candidates: config/ai-candidates.yaml caps a run at 40, its saved
+    # searches at two pages each. Sized for a weekly run but reserved as if
+    # daily, so a run never needs a day of its own.
+    ai-candidates: {per_run: 40, runs_per_day: 1}
     # The agent cells' CourtListener MCP servers (their own client), across
     # the day's predict and evaluate rounds and the daily integration-test
     # engine smokes.

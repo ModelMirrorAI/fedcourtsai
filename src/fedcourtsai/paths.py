@@ -319,9 +319,10 @@ class CasePaths:
     def related_dir(self) -> Path:
         # Provisioning location for the dockets the Court's own JSON links to
         # this one as `Vide` (a cross-petition, a companion, the petition a case
-        # is held for): each one's snapshot, cut to this cell's moment, so a
-        # cell reads the companion's state from the record rather than fetching
-        # it. Gitignored with the rest of record/.
+        # is held for), then the dockets sharing a VIDED amicus brief with it:
+        # each one's snapshot, cut to this cell's moment, so a cell reads the
+        # companion's state from the record rather than fetching it.
+        # Gitignored with the rest of record/.
         return self.record / "related"
 
     def related_snapshot(self, docket_number: str) -> Path:
