@@ -17570,8 +17570,8 @@ freeze commit is recorded here.
 
   **The amendment debt.** It is unchanged. This entry adds no new token.
 
-  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
-  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by the promotion tagged `promotion/2026-11-07-2` (merge
+  commit `36d9f0bd4130e52cb3d0a577cfee623c51b19fe3`, merged `2026-11-07T17:53:00Z`).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_sg_briefs.py` is green;
@@ -17713,8 +17713,7 @@ freeze commit is recorded here.
     than rounded away. `uv run fedcourts process-digest --all` still prints
     the same six digests.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit `<FILL: merge
-  sha>`, merged `<FILL: merged time UTC>`). Applied by run `<FILL: apply run
+  Carried to `main` by `promotion/2026-11-07-2` (merge commit `36d9f0bd4130e52cb3d0a577cfee623c51b19fe3`, merged `2026-11-07T17:53:00Z`). Applied by run `<FILL: apply run
   id>` on `<FILL: apply date>`, landing `<FILL: rows landed>` rows. The first
   statpack refreshed after it, at commit `<FILL: statpack refresh commit>`,
   reads the OT2025 pool as `<FILL: OT2025 pool granted/resolved>` and the

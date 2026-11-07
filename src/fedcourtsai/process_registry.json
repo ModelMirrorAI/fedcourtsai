@@ -1095,8 +1095,8 @@
     },
     {
       "name": "sg-posted-briefs",
-      "merge": null,
-      "at": null,
+      "merge": "36d9f0bd4130e52cb3d0a577cfee623c51b19fe3",
+      "at": "2026-11-07T17:53:00Z",
       "predictors": null,
       "reach": "all",
       "gradual": true
