@@ -812,6 +812,25 @@ def test_a_legacy_term_reads_pages_where_the_json_is_not_served(tmp_path: Path) 
     assert control.candidates == []
 
 
+def test_ot2015_reads_its_pages_alone(tmp_path: Path) -> None:
+    """OT2015 serves no JSON, so every serial lands from its legacy page."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    upstream = _LegacyUpstream({}, {"15a1": legacy_page("15A1"), "15a2": legacy_page("15A2")})
+    with _client(upstream.handler) as client:
+        result = backfill_applications(
+            client, db, data_root, [15], today=TODAY, end_misses=2, apply=True, max_rows=2
+        )
+    assert [row.docket_number for row in result.candidates] == ["15A1", "15A2"]
+    assert result.applied
+    with corpus.connect(db) as conn:
+        stored = corpus.latest_snapshot(conn, f"scotus/{live_application_id(15, 2)}")
+    assert stored is not None
+    assert stored[1][LEGACY_SOURCE_KEY]["url"] == (
+        "https://www.supremecourt.gov/docketfiles/15a2.htm"
+    )
+
+
 def test_a_term_above_the_json_floor_never_reads_a_page(tmp_path: Path) -> None:
     db, data_root, _ = _seeded(tmp_path)
     upstream = _LegacyUpstream({}, {"24a1": legacy_page("24A1")})

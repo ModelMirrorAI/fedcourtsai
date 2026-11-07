@@ -17522,9 +17522,9 @@ freeze commit is recorded here.
   run-repair runs read the same walk (`unresolved=1302`), and its plan
   passed the whole-plan check.
 
-  | Read from | Would land | Extension | Substantive | Unknown | Capital | Referred (all kinds) | Substantive granted / resolved |
+  | Read from | Would land | Extension | Substantive | Unknown | Capital (substantive) | Referred (all kinds) | Substantive granted / resolved |
   | --- | --- | --- | --- | --- | --- | --- | --- |
-  | Legacy page | 1,302 | 1,107 | 116 | 79 | 0 | 88 | 11/114 = 9.6% |
+  | Legacy page | 1,302 | 1,107 | 116 | 79 | 0 (0) | 88 (72 substantive, 16 `unknown`) | 11/114 = 9.6% |
 
   - **The apply, simulated.** The plan was applied with `--from-plan
     --apply --max-rows 1302` to a local copy of that blob, store off and
@@ -17534,9 +17534,9 @@ freeze commit is recorded here.
     that rebuild's, not hand sums.
   - **What a page cannot give.** As for OT2016's page rows: no capital
     marker (the 0 is a gap, not a count), no related-case list, lower-court
-    decision date or document links. 132 rows show an empty docketed date,
-    so their filing date is the submission entry's. None of these feeds the
-    interim pool.
+    decision date or document links. 132 rows show an empty docketed date
+    and land with no filing date. None of these feeds the interim pool, which
+    reads the ask and the disposition from the proceedings text.
   - **The parse, sampled.** 16 rows (10 `unknown`, 6 substantive) were read
     against their proceedings text, and each parse held the text's ask and
     disposition. The `unknown` rows sampled are asks the shared classifier
@@ -17548,7 +17548,7 @@ freeze commit is recorded here.
     `15A551`, `15A773`, `15A776`, `15A778`, `15A787`, `15A793`, `15A880` and
     `15A1060`; five of them (`15A773` to `15A793`) are the February 2016
     stays of the Clean Power Plan. One is dismissed and one withdrawn, both
-    resolved ungranted; `15A1000` and `15A1170` read no machine-readable
+    resolved ungranted (`15A343`, `15A406`); `15A1000` and `15A1170` read no machine-readable
     disposition and stay outside the resolved denominator.
 
   **The pools at the registered lookback of 10**, before and after, read
@@ -17583,7 +17583,8 @@ freeze commit is recorded here.
   across values, as the OT2023 entry registered.
 
   **What else moves in the provisioned statpack.** OT2015's interim row
-  fills from all-`unparsed` to parsed counts (`referred_to_court` 72,
+  fills from all-`unparsed` to parsed counts (`referred_to_court` 72, the
+  substantive rows of the table's 88,
   `response_requested` 11, `with_amicus` 1, `finer_moot` 1). The pack-level
   interim totals, the live-slice coverage counts and the timing section move
   by the rows landed, and the resolved-disposition totals by the 1,300

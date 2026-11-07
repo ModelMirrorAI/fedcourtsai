@@ -2274,7 +2274,7 @@ from the live floor (`live.term_floor_year`, OT2017), and below it only the
 Terms in `LEGACY_HTML_TERMS`, which holds OT2015 and OT2016. supremecourt.gov
 serves OT2016's application JSON for some serials, mostly from `16A1051` on,
 and OT2015's for none; for most of the rest it still serves the Clerk's
-record as its legacy HTML docket page (`docketfiles/16a<n>.htm`); a sample
+record as its legacy HTML docket page (`docketfiles/<yy>a<n>.htm`); a sample
 found no OT2016 serial served in both forms.
 The walk opens each Term on the page and reads first the form that served the
 serial before, then the other on a miss, so it stays near one fetch a serial.
