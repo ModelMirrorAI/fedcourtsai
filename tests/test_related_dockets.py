@@ -235,6 +235,19 @@ def test_an_entry_listing_several_dockets_links_each() -> None:
     assert vide_docket_numbers(payload) == ("26-199", "26-9")
 
 
+def test_a_large_group_does_not_crowd_out_a_single_link() -> None:
+    # The groups' numbers come after the single-number entries, so the bound
+    # keeps a cross-petition the Court lists after a five-docket group.
+    payload = {
+        "CaseNumber": "23-877",
+        "RelatedCaseNumber": [
+            {"DisplayCaseNumber": "23-878, 23-879, 23-880, 23-944, 23-1010", "RelatedType": "Vide"},
+            {"DisplayCaseNumber": "23-1100", "RelatedType": "Vide"},
+        ],
+    }
+    assert vide_docket_numbers(payload) == ("23-1100", "23-878", "23-879", "23-880")
+
+
 def test_no_index_is_recorded_as_unread_and_the_own_case_is_dropped() -> None:
     unread = read_related(
         ("24-99",), own_case="scotus/305", resolve=lambda _: None, snapshot=lambda _: None

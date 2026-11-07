@@ -57,9 +57,15 @@ def vide_docket_numbers(payload: Mapping[str, Any]) -> tuple[str, ...]:
     sides of the link (``{"DisplayCaseNumber": "25-1323", "RelatedType":
     "Vide"}``). Any other relation type is skipped, as are the docket's own
     number, a repeat and a number not shaped as a SCOTUS docket number, and the
-    list stops at :data:`MAX_RELATED_DOCKETS`. One entry may list several
-    dockets in its ``DisplayCaseNumber`` ("26-199, 26-201"); each is read in the
-    order written, under the same rules, so a malformed part drops only itself.
+    list stops at :data:`MAX_RELATED_DOCKETS`.
+
+    One entry may list several dockets in its ``DisplayCaseNumber`` ("26-199,
+    26-201"): a group of companions the Court writes together. Each part is
+    read under the same rules, so a malformed part drops only itself. The
+    single-number entries come first, in served order, and the groups' numbers
+    after them, in the order written, so a large group cannot crowd a
+    cross-petition or the petition a docket is held for out of the bound.
+
     A caller passes the payload the cell is placed on, so a link the Court
     added after the cell's moment is not read off a ``dated`` snapshot; a
     ``truncated`` one keeps the latest list, since the field is undated.
@@ -68,14 +74,18 @@ def vide_docket_numbers(payload: Mapping[str, Any]) -> tuple[str, ...]:
     if not isinstance(linked, list):
         return ()
     own = normalize_docket_number(str(payload.get("CaseNumber") or ""))
-    numbers: list[str] = []
+    singles: list[list[str]] = []
+    groups: list[list[str]] = []
     for item in linked:
         if not isinstance(item, Mapping):
             continue
         if str(item.get("RelatedType") or "").strip().lower() != VIDE_RELATION.lower():
             continue
-        display = str(item.get("DisplayCaseNumber") or "")
-        for part in _DISPLAY_NUMBER_SPLIT_RE.split(display):
+        parts = _DISPLAY_NUMBER_SPLIT_RE.split(str(item.get("DisplayCaseNumber") or ""))
+        (singles if len(parts) == 1 else groups).append(parts)
+    numbers: list[str] = []
+    for parts in singles + groups:
+        for part in parts:
             number = related_file_number(part)
             if number is None or number == own or number in numbers:
                 continue

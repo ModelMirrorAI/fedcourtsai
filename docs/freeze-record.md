@@ -17197,13 +17197,17 @@ freeze commit is recorded here.
   whole string, which fails the docket-number shape, so it dropped the whole
   entry. A cell on such a docket staged none of its companions under
   `record/related/` and froze `context.vide_links` empty, which also filed
-  the forecast as unlinked on the leaderboard's `by_link` cut. All three
-  engines' cells on 26-430 flagged it in run `20261107T010601Z`.
+  the forecast as unlinked on the leaderboard's `by_link` cut. Two of the
+  three engines' cells on 26-430 (claude-baseline and gemini-baseline)
+  flagged it in run `20261107T010601Z`.
 
   **What moved.** `vide_docket_numbers` splits each `DisplayCaseNumber` on
   commas, semicolons, `&` and the word "and", and reads each part under the
   existing rules: the docket-number shape, the docket's own number, a repeat
-  and `MAX_RELATED_DOCKETS`. A malformed part drops only itself. Every reader
+  and `MAX_RELATED_DOCKETS`. A malformed part drops only itself. The
+  single-number entries are read first, in served order, and the groups'
+  numbers after them, so a large group cannot crowd a cross-petition or the
+  petition a docket is held for out of the four. Every reader
   shares the function: the provisioner's `record/related/` staging, the
   frozen `context.vide_links`, the cascade and `same_question`.
 
@@ -17219,8 +17223,26 @@ freeze commit is recorded here.
   unchanged digests. It is composition, not a cut. The pooled default and
   the paired figure keep both sides and list each engine's `n` before and
   after. It cuts a figure that reads its own effect, and the `by_link` cut is
-  one: a before-side cell on such a docket froze `vide_links` empty, so that
-  cut reads it as unlinked.
+  one. That cut reads the **frozen** `context.vide_links`, which is never
+  re-read, so a before-side cell on such a docket stays `unlinked` for good
+  (a cell frozen before the `context-vide-links` merge carries `null` and sits
+  under `(none)`). The `by_link` blocks list no boundaries, so the split is
+  not visible on the cut itself. The committed cells it misfiles today are
+  three: claude-baseline, codex-baseline and gemini-baseline on 26-430, each
+  with `vide_links: []` and none graded; the six cells on 25-1318 froze
+  `null`, and no other of the 30 dockets has a committed cell. A
+  `linked`/`unlinked` reading across this boundary is cut at the carrying
+  merge, or lists those three cells.
+
+  It also meets the stamped `vided-amicus-related-dockets` boundary. That
+  reader skips a docket already linked as `Vide`, and both kinds share the
+  four-docket bound. On a docket such as 26-292, 26-293 or 26-294, whose
+  companions the 2026-11-06 entry counted as `vided-amicus` candidates, a
+  companion now reads as `Vide`, and new `Vide` links can push a
+  `vided-amicus` row out of the bound. A reading of that boundary's effect
+  that selects by `related.json`'s `relation` reads after this merge.
+  `same-question --vide-check` reads the same function, and no recorded
+  figure cites it.
   - **The registry row** is `vide-multi-number-entries`. It applies to every
     predictor, and its reach is `all`, because no narrower registered reach
     names these dockets. It is **not gradual**. The function reads the
@@ -17238,8 +17260,9 @@ freeze commit is recorded here.
   OT2023–OT2026 cert docket's latest stored snapshot (13,875 dockets, 13,821
   with a snapshot). 212 `Vide` entries are stored, and 30 of them, on 30
   dockets, list more than one number (18 list two, 6 list four and 6 list
-  five, counting the comma-separated parts). The previous reader dropped all
-  30. 7 of the 30 dockets are undecided: 26-292, 26-293 and 26-294; 26-402,
+  five). Every one separates its numbers by commas alone. The previous reader
+  dropped all 30. The six five-number entries are on decided OT2023 dockets,
+  and each stages at most four of its numbers. 7 of the 30 dockets are undecided: 26-292, 26-293 and 26-294; 26-402,
   26-407 and 26-450; and 26-430.
 
   **What does not move.** No base rate re-prices, no membership rule moves
