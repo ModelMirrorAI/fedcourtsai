@@ -599,12 +599,12 @@ a corrected or extended span is a new rule label, never an edit to
 carry no copyright, and the committed roster republishes only names and the
 dates of public office.
 
-**The Solicitor General's posted briefs** are a candidate document source,
-assessed and not adopted. The question it would answer is narrow: on a docket
+**The Solicitor General's posted briefs** are a document source for one
+narrow class (`pipeline/sg_briefs.py`, `fedcourts enrich-sg-briefs`): on a docket
 the Court has put under Rule 34.6 and Paragraph 9 of its electronic filing
 guidelines (`PredictionContext.paper_only_filings`), the Court posts no party
 filing, so a cell gets no `documents/`; where the United States is a party,
-the Office of the Solicitor General may post its own brief on its site even
+the Office of the Solicitor General posts its own brief on its site even
 though the Court does not.
 
 - **Source and shape.** `justice.gov/osg/supreme-court-briefs` lists the
@@ -614,8 +614,27 @@ though the Court does not.
   (the Office's label for a brief in opposition), with the PDF linked from it.
   The docket number is the join to a corpus row, and the types map onto the
   existing kinds in `pipeline/documents.py`: the Office's petition onto
-  `petition`, a *Petition Stage Response* onto `brief-in-opposition`. A
-  waiver of response posts no brief at all.
+  `petition`, a *Petition Stage Response* onto `brief-in-opposition`, a
+  *Petition Stage Reply Brief* onto `cert-reply`. A waiver of response posts
+  no brief at all. The listing's own table carries every field the fill reads
+  (docket number, type, filing date and the PDF link), so one search of it by
+  docket number finds a docket's briefs without opening the brief pages.
+- **Crawling.** `www.justice.gov/robots.txt`, read 2026-11-07, sets
+  `Crawl-delay: 10` for every agent and disallows nothing under `/osg/`; it
+  disallows the listing's paging (`?page=`) and facet (`f[…]`) parameters,
+  which the fill never builds, since a docket-number search answers on its
+  first page. A brief whose Office filing date falls after every docket entry
+  of its kind waits, and is searched again each time the rotation reaches its
+  docket. Every request waits the crawl delay and stays on the Office's
+  section of that host, redirects included, under a user agent naming the
+  project.
+- **Where the text goes.** A stored copy is a cell's input like the Court's
+  own filing, under the same no-republication posture. It stays out of the
+  two public run artifacts that carry document text on the footing that the
+  text is the Court's own record: the questions-presented extract skips a row
+  cut from the Office's petition, and the case-summary lane neither digests
+  nor stages one (`summary-stage-check` withholds a staged copy as it
+  withholds a contact-residual document).
 - **Terms.** The Department of Justice's legal-policies page states that,
   unless otherwise indicated, information on its sites is in the public domain
   and may be copied and distributed without permission; the stated exceptions
@@ -939,15 +958,16 @@ material**:
   filer's contact detail travels unscrubbed are the transient run artifacts
   in the carve-outs below, which hold no stored copy and never reach git.
 - **One carve-out: the application back-fill's plan artifact** (maintainer
-  decision, 2026-10-01; extended to OT2016's legacy docket pages, 2026-10-27).
+  decision, 2026-10-01; extended to OT2016's legacy docket pages, 2026-10-27,
+  and to OT2015's, 2026-11-07).
   Every byte it admits is the Court's own public docket
   record, served openly at supremecourt.gov, and none of it comes from our
   private stores; it lets that record transit one short-lived workflow
   artifact between two jobs of the same run.
   - *What:* the docket JSON exactly as supremecourt.gov serves it for the
     dockets in one `application-backfill` run's plan — and, for a serial of
-    a Term in `LEGACY_HTML_TERMS` (OT2016) that serves no JSON, the Court's
-    legacy HTML docket page exactly as served — counsel blocks
+    a Term in `LEGACY_HTML_TERMS` (OT2015, OT2016) that serves no JSON, the
+    Court's legacy HTML docket page exactly as served — counsel blocks
     included, which for a self-represented filer carry a home address,
     telephone, email or prisoner register number — plus the structured fields
     parsed from it. Nothing read from the corpus, the content store or any
