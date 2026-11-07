@@ -17295,3 +17295,97 @@ freeze commit is recorded here.
   carrying merge has stamped the registry, and a dated follow-up entry quotes
   it before any `proc-v18` window figure is quoted outside the committed
   board.
+
+- **The opposition row takes the respondent's memorandum; recorded
+  2026-11-07.** A **provisioning-cutoff** change with a harness boundary,
+  recorded ahead of the promotion that carries it.
+
+  **Why.** The Solicitor General usually answers a petition against the
+  United States, or against federal respondents, with a short memorandum
+  rather than a brief. The Clerk enters it as "Memorandum of respondent United
+  States filed.", "Memorandum of Federal Respondents in opposition filed." or
+  "Memorandum for the United States filed.". The opposition selector took a
+  respondent's filing only when it was a brief or a "Response of
+  respondent …", so it never took a memorandum. A cell on such a docket read
+  only the other respondents' briefs, or no opposition at all, while the
+  government's position was on the docket. A predict cell on 26-430 flagged
+  the gap in run `20261107T010601Z`.
+
+  **What moved.** `pipeline.documents._is_bio_entry` also admits a cert-stage
+  entry that opens "Memorandum of / for / from" with up to three words before
+  "respondent(s)" or "United States". The response form's collateral
+  exclusions apply (a motion, an application, a rehearing petition, a letter,
+  an order or a suggestion of mootness), and so do the common exclusions
+  (amicus, reply, supplemental, petitioner, in support) and the post-grant
+  bound, and a memorandum naming the petitioners, singular or plural, is
+  refused. The `brief-in-opposition` `kind_description` names the
+  memorandum. The memorandum joins the combined `brief-in-opposition` row under its
+  own header, like a second respondent's brief. No other kind's selection
+  moves.
+
+  No prompt byte and no registry field other than the boundary row moves, so
+  no digest moves. `uv run fedcourts process-digest --all` prints `proc-v19`
+  and the six digests `1789dc26…` (claude-baseline), `a939a164…`
+  (codex-baseline), `889d53dc…` (gemini-baseline), `3b78d93b…`
+  (claude-judge), `5c7cc4e6…` (codex-judge) and `8966bfb2…` (gemini-judge),
+  with and without the change. The prompt names `brief-in-opposition.txt`
+  only by file; the description a cell reads in `documents.json`
+  (`kind_description`) now names a memorandum beside a brief and a response,
+  and no digest input reads it. A memorandum worded "in support of" the
+  petition stays out, as a brief so worded does.
+
+  **A harness boundary under the 2026-10-11 pooled rule.** The change adds to
+  what a predict cell reads under unchanged digests. It is composition, not a
+  cut. The pooled default and the paired figure keep both sides and list each
+  engine's `n` before and after. It cuts only a figure that reads its own
+  effect, such as a per-stratum reading over dockets with a federal
+  respondent.
+  - **The registry row** is `sg-memorandum-opposition`. It applies to every
+    predictor, and its reach is `all`, because no narrower registered reach
+    names these dockets. It is **gradual**. A stored opposition row changes
+    only when its docket's documents are fetched again: a live poll's
+    provisioning, or the freshness pass over predict-relevant cases, which
+    fetches any case whose stored set lacks a selected link. A decided docket
+    is not re-fetched for it. It is registered **pending** in this change's own PR
+    (`fedcourts register-boundary`), under the 2026-10-14 merge-stamping
+    declaration, and its `merge` and `at` stay null until the promotion merge
+    that carries it to `main` stamps them (`promotion-record`).
+  - **The side test** is the registered one, against the carrying merge.
+    Because the boundary is gradual, an after-side cell provisioned before its
+    docket was re-fetched still lacks the memorandum, so the after-side `n` is
+    an upper bound on exposure.
+
+  **The population.** Measured read-only over blob
+  `941b8e5aee2a3b71d202c2ea8643e71c6ab379e58163c9361528f53813094865` (newest
+  pull 2026-11-07, newest stored snapshot row 2026-07-13), over each
+  OT2023–OT2026 cert docket's latest stored snapshot (13,875 dockets, 13,821
+  with a snapshot). 246 entries open with "Memorandum", on 244 dockets (55
+  OT2023, 74 OT2024, 85 OT2025, 30 OT2026). 20 of the entries say "in
+  opposition" and 226 do not. 238 carry a link. The previous selector would
+  select none of them, and the changed one selects all 238. The six entries
+  in the bare "Memorandum for the United States" form sit on five dockets,
+  each with the United States as respondent. 26 of the 244 dockets are undecided, and
+  25 of those carry a linked memorandum. 45 of the 244 dockets have committed
+  cells under `data/cases/`, one of them undecided (26-430).
+
+  **What does not move.** No base rate re-prices, no membership rule moves
+  and no scored figure moves. No skill movement is predicted, and a movement
+  in **either** direction across this boundary may not be read as a model
+  effect.
+
+  **The amendment debt.** It is unchanged. This entry adds no new token.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_documents.py -k "bio or opposition or
+    memorandum"` is green;
+  - after the first live cycles following the promotion, where the corpus is
+    pulled, `uv run fedcourts provision-snapshot --court scotus --docket
+    9026000430 --event evt-petition-disposition` prints its `documents (…)
+    -> <dir>` line, and `<dir>/brief-in-opposition.txt` carries a
+    `=== Memorandum … ===` block header;
+  - on `main` once the promotion has merged, `uv run python -c "from
+    fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
+    print('sg-memorandum-opposition' in {b.name for b in H})"` prints `True`.

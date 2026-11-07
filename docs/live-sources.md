@@ -454,10 +454,13 @@ the docket form, so one function serves both lanes:
   three words before the party word ("Brief of Federal Respondents filed.",
   "Brief for the Federal Respondents filed."), and the **response** the Clerk
   enters without the word "brief" ("Response of respondents … filed.",
-  "Response to petition from respondent … filed."). The response form is kept
-  off the collateral responses that share its opening — to a motion, an
-  application, a rehearing petition, a letter, an order or a suggestion of
-  mootness.
+  "Response to petition from respondent … filed."), and the Solicitor
+  General's **memorandum** for the federal respondents, with or without "in
+  opposition" ("Memorandum of respondent United States filed.", "Memorandum of
+  Federal Respondents in opposition filed.", "Memorandum for the United States
+  filed."). The response and memorandum forms are kept off the collateral
+  papers that share their opening — about a motion, an application, a
+  rehearing petition, a letter, an order or a suggestion of mootness.
 - **`cert-reply`** — the petitioner's **cert-stage** reply, the Rule 15.6 answer
   to the opposition and often the only filing that meets its vehicle and
   preservation objections. The first "Reply [brief] of/for … petitioner(s) …"
