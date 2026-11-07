@@ -17490,3 +17490,231 @@ freeze commit is recorded here.
   - on `main` once the promotion has merged, `uv run python -c "from
     fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
     print('vide-multi-number-entries' in {b.name for b in H})"` prints `True`.
+
+- **A paper-only docket stages the Solicitor General's own posted filing;
+  recorded 2026-11-07.** A **provisioning-cutoff** change with a harness
+  boundary, recorded ahead of the promotion that carries it. It extends the
+  2026-10-23 entry that froze `paper_only_filings` into a predict cell's
+  context, which is not otherwise edited.
+
+  **Why.** On a docket the Court keeps on paper only under Rule 34.6 and
+  Paragraph 9 of its electronic filing guidelines, it posts no party filing,
+  so a cell's `record/documents/` is empty. These are mostly immigration and
+  detention cases with the United States as a party, and the Office of the
+  Solicitor General posts its own filings on its site. `fedcourts
+  enrich-sg-briefs` (`pipeline/sg_briefs.py`), run by `run-pull`'s live job on
+  its four full windows a day, searches the Office's briefs listing on
+  www.justice.gov by docket number and stores the Office's *Petition for Writ
+  of Certiorari* as `petition` (with its derived `questions-presented`), its
+  *Petition Stage Response* as `brief-in-opposition` and its *Petition Stage
+  Reply Brief* as `cert-reply`. These are kinds a cert cell is already given,
+  so a cell on such a docket reads the government's filing where it read
+  nothing before.
+
+  **The cut is the docket's.** Each row's `entry_date` is the Court's own
+  proceedings entry for the filing, read with the selector's predicates and
+  tied to the Office's filing date: the earliest entry of the kind dated on
+  or after it (the case-opening entry, a cert-stage reply entry before a
+  disposition), or for an opposition the latest such entry, since the entry
+  text does not always say which respondent's it is. A brief whose entry the
+  stored docket does not show yet is not stored, and neither is one with no
+  text layer. The moment cut therefore places these rows where it would place
+  the Court's copy, or later. The case summaries and the questions-presented
+  extract leave these rows out, so neither public artifact's text moves. No
+  undecided docket outside the paper-only class is touched, and a docket
+  with a disposition is not walked.
+
+  No prompt byte and no registry field other than the boundary row moves, so
+  no digest moves. `uv run fedcourts process-digest --all` prints `proc-v19`
+  and the six digests `1789dc26…` (claude-baseline), `a939a164…`
+  (codex-baseline), `889d53dc…` (gemini-baseline), `3b78d93b…`
+  (claude-judge), `5c7cc4e6…` (codex-judge) and `8966bfb2…` (gemini-judge),
+  with and without the change. The predict prompt's paper-only sentence says
+  an empty or missing `record/documents/` is expected there; it stays true
+  of the other side's filings, and a cell given the government's filing
+  reads it like any staged document.
+
+  **A harness boundary under the 2026-10-11 pooled rule.** The change adds to
+  what a predict cell reads under unchanged digests. It is composition, not a
+  cut. The pooled default and the paired figure keep both sides and list each
+  engine's `n` before and after. It cuts only a figure that reads its own
+  effect, such as a per-stratum reading over paper-only dockets.
+  - **The registry row** is `sg-posted-briefs`. It applies to every
+    predictor, and its reach is `all`, because no narrower registered reach
+    names these dockets. It is **gradual**: a docket gains its rows only when
+    the live job's rotation reaches it and the Office has posted, four
+    dockets a window. It is registered **pending** in this change's own PR
+    (`fedcourts register-boundary`), under the 2026-10-14 merge-stamping
+    declaration, and its `merge` and `at` stay null until the promotion merge
+    that carries it to `main` stamps them (`promotion-record`).
+  - **The side test** is the registered one, against the carrying merge.
+    Because the boundary is gradual, an after-side cell provisioned before its
+    docket's rows were stored still lacks them, so the after-side `n` is an
+    upper bound on exposure.
+
+  **The population.** Measured read-only over blob
+  `3b7591263af9cef33a8b234a70faf6d86f7cdb4727be2bce207469edbc7fdcf2` (newest
+  pull 2026-11-07, newest stored snapshot row 2026-07-13), with a dry run of
+  `fedcourts enrich-sg-briefs --max-cases 20` on 2026-11-07. 694 undecided,
+  predict-relevant SCOTUS rows in the live slice; 6 of them carry no
+  disposition and are paper-only with a fillable kind unheld (25-1415, 26-43,
+  26-55, 26-146, 26-379, 26-572). The Office's listing carried a filing for 3:
+  the petitions in 25-1415 and 26-572 and the opposition in 26-55. The dry run
+  would store 2 `petition`, 2 `questions-presented` and 1
+  `brief-in-opposition` rows, in 9 requests to www.justice.gov.
+
+  **What does not move.** No base rate re-prices, no membership rule moves
+  and no scored figure moves. No skill movement is predicted, and a movement
+  in **either** direction across this boundary may not be read as a model
+  effect.
+
+  **The amendment debt.** It is unchanged. This entry adds no new token.
+
+  Carried to `main` by the promotion tagged `promotion/2026-11-07-2` (merge
+  commit `36d9f0bd4130e52cb3d0a577cfee623c51b19fe3`, merged `2026-11-07T17:53:00Z`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_sg_briefs.py` is green;
+  - the first `run-pull` live full window after the promotion carries a
+    *Solicitor General's posted briefs for paper-only dockets* section whose
+    tally line reads `enrich-sg-briefs (applied)` and names at least one
+    stored row while the class above is unfilled;
+  - where the corpus is pulled after that window, `uv run fedcourts
+    provision-snapshot --court scotus --docket <docket_id> --event
+    evt-petition-disposition` for a docket that window's report lists as
+    `stored` prints its `documents (…) -> <dir>` line, and the stored kind's
+    file under `<dir>` opens with that docket's own number in the caption;
+  - on `main` once the promotion has merged, `uv run python -c "from
+    fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
+    print('sg-posted-briefs' in {b.name for b in H})"` prints `True`.
+
+- **OT2015's applications are back-filled into the interim docket, through
+  the Court's legacy docket pages, 2026-11-07.** The last Term of the
+  OT2015 to OT2025 interim series. The interim base rate's pool is every
+  Term strictly before its own application Term within
+  `salience.base_rate_lookback_terms` (10), so OT2015 is in the window of
+  every OT2016 to OT2025 cell and of no OT2026 cell. **This completes data
+  under the existing rule; it is not a rule change.** The window does not
+  move. supremecourt.gov serves no OT2015 application JSON (`15A1`, `15A500`,
+  `15A900`, `15A1000`, `15A1100`, `15A1200` and `15A1290` each read 404), so
+  OT2015 joins `LEGACY_HTML_TERMS` beside OT2016 and is read from the legacy
+  pages alone, through the reader and live seam the OT2016 entry registered,
+  unchanged. The PII carve-out in `docs/data-sources.md` extends to these
+  pages in the same change. It is a scoring-baseline entry and a
+  conditioning one: the pool moves the stamped baseline, and the provisioned
+  statpack moves what interim cells read. No prompt byte, registry field or
+  stamp moves, so no process digest moves.
+
+  **The dry run, read 2026-11-07** from a dev checkout of this change's
+  branch (cut from `staging` `7e8f9a166`), with every serial fetched from
+  supremecourt.gov, over blob
+  `3b7591263af9cef33a8b234a70faf6d86f7cdb4727be2bce207469edbc7fdcf2`
+  (`latest pull 2026-11-07, latest snapshot 2026-07-13`), `origin/main`
+  `1e52aa815`'s pointer. The corpus stores 1,303 OT2015 numbers, `15A1` to
+  `15A1303`, none live-owned. The walk fetched 1,313 pages in 26 minutes and
+  ended on 10 consecutive misses past `15A1303`, with no held row and no
+  fetch failure. It would land **1,302** rows, every one an enrichment of a
+  stored stub (no onboard); the one serial served in neither form, `15A720`,
+  is a stored stub that stays `unparsed`. The projection-and-plan split
+  run-repair runs read the same walk (`unresolved=1302`), and its plan
+  passed the whole-plan check.
+
+  | Read from | Would land | Extension | Substantive | Unknown | Capital (substantive) | Referred (all kinds) | Substantive granted / resolved |
+  | --- | --- | --- | --- | --- | --- | --- | --- |
+  | Legacy page | 1,302 | 1,107 | 116 | 79 | 0 (0) | 88 (72 substantive, 16 `unknown`) | 11/114 = 9.6% |
+
+  - **The apply, simulated.** The plan was applied with `--from-plan
+    --apply --max-rows 1302` to a local copy of that blob, store off and
+    remote writes off, and the statpack rebuilt from the copy beside one
+    rebuilt from the untouched blob. It landed 1,302 rows, and a control dry
+    run against the copy read `would land 0 row(s)`. The figures below are
+    that rebuild's, not hand sums.
+  - **What a page cannot give.** As for OT2016's page rows: no capital
+    marker (the 0 is a gap, not a count), no related-case list, lower-court
+    decision date or document links. 132 rows show an empty docketed date
+    and land with no filing date. None of these feeds the interim pool, which
+    reads the ask and the disposition from the proceedings text.
+  - **The parse, sampled.** 16 rows (10 `unknown`, 6 substantive) were read
+    against their proceedings text, and each parse held the text's ask and
+    disposition. The `unknown` rows sampled are asks the shared classifier
+    reads that way in every Term (to recall and stay a mandate, to suspend
+    the effect of a cert denial, for a certificate of appealability, for
+    bail, to exceed page limits). The `unknown` share is 79/1,302 = 6.1%,
+    against 4.6% for OT2016's page rows.
+  - **Substantive grants.** The 11 are `15A137`, `15A218`, `15A473`,
+    `15A551`, `15A773`, `15A776`, `15A778`, `15A787`, `15A793`, `15A880` and
+    `15A1060`; five of them (`15A773` to `15A793`) are the February 2016
+    stays of the Clean Power Plan. One is dismissed and one withdrawn, both
+    resolved ungranted (`15A343`, `15A406`); `15A1000` and `15A1170` read no machine-readable
+    disposition and stay outside the resolved denominator.
+
+  **The pools at the registered lookback of 10**, before and after, read
+  from the two rebuilds:
+  - **OT2026 application cells** (OT2016 to OT2025): unchanged,
+    **160/1366** registered and **156/1337** finer.
+  - **OT2025 application cells** (OT2015 to OT2024): registered
+    **143/1140 = 12.54%** to **154/1254 = 12.28%**; finer **137/1119 =
+    12.24%** to **149/1232 = 12.09%**.
+  - **OT2024 application cells** (OT2014 to OT2023): registered
+    **127/946 = 13.42%** to **138/1060 = 13.02%**; finer **119/930 =
+    12.80%** to **131/1043 = 12.56%**.
+  - **OT2016 application cells** (OT2006 to OT2015) gain a pool for the
+    first time: registered **11/114 = 9.65%**, finer **12/113 = 10.62%**,
+    both above `INTERIM_BASE_RATE_MIN_RESOLVED` (50). OT2017 to OT2023 cells
+    move too (OT2017 from 9/107 to 20/221 registered).
+  - **Direction:** down, by 0.26 points (registered) for OT2025 cells,
+    because OT2015's substantive rate (9.6%) sits below the pool's.
+  - **The unread asks.** All 79 `unknown` rows are resolved, 11 granted; 16
+    are referred, 3 of those granted. Folding them into the OT2025-cell
+    registered pool would read between **157/1270 = 12.36%** (the referred
+    ones) and **165/1333 = 12.38%** (all of them). The registered pool reads
+    `substantive` alone.
+
+  **The straddling cohort.** At `main` `1e52aa815`, one committed interim
+  event carries a prediction and has an OT2015-reaching pool: `25A622`
+  (`scotus/73279700`, `evt-motion-disposition`), open, its cells stamped
+  `proc-v3` and `proc-v8`, so scored on the registered reading: against
+  ≈0.123 instead of ≈0.125 once the refresh lands. The 61 other predicted
+  interim events are OT2026 applications, whose pool does not move. Interim
+  skill stays read keyed on the stamped `segment_base_rate`, never pooled
+  across values, as the OT2023 entry registered.
+
+  **What else moves in the provisioned statpack.** OT2015's interim row
+  fills from all-`unparsed` to parsed counts (`referred_to_court` 72, the
+  substantive rows of the table's 88,
+  `response_requested` 11, `with_amicus` 1, `finer_moot` 1). The pack-level
+  interim totals, the live-slice coverage counts and the timing section move
+  by the rows landed, and the resolved-disposition totals by the 1,300
+  newly resolved rows. The newly resolved rows become reachable to
+  similar-case priors retrieval in the page-read shape, and a replay cell's
+  retrieval stays masked by its event date. **What does not move:** no
+  committed `evaluation.json` is rewritten, no cert rate moves, no OT2026
+  pool moves, and nothing is written by this change itself.
+
+  **When the apply runs.** Only after this entry and the registration reach
+  `main` in a promotion. The walk took 26 of the run-repair walk step's 30
+  minutes (`--max-run-seconds 1800`); a walk cut short prints its ledger and
+  the apply refuses it, so a slow runner costs a re-dispatch, never a
+  partial land. One apply, so one break: the anchor move is the first
+  statpack refresh after it.
+
+  The runnable effect check once it is live:
+  - the apply `gh workflow run run-repair.yml --ref main -f
+    repair=application-backfill -f repair_mode=apply -f repair_target=15 -f
+    repair_bound=1302` lands at most 1,302 rows, and the control dry run
+    after it reports `would land 0 row(s)`;
+  - after the apply and a statpack refresh, the statpack's interim row for
+    OT2015 reports `substantive` **116**, `unknown` **79**, `extension`
+    **1107**, `substantive_granted` / `substantive_resolved` **11/114**,
+    `finer_granted` / `finer_resolved` **12/113**, `applications` **1303**,
+    `unparsed` **1** and `duplicate_rows` **0**, and the OT2025-cell pool
+    reads **154/1254**. An `applications` count above 1303 means the apply
+    onboarded a row beside an existing one; any residue is named here rather
+    than rounded away. `uv run fedcourts process-digest --all` still prints
+    the same six digests.
+
+  Carried to `main` by `promotion/2026-11-07-2` (merge commit `36d9f0bd4130e52cb3d0a577cfee623c51b19fe3`, merged `2026-11-07T17:53:00Z`). Applied by run `<FILL: apply run
+  id>` on `<FILL: apply date>`, landing `<FILL: rows landed>` rows. The first
+  statpack refreshed after it, at commit `<FILL: statpack refresh commit>`,
+  reads the OT2025 pool as `<FILL: OT2025 pool granted/resolved>` and the
+  OT2024 pool as `<FILL: OT2024 pool granted/resolved>`.

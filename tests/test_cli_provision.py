@@ -3650,6 +3650,7 @@ def test_a_cert_cell_freezes_its_anchor_against_the_statpack_in_force(
         "statpack_digest": statpack_digest(pack),
         "lookback_terms": 10,  # config/tracking.yaml
     }
+    assert context["statpack_digest"] == statpack_digest(pack)
 
 
 def test_a_cert_cell_with_no_readable_statpack_freezes_no_anchor_out_loud(
@@ -3662,16 +3663,22 @@ def test_a_cert_cell_with_no_readable_statpack_freezes_no_anchor_out_loud(
     assert context["band"] == "high"
     assert context["cert_anchor"] is None
     assert "no readable metrics/statpack.json" in result.output
+    assert context["statpack_digest"] is None
 
 
-def test_a_cell_of_another_stage_freezes_no_cert_anchor(
+def test_a_cell_of_another_stage_freezes_no_cert_anchor_but_names_its_statpack(
     fixture_corpus: FixtureCorpus, tmp_path: Path
 ) -> None:
-    write_json(tmp_path / "metrics" / "statpack.json", _anchor_statpack(0.18))
+    """No cert anchor off the cert stage, but the build the cell reads its
+    statpack anchors from is recorded on every stage, so a judge grading after
+    a refresh can rebuild the pack this cell saw."""
+    pack = _anchor_statpack(0.18)
+    write_json(tmp_path / "metrics" / "statpack.json", pack)
 
     _, context = _provision_event(fixture_corpus, "evt-order-judgment", tmp_path / "metrics")
 
     assert context["cert_anchor"] is None
+    assert context["statpack_digest"] == statpack_digest(pack)
 
 
 def test_the_date_cut_drops_a_blank_or_unparseable_docketed_date() -> None:

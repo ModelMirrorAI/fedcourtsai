@@ -1025,6 +1025,26 @@ record moves by that document alone: the arrival cutoff is fixed at the day
 after the event opened, so a cell minted a window later is cut to the same
 information set and gains only the stored decision below.
 
+The **Solicitor General's posted briefs** fill a gap no supremecourt.gov fetch
+can: a docket the Court keeps on paper only under Rule 34.6 has no link behind
+any party filing, so the selector stores nothing for it
+(`pipeline/paper_only.py`). Where the United States is a party, the Office of
+the Solicitor General posts its own filing, and `enrich-sg-briefs`
+(`pipeline/sg_briefs.py`) stores it through `upsert_documents` under the kind a
+cert cell already reads: the Office's petition as `petition`, its opposition
+as `brief-in-opposition`, its cert-stage reply as `cert-reply`. Each row is
+dated by the Court's own docket entry for the filing, read with the selector's
+predicates: the earliest entry of its kind dated on or after the Office's
+filing date (the latest, for an opposition), so it is cut against a moment no
+earlier than the Court's copy would be, and a brief whose entry the stored
+docket does not show yet waits. It
+keeps no cursor: a docket leaves the class by holding every kind its entries
+show, or by the Court lifting the rule, at which point the selector finds the
+Court's own links and the freshness pass replaces these rows. The `run-pull`
+live job runs it as `enrich-sg-briefs --apply --max-cases 4` on the same four
+full windows as the two steps above, with no token, `continue-on-error` and a
+4-minute timeout.
+
 `provision-snapshot --refuse-terminal` (the forward predict path's guard —
 `run-predict` in production, mirrored by the integration harness) refuses a
 forward cell at the provisioning seam through three gates, mechanical-first:
@@ -2264,17 +2284,18 @@ lookback sits in the pool, and each earlier Term holds a thousand or more
 unparsed stubs, so each Term's apply moves the rate by its own amount. The
 command therefore refuses an apply for any Term outside
 `REGISTERED_APPLY_TERMS` (`pipeline/application_backfill.py`), which holds
-OT2016 to OT2024, each pre-registered in `docs/freeze-record.md`. A further
+OT2015 to OT2024, each pre-registered in `docs/freeze-record.md`. A further
 Term joins that set in the same change that appends a freeze-record entry
 projecting its move, read off its dry run. Its dry run needs no
 registration, since reading moves nothing.
 
-**OT2016 reads the legacy pages.** The pass reaches closed Terms from the
-live floor (`live.term_floor_year`, OT2017), and below it only the Terms in
-`LEGACY_HTML_TERMS`, which holds OT2016. supremecourt.gov serves OT2016's
-application JSON for some serials, mostly from `16A1051` on; for most of the
-rest it still serves the Clerk's record as its legacy HTML docket page
-(`docketfiles/16a<n>.htm`); a sample found no serial served in both forms.
+**OT2015 and OT2016 read the legacy pages.** The pass reaches closed Terms
+from the live floor (`live.term_floor_year`, OT2017), and below it only the
+Terms in `LEGACY_HTML_TERMS`, which holds OT2015 and OT2016. supremecourt.gov
+serves OT2016's application JSON for some serials, mostly from `16A1051` on,
+and OT2015's for none; for most of the rest it still serves the Clerk's
+record as its legacy HTML docket page (`docketfiles/<yy>a<n>.htm`); a sample
+found no OT2016 serial served in both forms.
 The walk opens each Term on the page and reads first the form that served the
 serial before, then the other on a miss, so it stays near one fetch a serial.
 `pipeline/legacy_docket.py` parses a page into the docket JSON's own keys, so
@@ -2289,7 +2310,7 @@ it lands. Its stored snapshot carries a
 its script elements, which change per request,
 so no reader mistakes it for the Court's JSON. The plan carries the page
 verbatim, and the writer parses it again, under the same whole-plan check.
-The live floor itself does not move: the rotations still skip OT2016, so no
+The live floor itself does not move: the rotations still skip both Terms, so no
 live poll re-reads a JSON the Court does not serve.
 
 **Dispatching.** Dispatch on `main`, in a quiet slot between the scheduled

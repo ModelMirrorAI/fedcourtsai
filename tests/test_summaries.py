@@ -1294,6 +1294,24 @@ def test_stage_check_holds_a_kept_case_to_what_provisioning_writes(tmp_path: Pat
     ]
 
 
+def test_stage_check_withholds_the_solicitor_generals_posted_copy(tmp_path: Path) -> None:
+    plan = _plan(tmp_path / "data", {"scotus/1": _record()})
+    stage = tmp_path / "stage"
+    _stage(stage)
+    paths = CasePaths(stage, "scotus", 1)
+    manifest = json.loads(paths.documents_manifest.read_text())
+    manifest[0]["url"] = "https://www.justice.gov/osg/media/1463386/dl?inline"
+    paths.documents_manifest.write_text(json.dumps(manifest))
+    kind = manifest[0]["kind"]
+    assert summaries.prune_stage(plan, stage) == [
+        (f"scotus/1/{kind}", f"{summaries.DOCUMENT_WITHHELD}: the Solicitor General's posted copy")
+    ]
+    assert not (paths.base / f"record/documents/{kind}.txt").exists()
+    assert [e["kind"] for e in json.loads(paths.documents_manifest.read_text())] == [
+        e["kind"] for e in manifest[1:]
+    ]
+
+
 def test_stage_check_removes_a_case_holding_a_symlink(tmp_path: Path) -> None:
     outside = tmp_path / "outside.json"
     outside.write_text("{}")

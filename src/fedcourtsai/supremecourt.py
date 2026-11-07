@@ -36,9 +36,9 @@ DOCKET_JSON_URL = "https://www.supremecourt.gov/rss/cases/JSON/{docket}.json"
 
 # The Court's legacy HTML docket page, keyed by the lower-cased docket number
 # (``16a100``). It serves dockets of the pre-e-filing era the JSON endpoint
-# does not: most of OT2016's applications below ``16A1051``, among them. Read
-# only by the application back-fill, for the Terms below the JSON floor it
-# reaches (pipeline.legacy_docket parses it).
+# does not: every OT2015 application and most of OT2016's below ``16A1051``,
+# among them. Read only by the application back-fill, for the Terms below the
+# JSON floor it reaches (pipeline.legacy_docket parses it).
 LEGACY_DOCKET_URL = "https://www.supremecourt.gov/docketfiles/{docket}.htm"
 
 # The Court's human-readable docket page for one docket number — a display link,

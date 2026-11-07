@@ -1008,9 +1008,13 @@ lands before the next evaluate tick (*The evaluate queue is level-triggered
 too*, below). A second step on the same windows, `enrich-decision-below
 --apply --max-cases 6`, stores the decision below for up to six pending cert
 petitions from the federal courts of appeals, staged for cert and merits cells
-([document-provisioning.md](document-provisioning.md)). Those two steps alone in
-the live job hold the CourtListener token, and both are `continue-on-error`: a
-failed or slow enrichment never fails the live pull, whose facts the push and
+([document-provisioning.md](document-provisioning.md)). A third,
+`enrich-sg-briefs --apply --max-cases 4`, stores the Solicitor General's own
+posted briefs for up to four dockets the Court keeps on paper only (Rule
+34.6), read from the Office's pages on www.justice.gov; it holds no token.
+The first two steps alone in
+the live job hold the CourtListener token, and all three are
+`continue-on-error`: a failed or slow enrichment never fails the live pull, whose facts the push and
 commit carry either way. The **pull** job runs one more CourtListener step after
 `pull-all`, `watchlist-refresh --once-a-day`: the AI watchlist's lower-court
 dockets, facts only, on their own share, taken by the day's first pull window
@@ -1536,13 +1540,13 @@ writer's, against the corpus it pulls under the lock: the dry run's count
 (`unresolved=N` in its ledger) is an upper bound on what the apply lands. Each
 run fetches from supremecourt.gov, so an apply does not lead with a dry run,
 and a re-dispatched dry run after the apply is the control. Its plan carries
-the served dockets' party contact details (for OT2016, the served legacy
-pages of the serials that serve no JSON) to the writer under the narrow
+the served dockets' party contact details (for OT2015 and OT2016, the served
+legacy pages of the serials that serve no JSON) to the writer under the narrow
 carve-out in [data-sources.md](data-sources.md) (*PII stance*): one artifact,
 one day, never committed or printed. **Each Term's apply is pre-registered**:
 it moves that Term's unparsed rows into the population the pooled interim base
 rate is computed over, so it has its own entry in
-[freeze-record.md](freeze-record.md). OT2016 to OT2024 are registered: an
+[freeze-record.md](freeze-record.md). OT2015 to OT2024 are registered: an
 apply for any other Term is refused until a freeze-record entry projects its
 move and it has a place in `REGISTERED_APPLY_TERMS`.
 

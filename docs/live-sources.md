@@ -90,8 +90,9 @@ decided petition lands with a machine-readable cert label; and the probe is
 Below the floor the Court still serves its legacy HTML docket page
 (`https://www.supremecourt.gov/docketfiles/<number>.htm`, the number
 lower-cased), the same Clerk's record in an older layout. One pass reads it:
-the application back-fill, for the OT2016 serials that serve no JSON, most of
-those below `16A1051` (*Maintenance passes* in [data-pipeline.md](data-pipeline.md)).
+the application back-fill, for the OT2015 and OT2016 serials that serve no
+JSON: all of OT2015's and most of OT2016's below `16A1051` (*Maintenance
+passes* in [data-pipeline.md](data-pipeline.md)).
 No poll or rotation reads it, so the live channel's reach is unchanged.
 
 ## Architecture: a third channel, the same corpus
