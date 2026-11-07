@@ -19,13 +19,19 @@ from fedcourtsai.ai_activity import (
 from fedcourtsai.ai_cases_update import (
     COURT_NAMES,
     MOTION_LABELS,
+    SECTIONS,
     ai_cases_subject,
     build_ai_cases_update,
     render_ai_cases_update,
 )
 from fedcourtsai.ai_watchlist import AI_WATCHLIST_FILENAME, AiWatchlist, load_ai_watchlist
 from fedcourtsai.cli import app
-from fedcourtsai.schemas import AiActivityMotion, AiCaseActivity, AiCaseActivityEntry
+from fedcourtsai.schemas import (
+    AiActivityKind,
+    AiActivityMotion,
+    AiCaseActivity,
+    AiCaseActivityEntry,
+)
 from fedcourtsai.serialize import read_model
 from fedcourtsai.validate import validate_ledger
 
@@ -305,6 +311,12 @@ def test_post_dry_run_prints_the_draft_and_an_empty_span_exits_three(
         ("OPINION AND ORDER re: 112 MOTION to Dismiss. The motion is GRANTED in part.", "dismiss"),
         ("MEMORANDUM OPINION. Signed by Judge Stephanos Bibas.", None),
         ("JUDGMENT.", None),
+        (
+            "ORDER certifying question for interlocutory appeal; GRANTING motion to dismiss.",
+            "dismiss",
+        ),
+        ("ORDER granting the Certified motion to dismiss.", "dismiss"),
+        ("MOTION for Leave to File Motion to Dismiss filed by OpenAI.", None),
         ("COMPLAINT against OpenAI, Inc.", None),
         ("NOTICE OF APPEAL to the 9th Circuit.", None),
     ],
@@ -374,7 +386,7 @@ def test_the_update_orders_cases_by_their_weightiest_item_and_introduces_them(
     )
     update = build_ai_cases_update(tmp_path, date(2026, 11, 2), date(2026, 11, 8), watchlist)
     text = render_ai_cases_update(update, title=False)
-    assert "in the 1 federal AI cases FedCourtsAI follows" in text
+    assert "in the 1 federal AI case FedCourtsAI follows" in text
     assert "**This update:** 1 ruling \N{MIDDLE DOT} 1 appeal \N{MIDDLE DOT} 2 new filings" in text
     order = [
         text.index(h)
@@ -394,3 +406,7 @@ def test_the_update_orders_cases_by_their_weightiest_item_and_introduces_them(
     assert "Ruling on a motion to dismiss (S.D.N.Y. 1:25-cv-01234, entry 4)" in authors
     assert "*Copyright · S.D.N.Y. · Training a model on the authors' books.*" in authors
     assert "[fedcourts.ai](https://fedcourts.ai/)" in text.split("---")[-1]
+
+
+def test_every_kind_has_a_section() -> None:
+    assert set().union(*(kinds for _, kinds in SECTIONS)) == set(get_args(AiActivityKind))

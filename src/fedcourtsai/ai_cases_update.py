@@ -22,7 +22,7 @@ A ruling with a committed model summary (``data/ai-cases/summaries/``,
 :mod:`fedcourtsai.ai_rulings`) carries it under its item, quoted and labeled
 with the model that wrote it. The summary is written from the ruling's own
 text, so this is the one place the update says what a ruling decided; an item
-without one renders as before.
+without one carries only its line.
 """
 
 from __future__ import annotations
@@ -311,7 +311,8 @@ def _case_lines(
 def render_ai_cases_update(update: AiCasesUpdate, *, title: bool = True) -> str:
     """The update as Markdown, ready for an email body; ``title=False`` leaves it to the subject."""
     lines = [f"# {ai_cases_subject(update)}", ""] if title else []
-    followed = f"{update.followed} federal AI cases" if update.followed else "federal AI cases"
+    n = update.followed
+    followed = f"{n} federal AI case{'' if n == 1 else 's'}" if n else "federal AI cases"
     lines += [_INTRO.format(cases=followed), ""]
     if update.empty:
         lines += ["No significant docket activity in this span.", ""]

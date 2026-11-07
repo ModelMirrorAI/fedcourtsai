@@ -23,8 +23,9 @@ extensions, sealing, transcripts, letters, discovery and its disputes. The rule
 reads an entry's own description and the short description upstream gives its
 main document, and nothing else.
 
-The record carries identifiers, dates, the kind this rule assigns and a link to
-the entry on CourtListener: never the entry's text. CourtListener's docket
+The record carries identifiers, dates, the kind this rule assigns (with the
+principal motion a motion, ruling or opinion names) and a link to the entry on
+CourtListener: never the entry's text. CourtListener's docket
 content is CC BY-ND, so what is published is a pointer to the public record,
 not a copy of it (``docs/data-sources.md``).
 """
@@ -68,7 +69,7 @@ class EntryKind(StrEnum):
 
 # A principal motion, the kind a ruling or a filing must name to be kept.
 _PRINCIPAL = (
-    r"(?:motion|petition)s?\b[^.;]{0,80}?\b(?:"
+    r"(?:motion|petition)s?\b[^.;]{0,80}?\b(?P<motion>"
     r"to\s+dismiss|for\s+(?:partial\s+)?summary\s+judgment|"
     r"(?:for|to)\s+(?:class\s+)?certif|class\s+certification|"
     r"(?:for\s+(?:a\s+)?)?preliminary\s+injunction|temporary\s+restraining\s+order|"
@@ -77,15 +78,20 @@ _PRINCIPAL = (
 )
 #: The principal motion an entry names, as the record's ``motion`` field
 #: spells it, each with the phrase that identifies it. Read only from the
-#: stretch the kind's rule matched, so it names the motion the ruling decides
-#: or the filing makes, never one an entry merely mentions later. The label is
-#: the rule's own classification of the entry, like its kind: no docket text.
+#: motion phrase itself (the ``motion`` group of the principal-motion pattern),
+#: so words before it, such as an order certifying a question, never label it.
+#: The label is the rule's own classification of the entry, like its kind: no
+#: docket text. It adds to the record without changing which entries the rule
+#: keeps or the kind it gives them, so the rule's label stands.
 PRINCIPAL_MOTIONS: Final[tuple[tuple[str, re.Pattern[str]], ...]] = (
     ("partial-summary-judgment", re.compile(r"partial\s+summary\s+judgment", re.I)),
     ("summary-judgment", re.compile(r"summary\s+judgment", re.I)),
     ("judgment-on-the-pleadings", re.compile(r"judgment\s+on\s+the\s+pleadings", re.I)),
     ("dismiss", re.compile(r"to\s+dismiss", re.I)),
-    ("class-certification", re.compile(r"certif", re.I)),
+    (
+        "class-certification",
+        re.compile(r"(?:for|to)\s+(?:class\s+)?certif|class\s+certification", re.I),
+    ),
     ("preliminary-injunction", re.compile(r"preliminary\s+injunction", re.I)),
     ("temporary-restraining-order", re.compile(r"temporary\s+restraining\s+order", re.I)),
     ("compel-arbitration", re.compile(r"compel\s+arbitration", re.I)),
@@ -217,9 +223,10 @@ _MOTION_KINDS: Final = frozenset({EntryKind.motion, EntryKind.ruling, EntryKind.
 def principal_motion(entry: Mapping[str, Any]) -> str | None:
     """The principal motion a motion, ruling or opinion entry names, or ``None``.
 
-    Read from the text the kind's rule matched, through the first principal
-    motion it names (an opinion's, within its first sentence), so an entry
-    that names two motions gets the one it leads with.
+    The first principal motion named in the text the kind's rule matched (an
+    opinion's, within its first sentence), read from the motion phrase alone.
+    A motion for leave to file one names none: it asks permission, and the
+    motion it names is not yet made.
     """
     found = _classified(entry)
     if found is None or found[0] not in _MOTION_KINDS:
@@ -227,16 +234,10 @@ def principal_motion(entry: Mapping[str, Any]) -> str | None:
     match = re.search(_SENTENCE + r"{0,200}?" + _PRINCIPAL, found[1], re.I)
     if match is None:
         return None
-    named = match.group(0)
-    first = min(
-        (
-            (hit.start(), label)
-            for label, pattern in PRINCIPAL_MOTIONS
-            if (hit := pattern.search(named)) is not None
-        ),
-        default=None,
-    )
-    return first[1] if first is not None else None
+    if re.search(r"leave\s+to\s+file", found[1][match.start() : match.start("motion")], re.I):
+        return None
+    phrase = match.group("motion")
+    return next((label for label, pattern in PRINCIPAL_MOTIONS if pattern.search(phrase)), None)
 
 
 def entry_url(entry: Mapping[str, Any], docket: Mapping[str, Any]) -> str:

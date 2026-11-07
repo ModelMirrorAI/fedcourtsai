@@ -749,7 +749,7 @@ and the prompt asks for a summary in the model's own words rather than
 quotation. Beside them sit the AI watchlist's activity records
 (`data/ai-cases/activity/`), on the footing of the `order-scan` report below:
 court-record identifiers (court, docket and entry numbers, filing dates), the
-kind our rule reads from each entry, the watchlist's own case name, and a link
+kind our rule reads from each entry (and the principal motion it names), the watchlist's own case name, and a link
 to the entry on CourtListener, whose path carries CourtListener's slug of the
 docket caption. They copy no entry text and no CourtListener value-add field.
 There is also a **non-git** public
