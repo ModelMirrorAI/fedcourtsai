@@ -916,11 +916,13 @@ says so). That is the pack checked out for *you*; a metrics refresh may have
 landed after a candidate ran, so its figures can differ from the pack it read.
 Before you mark a candidate's base-rate figures wrong for disagreeing with the
 committed pack, rebuild the one it was placed against:
-`fedcourts statpack-at data/cases/$COURT_ID/$DOCKET_ID/record/blinded/<alias>/
---ref origin/main --out-dir /tmp/statpack-at/<alias>` prints the build (the
+`uv run fedcourts statpack-at
+data/cases/$COURT_ID/$DOCKET_ID/record/blinded/<alias>/ --ref origin/main
+--out-dir /tmp/statpack-at/<alias>` prints the build (the
 candidate's `context.statpack_digest`, or a cert cell's `cert_anchor`, checked
 against `main`'s statpack history at its run id) and writes that build's
-`statpack.json` and `statpack.md` to the scratch directory, outside the tree.
+`statpack.json` and `statpack.md` to the scratch directory, outside the tree
+(scratch there is not output, so it is inside your lane).
 It reads only the statpack's own history, so it is inside the blind. Grade the
 candidate's base-rate use against that build, and say in `evaluation.md` which
 build you graded against where it is not the committed one. A non-null

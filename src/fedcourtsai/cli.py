@@ -10962,6 +10962,8 @@ def statpack_at_command(
     the document's own ``run_id``: a judge's blinded copy
     (``record/blinded/<alias>/``) sits under its alias, and the document field is
     then the only run id in reach. ``run_id_from`` says which bound was used.
+    A document bound is the candidate's word: a recorded digest is checked
+    against the builds at it, but with nothing recorded it alone picks the build.
 
     JSON on stdout: the run id and its source, the recorded digest and which field carried it,
     the build's landing commit and time, and the alternative, if any.
@@ -11035,7 +11037,8 @@ def statpack_at_command(
                 typer.echo(f"statpack-at: no metrics/{name} at {each.sha[:12]}", err=True)
                 raise typer.Exit(code=1)
             write_text(dest / name, text)
-    typer.echo(f"statpack-at: {build.sha[:12]} -> {out_dir}", err=True)
+    for each, dest in written:
+        typer.echo(f"statpack-at: {each.sha[:12]} -> {dest}", err=True)
 
 
 @app.command("segment-anchors")

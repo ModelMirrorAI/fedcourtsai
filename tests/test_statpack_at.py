@@ -32,6 +32,7 @@ from fedcourtsai.serialize import write_json
 from fedcourtsai.statpack_history import (
     CHECKOUT_SLACK,
     CommittedBuild,
+    GitStatpackHistory,
     PlacedBuild,
     placed_build,
 )
@@ -275,3 +276,23 @@ def test_statpack_at_writes_both_builds_where_the_slack_leaves_two(tmp_path: Pat
     assert summary["alternative_sha"] is not None
     assert (out / "statpack.md").read_text() == "# Corpus statpack 2\n"
     assert (out / "alternative" / "statpack.md").read_text() == "# Corpus statpack 1\n"
+
+
+def test_the_history_reads_a_checkout_its_caller_does_not_own(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A judge running as its own user reads the runner's checkout: the repository
+    is named safe on git's command line, the only config the history reads."""
+    repo = _repo(tmp_path)
+    seen: list[list[str]] = []
+    real = subprocess.run
+
+    def spy(argv: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        seen.append(argv)
+        return real(argv, **kwargs)  # type: ignore[call-overload,no-any-return]
+
+    monkeypatch.setattr(subprocess, "run", spy)
+    history = GitStatpackHistory(repo, "main")
+
+    assert history.newest_build(datetime(2026, 11, 7, tzinfo=UTC)) is not None
+    assert seen and all(f"safe.directory={repo.resolve()}" in argv for argv in seen)

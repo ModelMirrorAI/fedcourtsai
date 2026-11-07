@@ -17747,8 +17747,8 @@ freeze commit is recorded here.
     blind.
   - *The predict prompt.* Its paper-only sentence now says that on such a
     docket with the United States as a party the government's own filing
-    may still be staged: its petition (with the questions presented cut from
-    it), its brief in opposition or its cert-stage reply, from the copy the
+    may still be staged: its petition (with the questions presented
+    extracted from it), its brief in opposition or its cert-stage reply, from the copy the
     Solicitor General's office posts, under the usual kinds and cut at the
     Court's own entry. A cell reads it like any staged document, treats the
     other side's absent papers as absent rather than silent, and says in
@@ -17759,8 +17759,17 @@ freeze commit is recorded here.
   application-reread refresh saw zero finer interim counts, the judges read
   the refreshed pack, and they could not tell which figures a forecast was
   formed from. The harness half, which records the build on every predict
-  cell and adds the command, changed no digest and rides
-  `promotion/2026-11-07-2`. The predict sentence is the one the 2026-11-07
+  cell and adds the command, changed no digest and rides the promotion cut
+  as `promote/2026-11-07-2`. The PR carrying this label also changes that
+  command, with no digest moving: it bounds a blinded copy by the document's
+  own run id (the masked copy's directory is an alias, not a run id), writes
+  the second build under `alternative/` where two are possible, and passes
+  its repository as a `safe.directory` on the git command line, since a
+  judge that runs as its own user (the codex judge) would otherwise be
+  refused the runner-owned checkout. Where nothing recorded a build and the
+  bound came from the document, the run id is the candidate's word; a
+  recorded digest is checked against the builds at that bound, so a wrong
+  run id fails the command and the judge falls back to the committed pack. The predict sentence is the one the 2026-11-07
   entry *A paper-only docket stages the Solicitor General's own posted
   filing* left true but incomplete: cells on either side of this label are
   given the same documents under the `sg-posted-briefs` boundary, which is
@@ -17768,8 +17777,9 @@ freeze commit is recorded here.
   entry is not otherwise edited. No score motivates either change.
 
   **Pre-registered.** No skill movement is predicted. The evaluate change can
-  move a judge-authored grade (`reasoning_quality`, and a claim a judge
-  grades as a base-rate misreading) on a cell graded after a refresh that
+  move any judge-authored grade (`reasoning_quality`,
+  `predicted_reasoning_quality`, and a claim a judge grades as a base-rate
+  misreading) on a cell graded after a refresh that
   postdates its placement, in the direction of fewer base-rate errors
   charged. A movement in **either** direction across this label in those
   grades, or in skill on paper-only dockets, is not read as a model effect:
@@ -17784,8 +17794,8 @@ freeze commit is recorded here.
     CURRENT_PROCESS_LABEL as L; print(L)"` prints `proc-v20`, and `uv run
     fedcourts process-digest --all` prints the six digests below;
   - `grep -c 'statpack-at' .github/prompts/evaluate.md` and `grep -c
-    'Solicitor General' .github/prompts/predict.md` on `main` each print a
-    count above 0;
+    "only the government's filing" .github/prompts/predict.md` on `main`
+    each print a count above 0 (the second prints 0 on `proc-v19`);
   - on the first evaluate run's collect PR after the carrying merge whose
     candidates were placed before the newest statpack refresh, an
     evaluation's `retrieval.md` or `evaluation.md` names a `statpack-at`
@@ -17797,12 +17807,12 @@ freeze commit is recorded here.
 
   | Actor | Before | `proc-v20` |
   | --- | --- | --- |
-  | `claude-baseline` | `sha256:1789dc26189e0e14ae71d9ed1f622751dd2c849d8fba4a85542336fab0b15080` (`proc-v19`) | `sha256:ce61f013e32bf674c0d824d09f500a68f454eba507277014fef388c73a043af9` (new) |
-  | `codex-baseline` | `sha256:a939a164bc3cb0658e12c0c98b2300a878aecea15a93189e96579103382002d8` (`proc-v19`) | `sha256:9ea121851eae7ec06fad313d6e997938cd32ec81427f4358fad95a9b555ff37a` (new) |
-  | `gemini-baseline` | `sha256:889d53dc033d7303ca39cf2bf3faa859dc0886a296ed2f0ad5ac00edf96705b7` (`proc-v19`) | `sha256:ee73c2f4608814dc2547a955a2b5f6204ffdf826a7321002528570bc8edf3002` (new) |
-  | `claude-judge` | `sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf` (`proc-v17`) | `sha256:fdc8186444534cebf1b71c8731ac270388be5ac453af0c95d4db0b598d00dd52` (new) |
-  | `codex-judge` | `sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a` (`proc-v17`) | `sha256:b2646cb15b1b451b0f7ba681a258c79bccf59beb95f35f1187d8fd3c3a2577c4` (new) |
-  | `gemini-judge` | `sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9` (`proc-v17`) | `sha256:84b03d58a9fca353ec4b22f261db1448b48a0b73d433d8c685c3de0226f67e1c` (new) |
+  | `claude-baseline` | `sha256:1789dc26189e0e14ae71d9ed1f622751dd2c849d8fba4a85542336fab0b15080` (`proc-v19`) | `sha256:69076c7e6ef3b55358bbb298c3ab3e821f14f7ce165f7a1eed2e51a550f5ca21` (new) |
+  | `codex-baseline` | `sha256:a939a164bc3cb0658e12c0c98b2300a878aecea15a93189e96579103382002d8` (`proc-v19`) | `sha256:56f5da33ed8eeda29c8094135a9141710b69c76fb939abe281da85d263d238a7` (new) |
+  | `gemini-baseline` | `sha256:889d53dc033d7303ca39cf2bf3faa859dc0886a296ed2f0ad5ac00edf96705b7` (`proc-v19`) | `sha256:154ba5e6732eb9627dfa988245cba7a2f5a5682fa4b9bf6ac5d0c7e6e4e984de` (new) |
+  | `claude-judge` | `sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf` (`proc-v17`) | `sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768` (new) |
+  | `codex-judge` | `sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a` (`proc-v17`) | `sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c` (new) |
+  | `gemini-judge` | `sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9` (`proc-v17`) | `sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5` (new) |
 
   **What was made under the retiring digests.** At `origin/main`
   `f4a505ff2` (`2026-11-07T17:00:14Z`), committed files under `data/cases`

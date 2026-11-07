@@ -189,11 +189,14 @@ class GitStatpackHistory:
 
 def _git(cwd: Path, *args: str) -> str | None:
     # The user's and the system's config are not read: the agent that ran
-    # before the stamp could have written the first.
+    # before the stamp could have written the first. The repository is named
+    # safe on the command line instead, so a caller running as another user
+    # than the checkout's owner (a judge under its own account) can read it.
     env = os.environ | {"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1"}
+    safe = f"safe.directory={Path(cwd).resolve()}"
     try:
         out = subprocess.run(
-            ["git", "--no-replace-objects", "-C", str(cwd), *args],
+            ["git", "--no-replace-objects", "-c", safe, "-C", str(cwd), *args],
             capture_output=True,
             text=True,
             check=True,
