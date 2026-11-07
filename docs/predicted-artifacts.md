@@ -262,7 +262,8 @@ absent optional field as null.
     "vide_links": [],
     "paper_only_filings": false,
     "snapshot_contact_scrub": {"sides": [], "blocks": 0, "fields": 0},
-    "cert_anchor": null
+    "cert_anchor": null,
+    "statpack_digest": null
   },
   "process_version": {
     "label": "proc-v8",
@@ -892,7 +893,7 @@ directory without knowing which part is which invites trusting the wrong half.
   salience band (or, where the active scorer's segment leaves the row out, a null
   band with the reason in `band_refused`, `"outside-segment"`; null wherever no
   such refusal happened, an unobservable or application docket included), the distribution count and CVSG date as at that cutoff (as at
-  the snapshot where there is none), the Term, the dockets the payload links as `Vide` (`vide_links`), whether the docket puts its filings on paper only under Rule 34.6, so nothing is posted to stage (`paper_only_filings`), what the contact scrub withheld from the staged snapshot (`snapshot_contact_scrub`: the self-represented sides it keyed on, empty where it did not run, and the blocks and values it replaced), on a cert cell that froze a band the skill anchor pooled at placement (`cert_anchor`: the risk-set rate over the frozen band, version and Term, the statpack build it was pooled from and the lookback window; null on a cell of any other stage, on a cert cell that froze no band, and where no statpack was readable), and — on an
+  the snapshot where there is none), the Term, the dockets the payload links as `Vide` (`vide_links`), whether the docket puts its filings on paper only under Rule 34.6, so nothing is posted to stage (`paper_only_filings`), what the contact scrub withheld from the staged snapshot (`snapshot_contact_scrub`: the self-represented sides it keyed on, empty where it did not run, and the blocks and values it replaced), on a cert cell that froze a band the skill anchor pooled at placement (`cert_anchor`: the risk-set rate over the frozen band, version and Term, the statpack build it was pooled from and the lookback window; null on a cell of any other stage, on a cert cell that froze no band, and where no statpack was readable), on a predict cell of any stage the statpack build it was placed against (`statpack_digest`, the digest of the `metrics/statpack.json` checked out at placement, so a judge grading after a refresh can rebuild the pack the predictor read with `fedcourts statpack-at`; read by no scoring surface; null on an evaluate cell and where no statpack was readable), and — on an
   application cell only — the interim escalation trio on the same footing. Written by provisioning and copied on by the stamp. It
   matters that it is harness-owned more than most: the band a cell is scored
   against only ever strengthens, so a band re-derived at evaluation would

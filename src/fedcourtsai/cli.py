@@ -10911,6 +10911,108 @@ def claim_scores_command(
     )
 
 
+@app.command("statpack-at")
+def statpack_at_command(
+    prediction: Annotated[
+        Path,
+        typer.Argument(
+            help="A predict cell's `prediction.json`, or its run directory "
+            "(`.../predictions/<predictor_id>/<run_id>/`). The directory's name is the "
+            "run id the build is bound by.",
+        ),
+    ],
+    out_dir: Annotated[
+        Path | None,
+        typer.Option(
+            "--out-dir",
+            help="Write the build's `statpack.json` and `statpack.md`, as committed at "
+            "its landing commit, into this directory.",
+        ),
+    ] = None,
+    repo: Annotated[
+        Path,
+        typer.Option("--repo", help="The repository whose history is walked."),
+    ] = Path("."),
+    ref: Annotated[
+        str,
+        typer.Option(
+            "--ref",
+            help="The branch whose first-parent landings count (`main` in a bare clone).",
+        ),
+    ] = statpack_history.DEFAULT_REF,
+) -> None:
+    """Find the statpack build a predict cell read, so a judge can rebuild its view.
+
+    A metrics refresh landing between forecast and grading replaces the
+    committed ``metrics/statpack.json``, so the pack checked out at grading is
+    not always the one the predictor anchored on. This names the one it was:
+    the build the cell recorded at placement (``context.statpack_digest``, or a
+    cert cell's ``cert_anchor.statpack_digest``), checked against ``ref``'s
+    first-parent statpack history at the run id the same way the stamp checks a
+    frozen cert anchor — the build in force then, or the one it replaced where
+    the replacement landed inside the checkout slack. A cell with neither record
+    gets the build in force at its run id, and the replaced one beside it where
+    the slack leaves both possible.
+
+    JSON on stdout: the run id, the recorded digest and which field carried it,
+    the build's landing commit and time, and the alternative, if any.
+    ``--out-dir`` writes that commit's ``statpack.json`` and ``statpack.md``,
+    the files the cell's prompt sent it to. Exit 1 where the run id does not
+    parse, the prediction does not read, no build landed by the run id, a
+    recorded digest names neither candidate, or a file ``--out-dir`` asks for
+    is missing at the build's commit. Needs the full history (a shallow clone holds too little).
+    """
+    cell = prediction.parent if prediction.name == "prediction.json" else prediction
+    try:
+        provisioned_by = ids.parse_run_id(cell.name)
+        scored = read_model(cell / "prediction.json", Prediction)
+    except (OSError, ValueError) as exc:
+        typer.echo(f"statpack-at: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    context = scored.context
+    recorded: str | None = None
+    carrier: str | None = None
+    if context is not None and context.statpack_digest is not None:
+        recorded, carrier = context.statpack_digest, "statpack_digest"
+    elif context is not None and context.cert_anchor is not None:
+        recorded, carrier = context.cert_anchor.statpack_digest, "cert_anchor"
+    history = statpack_history.GitStatpackHistory(repo, ref)
+    found = statpack_history.placed_build(recorded, provisioned_by, history)
+    if isinstance(found, str):
+        typer.echo(f"statpack-at: {cell.name}: {found}", err=True)
+        raise typer.Exit(code=1)
+    build, alternative = found.build, found.alternative
+    typer.echo(
+        json.dumps(
+            {
+                "run_id": cell.name,
+                "recorded_digest": recorded,
+                "recorded_in": carrier,
+                "build_sha": build.sha,
+                "landed_at": build.committed_at.isoformat(),
+                "digest": None if build.statpack is None else statpack_digest(build.statpack),
+                "alternative_sha": None if alternative is None else alternative.sha,
+            },
+            indent=2,
+        )
+    )
+    if alternative is not None:
+        typer.echo(
+            f"statpack-at: {cell.name} recorded no build, and {build.sha[:12]} landed within "
+            f"the checkout slack of its run id: it may have read {alternative.sha[:12]} instead.",
+            err=True,
+        )
+    if out_dir is None:
+        return
+    for name in ("statpack.json", "statpack.md"):
+        text = history.file_at(build.sha, f"metrics/{name}")
+        if text is None:
+            typer.echo(f"statpack-at: no metrics/{name} at {build.sha[:12]}", err=True)
+            raise typer.Exit(code=1)
+        write_text(out_dir / name, text)
+    typer.echo(f"statpack-at: {build.sha[:12]} -> {out_dir}", err=True)
+
+
 @app.command("segment-anchors")
 def segment_anchors_command(
     terms: Annotated[
@@ -14750,7 +14852,7 @@ _statpack_history: Callable[[Settings], statpack_history.StatpackHistory] = _git
 
 
 def _cert_anchor_pool(
-    settings: Settings, paths: CasePaths, event: str
+    paths: CasePaths, event: str, pool: provision.AnchorPool | None
 ) -> provision.AnchorPool | None:
     """The statpack build and window a cert cell's anchor is frozen from, or ``None``.
 
@@ -14760,11 +14862,11 @@ def _cert_anchor_pool(
     warning, where no statpack is readable: the cell then carries no frozen
     anchor and its grading pools at stamp time. The window is the configured
     ``salience.base_rate_lookback_terms``, the one :func:`_pool_cert_anchor`
-    reads at grading.
+    reads at grading. ``pool`` is the one read the caller took, which also
+    gives every predict cell's ``statpack_digest``, so the two cannot disagree.
     """
     if not provision.freezes_cert_anchor(paths.event(event).event_file, event):
         return None
-    pool = provision.read_anchor_pool(settings.metrics_root, settings.config_root)
     if pool is None:
         typer.echo(
             "::warning::provision: no readable metrics/statpack.json — this cert cell's "
@@ -21018,7 +21120,12 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
     # staged copy through the contact-detail scrubs — goes through the one
     # writer the local cascade shares (`provision.write_cell_record`), so the
     # record a cell reads here and the record the engine smoke certifies cannot
-    # be written differently.
+    # be written differently. One read of the committed statpack serves both
+    # the cert anchor and the build every predict cell records (an evaluate
+    # cell names no event and records none).
+    committed_pack = (
+        provision.read_anchor_pool(settings.metrics_root, settings.config_root) if event else None
+    )
     try:
         written = provision.write_cell_record(
             paths,
@@ -21030,7 +21137,8 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
             related=related,
             authorship_tally=tally,
             same_question=listed,
-            anchor_pool=_cert_anchor_pool(settings, paths, event),
+            anchor_pool=_cert_anchor_pool(paths, event, committed_pack),
+            statpack_digest=None if committed_pack is None else committed_pack.digest,
         )
     except provision.ProvisionError as exc:
         typer.echo(f"::error::{exc}", err=True)

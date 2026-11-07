@@ -1157,6 +1157,18 @@ class PredictionContext(_Strict):
         "that froze no band, where no statpack was readable at provisioning, and "
         "on cells placed before the record",
     )
+    statpack_digest: str | None = Field(
+        default=None,
+        description="`pipeline.base_rates.statpack_digest` of the `metrics/statpack.json` "
+        "checked out when the cell was placed, on a predict cell of any stage: the "
+        "build whose figures the cell's `metrics/statpack.md` rendered. Names the "
+        "pack a judge rebuilds the predictor's view from (`fedcourts statpack-at`) "
+        "after a refresh has moved the committed one. A provisioned claim the cell's "
+        "workspace can reach, read by no scoring surface; `statpack-at` checks it "
+        "against the build in force at the predict run id. Null on an evaluate cell, "
+        "where no statpack was readable at provisioning, and on cells placed before "
+        "the record",
+    )
 
     @model_validator(mode="after")
     def _cut_fields_cohere(self) -> PredictionContext:

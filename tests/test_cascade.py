@@ -445,6 +445,7 @@ def test_the_evaluate_half_is_reprovisioned_from_the_latest_snapshot(
     context = PredictionContext.model_validate_json(report.context.read_text())
     assert context.mode == "forward"
     assert context.cutoff is None
+    assert context.statpack_digest is None, "an evaluate cell records no statpack build"
     assert context.snapshot_provenance == "as-stored"
     # Which is exactly why the report carries the placements as well: the record
     # on disk is the judge's, and reading it alone would report the forecaster's
