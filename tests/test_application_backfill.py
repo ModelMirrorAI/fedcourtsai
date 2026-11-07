@@ -263,7 +263,7 @@ def test_the_fetch_limit_and_the_dev_cache(tmp_path: Path) -> None:
         (["--apply", "--max-rows", "1", "--cache-dir", "c"], "--cache-dir"),
         (["--term", "99"], "out of reach"),
         (["--term", "25", "--apply", "--max-rows", "1"], "no pre-registered apply"),
-        (["--term", "15"], "out of reach"),
+        (["--term", "14"], "out of reach"),
         (["--limit", "0"], "must be positive"),
     ],
 )
@@ -941,5 +941,5 @@ def test_every_registered_apply_term_has_its_freeze_record_entry() -> None:
         for term in range(int(match["first"]), int(match["last"] or match["first"]) + 1)
     }
     registered = backfill_module.REGISTERED_APPLY_TERMS
-    assert entered >= set(range(16, 25))
+    assert entered >= set(range(15, 25))
     assert registered <= entered, sorted(registered - entered)

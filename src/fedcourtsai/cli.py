@@ -18934,10 +18934,10 @@ def backfill_applications_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a C
     on run-repair's `application-backfill` pass; a dev checkout over a pulled
     corpus produces the dry run. Terms at or after the current docket Term are
     refused: that stream is frontier discovery's. Below the live floor only the
-    Terms in `LEGACY_HTML_TERMS` (OT2016) are read: a serial the docket JSON
+    Terms in `LEGACY_HTML_TERMS` (OT2015 and OT2016) are read: a serial the docket JSON
     does not serve is read from the Court's legacy HTML docket page instead, and
     its stored snapshot names that page and its digest. An apply is refused for a
-    Term outside `REGISTERED_APPLY_TERMS` (OT2016 to OT2024): each Term's apply
+    Term outside `REGISTERED_APPLY_TERMS` (OT2015 to OT2024): each Term's apply
     moves the interim base rate by its own amount, so each needs a
     freeze-record entry first.
 
