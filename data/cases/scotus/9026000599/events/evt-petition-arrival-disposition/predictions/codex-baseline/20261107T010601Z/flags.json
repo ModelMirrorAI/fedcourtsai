@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000599",
+  "run_id": "20261107T010601Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "The authoritative context freezes sal-v7 band baseline and cert_anchor.rate 0.051512996760685784, although the petitioners are the National Park Service and other federal parties represented by the Solicitor General. This appears inconsistent with the prompt's federal caption-class arrival guidance and may affect the scoring benchmark. I preserve the supplied conditioning unchanged, acknowledge its 652/12657 strictly-prior baseline pool, and separately use the published federal arrival comparison of 155/212 (73.11%) over Terms 2017-2025. The high forecast rests principally on the provisioned August 31 stay opinion, not on reclassifying the harness's band. Please review the caption classification."
+    }
+  ]
+}

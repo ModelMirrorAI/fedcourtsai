@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000441",
+  "run_id": "20261107T010601Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "provisioned record"],
+  "helpful": ["cert_anchor in context.json", "full petition text"],
+  "gaps": ["The query surface has no free-text or statute filter, so finding priors on 18 U.S.C. 24(b) is impractical", "decision-below.txt was not staged for this CA5 case"],
+  "notes": "Low-salience waived-response petition; the provisioned inputs were sufficient."
+}

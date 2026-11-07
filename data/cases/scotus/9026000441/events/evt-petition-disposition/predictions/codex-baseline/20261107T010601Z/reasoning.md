@@ -1,0 +1,45 @@
+# Rationale
+
+## Call and information set
+
+I assign **1.8% to any grant**, including a grant-vacate-remand or summary reversal, and predict denial. This is a forward, cert-stage distribution cell for Christopher Rydberg v. United States, No. 26-441. I read the provisioned `record/snapshots/2026-11-07.json`, `context.json`, the event definition, `documents/documents.json`, `documents/questions-presented.txt`, `documents/petition.txt` and `same-question.json`. The petition includes the relevant lower-court decisions in its appendix; its metadata reports 62 pages, no truncation, no empty text and no OCR derivation.
+
+The snapshot shows **one distribution and no relist**: the November 4 entry sets the December 4, 2026 conference. The United States waived a response on October 29. There is no call for a response, CVSG, amicus filing, or companion link in the observed proceedings. The context's amicus count is null; my count of zero is a count of the displayed docket, not an assumption that null means zero. No opposition was provisioned, consistent with the waiver. The government's position below is available through Appendix B, but is not a Supreme Court brief in opposition. The same-question file lists no petition above its similarity threshold; that is not proof that no related litigation exists.
+
+## Baseline and adjustment
+
+The frozen `cert_anchor.rate` is **0.051512996760685784**, or 5.15%, for `baseline` under `sal-v7`, with a ten-Term lookback and case Term 2026. I use that exact prior-Term reached-band anchor, not the baseline band's terminal rate. The matching table in `metrics/statpack.md` shows the prior-Term reached rates and denominators. The frozen pool is the scoring yardstick; I do not incorporate the 2026 row or substitute the overall docket population.
+
+For population context, the modern discretionary-cert section reports 638 grants and 637 GVRs against 43,045 denials and 919 dismissals, roughly 2.82% grants of either kind among resolved petitions. That is broader than the paid scored population. The Fifth Circuit cut has resolved n=5,456, with 1.5% granted and 2.2% GVR; it is not an independent case-specific multiplier.
+
+The required paid-segment signal cuts reinforce the distinction between an ordinary first distribution and demonstrated attention. Terminal relist-zero petitions have resolved n=10,204 and 1.8% grant-family outcomes; relist-one has n=2,532 and 13.5%; relist-two has n=495 and 41.2%; relist-three-plus has n=482 and 37.1%. These are terminal-state associations, not the forward probability of another distribution. The no-CVSG cut has n=13,549 and 6.4% grant-family outcomes, versus CVSG n=164 and 34.8%. Zero-amicus petitions have n=11,109 and approximately 3.8% grant-family outcomes; one brief has n=1,158 and 14.8%, and two-plus has n=1,446 and 22.7%. These marginal, disposition-time cuts overlap; I do not multiply them or treat the petition's current counts as final counts.
+
+I move materially below 5.15% because the actual legal vehicle and docket are less promising than an undifferentiated baseline-band petition that can later accumulate attention. The 1.8% estimate is a judgmental adjustment, not a fitted numerical combination of the cuts.
+
+## Substantive reasons
+
+1. **A concrete statutory issue, but no demonstrated circuit conflict.** Question I asks whether FECA is a plan or contract under 18 U.S.C. § 24(b). The petition contrasts that provision with the Anti-Kickback Statute's different definition and argues that workers' compensation is not health insurance (petition pp. 9–17). That is a coherent textual argument with consequences beyond this defendant. But the petition does not identify a contrary circuit holding on this FECA question. Question II principally asks the Court to disapprove the Fifth Circuit's approach in Anderson; disagreement with a general interpretive approach is a weaker selection signal than competing holdings on the operative federal question.
+
+2. **The appendix presents a genuine competing textual reading.** Appendix B, pp. 14a–18a, records the government's argument that FECA provides medical benefits and therefore fits the statute's deliberately broad language. A statutory benefits scheme need not be a contract if it is a plan. The petition's insurance-only interpretation of plan is thus contested, rather than an evident correction compelled by the quoted text. I do not treat the petition's description of the lower courts as an impartial account.
+
+3. **Unpublished decision and an alternative route to affirmance.** The attached Fifth Circuit opinion is unpublished (Appendix A, p. 1a). At p. 3a, the panel relies on Anderson and Shah, but also concludes that sufficient evidence supported conspiracy to defraud both FECA and BCBS. Petitioner concedes that BCBS qualifies and challenges that alternative reasoning through general-verdict, laundering-predicate and sentencing arguments (petition pp. 7–8, 17–18). Those arguments make relief potentially consequential; they do not remove the need to examine the trial record and remedy. I treat this as a vehicle complication, not a proven independent ground that necessarily defeats every requested form of relief.
+
+4. **Lenity adds interest without supplying a clean stand-alone vehicle.** Question III invokes disagreements among the Justices over the threshold for applying the rule that ambiguous criminal laws favor defendants (petition pp. 21–24). The materials themselves show that the issue depends first on finding meaningful ambiguity in this statute. That makes a general resolution of lenity less likely than review of the specific coverage question. The petition's discussion of Gorsuch's opinions supports a small separate-writing tail, not an inference that four Justices will vote to grant.
+
+5. **No affirmative attention signal yet.** The respondent's waiver, first distribution and lack of recorded amici give no positive basis to expect review. A waiver is not a merits concession, and the Court could still request a response. Appendix C, pp. 19a–20a, records that no judge requested an en banc poll; no dissent is recorded. The preserved statutory issue is a positive, but not enough to outweigh these selection and vehicle weaknesses.
+
+## Other probabilities and stakes
+
+I assign 9% to at least one additional distribution beyond the observed one. Most probability is on none; if attention develops, one additional distribution is more likely than a long series. This includes rescheduling, not just a true post-conference relist. I assign 0.1% to a new CVSG: the United States is already the respondent, with its own opportunity to respond, making an invited outsider view particularly implausible. A call for a response would be different from a CVSG.
+
+Conditional on a grant, I put 15% on a disposition in the cert order and 85% on plenary review. The petition asks alternatively for vacatur and reconsideration without Anderson's approach, but identifies no new intervening decision requiring a routine GVR. A substantive answer to the FECA question, with the competing reading and remedy issues, more naturally calls for briefing than summary reversal. This conditional 15% is not an unconditional grant probability.
+
+Conditional on denial, I put 4% on a dissent or statement respecting denial. The modal order has no separate writing. Gorsuch has the largest individual writing probability, based on the lenity position described in the provisioned petition; all nine independent order-writer probabilities remain small. They are unconditional probabilities of authorship on the eventual order, not nine votes or a categorical distribution.
+
+The stakes score is 0.30, separate from grant likelihood. The prosecution concerns a lengthy sentence and large financial penalties, and the statutory definition affects enforcement involving FECA medical payments. A broad lenity ruling could have wider significance, but I do not price that as the inevitable scope of review.
+
+## Limitations and retrieval
+
+The principal limitation is the absence of an adversarial Supreme Court response and the underlying trial record, not a missing provisioned petition. I have no known outcome for this petition and did not retrieve its disposition or subsequent history. The forecast rests on the pre-decision record.
+
+The structured corpus query returned five recent denials, with two to four distributions. They are procedurally illustrative rather than substantively matched, and a denial-filtered sample cannot estimate a grant rate. I use the committed statpack for rates. A CourtListener citation lookup for Anderson returned no results, so I rely on the provisioned appendix rather than claim independent verification. General web attempts for Rule 10 and the statutory definition returned no usable content. The initial uv cache permission problem was resolved by pointing its cache to `/tmp` and disabling synchronization; no packages were installed. The full retrieval record, including failed attempts, is in `retrieval.md`.

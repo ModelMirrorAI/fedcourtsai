@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000430",
+  "run_id": "20261107T010601Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "provisioning",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The snapshot lists a separate October 13, 2026 federal respondents' opposition memorandum. The provisioned brief-in-opposition.txt contains the Authority's brief rather than that separate federal memorandum. A web open of its predecision docket link returned no usable content. The forecast uses the available private BIO and does not infer the federal memorandum's recommendation; prediction completed despite this limited gap."
+    }
+  ]
+}

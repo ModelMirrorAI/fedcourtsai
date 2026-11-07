@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000599",
+  "run_id": "20261107T010601Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "provisioned petition text"],
+  "helpful": ["Petition appendix carried the stay per curiam and dissent lineup"],
+  "gaps": ["Frozen band disagrees with an obvious federal caption; arrival cells for SG petitions should band 'federal'", "Stay-application companion is not linked under record/related/ as a Vide link"],
+  "notes": "Arrival cell; the prior stay grant on the same case dominated the forecast."
+}
