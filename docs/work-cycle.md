@@ -8,8 +8,8 @@ produces, and where it hands over. The branch-and-PR rules every step follows
 are in `AGENTS.md`; the promotion mechanics are *Promotion: staging → main* in
 [pipeline.md](pipeline.md).
 
-A cycle ends at a promotion, so its length follows the promotion cadence:
-a few days, sometimes two cycles in a day.
+A cycle ends at a promotion, so its length is the maintainer's choice of
+when to dispatch the train.
 
 ## 1. Sweep
 
@@ -33,9 +33,11 @@ a triage note. Its inputs:
   **noise** (a harness check tripping on the agent's own prompt text, for
   example).
 - **Pipeline health.** Issues labelled `pipeline-health` and `data-validation`
-  (bot-filed; never hand-label one, since the writers close their own),
+  (bot-filed; never hand-label one: an alarm label means a failure filed it,
+  and the writer closes only its own issue),
   failed scheduled runs, and the latest `run-ops` roll-up and `status.json`
-  on `ops-metrics` (*`run-ops`* in [pipeline.md](pipeline.md)).
+  on `ops-metrics` (*`run-ops` — the daily operational roll-up* in
+  [pipeline.md](pipeline.md)).
 - **Waiting checks** whose date has passed without a result on their issue.
 
 The **triage note** records the agent-feedback cursor the next sweep starts
@@ -60,10 +62,12 @@ maintainer:
 Leave out of the list, and say why in the note: items another live session
 owns, items waiting on the maintainer or on a date, and items that cannot
 merge yet. The last class is mostly **re-bless ordering**: a change that moves
-a process digest or what cells see registers at the next promotion, so while
-a `promote/<date>` candidate is open, such a change waits for the next cut
-rather than riding in unregistered (*Pending registrations* in
-[process-version.md](process-version.md)). Name, for each item, whether it
+a process digest or what cells see registers a new label as pending in its own
+PR, and a promotion carries one label (*Pending registrations* in
+[process-version.md](process-version.md)). So while `staging` already holds a
+pending label, a second re-bless waits until the promotion stamping the first
+has merged and synced; and one meant to miss a batch about to be cut waits
+until the cut. Name, for each item, whether it
 moves a digest, since the promotion step needs to know.
 
 The maintainer reads the list and picks; nothing fans out unpicked.
@@ -88,8 +92,9 @@ cannot start another.
 When the picked items have landed on `staging` (or the maintainer wants a
 batch out sooner), one session prepares the promotion:
 
-1. **Survey** `staging` over `main`: the batch (first-parent merges on
-   `staging` since the last sync), the owned paths it carries,
+1. **Survey** `staging` over `main`: the batch (every first-parent merge
+   `staging` holds that `main` lacks:
+   `git log --first-parent --merges origin/main..origin/staging`), the owned paths it carries,
    `uv run fedcourts registry-gate --at origin/staging --main-ref origin/main`
    (pending registrations; a re-bless adds one label),
    `python3 -I -S scripts/cell_reach.py --base origin/main --head origin/staging`
