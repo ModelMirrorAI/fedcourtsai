@@ -516,7 +516,7 @@ sections. A ruling is summarized once; the file is never rewritten.
 
 **Which rulings.** A ruling is owed a summary when an activity record dated
 within the last 30 days lists it as an opinion, a ruling on a motion or a
-judgment, the kinds a court writes, and no summary exists for its entry. It is
+judgment, as a new entry or as one whose document became readable, the kinds a court writes, and no summary exists for its entry. It is
 planned when the corpus's newest snapshot of its docket holds the text of the
 entry's main document and the entry is not a party's draft: an entry whose
 description reads "proposed" or "stipulat…" (proposed findings, a stipulated
@@ -524,7 +524,10 @@ order) is counsel's text, which the activity rule can read as an opinion or a
 judgment, and is left out. The description only classifies the entry here; it
 is never staged, sent or published. A court-written ruling without text yet (RECAP has no copy, or only
 the clerk's entry text exists) is listed in the plan's `rulings_without_text`, free,
-and planned again by each run until its text arrives or its record ages out.
+and planned again by each run until its text arrives or its record ages out. A
+ruling whose document becomes readable later is recorded again, in the day's
+`available` list, so a ruling whose text arrives after its first record has
+aged out is owed from the day it arrived.
 
 **What the model reads.** The prompt is
 `.github/prompts/summarize-ai-ruling.md`. The request carries that prompt and
