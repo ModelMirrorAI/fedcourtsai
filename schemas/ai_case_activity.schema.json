@@ -73,6 +73,31 @@
           "title": "Kind",
           "type": "string"
         },
+        "motion": {
+          "anyOf": [
+            {
+              "enum": [
+                "partial-summary-judgment",
+                "summary-judgment",
+                "judgment-on-the-pleadings",
+                "dismiss",
+                "class-certification",
+                "preliminary-injunction",
+                "temporary-restraining-order",
+                "compel-arbitration",
+                "transfer",
+                "stay-pending-appeal"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The principal motion a motion, ruling or opinion names, under the record's rule; none for other kinds, or where the entry names none.",
+          "title": "Motion"
+        },
         "url": {
           "description": "The entry on CourtListener: its main document's page, else the docket.",
           "pattern": "^https://www\\.courtlistener\\.com/[A-Za-z0-9/_.~%#-]*$",

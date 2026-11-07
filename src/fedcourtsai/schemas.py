@@ -10369,6 +10369,20 @@ AiActivityKind = Literal[
 ]
 
 
+AiActivityMotion = Literal[
+    "partial-summary-judgment",
+    "summary-judgment",
+    "judgment-on-the-pleadings",
+    "dismiss",
+    "class-certification",
+    "preliminary-injunction",
+    "temporary-restraining-order",
+    "compel-arbitration",
+    "transfer",
+    "stay-pending-appeal",
+]
+
+
 class AiCaseActivityEntry(_Strict):
     """One significant docket entry an AI watchlist case gained."""
 
@@ -10387,6 +10401,13 @@ class AiCaseActivityEntry(_Strict):
     )
     date_filed: date = Field(description="The day the entry was filed.")
     kind: AiActivityKind = Field(description="What the entry is, under the record's rule.")
+    motion: AiActivityMotion | None = Field(
+        default=None,
+        description=(
+            "The principal motion a motion, ruling or opinion names, under the record's "
+            "rule; none for other kinds, or where the entry names none."
+        ),
+    )
     url: str = Field(
         pattern=r"^https://www\.courtlistener\.com/[A-Za-z0-9/_.~%#-]*$",
         description="The entry on CourtListener: its main document's page, else the docket.",

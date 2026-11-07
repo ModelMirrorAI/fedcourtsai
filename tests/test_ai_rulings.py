@@ -419,7 +419,7 @@ def test_the_update_quotes_a_rulings_summary_under_its_item(tmp_path: Path) -> N
     _summarize(tmp_path, lambda r: _response(GOOD_BODY))
     data = tmp_path / "data"
     text = render_ai_cases_update(build_ai_cases_update(data, date(2026, 11, 2), date(2026, 11, 8)))
-    item = "- Nov 2: Ruling on a motion (cand 3:23-cv-03417, entry 512)."
+    item = "- Nov 2: Ruling on a motion (N.D. Cal. 3:23-cv-03417, entry 512)."
     assert item in text
     after = text.split(item, 1)[1]
     assert f"  > {HEADLINE}" in after
@@ -567,7 +567,7 @@ def test_the_update_skips_an_invalid_summary_and_escapes_a_valid_one(tmp_path: P
     rendered = render_ai_cases_update(
         build_ai_cases_update(data, date(2026, 11, 2), date(2026, 11, 8))
     )
-    assert "- Nov 2: Ruling on a motion (cand 3:23-cv-03417, entry 512)." in rendered
+    assert "- Nov 2: Ruling on a motion (N.D. Cal. 3:23-cv-03417, entry 512)." in rendered
     assert "Summary written by" not in rendered
 
 

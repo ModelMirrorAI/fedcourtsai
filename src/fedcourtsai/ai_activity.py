@@ -75,6 +75,24 @@ _PRINCIPAL = (
     r"for\s+judgment\s+on\s+the\s+pleadings|to\s+compel\s+arbitration|"
     r"to\s+transfer|(?:for|to)\s+(?:a\s+)?stay\b[^.;]{0,40}?pending\s+appeal)"
 )
+#: The principal motion an entry names, as the record's ``motion`` field
+#: spells it, each with the phrase that identifies it. Read only from the
+#: stretch the kind's rule matched, so it names the motion the ruling decides
+#: or the filing makes, never one an entry merely mentions later. The label is
+#: the rule's own classification of the entry, like its kind: no docket text.
+PRINCIPAL_MOTIONS: Final[tuple[tuple[str, re.Pattern[str]], ...]] = (
+    ("partial-summary-judgment", re.compile(r"partial\s+summary\s+judgment", re.I)),
+    ("summary-judgment", re.compile(r"summary\s+judgment", re.I)),
+    ("judgment-on-the-pleadings", re.compile(r"judgment\s+on\s+the\s+pleadings", re.I)),
+    ("dismiss", re.compile(r"to\s+dismiss", re.I)),
+    ("class-certification", re.compile(r"certif", re.I)),
+    ("preliminary-injunction", re.compile(r"preliminary\s+injunction", re.I)),
+    ("temporary-restraining-order", re.compile(r"temporary\s+restraining\s+order", re.I)),
+    ("compel-arbitration", re.compile(r"compel\s+arbitration", re.I)),
+    ("transfer", re.compile(r"to\s+transfer", re.I)),
+    ("stay-pending-appeal", re.compile(r"stay\b[^.;]{0,40}?pending\s+appeal", re.I)),
+)
+
 # A ruling's text up to the motion it names. A period ends the sentence, except
 # the abbreviations dockets cite motions by ("Dkt. No. 45", "ECF No. 12").
 _SENTENCE = r"(?:[^.]|(?<=dkt)\.|(?<=no)\.|(?<=nos)\.|(?<=ecf)\.)"
@@ -176,13 +194,49 @@ def classify(entry: Mapping[str, Any]) -> EntryKind | None:
     The first rule whose phrase appears with no routine phrase before it wins,
     reading the entry's description and then its main document's.
     """
+    found = _classified(entry)
+    return found[0] if found is not None else None
+
+
+def _classified(entry: Mapping[str, Any]) -> tuple[EntryKind, str] | None:
+    """The entry's kind and the text the winning rule matched in."""
     texts = _texts(entry)
     for kind, pattern in _RULES:
         for text in texts:
             match = pattern.search(text)
             if match and not _ROUTINE.search(text, 0, match.end()):
-                return kind
+                return kind, text
     return None
+
+
+#: The kinds whose record names the principal motion: the motion itself, a
+#: ruling on it, and an opinion that decides one.
+_MOTION_KINDS: Final = frozenset({EntryKind.motion, EntryKind.ruling, EntryKind.opinion})
+
+
+def principal_motion(entry: Mapping[str, Any]) -> str | None:
+    """The principal motion a motion, ruling or opinion entry names, or ``None``.
+
+    Read from the text the kind's rule matched, through the first principal
+    motion it names (an opinion's, within its first sentence), so an entry
+    that names two motions gets the one it leads with.
+    """
+    found = _classified(entry)
+    if found is None or found[0] not in _MOTION_KINDS:
+        return None
+    match = re.search(_SENTENCE + r"{0,200}?" + _PRINCIPAL, found[1], re.I)
+    if match is None:
+        return None
+    named = match.group(0)
+    first = min(
+        (
+            (hit.start(), label)
+            for label, pattern in PRINCIPAL_MOTIONS
+            if (hit := pattern.search(named)) is not None
+        ),
+        default=None,
+    )
+    return first[1] if first is not None else None
 
 
 def entry_url(entry: Mapping[str, Any], docket: Mapping[str, Any]) -> str:
@@ -273,6 +327,7 @@ def _record(
         entry_number=int(number) if number is not None else None,
         date_filed=date.fromisoformat(str(entry["date_filed"])),
         kind=kind.value,
+        motion=principal_motion(entry),
         url=entry_url(entry, docket),
     )
 

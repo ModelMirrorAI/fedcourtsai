@@ -1,26 +1,31 @@
 from datetime import date
 from pathlib import Path
-from typing import Any
+from typing import Any, get_args
 
 import pytest
 from typer.testing import CliRunner
 
 from fedcourtsai.ai_activity import (
+    PRINCIPAL_MOTIONS,
     EntryKind,
     activity_entries,
     activity_path,
     classify,
     entry_url,
     new_significant,
+    principal_motion,
     record_activity,
 )
 from fedcourtsai.ai_cases_update import (
+    COURT_NAMES,
+    MOTION_LABELS,
     ai_cases_subject,
     build_ai_cases_update,
     render_ai_cases_update,
 )
+from fedcourtsai.ai_watchlist import AI_WATCHLIST_FILENAME, AiWatchlist, load_ai_watchlist
 from fedcourtsai.cli import app
-from fedcourtsai.schemas import AiCaseActivity
+from fedcourtsai.schemas import AiActivityMotion, AiCaseActivity, AiCaseActivityEntry
 from fedcourtsai.serialize import read_model
 from fedcourtsai.validate import validate_ledger
 
@@ -246,9 +251,11 @@ def test_the_update_groups_a_span_by_case_and_quotes_no_docket_text(tmp_path: Pa
         == "AI cases in federal court: October 26 \N{EN DASH} November 1, 2026"
     )
     text = render_ai_cases_update(update)
-    assert "## Anthropic v. Department of War" in text
+    assert "## Rulings" in text
+    assert "### Anthropic v. Department of War" in text
     assert "*Government*" in text
-    assert "- Oct 27: Judgment (cand 3:26-cv-01996, entry 252)." in text
+    assert "**This update:** 1 ruling" in text
+    assert "- Oct 27: Judgment (N.D. Cal. 3:26-cv-01996, entry 252)." in text
     assert "CourtListener" in text.split("---")[-1]
     empty = build_ai_cases_update(tmp_path, date(2026, 11, 2), date(2026, 11, 8))
     assert empty.empty
@@ -279,3 +286,111 @@ def test_post_dry_run_prints_the_draft_and_an_empty_span_exits_three(
         ["post-ai-cases-update", "--tag", "ai-cases", "--day", "2026-11-03", "--week", "2026-W44"],
     )
     assert both.exit_code == 2
+
+
+@pytest.mark.parametrize(
+    ("description", "motion"),
+    [
+        ("MOTION to Dismiss filed by Anthropic PBC.", "dismiss"),
+        ("ORDER GRANTING Dkt. No. 45 MOTION TO DISMISS.", "dismiss"),
+        (
+            "ORDER ON 166 215 CROSS MOTIONS FOR SUMMARY JUDGMENT; GRANTING 169 MOTION TO "
+            + "SUPPLEMENT THE ADMINISTRATIVE RECORD.",
+            "summary-judgment",
+        ),
+        ("MOTION for Partial Summary Judgment filed by Meta.", "partial-summary-judgment"),
+        ("MOTION for Preliminary Injunction filed by Anthropic PBC.", "preliminary-injunction"),
+        ("ORDER granting Motion to Stay pending appeal.", "stay-pending-appeal"),
+        ("ORDER denying Motion for Class Certification.", "class-certification"),
+        ("OPINION AND ORDER re: 112 MOTION to Dismiss. The motion is GRANTED in part.", "dismiss"),
+        ("MEMORANDUM OPINION. Signed by Judge Stephanos Bibas.", None),
+        ("JUDGMENT.", None),
+        ("COMPLAINT against OpenAI, Inc.", None),
+        ("NOTICE OF APPEAL to the 9th Circuit.", None),
+    ],
+)
+def test_the_record_names_the_principal_motion(description: str, motion: str | None) -> None:
+    assert principal_motion(_entry(1, description)) == motion
+
+
+def test_every_motion_label_is_in_the_schema_and_in_the_readers_words() -> None:
+    labels = {label for label, _ in PRINCIPAL_MOTIONS}
+    assert labels == set(get_args(AiActivityMotion)) == set(MOTION_LABELS)
+
+
+def test_every_watchlist_court_has_a_readers_name() -> None:
+    watchlist = load_ai_watchlist(Path("config") / AI_WATCHLIST_FILENAME)
+    courts = {court for case in watchlist.cases for court, _ in case.dockets()}
+    courts |= {r.court for case in watchlist.cases for r in case.related}
+    assert courts <= set(COURT_NAMES)
+
+
+def _activity(
+    case: str, category: str, entry_id: int, kind: str, filed: date, motion: str | None = None
+) -> AiCaseActivityEntry:
+    return AiCaseActivityEntry.model_validate(
+        {
+            "case": case,
+            "category": category,
+            "court": "nysd",
+            "docket_id": 1,
+            "docket_number": "1:25-cv-01234",
+            "entry_id": entry_id,
+            "entry_number": entry_id,
+            "date_filed": filed,
+            "kind": kind,
+            "motion": motion,
+            "url": f"https://www.courtlistener.com/docket/1/#entry-{entry_id}",
+        }
+    )
+
+
+def test_the_update_orders_cases_by_their_weightiest_item_and_introduces_them(
+    tmp_path: Path,
+) -> None:
+    filings = [
+        _activity("Filer v. Lab", "copyright", 1, "complaint", date(2026, 11, 2)),
+        _activity("Appellant v. Lab", "employment", 2, "appeal", date(2026, 11, 3)),
+        _activity("Authors v. Lab", "copyright", 3, "motion", date(2026, 11, 3), "dismiss"),
+        _activity("Authors v. Lab", "copyright", 4, "ruling", date(2026, 11, 6), "dismiss"),
+    ]
+    record_activity(tmp_path, date(2026, 11, 7), filings)
+    watchlist = AiWatchlist.model_validate(
+        {
+            "categories": {"copyright": "Copying.", "employment": "Hiring."},
+            "cases": [
+                {
+                    "name": "Authors v. Lab",
+                    "court": "nysd",
+                    "docket_id": 1,
+                    "docket_number": "1:25-cv-01234",
+                    "category": "copyright",
+                    "why": "Training a model on the authors' books.",
+                    "developers": ["Lab"],
+                    "added": "2026-10-30",
+                }
+            ],
+        }
+    )
+    update = build_ai_cases_update(tmp_path, date(2026, 11, 2), date(2026, 11, 8), watchlist)
+    text = render_ai_cases_update(update, title=False)
+    assert "in the 1 federal AI cases FedCourtsAI follows" in text
+    assert "**This update:** 1 ruling \N{MIDDLE DOT} 1 appeal \N{MIDDLE DOT} 2 new filings" in text
+    order = [
+        text.index(h)
+        for h in (
+            "## Rulings",
+            "### Authors v. Lab",
+            "## Appeals and settlements",
+            "### Appellant v. Lab",
+            "## New filings",
+            "### Filer v. Lab",
+        )
+    ]
+    assert order == sorted(order)
+    # A case keeps all its items under its weightiest section.
+    authors = text.split("### Authors v. Lab")[1].split("##")[0]
+    assert "Motion to dismiss filed (S.D.N.Y. 1:25-cv-01234, entry 3)" in authors
+    assert "Ruling on a motion to dismiss (S.D.N.Y. 1:25-cv-01234, entry 4)" in authors
+    assert "*Copyright · S.D.N.Y. · Training a model on the authors' books.*" in authors
+    assert "[fedcourts.ai](https://fedcourts.ai/)" in text.split("---")[-1]
