@@ -17205,8 +17205,9 @@ freeze commit is recorded here.
   link, since a repeat filer's unrelated briefs filed on one day match alike,
   so one shared brief is weak evidence; that a cell reads the docket before
   treating it as a companion and says in `reasoning.md` on which `relation`
-  its forecast rests; and that an empty directory means neither kind was
-  found.
+  its forecast rests; and that an absent directory means the docket links
+  none and no shared brief was found, or none could be looked up, since a
+  corpus without the partial VIDED index stages none and records none.
 
   **Why.** This is the sentence the 2026-11-06 entry *A predict cell also
   stages the dockets sharing a VIDED amicus brief with its own under
@@ -17224,11 +17225,11 @@ freeze commit is recorded here.
   **Pre-registered.** No skill movement is predicted. A movement in
   **either** direction across this label on dockets with a `vided-amicus`
   row is not read as an effect of the sentence: the population is small
-  (56 dockets across OT2023–OT2026 in the boundary entry's measurement, 17
+  (56 dockets across OT2023–OT2026 in the boundary entry's projection, 17
   of them undisposed) and still filling as the live polls re-read dockets.
 
-  **The amendment debt.** This pays the one debt the predict prompt carried.
-  It adds no new token.
+  **The amendment debt.** It is unchanged. This entry pays the residual the
+  2026-11-06 VIDED entry stated and adds no new token.
 
   The runnable effect check once it is live:
   - on `main`, `uv run python -c "from fedcourtsai.process_version import
@@ -17247,9 +17248,9 @@ freeze commit is recorded here.
 
   | Actor | Before (`proc-v18`) | `proc-v19` |
   | --- | --- | --- |
-  | `claude-baseline` | `sha256:89efeee9de0ee0425d638a910357e3b772cd82f034c6fe8c43d1e1ece2ab8af5` | `sha256:3b6c8dba122fca7a2a4f01bdc19cc1480f85d2e7cf99328c36b8e7f1b8780b6a` (new) |
-  | `codex-baseline` | `sha256:591b96ed96dc8a9f7b95006f4a8a0efede0ad377229eb4080c0571612d59bafd` | `sha256:4b02697b2cb01b4518ba2aa554e1e63104cc530fa62c208cf01f9b33187e4b41` (new) |
-  | `gemini-baseline` | `sha256:78c7ec8425f379a06571ff5ed115c650c41c8d2ceb40399f4b88077b2848c595` | `sha256:8d4eb4f56bdd87eb3875d05649c352648e8d5baccdff39372d2b0cc36583db58` (new) |
+  | `claude-baseline` | `sha256:89efeee9de0ee0425d638a910357e3b772cd82f034c6fe8c43d1e1ece2ab8af5` | `sha256:1789dc26189e0e14ae71d9ed1f622751dd2c849d8fba4a85542336fab0b15080` (new) |
+  | `codex-baseline` | `sha256:591b96ed96dc8a9f7b95006f4a8a0efede0ad377229eb4080c0571612d59bafd` | `sha256:a939a164bc3cb0658e12c0c98b2300a878aecea15a93189e96579103382002d8` (new) |
+  | `gemini-baseline` | `sha256:78c7ec8425f379a06571ff5ed115c650c41c8d2ceb40399f4b88077b2848c595` | `sha256:889d53dc033d7303ca39cf2bf3faa859dc0886a296ed2f0ad5ac00edf96705b7` (new) |
   | `claude-judge` | `sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf` | unchanged |
   | `codex-judge` | `sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a` | unchanged |
   | `gemini-judge` | `sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9` | unchanged |
@@ -17270,9 +17271,9 @@ freeze commit is recorded here.
   | `claude-baseline` (`89efeee9…`) | `proc-v18` | `2026-11-06T17:45:46Z` | this label's instant (was open) |
   | `codex-baseline` (`591b96ed…`) | `proc-v18` | `2026-11-06T17:45:46Z` | this label's instant (was open) |
   | `gemini-baseline` (`78c7ec84…`) | `proc-v18` | `2026-11-06T17:45:46Z` | this label's instant (was open) |
-  | `claude-baseline` (`3b6c8dba…`) | `proc-v19` | this label's instant | open (new) |
-  | `codex-baseline` (`4b02697b…`) | `proc-v19` | this label's instant | open (new) |
-  | `gemini-baseline` (`8d4eb4f5…`) | `proc-v19` | this label's instant | open (new) |
+  | `claude-baseline` (`1789dc26…`) | `proc-v19` | this label's instant | open (new) |
+  | `codex-baseline` (`a939a164…`) | `proc-v19` | this label's instant | open (new) |
+  | `gemini-baseline` (`889d53dc…`) | `proc-v19` | this label's instant | open (new) |
 
   Earlier windows keep the closes earlier labels gave them.
 

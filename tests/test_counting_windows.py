@@ -406,6 +406,7 @@ def test_proc_v17_closed_every_predictor_window_and_opened_one_for_each() -> Non
         assert opened.opens.at == v17
 
 
+#: The predictor digests the proc-v18 entry registers, one proc-v18 window each.
 PROC_V18_PREDICTOR_DIGESTS = {
     "claude-baseline": "sha256:89efeee9de0ee0425d638a910357e3b772cd82f034c6fe8c43d1e1ece2ab8af5",
     "codex-baseline": "sha256:591b96ed96dc8a9f7b95006f4a8a0efede0ad377229eb4080c0571612d59bafd",

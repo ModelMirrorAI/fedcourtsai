@@ -193,9 +193,11 @@ the output directory you will write to.
    briefs filed on one day match alike, so one shared brief is weak evidence
    and several are stronger. Read the docket before you treat it as a
    companion. Read a companion's distribution, grant or hold there rather than
-   fetching it, and say in `reasoning.md` where your forecast rests on it, and
-   on which `relation`. An empty `record/related/` means neither kind was
-   found.
+   fetching it, and say in `reasoning.md` where your forecast rests on it and
+   which `relation` its row carries. An absent `record/related/` means the
+   docket links none and no shared brief was found, or none could be looked
+   up; where a `Vide` row's `reason` says there was no corpus index, no
+   shared-brief read was made either.
 
    On a cert-stage cell in `forward` mode, `record/same-question.json` lists
    other petitions whose questions presented read like this petition's, best
