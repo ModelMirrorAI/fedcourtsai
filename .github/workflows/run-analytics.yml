@@ -4,7 +4,7 @@ name: run-analytics
 # same mode at a glance, or a rehearsal reads as production history. Both
 # components are server-validated vocabulary: `mode` is a closed choice, and
 # the environment half is the same branch resolution the jobs bind.
-run-name: "run-analytics: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || (startsWith(github.event.schedule, '41 ') && 'metrics-refresh (schedule)' || startsWith(github.event.schedule, '59 ') && 'public-updates (schedule)' || startsWith(github.event.schedule, '8 ') && 'qp-topic-label (schedule)' || startsWith(github.event.schedule, '4 ') && 'qp-topic-label-applications (schedule)' || startsWith(github.event.schedule, '14 ') && 'alignment-side-code (schedule)' || 'big-cases (schedule)') }} @ ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}"
+run-name: "run-analytics: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || (startsWith(github.event.schedule, '41 ') && 'metrics-refresh (schedule)' || startsWith(github.event.schedule, '59 ') && 'public-updates (schedule)' || startsWith(github.event.schedule, '8 ') && 'qp-topic-label (schedule)' || startsWith(github.event.schedule, '4 ') && 'qp-topic-label-applications (schedule)' || startsWith(github.event.schedule, '14 ') && 'alignment-side-code (schedule)' || startsWith(github.event.schedule, '11 ') && 'ai-candidates (schedule)' || 'big-cases (schedule)') }} @ ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}"
 
 # Corpus analysis & derived metrics. One surface for every task that reads the
 # corpus and answers a question or refreshes a derived artifact, selected by
@@ -108,6 +108,16 @@ run-name: "run-analytics: ${{ github.event_name == 'workflow_dispatch' && inputs
 #                      than the corpus: it holds the CourtListener token and
 #                      no cloud role, spends a capped slice of the account's
 #                      REST budget, and leaves its report as a run artifact.
+#   - ai-candidates:   search CourtListener for newly filed federal cases the
+#                      AI watchlist may want (`fedcourts ai-candidates`,
+#                      `config/ai-candidates.yaml`) and comment the new ones on
+#                      the long-lived `ai-candidates` issue for the maintainer
+#                      to add by a PR or leave. Also a weekly cron's job. It
+#                      reads CourtListener's search index only, like
+#                      order-scan, within its own lane share (40 requests); it
+#                      writes no corpus, `data/` or git, and its only write is
+#                      that issue comment, with the ambient token. A quiet week
+#                      posts nothing.
 #   - decision-below:  dry-run the decision-below fill over the next 25 cases
 #                      of its rotation (`fedcourts enrich-decision-below
 #                      --max-cases 25`): what a writer window would store, and
@@ -179,7 +189,7 @@ run-name: "run-analytics: ${{ github.event_name == 'workflow_dispatch' && inputs
 # run belongs on a staging ref.
 on:
   schedule:
-    # Six crons, and every scheduled job gates on **which** one fired
+    # Seven crons, and every scheduled job gates on **which** one fired
     # (`github.event.schedule`): an `event_name == 'schedule'` gate is fail-open
     # on any cron it does not name, so a second entry would otherwise run the
     # weekly refresh daily. The mode-gated jobs stay skipped either way — a
@@ -221,6 +231,13 @@ on:
     # grid, clear of the 08:47 and 10:47 live windows; a week with no new grant
     # stands down at the extract.
     - cron: "14 9 * * 4"
+    # Weekly AI-case candidates (Fri 21:11 UTC): a quiet odd hour, clear of
+    # run-pull's 19:17 window and the 20:47 and 22:47 live windows, so its
+    # searches never share an hour with a pull's spend, and clear of the
+    # integration canary's hour. Its own minute on the repo's grid. The search
+    # reaches back three weeks, so a dropped tick is caught up by the next
+    # Friday's.
+    - cron: "11 21 * * 5"
   workflow_dispatch:
     inputs:
       mode:
@@ -239,6 +256,7 @@ on:
           - qp-topic-replicate-applications
           - alignment-side-code
           - order-scan
+          - ai-candidates
           - decision-below
           - alignment-fit
         default: corpus-stats
@@ -3626,6 +3644,142 @@ jobs:
           # resumes from it inside the same day.
           retention-days: 1
 
+  ai-candidates:
+    needs: [authorize]
+    # The AI-case candidate check (`fedcourts ai-candidates`): the saved
+    # searches in config/ai-candidates.yaml over the last three weeks' federal
+    # filings, minus the watchlist's dockets and every docket an earlier run
+    # raised, commented on the long-lived `ai-candidates` issue. Nothing here
+    # changes the watchlist; the maintainer adds a case by a PR.
+    #
+    # It reads CourtListener's search index and nothing else: no corpus, no
+    # cloud role, no App token. Two credentials, each on the one step that uses
+    # it: the CourtListener token on the search step, and the ambient token
+    # (job-scoped `issues: write`) on the steps that read the raised set and
+    # post the comment. Commenting triggers nothing, so the contents-write App
+    # token stays out of it. The ambient token is also the identity whose
+    # comments the raised set trusts: a comment by anyone else decides nothing.
+    #
+    # Only a run on the `main` branch ref posts (`github.ref`, as the
+    # publishing jobs above fence it). A staging rehearsal runs the searches
+    # against an empty raised set and reports what it would post in the step
+    # summary, so a rehearsal never marks a docket raised.
+    #
+    # Its spend is the `ai-candidates` lane share in config/tracking.yaml (40
+    # requests, about a dozen in a typical week), reserved beside run-pull's
+    # windows: the governor counts per process, so the job runs the search
+    # under an hourly ceiling equal to the cap and at the search endpoint's
+    # 8-a-minute pace, as order-scan does.
+    if: >-
+      ${{ ((github.event_name == 'schedule' && startsWith(github.event.schedule, '11 ')) ||
+      inputs.mode == 'ai-candidates')
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
+    runs-on: ubuntu-26.04
+    # At most 40 requests at 8 a minute is five minutes, plus setup.
+    timeout-minutes: 20
+    environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
+    # Never cancelled: a cancelled run after its search has spent the requests
+    # and before it posts would only spend them again next time.
+    concurrency:
+      group: run-analytics-ai-candidates-${{ github.ref_name }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      issues: write # the ai-candidates issue: its label, the issue, and the comment (ambient)
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
+
+      - name: Read what earlier runs raised
+        if: ${{ github.ref == 'refs/heads/main' }}
+        timeout-minutes: 5
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          uv run fedcourts ai-candidates-issue --repo "$REPO" \
+            --issue-out "$RUNNER_TEMP/ai-candidates-issue.txt" \
+            --raised-out "$RUNNER_TEMP/ai-candidates-raised.json"
+
+      - name: Search for new candidates
+        timeout-minutes: 10
+        env:
+          FEDCOURTS_COURTLISTENER_API_TOKEN: ${{ secrets.COURTLISTENER_API_TOKEN }}
+          # The per-day window is the account's tier, as run-pull reads it; the
+          # lane share narrows it to the run cap. The hourly window is the run
+          # cap (`max_requests_per_run` in config/ai-candidates.yaml), so the
+          # governor counts every request, retries included, and the search
+          # endpoint's throttle sets the per-minute pace.
+          FEDCOURTS_COURTLISTENER_RPM: "8"
+          FEDCOURTS_COURTLISTENER_RPH: "40"
+          FEDCOURTS_COURTLISTENER_RPD: ${{ vars.COURTLISTENER_RPD || '1400' }}
+        run: |
+          set -euo pipefail
+          raised="$RUNNER_TEMP/ai-candidates-raised.json"
+          args=(--comment-out "$RUNNER_TEMP/ai-candidates-comment.md")
+          if [ -f "$raised" ]; then
+            args+=(--raised "$raised")
+          fi
+          summary="$RUNNER_TEMP/ai-candidates-summary.txt"
+          uv run fedcourts ai-candidates "${args[@]}" > /dev/null \
+            2> "$summary" || status=$?
+          {
+            echo "## ai-candidates — $(date -u +%Y-%m-%d)"
+            echo '```'
+            cat "$summary"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          cat "$summary"
+          exit "${status:-0}"
+
+      - name: Post the new candidates
+        # A failed search step still writes the comment for what the searches
+        # it finished found, so this runs whenever the search wrote one; a quiet
+        # week writes none and posts nothing. The raised set keeps a re-run
+        # from raising a docket twice; the once-only key is the run attempt, so
+        # a repeated post of one attempt's comment is dropped while a re-run
+        # that finds new candidates posts its own. The comment's raised-ids
+        # marker sits on the line below that key, where `ai-candidates-issue`
+        # reads it.
+        if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
+        timeout-minutes: 5
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          comment="$RUNNER_TEMP/ai-candidates-comment.md"
+          if [ ! -s "$comment" ]; then
+            echo "No new candidates: nothing to post."
+            exit 0
+          fi
+          issue=$(cat "$RUNNER_TEMP/ai-candidates-issue.txt")
+          uv run fedcourts post-issue-comment --issue "$issue" --repo "$REPO" \
+            --marker "<!-- ai-candidates-run: ${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT} -->" \
+            --body-file "$comment"
+
+      - name: Note the rehearsal boundary (posting fenced off this ref)
+        if: ${{ !cancelled() && github.ref != 'refs/heads/main' }}
+        env:
+          COMMENT: ${{ runner.temp }}/ai-candidates-comment.md
+        run: |
+          set -euo pipefail
+          {
+            echo "ai-candidates rehearsal: the comment is fenced to main-branch runs, and this run read no raised set; nothing was posted."
+            if [ -s "$COMMENT" ]; then
+              echo ''
+              cat "$COMMENT"
+            fi
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
   decision-below:
     needs: [authorize]
     # The decision-below fill's dry run: for the next 25 cases of its rotation
@@ -3969,7 +4123,7 @@ jobs:
   # not pass or this attempt is neither the one the gate judged nor a re-run by
   # a login the gate published. No checkout, no token, no environment.
   run-gate:
-    needs: [authorize, corpus-stats, tool-usage, text-coverage, metrics-refresh, big-cases, public-updates, qp-topic-resolve, qp-topic-extract, qp-topic-approval, qp-topic-rejected, qp-topic-label, qp-topic-publish, order-scan, decision-below, alignment-fit, alignment-fit-publish]
+    needs: [authorize, corpus-stats, tool-usage, text-coverage, metrics-refresh, big-cases, public-updates, qp-topic-resolve, qp-topic-extract, qp-topic-approval, qp-topic-rejected, qp-topic-label, qp-topic-publish, order-scan, ai-candidates, decision-below, alignment-fit, alignment-fit-publish]
     if: always()
     runs-on: ubuntu-26.04
     timeout-minutes: 5
