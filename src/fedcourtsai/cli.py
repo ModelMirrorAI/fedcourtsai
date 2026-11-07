@@ -96,7 +96,7 @@ from .agent_feedback import issue_bodies, open_issue_once, post_agent_feedback, 
 from .agent_flags import CellCoordinates, coordinates_from_path, normalise_flags
 from .agent_tooling import normalise_tooling
 from .ai_cases_update import ai_cases_subject, build_ai_cases_update, render_ai_cases_update
-from .ai_watchlist import AI_WATCHLIST_FILENAME, load_ai_watchlist, tagged_case_ids
+from .ai_watchlist import AI_WATCHLIST_FILENAME, AiWatchlist, load_ai_watchlist, tagged_case_ids
 from .application_migration import (
     MOTION_BASELINE_EVENT_ID,
     relabel_application_baseline_events,
@@ -16523,6 +16523,12 @@ def post_public_update_cmd(
     typer.echo(f"post-public-update: {chosen}: {verb} {draft.email_id}{where}")
 
 
+def _ai_cases_watchlist(config_root: Path) -> AiWatchlist | None:
+    """The watchlist the AI-cases update introduces its cases from, where the tree has one."""
+    path = config_root / AI_WATCHLIST_FILENAME
+    return load_ai_watchlist(path) if path.exists() else None
+
+
 def _ai_cases_span(week: str, day: str) -> tuple[date, date]:
     """The span an AI-cases command names: one day, one ISO week, or the last complete week."""
     if week and day:
@@ -16557,7 +16563,9 @@ def ai_cases_update_cmd(
     """
     settings = get_settings()
     start, end = _ai_cases_span(week, day)
-    update = build_ai_cases_update(settings.data_root, start, end)
+    update = build_ai_cases_update(
+        settings.data_root, start, end, _ai_cases_watchlist(settings.config_root)
+    )
     if update.empty:
         typer.echo(f"ai-cases-update: nothing to send for {start} to {end}.", err=True)
         raise typer.Exit(code=3)
@@ -16614,7 +16622,9 @@ def post_ai_cases_update_cmd(
     except typer.BadParameter as exc:
         typer.echo(f"post-ai-cases-update: {exc}", err=True)
         raise typer.Exit(code=2) from exc
-    update = build_ai_cases_update(settings.data_root, start, end)
+    update = build_ai_cases_update(
+        settings.data_root, start, end, _ai_cases_watchlist(settings.config_root)
+    )
     if update.empty:
         typer.echo(f"post-ai-cases-update: nothing to send for {start} to {end}.", err=True)
         raise typer.Exit(code=3)
