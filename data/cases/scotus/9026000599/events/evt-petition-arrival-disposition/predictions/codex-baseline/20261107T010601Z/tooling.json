@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000599",
+  "run_id": "20261107T010601Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts paths", "fedcourts query", "committed statpack", "CourtListener MCP search", "CourtListener MCP search_document", "web search/open attempts", "fedcourts validate"],
+  "helpful": ["The retained petition appendix includes the decisive earlier stay opinion and dissent.", "Machine-readable risk-set counts permit exact strictly-prior caption-class pooling.", "CourtListener's targeted opinion search confirmed a general stay standard."],
+  "gaps": ["The default uv cache path is read-only; UV_CACHE_DIR=/tmp/uv-cache was needed.", "Web calls produced no usable returned content.", "The narrowly filtered corpus lookup returned no rows after 1014 ranged GETs and 265420800 bytes.", "The frozen baseline band appears inconsistent with the federal-agency caption."],
+  "notes": "No installation or direct CourtListener REST call was attempted. The appendix and lower-court opinion are explicitly truncated, but the earlier stay and dissent remain readable. No brief in opposition is yet provisioned at this arrival moment. Corpus emptiness was not treated as substantive evidence."
+}

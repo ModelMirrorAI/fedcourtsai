@@ -1,0 +1,13 @@
+# Predicted Court Reasoning and Procedural Trajectory
+
+The docket currently records one distribution (distributed on November 4, 2026, for the Conference of December 4, 2026), with Respondents having waived their right to respond on October 28, 2026, and no Call for a Response (CFR) or Call for the Views of the Solicitor General (CVSG) on the docket.
+
+## Procedural Forecast
+- **Further Relists (`relist-increment: 0.03`)**: Expect **no further distributions or relists**. The petition will be denied on the first conference list following the December 4, 2026 conference without the Court calling for a response from Citigroup.
+- **Solicitor General Invitation (`cvsg-increment: 0.001`)**: Expect **no CVSG**. This is a private civil dispute arising out of a customer agreement, a court-ordered FINRA arbitration, and a Federal Rule of Civil Procedure 41(b) dismissal for failure to prosecute; no federal agency or statutory program administered by the United States is implicated.
+- **Separate Writings on Denial (`dissent-from-denial: 0.003`)**: Should the Court deny certiorari as expected, expect **no dissent from the denial of certiorari and no statement respecting the denial** from any Justice.
+
+## Conditional Grant and Merits Trajectory
+- **Summary Disposition vs. Plenary Review (`summary-disposition-route: 0.75`)**: In the highly unlikely event the Court were to grant review (after first calling for a response), it would most likely proceed by **summary disposition (GVR or summary vacatur)** rather than plenary merits briefing and oral argument, vacating the Second Circuit's dismissal of the residual Rule 41(b) appeal and remanding for either notice and an opportunity to address frivolousness or regular merits briefing.
+- **Question Presented Taken**: If granted for plenary review, the Court would take the single question presented as framed in the petition—whether a court of appeals departs from the accepted course of judicial proceedings when it *sua sponte* and summarily dismisses an appeal from a final Rule 41(b) judgment as frivolous without prior notice or merits briefing while ruling on a partial motion to dismiss interlocutory orders.
+- **Conditional Ground of Decision**: If the Court reached the merits, the likely ground would be narrow supervisory guidance under 28 U.S.C. § 2106 and Federal Rule of Appellate Procedure 27/34 holding that when an appellee moves to dismiss only the interlocutory portion of a notice of appeal, a motions panel should provide notice and a brief opportunity to respond before *sua sponte* dismissing the remaining final-judgment appeal as frivolous under *Pillay v. INS*, 45 F.3d 14 (2d Cir. 1995), while leaving undisturbed the circuits' inherent authority to dismiss frivolous appeals.

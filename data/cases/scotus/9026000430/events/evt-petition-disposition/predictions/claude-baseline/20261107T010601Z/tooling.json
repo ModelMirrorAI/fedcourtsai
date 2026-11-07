@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000430",
+  "run_id": "20261107T010601Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "statpack.md", "WebFetch supremecourt.gov"],
+  "helpful": ["Combined BIO and cert reply text", "cert_anchor in context.json"],
+  "gaps": ["Vide-linked companion dockets were not staged under record/related/ although the snapshot lists RelatedCaseNumber Vide links"],
+  "notes": "Cross-petition posture is not captured by the salience band; the main petitions' status drove the forecast."
+}

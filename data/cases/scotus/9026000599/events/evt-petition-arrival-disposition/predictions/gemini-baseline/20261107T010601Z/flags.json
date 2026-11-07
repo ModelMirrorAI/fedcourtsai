@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000599",
+  "run_id": "20261107T010601Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "record/context.json froze band='baseline' (cert_anchor.rate=0.051513) rather than 'federal' under sal-v7 because the docket caption 'National Park Service, et al., Petitioners' lacks 'United States' or a cabinet-officer title matched by the caption classifier, even though Solicitor General D. John Sauer is counsel of record for federal agencies and the President of the United States."
+    }
+  ]
+}
