@@ -878,6 +878,24 @@ The automated consumer stays within CourtListener's published API limits by desi
   (no RECAP Fetch, no PACER charge), its report carries court-record
   identifiers without caption, entry text or nature of suit, and the dockets
   it names are not admitted to the corpus.
+- **The AI-case candidate check shares it too.** `ai-candidates` runs the
+  saved searches `config/ai-candidates.yaml` configures — newly filed federal
+  dockets naming an AI developer as a party, or whose documents carry AI
+  phrases in a suit of a given nature — one request a page, at most two pages
+  a search, and stops before the request that would pass the config's run cap
+  (40, its `ai-candidates` lane share). It reads only what CourtListener
+  already holds (no RECAP Fetch, no PACER charge), fetches no docket, and
+  writes nothing but its report and a comment for the long-lived
+  `ai-candidates` issue, which a job holding the ambient token posts. That
+  comment is a public channel carrying court-record identifiers only (court,
+  docket number, filing date), the names of the searches that matched, the
+  category a search suggests, and a link to the docket on CourtListener by id
+  alone. It copies no caption, party, entry text or nature of suit, not even
+  as the caption slug CourtListener's own docket paths end in: unlike the
+  watchlist's activity records, these are dockets no maintainer has vetted,
+  and a caption can name an individual party, such as a minor in a chatbot
+  injury suit. Nothing it names is admitted anywhere: a maintainer adds a
+  case to the watchlist by a PR.
 
 The pilot holds a paid Free Law Project **membership tier** — **Tier 4**, at 25
 requests a minute, 300 an hour and 1,400 a day, for $1,000 a year. It is the top

@@ -4632,7 +4632,7 @@ def test_the_sync_lands_through_the_pinned_merge_script() -> None:
     merges its PR itself, with the script read from its own commit."""
     wf = yaml.safe_load((WORKFLOWS / "sync-staging.yml").read_text())
     job = wf["jobs"]["sync"]
-    assert job["permissions"] == {"contents": "read", "checks": "read"}
+    assert job["permissions"] == {"contents": "read", "checks": "read", "actions": "read"}
     (step,) = [s for s in job["steps"] if "land_sync" in str(s.get("run", ""))]
     assert step["env"]["CHECKS_TOKEN"] == "${{ github.token }}"
     run = str(step["run"])

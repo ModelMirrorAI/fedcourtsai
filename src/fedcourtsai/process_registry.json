@@ -89,39 +89,47 @@
         "merge": "356dbdd2b9cb74025c0510cb7a1e6df2663c0701",
         "source": "merge"
       }
+    },
+    {
+      "label": "proc-v19",
+      "since": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      }
     }
   ],
   "blessings": [
     {
-      "digest": "sha256:89efeee9de0ee0425d638a910357e3b772cd82f034c6fe8c43d1e1ece2ab8af5",
+      "digest": "sha256:1789dc26189e0e14ae71d9ed1f622751dd2c849d8fba4a85542336fab0b15080",
       "role": "predictor",
       "actor_id": "claude-baseline",
-      "label": "proc-v18",
+      "label": "proc-v19",
       "blessed": {
-        "at": "2026-11-06T17:45:46Z",
-        "merge": "356dbdd2b9cb74025c0510cb7a1e6df2663c0701",
+        "at": null,
+        "merge": null,
         "source": "merge"
       }
     },
     {
-      "digest": "sha256:591b96ed96dc8a9f7b95006f4a8a0efede0ad377229eb4080c0571612d59bafd",
+      "digest": "sha256:a939a164bc3cb0658e12c0c98b2300a878aecea15a93189e96579103382002d8",
       "role": "predictor",
       "actor_id": "codex-baseline",
-      "label": "proc-v18",
+      "label": "proc-v19",
       "blessed": {
-        "at": "2026-11-06T17:45:46Z",
-        "merge": "356dbdd2b9cb74025c0510cb7a1e6df2663c0701",
+        "at": null,
+        "merge": null,
         "source": "merge"
       }
     },
     {
-      "digest": "sha256:78c7ec8425f379a06571ff5ed115c650c41c8d2ceb40399f4b88077b2848c595",
+      "digest": "sha256:889d53dc033d7303ca39cf2bf3faa859dc0886a296ed2f0ad5ac00edf96705b7",
       "role": "predictor",
       "actor_id": "gemini-baseline",
-      "label": "proc-v18",
+      "label": "proc-v19",
       "blessed": {
-        "at": "2026-11-06T17:45:46Z",
-        "merge": "356dbdd2b9cb74025c0510cb7a1e6df2663c0701",
+        "at": null,
+        "merge": null,
         "source": "merge"
       }
     },
@@ -601,7 +609,11 @@
         "merge": "356dbdd2b9cb74025c0510cb7a1e6df2663c0701",
         "source": "merge"
       },
-      "closes": null,
+      "closes": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      },
       "revoked_at": null
     },
     {
@@ -613,7 +625,11 @@
         "merge": "356dbdd2b9cb74025c0510cb7a1e6df2663c0701",
         "source": "merge"
       },
-      "closes": null,
+      "closes": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      },
       "revoked_at": null
     },
     {
@@ -623,6 +639,46 @@
       "opens": {
         "at": "2026-11-06T17:45:46Z",
         "merge": "356dbdd2b9cb74025c0510cb7a1e6df2663c0701",
+        "source": "merge"
+      },
+      "closes": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      },
+      "revoked_at": null
+    },
+    {
+      "label": "proc-v19",
+      "digest": "sha256:1789dc26189e0e14ae71d9ed1f622751dd2c849d8fba4a85542336fab0b15080",
+      "predictor_id": "claude-baseline",
+      "opens": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      },
+      "closes": null,
+      "revoked_at": null
+    },
+    {
+      "label": "proc-v19",
+      "digest": "sha256:a939a164bc3cb0658e12c0c98b2300a878aecea15a93189e96579103382002d8",
+      "predictor_id": "codex-baseline",
+      "opens": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      },
+      "closes": null,
+      "revoked_at": null
+    },
+    {
+      "label": "proc-v19",
+      "digest": "sha256:889d53dc033d7303ca39cf2bf3faa859dc0886a296ed2f0ad5ac00edf96705b7",
+      "predictor_id": "gemini-baseline",
+      "opens": {
+        "at": null,
+        "merge": null,
         "source": "merge"
       },
       "closes": null,
@@ -693,15 +749,18 @@
     ],
     "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf": [
       "proc-v17",
-      "proc-v18"
+      "proc-v18",
+      "proc-v19"
     ],
     "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a": [
       "proc-v17",
-      "proc-v18"
+      "proc-v18",
+      "proc-v19"
     ],
     "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9": [
       "proc-v17",
-      "proc-v18"
+      "proc-v18",
+      "proc-v19"
     ]
   },
   "harness_boundaries": [
@@ -1017,6 +1076,22 @@
       "predictors": null,
       "reach": "all",
       "gradual": true
+    },
+    {
+      "name": "sg-memorandum-opposition",
+      "merge": null,
+      "at": null,
+      "predictors": null,
+      "reach": "all",
+      "gradual": true
+    },
+    {
+      "name": "vide-multi-number-entries",
+      "merge": null,
+      "at": null,
+      "predictors": null,
+      "reach": "all",
+      "gradual": false
     }
   ]
 }

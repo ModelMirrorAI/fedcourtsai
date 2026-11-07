@@ -119,11 +119,14 @@ there to cover it. It then reads incrementally every docket refreshed before:
 the entries modified since its last refresh, less an overlap, merged by id
 into the stored docket, about two requests for a quiet one; a long lead
 onboard can leave some of these to the next run, which reads from their own
-last refresh. Whole reads take what is left: further onboards, each started
-only when the share left covers the longest read the page cap allows
-(upstream does not say how long a docket is before it is read, and a read the
-share cut off would write nothing for what it spent), so the list onboards a
-docket each run whose lead read succeeds; and a weekly re-read on
+last refresh. Whole reads take what is left. Further onboards are each sized
+first by upstream's count of the docket's entries (one request; the page cap
+without one) and start only when the share left covers that many pages and
+the docket, because a read the share cut off would write nothing for what it
+spent. So the list onboards a docket each run whose lead read succeeds, and
+every other one whose count the rest of the share covers; a docket the count
+puts past the page cap fails on the count alone. The other whole read is a
+weekly re-read on
 a day the docket id picks, which catches deletions and documents that did not
 move an entry's modification time, taken only where the share left covers the
 docket's stored length. Like pull, a run stops at a wall-clock budget or a run

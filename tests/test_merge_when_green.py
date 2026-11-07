@@ -37,8 +37,12 @@ method = args[args.index("-X") + 1] if "-X" in args else "GET"
 path = next(a for a in args[1:] if a.startswith("repos/"))
 if method == "PUT" and path.endswith("/merge"):
     kind = "merge"
+elif "/check-suites/" in path:
+    kind = "suite-" + path.split("/check-suites/")[1].split("/")[0]
 elif "/check-runs" in path:
     kind = "checks"
+elif "/actions/runs" in path:
+    kind = "runs"
 elif "/pulls/" in path:
     kind = "pull"
 else:
@@ -99,6 +103,32 @@ def _run_of(
 
 def _checks(*runs: dict[str, Any]) -> dict[str, Any]:
     return {"json": {"total_count": len(runs), "check_runs": list(runs)}}
+
+
+def _pr_runs(*runs: tuple[int, str] | dict[str, Any]) -> dict[str, Any]:
+    """The Actions runs the sync PR started at its head: (check suite, status),
+    or a dict overriding the defaults of one run."""
+    rows = []
+    for i, run in enumerate(runs):
+        row: dict[str, Any] = {
+            "id": 100 + i,
+            "workflow_id": 900 + i,
+            "name": f"workflow {i}",
+            "check_suite_id": 0,
+            "status": "completed",
+            "conclusion": "success",
+            "event": "pull_request",
+            "repository": {"full_name": "owner/repo"},
+            "head_repository": {"full_name": "owner/repo"},
+        }
+        if isinstance(run, dict):
+            row.update(run)
+        else:
+            row["check_suite_id"], row["status"] = run
+            if row["status"] != "completed":
+                row["conclusion"] = None
+        rows.append(row)
+    return {"json": {"total_count": len(rows), "workflow_runs": rows}}
 
 
 GREEN = _checks(_run_of("gate"), _run_of("paths"), _run_of("analyze (python)"))
@@ -236,7 +266,13 @@ def test_the_main_to_staging_sync_is_merged_only_when_the_caller_opts_in(
     tmp_path: Path,
 ) -> None:
     pull = _pull(base="staging", head_ref="main", title="chore: sync main into staging")
-    scenario = {"pull": [pull], "checks": [GREEN], "merge": [MERGED]}
+    scenario = {
+        "pull": [pull],
+        "checks": [GREEN],
+        "runs": [_pr_runs((7, "completed"))],
+        "suite-7": [GREEN],
+        "merge": [MERGED],
+    }
     (tmp_path / "in").mkdir()
     proc, calls, _ = _run(tmp_path / "in", scenario, extra_env={"MERGE_SYNC": "true"})
     assert proc.returncode == 0
@@ -246,6 +282,146 @@ def test_the_main_to_staging_sync_is_merged_only_when_the_caller_opts_in(
     assert proc.returncode == 0
     assert _merges(calls) == []
     assert "nor the main → staging sync" in summary
+
+
+SYNC_PULL = _pull(base="staging", head_ref="main", title="chore: sync main into staging")
+SYNC_ENV = {"MERGE_SYNC": "true"}
+
+
+def test_the_sync_ignores_a_failed_run_another_workflow_left_on_mains_tip(
+    tmp_path: Path,
+) -> None:
+    """The sync's head is `main`'s tip, where a dispatched `run-repair` that
+    failed reports its job as a failed check run; only the suites the sync PR
+    itself started judge it."""
+    repair = _checks(_run_of("validate", conclusion="failure"), _run_of("gate"), _run_of("paths"))
+    ci = _checks(_run_of("gate"), _run_of("paths"))
+    codeql = _checks(_run_of("analyze (python)"))
+    proc, calls, _ = _run(
+        tmp_path,
+        {
+            "pull": [SYNC_PULL],
+            "checks": [repair],
+            "runs": [_pr_runs((7, "completed"), (8, "completed"))],
+            "suite-7": [ci],
+            "suite-8": [codeql],
+            "merge": [MERGED],
+        },
+        extra_env=SYNC_ENV,
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert len(_merges(calls)) == 1
+    assert not [c for c in calls if c["kind"] == "checks"]
+    (runs,) = [c for c in calls if c["kind"] == "runs"]
+    assert any(f"head_sha={SHA}&event=pull_request" in a for a in runs["args"])
+    assert {c["token"] for c in calls if c["kind"] in ("runs", "suite-7", "suite-8")} == {
+        "checks-token"
+    }
+
+
+def test_a_failed_check_in_the_syncs_own_suites_stops_it(tmp_path: Path) -> None:
+    red = _checks(_run_of("gate"), _run_of("paths"), _run_of("staging-base", conclusion="failure"))
+    proc, calls, summary = _run(
+        tmp_path,
+        {
+            "pull": [SYNC_PULL],
+            "runs": [_pr_runs((7, "completed"))],
+            "suite-7": [red],
+            "merge": [MERGED],
+        },
+        extra_env=SYNC_ENV,
+    )
+    assert proc.returncode == 0
+    assert _merges(calls) == []
+    assert "failed checks (staging-base)" in summary
+
+
+def test_a_sync_run_still_queued_is_waited_on(tmp_path: Path) -> None:
+    """A run the sync PR started that has not yet created its jobs has no check
+    runs to read, so the run's own status holds the merge."""
+    ci = _checks(_run_of("gate"), _run_of("paths"))
+    proc, calls, summary = _run(
+        tmp_path,
+        {
+            "pull": [SYNC_PULL],
+            "runs": [_pr_runs((7, "completed"), (8, "queued"))],
+            "suite-7": [ci],
+            "suite-8": [_checks()],
+            "merge": [MERGED],
+        },
+        wait_s="0",
+        extra_env=SYNC_ENV,
+    )
+    assert proc.returncode == 0
+    assert _merges(calls) == []
+    assert "checks still running" in summary
+
+
+def test_a_sync_run_that_failed_before_creating_jobs_stops_it(tmp_path: Path) -> None:
+    """A run that failed to start has a suite with no check runs, so its own
+    conclusion is the only failure there is to hear; an older failed run of a
+    workflow whose newest run passed is not."""
+    ci = _checks(_run_of("gate"), _run_of("paths"))
+    runs = _pr_runs(
+        (7, "completed"),
+        {"check_suite_id": 8, "conclusion": "startup_failure", "name": "codeql"},
+        {"id": 50, "workflow_id": 900, "check_suite_id": 6, "conclusion": "failure"},
+    )
+    proc, calls, summary = _run(
+        tmp_path,
+        {
+            "pull": [SYNC_PULL],
+            "runs": [runs],
+            "suite-6": [_checks()],
+            "suite-7": [ci],
+            "suite-8": [_checks()],
+            "merge": [MERGED],
+        },
+        extra_env=SYNC_ENV,
+    )
+    assert proc.returncode == 0
+    assert _merges(calls) == []
+    assert "failed checks (codeql)" in summary
+
+
+def test_a_forks_run_at_the_same_head_is_not_the_syncs(tmp_path: Path) -> None:
+    ci = _checks(_run_of("gate"), _run_of("paths"))
+    fork = {
+        "check_suite_id": 9,
+        "status": "action_required",
+        "conclusion": None,
+        "head_repository": {"full_name": "someone/fork"},
+    }
+    proc, calls, _ = _run(
+        tmp_path,
+        {
+            "pull": [SYNC_PULL],
+            "runs": [_pr_runs((7, "completed"), fork)],
+            "suite-7": [ci],
+            "suite-9": [_checks(_run_of("gate", conclusion="failure"))],
+            "merge": [MERGED],
+        },
+        extra_env=SYNC_ENV,
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert len(_merges(calls)) == 1
+    assert not [c for c in calls if c["kind"] == "suite-9"]
+
+
+def test_a_failed_sync_runs_read_is_retried(tmp_path: Path) -> None:
+    ci = _checks(_run_of("gate"), _run_of("paths"))
+    proc, calls, _ = _run(
+        tmp_path,
+        {
+            "pull": [SYNC_PULL],
+            "runs": [{"error": "gh: HTTP 502"}, _pr_runs((7, "completed"))],
+            "suite-7": [ci],
+            "merge": [MERGED],
+        },
+        extra_env=SYNC_ENV,
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert len(_merges(calls)) == 1
 
 
 def test_a_sync_head_from_a_fork_is_never_merged(tmp_path: Path) -> None:

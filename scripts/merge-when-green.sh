@@ -5,8 +5,9 @@
 #   merge-when-green.sh <pr-number> <head-sha>
 #
 # Environment: `GH_TOKEN` (the dev App token, minted fresh by the calling step),
-# `CHECKS_TOKEN` (a token with checks read for the check-run listing — the job's
-# ambient `GITHUB_TOKEN`, so the dev App needs no checks permission), `REPO`
+# `CHECKS_TOKEN` (a token with checks read for the check-run listing, and
+# actions read too under `MERGE_SYNC=true` — the job's ambient `GITHUB_TOKEN`,
+# so the dev App needs neither permission), `REPO`
 # (owner/name). Optional: `MERGE_REQUIRED_CHECKS` (space-separated check names
 # that must have reported before a refusal counts as settled; default
 # `gate paths`), `MERGE_METHOD` (default `merge`), `MERGE_WAIT_SECONDS`
@@ -59,6 +60,21 @@
 #   counts, and a cancelled one is waited on rather than failed: `ci.yml`
 #   cancels a superseded run of the same ref, and the call sites' own force-push
 #   and body edit fire two runs on one head.
+# - **The sync hears its own checks.** The sync's head is `main`'s tip, and
+#   every workflow that runs at that tip — a dispatched `run-repair`, `run-ops`,
+#   an analytics mode — reports its jobs as check runs on the same commit, so
+#   reading every check run on the head would let any unrelated failure or slow
+#   job there hold the sync. With `MERGE_SYNC=true` the script reads only the
+#   check suites of the Actions runs the pull request itself started (event
+#   `pull_request` at the head, from this repository) — `ci.yml`'s required
+#   checks and CodeQL's analysis among them. It waits on any such run still
+#   queued, so a run that has not yet created its jobs is waited on rather than
+#   unheard, and fails on one whose newest run of its workflow failed outright,
+#   since a run that failed before creating jobs has no check run to fail. A
+#   run started after the listing is not heard until the next poll, as on the
+#   data path; the ruleset's own required checks still bind the merge. That
+#   listing needs actions read on `CHECKS_TOKEN`. A data PR's head is a branch commit
+#   nothing else runs at, so it keeps reading every check run on the head.
 #
 # Call sites run this file as their own job's commit holds it — copied out with
 # `git show "${GITHUB_SHA}:scripts/merge-when-green.sh"` to the runner's temp
@@ -81,7 +97,7 @@ fi
 pr=$1
 sha=$2
 : "${GH_TOKEN:?GH_TOKEN must hold the dev App token}"
-: "${CHECKS_TOKEN:?CHECKS_TOKEN must hold a token with checks read}"
+: "${CHECKS_TOKEN:?CHECKS_TOKEN must hold a token with checks read (and actions read for the sync)}"
 : "${REPO:?REPO must name owner/repo}"
 case "$pr" in
   '' | *[!0-9]*)
@@ -133,16 +149,62 @@ next_poll() {
 # fields before it.
 PULL_JQ='[.state, (.merged | tostring), .head.sha, .base.ref, (.head.repo.full_name // ""), .head.ref, .title] | join("|")'
 # Newest run per check name, then: how many are still unsettled (queued,
-# running, or cancelled), the failed ones, and the ones that concluded.
+# running, or cancelled), the failed ones, and the ones that concluded. It reads
+# one array of check runs, slurped from the listing below.
 # shellcheck disable=SC2016 # `$latest` is a jq variable, not a shell one
-CHECKS_JQ='[.check_runs | group_by(.name)[] | max_by(.id)] as $latest
+CHECKS_JQ='[group_by(.name)[] | max_by(.id)] as $latest
   | [ ($latest | map(select(.status != "completed" or .conclusion == "cancelled")) | length | tostring),
       ($latest | map(select(.status == "completed"
         and (.conclusion | IN("failure", "timed_out", "action_required", "startup_failure", "stale")))
         | .name) | join(",")),
       ($latest | map(select(.status == "completed" and .conclusion != "cancelled") | .name) | join(",")) ]
   | join("|")'
+# The sync's own runs (a fork's run at the same head is not the sync's): how
+# many are not yet completed, their check suites, then the workflows whose
+# newest run failed outright — last, so a `|` in a name stays in that field.
+# shellcheck disable=SC2016 # `$own` is a jq variable, not a shell one
+PR_RUNS_JQ='[.workflow_runs[] | select(.head_repository.full_name == .repository.full_name)] as $own
+  | [ ($own | map(select(.status != "completed")) | length | tostring),
+      ($own | map(.check_suite_id | tostring) | join(" ")),
+      ($own | group_by(.workflow_id) | map(max_by(.id))
+        | map(select(.status == "completed"
+          and (.conclusion | IN("failure", "timed_out", "action_required", "startup_failure", "stale")))
+          | .name | gsub(","; " ")) | join(",")) ]
+  | join("|")'
 
+# Print the check runs that judge this PR, one JSON value each, for CHECKS_JQ
+# to slurp; sets `runs_pending` to the sync's own runs not yet completed and
+# `runs_failed` to the workflows whose newest such run failed outright. One
+# page of 100 per listing: a data PR's head carries well under a dozen check
+# runs, and so does each of the sync's own suites.
+read_checks() {
+  runs_pending=0
+  runs_failed=""
+  if [ "${MERGE_SYNC:-}" != "true" ]; then
+    GH_TOKEN="$CHECKS_TOKEN" timeout 30 \
+      gh api "repos/${REPO}/commits/${sha}/check-runs?per_page=100" --jq '.check_runs[]'
+    return
+  fi
+  local pr_runs suites suite
+  pr_runs=$(GH_TOKEN="$CHECKS_TOKEN" timeout 30 \
+    gh api "repos/${REPO}/actions/runs?head_sha=${sha}&event=pull_request&per_page=100" \
+    --jq "$PR_RUNS_JQ") || return 1
+  IFS='|' read -r runs_pending suites runs_failed <<<"$pr_runs"
+  case "$runs_pending" in
+    '' | *[!0-9]*) return 1 ;;
+  esac
+  for suite in $suites; do
+    case "$suite" in
+      '' | *[!0-9]*) return 1 ;;
+    esac
+    GH_TOKEN="$CHECKS_TOKEN" timeout 30 \
+      gh api "repos/${REPO}/check-suites/${suite}/check-runs?per_page=100" \
+      --jq '.check_runs[]' || return 1
+  done
+}
+
+listing=$(mktemp)
+trap 'rm -f "$listing"' EXIT
 settled_refusals=0
 last_refusal=""
 while :; do
@@ -180,14 +242,16 @@ while :; do
     exit 0
   fi
 
-  # One page of 100: a data PR's head carries well under a dozen check runs.
-  if ! checks=$(GH_TOKEN="$CHECKS_TOKEN" timeout 30 \
-    gh api "repos/${REPO}/commits/${sha}/check-runs?per_page=100" --jq "$CHECKS_JQ"); then
+  # Read into a file in this shell, not a command substitution, so the
+  # `runs_pending` that read_checks sets survives it.
+  if ! read_checks >"$listing" || ! checks=$(jq -rs "$CHECKS_JQ" "$listing"); then
     last_refusal="reading the check runs failed"
     next_poll
     continue
   fi
   IFS='|' read -r pending failed concluded <<<"$checks"
+  pending=$((pending + runs_pending))
+  failed=${failed:+${failed}${runs_failed:+,}}${runs_failed}
   if [ -n "$failed" ]; then
     report warning "PR #${pr} has failed checks (${failed}); left open for a manual look (${pr_url})."
     exit 0

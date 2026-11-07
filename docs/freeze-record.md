@@ -17052,3 +17052,441 @@ freeze commit is recorded here.
     fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
     print('vided-amicus-related-dockets' in {b.name for b in H})"` prints
     `True`.
+
+- **`sal-v8` activated; recorded 2026-11-06.** A distinct entry from the
+  `caption-v5` and `sal-v8` registration entry above, on the `sal-v7`
+  activation's pattern. No freeze commit belongs to this entry: the salience
+  version sits outside the process digest, carries its own data-visible
+  boundary (`context.salience_version`), and a flip re-blesses nothing.
+  `uv run fedcourts process-digest --all` prints the same six digests before
+  and after this change, and no harness boundary is registered.
+
+  **The flip is one constant.** `SALIENCE_VERSION` goes `sal-v7` → `sal-v8`.
+  `sal-v8` pins `dist-v2`, which `cert_signals.DEFAULT_DISTRIBUTION_PARSE`
+  already names, and reads no corpus column `sal-v7` does not, so no
+  re-derivation or back-fill precedes it. Its score, relist rule, writ scope,
+  parse, cutpoints, band vocabulary and arrival draw are `sal-v7`'s
+  callables; the band, the carve-in and the reachable ladder read the class
+  through `caption-v5`, which is `caption-v4` on every stored row and differs
+  only in reading a forward cell's `truncated` payload.
+
+  **The statpack.** The metrics refresh merged to `main` as `47838bb39`, the
+  first after the promotion tagged `promotion/2026-11-06` carried the
+  registration, renders a `sal-v8` block in every Term's `alt_segments`.
+  `jq '[.terms[] | .segments == (.alt_segments[] | select(.salience_version
+  == "sal-v8") | .segments)] | all' metrics/statpack.json` prints `true` on
+  it, and `uv run fedcourts segment-anchors --term 2026 --salience-version
+  <v> --statpack metrics/statpack.json` pools `sal-v7` and `sal-v8` to the
+  same anchors for an OT2026 docket on that pack (lookback 10, risk-set rate,
+  denial-reweighted resolved n): federal 73.11% (212), high 34.76% (771),
+  state 23.33% (420), elevated 24.78% (2,006), baseline 5.15% (12,657).
+
+  **The activation dry run.** `uv run python
+  scripts/checks/salience_activation_dry_run.py` with each version active,
+  on blob `ff13501b8213df210f8148461a0e4105c28c046a2a65dac0e25258f962ec6d79`
+  (newest pull 2026-11-06, newest stored snapshot row 2026-07-13; `origin/main`
+  `ddea12254`) as of 2026-11-06, reads identically under both apart from the
+  label: 20,690 eligible and scored, 0 newly selected, 257 rows refused by the
+  segment. The live pass's latches do not move at the flip.
+
+  **The forward re-placement.** `uv run python
+  scripts/checks/sal_v8_forward_cells.py` over the ledger at `main`
+  `ddea12254`, on the same blob, re-places the 120 `truncated` cells among
+  457 banded forward cells, each from its case's newest stored snapshot cut
+  to the cell's cutoff, so it reads the rule over today's counsel blocks
+  rather than replaying the cells (one per case, event and cutoff; 300 `as-stored`,
+  37 `dated`). The same 3 cells the registration entry names would freeze
+  `federal` under `sal-v8`: 26-111's arrival cell (`baseline` under
+  `sal-v7`), and the call-for-response cells of 26-145 (`baseline`) and
+  26-146 (`state`), both frozen under `sal-v4`. Of the 120, 6 were frozen
+  under `sal-v7`, and the re-placement's `sal-v7` band reproduces all 6. No
+  outcome-clean reading exists for these moves: every moved cell is pending,
+  and no replay cell is a forward truncated cell. The activation proceeds on
+  the bar `sal-v7`'s activation cleared, the rule's outcome-free precision:
+  all 3 are among the 15 rows the `caption-v4` census moves on stored rows,
+  each with the office as counsel of record for its captioned petitioner.
+  26-145's and 26-146's captions name a Warden, so the office's appearance
+  for a federal officer moves them; 26-111's names private persons only
+  ("Noah A. Herzon, et al."), so its move rests on the counsel entry alone,
+  one of the 3 such captions the registration of `caption-v4` names.
+
+  **What it moves.** No frozen band changes: a prediction keeps the version
+  that banded it. The live pass scores, latches and stamps under `sal-v8`,
+  with the same latches as `sal-v7`. A forward cell minted after the flip on
+  a `truncated` payload whose `Petitioner` block lists the office as counsel
+  of record for the captioned party freezes `federal` and pools the federal
+  anchor (73.11% for an OT2026 docket on the `47838bb39` pack) where `sal-v7` froze its caption
+  class's. The scored window opens at the first post-promotion metrics
+  refresh, as for every earlier flip; a cell minted before it pools a
+  `sal-v8` anchor from the committed `alt_segments` block but reads
+  `statpack.md`'s `sal-v7` table as a version mismatch.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - on `main`, `uv run python -c "from fedcourtsai.pipeline.salience import
+    SALIENCE_VERSION; print(SALIENCE_VERSION)"` prints `sal-v8`;
+  - after the first post-promotion metrics refresh, `jq -r
+    '.terms[].salience_version' metrics/statpack.json | sort -u` prints
+    `sal-v8`, and every Term's `alt_segments` holds a `sal-v7` block;
+  - on the first predict run's collect PR after the carrying merge, `jq -r
+    '.context.salience_version'
+    data/cases/scotus/*/events/*/predictions/*/<run_id>/prediction.json |
+    sort -u` prints `sal-v8` (and `null` on an unbanded cell); and the first
+    new forward cell whose `context.snapshot_provenance` is `truncated` and
+    whose staged snapshot's `Petitioner` block lists the office as counsel of
+    record for the captioned party (a docket like 26-111) freezes `band`
+    `federal`, where `sal-v7` would have frozen its caption class.
+
+- **Readings the `proc-v18` entry owes, recorded 2026-11-07.** No rule moves
+  here. The `proc-v18` entry (dated 2026-11-06), carried to `main` by
+  `promotion/2026-11-06` (merge `356dbdd2b`, registry stamped by `116d1569f`)
+  and tagged `prereg/proc-v18`, quoted its `successor-disclosures` lines at
+  a provisional instant and owed them again once the carrying merge had
+  stamped the registry, before any figure of a `proc-v17` window is quoted
+  outside the committed board. That entry is not otherwise edited.
+
+  The run reads the ledger and registry at `origin/main`'s `7bef3efc2`
+  (`2026-11-07T07:07:42Z`), after the stamp, after the run-repair
+  `refused-attempt-removal` apply (`a7fea7ea2`) that deleted the three
+  forward-refusal failure facts of run `20261105T203825Z` on
+  `scotus/9526000634` `evt-brief-response-disposition`, and after the first
+  `proc-v18` predict round (run `20261107T010601Z`) landed.
+
+  **`proc-v18` closes `proc-v17`.** `uv run fedcourts successor-disclosures
+  --closed proc-v17 --successor proc-v18` prints:
+
+  ```
+  successor proc-v18 closes proc-v17 at 2026-11-06T17:45:46+00:00
+    closed proc-v17 gemini-baseline: 27 counted event(s) — 5 resolved, 22 pending at close
+    closed proc-v17 claude-baseline: 27 counted event(s) — 5 resolved, 22 pending at close
+    closed proc-v17 codex-baseline: 27 counted event(s) — 5 resolved, 22 pending at close
+    split events: 0 (0 resolved) — in no complete grid
+    claude-baseline: 4 successor-counted event(s); earlier window proc-v17: 0 failed, 0 uncounted cell, 0 missing, 4 not reached before the close
+    codex-baseline: 4 successor-counted event(s); earlier window proc-v17: 0 failed, 0 uncounted cell, 0 missing, 4 not reached before the close
+    gemini-baseline: 4 successor-counted event(s); earlier window proc-v17: 0 failed, 0 uncounted cell, 0 missing, 4 not reached before the close
+    graded by claude-judge @ sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf: 15 grading(s), 0 at or after the instant
+    graded by codex-judge @ sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a: 15 grading(s), 0 at or after the instant
+    graded by gemini-judge @ sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9: 15 grading(s), 0 at or after the instant
+  ```
+
+  The closed lines match the provisional run's (27 counted events per
+  engine, 5 resolved), though the stamped instant, `2026-11-06T17:45:46Z`,
+  fell earlier than the provisional `2026-11-07T00:00:00Z`. The resolved
+  count is an upper bound: it counts every outcome dated on or before the
+  close's UTC day. Every successor-counted event falls in the not-reached
+  bucket: no engine left a failure fact or a cell on it in its earlier span,
+  and no predictor had committed a cell on it before the close. No closed-window
+  grading is stamped at or after the instant.
+
+  The closed-window resolved counts can still move: an outcome dated on or
+  before the close's day may land late, and an event void de-counts what it
+  names. The split, partition and grading lines also move as cells, outcomes
+  and gradings land.
+
+- **`proc-v19`, the predict prompt names a `vided-amicus` related docket;
+  recorded 2026-11-07.** Carried to `main` by the promotion tagged `<FILL: promotion tag>`
+  (merge commit `<FILL: merge hash>`, merged `<FILL: merged-at>`), to be tagged
+  **`prereg/proc-v19`**. Registered under the merge-stamped rule, so its
+  counting instant, its bless moments and every window edge it moves are the
+  carrying merge's committer time. Only the predict prompt changes, so the
+  three predictor digests move and the evaluator digests do not. No harness
+  boundary is registered and no scored number moves: what a cell is given
+  does not change, only what the prompt says about it.
+
+  **What changes.** The predict prompt's `record/related/` paragraph. It
+  described only the dockets the Court links as `Vide`, and said an absent
+  directory means the docket links none. It now also says that the directory
+  can hold, after those links and cut the same way, a docket sharing an
+  amicus brief the Court marks `VIDED`; that `related.json` gives each row's
+  `relation` (`Vide` or `vided-amicus`) and, on a `vided-amicus` row,
+  `shared_briefs`; that such a docket is a candidate rather than the Court's
+  link, since a repeat filer's unrelated briefs filed on one day match alike,
+  so one shared brief is weak evidence; that a cell reads the docket before
+  treating it as a companion and says in `reasoning.md` on which `relation`
+  its forecast rests; and that an absent directory means the docket links
+  none and no shared brief was found, or none could be looked up, since a
+  corpus without the partial VIDED index stages none and records none.
+
+  **Why.** This is the sentence the 2026-11-06 entry *A predict cell also
+  stages the dockets sharing a VIDED amicus brief with its own under
+  `record/related/`* left for the next re-bless, so that the predictor
+  digests moved once. That entry is not otherwise edited. It pays the
+  residual that entry stated: until now the prompt told a cell that every
+  file under `record/related/` is a docket the Court links as `Vide`, so a
+  cell that did not read `related.json` could take a `vided-amicus`
+  candidate of strength one for the Court's own link. The boundary,
+  `vided-amicus-related-dockets`, was stamped by `promotion/2026-11-06` and
+  is not re-registered: cells on either side of this label are given the
+  same related dockets, and only the instruction for reading them differs.
+  No score motivates the change.
+
+  **Pre-registered.** No skill movement is predicted. A movement in
+  **either** direction across this label on dockets with a `vided-amicus`
+  row is not read as an effect of the sentence: the population is small
+  (56 dockets across OT2023–OT2026 in the boundary entry's projection, 17
+  of them undisposed) and still filling as the live polls re-read dockets.
+
+  **The amendment debt.** It is unchanged. This entry pays the residual the
+  2026-11-06 VIDED entry stated and adds no new token.
+
+  The runnable effect check once it is live:
+  - on `main`, `uv run python -c "from fedcourtsai.process_version import
+    CURRENT_PROCESS_LABEL as L; print(L)"` prints `proc-v19`, and `uv run
+    fedcourts process-digest --all` prints the predictor digests below;
+  - `grep -c 'vided-amicus' .github/prompts/predict.md` on `main` prints a
+    count above 0;
+  - on the first predict run's collect PR after the carrying merge with a
+    cell whose `related.json` lists a `vided-amicus` row, its `reasoning.md`
+    names that row's `relation` wherever it leans on the docket.
+
+  **The registration** (`uv run fedcourts register-process --label
+  proc-v19`, run 2026-11-07 over `staging` at `49857bb98` with `proc-v18`
+  stamped). The three predictor digests move; the evaluator digests keep
+  their `proc-v17` blessings.
+
+  | Actor | Before (`proc-v18`) | `proc-v19` |
+  | --- | --- | --- |
+  | `claude-baseline` | `sha256:89efeee9de0ee0425d638a910357e3b772cd82f034c6fe8c43d1e1ece2ab8af5` | `sha256:1789dc26189e0e14ae71d9ed1f622751dd2c849d8fba4a85542336fab0b15080` (new) |
+  | `codex-baseline` | `sha256:591b96ed96dc8a9f7b95006f4a8a0efede0ad377229eb4080c0571612d59bafd` | `sha256:a939a164bc3cb0658e12c0c98b2300a878aecea15a93189e96579103382002d8` (new) |
+  | `gemini-baseline` | `sha256:78c7ec8425f379a06571ff5ed115c650c41c8d2ceb40399f4b88077b2848c595` | `sha256:889d53dc033d7303ca39cf2bf3faa859dc0886a296ed2f0ad5ac00edf96705b7` (new) |
+  | `claude-judge` | `sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf` | unchanged |
+  | `codex-judge` | `sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a` | unchanged |
+  | `gemini-judge` | `sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9` | unchanged |
+
+  **What was made under the retiring digests.** At `origin/main`
+  `6d9f14956` (`2026-11-07T13:22:25Z`), committed `prediction.json` files
+  naming each `proc-v18` predictor digest: 4 `claude-baseline`, 4
+  `codex-baseline`, 4 `gemini-baseline`.
+
+  **Step 0.** At the same commit, the count of committed files under
+  `data/cases` naming `sha256:<digest>` is **0** for each of the three newly
+  blessed digests, and **3543** files there carry a `process_version` stamp.
+
+  **Windows** (`COUNTING_WINDOWS`, once the carrying merge stamps them):
+
+  | Predictor | Label | Opens | Closes |
+  | --- | --- | --- | --- |
+  | `claude-baseline` (`89efeee9…`) | `proc-v18` | `2026-11-06T17:45:46Z` | this label's instant (was open) |
+  | `codex-baseline` (`591b96ed…`) | `proc-v18` | `2026-11-06T17:45:46Z` | this label's instant (was open) |
+  | `gemini-baseline` (`78c7ec84…`) | `proc-v18` | `2026-11-06T17:45:46Z` | this label's instant (was open) |
+  | `claude-baseline` (`1789dc26…`) | `proc-v19` | this label's instant | open (new) |
+  | `codex-baseline` (`a939a164…`) | `proc-v19` | this label's instant | open (new) |
+  | `gemini-baseline` (`889d53dc…`) | `proc-v19` | this label's instant | open (new) |
+
+  Earlier windows keep the closes earlier labels gave them.
+
+  **What the close owes, provisional.** Run with this commit's pending rows
+  stamped by hand at a provisional instant, `2026-11-08T00:00:00Z`, in a
+  scratch copy of the registry, over the ledger at `origin/main`
+  `6d9f14956`. `uv run fedcourts successor-disclosures --closed proc-v18
+  --successor proc-v19`:
+
+  ```
+  successor proc-v19 closes proc-v18 at 2026-11-08T00:00:00+00:00
+    closed proc-v18 codex-baseline: 4 counted event(s) — 0 resolved, 4 pending at close
+    closed proc-v18 gemini-baseline: 4 counted event(s) — 0 resolved, 4 pending at close
+    closed proc-v18 claude-baseline: 4 counted event(s) — 0 resolved, 4 pending at close
+    split events: 0 (0 resolved) — in no complete grid
+  ```
+
+  Cells keep landing until the instant, so the run is repeated once the
+  carrying merge has stamped the registry, and a dated follow-up entry quotes
+  it before any `proc-v18` window figure is quoted outside the committed
+  board.
+
+- **The opposition row takes the respondent's memorandum; recorded
+  2026-11-07.** A **provisioning-cutoff** change with a harness boundary,
+  recorded ahead of the promotion that carries it.
+
+  **Why.** The Solicitor General usually answers a petition against the
+  United States, or against federal respondents, with a short memorandum
+  rather than a brief. The Clerk enters it as "Memorandum of respondent United
+  States filed.", "Memorandum of Federal Respondents in opposition filed." or
+  "Memorandum for the United States filed.". The opposition selector took a
+  respondent's filing only when it was a brief or a "Response of
+  respondent …", so it never took a memorandum. A cell on such a docket read
+  only the other respondents' briefs, or no opposition at all, while the
+  government's position was on the docket. A predict cell on 26-430 flagged
+  the gap in run `20261107T010601Z`.
+
+  **What moved.** `pipeline.documents._is_bio_entry` also admits a cert-stage
+  entry that opens "Memorandum of / for / from" with up to three words before
+  "respondent(s)" or "United States". The response form's collateral
+  exclusions apply (a motion, an application, a rehearing petition, a letter,
+  an order or a suggestion of mootness), and so do the common exclusions
+  (amicus, reply, supplemental, petitioner, in support) and the post-grant
+  bound, and a memorandum naming the petitioners, singular or plural, is
+  refused. The `brief-in-opposition` `kind_description` names the
+  memorandum. The memorandum joins the combined `brief-in-opposition` row under its
+  own header, like a second respondent's brief. No other kind's selection
+  moves.
+
+  No prompt byte and no registry field other than the boundary row moves, so
+  no digest moves. `uv run fedcourts process-digest --all` prints `proc-v19`
+  and the six digests `1789dc26…` (claude-baseline), `a939a164…`
+  (codex-baseline), `889d53dc…` (gemini-baseline), `3b78d93b…`
+  (claude-judge), `5c7cc4e6…` (codex-judge) and `8966bfb2…` (gemini-judge),
+  with and without the change. The prompt names `brief-in-opposition.txt`
+  only by file; the description a cell reads in `documents.json`
+  (`kind_description`) now names a memorandum beside a brief and a response,
+  and no digest input reads it. A memorandum worded "in support of" the
+  petition stays out, as a brief so worded does.
+
+  **A harness boundary under the 2026-10-11 pooled rule.** The change adds to
+  what a predict cell reads under unchanged digests. It is composition, not a
+  cut. The pooled default and the paired figure keep both sides and list each
+  engine's `n` before and after. It cuts only a figure that reads its own
+  effect, such as a per-stratum reading over dockets with a federal
+  respondent.
+  - **The registry row** is `sg-memorandum-opposition`. It applies to every
+    predictor, and its reach is `all`, because no narrower registered reach
+    names these dockets. It is **gradual**. A stored opposition row changes
+    only when its docket's documents are fetched again: a live poll's
+    provisioning, or the freshness pass over predict-relevant cases, which
+    fetches any case whose stored set lacks a selected link. A decided docket
+    is not re-fetched for it. It is registered **pending** in this change's own PR
+    (`fedcourts register-boundary`), under the 2026-10-14 merge-stamping
+    declaration, and its `merge` and `at` stay null until the promotion merge
+    that carries it to `main` stamps them (`promotion-record`).
+  - **The side test** is the registered one, against the carrying merge.
+    Because the boundary is gradual, an after-side cell provisioned before its
+    docket was re-fetched still lacks the memorandum, so the after-side `n` is
+    an upper bound on exposure.
+
+  **The population.** Measured read-only over blob
+  `941b8e5aee2a3b71d202c2ea8643e71c6ab379e58163c9361528f53813094865` (newest
+  pull 2026-11-07, newest stored snapshot row 2026-07-13), over each
+  OT2023–OT2026 cert docket's latest stored snapshot (13,875 dockets, 13,821
+  with a snapshot). 246 entries open with "Memorandum", on 244 dockets (55
+  OT2023, 74 OT2024, 85 OT2025, 30 OT2026). 20 of the entries say "in
+  opposition" and 226 do not. 238 carry a link. The previous selector would
+  select none of them, and the changed one selects all 238. The six entries
+  in the bare "Memorandum for the United States" form sit on five dockets,
+  each with the United States as respondent. 26 of the 244 dockets are undecided, and
+  25 of those carry a linked memorandum. 45 of the 244 dockets have committed
+  cells under `data/cases/`, one of them undecided (26-430).
+
+  **What does not move.** No base rate re-prices, no membership rule moves
+  and no scored figure moves. No skill movement is predicted, and a movement
+  in **either** direction across this boundary may not be read as a model
+  effect.
+
+  **The amendment debt.** It is unchanged. This entry adds no new token.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_documents.py -k "bio or opposition or
+    memorandum"` is green;
+  - after the first live cycles following the promotion, where the corpus is
+    pulled, `uv run fedcourts provision-snapshot --court scotus --docket
+    9026000430 --event evt-petition-disposition` prints its `documents (…)
+    -> <dir>` line, and `<dir>/brief-in-opposition.txt` carries a
+    `=== Memorandum … ===` block header;
+  - on `main` once the promotion has merged, `uv run python -c "from
+    fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
+    print('sg-memorandum-opposition' in {b.name for b in H})"` prints `True`.
+
+- **A `Vide` entry listing several dockets links each of them; recorded
+  2026-11-07.** A **provisioning-cutoff** change with a harness boundary,
+  recorded ahead of the promotion that carries it. It extends the 2026-10-22
+  `vide-related-dockets` and `context-vide-links` entries, which are not
+  otherwise edited.
+
+  **Why.** The Court sometimes writes a group of companions into one
+  `RelatedCaseNumber` entry, as in `"DisplayCaseNumber": "26-199, 26-201,
+  26-332, 26-335"`. `pipeline.vide_links.vide_docket_numbers` normalized the
+  whole string, which fails the docket-number shape, so it dropped the whole
+  entry. A cell on such a docket staged none of its companions under
+  `record/related/` and froze `context.vide_links` empty, which also filed
+  the forecast as unlinked on the leaderboard's `by_link` cut. Two of the
+  three engines' cells on 26-430 (claude-baseline and gemini-baseline)
+  flagged it in run `20261107T010601Z`.
+
+  **What moved.** `vide_docket_numbers` splits each `DisplayCaseNumber` on
+  commas, semicolons, `&` and the word "and", and reads each part under the
+  existing rules: the docket-number shape, the docket's own number, a repeat
+  and `MAX_RELATED_DOCKETS`. A malformed part drops only itself. The
+  single-number entries are read first, in served order, and the groups'
+  numbers after them, so a large group cannot crowd a cross-petition or the
+  petition a docket is held for out of the four. Every reader
+  shares the function: the provisioner's `record/related/` staging, the
+  frozen `context.vide_links`, the cascade and `same_question`.
+
+  No prompt byte and no registry field other than the boundary row moves, so
+  no digest moves. `uv run fedcourts process-digest --all` prints `proc-v19`
+  and the six digests `1789dc26…` (claude-baseline), `a939a164…`
+  (codex-baseline), `889d53dc…` (gemini-baseline), `3b78d93b…`
+  (claude-judge), `5c7cc4e6…` (codex-judge) and `8966bfb2…` (gemini-judge),
+  with and without the change.
+
+  **A harness boundary under the 2026-10-11 pooled rule.** The change adds to
+  what a predict cell reads, and to the `vide_links` it freezes, under
+  unchanged digests. It is composition, not a cut. The pooled default and
+  the paired figure keep both sides and list each engine's `n` before and
+  after. It cuts a figure that reads its own effect, and the `by_link` cut is
+  one. That cut reads the **frozen** `context.vide_links`, which is never
+  re-read, so a before-side cell on such a docket stays `unlinked` for good
+  (a cell frozen before the `context-vide-links` merge carries `null` and sits
+  under `(none)`). The `by_link` blocks list no boundaries, so the split is
+  not visible on the cut itself. The committed cells it misfiles today are
+  three: claude-baseline, codex-baseline and gemini-baseline on 26-430, each
+  with `vide_links: []` and none graded; the six cells on 25-1318 froze
+  `null`, and no other of the 30 dockets has a committed cell. A
+  `linked`/`unlinked` reading across this boundary is cut at the carrying
+  merge, or lists those three cells.
+
+  It also meets the stamped `vided-amicus-related-dockets` boundary. That
+  reader skips a docket already linked as `Vide`, and both kinds share the
+  four-docket bound. On a docket such as 26-292, 26-293 or 26-294, whose
+  companions the 2026-11-06 entry counted as `vided-amicus` candidates, a
+  companion now reads as `Vide`, and new `Vide` links can push a
+  `vided-amicus` row out of the bound. A reading of that boundary's effect
+  that selects by `related.json`'s `relation` reads after this merge.
+  `same-question --vide-check` reads the same function, and no recorded
+  figure cites it.
+  - **The registry row** is `vide-multi-number-entries`. It applies to every
+    predictor, and its reach is `all`, because no narrower registered reach
+    names these dockets. It is **not gradual**. The function reads the
+    snapshot a cell is placed on, so every cell provisioned after the
+    carrying merge reads the change, with no back-fill. It is registered
+    **pending** in this change's own PR (`fedcourts register-boundary`),
+    under the 2026-10-14 merge-stamping declaration, and its `merge` and `at`
+    stay null until the promotion merge that carries it to `main` stamps them
+    (`promotion-record`).
+  - **The side test** is the registered one, against the carrying merge.
+
+  **The population.** Measured read-only over blob
+  `941b8e5aee2a3b71d202c2ea8643e71c6ab379e58163c9361528f53813094865` (newest
+  pull 2026-11-07, newest stored snapshot row 2026-07-13), over each
+  OT2023–OT2026 cert docket's latest stored snapshot (13,875 dockets, 13,821
+  with a snapshot). 212 `Vide` entries are stored, and 30 of them, on 30
+  dockets, list more than one number (18 list two, 6 list four and 6 list
+  five). Every one separates its numbers by commas alone. The previous reader
+  dropped all 30. The six five-number entries are on decided OT2023 dockets,
+  and each stages at most four of its numbers. 7 of the 30 dockets are undecided: 26-292, 26-293 and 26-294; 26-402,
+  26-407 and 26-450; and 26-430.
+
+  **What does not move.** No base rate re-prices, no membership rule moves
+  and no scored figure moves. No skill movement is predicted, and a movement
+  in **either** direction across this boundary may not be read as a model
+  effect.
+
+  **The amendment debt.** It is unchanged. This entry adds no new token.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_related_dockets.py` is green;
+  - where the corpus is pulled, `uv run fedcourts provision-snapshot --court
+    scotus --docket 9026000430 --event evt-petition-disposition` names 26-199,
+    26-201, 26-332 and 26-335 on its `related` line;
+  - the first predict cell committed on one of the seven undecided dockets
+    after the promotion carries a non-empty `context.vide_links`;
+  - on `main` once the promotion has merged, `uv run python -c "from
+    fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
+    print('vide-multi-number-entries' in {b.name for b in H})"` prints `True`.
