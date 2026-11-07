@@ -2284,17 +2284,18 @@ lookback sits in the pool, and each earlier Term holds a thousand or more
 unparsed stubs, so each Term's apply moves the rate by its own amount. The
 command therefore refuses an apply for any Term outside
 `REGISTERED_APPLY_TERMS` (`pipeline/application_backfill.py`), which holds
-OT2016 to OT2024, each pre-registered in `docs/freeze-record.md`. A further
+OT2015 to OT2024, each pre-registered in `docs/freeze-record.md`. A further
 Term joins that set in the same change that appends a freeze-record entry
 projecting its move, read off its dry run. Its dry run needs no
 registration, since reading moves nothing.
 
-**OT2016 reads the legacy pages.** The pass reaches closed Terms from the
-live floor (`live.term_floor_year`, OT2017), and below it only the Terms in
-`LEGACY_HTML_TERMS`, which holds OT2016. supremecourt.gov serves OT2016's
-application JSON for some serials, mostly from `16A1051` on; for most of the
-rest it still serves the Clerk's record as its legacy HTML docket page
-(`docketfiles/16a<n>.htm`); a sample found no serial served in both forms.
+**OT2015 and OT2016 read the legacy pages.** The pass reaches closed Terms
+from the live floor (`live.term_floor_year`, OT2017), and below it only the
+Terms in `LEGACY_HTML_TERMS`, which holds OT2015 and OT2016. supremecourt.gov
+serves OT2016's application JSON for some serials, mostly from `16A1051` on,
+and OT2015's for none; for most of the rest it still serves the Clerk's
+record as its legacy HTML docket page (`docketfiles/<yy>a<n>.htm`); a sample
+found no OT2016 serial served in both forms.
 The walk opens each Term on the page and reads first the form that served the
 serial before, then the other on a miss, so it stays near one fetch a serial.
 `pipeline/legacy_docket.py` parses a page into the docket JSON's own keys, so
@@ -2309,7 +2310,7 @@ it lands. Its stored snapshot carries a
 its script elements, which change per request,
 so no reader mistakes it for the Court's JSON. The plan carries the page
 verbatim, and the writer parses it again, under the same whole-plan check.
-The live floor itself does not move: the rotations still skip OT2016, so no
+The live floor itself does not move: the rotations still skip both Terms, so no
 live poll re-reads a JSON the Court does not serve.
 
 **Dispatching.** Dispatch on `main`, in a quiet slot between the scheduled

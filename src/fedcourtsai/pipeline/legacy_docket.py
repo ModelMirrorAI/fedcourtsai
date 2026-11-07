@@ -1,8 +1,8 @@
 """Read the Court's legacy HTML docket page into the docket JSON's own keys.
 
 supremecourt.gov serves its docket JSON from the e-filing era on: of OT2016's
-applications, mostly those from ``16A1051`` (docketed 2017-04-28). Most of the
-rest are still served, as the legacy HTML page at
+applications, mostly those from ``16A1051`` (docketed 2017-04-28), and none of
+OT2015's. Most of the rest are still served, as the legacy HTML page at
 :data:`~fedcourtsai.supremecourt.LEGACY_DOCKET_URL` — the same Clerk's record in
 an older layout: the number, the caption, the docketed date, the court below and
 its case numbers, a linked-case line, the dated proceedings, and the counsel

@@ -107,15 +107,15 @@ DEFAULT_TERMS: tuple[int, ...] = (24,)
 #: its own scoring-baseline move: a Term joins this set in the same change that
 #: appends a freeze-record entry projecting that move, and an apply for any other Term is refused.
 #: A dry run reads any reachable Term, since reading moves nothing.
-REGISTERED_APPLY_TERMS: frozenset[int] = frozenset({16, 17, 18, 19, 20, 21, 22, 23, 24})
+REGISTERED_APPLY_TERMS: frozenset[int] = frozenset({15, 16, 17, 18, 19, 20, 21, 22, 23, 24})
 
 #: The Terms below the live floor that the pass reaches through the Court's
 #: legacy HTML docket page: a serial the docket JSON does not serve is read from
 #: that page instead (:mod:`~fedcourtsai.pipeline.legacy_docket`), so the Term is
 #: walked whole across both. OT2016's pages serve most of its serials below
 #: ``16A1051`` and its JSON most from there on, with a few of each on the
-#: other side.
-LEGACY_HTML_TERMS: frozenset[int] = frozenset({16})
+#: other side; OT2015 serves pages alone.
+LEGACY_HTML_TERMS: frozenset[int] = frozenset({15, 16})
 
 #: The largest legacy page a plan may carry: a served page runs to about 12 KB.
 _MAX_LEGACY_PAGE: Final = 200_000

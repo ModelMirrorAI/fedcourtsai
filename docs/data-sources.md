@@ -958,15 +958,16 @@ material**:
   filer's contact detail travels unscrubbed are the transient run artifacts
   in the carve-outs below, which hold no stored copy and never reach git.
 - **One carve-out: the application back-fill's plan artifact** (maintainer
-  decision, 2026-10-01; extended to OT2016's legacy docket pages, 2026-10-27).
+  decision, 2026-10-01; extended to OT2016's legacy docket pages, 2026-10-27,
+  and to OT2015's, 2026-11-07).
   Every byte it admits is the Court's own public docket
   record, served openly at supremecourt.gov, and none of it comes from our
   private stores; it lets that record transit one short-lived workflow
   artifact between two jobs of the same run.
   - *What:* the docket JSON exactly as supremecourt.gov serves it for the
     dockets in one `application-backfill` run's plan — and, for a serial of
-    a Term in `LEGACY_HTML_TERMS` (OT2016) that serves no JSON, the Court's
-    legacy HTML docket page exactly as served — counsel blocks
+    a Term in `LEGACY_HTML_TERMS` (OT2015, OT2016) that serves no JSON, the
+    Court's legacy HTML docket page exactly as served — counsel blocks
     included, which for a self-represented filer carry a home address,
     telephone, email or prisoner register number — plus the structured fields
     parsed from it. Nothing read from the corpus, the content store or any
