@@ -278,7 +278,7 @@ def test_the_update_groups_a_span_by_case_and_quotes_no_docket_text(tmp_path: Pa
     assert ai_cases_subject(one_day) == "AI cases in federal court: October 30, 2026"
 
 
-def test_post_dry_run_prints_the_draft_and_an_empty_span_exits_three(
+def test_post_dry_run_prints_the_draft_and_a_quiet_span_posts_the_quiet_note(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _recorded(tmp_path)
@@ -293,9 +293,14 @@ def test_post_dry_run_prints_the_draft_and_an_empty_span_exits_three(
     assert "Tag: ai-cases" in posted.output
 
     quiet = runner.invoke(
-        app, ["post-ai-cases-update", "--tag", "ai-cases", "--day", "2026-11-03", "--dry-run"]
+        app, ["post-ai-cases-update", "--tag", "ai-cases", "--week", "2026-W45", "--dry-run"]
     )
-    assert quiet.exit_code == 3
+    assert quiet.exit_code == 0, quiet.output
+    assert "No new rulings or major filings this week in the " in quiet.output
+    assert "This update:" not in quiet.output
+    one_day = runner.invoke(app, ["ai-cases-update", "--day", "2026-11-03"])
+    assert one_day.exit_code == 0
+    assert "No new rulings or major filings in this span" in one_day.output
     both = runner.invoke(
         app,
         ["post-ai-cases-update", "--tag", "ai-cases", "--day", "2026-11-03", "--week", "2026-W44"],

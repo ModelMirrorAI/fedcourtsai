@@ -148,7 +148,7 @@ jobs:
   # the committed records under data/ai-cases/activity/ that run-pull's
   # watchlist refresh writes. Its own job on the same trigger, environment and
   # key, addressed to the `ai-cases` tag; a week with no recorded activity
-  # posts nothing. Until the tag's id is set on the environment, the job says
+  # posts a short quiet note, so subscribers hear every week. Until the tag's id is set on the environment, the job says
   # so and posts nothing.
   post-ai-cases:
     needs: [authorize]
@@ -198,10 +198,6 @@ jobs:
           uv run fedcourts post-ai-cases-update --tag-id "${TAG_ID}" --week "${WEEK}" > post.txt
           status=$?
           set -e
-          if [ "$status" -eq 3 ]; then
-            echo "No AI-case activity recorded this week; no draft created." >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
           if [ "$status" -ne 0 ]; then
             echo "Buttondown post failed (exit $status); see the step log." >> "$GITHUB_STEP_SUMMARY"
             exit "$status"

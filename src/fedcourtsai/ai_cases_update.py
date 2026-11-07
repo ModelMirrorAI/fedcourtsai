@@ -18,6 +18,9 @@ item. Each case is introduced by its category, its court and the watchlist's
 own one-line account of why it is listed, which is the project's sentence, not
 the docket's.
 
+A span with nothing recorded renders as a short quiet note, so subscribers
+hear every week that the feed is alive.
+
 A last *Newly available* section lists, by case, the entries filed earlier
 whose documents became readable on CourtListener in the span (the record's
 ``available`` list, :data:`fedcourtsai.ai_activity.AVAILABILITY_RULE`), at most
@@ -163,6 +166,7 @@ _INTRO: Final = (
     "New rulings and major filings in the {cases} FedCourtsAI "
     + "follows, read from the public docket. Each item links to the record on CourtListener."
 )
+_QUIET: Final = "No new rulings or major filings {span} in the {cases} FedCourtsAI follows."
 _FOOTER: Final = (
     "More from FedCourtsAI, including its Supreme Court forecasts, at "
     + f"[fedcourts.ai]({SITE_URL}). "
@@ -396,11 +400,11 @@ def render_ai_cases_update(update: AiCasesUpdate, *, title: bool = True) -> str:
     lines = [f"# {ai_cases_subject(update)}", ""] if title else []
     n = update.followed
     followed = f"{n} federal AI case{'' if n == 1 else 's'}" if n else "federal AI cases"
-    lines += [_INTRO.format(cases=followed), ""]
     if update.empty:
-        lines += ["No significant docket activity in this span.", ""]
+        span = "this week" if (update.end - update.start).days == 6 else "in this span"
+        lines += [_QUIET.format(span=span, cases=followed), ""]
     else:
-        lines += [f"**This update:** {tally(update)}", ""]
+        lines += [_INTRO.format(cases=followed), "", f"**This update:** {tally(update)}", ""]
     for index, (heading, _) in enumerate(SECTIONS):
         cases = [case for case in update.cases if section_of(case[2]) == index]
         if not cases:
