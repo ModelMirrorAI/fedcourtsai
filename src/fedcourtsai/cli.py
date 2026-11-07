@@ -10918,9 +10918,10 @@ def statpack_at_command(
     prediction: Annotated[
         Path,
         typer.Argument(
-            help="A predict cell's `prediction.json`, or its run directory "
-            "(`.../predictions/<predictor_id>/<run_id>/`). The directory's name is the "
-            "run id the build is bound by.",
+            help="A predict cell's `prediction.json`, or its directory: its run directory "
+            "(`.../predictions/<predictor_id>/<run_id>/`), whose name is the run id the "
+            "build is bound by, or a judge's blinded copy (`record/blinded/<alias>/`), "
+            "bound by the document's own `run_id`.",
         ),
     ],
     out_dir: Annotated[
@@ -10928,7 +10929,8 @@ def statpack_at_command(
         typer.Option(
             "--out-dir",
             help="Write the build's `statpack.json` and `statpack.md`, as committed at "
-            "its landing commit, into this directory.",
+            "its landing commit, into this directory (an alternative's under "
+            "`alternative/`).",
         ),
     ] = None,
     repo: Annotated[
@@ -10956,22 +10958,40 @@ def statpack_at_command(
     gets the build in force at its run id, and the replaced one beside it where
     the slack leaves both possible.
 
-    JSON on stdout: the run id, the recorded digest and which field carried it,
+    The bound is the run directory's name where it is a run id, and otherwise
+    the document's own ``run_id``: a judge's blinded copy
+    (``record/blinded/<alias>/``) sits under its alias, and the document field is
+    then the only run id in reach. ``run_id_from`` says which bound was used.
+    A document bound is the candidate's word: a recorded digest is checked
+    against the builds at it, but with nothing recorded it alone picks the build.
+
+    JSON on stdout: the run id and its source, the recorded digest and which field carried it,
     the build's landing commit and time, and the alternative, if any.
     ``--out-dir`` writes that commit's ``statpack.json`` and ``statpack.md``,
-    the files the cell's prompt sent it to. Exit 1 where the run id does not
+    the files the cell's prompt sent it to, and the alternative's under
+    ``alternative/`` beside them. Exit 1 where the run id does not
     parse, the prediction does not read, no build landed by the run id, a
     recorded digest names neither candidate, or a file ``--out-dir`` asks for
     is missing at the build's commit. Needs the full history (a shallow clone holds too little).
     """
     cell = prediction.parent if prediction.name == "prediction.json" else prediction
     try:
-        provisioned_by = ids.parse_run_id(cell.name)
-        scored = read_model(cell / "prediction.json", Prediction)
-    except (OSError, ValueError) as exc:
+        document = json.loads((cell / "prediction.json").read_text())
+        raw_context = document.get("context") if isinstance(document, dict) else None
+        context = None if raw_context is None else PredictionContext.model_validate(raw_context)
+        bound_from = "directory"
+        try:
+            run_id = cell.name
+            provisioned_by = ids.parse_run_id(run_id)
+        except ValueError:
+            # A judge's blinded copy sits under its alias, not its run id: the
+            # document's own run id is the bound there.
+            bound_from = "document"
+            run_id = str(document.get("run_id"))
+            provisioned_by = ids.parse_run_id(run_id)
+    except (OSError, ValueError, AttributeError) as exc:
         typer.echo(f"statpack-at: {exc}", err=True)
         raise typer.Exit(code=1) from exc
-    context = scored.context
     recorded: str | None = None
     carrier: str | None = None
     if context is not None and context.statpack_digest is not None:
@@ -10981,13 +11001,14 @@ def statpack_at_command(
     history = statpack_history.GitStatpackHistory(repo, ref)
     found = statpack_history.placed_build(recorded, provisioned_by, history)
     if isinstance(found, str):
-        typer.echo(f"statpack-at: {cell.name}: {found}", err=True)
+        typer.echo(f"statpack-at: {run_id}: {found}", err=True)
         raise typer.Exit(code=1)
     build, alternative = found.build, found.alternative
     typer.echo(
         json.dumps(
             {
-                "run_id": cell.name,
+                "run_id": run_id,
+                "run_id_from": bound_from,
                 "recorded_digest": recorded,
                 "recorded_in": carrier,
                 "build_sha": build.sha,
@@ -11000,19 +11021,24 @@ def statpack_at_command(
     )
     if alternative is not None:
         typer.echo(
-            f"statpack-at: {cell.name} recorded no build, and {build.sha[:12]} landed within "
+            f"statpack-at: {run_id} recorded no build, and {build.sha[:12]} landed within "
             f"the checkout slack of its run id: it may have read {alternative.sha[:12]} instead.",
             err=True,
         )
     if out_dir is None:
         return
-    for name in ("statpack.json", "statpack.md"):
-        text = history.file_at(build.sha, f"metrics/{name}")
-        if text is None:
-            typer.echo(f"statpack-at: no metrics/{name} at {build.sha[:12]}", err=True)
-            raise typer.Exit(code=1)
-        write_text(out_dir / name, text)
-    typer.echo(f"statpack-at: {build.sha[:12]} -> {out_dir}", err=True)
+    written = [(build, out_dir)]
+    if alternative is not None:
+        written.append((alternative, out_dir / "alternative"))
+    for each, dest in written:
+        for name in ("statpack.json", "statpack.md"):
+            text = history.file_at(each.sha, f"metrics/{name}")
+            if text is None:
+                typer.echo(f"statpack-at: no metrics/{name} at {each.sha[:12]}", err=True)
+                raise typer.Exit(code=1)
+            write_text(dest / name, text)
+    for each, dest in written:
+        typer.echo(f"statpack-at: {each.sha[:12]} -> {dest}", err=True)
 
 
 @app.command("segment-anchors")
