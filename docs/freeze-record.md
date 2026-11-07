@@ -17121,8 +17121,8 @@ freeze commit is recorded here.
   `sal-v8` anchor from the committed `alt_segments` block but reads
   `statpack.md`'s `sal-v7` table as a version mismatch.
 
-  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
-  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by the promotion tagged `promotion/2026-11-07` (merge
+  commit `18f62b8a75dd215cf50ab897f30bc5f757f00f8c`, merged `2026-11-07T15:59:33Z`).
 
   The runnable effect check once it is live:
   - on `main`, `uv run python -c "from fedcourtsai.pipeline.salience import
@@ -17186,8 +17186,8 @@ freeze commit is recorded here.
   and gradings land.
 
 - **`proc-v19`, the predict prompt names a `vided-amicus` related docket;
-  recorded 2026-11-07.** Carried to `main` by the promotion tagged `<FILL: promotion tag>`
-  (merge commit `<FILL: merge hash>`, merged `<FILL: merged-at>`), to be tagged
+  recorded 2026-11-07.** Carried to `main` by the promotion tagged `promotion/2026-11-07`
+  (merge commit `18f62b8a75dd215cf50ab897f30bc5f757f00f8c`, merged `2026-11-07T15:59:33Z`), to be tagged
   **`prereg/proc-v19`**. Registered under the merge-stamped rule, so its
   counting instant, its bless moments and every window edge it moves are the
   carrying merge's committer time. Only the predict prompt changes, so the
@@ -17375,8 +17375,8 @@ freeze commit is recorded here.
 
   **The amendment debt.** It is unchanged. This entry adds no new token.
 
-  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
-  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by the promotion tagged `promotion/2026-11-07` (merge
+  commit `18f62b8a75dd215cf50ab897f30bc5f757f00f8c`, merged `2026-11-07T15:59:33Z`).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_documents.py -k "bio or opposition or
@@ -17477,8 +17477,8 @@ freeze commit is recorded here.
 
   **The amendment debt.** It is unchanged. This entry adds no new token.
 
-  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
-  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by the promotion tagged `promotion/2026-11-07` (merge
+  commit `18f62b8a75dd215cf50ab897f30bc5f757f00f8c`, merged `2026-11-07T15:59:33Z`).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_related_dockets.py` is green;
