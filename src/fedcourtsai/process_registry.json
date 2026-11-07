@@ -93,8 +93,8 @@
     {
       "label": "proc-v19",
       "since": {
-        "at": null,
-        "merge": null,
+        "at": "2026-11-07T15:59:33Z",
+        "merge": "18f62b8a75dd215cf50ab897f30bc5f757f00f8c",
         "source": "merge"
       }
     }
@@ -106,8 +106,8 @@
       "actor_id": "claude-baseline",
       "label": "proc-v19",
       "blessed": {
-        "at": null,
-        "merge": null,
+        "at": "2026-11-07T15:59:33Z",
+        "merge": "18f62b8a75dd215cf50ab897f30bc5f757f00f8c",
         "source": "merge"
       }
     },
@@ -117,8 +117,8 @@
       "actor_id": "codex-baseline",
       "label": "proc-v19",
       "blessed": {
-        "at": null,
-        "merge": null,
+        "at": "2026-11-07T15:59:33Z",
+        "merge": "18f62b8a75dd215cf50ab897f30bc5f757f00f8c",
         "source": "merge"
       }
     },
@@ -128,8 +128,8 @@
       "actor_id": "gemini-baseline",
       "label": "proc-v19",
       "blessed": {
-        "at": null,
-        "merge": null,
+        "at": "2026-11-07T15:59:33Z",
+        "merge": "18f62b8a75dd215cf50ab897f30bc5f757f00f8c",
         "source": "merge"
       }
     },
@@ -610,8 +610,8 @@
         "source": "merge"
       },
       "closes": {
-        "at": null,
-        "merge": null,
+        "at": "2026-11-07T15:59:33Z",
+        "merge": "18f62b8a75dd215cf50ab897f30bc5f757f00f8c",
         "source": "merge"
       },
       "revoked_at": null
@@ -626,8 +626,8 @@
         "source": "merge"
       },
       "closes": {
-        "at": null,
-        "merge": null,
+        "at": "2026-11-07T15:59:33Z",
+        "merge": "18f62b8a75dd215cf50ab897f30bc5f757f00f8c",
         "source": "merge"
       },
       "revoked_at": null
@@ -642,8 +642,8 @@
         "source": "merge"
       },
       "closes": {
-        "at": null,
-        "merge": null,
+        "at": "2026-11-07T15:59:33Z",
+        "merge": "18f62b8a75dd215cf50ab897f30bc5f757f00f8c",
         "source": "merge"
       },
       "revoked_at": null
@@ -653,8 +653,8 @@
       "digest": "sha256:1789dc26189e0e14ae71d9ed1f622751dd2c849d8fba4a85542336fab0b15080",
       "predictor_id": "claude-baseline",
       "opens": {
-        "at": null,
-        "merge": null,
+        "at": "2026-11-07T15:59:33Z",
+        "merge": "18f62b8a75dd215cf50ab897f30bc5f757f00f8c",
         "source": "merge"
       },
       "closes": null,
@@ -665,8 +665,8 @@
       "digest": "sha256:a939a164bc3cb0658e12c0c98b2300a878aecea15a93189e96579103382002d8",
       "predictor_id": "codex-baseline",
       "opens": {
-        "at": null,
-        "merge": null,
+        "at": "2026-11-07T15:59:33Z",
+        "merge": "18f62b8a75dd215cf50ab897f30bc5f757f00f8c",
         "source": "merge"
       },
       "closes": null,
@@ -677,8 +677,8 @@
       "digest": "sha256:889d53dc033d7303ca39cf2bf3faa859dc0886a296ed2f0ad5ac00edf96705b7",
       "predictor_id": "gemini-baseline",
       "opens": {
-        "at": null,
-        "merge": null,
+        "at": "2026-11-07T15:59:33Z",
+        "merge": "18f62b8a75dd215cf50ab897f30bc5f757f00f8c",
         "source": "merge"
       },
       "closes": null,
@@ -1079,19 +1079,27 @@
     },
     {
       "name": "sg-memorandum-opposition",
-      "merge": null,
-      "at": null,
+      "merge": "18f62b8a75dd215cf50ab897f30bc5f757f00f8c",
+      "at": "2026-11-07T15:59:33Z",
       "predictors": null,
       "reach": "all",
       "gradual": true
     },
     {
       "name": "vide-multi-number-entries",
+      "merge": "18f62b8a75dd215cf50ab897f30bc5f757f00f8c",
+      "at": "2026-11-07T15:59:33Z",
+      "predictors": null,
+      "reach": "all",
+      "gradual": false
+    },
+    {
+      "name": "sg-posted-briefs",
       "merge": null,
       "at": null,
       "predictors": null,
       "reach": "all",
-      "gradual": false
+      "gradual": true
     }
   ]
 }

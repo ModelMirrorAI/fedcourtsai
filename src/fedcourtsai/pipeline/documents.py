@@ -139,6 +139,7 @@ from .merits_signals import (
     is_respondent_merits_reply,
     respondent_brief_date,
 )
+from .osg_urls import is_osg_url
 from .prefetch import prefetch_by_case
 
 logger = logging.getLogger(__name__)
@@ -6006,19 +6007,24 @@ def questions_presented_extract(conn: corpus.ReadConnection, *, scoped: bool = T
                 stored = next(
                     (doc for doc in documents if doc.kind == KIND_QUESTIONS_PRESENTED), None
                 )
-                if stored is None:
+                if stored is None or is_osg_url(stored.url):
                     # Not a skip: a case with no stored questions is outside the
-                    # QP-bearing population, not a row the pass declined.
+                    # QP-bearing population, not a row the pass declined. So is
+                    # one whose questions were cut from the Solicitor General's
+                    # posted petition on a paper-only docket: the extract crosses
+                    # a public artifact on the footing that its text is the
+                    # Court's own record (docs/qp-topic.md).
                     continue
                 consider(case_id, scope[case_id], stored.text)
         return QpExtract(rows, skipped)
 
     cursor = conn.execute(
-        "SELECT d.case_id, c.docket_number, d.text FROM documents AS d "
+        "SELECT d.case_id, c.docket_number, d.text, d.url FROM documents AS d "
         "LEFT JOIN cases AS c ON c.case_id = d.case_id "
         "WHERE d.kind = ? ORDER BY d.case_id",
         (KIND_QUESTIONS_PRESENTED,),
     )
     for record in cursor:
-        consider(str(record[0]), record[1], record[2])
+        if not is_osg_url(str(record[3] or "")):
+            consider(str(record[0]), record[1], record[2])
     return QpExtract(rows, skipped)

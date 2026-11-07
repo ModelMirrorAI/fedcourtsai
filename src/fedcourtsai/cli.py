@@ -309,11 +309,13 @@ from .pipeline import (
     opinion_record,
     order_lineups,
     order_scan,
+    osg_urls,
     pre_mint,
     qp_replicates,
     qp_topics,
     same_question,
     semantic,
+    sg_briefs,
     vide_links,
     vided,
     vote_sources,
@@ -17769,6 +17771,75 @@ def enrich_decision_below_command(
         )
 
 
+@app.command("enrich-sg-briefs")
+def enrich_sg_briefs_command(
+    apply: Annotated[
+        bool,
+        typer.Option(
+            "--apply", help="Store the rows; default is a dry run that fetches and counts."
+        ),
+    ] = False,
+    max_cases: Annotated[
+        int,
+        typer.Option(
+            help=f"Dockets to search (at most {sg_briefs.MAX_FILL_CASES}); one listing "
+            "search each, plus one PDF per brief found, paced 10s apart."
+        ),
+    ] = sg_briefs.DEFAULT_FILL_CASES,
+) -> None:
+    """Store the Solicitor General's posted briefs for paper-only dockets.
+
+    Walks the undecided, predict-relevant SCOTUS dockets the Court has put under
+    Rule 34.6 (paper filings only, so it posts nothing behind them) whose entries
+    show a petition, an opposition or a cert-stage reply the store lacks, the
+    ledger's forecast cases first (`sg_briefs.fill_candidates`). Searches the
+    Office of the Solicitor General's briefs listing on www.justice.gov for each
+    docket number and stores what it posts under the kind a cert cell is given:
+    `petition`, `brief-in-opposition` or `cert-reply`, each dated by its docket
+    entry. A dry run fetches and counts without writing. Prints the per-docket
+    report as JSON on stdout and the counts on stderr.
+    """
+    if not 1 <= max_cases <= sg_briefs.MAX_FILL_CASES:
+        typer.echo(
+            f"enrich-sg-briefs: --max-cases must be between 1 and {sg_briefs.MAX_FILL_CASES}",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts "
+            "corpus-pull) before running the SG-briefs fill.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    today = datetime.now(UTC).date()
+    char_cap = load_live_config(settings.config_root).document_text_cap
+    with corpus.connect_maintenance(db_path, apply=apply) as conn, sg_briefs.OsgClient() as client:
+        candidates = sg_briefs.fill_candidates(
+            conn,
+            today=today,
+            max_cases=max_cases,
+            priority=predicted_case_ids(settings.data_root),
+        )
+        report = sg_briefs.fill_sg_briefs(
+            conn, client, candidates, apply=apply, today=today, char_cap=char_cap
+        )
+    if apply:
+        _ensure_corpus_layout(db_path)
+    typer.echo(report.model_dump_json(indent=2))
+    counts = ", ".join(f"{n} {status}" for status, n in report.counts.items())
+    stored = ", ".join(f"{n} {kind}" for kind, n in report.stored.items())
+    verb = "stored" if apply else "would store"
+    typer.echo(
+        f"enrich-sg-briefs ({'applied' if apply else 'dry run'}): searched "
+        f"{len(report.cases)} docket(s) ({counts or 'none owed'}); {verb} "
+        f"{stored or 'nothing'}; {report.requests} request(s) to www.justice.gov",
+        err=True,
+    )
+
+
 @app.command("order-scan")
 def order_scan_command(
     config: Annotated[
@@ -19059,10 +19130,10 @@ def backfill_applications_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a C
     on run-repair's `application-backfill` pass; a dev checkout over a pulled
     corpus produces the dry run. Terms at or after the current docket Term are
     refused: that stream is frontier discovery's. Below the live floor only the
-    Terms in `LEGACY_HTML_TERMS` (OT2016) are read: a serial the docket JSON
+    Terms in `LEGACY_HTML_TERMS` (OT2015 and OT2016) are read: a serial the docket JSON
     does not serve is read from the Court's legacy HTML docket page instead, and
     its stored snapshot names that page and its digest. An apply is refused for a
-    Term outside `REGISTERED_APPLY_TERMS` (OT2016 to OT2024): each Term's apply
+    Term outside `REGISTERED_APPLY_TERMS` (OT2015 to OT2024): each Term's apply
     moves the interim base rate by its own amount, so each needs a
     freeze-record entry first.
 
@@ -21279,6 +21350,11 @@ def summarize_plan_cmd(
                 if doc.kind != KIND_ARGUMENT_TRANSCRIPT
                 and doc.kind not in provision.WITHHELD_KINDS
                 and doc.kind not in LOWER_COURT_KINDS
+                # The Solicitor General's posted copy on a paper-only docket is
+                # a cell's input, not the summary lane's, whose staged record
+                # crosses a public artifact holding the Court's content only
+                # (`summaries.prune_stage`).
+                and not osg_urls.is_osg_url(doc.url)
             ],
         )
 
