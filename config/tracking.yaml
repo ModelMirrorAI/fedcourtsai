@@ -738,8 +738,9 @@ courtlistener_budget:
     # watchlist-refresh, the day's first pull window: one onboard leads, then
     # the AI watchlist's dockets at about two requests each once onboarded
     # (incremental reads), with whole reads taking what is left. At least
-    # watchlist_refresh.max_entry_pages + 1, so the lead onboard can finish
-    # the longest read the page cap allows. `--once-a-day` keeps later windows
+    # watchlist_refresh.max_entry_pages + 2 (the entry count, the docket and
+    # the cap's pages), so the lead onboard can finish the longest read the
+    # page cap allows. `--once-a-day` keeps later windows
     # from spending it again.
     watchlist: {per_run: 160, runs_per_day: 1}
     # The agent cells' CourtListener MCP servers (their own client), across

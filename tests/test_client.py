@@ -401,3 +401,26 @@ def test_docket_entries_count_each_page_before_it_is_sent() -> None:
     with pytest.raises(httpx.HTTPStatusError):
         client.docket_entries(7, max_pages=3, on_request=lambda: counted.append(None))
     assert len(counted) == sent == 2
+
+
+def test_count_docket_entries_asks_for_the_count_alone() -> None:
+    seen: dict[str, str] = {}
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        seen.update(dict(request.url.params))
+        return httpx.Response(200, json={"count": 2131})
+
+    client = _client(httpx.MockTransport(handle))
+    assert client.count_docket_entries(7) == 2131
+    assert seen == {"docket": "7", "count": "on"}
+
+
+@pytest.mark.parametrize(
+    "body", [{}, {"count": None}, {"count": "12"}, {"count": True}, {"count": -1}]
+)
+def test_count_docket_entries_without_a_usable_count_is_none(body: dict[str, Any]) -> None:
+    def handle(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=body)
+
+    client = _client(httpx.MockTransport(handle))
+    assert client.count_docket_entries(7) is None

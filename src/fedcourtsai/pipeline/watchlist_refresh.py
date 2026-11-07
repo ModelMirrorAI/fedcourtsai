@@ -16,14 +16,16 @@ A docket is read three ways:
   after the run's lead onboard; a long lead onboard may leave some of them to
   the next run, whose window starts from their own last refresh.
 - **onboard**, a whole read of a docket the corpus holds no snapshot of. The
-  listed dockets run to over a hundred pages and upstream does not say how
-  long one is before it is read, so an onboard starts only when what is left
-  of the run's share covers the longest read the page cap allows; one that
-  starts short of that could be cut off by the share and leave nothing
-  written for what it spent. One pending onboard leads each run, ahead of the
-  incremental reads, rotating among them by day, so the list onboards a docket
-  each run whose lead read succeeds, however long its dockets; the others
-  follow the incremental reads and start only if that much is still left.
+  listed dockets run from one page to over a hundred, so an onboard first asks
+  upstream how many entries the docket holds (one request) and starts only
+  when what is left of the run's share covers that many pages and the docket;
+  one that starts short of that could be cut off by the share and leave
+  nothing written for what it spent. Without a count it is sized at the page
+  cap, and a docket the count puts past the cap fails on the count alone. One
+  pending onboard leads each run, ahead of the incremental reads, rotating
+  among them by day, so the list onboards a docket each run whose lead read
+  succeeds, however long its dockets; the others follow the incremental reads,
+  and each one the share left still covers lands the same run.
 - **full**, a whole re-read on a day the docket's id picks, once every
   ``full_read_every_days``, so the reads spread across the period. It catches
   what the incremental read cannot see: an entry deleted upstream, or a
@@ -66,6 +68,7 @@ from .entry_reads import ENTRIES_PER_PAGE, full_read_due, merge_entries
 from .ingest import from_api_docket, upsert_to_corpus
 
 __all__ = [
+    "COUNT_SLACK_PAGES",
     "ENTRIES_PER_PAGE",
     "OnboardDoesNotFit",
     "PlannedRefresh",
@@ -165,8 +168,10 @@ def plan_refresh(
     pending = [p for p in planned if p.mode is ReadMode.onboard]
     if pending:
         # Every pending onboard is equally stale (never refreshed), so the
-        # lead rotates by day: a docket whose read fails every run (past the
-        # page cap) holds the lead one day in len(pending), not every day.
+        # lead rotates by day: a docket too long for what the incremental
+        # reads leave of the share gets the whole share one day in
+        # len(pending), and a docket whose lead read fails holds the lead
+        # that day only.
         lead = pending[today.toordinal() % len(pending)]
         planned.remove(lead)
         planned.insert(0, lead)
@@ -174,11 +179,11 @@ def plan_refresh(
 
 
 class OnboardDoesNotFit(RuntimeError):
-    """What is left of the run's share cannot cover an onboard's longest read.
+    """What is left of the run's share cannot cover an onboard's read.
 
     Raised before the entries are read, so nothing is written; ``requests`` is
-    what the refresh had already sent (the docket, when a planned incremental
-    read found no stored snapshot to merge into).
+    what the refresh had already sent: the count, and the docket when a planned
+    incremental read found no stored snapshot to merge into.
     """
 
     def __init__(self, message: str, *, requests: int) -> None:
@@ -186,8 +191,33 @@ class OnboardDoesNotFit(RuntimeError):
         self.requests = requests
 
 
-def _onboard_fits(share_left: int | None, max_entry_pages: int) -> bool:
-    return share_left is None or share_left >= max_entry_pages
+# Pages added to a counted onboard's size, for entries filed between the count
+# and the read.
+COUNT_SLACK_PAGES = 1
+
+
+def _onboard_pages(
+    client: CourtListenerClient, docket_id: int, max_entry_pages: int, count: Callable[[], None]
+) -> int:
+    """The pages an onboard is sized at: upstream's count, else the page cap.
+
+    One request. A docket the count puts past the page cap raises
+    :class:`EntryPageCapExceeded` here, before any of its pages are read.
+    """
+    count()
+    found = client.count_docket_entries(docket_id)
+    if found is None:
+        return max_entry_pages
+    pages = max(1, ceil(found / ENTRIES_PER_PAGE))
+    if pages > max_entry_pages:
+        raise EntryPageCapExceeded(
+            f"docket {docket_id} counts {found} entries, over {max_entry_pages} pages"
+        )
+    return min(max_entry_pages, pages + COUNT_SLACK_PAGES)
+
+
+def _fits(share_left: int | None, need: int) -> bool:
+    return share_left is None or share_left >= need
 
 
 @dataclass(frozen=True)
@@ -196,7 +226,8 @@ class Refreshed:
     mode: ReadMode
     changed: bool
     entries: int
-    # Requests this refresh sent: the docket and each page of entries.
+    # Requests this refresh sent: the entry count on an onboard, the docket
+    # and each page of entries.
     requests: int
     # The docket's own fields, without its entries.
     docket: Mapping[str, Any] = field(default_factory=dict, compare=False)
@@ -219,11 +250,11 @@ def refresh_docket(
 
     ``share_left`` is what remains of the run's share: a full read the stored
     docket's length says it cannot cover is taken incrementally instead, and an
-    onboard it cannot cover at the page cap raises :class:`OnboardDoesNotFit`
-    before its entries are read. Raises
-    :class:`EntryPageCapExceeded` before writing anything when a read does not
-    finish within ``max_entry_pages``, so a truncated docket is never stored as
-    if whole.
+    onboard it cannot cover at upstream's count of its entries (at the page cap
+    without a count) raises :class:`OnboardDoesNotFit` before its entries are
+    read. Raises :class:`EntryPageCapExceeded` before writing anything when the
+    count puts a docket past ``max_entry_pages`` or a read does not finish
+    within it, so a truncated docket is never stored as if whole.
     """
     case_id = planned.case_id
     sent = 0
@@ -234,29 +265,49 @@ def refresh_docket(
         if on_request is not None:
             on_request()
 
-    if planned.mode is ReadMode.onboard and not _onboard_fits(
-        None if share_left is None else share_left - 1, max_entry_pages
-    ):
-        raise OnboardDoesNotFit(
-            f"{case_id}: {share_left} of the share left, under an onboard's {1 + max_entry_pages}",
-            requests=0,
-        )
+    def left() -> int | None:
+        return None if share_left is None else share_left - sent
+
+    # The fewest pages a counted onboard is sized at.
+    least = min(max_entry_pages, 1 + COUNT_SLACK_PAGES)
+    if planned.mode is ReadMode.onboard:
+        # The count, the docket and the fewest pages: nothing smaller is an
+        # onboard, so a share under that is not spent on a count.
+        if not _fits(left(), 2 + least):
+            raise OnboardDoesNotFit(
+                f"{case_id}: {share_left} of the share left, under the smallest onboard's "
+                f"{2 + least}",
+                requests=0,
+            )
+        pages = _onboard_pages(client, planned.docket_id, max_entry_pages, count)
+        if not _fits(left(), 1 + pages):
+            raise OnboardDoesNotFit(
+                f"{case_id}: {left()} of the share left, under this onboard's {1 + pages}",
+                requests=sent,
+            )
     count()
     docket = client.get_docket(planned.docket_id)
     with corpus.connect(corpus_db_path) as conn:
         prior = corpus.latest_snapshot(conn, case_id)
     stored = prior[1].get("docket_entries") if prior is not None else None
     mode = planned.mode
-    if not isinstance(stored, list):
+    if not isinstance(stored, list) and planned.mode is not ReadMode.onboard:
         # Nothing stored to merge into: only a whole read will do.
         mode = ReadMode.onboard
-        if not _onboard_fits(None if share_left is None else share_left - sent, max_entry_pages):
+        if not _fits(left(), 1 + least):
+            raise OnboardDoesNotFit(
+                f"{case_id}: no stored snapshot, and the share left cannot cover an onboard",
+                requests=sent,
+            )
+        pages = _onboard_pages(client, planned.docket_id, max_entry_pages, count)
+        if not _fits(left(), pages):
             raise OnboardDoesNotFit(
                 f"{case_id}: no stored snapshot, and the share left cannot cover an onboard",
                 requests=sent,
             )
     elif (
         mode is ReadMode.full
+        and isinstance(stored, list)
         and share_left is not None
         and 1 + max(1, ceil(len(stored) / ENTRIES_PER_PAGE)) > share_left
     ):
@@ -338,14 +389,14 @@ def refresh_watchlist(  # noqa: PLR0913 - each bound is a caller-tuned guard
     ``share`` is the lane's per-run request cap, which the client also enforces;
     it is passed here so a full read the rest of the share cannot cover falls
     back to an incremental one rather than stopping the run, and an onboard it
-    cannot cover at the page cap is deferred while the run goes on. A docket that
+    cannot cover is deferred while the run goes on. A docket that
     fails (an HTTP error, a malformed entry, or a read past ``max_entry_pages``)
     is recorded and skipped. The share running out, the ``deadline`` (a
     ``clock`` reading) passing, or ``max_consecutive_transient_failures``
     transient errors in a row stop the run, and the dockets not reached are
     deferred. None of these writes anything for the docket, which keeps its
     place in the next run's plan: a never-refreshed docket longer than the page
-    cap therefore fails each run it leads, spending its read, until the
+    cap therefore fails each run that reaches it, on its count alone, until the
     cap is raised, and the command exits non-zero on any failure so that is seen.
 
     ``on_refreshed`` is called with each docket as soon as its write lands, so
