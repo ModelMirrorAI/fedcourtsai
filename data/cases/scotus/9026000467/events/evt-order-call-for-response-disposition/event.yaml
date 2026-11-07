@@ -1,0 +1,13 @@
+case_id: scotus/9026000467
+decision_target: disposition
+description: Disposition of the petition, forecast after the Court called for a response
+  to it.
+docket_entry_id: null
+event_id: evt-order-call-for-response-disposition
+kind: order
+moment: response-requested
+opened_at: '2026-11-05'
+resolved: false
+schema_version: '1.0'
+stage: cert
+title: W6LS, Inc., dba WithU and WithU Loans, et al. v. Joshua Harris, et al.
