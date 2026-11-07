@@ -560,15 +560,18 @@ def _ranked_week(data: Path) -> tuple[str, date]:
     grants, so a trim that kept only the biggest would show grants alone.
     """
     base = _base()
-    resolved_on = (base + timedelta(days=2)).date()
+    # Forecast on the first Monday at or after the stamp and resolve on the
+    # Wednesday, so both land in one ISO week whatever weekday the stamp fell on.
+    monday = base + timedelta(days=-base.weekday() % 7)
+    resolved_on = (monday + timedelta(days=2)).date()
     for n in range(12):
         docket = 700 + n
         _event(data, docket, f"Case {chr(ord('A') + n)} v. United States")
-        _forecast(data, docket, at=base, probability=0.3, big_case_score=n / 20 if n else None)
+        _forecast(data, docket, at=monday, probability=0.3, big_case_score=n / 20 if n else None)
         _forecast(
             data,
             docket,
-            at=base,
+            at=monday,
             probability=0.4,
             predictor_id="codex-baseline",
             big_case_score=n / 20 if n else None,
