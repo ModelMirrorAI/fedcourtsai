@@ -16,18 +16,26 @@ paid SCOTUS cert docket and every interim and merits event downstream of it.
 The dated record of process-version freezes is
 [freeze-record.md](freeze-record.md).
 
-Public releases are anchored to the Court's calendar, so predictions publish
-*before* outcomes exist and are scored *as* they arrive:
+Forecast releases are anchored to the Court's calendar, so predictions
+publish *before* outcomes exist and are scored *as* they arrive; an analysis
+release between them measures the Court's record itself:
 
 - **Release 1 — the OT2026 long conference (late Sept–Oct 2026).** Cert
   predictions committed before the conference, scored against the opening
   order list ([release-ot2026-long-conference.md](release-ot2026-long-conference.md);
   its reader-facing page is [release-ot2026-public-summary.md](release-ot2026-public-summary.md)).
-- **Release 2 — mid-Term (~January 2027).** Timed to the January mop-up
+- **Release 2 — the executive branch on the emergency docket (November
+  2026).** Not a forecast release: a replication, from the Court's own
+  dockets and committed rules, of a published count of how often the federal
+  executive won its emergency applications from 2017 to 2026
+  ([release-ot2026-interim-exec.md](release-ot2026-interim-exec.md); its
+  reader-facing page is
+  [release-ot2026-interim-exec-public-summary.md](release-ot2026-interim-exec-public-summary.md)).
+- **Release 3 — mid-Term (~January 2027).** Timed to the January mop-up
   conference, the last at which a grant can still be argued the same Term.
   First populated leaderboard, plus the pre-registered salience ranking and
   big-case scores.
-- **Release 3 — end-of-Term retrospective (~June–July 2027).** The full merits
+- **Release 4 — end-of-Term retrospective (~June–July 2027).** The full merits
   docket resolves; the first complete Term of calibration and cost data
   ([release-ot2026-merits.md](release-ot2026-merits.md) is the skeleton and
   evidence plan for its merits part).
