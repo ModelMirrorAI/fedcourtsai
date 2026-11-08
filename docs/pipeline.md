@@ -1133,7 +1133,7 @@ text row. `opinion-record-parse` holds no credential,
 reads both Terms' listings and at most `historical.sweep_caps.opinion_record`
 fetched documents (two thirds newest decision first, the last third rotated
 through the older rows a window at a time), deferring the rest to the next
-window; a volume-linked row is skipped unfetched and costs no slot.
+window; a volume-linked or decree row is skipped unfetched and costs no slot.
 `opinion-record` starts only when the parse read a document, waits for the
 walk, then re-validates the plan against a fresh pull, refuses a plan above the
 slice, above twenty rows a document of it, or with a class above

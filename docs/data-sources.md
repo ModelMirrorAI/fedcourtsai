@@ -159,9 +159,10 @@ each fetching in a job that holds no credential
   the same client: the signed merits opinions, the per curiams (summary
   reversals and argued per curiams alike), and the applications and original
   actions the listing also carries. A row the listing links into a whole
-  preliminary-print or bound volume is skipped unfetched, which on the
-  Court's listings as read on 2026-10-01 is every row before OT2020 and some
-  of OT2020's. Before OT2017 there is no listing to read: the OT2015 and
+  preliminary-print or bound volume is skipped unfetched, as is a decree's
+  `D`-numbered row, which prints no opinion. On the Court's listings as read
+  on 2026-10-01, every row before OT2020 and some of OT2020's are
+  volume-linked. Before OT2017 there is no listing to read: the OT2015 and
   OT2016 listing addresses redirect to the Court's U.S. Reports page (as
   fetched on 2026-11-08), so those Terms need another index of the documents
   as well as a volume reader.
@@ -187,22 +188,27 @@ each fetching in a job that holds no credential
   reason. Refusals come from a syllabus the grammar cannot read whole, from a
   split that disagrees with a syllabus that did read, and from a text layer
   that runs words together (a print whose type changes carry no space,
-  "Justice Thomasdelivered"). One shape is refused on purpose: a document
-  deciding consolidated cases whose writings or participation differ by
-  docket ("joined as it applies to No. 21-707", "took no part … in
-  No. 20-1199", "concurring as to No. 19-8709, and … dissenting … as to
-  No. 20-444"), because the record holds one lineup per document and either
-  docket's reading would misstate the other's.
-- **Coverage, and what it leaves out.** As read on 2026-11-08 (the record
-  then stored, with what a dry run of the current reader adds), documents
-  recorded, refused and skipped per Term: OT2025 72 / 1 / 1 (177 opinions),
+  "Justice Thomasdelivered"). The grammar does not read a document deciding
+  consolidated cases whose writings or participation differ by docket
+  ("joined as it applies to No. 21-707", "took no part … in No. 20-1199"),
+  and a test holds that refusal: the record holds one lineup per document, so
+  either docket's reading would misstate the other's. Where only the headers
+  carry the difference ("concurring as to No. 19-8709, and … dissenting … as
+  to No. 20-444"), the split disagrees with the syllabus and refuses it.
+- **Coverage, and what it leaves out.** As projected on 2026-11-08 (the
+  record then stored, plus what a dry run of the current reader would add;
+  the stored record shows more refusals until the next `opinion-record`
+  apply), documents recorded, refused and skipped per Term: OT2025 72 / 1 / 1
+  (the decree; 177 opinions),
   OT2024 66 / 1 / 0 (163), OT2023 60 / 0 / 0 (159), OT2022 57 / 1 / 0 (135),
   OT2021 66 / 0 / 0 (159), OT2020 51 / 2 / 15 (122); OT2017–OT2019 are
   skipped whole (volume-linked). The refusals are not random: two are the
-  consolidated decisions above, the most fractured shape there is, and the
-  readings the grammar learned last were all fractured, many-opinion
-  decisions (scoped and plurality leads, joins with two limits), so a total, an average or a "longest"
-  list taken from the table under-represents exactly those. A figure read
+  consolidated decisions above, the most fractured shape there is; two are
+  prints whose text layer runs words together; one is a two-line per curiam
+  into whose page the print runs the amici list. The shapes nearest the
+  grammar's edge (scoped and plurality leads, joins with two limits) are
+  fractured, many-opinion decisions too, so a total, an average or a
+  "longest" list taken from the table under-represents exactly those. A figure read
   from it states its population and the Term's refusal count beside it.
 - **Against a published Term count.** The listing numbers every document the
   Court posts under the Term, not only its merits decisions: per curiams on

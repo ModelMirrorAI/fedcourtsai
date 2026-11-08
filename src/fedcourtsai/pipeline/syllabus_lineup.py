@@ -77,6 +77,9 @@ doubled lead, or a Justice the writings do not place is reported in
 ``problems`` and leaves the lineup ``complete=False`` — with no votes at all
 when the paragraph itself did not parse, because a lineup read around an
 unparsed sentence could be missing the dissent that moves a Justice's side.
+A consolidated decision whose writings or participation the paragraph scopes
+to one docket ("joined as it applies to No. 21-707", "took no part … in
+No. 20-1199") is such a paragraph: one lineup cannot hold both dockets.
 
 **Text shapes.** Slip opinions print the paragraph in small caps; preliminary
 prints and bound volumes in mixed case, with page cites (``post, p. 128``), a

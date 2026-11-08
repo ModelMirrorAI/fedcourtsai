@@ -1166,3 +1166,29 @@ def test_a_lead_printed_as_filed_reads_as_delivered() -> None:
     assert lineup.complete
     assert lineup.lead is not None and lineup.lead.author == "Barrett"
     assert len(lineup.lead.joins) == 8
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        pytest.param(
+            "Roberts, C. J., delivered the opinion of the Court, in which Thomas, Alito, "
+            + "Gorsuch, Kavanaugh, and Barrett, JJ., joined. Sotomayor, J., filed a dissenting "
+            + "opinion, in which Kagan, J., joined, and in which Jackson, J., joined as it "
+            + "applies to No. 21-707. Jackson, J., filed a dissenting opinion in No. 21-707, in "
+            + "which Sotomayor and Kagan, JJ., joined. Jackson, J., took no part in the "
+            + "consideration or decision of the case in No. 20-1199.",
+            id="participation-differs-by-docket",
+        ),
+        pytest.param(
+            "Roberts, C. J., delivered the opinion of the Court, in which Thomas, Alito, "
+            + "Gorsuch, Kavanaugh, and Barrett, JJ., joined. Jackson, J., filed a dissenting "
+            + "opinion in No. 21-707.",
+            id="writing-in-one-docket",
+        ),
+    ],
+)
+def test_a_consolidated_decision_read_docket_by_docket_is_refused(text: str) -> None:
+    # The record holds one lineup per document; a writing or a recusal scoped
+    # to one docket would misstate the other's, so the paragraph never reads.
+    _assert_refused(parse_syllabus_lineup(text, bench=OT23))
