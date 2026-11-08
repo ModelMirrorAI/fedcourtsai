@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000367",
+  "run_id": "20261108T010928Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md"],
+  "helpful": ["Frozen cert_anchor in context.json", "Provisioned petition and QP text"],
+  "gaps": ["The query surface has no subject filter (e.g. state-law/diversity) to pull analogous pro se priors"],
+  "notes": "Straightforward pro se state-law petition; provisioned inputs were sufficient."
+}

@@ -1,0 +1,10 @@
+{
+  "case_id": "scotus/9026000353",
+  "run_id": "20261108T010928Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {"category": "provisioning", "severity": "info", "event_id": "evt-petition-disposition",
+     "message": "Companion petition No. 25-1246 (same petitioner, same Brady/second-or-successive issue, record requested, set for the same 12/4/2026 conference) was not staged under record/related/ because the docket carries no Vide link. I retrieved it from supremecourt.gov, and it moved the forecast."}
+  ]
+}
