@@ -25,7 +25,7 @@
           "title": "Distributed"
         },
         "transition": {
-          "description": "How the petition reached this conference: `first` (its first distribution); `relist` (the conference before sat on the petition and left it undecided, and this entry was docketed after that conference and within 14 days of it); `reschedule` (the conference before never sat on it: this entry was docketed before that conference day, or a call for response or a 'Rescheduled' entry took the petition off it first); `redistributed` (the conference before sat, and this entry came more than 14 days later, as after a hold or an invited brief); `after_decision` (docketed after the petition was decided, as for rehearing); `unknown` (the entry's date will not parse, or it is the conference day itself, which cannot say whether the conference had sat)",
+          "description": "How the petition reached this conference: `first` (its first distribution); `relist` (the conference before sat on the petition and left it undecided, and this entry was docketed after that conference and within 14 days of it); `reschedule` (the conference before never sat on it: this entry was docketed before that conference day, or a call for response or a 'Rescheduled' entry took the petition off it first); `redistributed` (the conference before sat, and this entry came more than 14 days later, as after a hold or an invited brief); `after_decision` (docketed after the petition was decided, as for rehearing); `unknown` (the entry's date will not parse, or it is the conference day itself, which cannot say whether the conference had sat, or it names a conference no later than the one before)",
           "enum": [
             "first",
             "relist",
@@ -79,7 +79,7 @@
             }
           ],
           "default": null,
-          "description": "Every conference the petition was distributed for, in docket order, each with how it got there (`relist`, `reschedule`, \u2026). History, never a scheduled date: the upcoming one is `next_conference`. Null on a 1.1 row, and where the live channel has not read the history since it was first kept; an empty list on a docket never distributed",
+          "description": "Every conference the petition was distributed for, in docket order, each with how it got there (`relist`, `reschedule`, \u2026). History, never a scheduled date: the upcoming one is `next_conference`. Null on a 1.1 row, on an application (the history is read for cert petitions only), and where the live channel has not read the history since it was first kept; an empty list on a docket never distributed",
           "title": "Conferences"
         },
         "distributed_for_conference": {

@@ -9193,7 +9193,8 @@ class ConferenceStep(_Strict):
         "sat, and this entry came more than 14 days later, as after a hold or an invited "
         "brief); `after_decision` (docketed after the petition was decided, as for "
         "rehearing); `unknown` (the entry's date will not parse, or it is the conference "
-        "day itself, which cannot say whether the conference had sat)"
+        "day itself, which cannot say whether the conference had sat, or it names a "
+        "conference no later than the one before)"
     )
 
 
@@ -9279,8 +9280,9 @@ class ScheduleEntry(_Strict):
         default=None,
         description="Every conference the petition was distributed for, in docket order, "
         "each with how it got there (`relist`, `reschedule`, …). History, never a "
-        "scheduled date: the upcoming one is `next_conference`. Null on a 1.1 row, and "
-        "where the live channel has not read the history since it was first kept; an "
+        "scheduled date: the upcoming one is `next_conference`. Null on a 1.1 row, on an "
+        "application (the history is read for cert petitions only), and where the live "
+        "channel has not read the history since it was first kept; an "
         "empty list on a docket never distributed",
     )
     relists: int | None = Field(

@@ -2653,7 +2653,10 @@ def _update_clause(column: str) -> str:
         # its proceedings) keeps it, and so does a shorter reading — a payload
         # served with entries missing — the `distribution_count` max latch's
         # shape. An equal or longer reading replaces it, so a corrected
-        # classification still lands.
+        # classification still lands; the accepted cost, shared with the other
+        # latches, is that a payload missing only a non-distribution entry (a
+        # "Response Requested") can re-classify a step at the same length.
+        # `json_array_length` is SQLite's built-in JSON1, deliberately relied on.
         clause = (
             f"{column}=CASE WHEN excluded.{column} IS NULL THEN cases.{column} "
             f"WHEN cases.{column} IS NULL THEN excluded.{column} "
@@ -4587,7 +4590,7 @@ def opinion_body(row: CorpusRow) -> str | None:
 #: history (whose relist count would also show a replay cell later relists) are analytics
 #: surfaces — what a stat-pack or a
 #: per-Justice vote reader would read — and no registered process has admitted
-#: either to what a predict or
+#: any of them to what a predict or
 #: evaluate cell retrieves. A column added to the rows a cell retrieves changes a
 #: frozen process's inputs without moving its digest, which is the one kind of
 #: process change the digest cannot see. Withholding them here means a ``query``

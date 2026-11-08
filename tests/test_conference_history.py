@@ -225,3 +225,39 @@ def test_relists_must_count_the_history_and_need_1_2() -> None:
     entry = ScheduleEntry(case_id="scotus/2", conferences=history, relists=1, **conference)
     with pytest.raises(ValueError, match=r"need 1\.2"):
         Schedule(schema_version="1.1", as_of=date(2026, 11, 4), entries=[entry])
+
+
+def test_an_undated_distribution_is_never_read_against() -> None:
+    payload = _docket(
+        _distributed("Oct 07 2026", "10/30/2026"),
+        ("", "DISTRIBUTED for Conference of 11/6/2026."),
+        _distributed("Nov 09 2026", "11/13/2026"),
+    )
+    # The third entry is read against 10/30, the dated conference before it,
+    # exactly as the first-relist reader reads it.
+    assert _steps(payload) == [
+        (date(2026, 10, 30), "first"),
+        (date(2026, 11, 6), "unknown"),
+        (date(2026, 11, 13), "relist"),
+    ]
+    assert first_relist_date(payload) == date(2026, 11, 9)
+    leading = _docket(
+        ("", "DISTRIBUTED for Conference of 10/30/2026."),
+        _distributed("Nov 02 2026", "11/6/2026"),
+    )
+    assert _steps(leading) == [(date(2026, 10, 30), "first"), (date(2026, 11, 6), "unknown")]
+
+
+def test_a_twin_merge_keeps_the_longer_history() -> None:
+    from fedcourtsai.dedupe import _merged_row
+
+    one = [ConferenceStep(conference=date(2026, 10, 30), transition="first")]
+    two = [*one, ConferenceStep(conference=date(2026, 11, 6), transition="relist")]
+
+    def _twin(case_id: str, history: list[ConferenceStep] | None) -> corpus.CorpusRow:
+        return corpus.CorpusRow(
+            case_id=case_id, court="scotus", docket_number="26-1", conference_history=history
+        )
+
+    assert _merged_row(_twin("scotus/1", one), _twin("scotus/2", two), 1).conference_history == two
+    assert _merged_row(_twin("scotus/1", two), _twin("scotus/2", None), 1).conference_history == two

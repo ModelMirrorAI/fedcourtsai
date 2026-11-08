@@ -30,8 +30,9 @@ Two invariants:
 
 Not a cell input: no provisioning step reads this file, and a test holds the
 provisioning modules to that, because feeding a scheduled date to a cell would
-change what it sees. The corpus columns behind the argument day and the
-response deadline are withheld from the retrieval surface for the same reason.
+change what it sees. The corpus columns behind the argument day, the
+response deadline and the conference history are withheld from the retrieval
+surface for the same reason.
 """
 
 from __future__ import annotations

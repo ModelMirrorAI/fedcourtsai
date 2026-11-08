@@ -1462,7 +1462,7 @@ def conference_history(payload: Mapping[str, Any]) -> list[ConferenceStep] | Non
     conferences ``distribution_count`` counts and the relists among them are at
     most ``distribution_count - 1``. A later entry naming a conference already
     listed adds no step, but still becomes the conference the next step is
-    read against.
+    read against, unless it is undated.
 
     Each step's transition follows :func:`first_relist_date`'s reading of a
     relist: the conference before **sat on the petition** (no call for response
@@ -1507,10 +1507,16 @@ def conference_history(payload: Mapping[str, Any]) -> list[ConferenceStep] | Non
             transition = _conference_transition(
                 previous, conference, filed, taken_off=taken_off, decided=decided
             )
+            if transition == "first" and steps:
+                transition = "unknown"  # read against an undated distribution
             steps.append(
                 ConferenceStep(conference=conference, distributed=filed, transition=transition)
             )
-        previous, taken_off = conference, False
+        if filed is not None:
+            # An undated distribution cannot say when it moved the petition, so
+            # the next step is read against the dated one before it, as
+            # :func:`first_relist_date` reads it.
+            previous, taken_off = conference, False
     return steps
 
 

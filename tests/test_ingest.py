@@ -21,7 +21,7 @@ from fedcourtsai.pipeline.ingest import (
     to_corpus_row,
     upsert_to_corpus,
 )
-from fedcourtsai.schemas import Disposition, EventKind
+from fedcourtsai.schemas import ConferenceStep, Disposition, EventKind
 
 # Equivalent facts about one docket, shaped the way each upstream source delivers
 # them: the API as a JSON object (court as a hyperlink, panel as nested judges),
@@ -400,6 +400,12 @@ def _projection_sentinel(name: str, ordinal: int, *, parity: bool = False) -> An
         value = [corpus.PanelMember(name=f"{name}-sentinel", seniority="active")]
     elif item is corpus.CounselEntry:
         value = [corpus.CounselEntry(party=f"{name}-sentinel")]
+    elif item is ConferenceStep:
+        value = [
+            ConferenceStep(
+                conference=date(2031, 1, 1) + timedelta(days=ordinal), transition="first"
+            )
+        ]
     elif annotation is bool:
         peers = sorted(
             n
