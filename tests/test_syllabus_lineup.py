@@ -1192,3 +1192,37 @@ def test_a_consolidated_decision_read_docket_by_docket_is_refused(text: str) -> 
     # The record holds one lineup per document; a writing or a recusal scoped
     # to one docket would misstate the other's, so the paragraph never reads.
     _assert_refused(parse_syllabus_lineup(text, bench=OT23))
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        pytest.param(
+            "Gorsuch, J., delivered the opinion of the Court. Alito and Barrett, JJ., filed "
+            + "dissenting opinions, in which Kavanaugh, J., joined as to Part II.",
+            id="plural-with-a-limited-join",
+        ),
+        pytest.param(
+            "Gorsuch, J., delivered the opinion of the Court. Barrett, J., filed an opinion "
+            + "for the Court.",
+            id="filed-lead-beside-a-delivered-lead",
+        ),
+        pytest.param(
+            "Gorsuch, J., delivered the opinion of the Court. Alito, J., filed a dissenting "
+            + "opinion, which is in addition to the judgment.",
+            id="bare-which-without-joiners",
+        ),
+        pytest.param(
+            "Roberts, C. J., delivered the opinion of the Court. J ACKSON, J., filed a "
+            + "dissenting opinion.",
+            id="uppercase-split-initial",
+        ),
+        pytest.param(
+            "Gorsuch, J., delivered the opinion of the Court with respect to Part I, an "
+            + "opinion as to which Thomas, J., objected.",
+            id="middle-clause-of-the-wrong-shape",
+        ),
+    ],
+)
+def test_the_printed_variants_stop_short_of_their_lookalikes(text: str) -> None:
+    _assert_refused(parse_syllabus_lineup(text, bench=OT23))

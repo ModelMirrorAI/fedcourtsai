@@ -147,6 +147,9 @@ def test_headers_read_lead_per_curiam_and_separate_writings() -> None:
         bench=BENCH,
     )
     assert listed is not None and listed.kind is WritingKind.concurrence_in_part_dissent_in_part
+    dissent_parts = read_header("Justice Kagan, dissenting in Parts I and II.", bench=BENCH)
+    assert dissent_parts is not None
+    assert dissent_parts.kind is WritingKind.concurrence_in_part_dissent_in_part
 
 
 @pytest.mark.parametrize(

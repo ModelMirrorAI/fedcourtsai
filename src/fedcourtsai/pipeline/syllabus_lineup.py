@@ -659,8 +659,10 @@ def _read_filed(names: str, rest: str, problems: list[str], *, each: bool) -> li
         return []
     if plural or each:
         # "X and Y filed dissenting opinions, in which Z joined": Z joined each.
-        if len(authors) == 1:
-            problems.append(f"plural writings need several authors: {rest!r}")
+        # A limited join ("joined as to Part II") names a Part of one
+        # writing, not of each, so it does not read after a plural.
+        if len(authors) == 1 or any(j.qualifier is not None for j in joins):
+            problems.append(f"plural writings need several authors and no limited join: {rest!r}")
             return []
         return [Writing(kind, author, joins) for author in authors]
     return [Writing(kind, authors[0], joins, coauthors=tuple(authors[1:]))]

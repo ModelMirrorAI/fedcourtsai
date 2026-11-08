@@ -164,7 +164,7 @@ TEXT_RULE_VERSION: Final = 1
 #: The opinion-header reader's stamp, on a per curiam's writings.
 HEADER_READER: Final = "scotus-opinion-headers"
 #: Bump whenever the same headers could read differently.
-HEADER_READER_VERSION: Final = 1
+HEADER_READER_VERSION: Final = 2
 
 SLIP: Final = "slip"
 PRELIMINARY_PRINT: Final = "preliminary-print"
