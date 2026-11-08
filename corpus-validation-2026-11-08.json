@@ -17,7 +17,7 @@
       "problems": []
     },
     {
-      "checked": 4311466,
+      "checked": 4311467,
       "detail": "",
       "failures": 0,
       "name": "required_columns_non_empty",
@@ -78,7 +78,7 @@
       ]
     },
     {
-      "checked": 4308393,
+      "checked": 4308394,
       "detail": "",
       "failures": 0,
       "name": "domain_values_valid",
@@ -86,7 +86,7 @@
       "problems": []
     },
     {
-      "checked": 4311466,
+      "checked": 4311467,
       "detail": "",
       "failures": 0,
       "name": "no_duplicate_cases_or_events",
@@ -94,7 +94,7 @@
       "problems": []
     },
     {
-      "checked": 18143,
+      "checked": 18147,
       "detail": "",
       "failures": 0,
       "name": "ledger_references_exist",
@@ -102,7 +102,7 @@
       "problems": []
     },
     {
-      "checked": 333,
+      "checked": 334,
       "detail": "",
       "failures": 0,
       "name": "minted_moments_defined_in_ledger",
@@ -110,7 +110,7 @@
       "problems": []
     },
     {
-      "checked": 29504,
+      "checked": 29507,
       "detail": "",
       "failures": 0,
       "name": "event_dirs_hold_only_ledger_entries",
@@ -134,7 +134,7 @@
       "problems": []
     },
     {
-      "checked": 3782,
+      "checked": 3788,
       "detail": "",
       "failures": 0,
       "name": "prediction_docs_exist",
@@ -142,7 +142,7 @@
       "problems": []
     },
     {
-      "checked": 1686,
+      "checked": 1689,
       "detail": "",
       "failures": 0,
       "name": "prediction_claims_scoreable",
@@ -150,7 +150,7 @@
       "problems": []
     },
     {
-      "checked": 201,
+      "checked": 204,
       "detail": "",
       "failures": 0,
       "name": "prediction_semantic_claims_conform",
@@ -174,7 +174,7 @@
       "problems": []
     },
     {
-      "checked": 195,
+      "checked": 198,
       "detail": "",
       "failures": 0,
       "name": "merits_predictions_carry_judgment",
@@ -190,7 +190,7 @@
       "problems": []
     },
     {
-      "checked": 14157,
+      "checked": 14158,
       "detail": "",
       "failures": 0,
       "name": "outcome_votes_await_a_registered_source",
@@ -206,7 +206,7 @@
       "problems": []
     },
     {
-      "checked": 14149,
+      "checked": 14150,
       "detail": "",
       "failures": 0,
       "name": "judgment_only_on_merits_outcomes",
@@ -214,7 +214,7 @@
       "problems": []
     }
   ],
-  "corpus_events": 2154368,
+  "corpus_events": 2154369,
   "corpus_rows": 2154025,
   "ok": false,
   "schema_version": "1.0",
