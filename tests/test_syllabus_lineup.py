@@ -641,11 +641,6 @@ def test_normalization_collapses_titles_and_drops_page_cites() -> None:
             id="author-dissents-from-own-opinion",
         ),
         pytest.param(
-            "KAGAN, J., delivered the opinion of the Court. THOMAS, J., filed an opinion "
-            + "concurring in part.",
-            id="bare-concurring-in-part",
-        ),
-        pytest.param(
             "GORSUCH, J., delivered the opinion of the Court, except as to Part II. "
             + "ROBERTS, C. J., and THOMAS, ALITO, SOTOMAYOR, KAGAN, KAVANAUGH, BARRETT, "
             + "and JACKSON, JJ., joined that opinion in full, and GORSUCH, J., joined "
@@ -950,6 +945,21 @@ def test_scope_wordings_read_as_qualified_joins(join: str, qualifier: str) -> No
     assert lineup.complete
     concurrence = _writing(lineup, "Jackson", WritingKind.concurrence)
     assert concurrence.joins == (Join("Sotomayor", qualifier),)
+
+
+def test_a_bare_partial_concurrence_supports_the_judgment() -> None:
+    # The Court prints "and dissenting in part" when the author also dissents,
+    # so "concurring in part" alone is a partial concurrence on the majority.
+    lineup = parse_syllabus_lineup(
+        "Jackson, J., delivered the opinion of the Court with respect to Parts I, II, "
+        + "III, IV-A, and IV-B, and an opinion with respect to Part IV-C, in which "
+        + "Roberts, C. J., and Sotomayor and Kagan, JJ., joined. Gorsuch, J., filed an "
+        + "opinion concurring in part.",
+        bench=OT23,
+    )
+    assert lineup.complete
+    assert _writing(lineup, "Gorsuch", WritingKind.concurrence_in_part).joins == ()
+    assert lineup.votes["Gorsuch"] is M
 
 
 def test_a_page_cite_with_at_is_dropped() -> None:

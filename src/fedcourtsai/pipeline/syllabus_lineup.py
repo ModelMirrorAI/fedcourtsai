@@ -26,7 +26,9 @@ description of the Court's conventions, and no ceRt code or data is used.
   form ``X announced the judgment of the Court and delivered …``.
 - *Separate writing*: ``X filed a concurring opinion[, in which Y joined
   as to Part II-B]``, ``… an opinion concurring in the judgment``, ``… an
-  opinion concurring in part and dissenting in part``, the plural ``X and Y
+  opinion concurring in part`` (with or without ``and concurring in the
+  judgment``: its author supports the judgment), ``… an opinion concurring in
+  part and dissenting in part``, the plural ``X and Y
   filed dissenting opinions`` or ``X and Y each filed …`` (one writing each),
   and the joint ``X, Y, and Z filed a dissenting opinion`` (one writing, three
   authors).
@@ -105,7 +107,7 @@ COURT: Final = "scotus"
 #: The grammar's stamp on every lineup it returns.
 GRAMMAR_NAME: Final = "scotus-syllabus"
 #: Bump whenever the same text could read differently.
-GRAMMAR_VERSION: Final = 3
+GRAMMAR_VERSION: Final = 4
 
 # The title marker a Justice's printed title (", C. J.,", ", J.,", ", JJ.,")
 # collapses to, so the periods it carries cannot end a sentence and its commas
@@ -302,9 +304,10 @@ def writing_kind(desc: str) -> WritingKind | None:
     if not concurring:
         return None
     if "concurring in part" in lowered:
-        # Joined some of the lead and supported the judgment; without "the
-        # judgment" the description does not say which side its author is on.
-        return WritingKind.concurrence_in_part if "judgment" in words else None
+        # Joined some of the lead. The Court prints "and dissenting in part"
+        # whenever its author also dissents, so a partial concurrence with or
+        # without "and concurring in the judgment" supports the judgment.
+        return WritingKind.concurrence_in_part
     if "judgment" in words:
         return None if in_part else WritingKind.concurrence_in_judgment
     return WritingKind.concurrence if lowered == "concurring" else None

@@ -185,8 +185,7 @@ each fetching in a job that holds no credential
   left inside an opinion. A lead's header prints no joiners, so the lead's rest on
   the syllabus alone. Anything else refuses the whole document with the
   reason. Refusals come from a syllabus the grammar cannot read whole (it
-  does not read "concurring in part" without "the judgment", or a join that
-  carries two limits at once, "as to Parts III and IV, except for n. 12"),
+  does not read a join that carries two limits at once, "as to Parts III and IV, except for n. 12"),
   from a split that disagrees with a syllabus that did read, and from a text
   layer that runs words together (a print whose type changes carry no space,
   "Justice Thomasdelivered").
@@ -195,7 +194,8 @@ each fetching in a job that holds no credential
   OT2024 63 / 4 / 0 (153), OT2023 54 / 6 / 0 (136), OT2022 50 / 8 / 0 (113),
   OT2021 60 / 6 / 0 (139), OT2020 48 / 5 / 15 (109); OT2017–OT2019 are
   skipped whole (volume-linked). The refusals are not random: their causes
-  (a bare partial concurrence, a join with two limits) concentrate in
+  (a join with two limits, a scoped or plurality lead, a split that
+  disagrees with its syllabus) concentrate in
   fractured, many-opinion decisions, so a total, an average or a "longest"
   list taken from the table under-represents exactly those. A figure read
   from it states its population and the Term's refusal count beside it.
