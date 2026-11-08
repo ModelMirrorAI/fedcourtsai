@@ -592,7 +592,12 @@ decision is set for argument (`argument_set_for`, as `argument`, until an
 argument on or after that day is read), and the newest stated response deadline
 while the docket is undecided and the response is still owed (`response_due`,
 while `response_due_state` is `due`). A row exists when any one of them is in
-play. Each date is published as upcoming only while it is on or after the
+play. Beside the dates, each row carries the petition's conference history
+(`conference_history`, as `conferences`: every conference it was distributed
+for, in docket order, each marked `relist`, `reschedule` or another move) and
+`relists`, the exact relist count that history gives; both are null on an application,
+whose history is not read, and on a docket the poll has not read since the
+column existed. Each date is published as upcoming only while it is on or after the
 schedule's `as_of`, and as null with a stale reason (`conference_passed`, or
 `passed` on an argument day or deadline) once it has passed, so the public site
 never shows a past date as upcoming. Like the scope manifest it is enumerated

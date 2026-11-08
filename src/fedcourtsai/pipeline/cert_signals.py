@@ -61,7 +61,7 @@ from typing import Any, Literal
 
 from dateutil import parser as date_parser
 
-from ..schemas import GRANTED_DISPOSITIONS, Disposition
+from ..schemas import GRANTED_DISPOSITIONS, ConferenceStep, ConferenceTransition, Disposition
 
 # The cert noun the plain order rows read. Longest spelling first, so the short
 # "petition for (a writ of) certiorari" form is taken whole rather than leaving
@@ -1435,6 +1435,99 @@ def first_relist_date(payload: Mapping[str, Any]) -> date | None:
             return filed
         previous, taken_off = conference, False
     return None
+
+
+def _conference_transition(
+    previous: date | None, conference: date, filed: date | None, *, taken_off: bool, decided: bool
+) -> ConferenceTransition:
+    """How a petition reached ``conference`` from ``previous``, the conference before it."""
+    if decided or previous is None:
+        return "after_decision" if decided else "first"
+    if filed is None or (not taken_off and filed == previous):
+        return "unknown"
+    if taken_off or filed < previous:
+        return "reschedule"
+    if conference <= previous:
+        return "unknown"
+    return "relist" if filed <= previous + RELIST_ENTRY_WINDOW else "redistributed"
+
+
+def conference_history(payload: Mapping[str, Any]) -> list[ConferenceStep] | None:
+    """Every conference the petition was distributed for, in docket order, each classified.
+
+    The ingest latch behind the corpus's ``conference_history`` column. Reads
+    the **petition** distributions (the entry-initial ``dist-v2`` parse, the
+    reading ``distribution_count`` holds), one step per distinct conference
+    date in the order the docket first names it, so the steps are exactly the
+    conferences ``distribution_count`` counts and the relists among them are at
+    most ``distribution_count - 1``. A later entry naming a conference already
+    listed adds no step, but still becomes the conference the next step is
+    read against, unless it is undated.
+
+    Each step's transition follows :func:`first_relist_date`'s reading of a
+    relist: the conference before **sat on the petition** (no call for response
+    or bare reschedule follows its distribution, in docket order, dated on or
+    before the conference day), and this distribution was docketed after that
+    conference and within :data:`RELIST_ENTRY_WINDOW` of it. Docketed before
+    the conference, or after something took the petition off it, is a
+    ``reschedule``; docketed later than the window is ``redistributed``; one
+    docketed after a disposition entry is ``after_decision``. So the relist
+    count — the steps marked ``relist`` — is exact where ``distribution_count
+    - 1`` is an upper bound, and its first relist is the one
+    :func:`first_relist_date` dates.
+
+    ``None`` when the payload discloses no proceedings, unobservable rather than
+    empty.
+    """
+    if not snapshot_carries_proceedings(payload):
+        return None
+    steps: list[ConferenceStep] = []
+    seen: set[date] = set()
+    previous: date | None = None  # the conference the latest distribution named
+    taken_off = False  # whether an entry after that distribution took it off
+    decided = False
+    for text, raw in proceedings_entries(payload):
+        if match_disposition_signal(text) is not None:
+            decided = True
+            continue
+        if _RESPONSE_REQUESTED_RE.search(text) or _RESCHEDULED_RE.search(text):
+            taken = entry_date(raw)
+            if previous is not None and taken is not None and taken <= previous:
+                taken_off = True
+            continue
+        match = _PETITION_DISTRIBUTED_RE.search(text)
+        if match is None:
+            continue
+        conference = conference_date(match.group(1))
+        if conference is None:
+            continue
+        filed = entry_date(raw)
+        if conference not in seen:
+            seen.add(conference)
+            transition = _conference_transition(
+                previous, conference, filed, taken_off=taken_off, decided=decided
+            )
+            if transition == "first" and steps:
+                transition = "unknown"  # read against an undated distribution
+            steps.append(
+                ConferenceStep(conference=conference, distributed=filed, transition=transition)
+            )
+        if filed is not None:
+            # An undated distribution cannot say when it moved the petition, so
+            # the next step is read against the dated one before it, as
+            # :func:`first_relist_date` reads it.
+            previous, taken_off = conference, False
+    return steps
+
+
+def relist_count(history: Sequence[ConferenceStep] | None) -> int | None:
+    """How many times the petition was relisted: its steps marked ``relist``.
+
+    ``None`` when the history was never read, which a caller must not read as 0.
+    """
+    if history is None:
+        return None
+    return sum(step.transition == "relist" for step in history)
 
 
 ConferenceReading = Literal["sat", "ahead", "off", "undistributed", "unknown"]

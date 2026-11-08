@@ -35,7 +35,14 @@ from dateutil import parser as date_parser
 from pydantic import BaseModel, ConfigDict, Field
 
 from .. import corpus, ids
-from ..schemas import MERITS_PROCEEDING_DISPOSITIONS, Disposition, EventKind, Judgment, Stage
+from ..schemas import (
+    MERITS_PROCEEDING_DISPOSITIONS,
+    ConferenceStep,
+    Disposition,
+    EventKind,
+    Judgment,
+    Stage,
+)
 from ..supremecourt import (
     IFP_SERIAL_BASE,
     parse_scotus_application_number,
@@ -48,6 +55,7 @@ from .cert_signals import (
     DEFAULT_DISTRIBUTION_PARSE,
     DISTRIBUTED_RE,
     call_for_response_date,
+    conference_history,
     distribution_pattern,
     distributions_after_call,
     docket_disposition_signals,
@@ -227,6 +235,12 @@ class CorpusRow(BaseModel):
         description="The newest response deadline the proceedings state "
         "(`pipeline.schedule_signals.response_deadline`). Live channel only; latched "
         "as a pair with `response_due_state`.",
+    )
+    conference_history: list[ConferenceStep] | None = Field(
+        default=None,
+        description="Every conference the petition was distributed for, in docket order, "
+        "each classified (`pipeline.cert_signals.conference_history`). Live cert branch "
+        "only; None elsewhere, which the storage latch reads as nothing read.",
     )
     response_due_state: str | None = Field(
         default=None,
@@ -463,6 +477,13 @@ def _string_list(value: Any) -> list[str] | None:
     return [text for item in value if (text := _clean(item))] or None
 
 
+def _conference_history(value: Any) -> list[ConferenceStep] | None:
+    """A record's conference history as steps; ``None`` when the record carries none."""
+    if not isinstance(value, list):
+        return None
+    return [ConferenceStep.model_validate(step) for step in value]
+
+
 def _as_count(value: Any) -> int | None:
     """Parse a non-negative integer count, or ``None`` for blanks/non-numeric."""
     text = _clean(value)
@@ -673,6 +694,7 @@ def _normalize(record: Mapping[str, Any], source: CorpusSource) -> CorpusRow:
         argument_set_for=_date(record.get("argument_set_for")),
         response_due=_date(record.get("response_due")),
         response_due_state=_clean(record.get("response_due_state")),
+        conference_history=_conference_history(record.get("conference_history")),
         originating_court_name=_clean(record.get("originating_court_name")),
         application_kind=_clean(record.get("application_kind")),
         interim_reading=_clean(record.get("interim_reading")),
@@ -1125,6 +1147,14 @@ def _live_schedule_fields(
     }
 
 
+def _live_conference_history(payload: Mapping[str, Any]) -> list[dict[str, str | None]] | None:
+    """The petition's conference history as record fields (:func:`conference_history`)."""
+    history = conference_history(payload)
+    if history is None:
+        return None
+    return [step.model_dump(mode="json") for step in history]
+
+
 def map_live_docket(
     payload: Mapping[str, Any],
     docket_id: int,
@@ -1294,6 +1324,9 @@ def map_live_docket(
         # counted under the reading `distribution_count` holds.
         "distributed_after_call": distributions_after_call(payload) if form == "cert" else None,
         **_live_schedule_fields(payload, form=form),
+        # Every conference the petition was distributed for, each classified,
+        # under the reading `distribution_count` holds.
+        "conference_history": _live_conference_history(payload) if form == "cert" else None,
         "originating_court_name": lower_court,
         "application_kind": ask,
         "application_kind_wide": ask_wide,
@@ -1586,6 +1619,7 @@ def to_corpus_row(
         argument_set_for=row.argument_set_for,
         response_due=row.response_due,
         response_due_state=row.response_due_state,
+        conference_history=row.conference_history,
         originating_court_name=row.originating_court_name,
         application_kind=row.application_kind,
         interim_reading=row.interim_reading,
