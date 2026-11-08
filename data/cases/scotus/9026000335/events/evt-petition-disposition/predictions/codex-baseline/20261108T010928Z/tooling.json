@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000335",
+  "run_id": "20261108T010928Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell/read-only input inspection",
+    "fedcourts paths",
+    "fedcourts query",
+    "committed statpack Markdown and JSON",
+    "CourtListener MCP search",
+    "CourtListener MCP search_document",
+    "web.run search and open",
+    "apply_patch",
+    "fedcourts validate"
+  ],
+  "helpful": [
+    "Frozen cert anchor, band version, and distribution count made the baseline explicit.",
+    "Combined opposition text preserved both the federal and private respondents' positions.",
+    "The staged related docket and structured lead-docket lookups distinguished rulemaking from enforcement review."
+  ],
+  "gaps": [
+    "The default uv cache path was read-only; UV_CACHE_DIR=/tmp/uv-cache was needed.",
+    "Web calls returned no usable content and CourtListener opinion-text retrieval was throttled.",
+    "Lead-petition corpus rows lacked conference entries, so their reported zero distributions may lag."
+  ],
+  "notes": "No installations, REST fallback, or own-case outcome retrieval. An invalid era value was corrected using the CLI's returned vocabulary. Missing remote opinion text did not block the forecast because the provisioned briefs contained the competing legal arguments."
+}

@@ -1,0 +1,11 @@
+# Forecast of the Court's action
+
+The Court will deny the petition, most likely on the orders list following the December 4, 2026 conference, without explaining the denial. That denial will leave the Fifth Circuit's judgment in place without endorsing its reasoning.
+
+The snapshot contains one distribution, not a relist. The modal forecast is **zero additional distributions** before disposition. The probability of at least one further distribution is 4.5%; if additional consideration occurs, one further distribution is more likely than an extended series. The Court will not call for the Solicitor General's views; the probability of a new invitation is 0.1%.
+
+The Court will not use this petition to resolve the three questions wholesale. **If it grants plenary review**, the most plausible question is a narrowed combination of QP1 and QP2: whether a civil-rights complaint alleging police suppression or distortion of exculpatory information sufficiently pleads taint of a grand-jury determination to survive pre-service screening, and what opportunity to amend is required when further details are held by the defendants. QP3, concerning the evidentiary significance of a reduced plea offer, is unlikely to be taken. The prosecutor-immunity issue is likewise unlikely to be accepted as a broad challenge to immunity for investigative acts on this record.
+
+**Conditional on any grant**, the Court is more likely to order full briefing and argument than to dispose of the merits in the cert order: 75% plenary versus 25% summary disposition. A summary route would most plausibly correct a narrowly identified pleading or amendment error. A GVR based on a new intervening decision is not the leading route. If plenary review is granted, the likely focus will be the adequacy of the pleaded taint and amendment opportunity, rather than an automatic right to discovery whenever the complaint alleges a real prosecution and acquittal.
+
+The expected denial will have no separate writing. Conditional on denial, the probability of any noted dissent or statement respecting denial is 2%. If a Justice writes, Sotomayor or Jackson is the most plausible author, focusing on access to evidence in police-misconduct litigation; this is a low-probability alternative, not a forecast of a majority opinion accompanying denial.

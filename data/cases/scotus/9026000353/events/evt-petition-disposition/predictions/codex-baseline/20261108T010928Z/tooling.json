@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000353",
+  "run_id": "20261108T010928Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts paths", "fedcourts query", "committed statpack", "CourtListener MCP search", "CourtListener MCP search_document", "CourtListener MCP read_document", "web.run", "fedcourts validate"],
+  "helpful": ["Frozen reached-rate cert anchor and observable distribution count", "Provisioned opposing briefs and lower-court orders in the petition appendix", "Corpus transfer-stat lines and explicit sparse-citation warning", "CourtListener targeted opinion text access"],
+  "gaps": ["Web searches returned no visible results", "Corpus reporter-citation coverage was too sparse for the Storey lookup", "Default uv cache path is read-only; UV_NO_CACHE=1 was needed"],
+  "notes": "No package installation. Used provisioned filings as the principal legal evidence. Corpus grant examples were not subject-matter analogues or a rate denominator. Petition appendix truncation was disclosed; the question and cert argument were available. No unresolved blocker."
+}

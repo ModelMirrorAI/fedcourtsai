@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000332",
+  "run_id": "20261108T010928Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "WebFetch (supremecourt.gov dockets)", "metrics/statpack.md"],
+  "helpful": ["Live supremecourt.gov dockets of the lead petitions showed the shared 12/4 conference"],
+  "gaps": ["No staged related/ snapshot for the lead petitions 26-199/26-201 that this cross-petition answers; the docket carries no Vide link to them"],
+  "notes": "Band anchor understates cross-petitions riding on a likely-granted lead petition."
+}

@@ -1,0 +1,13 @@
+# Forecast of the Court's action
+
+The Court will ultimately **deny Texas's petition**. It will distinguish the challenge to private rulemaking from the enforcement question presented in the Authority's and FTC's petitions. Agreement among the courts on the rulemaking provisions, and the federal respondents' request to deny this petition, will outweigh Texas's request to consider rulemaking as logically antecedent to enforcement.
+
+The starting record contains **one distribution and zero relists**, for the December 4, 2026 conference. I predict further deferral rather than immediate final action: **67% probability of at least one more distribution**, with roughly one to three additional distribution entries the central procedural forecast. That count includes rescheduling and a later redistribution after a hold; it is not a prediction of three substantive reconsiderations. The likely timing is coordination during the winter 2026–2027 conferences, with a material possibility of a hold until a lead enforcement decision in spring or summer 2027. A prompt December denial remains the main shorter alternative.
+
+The Court will **not call for the Solicitor General's views**; the probability of a new CVSG is **1%**. The federal respondents have already argued against review in their opposition.
+
+If the Court grants review of Texas's petition, **summary disposition is marginally more likely than separate plenary review: 55% conditional on a grant**. The principal summary route is a grant, vacatur, and remand for reconsideration after a related enforcement decision clarifies federal supervision of the Authority. An immediate summary reversal of the rulemaking holding is much less likely. This is not a claim that a new controlling decision has already issued.
+
+If the Court instead sets Texas's question for argument, it will most likely take the statutory oversight question substantially as presented, focusing on whether the FTC's consistency review and power under 15 U.S.C. § 3053(e) leave it the final policymaker. It need not import Gulf Coast's distinct Appointments Clause question. Any merits opinion would likely turn on the sufficiency of that federal control, not announce that all private participation in federal regulation is unconstitutional.
+
+If review is denied, I predict **no separate writing**, with **8% conditional probability** of a noted dissent or statement respecting denial. Gorsuch, Alito, and Thomas are the likeliest potential writers if there is one, but no individual writing is likely. The per-Justice probabilities in `prediction.json` are unconditional chances of writing on the disposing order, not votes or probabilities conditional on denial.

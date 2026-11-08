@@ -1,0 +1,18 @@
+# Predicted Reasoning — *Charles Kakembo Sessanga v. City of DeSoto Police Department, et al.* (No. 26-378)
+
+## Procedural Trajectory (Relists and CVSG)
+
+The docket currently shows **one distribution** (`distribution_count = 1`), stamped November 4, 2026, for the Conference of December 4, 2026, with no response filed by the municipal or individual respondents by the October 21, 2026 due date, no call for a response (CFR), no amicus filings, and no invitation to the Solicitor General (CVSG).
+
+- **Further relists (`relist-increment`: 0.015):** Expect **zero** further distributions. Because the respondents were never served in the district court (which dismissed the complaint *sua sponte* under 28 U.S.C. § 1915(e)(2)(B)(ii)) and allowed the October 21, 2026 response deadline to pass without filing a brief in opposition or appearance, the petition goes to its first conference unopposed. Given the pro se posture, the unpublished per curiam Fifth Circuit affirmance, and the fact-bound *Iqbal* pleading issue, the Court will almost certainly deny the petition on the December 4, 2026 conference order list without calling for a response or relisting.
+- **Call for the Views of the Solicitor General (`cvsg-increment`: 0.001):** Expect **no CVSG**. This is a § 1983 municipal and individual-officer malicious-prosecution action arising out of a Dallas County state criminal prosecution; no federal agency, federal officer, or federal regulatory program is implicated.
+
+## Disposition and Conditional Route
+
+- **Predicted disposition:** **Denied** (`probability = 0.005`, `granted = 0`).
+- **Question Presented if granted (context-only):** If the Court were to grant review, it would restrict review to a narrowed version of **Question Presented 2**—specifically, what factual allegations suffice at the Rule 12(b)(6) / 28 U.S.C. § 1915(e)(2)(B)(ii) pleading stage to plausibly allege that police officers tainted a grand jury's independent charging decision in a Fourth Amendment malicious-prosecution claim under *Thompson v. Clark*, 596 U.S. 36 (2022). The Court would not take Question Presented 1 as framed around *Neitzke v. Williams*, 490 U.S. 319 (1989), because the PLRA's enactment of § 1915(e)(2)(B)(ii) expressly authorized pre-service failure-to-state-a-claim dismissals, nor would it take Question Presented 3 (treating a misdemeanor plea offer as evidence of lack of probable cause), which was neither addressed by the courts below nor supported by any circuit authority.
+- **Summary disposition route (`summary-disposition-route`: 0.35 conditional on grant):** Conditional on the remote event of a grant, plenary review (0.65) is somewhat likelier than a summary disposition (0.35), though a summary vacatur and remand (GVR) or narrow per curiam remand instructing the lower courts to grant leave to amend or evaluate the pro se complaint under *Erickson v. Pardus*, 551 U.S. 89 (2007), accounts for a meaningful share of how the Court handles pro se pleading-stage dismissals when it intervenes at all. If granted for plenary review, the Court would likely address the interaction between *Iqbal* plausibility pleading and the grand-jury independent-intermediary presumption in Fourth Amendment malicious-prosecution suits.
+
+## Separate Writings on Denial
+
+- **Dissent from or statement respecting denial (`dissent-from-denial`: 0.002):** Expect **no** dissent or statement respecting the denial of certiorari. While individual Justices (most plausibly Justices Sotomayor, Jackson, Gorsuch, or Thomas) have occasionally written respecting the denial of certiorari in § 1983 immunity or independent-intermediary cases, the unpublished and fact-bound nature of this record makes a separate writing exceedingly unlikely.
