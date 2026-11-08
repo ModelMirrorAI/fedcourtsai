@@ -1007,3 +1007,162 @@ def test_a_plurality_clause_may_omit_the_comma_before_in_which() -> None:
     assert lineup.complete
     assert lineup.lead is not None and lineup.lead.kind is WritingKind.plurality
     assert lineup.votes["Thomas"] is CJ and lineup.votes["Roberts"] is D
+
+
+# --- printed variants the preliminary prints carry -------------------------------
+
+
+def test_a_title_missing_its_leading_comma_still_reads_as_a_title() -> None:
+    lineup = parse_syllabus_lineup(
+        "Kavanaugh, J., delivered the opinion of the Court, in which Roberts, C. J., and "
+        + "Thomas, Breyer, Alito, Gorsuch, and Barrett JJ., joined. Kagan, J., filed an "
+        + "opinion dissenting in part, in which Sotomayor J., joined.",
+        bench=OT21,
+    )
+    assert lineup.complete
+    assert lineup.lead is not None and len(lineup.lead.joins) == 6
+    dissent = _writing(lineup, "Kagan", WritingKind.concurrence_in_part_dissent_in_part)
+    assert dissent.joins == (Join("Sotomayor"),)
+
+
+def test_a_name_spaced_after_its_initial_is_closed_up() -> None:
+    lineup = parse_syllabus_lineup(
+        "Roberts, C. J., delivered the opinion for a unanimous Court. J ack-\nson, J., "
+        + "filed a concurring opinion, in which Gorsuch, J., joined, post, p. 445.",
+        bench=OT23,
+    )
+    assert lineup.complete
+    assert _writing(lineup, "Jackson", WritingKind.concurrence).joins == (Join("Gorsuch"),)
+
+
+def test_a_bare_page_cite_is_dropped() -> None:
+    lineup = parse_syllabus_lineup(
+        "Jackson, J., delivered the opinion of the Court, in which Roberts, C. J., and "
+        + "Sotomayor, Kagan, Gorsuch, Kavanaugh, and Barrett, JJ., joined. Thomas, J., "
+        + "filed a dissenting opinion, p. 196. Alito, J., filed a dissenting opinion, in "
+        + "which Thomas, J., joined, p. 230.",
+        bench=OT23,
+    )
+    assert lineup.complete
+    assert _writing(lineup, "Alito", WritingKind.dissent).joins == (Join("Thomas"),)
+
+
+@pytest.mark.parametrize(
+    "joined",
+    [
+        pytest.param(", in which Gorsuch, J., joined", id="in-which"),
+        pytest.param(" in which Gorsuch, J., joined", id="no-comma"),
+        pytest.param(", which Gorsuch, J., joined", id="bare-which"),
+    ],
+)
+def test_a_separate_writings_joiners_follow_in_which_or_which(joined: str) -> None:
+    lineup = parse_syllabus_lineup(
+        "Roberts, C. J., delivered the opinion of the Court, in which Alito, Sotomayor, "
+        + "Kagan, Kavanaugh, Barrett, and Jackson, JJ., joined. Thomas, J., filed an "
+        + f"opinion concurring in the judgment{joined} as to Part II, post, p. 25.",
+        bench=OT23,
+    )
+    assert lineup.complete
+    concurrence = _writing(lineup, "Thomas", WritingKind.concurrence_in_judgment)
+    assert concurrence.joins == (Join("Gorsuch", "as to Part II"),)
+
+
+def test_a_plurality_announced_with_a_comma_before_delivered() -> None:
+    lineup = parse_syllabus_lineup(
+        "Gorsuch, J., announced the judgment of the Court, delivered the opinion of the "
+        + "Court with respect to Parts I and III-B, in which Thomas, Alito, Sotomayor, and "
+        + "Jackson, JJ., joined, and an opinion with respect to Parts II, III-A, and IV, in "
+        + "which Thomas, Sotomayor, and Jackson, JJ., joined. Jackson, J., filed a "
+        + "concurring opinion. Alito, J., filed an opinion concurring in part and concurring "
+        + "in the judgment. Barrett, J., filed a dissenting opinion, in which Roberts, C. J., "
+        + "and Kagan and Kavanaugh, JJ., joined.",
+        bench=OT23,
+    )
+    assert lineup.complete
+    lead = lineup.lead
+    assert lead is not None and lead.author == "Gorsuch"
+    assert Join("Alito", "with respect to Parts I and III-B") in lead.joins
+    assert lineup.votes["Barrett"] is D
+
+
+def test_a_middle_lead_clause_set_off_by_its_comma() -> None:
+    lineup = parse_syllabus_lineup(
+        "Gorsuch, J., announced the judgment of the Court, and delivered the opinion of the "
+        + "Court with respect to Parts I, II, III, IV-A, and V, in which Thomas, Sotomayor, "
+        + "Kagan, and Barrett, JJ., joined, an opinion with respect to Parts IV-B and IV-D, "
+        + "in which Thomas and Barrett, JJ., joined, and an opinion with respect to Part "
+        + "IV-C, in which Thomas, Sotomayor, and Kagan, JJ., joined. Sotomayor, J., filed an "
+        + "opinion concurring in part, in which Kagan, J., joined. Barrett, J., filed an "
+        + "opinion concurring in part. Roberts, C. J., filed an opinion concurring in part "
+        + "and dissenting in part, in which Alito, Kavanaugh, and Jackson, JJ., joined. "
+        + "Kavanaugh, J., filed an opinion concurring in part and dissenting in part.",
+        bench=OT23,
+    )
+    assert lineup.complete
+    lead = lineup.lead
+    assert lead is not None
+    assert {j.justice for j in lead.joins} == {"Thomas", "Sotomayor", "Kagan", "Barrett"}
+    thomas = next(j for j in lead.joins if j.justice == "Thomas")
+    assert thomas.qualifier is None  # every clause, so the whole lead
+
+
+def test_a_unanimous_clause_then_a_court_clause_with_its_joiners() -> None:
+    lineup = parse_syllabus_lineup(
+        "Jackson, J., delivered the opinion for a unanimous Court with respect to Parts I, "
+        + "II, III, and IV-A, and the opinion of the Court with respect to Part IV-B, in "
+        + "which Roberts, C. J., and Sotomayor, Kagan, and Kavanaugh, JJ., joined.",
+        bench=OT23,
+    )
+    assert lineup.complete
+    lead = lineup.lead
+    assert lead is not None
+    assert Join("Roberts") in lead.joins
+    assert Join("Thomas", "with respect to Parts I, II, III, and IV-A") in lead.joins
+    assert all(v is M for k, v in lineup.votes.items() if k != "Jackson")
+
+
+def test_a_join_with_a_second_limit_carving_out_of_the_first() -> None:
+    lineup = parse_syllabus_lineup(
+        "Gorsuch, J., delivered the opinion of the Court, in which Roberts, C. J., and "
+        + "Thomas, Alito, Kagan, Kavanaugh, and Barrett, JJ., joined. Jackson, J., filed a "
+        + "dissenting opinion, in which Sotomayor, J., joined as to Parts III and IV, except "
+        + "for n. 12, post, p. 75.",
+        bench=OT23,
+    )
+    assert lineup.complete
+    dissent = _writing(lineup, "Jackson", WritingKind.dissent)
+    assert dissent.joins == (Join("Sotomayor", "as to Parts III and IV, except for n. 12"),)
+
+
+def test_plural_writings_share_their_printed_joiners() -> None:
+    lineup = parse_syllabus_lineup(
+        "Gorsuch, J., delivered the opinion of the Court, in which Roberts, C. J., and "
+        + "Sotomayor, Kagan, and Jackson, JJ., joined. Thomas, J., filed a dissenting "
+        + "opinion, in which Alito, J., joined. Alito, J., post, p. 748, and Barrett, J., "
+        + "post, p. 758, filed dissenting opinions, in which Kavanaugh, J., joined.",
+        bench=OT23,
+    )
+    assert lineup.complete
+    assert _writing(lineup, "Alito", WritingKind.dissent).joins == (Join("Kavanaugh"),)
+    assert _writing(lineup, "Barrett", WritingKind.dissent).joins == (Join("Kavanaugh"),)
+
+
+def test_plural_writings_still_need_several_authors() -> None:
+    _assert_refused(
+        parse_syllabus_lineup(
+            "Gorsuch, J., delivered the opinion of the Court. Alito, J., filed dissenting "
+            + "opinions, in which Kavanaugh, J., joined.",
+            bench=OT23,
+        )
+    )
+
+
+def test_a_lead_printed_as_filed_reads_as_delivered() -> None:
+    lineup = parse_syllabus_lineup(
+        "Barrett, J., filed an opinion for a unanimous Court. Sotomayor, J., filed a "
+        + "concurring opinion, in which Jackson, J., joined, post, p. 83.",
+        bench=OT23,
+    )
+    assert lineup.complete
+    assert lineup.lead is not None and lineup.lead.author == "Barrett"
+    assert len(lineup.lead.joins) == 8

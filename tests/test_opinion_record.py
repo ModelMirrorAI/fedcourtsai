@@ -135,6 +135,18 @@ def test_headers_read_lead_per_curiam_and_separate_writings() -> None:
     )
     assert two is not None
     assert two.joins == (Join("Thomas", "as to Part I"), Join("Barrett", "as to Parts II and III"))
+    parts = read_header(
+        "Justice Alito, with whom Justice Gorsuch joins, con-\ncurring in Parts I, II\u2013A, "
+        "II\u2013B\u20132, and III, and concurring in\nthe judgment.",
+        bench=BENCH,
+    )
+    assert parts is not None and parts.kind is WritingKind.concurrence_in_part
+    assert parts.joins == (Join("Gorsuch", None),)
+    listed = read_header(
+        "Justice Jackson, concurring in part, concurring in the\njudgment, and dissenting in part.",
+        bench=BENCH,
+    )
+    assert listed is not None and listed.kind is WritingKind.concurrence_in_part_dissent_in_part
 
 
 @pytest.mark.parametrize(
@@ -568,6 +580,22 @@ def test_a_volume_linked_row_is_skipped_unfetched(_corpus: Path) -> None:
     fetcher = _Fetcher([entry])
     reading = opinion_record.read_listing_entry(entry, fetcher)
     assert reading.status == "skipped" and fetcher.fetched == []
+
+
+def test_a_decree_row_is_skipped_unfetched(_corpus: Path) -> None:
+    entry = OpinionListing(
+        term=25,
+        number="D1",
+        decided=date(2026, 3, 2),
+        docket="141, Orig.",
+        name="Texas v. New Mexico",
+        url="https://www.supremecourt.gov/opinions/25pdf/608us1r36d_x.pdf",
+        author_code="D",
+    )
+    fetcher = _Fetcher([entry])
+    reading = opinion_record.read_listing_entry(entry, fetcher)
+    assert reading.status == "skipped" and fetcher.fetched == []
+    assert reading.reason is not None and "decree" in reading.reason
 
 
 def test_a_listing_failure_is_reported(_corpus: Path) -> None:

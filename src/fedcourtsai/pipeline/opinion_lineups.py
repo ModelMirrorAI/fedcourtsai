@@ -122,8 +122,13 @@ _DECIDED_RE = re.compile(rf"\bDecided\s+{_DATE}")
 _HEADER_HYPHEN_RE = re.compile(r"(\w)-[ \t]*\n\s*(\w)")
 
 # A lead sentence opens the paragraph: a printed name and title, then the verb.
+# The title's trailing comma is sometimes dropped ("BREYER, J. delivered"), and
+# a lead is occasionally printed as filed ("filed an opinion for a unanimous
+# Court"), which the grammar reads as delivered.
 _LEAD_START_RE = re.compile(
-    r"^\s*[A-Z][A-Za-z'\u2019.\- ]{0,40}?,\s*(?:C\.\s*J\.|J\.)\s*,\s*(?:delivered|announced)\b"
+    r"^\s*[A-Z][A-Za-z'\u2019.\- ]{0,40}?,\s*(?:C\.\s*J\.|J\.)\s*,?\s*"
+    r"(?:delivered|announced|f(?:i)?led\s+(?:an|the)\s+opinion\s+(?:for|of)\s+"
+    r"(?:the|a\s+unanimous)\s+Court)\b"
 )
 # Where the paragraph has certainly ended: the slip opinion's rule and notice,
 # the opinion's own caption or heading, or the preliminary print's counsel list.

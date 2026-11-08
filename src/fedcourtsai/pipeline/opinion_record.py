@@ -222,7 +222,17 @@ _NAME = rf"(?:the\s+chief\s+justice|chief\s+justice\s+{_SURNAME}|justice\s+{_SUR
 _NAME_LIST = rf"{_NAME}(?:\s*,\s*(?:and\s+)?{_NAME}|\s+and\s+{_NAME})*"
 _NAME_RE = re.compile(_NAME, re.I)
 _MARK = r"(?:\s*(?:[*†‡]+|\d{1,2}))?"
-_ROLE_WORDS = r"(?:concurring|dissenting)(?:\s+(?:in|part|the|judgment|and|concurring|dissenting))*"
+# A Part list a role names ("concurring in Parts I, II-A, and III"), read as
+# "in part"; the ids are case-sensitive, so "in" or "a" is never one.
+_PART_ID = r"(?-i:(?:[IVXL]+|[A-Z]|\d+)(?:\s*[-\u2013\u2014]\s*(?:[IVXL]+|[A-Z]|[a-z]|\d+))*)\b"
+_PARTS = rf"in\s+Parts?\s+{_PART_ID}(?:(?:\s*,\s*(?:and\s+)?|\s+and\s+){_PART_ID})*"
+_PARTS_RE = re.compile(_PARTS, re.I)
+# The role's words may be set off by commas ("concurring in part, concurring
+# in the judgment, and dissenting in part").
+_ROLE_WORDS = (
+    r"(?:concurring|dissenting)"
+    rf"(?:(?:\s*,)?\s+(?:{_PARTS}|in|part|the|judgment|and|concurring|dissenting))*"
+)
 _SEPARATE_RE = re.compile(
     rf"^(?P<authors>{_NAME_LIST})(?P<with>\s*,\s*with\s+whom\s+.+?)?\s*,\s*"
     rf"(?P<role>{_ROLE_WORDS}){_MARK}\s*\.",
@@ -317,7 +327,8 @@ def read_header(text: str, *, bench: Sequence[str]) -> Header | None:  # noqa: P
         joins = _joins(match.group("with") or "", bench)
         if authors is None or joins is None:
             return None
-        return Header(match.group(0), writing_kind(match.group("role")), authors, joins)
+        role = _PARTS_RE.sub("in part", match.group("role"))
+        return Header(match.group(0), writing_kind(role), authors, joins)
     return None
 
 
@@ -899,6 +910,8 @@ def skip_reason(entry: OpinionListing) -> str | None:
     """Why a listing row is not read at all, or ``None`` to read it."""
     if entry.volume_linked:
         return "volume-linked: the listing links into a whole volume, not one opinion"
+    if entry.number.startswith("D"):
+        return "a decree: the listing's D-numbered rows print no opinion"
     return None
 
 

@@ -184,26 +184,31 @@ each fetching in a job that holds no credential
   writing's header naming the same joiners, and no separate writing's header
   left inside an opinion. A lead's header prints no joiners, so the lead's rest on
   the syllabus alone. Anything else refuses the whole document with the
-  reason. Refusals come from a syllabus the grammar cannot read whole (it
-  does not read a join that carries two limits at once, "as to Parts III and IV, except for n. 12"),
-  from a split that disagrees with a syllabus that did read, and from a text
-  layer that runs words together (a print whose type changes carry no space,
-  "Justice Thomasdelivered").
-- **Coverage, and what it leaves out.** As read on 2026-10-01, documents
-  recorded, refused and skipped per Term: OT2025 70 / 4 / 0 (172 opinions),
-  OT2024 63 / 4 / 0 (153), OT2023 54 / 6 / 0 (136), OT2022 50 / 8 / 0 (113),
-  OT2021 60 / 6 / 0 (139), OT2020 48 / 5 / 15 (109); OT2017–OT2019 are
-  skipped whole (volume-linked). The refusals are not random: their causes
-  (a join with two limits, a scoped or plurality lead, a split that
-  disagrees with its syllabus) concentrate in
-  fractured, many-opinion decisions, so a total, an average or a "longest"
+  reason. Refusals come from a syllabus the grammar cannot read whole, from a
+  split that disagrees with a syllabus that did read, and from a text layer
+  that runs words together (a print whose type changes carry no space,
+  "Justice Thomasdelivered"). One shape is refused on purpose: a document
+  deciding consolidated cases whose writings or participation differ by
+  docket ("joined as it applies to No. 21-707", "took no part … in
+  No. 20-1199", "concurring as to No. 19-8709, and … dissenting … as to
+  No. 20-444"), because the record holds one lineup per document and either
+  docket's reading would misstate the other's.
+- **Coverage, and what it leaves out.** As read on 2026-11-08 (the record
+  then stored, with what a dry run of the current reader adds), documents
+  recorded, refused and skipped per Term: OT2025 72 / 1 / 1 (177 opinions),
+  OT2024 66 / 1 / 0 (163), OT2023 60 / 0 / 0 (159), OT2022 57 / 1 / 0 (135),
+  OT2021 66 / 0 / 0 (159), OT2020 51 / 2 / 15 (122); OT2017–OT2019 are
+  skipped whole (volume-linked). The refusals are not random: two are the
+  consolidated decisions above, the most fractured shape there is, and the
+  readings the grammar learned last were all fractured, many-opinion
+  decisions (scoped and plurality leads, joins with two limits), so a total, an average or a "longest"
   list taken from the table under-represents exactly those. A figure read
   from it states its population and the Term's refusal count beside it.
 - **Against a published Term count.** The listing numbers every document the
   Court posts under the Term, not only its merits decisions: per curiams on
   applications, argued or not; the per curiams it issues over the summer
   after the Term's last sitting; and `D`-numbered rows for decrees in
-  original actions, which print no opinion and are refused. A Term figure
+  original actions, which print no opinion and are skipped unfetched. A Term figure
   compiled at the end of June over the merits docket, such as a stat pack's
   count of opinions released, counts a subset, so the two reconcile row by
   row, never total against total. For OT2025 the listing carries 74 rows (73
