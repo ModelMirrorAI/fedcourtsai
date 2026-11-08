@@ -342,6 +342,34 @@ def test_the_finer_reading_relabels_a_grant_in_light_of_a_companion() -> None:
     assert (registered.wins, registered.decided) == (0, 2)
 
 
+def test_a_stored_grant_reads_in_part_and_respects_the_cut() -> None:
+    """A stored grant re-reads as a partial grant, unless its entry postdates the cut."""
+    travel = "Donald J. Trump, President of the United States, et al. v. Hawaii, et al."
+    db_rows = [_app("scotus/1", travel, "17A550", date(2017, 11, 20), Disposition.granted)]
+    payload = _live("17A550", "The application is granted in part.", "2017-12-04")
+
+    def cut(through: date | None) -> ExecutiveSuccess:
+        return _success(
+            db_rows,
+            as_of_field="filed",
+            through=through,
+            since=None,
+            corpus_sha256="",
+            scope_rule_version=EXEC_ACTION_RULE_VERSION,
+            fetch=lambda rows: [payload for _ in rows],
+            reading="finer",
+            latest_pull=None,
+            latest_snapshot=None,
+        )
+
+    whole = cut(None)
+    assert {r.docket_number: r.reading for r in whole.review_rows} == {"17A550": "granted-in-part"}
+    assert _cells(whole)[("trump-45", "government")].wins == 1
+    assert (whole.reread_rows, whole.reread_changed, whole.reread_after_through) == (1, 1, 0)
+    early = cut(date(2017, 12, 1))
+    assert (early.reread_changed, early.reread_after_through) == (0, 1)
+
+
 def _live(docket: str, order: str, decided: str) -> dict[str, object]:
     """A supremecourt.gov-shaped docket payload whose last entry disposes of the application."""
     return {
