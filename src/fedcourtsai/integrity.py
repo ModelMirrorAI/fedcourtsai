@@ -380,10 +380,10 @@ def leakage_excluded(evaluation: Evaluation) -> bool:
     return evaluation.leakage_suspected is True
 
 
-# The first `codex-baseline` prediction run whose code-mode programs had both
-# idioms lifted into rows of their own: the merge instant of the promotion that
-# carried the builtin lift (`promotion/2026-08-26`, merged 14:46:40Z). A run id
-# is the run's own UTC start, so every run before it ran the earlier capture.
+# The instant from which every `codex-baseline` run had both code-mode idioms
+# lifted into rows of their own: the merge of the promotion that carried the
+# builtin lift (`promotion/2026-08-26`, merged 14:46:40Z). A run id is the
+# run's own UTC start, so every run before it ran the earlier capture.
 CODEX_CAPTURE_SIGHTED_FROM = "20260826T144640Z"
 # The one predictor the boundary names: the code-mode engine whose pre-lift
 # logs carry no row per call inside a program.

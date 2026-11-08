@@ -1560,9 +1560,10 @@ recomputed, or reweighted by the bit; the cell simply is not counted. And a
 **null** bit is "not assessed", not "clean" — offline evaluators and records
 written before the field existed carry null, and those cells are scored. That is
 why the published block carries a denominator: the boards' `leakage_exclusion`
-records `excluded`, `assessed` (in-scope cells whose grading recorded a bit that
-could carry information, below), and the per-predictor split, so `excluded: 0` over a ledger of nulls reads
-as "nothing was checked" rather than "nothing leaked". The split is published
+records `excluded`, `assessed` (in-scope cells whose grading recorded a bit
+that could carry information, below), and the per-predictor split, so
+`excluded: 0` over a ledger of nulls reads as "nothing was checked" rather
+than "nothing leaked". The split is published
 because exclusion falling differentially on one engine changes the scored
 population, which is the cross-engine comparability condition. The board
 builders name each dropped cell on stderr and the refresh PR body carries the

@@ -18006,6 +18006,8 @@ freeze commit is recorded here.
   tests/test_integrity.py -k pre_lift` is green, and `uv run python -c "from
   pathlib import Path; from fedcourtsai.store import stratify;
   print(stratify(Path('data'), frozen_only=False).leakage_assessed)"` prints
-  60 fewer than the same command at the merge's first parent. The committed
+  60 fewer than the same command at the merge's first parent, so long as no
+  grading of a pre-`20260826T144640Z` codex prediction has landed between the
+  two reads (`1,767` against `1,827` at `staging` `e0eed9bf9`). The committed
   `metrics/leaderboard.json`'s `leakage_exclusion.assessed` does not move on
   account of this merge.

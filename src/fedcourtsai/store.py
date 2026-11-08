@@ -1588,9 +1588,10 @@ class StratifiedRun(NamedTuple):
     cells whose grading recorded a bit that could carry information
     (:func:`fedcourtsai.integrity.leakage_assessed`) — because a null bit is "not
     assessed" rather than "clean", and so is an unsuspected verdict on a log
-    that could not show the calls it would have rested on. A cell caught by both rules appears in
-    ``excluded`` **and** ``leaked``: they answer different questions over one
-    population, so the counts are published side by side and never summed.
+    that could not show the calls it would have rested on. A cell caught by
+    both rules appears in ``excluded`` **and** ``leaked``: they answer
+    different questions over one population, so the counts are published side
+    by side and never summed.
 
     ``voided`` is the third ledger: in-scope gradings of an event
     :data:`fedcourtsai.voids.VOIDED_EVENTS` voids, whose outcome describes
