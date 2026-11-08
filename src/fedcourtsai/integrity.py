@@ -380,6 +380,55 @@ def leakage_excluded(evaluation: Evaluation) -> bool:
     return evaluation.leakage_suspected is True
 
 
+# The first `codex-baseline` prediction run whose code-mode programs had both
+# idioms lifted into rows of their own: the merge instant of the promotion that
+# carried the builtin lift (`promotion/2026-08-26`, merged 14:46:40Z). A run id
+# is the run's own UTC start, so every run before it ran the earlier capture.
+CODEX_CAPTURE_SIGHTED_FROM = "20260826T144640Z"
+# The one predictor the boundary names: the code-mode engine whose pre-lift
+# logs carry no row per call inside a program.
+CODEX_CAPTURE_PREDICTOR = "codex-baseline"
+
+
+def capture_blind_unsuspected(evaluation: Evaluation, prediction_run_id: str) -> bool:
+    """Whether an unsuspected verdict here is a null bit rather than a clean read.
+
+    True on a ``leakage_suspected: false`` grading of a ``codex-baseline``
+    prediction run before :data:`CODEX_CAPTURE_SIGHTED_FROM`. Such a log is
+    row-blind (before ``20260820T181919Z``: no call inside a program has a row)
+    or half-blind (through ``20260825T231742Z``: manifest calls have rows, shell
+    calls do not), so the grader could not see the calls most able to reach an
+    outcome, and finding none is not evidence there were none. A suspected
+    verdict on the same vintage stands, because a positive finding from the
+    visible evidence is still evidence; it is not this predicate's to drop.
+
+    ``prediction_run_id`` is the run of the prediction the grading scored, as
+    the ledger resolves it, since a legacy grading names none of its own. The
+    rule keys on it rather than on the log's ``call_source`` marker: the marker
+    names only the row-blind half, while the run id separates both regimes and
+    is a committed path a consumer can test.
+    """
+    return (
+        evaluation.leakage_suspected is False
+        and evaluation.predictor_id == CODEX_CAPTURE_PREDICTOR
+        and prediction_run_id < CODEX_CAPTURE_SIGHTED_FROM
+    )
+
+
+def leakage_assessed(evaluation: Evaluation, prediction_run_id: str) -> bool:
+    """Whether this grading counts in the leakage exclusion's ``assessed`` denominator.
+
+    A grading counts where it recorded the bit and the bit could carry
+    information: a null bit is "not assessed", and so is an unsuspected verdict
+    :func:`capture_blind_unsuspected` reads as a null bit. A suspected verdict
+    always counts, so the exclusion and its denominator never disagree about a
+    cell the exclusion drops.
+    """
+    return evaluation.leakage_suspected is not None and not capture_blind_unsuspected(
+        evaluation, prediction_run_id
+    )
+
+
 def leakage_record(
     excluded: Sequence[tuple[str, str]] | int, assessed: int = 0
 ) -> LeakageExclusionRecord:

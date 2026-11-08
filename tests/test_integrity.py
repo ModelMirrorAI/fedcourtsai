@@ -13,6 +13,7 @@ from fedcourtsai.integrity import (
     forward_claim_breach,
     forward_claim_record,
     latest_evaluations,
+    leakage_assessed,
     leakage_excluded,
     leakage_record,
 )
@@ -327,6 +328,38 @@ def test_survivors_come_back_in_input_order() -> None:
 
     assert [ev.evaluator_id for ev in kept] == ["eval-a", "eval-b", "eval-c"]
     assert [ev.run_id for ev in kept] == ["20260101T000000Z", "r2", "20260101T000000Z"]
+
+
+def _codex_grading(suspected: bool | None) -> Evaluation:
+    return _evaluation(created_at=datetime(2026, 9, 1, tzinfo=UTC)).model_copy(
+        update={"predictor_id": "codex-baseline", "leakage_suspected": suspected}
+    )
+
+
+def test_an_unsuspected_pre_lift_codex_verdict_is_not_assessed() -> None:
+    # Row-blind (before the manifest lift) and half-blind (before the builtin
+    # lift) logs could not show the calls an unsuspected verdict rests on, so
+    # the verdict is a null bit and leaves the denominator.
+    for run_id in ("20260816T173750Z", "20260820T181919Z", "20260825T231742Z"):
+        assert leakage_assessed(_codex_grading(False), run_id) is False
+
+
+def test_a_suspected_pre_lift_codex_verdict_still_counts() -> None:
+    # A positive finding from the visible evidence is evidence, and the
+    # exclusion drops the cell, so its denominator must count it too.
+    grading = _codex_grading(True)
+    assert leakage_excluded(grading) is True
+    assert leakage_assessed(grading, "20260816T173750Z") is True
+
+
+def test_the_capture_rule_names_only_pre_lift_codex_runs() -> None:
+    # Both idioms lifted: an unsuspected codex verdict is a real read.
+    assert leakage_assessed(_codex_grading(False), "20260827T155120Z") is True
+    # Another engine's logs of the same vintage carry their calls as rows.
+    other = _codex_grading(False).model_copy(update={"predictor_id": "claude-baseline"})
+    assert leakage_assessed(other, "20260816T173750Z") is True
+    # A null bit is never assessed, whatever the run.
+    assert leakage_assessed(_codex_grading(None), "20260827T155120Z") is False
 
 
 def test_leakage_excluded_turns_only_on_an_explicit_true() -> None:
