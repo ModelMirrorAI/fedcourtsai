@@ -3681,7 +3681,8 @@ to it.
   re-reads each stored denial and grant from its latest live snapshot,
   because the stored label collapses a partial grant and a denial as moot to
   `denied`, and reads an application "dismissed in light of the relief
-  granted" in a companion as `granted`; an entry dated after `--through` is
+  granted" in a companion as `granted`, which the finer reading names
+  `dismissed-moot`; an entry dated after `--through` is
   not used. Quote `reading`, `reread_changed`, `reread_unobservable` and
   `reread_after_through` beside the rate. Under `registered` the government's
   rate is understated where it filed, and overstated where it defended, and a

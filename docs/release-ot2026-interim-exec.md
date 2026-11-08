@@ -40,7 +40,7 @@ guillemets (U+2039 and U+203A). **No placeholder is ever replaced by an
 estimate.** The draft is not publishable while
 
 ```bash
-grep -n "$(printf '‹')" docs/release-ot2026-interim-exec.md docs/release-ot2026-interim-exec-public-summary.md
+grep -n "$(printf '\u2039')" docs/release-ot2026-interim-exec.md docs/release-ot2026-interim-exec-public-summary.md
 ```
 
 returns anything. The command is written with an escape so that it does not
@@ -89,10 +89,16 @@ cut-off requires.
 below), against the corpus blob `main` pointed to at the time, sha256
 `97b2bc8b70d35a63396d88c0e36867a625bdbe9b131ab1ba964222ce94c46a75`:
 `corpus-info`'s newest pull **2026-11-08**, newest stored snapshot row
-**2026-07-13**. The stored rows are older than the window's end, but the
-re-read below reads each application's own live snapshot, and none was
-unobservable. The same command against the previous blob (sha256
+**2026-07-13**. The stored rows are older than the window's end, but every
+stored denial and grant in the cut was re-read from its own live snapshot
+(below), and none was unobservable. The same command against the previous blob (sha256
 `60b7c2e6…aa4dc`, pull 2026-11-08 07:22 UTC) printed identical cells.
+
+**Coverage.** The blob holds every Term the window touches: the Court's
+application records from OT2016 on are back-filled, and the earliest in-scope
+application is 16A1190, filed 2017-06-01. So the three administrations are
+read from one complete record, and the comparison across them is not bounded
+by coverage.
 
 **The population.** 1,912 applications filed in the window were read for
 scope, after 10,962 extensions of time and 4 duplicate docket rows were left
@@ -102,7 +108,7 @@ set out of scope as `procedural-request`.
 
 **The reading.** The `finer` reading re-read 193 stored denials and grants
 from their live snapshots and relabeled 24, with 0 unobservable and 0 decided
-after the cut. Two of the relabels matter to the figures: 12 OSHA companion
+after the cut. Two groups of relabels matter to the figures: 12 OSHA companion
 applications stored as granted were "dismissed in light of the relief
 granted" in *NFIB v. Department of Labor*, and now read as moot (10 of them in
 scope), and the two OT2016 travel-ban stays (16A1190, 16A1191) read as granted
@@ -113,7 +119,9 @@ in part, still wins for the government.
 **State.** A government application granted, in whole or in part, and a
 challenger's application denied are both the executive's win. The rate is wins
 over substantively decided applications; withdrawn, moot and pending ones sit
-beside it, as in the column.
+beside it, as in the column. An application with no disposition stored counts
+as pending; for the five filed before 2023 that is a gap in the stored record,
+not a live application, and each stays outside its pair.
 
 **Evidence.** `cells` in `executive-success.json`, also printed to stderr.
 
@@ -130,9 +138,11 @@ beside it, as in the column.
 | Trump II, challengers' applications | | 5 of 5 |
 
 Beside each government pair:
-- **Trump I:** 39 applications; 3 pending, 2 withdrawn, 2 with an ask the
-  parser could not read (counted like any other).
-- **Biden:** 22 applications; 2 pending, 2 unreadable asks.
+- **Trump I:** 39 applications; 3 with no disposition stored (17A655,
+  17A1379, 18A276), 2 withdrawn, 2 with an ask the parser could not read
+  (counted like any other).
+- **Biden:** 22 applications; 2 with no disposition stored (21A85, 21A477),
+  2 unreadable asks.
 - **Trump II:** 42 applications; 2 pending at the cut (filed 2026-09-28 and
   2026-10-08, decided after it), 4 withdrawn, 3 dismissed or denied as moot,
   4 unreadable asks.
@@ -143,12 +153,18 @@ OSHA companions above), 3 unreadable asks.
 **Unknown scope is not zero.** The rule leaves 17 Trump I, 24 Biden and 7
 Trump II applications unplaced (a named individual with "et al." against an
 officer, or a row only the counsel entries put on the government's side). They
-are in no cell above and are listed in `review_rows`. Every in-scope
-application in the window has an administration.
+are in no cell above and are listed in `review_rows`. Each count is larger
+than the gap between that administration's government pair and the
+column's. Every in-scope application
+in the window has an administration.
+
+**Totals.** The rule puts 163 applications in scope, against the column's 165,
+with 48 more unplaced.
 
 **What this shows.** The rule's government pair matches the column exactly for
 Trump II and comes within one application for Trump I. For Biden it counts
-five more decided government applications than the column, two of them wins.
+five more decided government applications than the column, two of them wins;
+section 4 shows which applications a hand reading sets aside.
 The totals agree in ratio, not membership. The column lists no applications,
 so which applications differ cannot be checked against it.
 
@@ -157,7 +173,9 @@ so which applications differ cannot be checked against it.
 **Controversies.** Applications the record links (the same case below, one
 order, one-day orders that read alike, or government captions naming the same
 parties within 210 days) count once, and a controversy takes the executive's
-result in its last substantively decided application. The column groups
+result in its last substantively decided application, ordered by stored
+decision date. Every grouped application has a live snapshot
+(`controversy_unlinked` 0). The column groups
 "related applications" but does not say how, or how it scores a controversy.
 
 **Evidence.** `controversy_cells` (`controversy-v2`) and
@@ -180,30 +198,36 @@ challengers alone filed in; the column's "challenger-initiated" may differ.
 
 **Policy areas, government as applicant.** Areas are the committed hand labels
 (`policy-area-v2`; every in-scope application carries one, so no labeler area
-is used and `policy_unlabeled` is 0). Applications, then decided pairs:
+is used and `policy_unlabeled` is 0). Applications, then decided pairs, then
+how many of the cell's labels the raters marked uncertain:
 
-| Area | Column | Rule figures |
-|---|---|---|
-| Trump I immigration | 12 filed, won 11 of 12 | 13 filed, won 11 of 12 |
-| Trump I federal executions | 8 filed, 7 favorable | 10 filed, won 8 of 9 |
-| Trump I foreign affairs | 4 filed | none |
-| Trump I elections and census | 4 filed | 4 filed, won 2 of 4 |
-| Trump I health | won 1 of 2 | 4 filed, won 1 of 2 |
-| Biden immigration | 4 filed, won 2 of 4 | 4 filed, won 1 of 4 |
-| Biden education | 5 filed, won 0 of 3 | 5 filed, won 2 of 5 |
-| Biden health | 5 filed, won 4 of 4 | 5 filed, won 3 of 3 |
-| Biden firearms | 2 filed, won 2 of 2 | 2 filed, won 2 of 2 |
-| Trump II immigration | 14 filed, won 11 of 12 | 13 filed, won 11 of 11 |
-| Trump II personnel and removal | 10 filed | 11 filed, won 6 of 9 |
-| Trump II education | won 2 of 2 | 2 filed, won 2 of 2 |
-| Trump II health | won 1 of 1 | 2 filed, won 1 of 1 |
+| Area | Column | Rule figures | Uncertain |
+|---|---|---|---|
+| Trump I immigration | 12 filed, won 11 of 12 | 13 filed, won 11 of 12 | 2 of 13 |
+| Trump I federal executions | 8 filed, 7 favorable | 10 filed, won 8 of 9 | 7 of 10 |
+| Trump I foreign affairs | 4 filed | none | |
+| Trump I elections and census | 4 filed | 4 filed, won 2 of 4 | 3 of 4 |
+| Trump I health | won 1 of 2 | 4 filed, won 1 of 2 | 3 of 4 |
+| Biden immigration | 4 filed, won 2 of 4 | 4 filed, won 1 of 4 | 0 of 4 |
+| Biden education | 5 filed, won 0 of 3 | 5 filed, won 2 of 5 | 0 of 5 |
+| Biden health | 5 filed, won 4 of 4 | 5 filed, won 3 of 3 | 2 of 5 |
+| Biden firearms | 2 filed, won 2 of 2 | 2 filed, won 2 of 2 | 0 of 2 |
+| Trump II immigration | 14 filed, won 11 of 12 | 13 filed, won 11 of 11 | 0 of 13 |
+| Trump II personnel and removal | 10 filed | 11 filed, won 6 of 9 | 1 of 11 |
+| Trump II education | won 2 of 2 | 2 filed, won 2 of 2 | 0 of 2 |
+| Trump II health | won 1 of 1 | 2 filed, won 1 of 1 | 1 of 2 |
+
+Set against the column's pattern: immigration matches closely under both Trump
+administrations, and Biden's firearms pair matches. Biden's health pair is 3
+of 3 against the column's 4 of 4, Biden immigration is 1 of 4 against 2 of 4,
+and Biden education, where the column has the government losing all 3 decided,
+is 2 of 5 here.
 
 On the challengers' side under Biden, the column counts 25 health and 23
 environment and energy applications of 63. The rule figures count 18 health
 and 23 environment and energy of 49. The raters marked a label uncertain on 42
-of the 163 in-scope applications, 7 of them among the 10 Trump I execution
-applications and all 5 of the Trump II elections and census ones; each
-per-area pair carries `policy_uncertain` on its review rows.
+of the 163 in-scope applications, counted per government cell above and
+flagged `policy_uncertain` on each review row.
 
 ## 4. The hand adjudication (second, not blind)
 
@@ -212,9 +236,17 @@ headline.
 
 **What was done.** Two AI raters, blind to each other but not to outcomes (the
 docket entries carry the orders), coded the applications for scope, the
-government's side and policy area: every federal-side application of the
-OT2023–OT2024 cut, every OT2016–OT2022 application the rule reads as in scope
-or unknown, and the out-of-scope rows naming a federal agency or officer. The
+government's side and policy area, in three rounds:
+- every federal-side application filed from OT2023 through 2026-10-12, which
+  covers most of Trump II, with a seeded sample of 60 others (scope agreement
+  263 of 292, κ 0.81);
+- every OT2017–OT2022 application the rule reads as in scope or unknown, with
+  the out-of-scope rows from any Term naming a federal agency or officer (side
+  151 of 154, κ 0.97; scope 136 of 154, κ 0.79; policy area 146 of 154,
+  κ 0.94);
+- the 13 OT2016 applications filed from 2017-01-20 that the rule reads in
+  scope or that name a federal party and ask for more than an extension (all
+  sides and scope calls agreed). The
 authoring session adjudicated their disagreements with the column's figures in
 view, and on three points overrode both raters, two of them chosen to match the
 column's universe:
@@ -224,9 +256,9 @@ column's universe:
 3. "dismissed in light of the relief granted" is moot.
 
 The rules now carry the second and third points, so the remaining difference
-is mostly scope. Agreement between the raters on the OT2017–OT2022 round was
-151 of 154 on side (κ 0.97), 136 of 154 on scope (κ 0.79) and 146 of 154 on
-policy area (κ 0.94).
+is mostly scope. The adjudicated controversy grouping re-checks Trump I and
+Biden by hand and takes a controversy's result from its last decided
+application by docket number, not by stored decision date as the rule does.
 
 **Evidence.** A session script over the uncommitted hand codes, which are kept
 with the project's files and not in the repository; no command in the tag
@@ -236,9 +268,9 @@ pending, as the window requires.
 
 | | Column | Rule figures | Adjudicated (not blind) |
 |---|---|---|---|
-| Trump I, government as applicant | 25 of 33 | 26 of 34 | 26 of 34 (39 filed of 49) |
-| Biden, government as applicant | 10 of 15 | 12 of 20 | 10 of 15 (16 filed of 83) |
-| Trump II, government as applicant | 27 of 33 | 27 of 33 | 26 of 32 (41 filed of 50) |
+| Trump I, government as applicant | 25 of 33 | 26 of 34 | 26 of 34 (39 filed by the government, of 49 in scope) |
+| Biden, government as applicant | 10 of 15 | 12 of 20 | 10 of 15 (16 filed by the government, of 83 in scope) |
+| Trump II, government as applicant | 27 of 33 | 27 of 33 | 26 of 32 (41 filed by the government, of 50 in scope) |
 | Trump I, controversies | 18 of 24 | 29 of 36 | 23 of 27 |
 | Biden, controversies | 29 of 39 | 24 of 37 | 31 of 45 |
 | Biden, controversies challengers started | 21 of 27 | 14 of 19 | 23 of 32 |
@@ -252,8 +284,9 @@ out or unknown, every one a challenger's application: among them the CDC mask
 mandate, the Air Force vaccine mandate, three OSHA applications and an EPA
 power-plant application. Under Biden the rule's government pair carries six
 applications the adjudication sets aside or reads as a challenger's (two wins,
-three losses and one pending), which is the whole gap between 12 of 20 and
-10 of 15.
+three losses and one with no disposition stored), which is the whole gap
+between 12 of 20 and 10 of 15. Two of the six are a bankruptcy trustee's
+objection (23A87) and a suit over a state law (23A814).
 
 ## 5. Deltas the release cannot close
 
@@ -278,8 +311,34 @@ three losses and one pending), which is the whole gap between 12 of 20 and
 publication, and what the reviewer found. A blocker is fixed or rebutted in
 writing.
 
-**Pass run** ‹date of the pass over the filled documents›. Verdict:
-‹verdict›. Disposition: ‹each finding and what was done›.
+**Pass run 2026-11-08** over both filled documents, with every figure checked
+against the saved output of the section 1 command and the adjudication's
+output. Verdict: **changes needed**. No quoted number was found wrong.
+Disposition:
+
+1. *Blocker, public page:* no unknown-scope count beside the pairs. **Fixed:**
+   the page names the 17, 24 and 7 unplaced applications under the table, and
+   section 2 says each exceeds its administration's gap.
+2. *Blocker, public page:* "the pattern the column describes is there too"
+   reported only the matching areas. **Fixed:** the page now gives the
+   mismatches too (Biden education, immigration and health), and section 3
+   states the comparison area by area.
+3. *Blocker, public page:* it named two applications as part of the Biden gap
+   from the rule-against-column comparison, which cannot show membership.
+   **Fixed:** they are attributed to the rule-against-adjudication difference,
+   which section 4 now lists.
+4. *Recommended:* per-area uncertain counts. **Fixed:** a column in section 3,
+   and the public page says some labels are uncertain.
+5. *Recommended:* "immigration is where the government did best" ranked small
+   cells. **Fixed:** the ranking is gone.
+6. *Recommended:* five "pending" applications filed 2017–2022 have no stored
+   disposition. **Fixed:** named in section 2 as gaps in the stored record.
+7. *Recommended:* the re-read claim was broader than the re-read. **Fixed.**
+8. *Recommended:* coverage was not stated. **Fixed:** section 1.
+9. *Nits:* the adjudicated denominators' wording, the adjudication's
+   controversy ordering, `controversy_unlinked` beside the controversy pairs,
+   the 163 against 165 total, and a headline that read stronger than its
+   table. **All fixed.**
 
 ## 7. The publishing tag
 
@@ -320,5 +379,6 @@ maintainer's, in this order:
    Zenodo's GitHub integration archives the repository at that tag as a new
    version of the project's software record, cited by its concept DOI
    `10.5281/zenodo.22966596` beside the tag.
-4. **The dataset record.** ‹whether this release deposits a dataset, and if so
-   what it holds›.
+4. **No dataset record.** The release deposits no dataset: its figures come
+   from the access-gated corpus through the command in section 1, and its hand
+   codes are not published. `data_doi` stays null in the manifest.
