@@ -244,6 +244,29 @@ def test_incremental_read_merges_into_the_stored_docket(tmp_path: Path) -> None:
     assert [e["id"] for e in done.added] == [5]
 
 
+def test_an_entry_whose_document_became_readable_is_reported(tmp_path: Path) -> None:
+    db = _db(tmp_path)
+    sealed = {"id": 70, "attachment_number": None, "is_available": False}
+    first = FakeClient({7: [{"id": 1, "description": "Order", "recap_documents": [sealed]}]})
+    refresh_docket(
+        _client(first), db, _planned(7, ReadMode.onboard), max_entry_pages=150, today=TODAY
+    )
+    since = TODAY - timedelta(days=2)
+    readable = {**sealed, "is_available": True}
+    second = FakeClient(
+        {}, changed={7: [{"id": 1, "description": "Order", "recap_documents": [readable]}]}
+    )
+    done = refresh_docket(
+        _client(second),
+        db,
+        _planned(7, ReadMode.incremental, since),
+        max_entry_pages=150,
+        today=TODAY + timedelta(days=1),
+    )
+    assert done.added == ()
+    assert [(e["id"], ids) for e, ids in done.gained] == [(1, frozenset({70}))]
+
+
 def test_an_unchanged_docket_stores_no_new_snapshot(tmp_path: Path) -> None:
     db = _db(tmp_path)
     entries = {7: [{"id": 1, "description": "Complaint"}]}

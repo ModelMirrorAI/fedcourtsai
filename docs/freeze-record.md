@@ -17717,3 +17717,176 @@ freeze commit is recorded here.
   statpack refreshed after it, at commit `56230cceb4a2de447f0fbc447bd0f9443c069481`,
   reads the OT2025 pool as `154/1254` and the
   OT2024 pool as `138/1060`.
+
+- **`proc-v20`, judges rebuild the statpack a candidate read, and the predict
+  prompt names the Solicitor General's posted filing on a paper-only docket;
+  recorded 2026-11-07.** Carried to `main` by the promotion tagged `<FILL: promotion tag>`
+  (merge commit `<FILL: merge hash>`, merged `<FILL: merged-at>`), to be tagged
+  **`prereg/proc-v20`**. Registered under the merge-stamped rule, so its
+  counting instant, its bless moments and every window edge it moves are the
+  carrying merge's committer time. Both prompts change, so all six digests
+  move. No harness boundary is registered here, and no scored number moves.
+
+  **What changes.**
+  - *The evaluate prompt.* Where it names the committed `metrics/statpack.md`
+    as the base-rate surface, it now says that pack is the judge's, and that a
+    refresh may have landed after a candidate ran. Before marking a
+    candidate's base-rate figure wrong for disagreeing with it, a judge runs
+    `fedcourts statpack-at` on the candidate's blinded copy, which names the
+    build the candidate was placed against (its `context.statpack_digest`, or
+    a cert cell's `cert_anchor`, checked against `main`'s first-parent
+    statpack history at its run id) and writes that build's `statpack.json`
+    and `statpack.md` to a scratch directory outside the tree. The judge
+    grades the candidate's base-rate use against that build and says so in
+    `evaluation.md`. Where the bound leaves two builds possible, both are
+    written and a figure matching either is not wrong. Where the command
+    fails, the judge grades against the committed pack and says so. The
+    command reads only the statpack's own history, so it stays inside the
+    blind.
+  - *The predict prompt.* Its paper-only sentence now says that on such a
+    docket with the United States as a party the government's own filing
+    may still be staged: its petition (with the questions presented
+    extracted from it), its brief in opposition or its cert-stage reply, from the copy the
+    Solicitor General's office posts, under the usual kinds and cut at the
+    Court's own entry. A cell reads it like any staged document, treats the
+    other side's absent papers as absent rather than silent, and says in
+    `reasoning.md` that only the government's filing was staged.
+
+  **Why.** The evaluate change answers the judges' flags on 26A612 and
+  26A634 (evaluate `20261105T213408Z`): candidates placed before the
+  application-reread refresh saw zero finer interim counts, the judges read
+  the refreshed pack, and they could not tell which figures a forecast was
+  formed from. The harness half, which records the build on every predict
+  cell and adds the command, changed no digest and rides the promotion cut
+  as `promote/2026-11-07-2`. The PR carrying this label also changes that
+  command, with no digest moving: it bounds a blinded copy by the document's
+  own run id (the masked copy's directory is an alias, not a run id), writes
+  the second build under `alternative/` where two are possible, and passes
+  its repository as a `safe.directory` on the git command line, since a
+  judge that runs as its own user (the codex judge) would otherwise be
+  refused the runner-owned checkout. Where nothing recorded a build and the
+  bound came from the document, the run id is the candidate's word; a
+  recorded digest is checked against the builds at that bound, so a wrong
+  run id fails the command and the judge falls back to the committed pack. The predict sentence is the one the 2026-11-07
+  entry *A paper-only docket stages the Solicitor General's own posted
+  filing* left true but incomplete: cells on either side of this label are
+  given the same documents under the `sg-posted-briefs` boundary, which is
+  not re-registered, and only the instruction for reading them differs. That
+  entry is not otherwise edited. No score motivates either change.
+
+  **Pre-registered.** No skill movement is predicted. The evaluate change can
+  move any judge-authored grade (`reasoning_quality`,
+  `predicted_reasoning_quality`, and a claim a judge grades as a base-rate
+  misreading) on a cell graded after a refresh that
+  postdates its placement, in the direction of fewer base-rate errors
+  charged. A movement in **either** direction across this label in those
+  grades, or in skill on paper-only dockets, is not read as a model effect:
+  the first population is whatever cells a refresh happens to straddle, and
+  the second is a handful of dockets (6 in the boundary entry's
+  measurement).
+
+  **The amendment debt.** It is unchanged. This entry adds no new token.
+
+  The runnable effect check once it is live:
+  - on `main`, `uv run python -c "from fedcourtsai.process_version import
+    CURRENT_PROCESS_LABEL as L; print(L)"` prints `proc-v20`, and `uv run
+    fedcourts process-digest --all` prints the six digests below;
+  - `grep -c 'statpack-at' .github/prompts/evaluate.md` and `grep -c
+    "only the government's filing" .github/prompts/predict.md` on `main`
+    each print a count above 0 (the second prints 0 on `proc-v19`);
+  - on the first evaluate run's collect PR after the carrying merge whose
+    candidates were placed before the newest statpack refresh, an
+    evaluation's `retrieval.md` or `evaluation.md` names a `statpack-at`
+    call, or the cell's `retrieval_log.json` logs one.
+
+  **The registration** (`uv run fedcourts register-process --label
+  proc-v20`, run 2026-11-07 over `staging` at `e364c2464` with `proc-v19`
+  stamped). All six digests move.
+
+  | Actor | Before | `proc-v20` |
+  | --- | --- | --- |
+  | `claude-baseline` | `sha256:1789dc26189e0e14ae71d9ed1f622751dd2c849d8fba4a85542336fab0b15080` (`proc-v19`) | `sha256:69076c7e6ef3b55358bbb298c3ab3e821f14f7ce165f7a1eed2e51a550f5ca21` (new) |
+  | `codex-baseline` | `sha256:a939a164bc3cb0658e12c0c98b2300a878aecea15a93189e96579103382002d8` (`proc-v19`) | `sha256:56f5da33ed8eeda29c8094135a9141710b69c76fb939abe281da85d263d238a7` (new) |
+  | `gemini-baseline` | `sha256:889d53dc033d7303ca39cf2bf3faa859dc0886a296ed2f0ad5ac00edf96705b7` (`proc-v19`) | `sha256:154ba5e6732eb9627dfa988245cba7a2f5a5682fa4b9bf6ac5d0c7e6e4e984de` (new) |
+  | `claude-judge` | `sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf` (`proc-v17`) | `sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768` (new) |
+  | `codex-judge` | `sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a` (`proc-v17`) | `sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c` (new) |
+  | `gemini-judge` | `sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9` (`proc-v17`) | `sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5` (new) |
+
+  **What was made under the retiring digests.** At `origin/main`
+  `f4a505ff2` (`2026-11-07T17:00:14Z`), committed files under `data/cases`
+  naming each retiring digest: 0 for each of the three `proc-v19` predictor
+  digests (the label was stamped at 15:59Z and no predict round had landed
+  since), and 21 for each of the three `proc-v17` evaluator digests.
+
+  **Step 0.** At the same commit, the count of committed files under
+  `data/cases` naming `sha256:<digest>` is **0** for each of the six newly
+  blessed digests, and **3543** files there carry a `process_version` stamp.
+
+  **Windows** (`COUNTING_WINDOWS`, once the carrying merge stamps them):
+
+  | Predictor | Label | Opens | Closes |
+  | --- | --- | --- | --- |
+  | `claude-baseline` (`1789dc26…`) | `proc-v19` | `2026-11-07T15:59:33Z` | this label's instant (was open) |
+  | `codex-baseline` (`a939a164…`) | `proc-v19` | `2026-11-07T15:59:33Z` | this label's instant (was open) |
+  | `gemini-baseline` (`889d53dc…`) | `proc-v19` | `2026-11-07T15:59:33Z` | this label's instant (was open) |
+  | `claude-baseline` (`ce61f013…`) | `proc-v20` | this label's instant | open (new) |
+  | `codex-baseline` (`9ea12185…`) | `proc-v20` | this label's instant | open (new) |
+  | `gemini-baseline` (`ee73c2f4…`) | `proc-v20` | this label's instant | open (new) |
+
+  Earlier windows keep the closes earlier labels gave them.
+
+  **What the close owes, provisional.** Run with this commit's pending rows
+  stamped by hand at a provisional instant, `2026-11-08T00:00:00Z`, in a
+  scratch copy of the registry, over the ledger at `origin/main`
+  `f4a505ff2`. `uv run fedcourts successor-disclosures --closed proc-v19
+  --successor proc-v20`:
+
+  ```
+  successor proc-v20 closes proc-v19 at 2026-11-08T00:00:00+00:00
+    closed proc-v19 (no cells): 0 counted event(s) — 0 resolved, 0 pending at close
+    closed proc-v19 (no cells): 0 counted event(s) — 0 resolved, 0 pending at close
+    closed proc-v19 (no cells): 0 counted event(s) — 0 resolved, 0 pending at close
+    split events: 0 (0 resolved) — in no complete grid
+  ```
+
+  Cells keep landing until the instant, so the run is repeated once the
+  carrying merge has stamped the registry, and a dated follow-up entry quotes
+  it before any `proc-v19` window figure is quoted outside the committed
+  board.
+
+- **Readings the `proc-v19` entry owes, recorded 2026-11-07.** No rule moves
+  here. The `proc-v19` entry (dated 2026-11-07), carried to `main` by
+  `promotion/2026-11-07` (merge `18f62b8a7`, registry stamped by `aae734d87`)
+  and tagged `prereg/proc-v19`, quoted its `successor-disclosures` lines at
+  a provisional instant and owed them again once the carrying merge had
+  stamped the registry, before any figure of a `proc-v18` window is quoted
+  outside the committed board. That entry is not otherwise edited.
+
+  The run reads the ledger and registry at `origin/main`'s `80955ad65`
+  (`2026-11-07T18:19:10Z`), after the stamp and after `promotion/2026-11-07-2`,
+  which stamps no label. No `proc-v19` predict cell
+  had landed by then: the 17:33Z round's plan owed none.
+
+  **`proc-v19` closes `proc-v18`.** `uv run fedcourts successor-disclosures
+  --closed proc-v18 --successor proc-v19` prints:
+
+  ```
+  successor proc-v19 closes proc-v18 at 2026-11-07T15:59:33+00:00
+    closed proc-v18 codex-baseline: 4 counted event(s) — 0 resolved, 4 pending at close
+    closed proc-v18 gemini-baseline: 4 counted event(s) — 0 resolved, 4 pending at close
+    closed proc-v18 claude-baseline: 4 counted event(s) — 0 resolved, 4 pending at close
+    split events: 0 (0 resolved) — in no complete grid
+  ```
+
+  The closed lines match the provisional run's (4 counted events per engine,
+  none resolved), though the stamped instant, `2026-11-07T15:59:33Z`, fell
+  earlier than the provisional `2026-11-08T00:00:00Z`. No successor-counted
+  line prints because no engine has committed a `proc-v19` cell yet, so
+  there is no earlier-window failure, uncounted cell or missing cell to
+  disclose, and no `graded by` line prints because no grading of a
+  `proc-v18`-window cell is recorded yet.
+
+  The closed-window resolved counts can still move: an outcome dated on or
+  before the close's day may land late, and an event void de-counts what it
+  names. The split, partition and grading lines also move as cells,
+  outcomes and gradings land.

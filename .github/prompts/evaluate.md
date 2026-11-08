@@ -912,8 +912,26 @@ the slot is empty — an empty slot is the mask, and a body this cell's record
 does not carry is not in the record. And the committed
 `metrics/statpack.md` carries the base-rates (its cert statistics are
 live/historical-slice, denial-reweighted estimates — each section's scope line
-says so). When you grade a replay cell's base-rate use, the per-Term table is
-the surface it should have self-selected pre-cutoff rows from. Write **one**
+says so). That is the pack checked out for *you*; a metrics refresh may have
+landed after a candidate ran, so its figures can differ from the pack it read.
+Before you mark a candidate's base-rate figures wrong for disagreeing with the
+committed pack, rebuild the one it was placed against:
+`uv run fedcourts statpack-at
+data/cases/$COURT_ID/$DOCKET_ID/record/blinded/<alias>/ --ref origin/main
+--out-dir /tmp/statpack-at/<alias>` prints the build (the
+candidate's `context.statpack_digest`, or a cert cell's `cert_anchor`, checked
+against `main`'s statpack history at its run id) and writes that build's
+`statpack.json` and `statpack.md` to the scratch directory, outside the tree
+(scratch there is not output, so it is inside your lane).
+It reads only the statpack's own history, so it is inside the blind. Grade the
+candidate's base-rate use against that build, and say in `evaluation.md` which
+build you graded against where it is not the committed one. A non-null
+`alternative_sha` means the candidate recorded no build and either of two
+could have been in force; that one is written under `alternative/` in the same
+directory, and a figure matching either build is not wrong. Where the command
+exits non-zero, grade against the committed pack and say so. When you grade a
+replay cell's base-rate use, the per-Term table is the surface it should have
+self-selected pre-cutoff rows from. Write **one**
 `retrieval.md` for this cell, at
 `data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/evaluations/$EVALUATOR_ID/$RUN_ID/retrieval.md`
 — your retrieval log: each corpus lookup (command + its `ranged corpus reads: …`

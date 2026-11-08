@@ -1,26 +1,46 @@
 from datetime import date
 from pathlib import Path
-from typing import Any
+from typing import Any, get_args
 
 import pytest
 from typer.testing import CliRunner
 
 from fedcourtsai.ai_activity import (
+    ACTIVITY_RULE,
+    AVAILABILITY_RULE,
+    PRINCIPAL_MOTIONS,
+    AvailableKind,
     EntryKind,
     activity_entries,
     activity_path,
+    available_entries,
+    became_available,
     classify,
+    classify_available,
     entry_url,
     new_significant,
+    principal_motion,
     record_activity,
 )
 from fedcourtsai.ai_cases_update import (
+    AVAILABLE_PER_CASE,
+    COURT_NAMES,
+    MOTION_LABELS,
+    SECTIONS,
     ai_cases_subject,
     build_ai_cases_update,
     render_ai_cases_update,
 )
+from fedcourtsai.ai_rulings import owed_rulings
+from fedcourtsai.ai_watchlist import AI_WATCHLIST_FILENAME, AiWatchlist, load_ai_watchlist
 from fedcourtsai.cli import app
-from fedcourtsai.schemas import AiCaseActivity
+from fedcourtsai.schemas import (
+    AiActivityKind,
+    AiActivityMotion,
+    AiCaseActivity,
+    AiCaseActivityEntry,
+    AiCaseAvailableEntry,
+)
 from fedcourtsai.serialize import read_model
 from fedcourtsai.validate import validate_ledger
 
@@ -246,9 +266,11 @@ def test_the_update_groups_a_span_by_case_and_quotes_no_docket_text(tmp_path: Pa
         == "AI cases in federal court: October 26 \N{EN DASH} November 1, 2026"
     )
     text = render_ai_cases_update(update)
-    assert "## Anthropic v. Department of War" in text
+    assert "## Rulings" in text
+    assert "### Anthropic v. Department of War" in text
     assert "*Government*" in text
-    assert "- Oct 27: Judgment (cand 3:26-cv-01996, entry 252)." in text
+    assert "**This update:** 1 ruling" in text
+    assert "- Oct 27: Judgment (N.D. Cal. 3:26-cv-01996, entry 252)." in text
     assert "CourtListener" in text.split("---")[-1]
     empty = build_ai_cases_update(tmp_path, date(2026, 11, 2), date(2026, 11, 8))
     assert empty.empty
@@ -256,7 +278,7 @@ def test_the_update_groups_a_span_by_case_and_quotes_no_docket_text(tmp_path: Pa
     assert ai_cases_subject(one_day) == "AI cases in federal court: October 30, 2026"
 
 
-def test_post_dry_run_prints_the_draft_and_an_empty_span_exits_three(
+def test_post_dry_run_prints_the_draft_and_a_quiet_span_posts_the_quiet_note(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _recorded(tmp_path)
@@ -271,11 +293,382 @@ def test_post_dry_run_prints_the_draft_and_an_empty_span_exits_three(
     assert "Tag: ai-cases" in posted.output
 
     quiet = runner.invoke(
-        app, ["post-ai-cases-update", "--tag", "ai-cases", "--day", "2026-11-03", "--dry-run"]
+        app, ["post-ai-cases-update", "--tag", "ai-cases", "--week", "2026-W45", "--dry-run"]
     )
-    assert quiet.exit_code == 3
+    assert quiet.exit_code == 0, quiet.output
+    assert "No new rulings or major filings this week in the " in quiet.output
+    assert "This update:" not in quiet.output
+    one_day = runner.invoke(app, ["ai-cases-update", "--day", "2026-11-03"])
+    assert one_day.exit_code == 0
+    assert "No new rulings or major filings in this span" in one_day.output
     both = runner.invoke(
         app,
         ["post-ai-cases-update", "--tag", "ai-cases", "--day", "2026-11-03", "--week", "2026-W44"],
     )
     assert both.exit_code == 2
+
+
+@pytest.mark.parametrize(
+    ("description", "motion"),
+    [
+        ("MOTION to Dismiss filed by Anthropic PBC.", "dismiss"),
+        ("ORDER GRANTING Dkt. No. 45 MOTION TO DISMISS.", "dismiss"),
+        (
+            "ORDER ON 166 215 CROSS MOTIONS FOR SUMMARY JUDGMENT; GRANTING 169 MOTION TO "
+            + "SUPPLEMENT THE ADMINISTRATIVE RECORD.",
+            "summary-judgment",
+        ),
+        ("MOTION for Partial Summary Judgment filed by Meta.", "partial-summary-judgment"),
+        ("MOTION for Preliminary Injunction filed by Anthropic PBC.", "preliminary-injunction"),
+        ("ORDER granting Motion to Stay pending appeal.", "stay-pending-appeal"),
+        ("ORDER denying Motion for Class Certification.", "class-certification"),
+        ("OPINION AND ORDER re: 112 MOTION to Dismiss. The motion is GRANTED in part.", "dismiss"),
+        ("MEMORANDUM OPINION. Signed by Judge Stephanos Bibas.", None),
+        ("JUDGMENT.", None),
+        (
+            "ORDER certifying question for interlocutory appeal; GRANTING motion to dismiss.",
+            "dismiss",
+        ),
+        ("ORDER granting the Certified motion to dismiss.", "dismiss"),
+        ("MOTION for Leave to File Motion to Dismiss filed by OpenAI.", None),
+        ("COMPLAINT against OpenAI, Inc.", None),
+        ("NOTICE OF APPEAL to the 9th Circuit.", None),
+    ],
+)
+def test_the_record_names_the_principal_motion(description: str, motion: str | None) -> None:
+    assert principal_motion(_entry(1, description)) == motion
+
+
+def test_every_motion_label_is_in_the_schema_and_in_the_readers_words() -> None:
+    labels = {label for label, _ in PRINCIPAL_MOTIONS}
+    assert labels == set(get_args(AiActivityMotion)) == set(MOTION_LABELS)
+
+
+def test_every_watchlist_court_has_a_readers_name() -> None:
+    watchlist = load_ai_watchlist(Path("config") / AI_WATCHLIST_FILENAME)
+    courts = {court for case in watchlist.cases for court, _ in case.dockets()}
+    courts |= {r.court for case in watchlist.cases for r in case.related}
+    assert courts <= set(COURT_NAMES)
+
+
+def _activity(
+    case: str, category: str, entry_id: int, kind: str, filed: date, motion: str | None = None
+) -> AiCaseActivityEntry:
+    return AiCaseActivityEntry.model_validate(
+        {
+            "case": case,
+            "category": category,
+            "court": "nysd",
+            "docket_id": 1,
+            "docket_number": "1:25-cv-01234",
+            "entry_id": entry_id,
+            "entry_number": entry_id,
+            "date_filed": filed,
+            "kind": kind,
+            "motion": motion,
+            "url": f"https://www.courtlistener.com/docket/1/#entry-{entry_id}",
+        }
+    )
+
+
+def test_the_update_orders_cases_by_their_weightiest_item_and_introduces_them(
+    tmp_path: Path,
+) -> None:
+    filings = [
+        _activity("Filer v. Lab", "copyright", 1, "complaint", date(2026, 11, 2)),
+        _activity("Appellant v. Lab", "employment", 2, "appeal", date(2026, 11, 3)),
+        _activity("Authors v. Lab", "copyright", 3, "motion", date(2026, 11, 3), "dismiss"),
+        _activity("Authors v. Lab", "copyright", 4, "ruling", date(2026, 11, 6), "dismiss"),
+    ]
+    record_activity(tmp_path, date(2026, 11, 7), filings)
+    watchlist = AiWatchlist.model_validate(
+        {
+            "categories": {"copyright": "Copying.", "employment": "Hiring."},
+            "cases": [
+                {
+                    "name": "Authors v. Lab",
+                    "court": "nysd",
+                    "docket_id": 1,
+                    "docket_number": "1:25-cv-01234",
+                    "category": "copyright",
+                    "why": "Training a model on the authors' books.",
+                    "developers": ["Lab"],
+                    "added": "2026-10-30",
+                }
+            ],
+        }
+    )
+    update = build_ai_cases_update(tmp_path, date(2026, 11, 2), date(2026, 11, 8), watchlist)
+    text = render_ai_cases_update(update, title=False)
+    assert "in the 1 federal AI case FedCourtsAI follows" in text
+    assert "**This update:** 1 ruling \N{MIDDLE DOT} 1 appeal \N{MIDDLE DOT} 2 new filings" in text
+    order = [
+        text.index(h)
+        for h in (
+            "## Rulings",
+            "### Authors v. Lab",
+            "## Appeals and settlements",
+            "### Appellant v. Lab",
+            "## New filings",
+            "### Filer v. Lab",
+        )
+    ]
+    assert order == sorted(order)
+    # A case keeps all its items under its weightiest section.
+    authors = text.split("### Authors v. Lab")[1].split("##")[0]
+    assert "Motion to dismiss filed (S.D.N.Y. 1:25-cv-01234, entry 3)" in authors
+    assert "Ruling on a motion to dismiss (S.D.N.Y. 1:25-cv-01234, entry 4)" in authors
+    assert "*Copyright · S.D.N.Y. · Training a model on the authors' books.*" in authors
+    assert "[fedcourts.ai](https://fedcourts.ai/)" in text.split("---")[-1]
+
+
+def test_every_kind_has_a_section() -> None:
+    assert set().union(*(kinds for _, kinds in SECTIONS)) == set(get_args(AiActivityKind))
+
+
+def _docs(*docs: tuple[int, int | None, bool, str]) -> list[dict[str, Any]]:
+    return [
+        {"id": i, "attachment_number": a, "is_available": readable, "description": d}
+        for i, a, readable, d in docs
+    ]
+
+
+def _with_docs(entry_id: int, description: str, docs: list[dict[str, Any]]) -> dict[str, Any]:
+    entry = _entry(entry_id, description, filed="2026-10-10", number=entry_id)
+    entry["recap_documents"] = docs
+    return entry
+
+
+def test_became_available_lists_held_entries_that_gained_readable_documents() -> None:
+    before = _with_docs(1, "ORDER GRANTING MOTION TO DISMISS.", _docs((10, None, False, "")))
+    after = _with_docs(1, "ORDER GRANTING MOTION TO DISMISS.", _docs((10, None, True, "")))
+    new = _with_docs(2, "COMPLAINT against OpenAI.", _docs((20, None, True, "")))
+    gained = became_available([before], [after, new])
+    assert [(e["id"], ids) for e, ids in gained] == [(1, frozenset({10}))]
+    # Readable already: nothing gained.
+    assert became_available([after], [after]) == []
+
+
+@pytest.mark.parametrize(
+    ("description", "docs", "gained", "expected"),
+    [
+        (
+            "ORDER GRANTING Dkt. No. 45 MOTION TO DISMISS.",
+            _docs((10, None, True, "")),
+            {10},
+            (AvailableKind.ruling, 1, "dismiss"),
+        ),
+        (
+            "COMPLAINT against OpenAI.",
+            _docs((10, None, True, "")),
+            {10},
+            (AvailableKind.complaint, 1, None),
+        ),
+        (
+            "MOTION for Summary Judgment filed by Meta. "
+            + "(Attachments: # 1 Exhibit A, # 2 Exhibit B)",
+            _docs((10, None, True, ""), (11, 1, True, ""), (12, 2, True, "")),
+            {11, 12},
+            (AvailableKind.exhibits, 2, "summary-judgment"),
+        ),
+        (
+            "OPPOSITION/RESPONSE (re 35 MOTION for Class Certification) filed by Workday.",
+            _docs((10, None, False, ""), (11, 1, True, "")),
+            {11},
+            (AvailableKind.exhibits, 1, "class-certification"),
+        ),
+        (
+            "EXHIBITS re 806 Joint Administrative Motion to File Under Seal re Parties' "
+            + "Summary Judgment Briefing",
+            _docs((10, None, False, ""), (11, 1, True, "")),
+            {11},
+            (AvailableKind.exhibits, 1, "summary-judgment"),
+        ),
+        (
+            "REDACTED VERSION of Opposition to Motion to Dismiss filed by Anthropic.",
+            _docs((10, None, True, ""), (11, 1, True, "")),
+            {10, 11},
+            (AvailableKind.unsealed, 2, "dismiss"),
+        ),
+        (
+            "TRANSCRIPT of Proceedings held on 10/1/2026 before Judge X.",
+            _docs((10, None, True, "")),
+            {10},
+            (AvailableKind.transcript, 1, None),
+        ),
+        (
+            "TRANSCRIPT of Status Conference held on 10/1/2026.",
+            _docs((10, None, True, "")),
+            {10},
+            None,
+        ),
+        (
+            "Statement - Issue Statement Regarding Discovery by Anthropic.",
+            _docs((10, None, True, "")),
+            {10},
+            None,
+        ),
+        (
+            "MOTION to Compel Discovery filed by Amazon. (Attachments: # 1 Exhibit)",
+            _docs((10, None, True, ""), (11, 1, True, "")),
+            {11},
+            None,
+        ),
+        ("NOTICE of Appearance by Y.", _docs((10, None, True, "")), {10}, None),
+        (
+            "MOTION to Unseal Document 45 filed by Intervenor.",
+            _docs((10, None, True, "")),
+            {10},
+            None,
+        ),
+        ("ORDER granting 50 Motion to Unseal.", _docs((10, None, True, "")), {10}, None),
+        (
+            "MEMORANDUM OPINION AND ORDER re 30 MOTION to Dismiss (public redacted version).",
+            _docs((10, None, True, "")),
+            {10},
+            (AvailableKind.opinion, 1, "dismiss"),
+        ),
+        (
+            "MOTION for Leave to File Excess Pages for Opposition to Motion for Summary "
+            + "Judgment. (Attachments: # 1 Exhibit)",
+            _docs((10, None, True, ""), (11, 1, True, "")),
+            {11},
+            None,
+        ),
+        (
+            "MOTION for Extension of Time to File Response as to 20 MOTION to Dismiss. "
+            + "(Attachments: # 1 Exhibit)",
+            _docs((10, None, True, ""), (11, 1, True, "")),
+            {11},
+            None,
+        ),
+        (
+            "MOTION to Seal exhibits to motion for summary judgment. (Attachments: # 1 Exhibit)",
+            _docs((10, None, True, ""), (11, 1, True, "")),
+            {11},
+            None,
+        ),
+        (
+            "MOTION to Dismiss filed by OpenAI. (Attachments: # 1 Proposed Order)",
+            _docs((10, None, True, ""), (11, 1, True, "Proposed Order")),
+            {11},
+            None,
+        ),
+        (
+            "Defendant's Notice of Motion and Motion to Exclude Expert Testimony of Dr. X.",
+            _docs((10, None, False, ""), (11, 1, True, "Exhibit 1")),
+            {11},
+            (AvailableKind.exhibits, 1, None),
+        ),
+        (
+            "TRANSCRIPT REQUEST by Plaintiff for proceedings held on 10/1/2026.",
+            _docs((10, None, True, "")),
+            {10},
+            None,
+        ),
+        (
+            "TRANSCRIPT of Discovery Conference held on 10/1/2026.",
+            _docs((10, None, True, "")),
+            {10},
+            None,
+        ),
+        (
+            "DECLARATION of X in Opposition to Motion. (Attachments: # 1 Exhibit A)",
+            _docs((10, None, False, ""), (11, 1, True, "Redacted Exhibit A")),
+            {11},
+            (AvailableKind.unsealed, 1, None),
+        ),
+    ],
+)
+def test_the_availability_rule_keeps_significant_documents(
+    description: str,
+    docs: list[dict[str, Any]],
+    gained: set[int],
+    expected: tuple[AvailableKind, int, str | None] | None,
+) -> None:
+    assert classify_available(_with_docs(1, description, docs), frozenset(gained)) == expected
+
+
+def test_available_entries_skip_old_history_and_render_last_by_case(tmp_path: Path) -> None:
+    ruling = _with_docs(
+        30, "ORDER GRANTING Dkt. No. 45 MOTION TO DISMISS.", _docs((300, None, True, ""))
+    )
+    old = _entry(31, "COMPLAINT against OpenAI.", filed="2026-07-01", number=1)
+    old["recap_documents"] = _docs((310, None, True, ""))
+    exhibits = [
+        _with_docs(
+            40 + i,
+            "MOTION for Summary Judgment. (Attachments: # 1 Exhibit A)",
+            _docs((400 + i, 1, True, "")),
+        )
+        for i in range(6)
+    ]
+    gained = [(ruling, frozenset({300})), (old, frozenset({310}))]
+    gained += [(e, frozenset({400 + i})) for i, e in enumerate(exhibits)]
+    found = available_entries(
+        "Anthropic v. Department of War", "government", DOCKET, gained, today=TODAY
+    )
+    assert [e.entry_id for e in found] == [30, 40, 41, 42, 43, 44, 45]
+    path = record_activity(tmp_path, TODAY, [], found)
+    assert path is not None
+    record = read_model(path, AiCaseActivity)
+    assert record.entries == [] and record.available_rule == AVAILABILITY_RULE
+    assert validate_ledger(tmp_path).ok
+    update = build_ai_cases_update(tmp_path, date(2026, 10, 26), date(2026, 11, 1))
+    text = render_ai_cases_update(update, title=False)
+    assert "**This update:** 7 newly readable" in text
+    assert "## Newly available" in text
+    assert "- Ruling on a motion to dismiss of Oct 10 is now readable (N.D. Cal." in text
+    assert "1 exhibit filed Oct 10 with a motion for summary judgment is now readable" in text
+    assert text.count("exhibit filed") == AVAILABLE_PER_CASE - 1
+    assert "- And 2 more in this case. [View the docket]" in text
+    assert "MOTION for Summary" not in text
+
+
+def test_a_ruling_that_became_readable_is_owed_a_summary(tmp_path: Path) -> None:
+    ruling = _with_docs(
+        30, "ORDER GRANTING Dkt. No. 45 MOTION TO DISMISS.", _docs((300, None, True, ""))
+    )
+    found = available_entries(
+        "Anthropic v. Department of War",
+        "government",
+        DOCKET,
+        [(ruling, frozenset({300}))],
+        today=TODAY,
+    )
+    record_activity(tmp_path, TODAY, [], found)
+    assert [e.entry_id for e in owed_rulings(tmp_path, TODAY)] == [30]
+
+
+def test_a_record_needs_an_entry_and_the_availability_label_with_its_list() -> None:
+    with pytest.raises(ValueError, match="at least one entry"):
+        AiCaseActivity(day=TODAY, rule=ACTIVITY_RULE)
+    entry = _activity("A v. B", "copyright", 1, "complaint", TODAY)
+    with pytest.raises(ValueError, match="available_rule"):
+        AiCaseActivity(day=TODAY, rule=ACTIVITY_RULE, entries=[entry], available_rule="x")
+
+
+def test_one_entry_recorded_twice_keeps_the_weightier_kind(tmp_path: Path) -> None:
+    def readable(kind: str, documents: int) -> AiCaseAvailableEntry:
+        return AiCaseAvailableEntry.model_validate(
+            {
+                "case": "A v. B",
+                "category": "copyright",
+                "court": "cand",
+                "docket_id": 1,
+                "docket_number": "3:26-cv-00001",
+                "entry_id": 9,
+                "date_filed": "2026-10-20",
+                "kind": kind,
+                "documents": documents,
+                "url": "https://www.courtlistener.com/docket/1/#entry-9",
+            }
+        )
+
+    record_activity(tmp_path, TODAY, [], [readable("ruling", 1)])
+    record_activity(tmp_path, TODAY, [], [readable("exhibits", 3)])
+    path = record_activity(tmp_path, TODAY, [], [readable("exhibits", 2)])
+    assert path is not None
+    [kept] = read_model(path, AiCaseActivity).available
+    assert (kept.kind, kept.documents) == ("ruling", 1)
+    assert [e.entry_id for e in owed_rulings(tmp_path, TODAY)] == [9]

@@ -653,7 +653,7 @@ though the Court does not.
 
 **Model summaries of the AI watchlist's rulings** are a public surface:
 the AI-cases update carries, under an activity record for an opinion, a
-ruling or a judgment, a short plain-language summary of that ruling, labeled
+ruling or a judgment (new, or newly readable), a short plain-language summary of that ruling, labeled
 with the model that wrote it, as the case summaries are
 ([case-summaries.md](case-summaries.md), *AI watchlist rulings*). The update
 renders without it. The question is what such a summary may be
@@ -749,7 +749,7 @@ and the prompt asks for a summary in the model's own words rather than
 quotation. Beside them sit the AI watchlist's activity records
 (`data/ai-cases/activity/`), on the footing of the `order-scan` report below:
 court-record identifiers (court, docket and entry numbers, filing dates), the
-kind our rule reads from each entry, the watchlist's own case name, and a link
+kind our rule reads from each entry (and the principal motion it names), how many of an entry's documents became readable, the watchlist's own case name, and a link
 to the entry on CourtListener, whose path carries CourtListener's slug of the
 docket caption. They copy no entry text and no CourtListener value-add field.
 There is also a **non-git** public

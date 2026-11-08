@@ -154,8 +154,16 @@ the output directory you will write to.
    entry), the Court posts nothing behind them, and an empty or missing
    `record/documents/` is expected: it is not a provisioning failure and not a
    `flags.json` matter, so forecast from the docket and the base rates and say
-   so in `reasoning.md`. Otherwise their absence just means
-   the pipeline had nothing to fetch — predict from the snapshot as before.
+   so in `reasoning.md`. On such a docket with the United States as a party,
+   the government's own filing may still be there: its petition (with the
+   questions presented extracted from it), its brief in opposition or its
+   cert-stage reply, taken from the copy the Solicitor General's office posts,
+   staged under the usual kinds and cut at the Court's own entry for it. Read
+   it like any staged document, but it is one side's filing only: the other
+   side's papers stay on paper, so their absence is not their silence, and say
+   in `reasoning.md` that only the government's filing was staged. Where the
+   docket is not paper-only, their absence just means the pipeline had
+   nothing to fetch — predict from the snapshot as before.
    A long filing is cut to a cap: where the cut is made around an appendix, a
    `[pipeline note: …]` line in the text marks it and says how much was left
    out; that line is the pipeline's, not the filer's, so never quote it as the
