@@ -422,6 +422,19 @@
       "stale_reason": "conference_passed"
     },
     {
+      "argument": {
+        "set_for": "2027-01-13",
+        "stale_reason": null,
+        "upcoming": "2027-01-13"
+      },
+      "case_id": "scotus/73282277",
+      "distributed_for_conference": null,
+      "last_live_polled": "2026-11-08",
+      "next_conference": null,
+      "response_due": null,
+      "stale_reason": null
+    },
+    {
       "argument": null,
       "case_id": "scotus/73286452",
       "distributed_for_conference": "2026-10-16",
