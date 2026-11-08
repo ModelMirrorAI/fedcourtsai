@@ -17890,3 +17890,76 @@ freeze commit is recorded here.
   before the close's day may land late, and an event void de-counts what it
   names. The split, partition and grading lines also move as cells,
   outcomes and gradings land.
+
+- **The document-date read tolerates a twice-escaped result, so codex
+  manifest rows carry a `retrieved_doc_date`; recorded 2026-11-08.** A
+  **capture** change of the masking-surface class, like the 2026-10-15
+  bare-name entry, which is not otherwise edited. No digest, constant, window
+  or membership moves, and `uv run fedcourts process-digest --all` prints the
+  same `proc-v20` digests before and after.
+
+  **Why.** `retrieved_doc_date` is the leakage grading's timing signal: the
+  evaluate prompt asks the grader to look for a date on or after the event's
+  resolution. Over every committed `codex-baseline` `retrieval_log.json` at
+  `staging` `eb75c3fd7`, **0** of the **1,042** captured CourtListener rows
+  carries one: 651 bare-named rows from the stretch the 2026-10-15 entry
+  dates, and 391 resolved rows captured after it. `claude-baseline`'s
+  captured CourtListener rows carry one on **446** of **1,244**. The codex
+  item-shape distillation of the `promotion/2026-11-07` engine smoke (run
+  `42396955298`) shows the cause's half that can be shown without a
+  rollout: a Codex `function_call_output` carries its `output` as a string.
+  Where that string is the server's content list already serialized, the
+  scan's own serialization escapes the date's quotes twice, and the pattern
+  tolerated one backslash. That the string is the content list is inferred
+  from the zero rather than read off a rollout, since the distillation
+  carries types and no values.
+
+  **What moved.** `fedcourtsai.retrieval._DOC_DATE_RE` takes any run of
+  backslashes before each quote. A test parses a Codex `function_call` whose
+  output is the content list serialized around the server's JSON, and it
+  fails on the old pattern and passes on the new. Claude rows already
+  matched and still do. The read runs at capture, so no committed log
+  changes: those rollouts are gone, and the result text was digested away.
+
+  **What it reaches.** The blinding mask passes `retrieved_doc_date`
+  through, so a codex candidate's manifest rows captured after the carrying
+  merge show graders the dates a claude candidate's rows already did, under
+  unchanged evaluator digests. That is what graders read when they form the
+  `leakage_suspected` bit, so codex's `leakage_exclusion` spans two capture
+  regimes inside the `proc-v20` window. The reach is bounded, because the bit
+  rarely fires on the forward cells that make up the scored population, and
+  no codex grading in the stretch below reads suspected.
+
+  **The reading rule** (`metrics/README.md`, *The leakage exclusion*). A
+  codex manifest row captured before the carrying merge is date-blind, not
+  undated. Its grading stays assessed, because the grader saw every call, its
+  query and its class; but a cross-engine leakage comparison over those logs
+  is not like-for-like, and a codex verdict there that turns on the absence
+  of a dated result rests on a missing signal. **Population**, at `staging`
+  `eb75c3fd7`: **476** `codex-baseline` predict logs from `20260916T170237Z`
+  on, **364** of them with a CourtListener call; after the run collapse,
+  **522** assessed gradings of those predictions, all in frozen scope and all
+  unsuspected (of the frozen board's **1,563** assessed). The boundary is the
+  ancestry of a cell's `pipeline_sha` against the carrying merge; a row's
+  date is only a hint, since a result with no date field looks the same
+  under either rule.
+
+  **The row-blind rule is unchanged.** The 2026-09-21 entry's row-blind and
+  half-blind regimes are named by `call_source` and run id, and both sit
+  before the bare-name stretch, so neither the bare-name rename nor this
+  change touches a log they cover.
+
+  **Why no label bump and no harness-boundary row.** The same as the
+  2026-10-15 entry: no digest moves, and no predict cell reads anything
+  different, because capture runs after the engine, on its own log.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  **Effect check.** On `main`, once a run-predict round after the carrying
+  merge has landed codex cells that called CourtListener, `jq '[.calls[] |
+  select(.tool | startswith("mcp__courtlistener__")) |
+  .retrieved_doc_date] | map(select(. != null)) | length'` over those
+  cells' `retrieval_log.json` sums to more than zero, at a share of their
+  captured CourtListener rows comparable to `claude-baseline`'s in the same
+  round.

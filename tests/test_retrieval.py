@@ -467,6 +467,33 @@ def test_codex_mcp_name_composes_into_the_rollup_s_mcp_spelling(tmp_path: Path) 
 _OFFERED = ("courtlistener.read_document", "courtlistener.search", "courtlistener.search_document")
 
 
+def test_codex_manifest_output_serialized_twice_still_yields_its_doc_date(
+    tmp_path: Path,
+) -> None:
+    # A Codex `function_call_output` carries its output as a string, and for a
+    # manifest call that string can be the server's content list already
+    # serialized, with the server's own JSON inside a text block. Serialized
+    # once more for the scan, the date's quotes are escaped twice, and a pattern
+    # tolerating a single backslash leaves every such row undated.
+    server_json = json.dumps({"count": 1, "results": [{"dateFiled": "2024-01-02"}]})
+    output = json.dumps([{"type": "text", "text": server_json}])
+    sessions = _codex_rollout(
+        tmp_path,
+        {
+            "type": "function_call",
+            "name": "search",
+            "namespace": "mcp__courtlistener",
+            "call_id": "c1",
+            "arguments": json.dumps({"q": "qualified immunity"}),
+        },
+        {"type": "function_call_output", "call_id": "c1", "output": output},
+    )
+    (call,) = parse_codex_retrieval(sessions, offered=_OFFERED)
+    assert call.tool == "mcp__courtlistener__search"
+    assert call.result_capture == "captured"
+    assert call.retrieved_doc_date == "2024-01-02"
+
+
 def test_codex_bare_manifest_name_resolves_against_the_offered_set(tmp_path: Path) -> None:
     # Codex logs a manifest call as a `function_call` under the tool's bare
     # name, the server (where recorded) in `namespace`. Read as logged, the

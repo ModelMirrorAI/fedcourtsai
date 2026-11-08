@@ -1662,6 +1662,27 @@ half-blind prediction carries a frozen digest, so the frozen boards exclude
 them a gate earlier. The [freeze record](../docs/freeze-record.md) fixes their
 number, in the ledger and after the run collapse, and dates the rule.
 
+**A `codex-baseline` manifest row before the date-read boundary is
+date-blind, not undated.** From `20260916T170237Z` codex calls its
+CourtListener tools as direct items, so each call has a row of its own with its
+query, its call class and a `captured` result. A Codex rollout's output for a
+manifest call arrives escaped twice, and a log captured before the carrying
+merge of the freeze record's 2026-11-08 *document-date read* entry was read with a
+pattern tolerating one escape, so none of its manifest rows carries a
+`retrieved_doc_date`, whatever the result held. The
+rows are not row-blind: the grader saw every call, so an unsuspected verdict on
+one of these gradings stays an assessed bit and `assessed` counts it. What the
+grader lacked is the timing signal, and the evaluate prompt reads a null date
+on a `captured` row as "no date legible", which over this stretch it does not
+mean. Two consequences bind. A cross-engine leakage comparison over those logs
+is not like-for-like: `claude-baseline`'s captured manifest rows carry a date
+on about a third of calls, codex's on none. And a codex verdict there that
+turns on the absence of a dated result reads as resting on a missing signal,
+not a clean one. The date is read at capture and those rollouts are gone, so
+no re-parse dates them; the boundary is the ancestry of a cell's
+`pipeline_sha` against the carrying merge, and the freeze record fixes the
+population.
+
 **The set-aside, and its sensitivity reading.** A cell every rule above kept,
 but whose record **cannot show it was made before its outcome was public**, is
 set aside from the default figures (`fedcourtsai.set_aside`, applied by the same
