@@ -55,6 +55,7 @@ from . import (
     casestore,
     catch_up,
     cell_policy,
+    claude_auth,
     cleanup,
     contexts_due,
     corpus,
@@ -21491,15 +21492,24 @@ def summarize_cmd(
     sits in the length band, opens no paragraph with "Whether", and passes the
     secret scan. A response rejected only on the body rules is retried once in
     the same run, told why; anything else, a rejected retry, and any call that
-    still fails after bounded retries, is reported as skipped. The API key is
-    read from the environment variable ``summaries.API_KEY_ENV`` names. Exits 1
-    when the plan held cases and none was written, so a dead key or a broken
-    prompt fails the run rather than reading as an empty success.
+    still fails after bounded retries, is reported as skipped. The credential
+    comes from the environment (``fedcourtsai.claude_auth``): the federated
+    sign-in when a federation rule is named, the API key otherwise. Exits 1
+    when the plan held cases and none was written, so a dead credential or a
+    broken prompt fails the run rather than reading as an empty success.
     """
     settings = get_settings()
-    api_key = os.environ.get(summaries.API_KEY_ENV, "")
-    if not api_key:
-        typer.echo(f"{summaries.API_KEY_ENV} is unset; nothing to call the API with", err=True)
+    try:
+        credential = claude_auth.from_environment()
+    except claude_auth.ClaudeAuthError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=2) from exc
+    if credential is None:
+        typer.echo(
+            f"neither {claude_auth.KEY_ENV} nor {claude_auth.RULE_ENV} is set; "
+            "nothing to call the API with",
+            err=True,
+        )
         raise typer.Exit(code=2)
     if not summaries.PROMPT_PATH.is_file():
         typer.echo(f"prompt {summaries.PROMPT_PATH} not found (run from the repo root)", err=True)
@@ -21519,7 +21529,7 @@ def summarize_cmd(
                 config=config,
                 prompt_bytes=summaries.PROMPT_PATH.read_bytes(),
                 client=client,
-                api_key=api_key,
+                credential=credential,
                 deadline=deadline,
             )
             if plan.rulings:
@@ -21531,7 +21541,7 @@ def summarize_cmd(
                     config=config,
                     prompt_bytes=ai_rulings.PROMPT_PATH.read_bytes(),
                     client=client,
-                    api_key=api_key,
+                    credential=credential,
                     deadline=deadline,
                 )
     except ValueError as exc:

@@ -57,7 +57,8 @@ from tenacity import (
 )
 from tenacity.wait import wait_base
 
-from . import ids, secretscan
+from . import claude_auth, ids, secretscan
+from .claude_auth import ClaudeAuthError, ClaudeCredential
 from .config import SummariesConfig
 from .paths import CasePaths
 from .pipeline.documents import contact_residuals
@@ -131,7 +132,7 @@ ANTHROPIC_VERSION = "2023-06-01"
 #: lane's calls are on a model outside the prediction panel, whose provider rate
 #: limits are separate from the cells'; the spend limit is shared, which the
 #: workflow's `review` hold bounds.
-API_KEY_ENV = "ANTHROPIC_API_KEY"
+API_KEY_ENV = claude_auth.KEY_ENV
 
 #: The marker a capped document ends with, in the text the model reads.
 TRUNCATION_MARKER = "[truncated: {shown} of {total} characters shown]"
@@ -997,7 +998,7 @@ class CallResult:
 
 def call_messages_api(
     client: httpx.Client,
-    api_key: str,
+    credential: ClaudeCredential,
     body: Mapping[str, Any],
     *,
     attempts: int = 5,
@@ -1009,15 +1010,18 @@ def call_messages_api(
     otherwise the wait is exponential under the same cap.
 
     Raises :class:`SummaryCallError` when the call cannot succeed — a
-    non-retryable status, or a transient one that outlived every attempt.
+    non-retryable status, a transient one that outlived every attempt, or a
+    credential the run could not obtain. The credential's headers are read per
+    attempt, so a federated token due for exchange is replaced before the
+    request rather than sent stale.
     """
-    headers = {
-        "x-api-key": api_key,
-        "anthropic-version": ANTHROPIC_VERSION,
-        "content-type": "application/json",
-    }
 
     def post() -> httpx.Response:
+        headers = {
+            **credential.headers(client),
+            "anthropic-version": ANTHROPIC_VERSION,
+            "content-type": "application/json",
+        }
         response = client.post(API_URL, headers=headers, json=body)
         response.raise_for_status()
         return response
@@ -1034,6 +1038,8 @@ def call_messages_api(
         raise SummaryCallError(f"HTTP {exc.response.status_code}") from exc
     except httpx.RequestError as exc:
         raise SummaryCallError(f"request failed: {type(exc).__name__}") from exc
+    except ClaudeAuthError as exc:
+        raise SummaryCallError(f"sign-in failed: {exc}") from exc
     try:
         data = response.json()
         text = "".join(
@@ -1323,7 +1329,7 @@ def summarize_case(  # noqa: PLR0913 - one case's inputs, each load-bearing
     system_prompt: str,
     prompt_sha: str,
     client: httpx.Client,
-    api_key: str,
+    credential: ClaudeCredential,
     now: datetime,
     wait: wait_base | None = None,
     may_retry: Callable[[], bool] = lambda: True,
@@ -1357,13 +1363,13 @@ def summarize_case(  # noqa: PLR0913 - one case's inputs, each load-bearing
     )
     try:
         result = call_messages_api(
-            client, api_key, build_request(config, system_prompt, record), wait=wait
+            client, credential, build_request(config, system_prompt, record), wait=wait
         )
     except SummaryCallError as exc:
         return CaseResult(None, str(exc))
     usage = result.usage
     cost = estimate_cost_usd(config.model, usage)
-    refusal, retryable = _refusal(result, str(target), api_key)
+    refusal, retryable = _refusal(result, str(target), credential)
     first_rejection = ""
     # An empty response is not retried: the API refuses an empty assistant turn.
     if refusal and retryable and result.text.strip() and may_retry():
@@ -1371,14 +1377,14 @@ def summarize_case(  # noqa: PLR0913 - one case's inputs, each load-bearing
         retry = RetryTurn(result.text, tuple(retryable))
         try:
             result = call_messages_api(
-                client, api_key, build_request(config, system_prompt, record, retry), wait=wait
+                client, credential, build_request(config, system_prompt, record, retry), wait=wait
             )
         except SummaryCallError as exc:
             refusal = f"retry failed: {exc}"
         else:
             usage = add_usage(usage, result.usage)
             cost += estimate_cost_usd(config.model, result.usage)
-            refusal = on_retry(_refusal(result, str(target), api_key)[0])
+            refusal = on_retry(_refusal(result, str(target), credential)[0])
     if refusal:
         return CaseResult(None, refusal, cost, first_rejection)
     front = CaseSummaryFrontMatter(
@@ -1415,7 +1421,7 @@ def add_usage(a: TokenCounts, b: TokenCounts) -> TokenCounts:
     )
 
 
-def _refusal(result: CallResult, rel: str, api_key: str) -> tuple[str, list[str]]:
+def _refusal(result: CallResult, rel: str, credential: ClaudeCredential) -> tuple[str, list[str]]:
     """Why a response is not written, and the problems a retry may fix.
 
     The reason is empty when the response meets the contract. The problems are
@@ -1425,7 +1431,7 @@ def _refusal(result: CallResult, rel: str, api_key: str) -> tuple[str, list[str]
     if result.stop_reason != "end_turn":
         return f"stop_reason {result.stop_reason!r}", []
     problems = body_problems(result.text)
-    findings = secretscan.scan_lines(rel, result.text.split("\n"), [api_key] if api_key else [])
+    findings = secretscan.scan_lines(rel, result.text.split("\n"), credential.secrets())
     retryable = [] if findings else list(problems)
     if findings:
         problems.append(f"secret scan: {len(findings)} finding(s)")
@@ -1440,7 +1446,7 @@ def summarize_plan(  # noqa: PLR0913 - the run's inputs, each load-bearing
     config: SummariesConfig,
     prompt_bytes: bytes,
     client: httpx.Client,
-    api_key: str,
+    credential: ClaudeCredential,
     now: Callable[[], datetime] = lambda: datetime.now(UTC),
     wait: wait_base | None = None,
     deadline: datetime | None = None,
@@ -1477,7 +1483,7 @@ def summarize_plan(  # noqa: PLR0913 - the run's inputs, each load-bearing
             system_prompt=system_prompt,
             prompt_sha=prompt_sha,
             client=client,
-            api_key=api_key,
+            credential=credential,
             now=now(),
             wait=wait,
             may_retry=lambda: deadline is None or now() < deadline,

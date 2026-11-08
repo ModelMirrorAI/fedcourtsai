@@ -316,14 +316,18 @@ rejected writes no file, so those tokens are not counted.
 
 **Credential separation.** The corpus credentials and the API key never share a
 job, so no step holds both: the plan and stage jobs assume the read-only role,
-the generate job holds the key and assumes nothing (its first step fails the
-job if any AWS credential or OIDC minting is reachable), and the staged record
+the generate job holds the Claude sign-in and assumes nothing (its first
+steps fail the job if any AWS credential is reachable, or if a token it mints
+names anything but its Claude-only environment, which no AWS role trusts:
+*The Claude-only environments* in `docs/security.md`), and the staged record
 crosses between them as a one-day run artifact.
 `tests/test_workflow_summarize.py` pins the split.
 
-**The environment's key.** The lane spends on the bound environment's
-Anthropic key — prod's on main, staging's on a staging rehearsal — the one the
-other Claude lanes use. It does not compete with the cells for throughput:
+**The environment's sign-in.** The lane spends on the Anthropic workspace of
+the environment it shadows — prod's on main, staging's on a staging
+rehearsal — the one the other Claude lanes use, signed in by federation once
+its Claude-only environment names a rule and by that environment's key
+otherwise. It does not compete with the cells for throughput:
 provider rate limits are per model and the lane's model is outside the
 prediction panel, and its plan stands down while a predict or evaluate round
 is running (checked at plan time, so a hold released later can overlap a

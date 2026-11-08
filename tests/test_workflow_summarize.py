@@ -35,10 +35,20 @@ def _needs(job: dict[str, Any]) -> set[str]:
     return {needs} if isinstance(needs, str) else set(needs)
 
 
+CLAUDE_ONLY = "${{ format('claude-{0}', github.ref_name == 'main' && 'prod' || github.ref_name) }}"
+
+
 def _holds_cloud_credential(job: dict[str, Any]) -> bool:
+    """A role, or a token mint under an environment an AWS role trusts.
+
+    `id-token: write` under the Claude-only environment is the federated
+    sign-in's: no AWS role trusts that subject, and the job's runtime tripwire
+    fails it if it is ever bound elsewhere.
+    """
     permissions = job.get("permissions") or {}
     steps = job.get("steps") or []
-    return permissions.get("id-token") == "write" or any(
+    mints = permissions.get("id-token") == "write" and job.get("environment") != CLAUDE_ONLY
+    return mints or any(
         "corpus-readonly" in str(step.get("uses", ""))
         or "configure-aws-credentials" in str(step.get("uses", ""))
         for step in steps
@@ -61,9 +71,14 @@ def test_the_generate_job_asserts_it_holds_no_cloud_credential_first() -> None:
     assert guard < first_key
     run = steps[guard]["run"]
     assert "^AWS_" in run
-    assert "ACTIONS_ID_TOKEN_REQUEST_URL" in run
     assert "if" not in steps[guard], "the tripwire must be unconditional"
-    assert _jobs()["generate"]["permissions"] == {"contents": "read"}
+    subject = names.index("Assert the job's OIDC tokens name a Claude-only environment")
+    assert subject < first_key
+    assert steps[subject]["uses"] == "./.github/actions/claude-federation"
+    assert steps[subject]["with"] == {"mode": "assert-claude-only"}
+    assert "if" not in steps[subject], "the tripwire must be unconditional"
+    assert _jobs()["generate"]["permissions"] == {"contents": "read", "id-token": "write"}
+    assert _jobs()["generate"]["environment"] == CLAUDE_ONLY
 
 
 def test_the_key_reaches_only_the_two_generate_steps_that_need_it() -> None:
@@ -111,8 +126,10 @@ def test_the_credential_jobs_bind_the_branch_resolved_environment() -> None:
     # Pinned here because the auth-gate sweep keys on action markers, and
     # neither the corpus-readonly composite nor a raw key reference is one.
     resolved = "${{ github.ref_name == 'main' && 'prod' || github.ref_name }}"
-    for name in ("plan", "stage", "generate"):
+    for name in ("plan", "stage"):
         assert _jobs()[name]["environment"] == resolved, name
+    # The generate job binds the Claude-only counterpart of the same resolution.
+    assert _jobs()["generate"]["environment"] == CLAUDE_ONLY
 
 
 def test_publication_is_fenced_to_main() -> None:

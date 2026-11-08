@@ -704,14 +704,37 @@ jobs:
             sudo sysctl -w kernel.unprivileged_userns_clone=1
           fi
 
+      # The claude lane signs in by workload identity federation when the
+      # bound environment names a rule, and with the key otherwise; the
+      # `claude-federation` action holds why a bare-CLI caller needs its token
+      # file, profile and refresh loop. The lane's cells run one at a time,
+      # which is what lets them share the cached access token. The token
+      # minted here names the Claude API as its audience, so the read-only
+      # AWS role this job also assumes does not accept it. The cell env the
+      # runner seam builds keeps the token file's path for the claude lane
+      # alone, as it keeps each engine's key (pipeline/runner.py).
+      - name: Start the Claude federated sign-in for the replay cells
+        id: claude-federation
+        if: env.BT_ENGINE == 'auto' && (env.BT_REPLAY == 'cert' || env.BT_REPLAY == 'merits') && vars.ANTHROPIC_FEDERATION_RULE_ID != '' && vars.ANTHROPIC_ORGANIZATION_ID != ''
+        uses: ./.github/actions/claude-federation
+
       - name: Run the cert back-test
         if: env.BT_REPLAY == 'cert'
         env:
           # Engine credentials for the replay cells; unused by the stub backend.
           # One per routable engine — claude, codex, gemini — so `auto` runs the
           # full three-engine comparison (GEMINI_CLI_TRUST_WORKSPACE is set by the
-          # GeminiRunner seam in pipeline/runner.py, not here).
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # GeminiRunner seam in pipeline/runner.py, not here). Claude's is
+          # either the key or the federated sign-in, never both: a key in the
+          # environment would take precedence over the token file.
+          ANTHROPIC_API_KEY: ${{ steps.claude-federation.outputs.token-file == '' && secrets.ANTHROPIC_API_KEY || '' }}
+          ANTHROPIC_FEDERATION_RULE_ID: ${{ steps.claude-federation.outputs.token-file != '' && vars.ANTHROPIC_FEDERATION_RULE_ID || '' }}
+          ANTHROPIC_ORGANIZATION_ID: ${{ steps.claude-federation.outputs.token-file != '' && vars.ANTHROPIC_ORGANIZATION_ID || '' }}
+          ANTHROPIC_SERVICE_ACCOUNT_ID: ${{ steps.claude-federation.outputs.token-file != '' && vars.ANTHROPIC_SERVICE_ACCOUNT_ID || '' }}
+          ANTHROPIC_WORKSPACE_ID: ${{ steps.claude-federation.outputs.token-file != '' && vars.ANTHROPIC_WORKSPACE_ID || '' }}
+          ANTHROPIC_IDENTITY_TOKEN_FILE: ${{ steps.claude-federation.outputs.token-file }}
+          ANTHROPIC_CONFIG_DIR: ${{ steps.claude-federation.outputs.config-dir }}
+          ANTHROPIC_PROFILE: ${{ steps.claude-federation.outputs.token-file != '' && 'default' || '' }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           # The corpus estate's base URL: the pulled corpus.db is a payload-free
@@ -793,7 +816,14 @@ jobs:
       - name: Run the merits back-test
         if: env.BT_REPLAY == 'merits'
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ steps.claude-federation.outputs.token-file == '' && secrets.ANTHROPIC_API_KEY || '' }}
+          ANTHROPIC_FEDERATION_RULE_ID: ${{ steps.claude-federation.outputs.token-file != '' && vars.ANTHROPIC_FEDERATION_RULE_ID || '' }}
+          ANTHROPIC_ORGANIZATION_ID: ${{ steps.claude-federation.outputs.token-file != '' && vars.ANTHROPIC_ORGANIZATION_ID || '' }}
+          ANTHROPIC_SERVICE_ACCOUNT_ID: ${{ steps.claude-federation.outputs.token-file != '' && vars.ANTHROPIC_SERVICE_ACCOUNT_ID || '' }}
+          ANTHROPIC_WORKSPACE_ID: ${{ steps.claude-federation.outputs.token-file != '' && vars.ANTHROPIC_WORKSPACE_ID || '' }}
+          ANTHROPIC_IDENTITY_TOKEN_FILE: ${{ steps.claude-federation.outputs.token-file }}
+          ANTHROPIC_CONFIG_DIR: ${{ steps.claude-federation.outputs.config-dir }}
+          ANTHROPIC_PROFILE: ${{ steps.claude-federation.outputs.token-file != '' && 'default' || '' }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
@@ -813,6 +843,12 @@ jobs:
             --terms "$BT_TERMS" --limit "$BT_LIMIT" \
             --engine "$BT_ENGINE" --skip-engines "$BT_SKIP_ENGINES" \
             --work-dir "$work_dir" --keep-cells "$RUNNER_TEMP/merits-cells"
+
+      - name: Stop the Claude federated sign-in for the replay cells
+        if: always() && steps.claude-federation.outputs.token-file != ''
+        uses: ./.github/actions/claude-federation
+        with:
+          mode: stop
 
       # What the grading pilot reads off a replayed cell is its forecast, so
       # that is all that leaves the runner: `--keep-cells` holds, per cell, only

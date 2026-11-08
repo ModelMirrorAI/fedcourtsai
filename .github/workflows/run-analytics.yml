@@ -1711,9 +1711,12 @@ jobs:
   qp-topic-label:
     # Second half: the agent labels every text from the extract alone, then the
     # deterministic `qp-topics` command measures it against the hand reference
-    # set and writes the artifact. No `id-token: write` and no `corpus-readonly`
-    # here — that is the point of the split, and the assertion step below is its
-    # tripwire.
+    # set and writes the artifact. No cloud credential and no `corpus-readonly`
+    # here — that is the point of the split, and the assertion steps below are
+    # its tripwire. The job binds the Claude-only environment rather than
+    # `prod` or `staging`: it holds `id-token: write` only for the labeler's
+    # federated sign-in, and an OIDC token naming that environment is one no
+    # AWS role trusts.
     needs: [authorize, qp-topic-resolve, qp-topic-extract, qp-topic-approval]
     if: >-
       ${{ needs.qp-topic-approval.result == 'success'
@@ -1739,12 +1742,13 @@ jobs:
     # a run that publishes nothing must still be readable, and a run that
     # publishes must not lose its hand-off to a clock the diagnostics spent.
     timeout-minutes: 78
-    environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
+    environment: ${{ format('claude-{0}', github.ref_name == 'main' && 'prod' || github.ref_name) }}
     concurrency:
       group: run-analytics-qp-topic-label-${{ needs.qp-topic-resolve.outputs.frame }}-${{ github.ref_name }}
       cancel-in-progress: false
     permissions:
       contents: read
+      id-token: write # the labeler's federated Claude sign-in; the environment is Claude-only
     outputs:
       # Whether anything was handed off — the measured artifact, the run's
       # spend record, or both; `qp-topic-publish` runs on this alone, so the
@@ -1806,24 +1810,29 @@ jobs:
       # no cloud credential from the job env. This job assumes no role at all, so
       # this proves the labeling half stays that way even if a future edit adds a
       # corpus step to it. Named for what it checks: the agent's env necessarily
-      # carries the engine's own API key, and this asserts nothing about that.
+      # carries the engine's own sign-in, and this asserts nothing about that.
       - name: Assert no cloud credential in the agent env
         run: |
           set -euo pipefail
           # Any AWS_* variable except the region names is treated as
           # credential-conferring (static keys, session tokens, and the
-          # role-ARN/web-identity pair alike). The OIDC pair is checked too:
-          # granting this job `id-token: write` would let the agent mint its own
-          # web identity and assume the role with no AWS_* variable in sight.
+          # role-ARN/web-identity pair alike).
           if env | grep -E '^AWS_' | grep -vE '^AWS_(REGION|DEFAULT_REGION)=' > /dev/null; then
             echo "::error::AWS credential variables leaked into the job env"
             exit 1
           fi
-          if [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
-            echo "::error::OIDC token minting is reachable from the agent env"
-            exit 1
-          fi
           echo "no cloud credential in the agent env"
+
+      # The OIDC pair is reachable here, for the federated sign-in, so the
+      # other half of the tripwire is what a token minted with it names: the
+      # Claude-only environment, which no AWS role trusts. Bound to `prod`,
+      # the agent could mint a web identity and assume the corpus role with no
+      # AWS_* variable in sight; this step fails that edit before the agent
+      # runs.
+      - name: Assert the job's OIDC tokens name a Claude-only environment
+        uses: ./.github/actions/claude-federation
+        with:
+          mode: assert-claude-only
 
       # The same structural prohibition the cell workflows apply, adapted to the
       # one agent that legitimately needs the directory back: `data/qp-topics/`
@@ -1927,22 +1936,27 @@ jobs:
           QP_TEXTS: ${{ runner.temp }}/qp-io/qp-texts.json
           LABELS_OUT: ${{ runner.temp }}/qp-io/qp-labels.jsonl
         with:
-          # Auth is the Anthropic API key (pay-per-token), as for every automated
-          # cell: see docs/budget.md.
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Workload identity federation once the environment names a rule,
+          # the environment's key otherwise, exactly as the cells sign in
+          # (docs/security.md); billed pay-per-token to the same workspace
+          # either way (docs/budget.md).
+          anthropic_federation_rule_id: ${{ vars.ANTHROPIC_FEDERATION_RULE_ID }}
+          anthropic_organization_id: ${{ vars.ANTHROPIC_ORGANIZATION_ID }}
+          anthropic_service_account_id: ${{ vars.ANTHROPIC_SERVICE_ACCOUNT_ID }}
+          anthropic_workspace_id: ${{ vars.ANTHROPIC_WORKSPACE_ID }}
+          anthropic_api_key: ${{ (vars.ANTHROPIC_FEDERATION_RULE_ID == '' || vars.ANTHROPIC_ORGANIZATION_ID == '') && secrets.ANTHROPIC_API_KEY || '' }}
           # The pinned, pre-installed CLI (see the install step above) — the
           # action skips its own installer, whose skipped postinstall left the
           # native binary missing.
           path_to_claude_code_executable: ${{ steps.claude-cli.outputs.path }}
-          # The action refuses to start without a GitHub token, and both
-          # alternatives are worse: its no-input fallback is an OIDC exchange
-          # that mints an App installation token defaulting to
-          # contents/issues/pull-requests *write*, and granting the
-          # `id-token: write` that exchange needs would fail the no-OIDC guard
-          # step above. So hand it the job's own token: the permissions block
-          # above caps it at `contents: read`, and the labeler still comments
-          # on nothing and opens nothing — carrying the labels off the runner
-          # belongs to the steps below.
+          # The action refuses to start without a GitHub token, and its
+          # no-input fallback is worse: an OIDC exchange, which this job's
+          # `id-token: write` would let it make, that mints an App installation
+          # token defaulting to contents/issues/pull-requests *write*. So hand
+          # it the job's own token: the permissions block above caps it at
+          # `contents: read`, and the labeler still comments on nothing and
+          # opens nothing — carrying the labels off the runner belongs to the
+          # steps below.
           github_token: ${{ github.token }}
           # Prompt caching is automatic; the API key's default 5-minute cache TTL
           # would expire mid-run over ~1,200 texts, so pin the 1-hour TTL.
@@ -2339,14 +2353,18 @@ jobs:
         working-directory: ${{ github.workspace }}/.transcript-scanner
         env:
           TRANSCRIPT: ${{ steps.label.outputs.execution_file }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # The key the labeler held, when it held one; a federated labeler
+          # held none, and its exchanged token is caught by shape.
+          ANTHROPIC_API_KEY: ${{ (vars.ANTHROPIC_FEDERATION_RULE_ID == '' || vars.ANTHROPIC_ORGANIZATION_ID == '') && secrets.ANTHROPIC_API_KEY || '' }}
+          FEDERATED: ${{ vars.ANTHROPIC_FEDERATION_RULE_ID != '' && vars.ANTHROPIC_ORGANIZATION_ID != '' }}
           # The isolated install above, by absolute path: a bare `uv run` would
           # resolve the project out of the workspace the labeler just wrote to.
           SCANNER: ${{ github.workspace }}/.transcript-scanner/.venv/bin/python
         run: |
           set -euo pipefail
-          # This is the one step that holds the key, so it is the one an
-          # injected environment variable is worth aiming at: the runner
+          # This is the one step that holds the key (while the labeler signs in
+          # with one), so it is the one an injected environment variable is
+          # worth aiming at: the runner
           # applies every earlier step's `$GITHUB_ENV` writes here, and the
           # labeling step's subprocesses can append to that file. A planted
           # `PYTHONPATH` or `LD_PRELOAD` would put agent code inside this
@@ -2371,8 +2389,12 @@ jobs:
           # so the generic heuristic convicts every real file and the artifact
           # would only ever publish empty — the surface is gated by containment
           # of the one reachable credential and the credential shapes instead.
+          # The key's containment detector runs whenever the labeler could
+          # have held the key; unset then, the scan fails closed.
+          key_args=(--known-secret-env ANTHROPIC_API_KEY)
+          if [ "$FEDERATED" = true ]; then key_args=(); fi
           "$SCANNER" -E -s -P -m fedcourtsai.cli scan-diff-for-secrets --name-status-file /dev/null \
-            --known-secret-env ANTHROPIC_API_KEY \
+            "${key_args[@]}" \
             --transcript-file "$TRANSCRIPT" \
             --run-url "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
             || status=$?
@@ -2442,12 +2464,14 @@ jobs:
         working-directory: ${{ github.workspace }}/.transcript-scanner
         env:
           LABELS_OUT: ${{ runner.temp }}/qp-io/qp-labels.jsonl
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ (vars.ANTHROPIC_FEDERATION_RULE_ID == '' || vars.ANTHROPIC_ORGANIZATION_ID == '') && secrets.ANTHROPIC_API_KEY || '' }}
+          FEDERATED: ${{ vars.ANTHROPIC_FEDERATION_RULE_ID != '' && vars.ANTHROPIC_ORGANIZATION_ID != '' }}
           SCANNER: ${{ github.workspace }}/.transcript-scanner/.venv/bin/python
         run: |
           set -euo pipefail
-          # This step holds the key, so it strips the levers that would put
-          # agent code inside it — the transcript scan's reasoning, verbatim.
+          # This step holds the key (while the labeler signs in with one), so
+          # it strips the levers that would put agent code inside it — the
+          # transcript scan's reasoning, verbatim.
           unset PYTHONPATH PYTHONHOME PYTHONSTARTUP PYTHONUSERBASE
           unset LD_PRELOAD LD_AUDIT LD_LIBRARY_PATH
           # Named here rather than left to the scanner's exit 2, for the
@@ -2460,8 +2484,10 @@ jobs:
             exit 1
           fi
           status=0
+          key_args=(--known-secret-env ANTHROPIC_API_KEY)
+          if [ "$FEDERATED" = true ]; then key_args=(); fi
           "$SCANNER" -E -s -P -m fedcourtsai.cli scan-diff-for-secrets --name-status-file /dev/null \
-            --known-secret-env ANTHROPIC_API_KEY \
+            "${key_args[@]}" \
             --extra-file "$LABELS_OUT" \
             --run-url "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
             || status=$?
