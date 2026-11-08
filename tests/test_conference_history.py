@@ -9,6 +9,7 @@ from typing import Any
 import pytest
 
 from fedcourtsai import corpus
+from fedcourtsai.dedupe import _merged_row
 from fedcourtsai.pipeline.cert_signals import (
     conference_history,
     first_relist_date,
@@ -249,8 +250,6 @@ def test_an_undated_distribution_is_never_read_against() -> None:
 
 
 def test_a_twin_merge_keeps_the_longer_history() -> None:
-    from fedcourtsai.dedupe import _merged_row
-
     one = [ConferenceStep(conference=date(2026, 10, 30), transition="first")]
     two = [*one, ConferenceStep(conference=date(2026, 11, 6), transition="relist")]
 
