@@ -472,9 +472,10 @@ text reaches the runner — and asserts the declared output exists, parses
 against the vocabulary, and joins back to the extract row for row; which
 label the model picked is deliberately not read, so the leg gates the
 posture and never model behaviour. It runs as its own job because the
-credential shape is part of that posture (no cloud credential, no id-token —
-stricter than a cell), SPENDS MODEL TOKENS (cents at the labeler's default
-tier, on the dispatching environment's own key), and on any surviving
+credential shape is part of that posture (no cloud credential, and an
+id-token that names only the Claude-only environment — stricter than a cell),
+SPENDS MODEL TOKENS (cents at the labeler's default tier, on the dispatching
+environment's own workspace), and on any surviving
 outcome digests
 the error tool results from the execution file into the job log — a clean
 run's zero line is itself evidence, and a failing run's digest is what makes
@@ -817,9 +818,10 @@ text in any summary line, the writer's whole-plan check before it writes) — an
 workflow's OIDC tripwire true: a job that asserts the OIDC request pair is
 absent may not hold `id-token`, since the runner hands that pair to every step
 of a job holding `id-token` after the step's own `env:`, and no step may blank the pair in
-its `env:` at all — covering `summarize`'s generate job, `run-analytics`'
-labeler and `integration-test`'s labeler smoke alongside run-repair's parse
-job), and the predict plan job's stranded-run
+its `env:` at all — covering run-repair's parse job; the jobs that call
+Claude under a Claude-only environment hold `id-token` for the federated
+sign-in instead, and `test_workflow_auth_gate.py` pins their tripwire, which
+mints a probe token and fails unless it names a `claude-` environment), and the predict plan job's stranded-run
 guard (`test_workflow_plan_census`: the census runs before the matrix step and
 feeds both it and the plan report, degrades open at each of its three grains
 rather than failing the job, holds the job's read-only permission set by exact

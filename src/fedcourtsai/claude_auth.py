@@ -14,6 +14,10 @@ credential is one of two kinds, read from the environment:
 - **The API key**, otherwise: a local run, or a workflow whose environment
   names no rule.
 
+A throttle, a server error or a dropped connection at either endpoint is raised
+as the ``httpx`` error it is, so the caller's bounded retry covers the sign-in
+as it covers the call; any other refusal is a :class:`ClaudeAuthError`.
+
 The federation identifiers are identifiers, not credentials. The key wins only
 where no rule is named: a workflow that names one withholds the key.
 """
@@ -66,18 +70,25 @@ class ClaudeCredential(Protocol):
         """Every credential value this run has sent, for containment scans."""
         ...
 
+    def invalidate(self) -> None:
+        """Drop a credential the API refused, so the next request signs in afresh."""
+        ...
+
 
 @dataclass(frozen=True)
 class ApiKey:
     """A static API key, sent as ``x-api-key``."""
 
-    key: str
+    key: str = field(repr=False)
 
     def headers(self, client: httpx.Client) -> dict[str, str]:
         return {"x-api-key": self.key}
 
     def secrets(self) -> list[str]:
         return [self.key]
+
+    def invalidate(self) -> None:
+        """A key has nothing to refresh."""
 
 
 @dataclass
@@ -102,10 +113,15 @@ class FederatedToken:
     def secrets(self) -> list[str]:
         return list(self._issued)
 
+    def invalidate(self) -> None:
+        self._token = ""
+
     def _exchange(self, client: httpx.Client) -> None:
+        assertion = self.identity_token()
+        _mask(assertion)
         body = {
             "grant_type": JWT_BEARER_GRANT,
-            "assertion": self.identity_token(),
+            "assertion": assertion,
             "federation_rule_id": self.rule_id,
             "organization_id": self.organization_id,
         }
@@ -119,23 +135,41 @@ class FederatedToken:
             data = response.json()
             token = data["access_token"]
             lifetime = int(data.get("expires_in") or DEFAULT_LIFETIME_S)
-        except httpx.HTTPStatusError as exc:
+        except httpx.HTTPError as exc:
+            if _is_transient(exc):
+                raise
             # The reason a rule refused an exchange is in the Console's
             # authentication history; the response says only the status.
-            raise ClaudeAuthError(
-                f"the federation token exchange answered HTTP {exc.response.status_code}"
-            ) from exc
-        except httpx.RequestError as exc:
-            raise ClaudeAuthError(
-                f"the federation token exchange failed: {type(exc).__name__}"
-            ) from exc
+            status = exc.response.status_code if isinstance(exc, httpx.HTTPStatusError) else 0
+            raise ClaudeAuthError(f"the federation token exchange answered HTTP {status}") from exc
         except (ValueError, TypeError, KeyError) as exc:
             raise ClaudeAuthError("the federation token exchange returned no access token") from exc
         if not isinstance(token, str) or not token:
             raise ClaudeAuthError("the federation token exchange returned no access token")
+        _mask(token)
         self._token = token
         self._refresh_at = self.clock() + max(lifetime - REFRESH_MARGIN_S, 0)
         self._issued.append(token)
+
+
+def _is_transient(exc: httpx.HTTPError) -> bool:
+    """A fault the caller's bounded retry should see as it is: a throttle,
+    a server error, or a request that got no response."""
+    if isinstance(exc, httpx.HTTPStatusError):
+        status = exc.response.status_code
+        return status == 429 or status >= 500
+    return isinstance(exc, httpx.RequestError)
+
+
+def _mask(value: str) -> None:
+    """Register a credential with the Actions log masker, when running in Actions.
+
+    The runner masks the secrets a job names, but not a token minted inside a
+    step, and a traceback that prints a request's headers would otherwise
+    show it in a public run log.
+    """
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        print(f"::add-mask::{value}", flush=True)
 
 
 def _env(environ: Mapping[str, str], name: str) -> str:
@@ -158,12 +192,11 @@ def github_identity_token(environ: Mapping[str, str], client: httpx.Client) -> s
         )
         response.raise_for_status()
         value = response.json().get("value")
-    except httpx.HTTPStatusError as exc:
-        raise ClaudeAuthError(
-            f"the GitHub OIDC endpoint answered HTTP {exc.response.status_code}"
-        ) from exc
-    except httpx.RequestError as exc:
-        raise ClaudeAuthError(f"the GitHub OIDC request failed: {type(exc).__name__}") from exc
+    except httpx.HTTPError as exc:
+        if _is_transient(exc):
+            raise
+        status = exc.response.status_code if isinstance(exc, httpx.HTTPStatusError) else 0
+        raise ClaudeAuthError(f"the GitHub OIDC endpoint answered HTTP {status}") from exc
     except (ValueError, AttributeError) as exc:
         raise ClaudeAuthError("the GitHub OIDC endpoint returned no token") from exc
     if not isinstance(value, str) or not value:

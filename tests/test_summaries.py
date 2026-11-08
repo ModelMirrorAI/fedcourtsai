@@ -1495,3 +1495,20 @@ def test_a_refused_sign_in_fails_the_call_rather_than_the_run() -> None:
         pytest.raises(summaries.SummaryCallError, match="sign-in failed"),
     ):
         summaries.call_messages_api(client, credential, {"model": "m"})
+
+
+def test_a_refused_token_is_dropped_so_the_next_case_signs_in_afresh() -> None:
+    exchanges: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/v1/oauth/token":
+            exchanges.append("x")
+            return httpx.Response(200, json={"access_token": f"oat-{len(exchanges)}"})
+        return httpx.Response(401, json={"error": "expired"})
+
+    credential = FederatedToken(rule_id="fdrl_x", organization_id="org", identity_token=lambda: "j")
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        for _ in range(2):
+            with pytest.raises(summaries.SummaryCallError, match="HTTP 401"):
+                summaries.call_messages_api(client, credential, {"model": "m"})
+    assert len(exchanges) == 2

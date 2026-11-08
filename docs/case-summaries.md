@@ -295,7 +295,7 @@ jobs:
 | `plan` | read-only corpus role | stands down (a notice, no work) while a `run-predict` or `run-evaluate` run is executing — a round parked on its own hold or queued does not count, and the check is at plan time only, so a round can still start while this run's generate job works; counts an open `summaries/refresh` PR's summaries as written; `fedcourts summarize-plan` → the plan and the report the hold is judged on |
 | `approval` | nothing (`review`, or `review-auto` when auto-released) | the spend hold |
 | `stage` | read-only corpus role | `provision-snapshot` for each planned case, into a data root under `$RUNNER_TEMP`, and `ai-ruling-stage` for each planned AI watchlist ruling |
-| `generate` | the environment's Anthropic key, and asserts it holds no cloud credential | `fedcourts summarize`; jails, validates and secret-scans the written files; uploads them as the `case-summaries` artifact |
+| `generate` | the Claude sign-in under the Claude-only environment (federated, or its key), and asserts it holds no cloud credential | `fedcourts summarize`; jails, validates and secret-scans the written files; uploads them as the `case-summaries` artifact |
 | `publish` | dev App token (`main` only) | opens or updates one PR from `summaries/refresh`, and merges it once its required checks pass |
 | `rejected` | nothing (no environment, `permissions: {}`) | records on the run page that the hold did not release |
 
@@ -345,8 +345,9 @@ cut, since a summary describes the newest record.
 
 **Publication.** Before anything leaves the runner, the change set must hold
 summary files and nothing else (`fedcourts summary-paths --strict`), `data/`
-must validate, and `scan-diff-for-secrets` must pass with the API key as a
-known secret; a failure withholds both the artifact and the PR. On `main` the
+must validate, and `scan-diff-for-secrets` must pass, with the API key as a
+known secret on a run that held one (a federated run's access tokens were
+scanned for in each response, and are caught here by shape); a failure withholds both the artifact and the PR. On `main` the
 `publish` job cuts `summaries/refresh` from `main`, carries the open PR's
 summaries forward, adds the run's, deletes the plan's withdrawn summaries
 (*Withdrawal*, above), re-runs the jail — which admits those deletions and no
@@ -376,7 +377,8 @@ marks that case up to date — a collaborator-only lever, and the carry is
 exactly what sends the PR to review.
 
 **Rehearsal.** A dispatch from `staging` binds the staging environment — its
-read-only role, corpus pair and Anthropic key — plans, holds, stages
+read-only role and corpus pair — and, for the generate job, `claude-staging`
+and its sign-in; it plans, holds, stages
 and generates, and leaves the summaries in the `case-summaries` run artifact.
 It opens no PR. The artifact is still public (below), so a rehearsal's
 summaries are downloadable for its retention.

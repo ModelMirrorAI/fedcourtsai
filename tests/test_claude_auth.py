@@ -128,3 +128,48 @@ def test_a_job_without_the_oidc_pair_is_told_what_it_lacks() -> None:
         pytest.raises(ClaudeAuthError, match="id-token: write"),
     ):
         credential.headers(client)
+
+
+def test_a_transient_exchange_fault_is_left_to_the_callers_retry() -> None:
+    server = _Server(exchange_status=503)
+    with httpx.Client(transport=httpx.MockTransport(server)) as client:
+        credential = FederatedToken(rule_id="r", organization_id="o", identity_token=lambda: "j")
+        with pytest.raises(httpx.HTTPStatusError):
+            credential.headers(client)
+
+
+def test_an_invalidated_token_is_exchanged_anew_and_omitted_ids_stay_out() -> None:
+    server = _Server()
+    with httpx.Client(transport=httpx.MockTransport(server)) as client:
+        credential = FederatedToken(rule_id="r", organization_id="o", identity_token=lambda: "j")
+        credential.headers(client)
+        credential.invalidate()
+        assert credential.headers(client) == {"Authorization": "Bearer sk-ant-oat01-token-2"}
+    assert "service_account_id" not in server.exchanges[0]
+    assert "workspace_id" not in server.exchanges[0]
+
+
+def test_an_unstated_lifetime_is_the_default_and_tokens_are_masked_in_actions(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    now = [0.0]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"access_token": "oat-x"})
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        credential = FederatedToken(
+            rule_id="r", organization_id="o", identity_token=lambda: "jwt-a", clock=lambda: now[0]
+        )
+        credential.headers(client)
+        now[0] = claude_auth.DEFAULT_LIFETIME_S - claude_auth.REFRESH_MARGIN_S - 1
+        credential.headers(client)
+    out = capsys.readouterr().out
+    assert "::add-mask::jwt-a" in out
+    assert "::add-mask::oat-x" in out
+    assert credential.secrets() == ["oat-x"]
+
+
+def test_an_api_key_stays_out_of_its_repr() -> None:
+    assert "secret-value" not in repr(ApiKey("secret-value"))

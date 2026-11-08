@@ -616,6 +616,7 @@ _OPAQUE = base64.urlsafe_b64encode(bytes(range(7, 71))).decode().rstrip("=")
         ("session-" + _FERNET, "fernet-token"),
         (_JWT, "jwt"),
         ("sk-ant-api03-" + "aB3dE6gH9jK2mN5pQ8sT1vW4yZ7", "model-provider-key"),
+        ("sk-ant-oat01-" + "aB3dE6gH9jK2mN5pQ8sT1vW4yZ7", "model-provider-key"),
         ("sk-proj-" + "aB3dE6gH9jK2mN5pQ8sT1vW4yZ7", "model-provider-key"),
         ("sk-" + "aB3dE6gH9jK2mN5pQ8sT1vW4yZ7", "model-provider-key"),
         ("ghp_" + "aB3dE6gH9jK2mN5pQ8sT1vW4yZ7bC0eF2hiJ5k", "github-token"),

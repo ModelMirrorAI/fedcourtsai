@@ -1023,6 +1023,10 @@ def call_messages_api(
             "content-type": "application/json",
         }
         response = client.post(API_URL, headers=headers, json=body)
+        if response.status_code == 401:
+            # A token the API no longer accepts is dropped, so the next case
+            # signs in afresh rather than reusing it until its stated expiry.
+            credential.invalidate()
         response.raise_for_status()
         return response
 
