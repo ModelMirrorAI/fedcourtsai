@@ -50,6 +50,7 @@ from .schemas import (
     BacktestCourtScore,
     BacktestEntry,
     CertBacktest,
+    CorpusCheck,
     CostEstimate,
     CountingWindow,
     DataHealth,
@@ -2289,11 +2290,7 @@ def render_data_health(health: DataHealth) -> str:
             ("ledger schema", ledger.invalid, ledger.problems[0] if ledger.problems else "")
         )
     if corpus_v is not None and not corpus_v.skipped:
-        rows += [
-            (c.name, c.failures, c.problems[0] if c.problems else c.detail)
-            for c in corpus_v.checks
-            if not c.passed
-        ]
+        rows += [(c.name, c.failures, _failure_sample(c)) for c in corpus_v.checks if not c.passed]
     if rows:
         lines += ["", "| Check | Failures | Sample |", "|-------|---------:|--------|"]
         lines += [f"| {name} | {n} | {sample.replace('|', '\\|')} |" for name, n, sample in rows]
@@ -2301,6 +2298,21 @@ def render_data_health(health: DataHealth) -> str:
     lines += _monitored_lines(health)
 
     return "\n".join(lines) + "\n"
+
+
+def _failure_sample(check: CorpusCheck) -> str:
+    """The failure table's Sample cell: the check's detail, then its first problem.
+
+    A check that counts several populations against separate floors
+    (``case_dates_ordered``) says in its ``detail`` which floor was exceeded,
+    while its first problem is just the lowest case id from either population,
+    so a sample alone can point a reader at the population that is within its
+    floor. The detail leads whenever the check carries one.
+    """
+    sample = check.problems[0] if check.problems else ""
+    if check.detail and sample:
+        return f"{check.detail}; e.g. {sample}"
+    return check.detail or sample
 
 
 def _monitored_lines(health: DataHealth) -> list[str]:
