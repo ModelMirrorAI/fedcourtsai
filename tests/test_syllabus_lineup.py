@@ -932,6 +932,12 @@ def test_each_filed_is_one_writing_per_author() -> None:
         ("joined only as to Part II-B", "only as to Part II-B"),
         ("joined except for Part III-A", "except for Part III-A"),
         ("joined as to the introduction and Part I", "as to the introduction and Part I"),
+        ("joined except as to n. 1", "except as to n. 1"),
+        ("joined except as to nn. 2 and 3", "except as to nn. 2 and 3"),
+        ("joined as to Part I and n. 4", "as to Part I and n. 4"),
+        ("joined as to all but the first paragraph", "as to all but the first paragraph"),
+        ("joined, as to all but the frst sentence", "as to all but the frst sentence"),
+        ("joined as to all but the footnote", "as to all but the footnote"),
     ],
 )
 def test_scope_wordings_read_as_qualified_joins(join: str, qualifier: str) -> None:
@@ -944,6 +950,40 @@ def test_scope_wordings_read_as_qualified_joins(join: str, qualifier: str) -> No
     assert lineup.complete
     concurrence = _writing(lineup, "Jackson", WritingKind.concurrence)
     assert concurrence.joins == (Join("Sotomayor", qualifier),)
+
+
+def test_a_page_cite_with_at_is_dropped() -> None:
+    lineup = parse_syllabus_lineup(
+        "Gorsuch, J., delivered the opinion of the Court, in which Roberts, C. J., and "
+        + "Thomas, Sotomayor, Kagan, and Barrett, JJ., joined. Kavanaugh, J., filed a "
+        + "dissenting opinion, in which Alito, J., joined, and in which Jackson, J., "
+        + "joined except as to Part III, post, at 851. Jackson, J., filed a dissenting "
+        + "opinion, post, p. 871.",
+        bench=OT23,
+    )
+    assert lineup.complete
+    dissent = _writing(lineup, "Kavanaugh", WritingKind.dissent)
+    assert dissent.joins == (Join("Alito"), Join("Jackson", "except as to Part III"))
+
+
+def test_the_footnote_abbreviation_does_not_end_a_sentence() -> None:
+    # The period of "n. 1" is the abbreviation's, so the page cite and the
+    # sentence after it still read; the printed limit is kept as printed.
+    lineup = parse_syllabus_lineup(
+        "Alito, J., delivered the opinion of the Court, in which Roberts, C. J., and "
+        + "Sotomayor, Kagan, Gorsuch, Kavanaugh, Barrett, and Jackson, JJ., joined, and in "
+        + "which Thomas, J., joined except as to Part II\u2013B. Sotomayor, J., filed a "
+        + "concurring opinion, in which Gorsuch and Jackson, JJ., joined, post, p. 44. "
+        + "Thomas, J., filed an opinion concurring in part and concurring in the judgment, "
+        + "in which Gorsuch, J., joined except as to n. 1, post, p. 45. Kagan, J., filed a "
+        + "concurring opinion.",
+        bench=OT23,
+    )
+    assert lineup.complete
+    thomas = _writing(lineup, "Thomas", WritingKind.concurrence_in_part)
+    assert thomas.joins == (Join("Gorsuch", "except as to n. 1"),)
+    assert _writing(lineup, "Kagan", WritingKind.concurrence).joins == ()
+    assert lineup.votes["Thomas"] is M
 
 
 def test_a_plurality_clause_may_omit_the_comma_before_in_which() -> None:

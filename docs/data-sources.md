@@ -161,7 +161,10 @@ each fetching in a job that holds no credential
   actions the listing also carries. A row the listing links into a whole
   preliminary-print or bound volume is skipped unfetched, which on the
   Court's listings as read on 2026-10-01 is every row before OT2020 and some
-  of OT2020's.
+  of OT2020's. Before OT2017 there is no listing to read: the OT2015 and
+  OT2016 listing addresses redirect to the Court's U.S. Reports page (as
+  fetched on 2026-11-08), so those Terms need another index of the documents
+  as well as a volume reader.
 - **Who wrote what.** For a signed decision the syllabus lineup is the record
   of each writing's kind, author, coauthors and joiners: the grammar above,
   unchanged. A partial join is stored with its printed limit as the
@@ -182,18 +185,33 @@ each fetching in a job that holds no credential
   left inside an opinion. A lead's header prints no joiners, so the lead's rest on
   the syllabus alone. Anything else refuses the whole document with the
   reason. Refusals come from a syllabus the grammar cannot read whole (it
-  does not read "concurring in part" without "the judgment", or a join
-  limited to a footnote, "except as to n. 1") and from a text layer that runs
-  words together.
+  does not read "concurring in part" without "the judgment", or a join that
+  carries two limits at once, "as to Parts III and IV, except for n. 12"),
+  from a split that disagrees with a syllabus that did read, and from a text
+  layer that runs words together (a print whose type changes carry no space,
+  "Justice Thomasdelivered").
 - **Coverage, and what it leaves out.** As read on 2026-10-01, documents
   recorded, refused and skipped per Term: OT2025 70 / 4 / 0 (172 opinions),
   OT2024 63 / 4 / 0 (153), OT2023 54 / 6 / 0 (136), OT2022 50 / 8 / 0 (113),
   OT2021 60 / 6 / 0 (139), OT2020 48 / 5 / 15 (109); OT2017–OT2019 are
   skipped whole (volume-linked). The refusals are not random: their causes
-  (a partial concurrence, a join limited to a footnote) concentrate in
+  (a bare partial concurrence, a join with two limits) concentrate in
   fractured, many-opinion decisions, so a total, an average or a "longest"
   list taken from the table under-represents exactly those. A figure read
   from it states its population and the Term's refusal count beside it.
+- **Against a published Term count.** The listing numbers every document the
+  Court posts under the Term, not only its merits decisions: per curiams on
+  applications, argued or not; the per curiams it issues over the summer
+  after the Term's last sitting; and `D`-numbered rows for decrees in
+  original actions, which print no opinion and are refused. A Term figure
+  compiled at the end of June over the merits docket, such as a stat pack's
+  count of opinions released, counts a subset, so the two reconcile row by
+  row, never total against total. For OT2025 the listing carries 74 rows (73
+  numbered and `D1`, as fetched on 2026-11-08): rows 69–73 are summer per
+  curiams, `D1` is a decree, and rows 17 and 42 are per curiams on
+  applications decided without argument, which leaves the 66 the published
+  end-of-Term count reports. That match is a reading of the listing, not the
+  stat pack's stated definition.
 - **The word count** (rule `scotus-opinion-words`, version 1). An opinion's
   text runs from its header sentence to the next opinion's header or the end
   of the document.
