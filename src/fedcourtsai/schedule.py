@@ -9,6 +9,11 @@ read off its docket:
 - **the response deadline**, while the docket is undecided and the response is
   still owed (no response or waiver has followed the newest stated deadline).
 
+Beside them, each row carries the petition's **conference history**: every
+conference it was distributed for, in docket order, each marked as a relist, a
+reschedule or another move, and the exact relist count that history gives.
+History is never a date ahead; the upcoming conference is ``next_conference``.
+
 It is the forward-looking data the public site's case timeline shows beside
 each step, joined onto the big-case board by ``fedcourts big-cases`` so the
 board itself stays a ledger-only read.
@@ -35,6 +40,7 @@ from datetime import date
 from pathlib import Path
 
 from . import corpus
+from .pipeline.cert_signals import relist_count
 from .schemas import Schedule, ScheduledDay, ScheduleEntry
 from .scope_manifest import public_case_ids
 
@@ -87,6 +93,8 @@ def _entry(row: corpus.CorpusRow, as_of: date) -> ScheduleEntry | None:
         stale_reason="conference_passed" if conference is not None and not upcoming else None,
         argument=argument,
         response_due=response_due,
+        conferences=row.conference_history,
+        relists=relist_count(row.conference_history),
         last_live_polled=row.last_live_polled,
     )
 

@@ -337,6 +337,26 @@ before the columns existed carries none until its next poll. A removal from the
 argument calendar is not read: the setting stands until it passes, when the
 schedule marks it `passed`.
 
+The same cert-branch parse keeps the petition's **conference history**
+(`conference_history`, `pipeline.cert_signals.conference_history`): every
+conference a petition distribution (the `dist-v2` reading) names, one step per
+distinct date in the order the docket first names it, each with the filing date
+of that entry and its transition from the conference before. A `relist` is the
+reading `relisted_at` dates: the conference before sat on the petition (no
+call for response or "Rescheduled" entry followed its distribution by the
+conference day), and the new distribution was docketed after that conference
+and within 14 days of it. Docketed before that conference, or after something
+took the petition off it, is a `reschedule`; later than 14 days (a hold, an
+invited brief) is `redistributed`; after a disposition entry, `after_decision`;
+on the conference day itself, or undated, `unknown`. Its steps are exactly the
+conferences `distribution_count` counts, so the relist count it gives is exact
+and at most `distribution_count - 1`. The column keeps the longer of the stored
+and incoming lists, is withheld from the `query` rows and is never a cell
+input; the schedule publishes it as `conferences` and `relists`. A docket the
+poll has not read since the column existed carries none until its next poll,
+so the history fills for pending dockets as the poll rotates through them, and
+a closed docket stays null.
+
 On a granted docket the same parse also lands the **merits decision record**
 (`pipeline/decision_record.py`), over every grant — the GVR and the summary
 reversal included, where the merits pair (`merits_judgment` / `merits_decided`)

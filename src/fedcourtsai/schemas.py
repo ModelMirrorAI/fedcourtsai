@@ -9162,6 +9162,41 @@ class ScopeManifest(_Strict):
     )
 
 
+ConferenceTransition = Literal[
+    "first", "relist", "reschedule", "redistributed", "after_decision", "unknown"
+]
+
+
+class ConferenceStep(_Strict):
+    """One conference a cert petition was distributed for, in docket order.
+
+    Read off the petition's own "DISTRIBUTED for Conference of …" entries
+    (:func:`fedcourtsai.pipeline.cert_signals.conference_history`), one step per
+    distinct conference date, so a docket's steps are exactly the conferences
+    its corpus ``distribution_count`` counts. ``transition`` says how the
+    petition reached this conference from the one before it.
+    """
+
+    conference: date = Field(description="The conference date the distribution entry names")
+    distributed: date | None = Field(
+        default=None,
+        description="The filing date of the docket entry that first named this conference; "
+        "null when the entry carries no fully specified date",
+    )
+    transition: ConferenceTransition = Field(
+        description="How the petition reached this conference: `first` (its first "
+        "distribution); `relist` (the conference before sat on the petition and left it "
+        "undecided, and this entry was docketed after that conference and within 14 days "
+        "of it); `reschedule` (the conference before never sat on it: this entry was "
+        "docketed before that conference day, or a call for response or a 'Rescheduled' "
+        "entry took the petition off it first); `redistributed` (the conference before "
+        "sat, and this entry came more than 14 days later, as after a hold or an invited "
+        "brief); `after_decision` (docketed after the petition was decided, as for "
+        "rehearing); `unknown` (the entry's date will not parse, or it is the conference "
+        "day itself, which cannot say whether the conference had sat)"
+    )
+
+
 ScheduleStaleReason = Literal["conference_passed"]
 ScheduledDayStaleReason = Literal["passed"]
 
@@ -9240,11 +9275,37 @@ class ScheduleEntry(_Strict):
         "application, while the docket is undecided and the response is still owed. Null "
         "when no deadline is stated, or a response or waiver followed it",
     )
+    conferences: list[ConferenceStep] | None = Field(
+        default=None,
+        description="Every conference the petition was distributed for, in docket order, "
+        "each with how it got there (`relist`, `reschedule`, …). History, never a "
+        "scheduled date: the upcoming one is `next_conference`. Null on a 1.1 row, and "
+        "where the live channel has not read the history since it was first kept; an "
+        "empty list on a docket never distributed",
+    )
+    relists: int | None = Field(
+        default=None,
+        description="How many times the Court relisted the petition: the `conferences` "
+        "steps marked `relist`. Exact, and at most the number of conferences less one. "
+        "Null exactly when `conferences` is",
+    )
     last_live_polled: date | None = Field(
         default=None,
         description="When the live channel last read this docket — the per-case vintage of "
         "every date on the row, which `as_of` is not",
     )
+
+    @model_validator(mode="after")
+    def _relists_count_the_history(self) -> ScheduleEntry:
+        """``relists`` is the history's relist steps, present exactly when the history is."""
+        expected = (
+            None
+            if self.conferences is None
+            else sum(step.transition == "relist" for step in self.conferences)
+        )
+        if self.relists != expected:
+            raise ValueError("relists counts the relist steps of conferences")
+        return self
 
     @model_validator(mode="after")
     def _stale_exactly_when_unscheduled(self) -> ScheduleEntry:
@@ -9276,10 +9337,11 @@ class Schedule(_Strict):
     present.
     """
 
-    schema_version: Literal["1.0", "1.1"] = Field(
-        default="1.1",
+    schema_version: Literal["1.0", "1.1", "1.2"] = Field(
+        default="1.2",
         description="The artifact's schema version. A reader keys on it: a `1.1` row adds "
-        "`argument` and `response_due`, and may name no conference",
+        "`argument` and `response_due`, and may name no conference; a `1.2` row adds "
+        "`conferences` and `relists`",
     )
     skipped: bool = Field(
         default=False, description="True when no corpus was present; nothing was read"
@@ -9305,6 +9367,10 @@ class Schedule(_Strict):
             for entry in self.entries
         ):
             raise ValueError("argument, response_due and conference-less rows need 1.1")
+        if self.schema_version != "1.2" and any(
+            entry.conferences is not None for entry in self.entries
+        ):
+            raise ValueError("conferences and relists need 1.2")
         return self
 
 

@@ -61,6 +61,7 @@ from .pipeline.interim_signals import ApplicationKind
 from .schemas import (
     GRANTED_DISPOSITIONS,
     MERITS_PROCEEDING_DISPOSITIONS,
+    ConferenceStep,
     Disposition,
     EventKind,
     Judgment,
@@ -656,6 +657,18 @@ class CorpusRow(BaseModel):
         "reading (NULL) keeps both stored values, a fresh reading takes both. Withheld "
         "from the retrieval surface. None = not parsed.",
     )
+    conference_history: list[ConferenceStep] | None = Field(
+        default=None,
+        description="Every conference the cert petition was distributed for, in docket "
+        "order, one step per distinct date with the docket entry's filing date and how "
+        "the petition got there (`relist`, `reschedule`, …; "
+        "`pipeline.cert_signals.conference_history`). Its `relist` steps are the exact "
+        "relist count, where `distribution_count - 1` is an upper bound. Written by the "
+        "live cert branch at ingest; latched so a longer reading wins and a shorter one "
+        "(a payload served with entries missing) keeps the stored history. Withheld from "
+        "the retrieval surface (`RETRIEVAL_WITHHELD_COLUMNS`). None = not live-parsed "
+        "since the column existed; an empty list = parsed, never distributed.",
+    )
     sample_weight: int | None = Field(
         default=None,
         description="Inverse inclusion probability of this row under the corpus's "
@@ -1186,7 +1199,13 @@ CREATE TABLE IF NOT EXISTS cases (
     -- keyed on response_due_state. Withheld from the retrieval surface. NULL =
     -- no deadline stated, or not parsed.
     response_due TEXT,
-    response_due_state TEXT
+    response_due_state TEXT,
+    -- Every conference the cert petition was distributed for, in docket order,
+    -- as a JSON list of {conference, distributed, transition} (see CorpusRow
+    -- and pipeline/cert_signals.py). Written by the live poll's cert branch at
+    -- ingest; a longer reading replaces it, a shorter one keeps it. Withheld
+    -- from the retrieval surface. NULL = not parsed.
+    conference_history TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_cases_court ON cases(court);
 CREATE INDEX IF NOT EXISTS idx_cases_disposition ON cases(disposition);
@@ -1376,6 +1395,7 @@ _CASES_COLUMN_DDL: dict[str, str] = {
     "argument_set_for": "TEXT",
     "response_due": "TEXT",
     "response_due_state": "TEXT",
+    "conference_history": "TEXT",
 }
 
 _COLUMNS = tuple(_CASES_COLUMN_DDL)
@@ -2236,6 +2256,11 @@ def _to_record(row: CorpusRow) -> dict[str, object]:
         "argument_set_for": row.argument_set_for.isoformat() if row.argument_set_for else None,
         "response_due": row.response_due.isoformat() if row.response_due else None,
         "response_due_state": row.response_due_state,
+        "conference_history": (
+            None
+            if row.conference_history is None
+            else json.dumps([step.model_dump(mode="json") for step in row.conference_history])
+        ),
         "capital_case": int(row.capital_case),
     }
 
@@ -2271,6 +2296,17 @@ def _optional_json_list(record: RecordRow, column: str) -> list[str] | None:
     if raw is None:
         return None
     return [str(value) for value in json.loads(raw)] or None
+
+
+def _optional_conference_history(record: RecordRow) -> list[ConferenceStep] | None:
+    """Read ``conference_history``; ``None`` when unread, ``[]`` when read and empty."""
+    try:
+        raw = record["conference_history"]
+    except (KeyError, IndexError):
+        return None
+    if raw is None:
+        return None
+    return [ConferenceStep.model_validate(step) for step in json.loads(raw)]
 
 
 def _optional_str(record: RecordRow, column: str) -> str | None:
@@ -2373,6 +2409,7 @@ def _from_record(record: RecordRow) -> CorpusRow:
         argument_set_for=_optional_date(record, "argument_set_for"),
         response_due=_optional_date(record, "response_due"),
         response_due_state=_optional_str(record, "response_due_state"),
+        conference_history=_optional_conference_history(record),
         capital_case=bool(_optional_int(record, "capital_case")),
     )
 
@@ -2608,6 +2645,20 @@ def _update_clause(column: str) -> str:
         clause = (
             f"{column}=CASE WHEN excluded.response_due_state IS NULL "
             f"THEN cases.{column} ELSE excluded.{column} END"
+        )
+    elif column == "conference_history":
+        # The history only grows: every live poll re-reads the whole docket, so a
+        # fresh reading is a superset of the stored one. A writer with no reading
+        # (NULL: a CourtListener row, an application, a payload served without
+        # its proceedings) keeps it, and so does a shorter reading — a payload
+        # served with entries missing — the `distribution_count` max latch's
+        # shape. An equal or longer reading replaces it, so a corrected
+        # classification still lands.
+        clause = (
+            f"{column}=CASE WHEN excluded.{column} IS NULL THEN cases.{column} "
+            f"WHEN cases.{column} IS NULL THEN excluded.{column} "
+            f"WHEN json_array_length(excluded.{column}) >= json_array_length(cases.{column}) "
+            f"THEN excluded.{column} ELSE cases.{column} END"
         )
     elif column == "counsel":
         # The JSON-list twin of the fill-in latch: every writer asserts the column
@@ -4532,7 +4583,8 @@ def opinion_body(row: CorpusRow) -> str | None:
 #: opening petition's writ and the conferences distributed after a call for
 #: response are salience inputs, the argument day and response deadline the
 #: Court has set are display data for the published schedule, and the
-#: merits decision record and the cert-stage amicus count are analytics
+#: merits decision record, the cert-stage amicus count and the conference
+#: history (whose relist count would also show a replay cell later relists) are analytics
 #: surfaces — what a stat-pack or a
 #: per-Justice vote reader would read — and no registered process has admitted
 #: either to what a predict or
@@ -4559,6 +4611,7 @@ RETRIEVAL_WITHHELD_COLUMNS: frozenset[str] = frozenset(
         "argument_set_for",
         "response_due",
         "response_due_state",
+        "conference_history",
     }
 )
 
