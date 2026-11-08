@@ -17932,10 +17932,14 @@ freeze commit is recorded here.
 
   **The reading rule** (`metrics/README.md`, *The leakage exclusion*). A
   codex manifest row captured before the carrying merge is date-blind, not
-  undated. Its grading stays assessed, because the grader saw every call, its
-  query and its class; but a cross-engine leakage comparison over those logs
-  is not like-for-like, and a codex verdict there that turns on the absence
-  of a dated result rests on a missing signal. **Population**, at `staging`
+  undated. Its grading stays assessed, and an unsuspected verdict on it is a
+  real read rather than the row-blind rule's null bit, because the grader saw
+  every call, its query and its class; but a cross-engine leakage comparison over those logs
+  is not like-for-like, a codex verdict there that turns on the absence of a
+  dated result rests on a missing signal, and a codex leakage figure over the
+  stretch carries a sensitivity reading with those gradings counted
+  unassessed. The gap follows the log, not the grading date: a grading formed
+  after the merge over a log captured before it is date-blind too. **Population**, at `staging`
   `eb75c3fd7`: **476** `codex-baseline` predict logs from `20260916T170237Z`
   on, **364** of them with a CourtListener call; after the run collapse,
   **522** assessed gradings of those predictions, all in frozen scope and all
