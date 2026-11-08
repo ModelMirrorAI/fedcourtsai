@@ -1033,18 +1033,23 @@ for the `O`, the words spelled out, or a bare `Box` and number, the box always
 carrying a digit; and a street address with a letter glued to its house number
 or with the lower-case connectors (`de`, `la`, `del`) a street name carries. A
 street line ending on `Dr`, `Ct` or `Pl` is read as an address only where a
-"City, State ZIP" line sits directly below it, since on their own those words
-are far more often a doctor, the court and a plaintiff; and the "City, State
+"City, State ZIP" line sits directly below it (or below a unit line under
+it), since on their own those words are far more often a doctor, the court and a plaintiff; and the "City, State
 ZIP" line directly below any withheld street address or box, the docket's own
 address value included, is withheld with it, as a placeholder of its own — a
-court or clerk street address takes its city line with it too.
-Two shapes are read on the document's **opening** alone (its first 6,000
-characters, which hold the cover page a self-represented caption sets its
-details on), because further in the same shape is mostly something else: a
-blank-separated telephone number alone on its line (an OCR'd index column
-further in) and a street address set in capitals (a heading further in). It
-never takes a line
-break. The **value** pass looks for the
+court or clerk street address takes its city line with it too. Where the block
+sets its unit on a line of its own between the two (`Suite 12`), the unit line
+is withheld with the city line. A street name's apostrophe is read straight or
+typographic (`O’Malley’s Way`), by the shape pass and the detector alike.
+No shape-pass match takes a line break. Two shapes are read on their own on
+the document's **opening** alone (its first 6,000 characters, which hold the
+cover page a self-represented caption sets its details on), because further in
+the same shape is mostly something else: a blank-separated telephone number
+alone on its line (an OCR'd index column further in) and a street address set
+in capitals (a heading further in). Further in, a street address in capitals
+is read only as the first line of a mailing block, with a "City, State ZIP"
+line directly below it or below a unit line under it, which is how a letter
+reproduced in an appendix sets its addressee's block. The **value** pass looks for the
 `Email`, `Phone` and `Address` strings on every served block of each side read
 as self-represented (the filer's own, and any co-party counsel's on that side
 — never a side whose blocks all name counsel; on the `Other` list, the
@@ -1125,7 +1130,8 @@ that gate entirely.
 
 **What the scrub does not reach**, named so the section is not read as a covered
 surface. No pattern's match spans a newline (the `Dr`/`Ct`/`Pl` street shape
-looks past one to the city line, but stops at it) — that is what makes the structural claim
+and a capitals street past the opening look past one or two, to a unit line
+and the city line below, but stop at them) — that is what makes the structural claim
 above true rather than aspirational, and it costs a detail the extractor broke
 across two lines. The blank-separated telephone spelling (`202 555 0147`) is
 deliberately not read at all: an appendix index and an OCR'd column emit exactly
@@ -1133,8 +1139,8 @@ that shape, and the scrubbed population is disproportionately the scanned one,
 so reading it would delete legal text from the cells the scrub exists for. Nor
 are a box spelled out in full, a number written with a slash or with no
 separators, a street line ending on `Dr`, `Ct` or `Pl` with no "City, State
-ZIP" line directly below it, a city/state/ZIP line under anything but a withheld
-street address or box (or under one on a docket the value pass alone scrubs) —
+ZIP" line directly below it or below a unit line under it, a city/state/ZIP
+line under anything but a withheld street address or box (or under one on a docket the value pass alone scrubs) —
 that shape is also how the Court's own address line is set — or an incarcerated filer's register number beside an
 institution name, which has no shape at all.
 

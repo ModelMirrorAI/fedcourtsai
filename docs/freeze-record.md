@@ -18011,3 +18011,116 @@ freeze commit is recorded here.
   two reads (`1,767` against `1,827` at `staging` `e0eed9bf9`). The committed
   `metrics/leaderboard.json`'s `leakage_exclusion.assessed` does not move on
   account of this merge.
+
+- **The contact scrub reads a mailing block past the opening, in capitals, with
+  a typographic apostrophe or a unit line of its own; recorded 2026-11-08.** A
+  **conditioning** entry in the *what the pipeline provisions* class, under
+  unchanged digests: no prompt byte and no registry field the digests read
+  moves, and `uv run fedcourts process-digest --all` at this commit prints
+  what it prints at its parent on `staging`: `proc-v20` and the six digests
+  `69076c7e…` (claude-baseline), `56f5da33…` (codex-baseline), `154ba5e6…`
+  (gemini-baseline), `b9a5d840…` (claude-judge), `ce1c037e…` (codex-judge)
+  and `b29afb1d…` (gemini-judge).
+
+  **What changes**, on the staged copy alone
+  (`pipeline.documents.scrub_contact_details` and the residual detector).
+  - **A street name's apostrophe is read straight or typographic** (`’`), in
+    the shape pass's street and city-line shapes and in the detector's.
+  - **A unit set on a line of its own** between a withheld street line and
+    its "City, State ZIP" line (`Suite 12`) is withheld with the city line,
+    each line keeping its placeholder.
+  - **A street address in capitals past the opening is read as the first
+    line of a mailing block**: where a city line sits directly below it, or
+    below a unit line under it. On the opening it is read as before, on its
+    own. The `Dr`, `Ct` and `Pl` shape takes the same unit line.
+  - **The residual detector still reads the opening and closing alone.** Over
+    the scrub before this change, reading the whole text would flag 1,043 of
+    24,364 shape-scrubbed documents instead of 528, while the same reading
+    flags 1,129 of 31,558 documents on represented dockets, where no scrub
+    runs (every figure in this entry is read over blob `bb0d7027…`, below);
+    a hand reading of 41 middle-of-document hits on a sample of 345
+    self-represented dockets found about five that are a filer's own detail,
+    the rest a court's, an agency's or counsel's address or OCR noise. Read
+    over the whole text, the detector would mark several hundred documents
+    not scrubbed, and the summary lane would withhold them, on mostly
+    institutional or noise matches; the shapes the hand reading found are
+    instead taken by the scrub itself.
+
+  **The executed check.** `scotus/9026000378`, the docket the codex cell
+  flagged (`evt-petition-disposition`, run `20261108T010928Z`), scrubbed from
+  the production content store on 2026-11-08 (blob
+  `bb0d70278f3cc5a54d002c65f1ce8f906c07f437b374c75a3d54a54228d20ca9`, newest
+  pull 2026-11-08, newest stored snapshot row 2026-07-13): at the parent the
+  scrub withheld 14 details on `appendix.txt` and left the addressee's
+  street, unit and city lines of the clerk's letter on App-7, the row reading
+  `contact_scrubbed: true`, `contact_residuals: 0`; at this commit it
+  withholds 26 there (`provision-snapshot`, 23 → 35 across the five staged
+  documents): the letter's three addressee lines carry the placeholder, and
+  the rest are court and clerk mailing blocks set in capitals further in,
+  newly read, and withheld as the scrub withholds a court address written
+  with a street number in mixed case. No other staged document of the docket changes.
+
+  **The population**, over the same blob with
+  `scripts/checks/contact_scrub_residual_census.py --base` the parent: of
+  the 49,326 live-slice SCOTUS rows, 10,233 dockets are read as
+  self-represented and 24,364 of their documents are shape-scrubbed. This
+  change withholds 3,335 more spans across 969 of them and none fewer. The
+  documents the detector flags on the opening or closing, which provisioning
+  records as `contact_scrubbed: false` and the summary lane withholds, fall
+  from 528 to 360, and those carrying a residual-shaped match anywhere in
+  the text from 1,043 to 764. The figure is an upper bound on the dockets a
+  post-change cell reads differently, since a docket provisions only when an
+  event on it is owed.
+
+  **A harness boundary under the 2026-10-11 pooled rule.** The change moves
+  what a predict cell reads under unchanged digests, so it is composition and
+  not a cut: the pooled default and the paired figure keep both sides and list
+  each engine's `n` before and after.
+  - **The registry row** is `scrub-apostrophe-and-unit-line`: every
+    predictor, reach `self-represented dockets`, not gradual, since
+    provisioning reads the stored documents and the next cell provisioned on
+    an affected docket reads the change. It is registered **pending** in the
+    change's own PR (`fedcourts register-boundary`). Its `merge` and `at`
+    stay null until the promotion merge that carries it to `main` stamps them
+    (`promotion-record`); until then it is left out of
+    `process_version.HARNESS_BOUNDARIES`, so no cell has a side of it.
+  - **The side test** is the registered one: a stamped cell is after the
+    change if the carrying merge is an ancestor of, or equal to, its
+    `process_version.pipeline_sha`; a cell with no `pipeline_sha` is on
+    neither side, and its number is listed.
+  - **Evaluate cells are dated by this entry, not partitioned**: the boundary
+    registry splits predictor cells only, and an evaluate cell provisioned
+    after the carrying merge reads the narrower text under the same evaluator
+    digests.
+
+  **What a post-change cell reads.** A predict or evaluate cell provisioned
+  on a self-represented docket after the carrying merge reads the wider
+  withholding, and the case-summary lane's staging reads the same text from
+  then on; cells already run stay as they are, and nothing is written to the
+  corpus. Because the detector's street and city-line shapes now read a
+  typographic apostrophe, a document whose such street the scrub still
+  misses (a lower-case name word) can move from `contact_scrubbed: true` to
+  `false`, and the summary lane then withholds it.
+
+  **What does not move.** No base rate re-prices, no membership rule moves
+  and no scored figure moves. No skill movement is predicted, and a movement
+  in **either** direction across this boundary may not be read as a model
+  effect.
+
+  **The amendment debt.** It is unchanged. This entry adds no new token.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_documents.py -k "appendix_letter or capitals or
+    apostrophe or unit_line"` is green;
+  - `uv run fedcourts process-digest --all` prints the same label and digests
+    at the carrying merge as at its first parent;
+  - where the corpus is pulled, `uv run fedcourts provision-snapshot --court
+    scotus --docket 9026000378 --event evt-petition-disposition` writes
+    `appendix.txt` with `contact_replacements: 26` on its manifest row;
+  - on `main` once the promotion has merged, `uv run python -c "from
+    fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
+    print('scrub-apostrophe-and-unit-line' in {b.name for b in H})"` prints
+    `True`.
