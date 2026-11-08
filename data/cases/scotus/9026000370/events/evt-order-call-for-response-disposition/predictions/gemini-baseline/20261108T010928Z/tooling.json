@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000370",
+  "run_id": "20261108T010928Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts validate",
+    "courtlistener mcp search"
+  ],
+  "helpful": [
+    "Provisioned petition.txt, decision-below.txt, appendix.txt, and lower-court-docket.txt",
+    "context.json cert_anchor and metrics/statpack.md base-rate cuts"
+  ],
+  "gaps": [],
+  "notes": "All provisioned filings and lower-court opinions were complete and readable."
+}

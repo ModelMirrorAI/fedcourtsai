@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000378",
+  "run_id": "20261108T010928Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Source dates are not internally reconciled: the snapshot's petition entry says February 6, 2026, docketing is September 21, 2026, and the petition bears April 2026 and claims an April 16 extension deadline. These may reflect different processing acts, but the record does not explain the sequence. Used the supplied pending posture and December 4 conference; did not infer untimeliness or dismissal from the ambiguity."
+    },
+    {
+      "category": "capture-gap",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The appendix table of contents lists underlying pleadings and exhibits beyond App-27, but the provisioned public text ends after App-27 with a notice that additional material is available in the Clerk's Office. Metadata marks the file not truncated. The actual complaint, proposed amendment, and evidentiary exhibits therefore could not be audited directly; this is not assumed to be a pipeline truncation or an absence of those materials."
+    },
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-petition-disposition",
+      "message": "Private contact information remains in appendix correspondence around App-7 despite documents.json reporting contact_scrubbed=true and contact_residuals=0. No contact value is reproduced here or elsewhere in this cell, and none informed the forecast. Please review the correspondence-address scrub coverage."
+    }
+  ]
+}

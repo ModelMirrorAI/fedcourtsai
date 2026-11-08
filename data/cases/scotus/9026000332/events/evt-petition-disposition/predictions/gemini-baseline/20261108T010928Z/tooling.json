@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000332",
+  "run_id": "20261108T010928Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_search_document",
+    "mcp_courtlistener_read_document"
+  ],
+  "helpful": [
+    "fedcourts query --docket-number for inspecting companion and cross-petitions (26-199, 26-201, 26-335, 26-430, 25-1325) and prior OT2024 GVR dockets (24-429, 24-433, 24-465, 24-472, 24-489)",
+    "CourtListener MCP search and read_document for inspecting the omitted portion of the Fifth Circuit opinion (107 F.4th 415) and FCC v. Consumers' Research (606 U.S. 656)",
+    "Provisioned cert-stage briefs (petition.txt, brief-in-opposition.txt, cert-reply.txt) and related docket snapshot (26-335.json)"
+  ],
+  "gaps": []
+}

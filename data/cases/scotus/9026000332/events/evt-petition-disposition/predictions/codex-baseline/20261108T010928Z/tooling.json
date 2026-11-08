@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000332",
+  "run_id": "20261108T010928Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts paths", "fedcourts query", "committed statpack", "shell document reads", "web search/open attempts", "fedcourts validate"],
+  "helpful": ["Frozen band-specific cert anchor", "Combined federal and private oppositions", "Reply and questions-presented text", "Related docket with explicit relation type", "Corpus transfer accounting"],
+  "gaps": ["Default uv cache was outside writable roots; resolved with a temporary cache and no-sync mode", "Official-source web verification attempts produced no usable content", "Lead-petition corpus records lacked current conference information"],
+  "notes": "No installations, credentials, own-case outcome retrieval, or other-cell reads. Corrected an invalid era token after the CLI supplied its vocabulary. Petition appendix truncation was disclosed; core opposing briefs and reply were available."
+}

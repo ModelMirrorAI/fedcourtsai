@@ -1,0 +1,74 @@
+# Cert-Stage Disposition Prediction: *Texas, et al. v. Jerry Black, et al.* (No. 26-335)
+
+## 1. Overview and Provisioned Inputs Consulted
+
+In No. 26-335, the State of Texas and the Texas Racing Commission petition for a writ of certiorari to review the Fifth Circuit's June 11, 2026 judgment on remand in *National Horsemen's Benevolent & Protective Ass'n v. Black*, No. 23-10520. The single question presented (`record/documents/questions-presented.txt`) is:
+
+> Whether Congress, through the Horseracing Integrity and Safety Act (HISA), has unconstitutionally delegated legislative authority to a private entity.
+
+### Provisioned Record and Retrieval Basis
+We formed this forecast in `forward` mode (`record/context.json`) from:
+- **Snapshot:** `record/snapshots/2026-11-08.json` (showing the petition docketed September 14, 2026; amicus brief of Alexander Volokh, Cato Institute, and Competitive Enterprise Institute filed October 13, 2026; briefs in opposition of the Authority respondents and Federal respondents filed October 13 and October 14, 2026; reply brief of Texas filed October 26, 2026; and first distribution on November 4, 2026 for the **December 4, 2026** conference, `distribution_count: 1`, `cvsg_date: null`).
+- **Provisioned Filings (`record/documents/documents.json`):**
+  - `questions-presented.txt` (1 page; `empty_text: false`, `ocr_derived: false`).
+  - `petition.txt` (219 pages, truncated at 150,000 characters in the appendix; `empty_text: false`, `ocr_derived: false`), including the petition body and the Fifth Circuit's June 11, 2026 post-remand opinion in Appendix A (Pet. App. 1a–37a). Note that `decision-below.txt` and `lower-court-docket.txt` were not separately staged in `record/documents/`, and `record/same-question.json` is not present; the Fifth Circuit's post-remand opinion is reproduced in Appendix A of `petition.txt`.
+  - `brief-in-opposition.txt` (47 pages; `empty_text: false`, `ocr_derived: false`), the Brief in Opposition for the Horseracing Integrity and Safety Authority respondents (by Pratik A. Shah).
+  - `cert-reply.txt` (16 pages; `empty_text: false`, `ocr_derived: false`), Texas's Reply Brief.
+- **Related Docket (`record/related/related.json` and `26-332.json`):** `26-332.json` (*Gulf Coast Racing, L.L.C. v. HISA*, No. 26-332), linked via `relation: "vided-amicus"` (`shared_briefs: 1`, the Volokh/Cato/CEI amicus brief), which arises from the same Fifth Circuit judgment and is also distributed once for the December 4, 2026 conference.
+- **Corpus Priors (`uv run fedcourts query`):** Prior OT2024 HISA petitions from the same Fifth Circuit case that were GVR'd on June 30, 2025 in light of *FCC v. Consumers' Research*, 606 U.S. 656 (2025) (Nos. 24-429, 24-433, 24-465, 24-472, 24-489), plus the current OT2026 companion petitions (Nos. 26-199, 26-201, 26-430, and 25-1325).
+
+---
+
+## 2. Procedural and Companion Docket Context
+
+This petition is part of the second Supreme Court cert round arising out of the Fifth Circuit's HISA litigation:
+1. **First Fifth Circuit Decision (*Horsemen's I*, 53 F.4th 869 (5th Cir. 2022)):** The Fifth Circuit held HISA's original rulemaking structure facially unconstitutional under the private nondelegation doctrine because the Federal Trade Commission (FTC) was limited to reviewing rules proposed by the Horseracing Integrity and Safety Authority ("the Authority") for consistency with the statute and could not override the Authority's policy choices.
+2. **2022 Congressional Amendment:** In December 2022, Congress amended 15 U.S.C. § 3053(e) (modeled on the Maloney Act's SEC–FINRA oversight provision) to empower the FTC, by rule under 5 U.S.C. § 553, to "abrogate, add to, and modify the rules of the Authority ... as the Commission finds necessary or appropriate to ensure the fair administration of the Authority, to conform the rules of the Authority to requirements of this chapter and applicable rules approved by the Commission, or otherwise in furtherance of the purposes of this chapter."
+3. **Second Fifth Circuit Decision (*Horsemen's II*, 107 F.4th 415 (5th Cir. 2024)):** Following the 2022 amendment, the Fifth Circuit (Judge Duncan, joined by Judges King and Engelhardt) held that § 3053(e) cured the private nondelegation problem with respect to the Authority's **rulemaking** power, agreeing with the Sixth Circuit (*Oklahoma v. United States*, 62 F.4th 221 (6th Cir. 2023)) and Eighth Circuit (*Walmsley v. FTC*, 117 F.4th 1032 (8th Cir. 2024)). However, the Fifth Circuit held that HISA's **enforcement** provisions facially violate the private nondelegation doctrine because the Authority and its contracted enforcement arm (HIWU) investigate, subpoena, search, charge, sanction, and file civil suits for injunctions without prior FTC approval.
+4. **OT2024 GVR (June 30, 2025):** Both the government/Authority (Nos. 24-429, 24-433) and the challengers (Texas in No. 24-465, NHBPA in No. 24-472, Gulf Coast Racing in No. 24-489) petitioned for certiorari. On June 30, 2025, the Supreme Court granted, vacated, and remanded all five petitions for further consideration in light of *FCC v. Consumers' Research*, 606 U.S. 656 (2025).
+5. **Post-Remand Decision Below (June 11, 2026) and Current OT2026 Petitions:** On remand, the Fifth Circuit concluded that *Consumers' Research* did not alter its analysis on either question and reissued its decision affirming the facial validity of HISA's rulemaking provisions and invalidating HISA's enforcement provisions. Five petitions from the Fifth Circuit and one from the Sixth Circuit are now pending:
+   - **No. 26-199 (*HISA v. NHBPA*)** and **No. 26-201 (*FTC v. NHBPA*)**: Affirmative petitions by the Authority and the Solicitor General seeking review of the Fifth Circuit's invalidation of HISA's **enforcement** provisions.
+   - **No. 25-1325 (*Oklahoma v. United States*)**: Petition from the Sixth Circuit (*Oklahoma II*, 163 F.4th 294 (6th Cir. 2025)) challenging both HISA's enforcement and rulemaking provisions.
+   - **No. 26-332 (*Gulf Coast Racing v. HISA*, staged in `record/related/26-332.json` via `vided-amicus`)**: Cross-petition challenging the Fifth Circuit's rejection of the Appointments Clause claim and the rulemaking nondelegation claim.
+   - **No. 26-335 (*Texas v. Black*, this cell)**: Cross-petition challenging the Fifth Circuit's upholding of HISA's **rulemaking** provisions.
+   - **No. 26-430 (*NHBPA v. HISA*)**: Cross-petition challenging the Fifth Circuit's upholding of HISA's **rulemaking** provisions.
+
+---
+
+## 3. Statpack Base-Rate Anchor and Signal Cuts
+
+### Frozen Salience Band Anchor (`cert_anchor`)
+From `record/context.json`, this cell is in the **`state`** band under `salience_version: "sal-v8"`, with `distribution_count: 1`, `cvsg_date: null`, and `term: 2026`. The harness-frozen `cert_anchor` rate (pooled over the bracketed `reached` rates for the `state` band across the 9 strictly prior Terms 2017–2025 in `metrics/statpack.md`, `lookback_terms: 10`) is **0.2333** (**23.3%**, 97/416 weighted resolved across OT2017–OT2025 in the "Segment base rate by salience band (sal-v8)" table).
+
+### Comparison with Other Statpack Cuts (`metrics/statpack.md`)
+- **Modern discretionary-cert petitions overall:** 1.4% granted (638/44,694 resolved) and 1.4% GVR (637/44,694 resolved), or ~2.8% grant-family rate.
+- **Originating circuit (`ca5`):** In the modern cert table, Fifth Circuit petitions resolve at 94.7% denied, 2.2% GVR, 1.6% dismissed, and 1.5% granted (3.7% grant-family rate over `n = 5,464` resolved).
+- **Relist count (`relist_bucket = 0`, 1 distribution):** Paid scored-segment petitions with 0 relists end at 96.8% denied, 1.3% granted, 0.5% GVR (`n = 10,204` resolved), whereas those reaching 1 relist resolve at 8.3% granted, 5.2% GVR (`n = 2,532`), and 2 relists at 28.3% granted, 12.9% GVR (`n = 495`). Because this cell is at `moment: distribution` (`distribution_count: 1`), the `state` band's bracketed `reached` rate (23.3%) properly reflects the forward risk set rather than the terminal 0-relist bucket.
+- **CVSG status (`none`):** Paid scored-segment petitions without a CVSG resolve at 4.1% granted, 2.3% GVR (`n = 13,549` resolved).
+- **Amicus-brief count (`1`):** The docket currently shows 1 amicus brief (the vided brief of Alexander Volokh, Cato Institute, and CEI). In the paid scored segment, petitions ending with `cert_amicus = 1` resolve at 10.1% granted, 4.7% GVR (`n = 1,158` resolved).
+
+---
+
+## 4. Case-Specific Adjustments to the 23.3% Anchor
+
+### Upward Considerations
+1. **Companion Enforcement Petitions (Nos. 26-199 and 26-201) Are Almost Certain to Be Granted:** There is a square, acknowledged 2-to-1 circuit split between the Fifth Circuit and the Sixth/Eighth Circuits on whether HISA's enforcement provisions facially violate the private nondelegation doctrine, and the Fifth Circuit held an Act of Congress partially unconstitutional. Both the Solicitor General (No. 26-201) and the Authority (No. 26-199) have petitioned for certiorari on the enforcement question, and all respondents agree the enforcement question warrants review. Texas argues (Pet. 28–31; Cert. Reply 1–3) that whether the Authority can constitutionally make rules is logically antecedent to whether it can enforce them, providing a concrete vehicle hook to consolidate No. 26-335 with Nos. 26-199 and 26-201.
+2. **State Sovereign Petitioner and Amicus Support:** Texas is represented by its Solicitor General and supported by an amicus brief from private-nondelegation scholar Alexander Volokh, the Cato Institute, and the Competitive Enterprise Institute.
+
+### Downward Considerations (Dominant)
+1. **Unanimous Circuit Consensus Upholding Amended HISA's Rulemaking Provisions:** Every federal court of appeals and district court to consider HISA's rulemaking structure after the December 2022 amendment to 15 U.S.C. § 3053(e) has upheld it: the Fifth Circuit below (unanimously, per Judge Duncan, Pet. App. 8a–18a), the Sixth Circuit (*Oklahoma I*, 62 F.4th 221; *Oklahoma II*, 163 F.4th 294), and the Eighth Circuit (*Walmsley v. FTC*, 117 F.4th 1032). Even Judge Duncan—who authored *Horsemen's I* striking down the original rulemaking provisions and authored the opinion below striking down HISA's enforcement provisions—held unequivocally that the 2022 amendment "solved the nondelegation problem with the Authority's rulemaking power" by giving the FTC plenary power to "abrogate, add to, and modify" any Authority rule (Pet. App. 9a–13a).
+2. **Recent Supreme Court Precedent in *FCC v. Consumers' Research* (2025) Cuts Strongly Against Granting the Rulemaking Question:** Just last Term, in *FCC v. Consumers' Research*, 606 U.S. 656, 692–95 (2025), the Supreme Court rejected a private nondelegation challenge to the Universal Service Administrative Company's role in the Universal Service Fund, reaffirming *Sunshine Anthracite Coal Co. v. Adkins*, 310 U.S. 381 (1940), and holding that private participation is permissible so long as the agency retains ultimate decision-making authority. Having just GVR'd the HISA cases in June 2025 in light of *Consumers' Research* and seen both the Fifth and Sixth Circuits conclude on remand that amended § 3053(e) satisfies *Consumers' Research* on rulemaking, the Court is unlikely to grant certiorari on the splitless rulemaking question.
+3. **Opposition of Both the Solicitor General and the Authority to Expanding the Grant:** Both the Federal Respondents and the Authority (`brief-in-opposition.txt`, at 11–28) urge the Court to grant only Nos. 26-199 and 26-201 on the enforcement question where a genuine circuit conflict exists and an Act of Congress was invalidated, and to deny the challengers' cross-petitions (Nos. 26-332, 26-335, 26-430) on the splitless rulemaking and Appointments Clause claims. When the Court grants a government petition to review the partial invalidation of a federal statute on a split issue, it routinely denies defensive cross-petitions seeking to add splitless constitutional challenges that all circuits rejected.
+4. **Multiple Competing Vehicles on Rulemaking and Texas's Specific Posture:** Four separate petitions currently raise the rulemaking question: *Oklahoma* (No. 25-1325), *Gulf Coast Racing* (No. 26-332), *Texas* (No. 26-335), and *NHBPA* (No. 26-430). Furthermore, as the Authority's BIO notes (at 27–28), Texas has barred interstate export of simulcast signals rather than participate in HISA "covered races," whereas NHBPA (No. 26-430, the lead respondent in Nos. 26-199 and 26-201) directly represents thousands of horsemen subject to HISA's rules daily. Thus, even if four Justices wished to add the rulemaking question, they might grant only NHBPA's cross-petition (No. 26-430) or Oklahoma's petition (No. 25-1325) rather than granting all four challenger petitions.
+5. **Much Lower GVR Probability Than in OT2024:** In June 2025, all five Fifth Circuit petitions were GVR'd together so the Fifth Circuit could consider *Consumers' Research* in the first instance. Now that the Fifth Circuit has issued its post-remand judgment and the Court is poised to grant plenary review in Nos. 26-199 and 26-201 on the enforcement split, the Court will be reviewing the Fifth Circuit's judgment directly rather than GVR'ing for an intervening precedent. A small residual GVR probability (~4%, or ~29% conditional on a grant) remains in the event the Court holds No. 26-335 pending its merits decision in Nos. 26-199 / 26-201 and then vacates and remands in light of its merits opinion.
+
+---
+
+## 5. Summary of Calibrated Probabilities
+
+- **Top-level `probability` / `disposition` claim:** **0.14** (`granted: 0`, `predicted_disposition: "denied"`, reflecting ~10% plenary grant consolidated with Nos. 26-199/26-201 and ~4% hold-and-GVR, vs. 86% denial).
+- **`relist-increment`:** **0.35** (from `distribution_count: 1`, a 35% chance the December 4, 2026 conference relists the Fifth Circuit HISA cluster at least once while coordinating vehicle selection across the six pending HISA dockets).
+- **`cvsg-increment`:** **0.01** (the FTC and its Commissioners are already parties represented by the Solicitor General).
+- **`summary-disposition-route` (conditional on grant):** **0.29** (`0.04 / 0.14`, representing the conditional probability that a grant is a GVR following the merits decision in Nos. 26-199/26-201 rather than a plenary grant).
+- **`dissent-from-denial` (conditional on denial):** **0.08** (modest chance that Justice Thomas, Justice Gorsuch, or Justice Alito notes a dissent or statement respecting denial of the rulemaking cross-petition, with `order-writers` probabilities concentrated on Thomas `0.04`, Gorsuch `0.04`, Alito `0.035`, and Kavanaugh `0.015`).
+- **`big_case_score`:** **0.72** (high constitutional and regulatory stakes concerning the private nondelegation doctrine and nationwide regulation of thoroughbred horseracing).

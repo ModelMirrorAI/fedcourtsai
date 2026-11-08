@@ -340,7 +340,7 @@
       "court": "scotus",
       "group_by": "qp_topic",
       "live_slice": true,
-      "scope_note": "Labeled applications only \u2014 2029 of 2037 in-frame live-slice applications labeled, 1993 of the labeled read from the docket alone; primaries only; not docket-representative. Those counts are raw rows (the second includes the few duplicate rows the labeling frame folds into one per docket number); the bucket counts are reweighted like every section here. The frame is the live slice's non-extension application dockets, substantive asks and asks whose kind was never read alike, read from different inputs than the petition cut, so the two are never pooled. A docket-only row whose caption and entries name no subject is `unclassifiable` by rule, so that bucket tracks how thin the dockets are as much as what the applications are about. Batch 4's extract counted 2029 application(s) in the frame it cut from, of which the artifact held 2029 labeled (100.0%); read that share as a ceiling on the share of the frame as it now stands, since the frame grows with every pull. The reference block rides in every batch, so its 241 row(s) are over-represented against the 1788 drawn from the 1788 outside it by no factor \u2014 the frame was fully labeled when that batch landed, and this mix is not the frame's until every application is labeled. Of the labeled rows here, 241 are reference-block members and 1788 were drawn.",
+      "scope_note": "Labeled applications only \u2014 2029 of 2234 in-frame live-slice applications labeled, 1993 of the labeled read from the docket alone; primaries only; not docket-representative. Those counts are raw rows (the second includes the few duplicate rows the labeling frame folds into one per docket number); the bucket counts are reweighted like every section here. The frame is the live slice's non-extension application dockets, substantive asks and asks whose kind was never read alike, read from different inputs than the petition cut, so the two are never pooled. A docket-only row whose caption and entries name no subject is `unclassifiable` by rule, so that bucket tracks how thin the dockets are as much as what the applications are about. Batch 4's extract counted 2029 application(s) in the frame it cut from, of which the artifact held 2029 labeled (100.0%); read that share as a ceiling on the share of the frame as it now stands, since the frame grows with every pull. The reference block rides in every batch, so its 241 row(s) are over-represented against the 1788 drawn from the 1788 outside it by no factor \u2014 the frame was fully labeled when that batch landed, and this mix is not the frame's until every application is labeled. Of the labeled rows here, 241 are reference-block members and 1788 were drawn.",
       "title": "Emergency applications by topic (`qp-topic-v1`)",
       "weighted": true
     },
@@ -439,14 +439,14 @@
       "tax"
     ]
   },
-  "corpus_rows": 2154000,
-  "corpus_through": "2026-11-06",
+  "corpus_rows": 2154020,
+  "corpus_through": "2026-11-07",
   "coverage": {
-    "census_filings": 31922,
-    "live_slice_resolved": 44632,
-    "live_slice_rows": 45893
+    "census_filings": 33560,
+    "live_slice_resolved": 47461,
+    "live_slice_rows": 48742
   },
-  "open": 2078401,
+  "open": 2075592,
   "qp_topics": {
     "agree": 313,
     "batches": 11,
@@ -460,144 +460,144 @@
     "section": {
       "buckets": [
         {
-          "cases": 3093,
+          "cases": 2481,
           "dispositions": [
             {
-              "count": 2905,
+              "count": 2293,
               "disposition": "denied",
-              "share": 0.9425697598961713
+              "share": 0.9283400809716599
             },
             {
               "count": 109,
               "disposition": "gvr",
-              "share": 0.03536664503569111
+              "share": 0.04412955465587044
             },
             {
               "count": 44,
               "disposition": "granted",
-              "share": 0.01427644386761843
+              "share": 0.017813765182186234
             },
             {
               "count": 24,
               "disposition": "dismissed",
-              "share": 0.007787151200519144
+              "share": 0.009716599190283401
             }
           ],
           "key": "criminal-law",
           "open": 11,
-          "resolved": 3082
+          "resolved": 2470
         },
         {
-          "cases": 1841,
+          "cases": 1814,
           "dispositions": [
             {
-              "count": 1709,
+              "count": 1682,
               "disposition": "denied",
-              "share": 0.9384953322350357
+              "share": 0.9375696767001115
             },
             {
               "count": 48,
               "disposition": "dismissed",
-              "share": 0.026359143327841845
+              "share": 0.026755852842809364
             },
             {
               "count": 46,
               "disposition": "granted",
-              "share": 0.025260845689181768
+              "share": 0.02564102564102564
             },
             {
               "count": 18,
               "disposition": "gvr",
-              "share": 0.009884678747940691
+              "share": 0.010033444816053512
             }
           ],
           "key": "civil-procedure",
           "open": 20,
-          "resolved": 1821
+          "resolved": 1794
         },
         {
-          "cases": 1235,
+          "cases": 1217,
           "dispositions": [
             {
-              "count": 1145,
+              "count": 1127,
               "disposition": "denied",
-              "share": 0.9354575163398693
+              "share": 0.9344941956882256
             },
             {
               "count": 36,
               "disposition": "dismissed",
-              "share": 0.029411764705882353
+              "share": 0.029850746268656716
             },
             {
               "count": 29,
               "disposition": "granted",
-              "share": 0.02369281045751634
+              "share": 0.02404643449419569
             },
             {
               "count": 14,
               "disposition": "gvr",
-              "share": 0.011437908496732025
+              "share": 0.011608623548922056
             }
           ],
           "key": "constitutional-rights",
           "open": 11,
-          "resolved": 1224
+          "resolved": 1206
         },
         {
-          "cases": 904,
+          "cases": 724,
           "dispositions": [
             {
-              "count": 849,
+              "count": 669,
               "disposition": "denied",
-              "share": 0.9412416851441242
+              "share": 0.9265927977839336
             },
             {
               "count": 27,
               "disposition": "dismissed",
-              "share": 0.02993348115299335
+              "share": 0.037396121883656507
             },
             {
               "count": 16,
               "disposition": "granted",
-              "share": 0.017738359201773836
+              "share": 0.0221606648199446
             },
             {
               "count": 10,
               "disposition": "gvr",
-              "share": 0.011086474501108648
+              "share": 0.013850415512465374
             }
           ],
           "key": "habeas-and-postconviction",
           "open": 2,
-          "resolved": 902
+          "resolved": 722
         },
         {
-          "cases": 554,
+          "cases": 545,
           "dispositions": [
             {
-              "count": 503,
+              "count": 494,
               "disposition": "denied",
-              "share": 0.9212454212454212
+              "share": 0.9199255121042831
             },
             {
               "count": 21,
               "disposition": "granted",
-              "share": 0.038461538461538464
+              "share": 0.03910614525139665
             },
             {
               "count": 18,
               "disposition": "dismissed",
-              "share": 0.03296703296703297
+              "share": 0.0335195530726257
             },
             {
               "count": 4,
               "disposition": "gvr",
-              "share": 0.007326007326007326
+              "share": 0.0074487895716946
             }
           ],
           "key": "employment-and-antidiscrimination",
           "open": 8,
-          "resolved": 546
+          "resolved": 537
         },
         {
           "cases": 541,
@@ -656,32 +656,32 @@
           "resolved": 448
         },
         {
-          "cases": 430,
+          "cases": 412,
           "dispositions": [
             {
-              "count": 383,
+              "count": 365,
               "disposition": "denied",
-              "share": 0.8990610328638498
+              "share": 0.8946078431372549
             },
             {
               "count": 32,
               "disposition": "gvr",
-              "share": 0.07511737089201878
+              "share": 0.0784313725490196
             },
             {
               "count": 10,
               "disposition": "granted",
-              "share": 0.023474178403755867
+              "share": 0.024509803921568627
             },
             {
               "count": 1,
               "disposition": "dismissed",
-              "share": 0.002347417840375587
+              "share": 0.0024509803921568627
             }
           ],
           "key": "firearms",
           "open": 4,
-          "resolved": 426
+          "resolved": 408
         },
         {
           "cases": 367,
@@ -712,78 +712,78 @@
           "resolved": 360
         },
         {
-          "cases": 343,
+          "cases": 325,
           "dispositions": [
             {
-              "count": 306,
+              "count": 288,
               "disposition": "denied",
-              "share": 0.9
+              "share": 0.8944099378881988
             },
             {
               "count": 33,
               "disposition": "dismissed",
-              "share": 0.09705882352941177
+              "share": 0.10248447204968944
             },
             {
               "count": 1,
               "disposition": "granted",
-              "share": 0.0029411764705882353
+              "share": 0.003105590062111801
             }
           ],
           "key": "unclassifiable",
           "open": 3,
-          "resolved": 340
+          "resolved": 322
         },
         {
-          "cases": 239,
+          "cases": 230,
           "dispositions": [
             {
-              "count": 194,
+              "count": 185,
               "disposition": "denied",
-              "share": 0.8185654008438819
+              "share": 0.8114035087719298
             },
             {
               "count": 26,
               "disposition": "granted",
-              "share": 0.10970464135021098
+              "share": 0.11403508771929824
             },
             {
               "count": 15,
               "disposition": "gvr",
-              "share": 0.06329113924050633
+              "share": 0.06578947368421052
             },
             {
               "count": 2,
               "disposition": "dismissed",
-              "share": 0.008438818565400843
+              "share": 0.008771929824561403
             }
           ],
           "key": "sovereignty-and-foreign-relations",
           "open": 2,
-          "resolved": 237
+          "resolved": 228
         },
         {
-          "cases": 218,
+          "cases": 209,
           "dispositions": [
             {
-              "count": 205,
+              "count": 196,
               "disposition": "denied",
-              "share": 0.9447004608294931
+              "share": 0.9423076923076923
             },
             {
               "count": 10,
               "disposition": "granted",
-              "share": 0.04608294930875576
+              "share": 0.04807692307692308
             },
             {
               "count": 2,
               "disposition": "gvr",
-              "share": 0.009216589861751152
+              "share": 0.009615384615384616
             }
           ],
           "key": "intellectual-property",
           "open": 1,
-          "resolved": 217
+          "resolved": 208
         },
         {
           "cases": 96,
@@ -887,7 +887,7 @@
       "court": "scotus",
       "group_by": "qp_topic",
       "live_slice": true,
-      "scope_note": "QP-bearing rows only \u2014 9347 of 34005 in-scope ingested rows labeled; grant-enriched; primaries only; not docket-representative. Those two counts are raw rows; the bucket counts are denial-reweighted, and no reweighting recovers the docket \u2014 QP presence is itself outcome- and stream-correlated, so this stays a share of QP-bearing rows. Coverage is uneven across Terms and zero on the earliest of them, so the mix is not the whole slice's; the base-rate column is over a grant-enriched population and is not comparable to the sections above. The 24658 unlabeled row(s) span two gaps at once \u2014 rows carrying no stored questions-presented text, which no labeling batch can reach, and QP-bearing rows whose batch has not come up \u2014 and batch 11's extract sized the second: it counted 11871 QP-bearing row(s) in the frame it cut from, of which the artifact held 9351 labeled (78.8%). Both counts are batch 11's, taken at its own corpus vintage rather than this pack's: the frame grows with every pull while the labeled count moves only when a batch lands, so read that share as a ceiling on the share of the frame as it now stands, not as a reading of this blob. Labeling accrues in batches, so the labeled rows are two populations on different terms: 353 hand reference-set members, carried in every batch and so included with certainty, and 8994 drawn over this blob by a Term x fee-class-stratified, seeded-hash order from the QP-bearing frame batch 11's extract counted. Both count once here, so the reference block \u2014 grant-enriched by design and carrying no sampling weights \u2014 is over-represented by at least about 1.3x \u2014 row for row, how much likelier a reference row was to be included than a drawn one when batch 11 landed: 353 carried in with certainty against 8998 drawn from the 11518 QP-bearing row(s) outside the block that batch's extract counted. Measured against that frame rather than bounded over rows no batch could reach \u2014 and a floor rather than a ceiling at this pack's vintage, since the frame grows with every pull while the drawn count waits for the next batch. It closes to 1.0x as the frame is labeled, which a bound over unreachable rows never does, and this mix is not the frame's until every QP-bearing row is labeled. A naive share partly counts coordinated filing campaigns rather than subjects; no de-duplicated companion is published.",
+      "scope_note": "QP-bearing rows only \u2014 9347 of 35546 in-scope ingested rows labeled; grant-enriched; primaries only; not docket-representative. Those two counts are raw rows; the bucket counts are denial-reweighted, and no reweighting recovers the docket \u2014 QP presence is itself outcome- and stream-correlated, so this stays a share of QP-bearing rows. Coverage is uneven across Terms and zero on the earliest of them, so the mix is not the whole slice's; the base-rate column is over a grant-enriched population and is not comparable to the sections above. The 26199 unlabeled row(s) span two gaps at once \u2014 rows carrying no stored questions-presented text, which no labeling batch can reach, and QP-bearing rows whose batch has not come up \u2014 and batch 11's extract sized the second: it counted 11871 QP-bearing row(s) in the frame it cut from, of which the artifact held 9351 labeled (78.8%). Both counts are batch 11's, taken at its own corpus vintage rather than this pack's: the frame grows with every pull while the labeled count moves only when a batch lands, so read that share as a ceiling on the share of the frame as it now stands, not as a reading of this blob. Labeling accrues in batches, so the labeled rows are two populations on different terms: 353 hand reference-set members, carried in every batch and so included with certainty, and 8994 drawn over this blob by a Term x fee-class-stratified, seeded-hash order from the QP-bearing frame batch 11's extract counted. Both count once here, so the reference block \u2014 grant-enriched by design and carrying no sampling weights \u2014 is over-represented by at least about 1.3x \u2014 row for row, how much likelier a reference row was to be included than a drawn one when batch 11 landed: 353 carried in with certainty against 8998 drawn from the 11518 QP-bearing row(s) outside the block that batch's extract counted. Measured against that frame rather than bounded over rows no batch could reach \u2014 and a floor rather than a ceiling at this pack's vintage, since the frame grows with every pull while the drawn count waits for the next batch. It closes to 1.0x as the frame is labeled, which a bound over unreachable rows never does, and this mix is not the frame's until every QP-bearing row is labeled. A naive share partly counts coordinated filing campaigns rather than subjects; no de-duplicated companion is published.",
       "title": "Cert petitions by question-presented topic (`qp-topic-v0`)",
       "weighted": true
     },
@@ -982,48 +982,48 @@
       "tax"
     ]
   },
-  "resolved": 75599,
+  "resolved": 78428,
   "schema_version": "1.0",
   "sections": [
     {
       "buckets": [
         {
-          "cases": 604355,
+          "cases": 602944,
           "dispositions": [
             {
-              "count": 45183,
+              "count": 45593,
               "disposition": "denied",
-              "share": 0.787379757423672
+              "share": 0.7756285937872138
             },
             {
-              "count": 10330,
+              "count": 11316,
               "disposition": "granted",
-              "share": 0.1800153352850969
+              "share": 0.19250791058487293
             },
             {
-              "count": 971,
+              "count": 972,
               "disposition": "dismissed",
-              "share": 0.01692109298759236
+              "share": 0.016535674185975298
             },
             {
               "count": 637,
               "disposition": "gvr",
-              "share": 0.011100655234908685
+              "share": 0.010836650675376817
             },
             {
               "count": 232,
               "disposition": "other",
-              "share": 0.004042938798271295
+              "share": 0.003946786431220442
             },
             {
-              "count": 31,
+              "count": 32,
               "disposition": "withdrawn",
-              "share": 0.0005402202704586645
+              "share": 0.0005443843353407506
             }
           ],
           "key": "scotus",
-          "open": 546971,
-          "resolved": 57384
+          "open": 544162,
+          "resolved": 58782
         },
         {
           "cases": 247638,
@@ -1438,7 +1438,7 @@
     {
       "buckets": [
         {
-          "cases": 126246,
+          "cases": 126116,
           "dispositions": [
             {
               "count": 204,
@@ -1462,7 +1462,7 @@
             }
           ],
           "key": "(none)",
-          "open": 125979,
+          "open": 125849,
           "resolved": 267
         },
         {
@@ -1497,37 +1497,37 @@
           "resolved": 12
         },
         {
-          "cases": 104895,
+          "cases": 105025,
           "dispositions": [
             {
-              "count": 18266,
+              "count": 18710,
               "disposition": "denied",
-              "share": 0.7890621625124196
+              "share": 0.7613118489583334
             },
             {
-              "count": 4277,
+              "count": 5258,
               "disposition": "granted",
-              "share": 0.18475960084668885
+              "share": 0.21394856770833334
             },
             {
-              "count": 349,
+              "count": 350,
               "disposition": "dismissed",
-              "share": 0.015076245194176854
+              "share": 0.014241536458333334
             },
             {
               "count": 249,
               "disposition": "gvr",
-              "share": 0.010756404164326753
+              "share": 0.0101318359375
             },
             {
-              "count": 8,
+              "count": 9,
               "disposition": "withdrawn",
-              "share": 0.0003455872823880081
+              "share": 0.0003662109375
             }
           ],
           "key": "2010s",
-          "open": 81746,
-          "resolved": 23149
+          "open": 80449,
+          "resolved": 24576
         },
         {
           "cases": 62149,
@@ -1543,37 +1543,37 @@
           "resolved": 1
         },
         {
-          "cases": 40374,
+          "cases": 38963,
           "dispositions": [
             {
-              "count": 26904,
+              "count": 26870,
               "disposition": "denied",
-              "share": 0.7927163440289932
+              "share": 0.7923916248894132
             },
             {
-              "count": 6049,
+              "count": 6054,
               "disposition": "granted",
-              "share": 0.17823153304457998
+              "share": 0.1785314066647007
             },
             {
               "count": 575,
               "disposition": "dismissed",
-              "share": 0.016942160935796577
+              "share": 0.01695664995576526
             },
             {
               "count": 388,
               "disposition": "gvr",
-              "share": 0.011432275553198385
+              "share": 0.011442052491890297
             },
             {
               "count": 23,
               "disposition": "withdrawn",
-              "share": 0.000677686437431863
+              "share": 0.0006782659982306104
             }
           ],
           "key": "2020s",
-          "open": 6435,
-          "resolved": 33939
+          "open": 5053,
+          "resolved": 33910
         },
         {
           "cases": 36385,
@@ -1663,23 +1663,23 @@
     {
       "buckets": [
         {
-          "cases": 43045,
+          "cases": 43138,
           "dispositions": [
             {
-              "count": 43045,
+              "count": 43138,
               "disposition": "denied",
               "share": 1.0
             }
           ],
           "key": "denied",
           "open": 0,
-          "resolved": 43045
+          "resolved": 43138
         },
         {
-          "cases": 1222,
+          "cases": 1239,
           "dispositions": [],
           "key": "(open)",
-          "open": 1222,
+          "open": 1239,
           "resolved": 0
         },
         {
@@ -1733,396 +1733,396 @@
     {
       "buckets": [
         {
-          "cases": 12325,
+          "cases": 12418,
           "dispositions": [
             {
-              "count": 11534,
+              "count": 11621,
               "disposition": "denied",
-              "share": 0.9649460386513846
+              "share": 0.9651191761481605
             },
             {
-              "count": 260,
+              "count": 261,
               "disposition": "dismissed",
-              "share": 0.02175186145737472
+              "share": 0.02167594053650029
             },
             {
               "count": 90,
               "disposition": "gvr",
-              "share": 0.007529490504475864
+              "share": 0.007474462253965617
             },
             {
               "count": 69,
               "disposition": "granted",
-              "share": 0.005772609386764829
+              "share": 0.00573042106137364
             }
           ],
           "key": "(none)",
-          "open": 372,
-          "resolved": 11953
+          "open": 377,
+          "resolved": 12041
         },
         {
-          "cases": 5696,
+          "cases": 5725,
           "dispositions": [
             {
-              "count": 5287,
+              "count": 5312,
               "disposition": "denied",
-              "share": 0.94868114121658
+              "share": 0.948910325116113
             },
             {
               "count": 116,
               "disposition": "granted",
-              "share": 0.0208146420240445
+              "share": 0.020721686316541622
             },
             {
               "count": 105,
               "disposition": "dismissed",
-              "share": 0.01884083976314373
+              "share": 0.018756698821007504
             },
             {
               "count": 65,
               "disposition": "gvr",
-              "share": 0.011663376996231833
+              "share": 0.011611289746337978
             }
           ],
           "key": "ca9",
-          "open": 123,
-          "resolved": 5573
+          "open": 127,
+          "resolved": 5598
         },
         {
-          "cases": 5603,
+          "cases": 5611,
           "dispositions": [
             {
-              "count": 5165,
+              "count": 5173,
               "disposition": "denied",
-              "share": 0.9466642228739003
+              "share": 0.9467423133235725
             },
             {
               "count": 122,
               "disposition": "gvr",
-              "share": 0.022360703812316716
+              "share": 0.02232796486090776
             },
             {
               "count": 85,
               "disposition": "dismissed",
-              "share": 0.015579178885630499
+              "share": 0.015556368960468522
             },
             {
               "count": 84,
               "disposition": "granted",
-              "share": 0.015395894428152493
+              "share": 0.015373352855051245
             }
           ],
           "key": "ca5",
           "open": 147,
-          "resolved": 5456
+          "resolved": 5464
         },
         {
-          "cases": 3972,
+          "cases": 4020,
           "dispositions": [
             {
-              "count": 3697,
+              "count": 3745,
               "disposition": "denied",
-              "share": 0.9486784706184245
+              "share": 0.9493029150823827
             },
             {
               "count": 84,
               "disposition": "gvr",
-              "share": 0.02155504234026174
+              "share": 0.02129277566539924
             },
             {
               "count": 70,
               "disposition": "dismissed",
-              "share": 0.01796253528355145
+              "share": 0.017743979721166033
             },
             {
               "count": 46,
               "disposition": "granted",
-              "share": 0.01180395175776238
+              "share": 0.011660329531051965
             }
           ],
           "key": "ca11",
           "open": 75,
-          "resolved": 3897
+          "resolved": 3945
         },
         {
-          "cases": 3478,
+          "cases": 3455,
           "dispositions": [
             {
-              "count": 3242,
+              "count": 3218,
               "disposition": "denied",
-              "share": 0.9515702964484885
+              "share": 0.9512267218445167
             },
             {
               "count": 76,
               "disposition": "dismissed",
-              "share": 0.022307014969181096
+              "share": 0.022465267514040793
             },
             {
               "count": 48,
               "disposition": "gvr",
-              "share": 0.01408864103316701
+              "share": 0.01418859000886787
             },
             {
               "count": 41,
               "disposition": "granted",
-              "share": 0.012034047549163486
+              "share": 0.012119420632574637
             }
           ],
           "key": "ca4",
-          "open": 71,
-          "resolved": 3407
+          "open": 72,
+          "resolved": 3383
         },
         {
-          "cases": 3086,
+          "cases": 3062,
           "dispositions": [
             {
-              "count": 2871,
+              "count": 2847,
               "disposition": "denied",
-              "share": 0.9573191063687896
+              "share": 0.9569747899159664
             },
             {
               "count": 45,
               "disposition": "dismissed",
-              "share": 0.015005001667222408
+              "share": 0.015126050420168067
             },
             {
               "count": 43,
               "disposition": "gvr",
-              "share": 0.014338112704234745
+              "share": 0.014453781512605042
             },
             {
               "count": 40,
               "disposition": "granted",
-              "share": 0.013337779259753251
+              "share": 0.013445378151260505
             }
           ],
           "key": "ca6",
           "open": 87,
-          "resolved": 2999
+          "resolved": 2975
         },
         {
-          "cases": 2208,
+          "cases": 2232,
           "dispositions": [
             {
-              "count": 2059,
+              "count": 2081,
               "disposition": "denied",
-              "share": 0.9532407407407407
+              "share": 0.9537121906507791
             },
             {
               "count": 43,
               "disposition": "dismissed",
-              "share": 0.01990740740740741
+              "share": 0.019706691109074245
             },
             {
               "count": 36,
               "disposition": "gvr",
-              "share": 0.016666666666666666
+              "share": 0.016498625114573784
             },
             {
               "count": 22,
               "disposition": "granted",
-              "share": 0.010185185185185186
+              "share": 0.01008249312557287
             }
           ],
           "key": "ca8",
-          "open": 48,
-          "resolved": 2160
+          "open": 50,
+          "resolved": 2182
         },
         {
-          "cases": 2166,
+          "cases": 2132,
           "dispositions": [
             {
-              "count": 1933,
+              "count": 1898,
               "disposition": "denied",
-              "share": 0.9257662835249042
+              "share": 0.9245007306380906
             },
             {
               "count": 55,
               "disposition": "granted",
-              "share": 0.026340996168582376
+              "share": 0.02679006332196785
             },
             {
               "count": 51,
               "disposition": "dismissed",
-              "share": 0.02442528735632184
+              "share": 0.02484169508037019
             },
             {
               "count": 49,
               "disposition": "gvr",
-              "share": 0.02346743295019157
+              "share": 0.023867510959571358
             }
           ],
           "key": "ca2",
-          "open": 78,
-          "resolved": 2088
+          "open": 79,
+          "resolved": 2053
         },
         {
-          "cases": 2006,
+          "cases": 2021,
           "dispositions": [
             {
-              "count": 1856,
+              "count": 1871,
               "disposition": "denied",
-              "share": 0.9488752556237219
+              "share": 0.9492643328259767
             },
             {
               "count": 52,
               "disposition": "dismissed",
-              "share": 0.026584867075664622
+              "share": 0.026382546930492135
             },
             {
               "count": 29,
               "disposition": "granted",
-              "share": 0.014826175869120654
+              "share": 0.014713343480466767
             },
             {
               "count": 19,
               "disposition": "gvr",
-              "share": 0.009713701431492843
+              "share": 0.009639776763064434
             }
           ],
           "key": "ca3",
           "open": 50,
-          "resolved": 1956
+          "resolved": 1971
         },
         {
-          "cases": 1638,
+          "cases": 1639,
           "dispositions": [
             {
-              "count": 1520,
+              "count": 1521,
               "disposition": "denied",
-              "share": 0.9505941213258287
+              "share": 0.950625
             },
             {
               "count": 39,
               "disposition": "dismissed",
-              "share": 0.024390243902439025
+              "share": 0.024375
             },
             {
               "count": 22,
               "disposition": "gvr",
-              "share": 0.013758599124452783
+              "share": 0.01375
             },
             {
               "count": 18,
               "disposition": "granted",
-              "share": 0.01125703564727955
+              "share": 0.01125
             }
           ],
           "key": "ca7",
           "open": 39,
-          "resolved": 1599
+          "resolved": 1600
         },
         {
-          "cases": 1464,
+          "cases": 1480,
           "dispositions": [
             {
-              "count": 1341,
+              "count": 1356,
               "disposition": "denied",
-              "share": 0.9410526315789474
+              "share": 0.9416666666666667
             },
             {
               "count": 31,
               "disposition": "dismissed",
-              "share": 0.02175438596491228
+              "share": 0.021527777777777778
             },
             {
               "count": 28,
               "disposition": "granted",
-              "share": 0.019649122807017545
+              "share": 0.019444444444444445
             },
             {
               "count": 25,
               "disposition": "gvr",
-              "share": 0.017543859649122806
+              "share": 0.017361111111111112
             }
           ],
           "key": "ca10",
-          "open": 39,
-          "resolved": 1425
+          "open": 40,
+          "resolved": 1440
         },
         {
-          "cases": 942,
+          "cases": 912,
           "dispositions": [
             {
-              "count": 880,
+              "count": 849,
               "disposition": "denied",
-              "share": 0.9544468546637744
+              "share": 0.9528619528619529
             },
             {
               "count": 23,
               "disposition": "granted",
-              "share": 0.024945770065075923
+              "share": 0.025813692480359147
             },
             {
               "count": 14,
               "disposition": "dismissed",
-              "share": 0.015184381778741865
+              "share": 0.015712682379349047
             },
             {
               "count": 5,
               "disposition": "gvr",
-              "share": 0.005422993492407809
+              "share": 0.005611672278338945
             }
           ],
           "key": "ca1",
-          "open": 20,
-          "resolved": 922
+          "open": 21,
+          "resolved": 891
         },
         {
-          "cases": 909,
+          "cases": 907,
           "dispositions": [
             {
-              "count": 811,
+              "count": 809,
               "disposition": "denied",
-              "share": 0.9226393629124005
+              "share": 0.9224629418472063
             },
             {
               "count": 27,
               "disposition": "dismissed",
-              "share": 0.030716723549488054
+              "share": 0.03078677309007982
             },
             {
               "count": 27,
               "disposition": "granted",
-              "share": 0.030716723549488054
+              "share": 0.03078677309007982
             },
             {
               "count": 14,
               "disposition": "gvr",
-              "share": 0.015927189988623434
+              "share": 0.01596351197263398
             }
           ],
           "key": "cafc",
           "open": 30,
-          "resolved": 879
+          "resolved": 877
         },
         {
-          "cases": 677,
+          "cases": 687,
           "dispositions": [
             {
-              "count": 579,
+              "count": 587,
               "disposition": "denied",
-              "share": 0.8880368098159509
+              "share": 0.8893939393939394
             },
             {
               "count": 39,
               "disposition": "granted",
-              "share": 0.0598159509202454
+              "share": 0.05909090909090909
             },
             {
               "count": 20,
               "disposition": "dismissed",
-              "share": 0.03067484662576687
+              "share": 0.030303030303030304
             },
             {
               "count": 14,
               "disposition": "gvr",
-              "share": 0.02147239263803681
+              "share": 0.021212121212121213
             }
           ],
           "key": "cadc",
-          "open": 25,
-          "resolved": 652
+          "open": 27,
+          "resolved": 660
         },
         {
           "cases": 90,
@@ -2149,19 +2149,6 @@
           "key": "alacrimapp",
           "open": 0,
           "resolved": 40
-        },
-        {
-          "cases": 30,
-          "dispositions": [
-            {
-              "count": 30,
-              "disposition": "denied",
-              "share": 1.0
-            }
-          ],
-          "key": "ariz",
-          "open": 0,
-          "resolved": 30
         },
         {
           "cases": 30,
@@ -2203,27 +2190,22 @@
               "share": 1.0
             }
           ],
-          "key": "nev",
+          "key": "ariz",
           "open": 0,
           "resolved": 20
         },
         {
-          "cases": 11,
+          "cases": 20,
           "dispositions": [
             {
-              "count": 10,
+              "count": 20,
               "disposition": "denied",
-              "share": 0.9090909090909091
-            },
-            {
-              "count": 1,
-              "disposition": "dismissed",
-              "share": 0.09090909090909091
+              "share": 1.0
             }
           ],
-          "key": "oklacrimapp",
+          "key": "nev",
           "open": 0,
-          "resolved": 11
+          "resolved": 20
         },
         {
           "cases": 10,
@@ -2373,116 +2355,116 @@
     {
       "buckets": [
         {
-          "cases": 38391,
+          "cases": 38520,
           "dispositions": [
             {
-              "count": 36092,
+              "count": 36207,
               "disposition": "denied",
-              "share": 0.9687307083232681
+              "share": 0.9688269292518463
             },
             {
               "count": 862,
               "disposition": "dismissed",
-              "share": 0.023136591781410205
+              "share": 0.02306539655356952
             },
             {
               "count": 162,
               "disposition": "gvr",
-              "share": 0.004348176181657139
+              "share": 0.004334796104035106
             },
             {
               "count": 141,
               "disposition": "granted",
-              "share": 0.0037845237136645464
+              "share": 0.0037728780905490742
             }
           ],
           "key": "0",
-          "open": 1134,
-          "resolved": 37257
+          "open": 1148,
+          "resolved": 37372
         },
         {
-          "cases": 6446,
+          "cases": 6419,
           "dispositions": [
             {
-              "count": 5881,
+              "count": 5851,
               "disposition": "denied",
-              "share": 0.9203442879499217
+              "share": 0.9199685534591195
             },
             {
               "count": 248,
               "disposition": "gvr",
-              "share": 0.03881064162754304
+              "share": 0.0389937106918239
             },
             {
               "count": 220,
               "disposition": "granted",
-              "share": 0.03442879499217527
+              "share": 0.03459119496855346
             },
             {
               "count": 41,
               "disposition": "dismissed",
-              "share": 0.006416275430359938
+              "share": 0.006446540880503145
             }
           ],
           "key": "1",
-          "open": 56,
-          "resolved": 6390
+          "open": 59,
+          "resolved": 6360
         },
         {
-          "cases": 831,
+          "cases": 833,
           "dispositions": [
             {
-              "count": 568,
+              "count": 570,
               "disposition": "denied",
-              "share": 0.6909975669099757
+              "share": 0.691747572815534
             },
             {
               "count": 132,
               "disposition": "granted",
-              "share": 0.16058394160583941
+              "share": 0.16019417475728157
             },
             {
               "count": 114,
               "disposition": "gvr",
-              "share": 0.1386861313868613
+              "share": 0.1383495145631068
             },
             {
               "count": 8,
               "disposition": "dismissed",
-              "share": 0.009732360097323601
+              "share": 0.009708737864077669
             }
           ],
           "key": "3+",
           "open": 9,
-          "resolved": 822
+          "resolved": 824
         },
         {
-          "cases": 784,
+          "cases": 790,
           "dispositions": [
             {
-              "count": 504,
+              "count": 510,
               "disposition": "denied",
-              "share": 0.6545454545454545
+              "share": 0.6572164948453608
             },
             {
               "count": 145,
               "disposition": "granted",
-              "share": 0.18831168831168832
+              "share": 0.18685567010309279
             },
             {
               "count": 113,
               "disposition": "gvr",
-              "share": 0.14675324675324675
+              "share": 0.14561855670103094
             },
             {
               "count": 8,
               "disposition": "dismissed",
-              "share": 0.01038961038961039
+              "share": 0.010309278350515464
             }
           ],
           "key": "2",
           "open": 14,
-          "resolved": 770
+          "resolved": 776
         },
         {
           "cases": 9,
@@ -2503,32 +2485,32 @@
     {
       "buckets": [
         {
-          "cases": 46272,
+          "cases": 46382,
           "dispositions": [
             {
-              "count": 42942,
+              "count": 43035,
               "disposition": "denied",
-              "share": 0.9526788685524127
+              "share": 0.9527763018065888
             },
             {
               "count": 915,
               "disposition": "dismissed",
-              "share": 0.020299500831946756
+              "share": 0.0202577045696068
             },
             {
               "count": 628,
               "disposition": "gvr",
-              "share": 0.013932334997226844
+              "share": 0.013903648600779313
             },
             {
               "count": 590,
               "disposition": "granted",
-              "share": 0.013089295618413755
+              "share": 0.01306234502302515
             }
           ],
           "key": "none",
-          "open": 1197,
-          "resolved": 45075
+          "open": 1214,
+          "resolved": 45168
         },
         {
           "cases": 180,
@@ -2577,60 +2559,60 @@
     {
       "buckets": [
         {
-          "cases": 45468,
+          "cases": 45502,
           "dispositions": [
             {
-              "count": 42133,
+              "count": 42151,
               "disposition": "denied",
-              "share": 0.9515775684892833
+              "share": 0.9516187293990157
             },
             {
-              "count": 908,
+              "count": 907,
               "disposition": "dismissed",
-              "share": 0.020507261106217676
+              "share": 0.020476814015442272
             },
             {
               "count": 621,
               "disposition": "gvr",
-              "share": 0.01402534047022156
+              "share": 0.01401995755632817
             },
             {
               "count": 615,
               "disposition": "granted",
-              "share": 0.013889829934277391
+              "share": 0.01388449902921389
             }
           ],
           "key": "unmarked",
-          "open": 1191,
-          "resolved": 44277
+          "open": 1208,
+          "resolved": 44294
         },
         {
-          "cases": 993,
+          "cases": 1069,
           "dispositions": [
             {
-              "count": 912,
+              "count": 987,
               "disposition": "denied",
-              "share": 0.9480249480249481
+              "share": 0.9508670520231214
             },
             {
               "count": 23,
               "disposition": "granted",
-              "share": 0.02390852390852391
+              "share": 0.022157996146435453
             },
             {
               "count": 16,
               "disposition": "gvr",
-              "share": 0.016632016632016633
+              "share": 0.015414258188824663
             },
             {
-              "count": 11,
+              "count": 12,
               "disposition": "dismissed",
-              "share": 0.011434511434511435
+              "share": 0.011560693641618497
             }
           ],
           "key": "capital",
           "open": 31,
-          "resolved": 962
+          "resolved": 1038
         }
       ],
       "cert_stage": true,
@@ -2644,514 +2626,532 @@
     {
       "buckets": [
         {
-          "cases": 5696,
+          "cases": 5725,
           "dispositions": [
             {
-              "count": 5287,
+              "count": 5312,
               "disposition": "denied",
-              "share": 0.94868114121658
+              "share": 0.948910325116113
             },
             {
               "count": 116,
               "disposition": "granted",
-              "share": 0.0208146420240445
+              "share": 0.020721686316541622
             },
             {
               "count": 105,
               "disposition": "dismissed",
-              "share": 0.01884083976314373
+              "share": 0.018756698821007504
             },
             {
               "count": 65,
               "disposition": "gvr",
-              "share": 0.011663376996231833
+              "share": 0.011611289746337978
             }
           ],
           "key": "ca9",
-          "open": 123,
-          "resolved": 5573
+          "open": 127,
+          "resolved": 5598
         },
         {
-          "cases": 5603,
+          "cases": 5611,
           "dispositions": [
             {
-              "count": 5165,
+              "count": 5173,
               "disposition": "denied",
-              "share": 0.9466642228739003
+              "share": 0.9467423133235725
             },
             {
               "count": 122,
               "disposition": "gvr",
-              "share": 0.022360703812316716
+              "share": 0.02232796486090776
             },
             {
               "count": 85,
               "disposition": "dismissed",
-              "share": 0.015579178885630499
+              "share": 0.015556368960468522
             },
             {
               "count": 84,
               "disposition": "granted",
-              "share": 0.015395894428152493
+              "share": 0.015373352855051245
             }
           ],
           "key": "ca5",
           "open": 147,
-          "resolved": 5456
+          "resolved": 5464
         },
         {
-          "cases": 3972,
+          "cases": 4020,
           "dispositions": [
             {
-              "count": 3697,
+              "count": 3745,
               "disposition": "denied",
-              "share": 0.9486784706184245
+              "share": 0.9493029150823827
             },
             {
               "count": 84,
               "disposition": "gvr",
-              "share": 0.02155504234026174
+              "share": 0.02129277566539924
             },
             {
               "count": 70,
               "disposition": "dismissed",
-              "share": 0.01796253528355145
+              "share": 0.017743979721166033
             },
             {
               "count": 46,
               "disposition": "granted",
-              "share": 0.01180395175776238
+              "share": 0.011660329531051965
             }
           ],
           "key": "ca11",
           "open": 75,
-          "resolved": 3897
+          "resolved": 3945
         },
         {
-          "cases": 3478,
+          "cases": 3455,
           "dispositions": [
             {
-              "count": 3242,
+              "count": 3218,
               "disposition": "denied",
-              "share": 0.9515702964484885
+              "share": 0.9512267218445167
             },
             {
               "count": 76,
               "disposition": "dismissed",
-              "share": 0.022307014969181096
+              "share": 0.022465267514040793
             },
             {
               "count": 48,
               "disposition": "gvr",
-              "share": 0.01408864103316701
+              "share": 0.01418859000886787
             },
             {
               "count": 41,
               "disposition": "granted",
-              "share": 0.012034047549163486
+              "share": 0.012119420632574637
             }
           ],
           "key": "ca4",
-          "open": 71,
-          "resolved": 3407
+          "open": 72,
+          "resolved": 3383
         },
         {
-          "cases": 3086,
+          "cases": 3062,
           "dispositions": [
             {
-              "count": 2871,
+              "count": 2847,
               "disposition": "denied",
-              "share": 0.9573191063687896
+              "share": 0.9569747899159664
             },
             {
               "count": 45,
               "disposition": "dismissed",
-              "share": 0.015005001667222408
+              "share": 0.015126050420168067
             },
             {
               "count": 43,
               "disposition": "gvr",
-              "share": 0.014338112704234745
+              "share": 0.014453781512605042
             },
             {
               "count": 40,
               "disposition": "granted",
-              "share": 0.013337779259753251
+              "share": 0.013445378151260505
             }
           ],
           "key": "ca6",
           "open": 87,
-          "resolved": 2999
+          "resolved": 2975
         },
         {
-          "cases": 2208,
+          "cases": 2232,
           "dispositions": [
             {
-              "count": 2059,
+              "count": 2081,
               "disposition": "denied",
-              "share": 0.9532407407407407
+              "share": 0.9537121906507791
             },
             {
               "count": 43,
               "disposition": "dismissed",
-              "share": 0.01990740740740741
+              "share": 0.019706691109074245
             },
             {
               "count": 36,
               "disposition": "gvr",
-              "share": 0.016666666666666666
+              "share": 0.016498625114573784
             },
             {
               "count": 22,
               "disposition": "granted",
-              "share": 0.010185185185185186
+              "share": 0.01008249312557287
             }
           ],
           "key": "ca8",
-          "open": 48,
-          "resolved": 2160
+          "open": 50,
+          "resolved": 2182
         },
         {
-          "cases": 2166,
+          "cases": 2132,
           "dispositions": [
             {
-              "count": 1933,
+              "count": 1898,
               "disposition": "denied",
-              "share": 0.9257662835249042
+              "share": 0.9245007306380906
             },
             {
               "count": 55,
               "disposition": "granted",
-              "share": 0.026340996168582376
+              "share": 0.02679006332196785
             },
             {
               "count": 51,
               "disposition": "dismissed",
-              "share": 0.02442528735632184
+              "share": 0.02484169508037019
             },
             {
               "count": 49,
               "disposition": "gvr",
-              "share": 0.02346743295019157
+              "share": 0.023867510959571358
             }
           ],
           "key": "ca2",
-          "open": 78,
-          "resolved": 2088
+          "open": 79,
+          "resolved": 2053
         },
         {
-          "cases": 2006,
+          "cases": 2021,
           "dispositions": [
             {
-              "count": 1856,
+              "count": 1871,
               "disposition": "denied",
-              "share": 0.9488752556237219
+              "share": 0.9492643328259767
             },
             {
               "count": 52,
               "disposition": "dismissed",
-              "share": 0.026584867075664622
+              "share": 0.026382546930492135
             },
             {
               "count": 29,
               "disposition": "granted",
-              "share": 0.014826175869120654
+              "share": 0.014713343480466767
             },
             {
               "count": 19,
               "disposition": "gvr",
-              "share": 0.009713701431492843
+              "share": 0.009639776763064434
             }
           ],
           "key": "ca3",
           "open": 50,
-          "resolved": 1956
+          "resolved": 1971
         },
         {
-          "cases": 1638,
+          "cases": 1639,
           "dispositions": [
             {
-              "count": 1520,
+              "count": 1521,
               "disposition": "denied",
-              "share": 0.9505941213258287
+              "share": 0.950625
             },
             {
               "count": 39,
               "disposition": "dismissed",
-              "share": 0.024390243902439025
+              "share": 0.024375
             },
             {
               "count": 22,
               "disposition": "gvr",
-              "share": 0.013758599124452783
+              "share": 0.01375
             },
             {
               "count": 18,
               "disposition": "granted",
-              "share": 0.01125703564727955
+              "share": 0.01125
             }
           ],
           "key": "ca7",
           "open": 39,
-          "resolved": 1599
+          "resolved": 1600
         },
         {
-          "cases": 1510,
+          "cases": 1518,
           "dispositions": [
             {
-              "count": 1420,
+              "count": 1424,
               "disposition": "denied",
-              "share": 0.9923130677847659
+              "share": 0.9923344947735192
             },
             {
               "count": 11,
               "disposition": "dismissed",
-              "share": 0.007686932215234102
+              "share": 0.007665505226480836
             }
           ],
           "key": "(none)",
-          "open": 79,
-          "resolved": 1431
+          "open": 83,
+          "resolved": 1435
         },
         {
-          "cases": 1464,
+          "cases": 1480,
           "dispositions": [
             {
-              "count": 1341,
+              "count": 1356,
               "disposition": "denied",
-              "share": 0.9410526315789474
+              "share": 0.9416666666666667
             },
             {
               "count": 31,
               "disposition": "dismissed",
-              "share": 0.02175438596491228
+              "share": 0.021527777777777778
             },
             {
               "count": 28,
               "disposition": "granted",
-              "share": 0.019649122807017545
+              "share": 0.019444444444444445
             },
             {
               "count": 25,
               "disposition": "gvr",
-              "share": 0.017543859649122806
+              "share": 0.017361111111111112
             }
           ],
           "key": "ca10",
-          "open": 39,
-          "resolved": 1425
+          "open": 40,
+          "resolved": 1440
         },
         {
-          "cases": 942,
+          "cases": 912,
           "dispositions": [
             {
-              "count": 880,
+              "count": 849,
               "disposition": "denied",
-              "share": 0.9544468546637744
+              "share": 0.9528619528619529
             },
             {
               "count": 23,
               "disposition": "granted",
-              "share": 0.024945770065075923
+              "share": 0.025813692480359147
             },
             {
               "count": 14,
               "disposition": "dismissed",
-              "share": 0.015184381778741865
+              "share": 0.015712682379349047
             },
             {
               "count": 5,
               "disposition": "gvr",
-              "share": 0.005422993492407809
+              "share": 0.005611672278338945
             }
           ],
           "key": "ca1",
-          "open": 20,
-          "resolved": 922
+          "open": 21,
+          "resolved": 891
         },
         {
-          "cases": 909,
+          "cases": 907,
           "dispositions": [
             {
-              "count": 811,
+              "count": 809,
               "disposition": "denied",
-              "share": 0.9226393629124005
+              "share": 0.9224629418472063
             },
             {
               "count": 27,
               "disposition": "dismissed",
-              "share": 0.030716723549488054
+              "share": 0.03078677309007982
             },
             {
               "count": 27,
               "disposition": "granted",
-              "share": 0.030716723549488054
+              "share": 0.03078677309007982
             },
             {
               "count": 14,
               "disposition": "gvr",
-              "share": 0.015927189988623434
+              "share": 0.01596351197263398
             }
           ],
           "key": "cafc",
           "open": 30,
-          "resolved": 879
+          "resolved": 877
         },
         {
-          "cases": 677,
+          "cases": 687,
           "dispositions": [
             {
-              "count": 579,
+              "count": 587,
               "disposition": "denied",
-              "share": 0.8880368098159509
+              "share": 0.8893939393939394
             },
             {
               "count": 39,
               "disposition": "granted",
-              "share": 0.0598159509202454
+              "share": 0.05909090909090909
             },
             {
               "count": 20,
               "disposition": "dismissed",
-              "share": 0.03067484662576687
+              "share": 0.030303030303030304
             },
             {
               "count": 14,
               "disposition": "gvr",
-              "share": 0.02147239263803681
+              "share": 0.021212121212121213
             }
           ],
           "key": "cadc",
-          "open": 25,
-          "resolved": 652
+          "open": 27,
+          "resolved": 660
         },
         {
-          "cases": 568,
+          "cases": 548,
           "dispositions": [
             {
-              "count": 543,
+              "count": 523,
               "disposition": "denied",
-              "share": 0.9731182795698925
+              "share": 0.9721189591078067
             },
             {
               "count": 14,
               "disposition": "dismissed",
-              "share": 0.025089605734767026
+              "share": 0.026022304832713755
             },
             {
               "count": 1,
               "disposition": "gvr",
-              "share": 0.0017921146953405018
+              "share": 0.0018587360594795538
             }
           ],
           "key": "Supreme Court of Florida",
           "open": 10,
-          "resolved": 558
+          "resolved": 538
         },
         {
-          "cases": 373,
+          "cases": 368,
           "dispositions": [
             {
-              "count": 359,
+              "count": 354,
               "disposition": "denied",
-              "share": 0.9702702702702702
+              "share": 0.9698630136986301
             },
             {
               "count": 5,
               "disposition": "dismissed",
-              "share": 0.013513513513513514
+              "share": 0.0136986301369863
             },
             {
               "count": 4,
               "disposition": "gvr",
-              "share": 0.010810810810810811
+              "share": 0.010958904109589041
             },
             {
               "count": 2,
               "disposition": "granted",
-              "share": 0.005405405405405406
+              "share": 0.005479452054794521
             }
           ],
           "key": "Court of Criminal Appeals of Texas",
           "open": 3,
-          "resolved": 370
+          "resolved": 365
         },
         {
-          "cases": 326,
+          "cases": 333,
           "dispositions": [
             {
-              "count": 302,
+              "count": 309,
               "disposition": "denied",
-              "share": 0.937888198757764
+              "share": 0.939209726443769
             },
             {
               "count": 12,
               "disposition": "dismissed",
-              "share": 0.037267080745341616
+              "share": 0.0364741641337386
             },
             {
               "count": 7,
               "disposition": "gvr",
-              "share": 0.021739130434782608
+              "share": 0.02127659574468085
             },
             {
               "count": 1,
               "disposition": "granted",
-              "share": 0.003105590062111801
+              "share": 0.00303951367781155
             }
           ],
           "key": "Court of Appeal of California, Second Appellate District",
           "open": 4,
-          "resolved": 322
+          "resolved": 329
         },
         {
-          "cases": 263,
+          "cases": 267,
           "dispositions": [
             {
-              "count": 255,
+              "count": 259,
               "disposition": "denied",
-              "share": 0.9883720930232558
+              "share": 0.9885496183206107
             },
             {
               "count": 3,
               "disposition": "dismissed",
-              "share": 0.011627906976744186
+              "share": 0.011450381679389313
             }
           ],
           "key": "Court of Appeals of Michigan",
           "open": 5,
-          "resolved": 258
+          "resolved": 262
         },
         {
-          "cases": 250,
+          "cases": 258,
           "dispositions": [
             {
-              "count": 239,
+              "count": 246,
               "disposition": "denied",
-              "share": 0.9795081967213115
+              "share": 0.9800796812749004
             },
             {
               "count": 3,
               "disposition": "dismissed",
-              "share": 0.012295081967213115
+              "share": 0.01195219123505976
             },
             {
               "count": 2,
               "disposition": "gvr",
-              "share": 0.00819672131147541
+              "share": 0.00796812749003984
             }
           ],
           "key": "Supreme Court of Virginia",
-          "open": 6,
-          "resolved": 244
+          "open": 7,
+          "resolved": 251
+        },
+        {
+          "cases": 252,
+          "dispositions": [
+            {
+              "count": 236,
+              "disposition": "denied",
+              "share": 0.9554655870445344
+            },
+            {
+              "count": 11,
+              "disposition": "dismissed",
+              "share": 0.044534412955465584
+            }
+          ],
+          "key": "Supreme Court of California",
+          "open": 5,
+          "resolved": 247
         },
         {
           "cases": 246,
           "dispositions": [
             {
-              "count": 217,
+              "count": 216,
               "disposition": "denied",
-              "share": 0.8930041152263375
+              "share": 0.8888888888888888
             },
             {
               "count": 18,
@@ -3159,9 +3159,9 @@
               "share": 0.07407407407407407
             },
             {
-              "count": 5,
+              "count": 6,
               "disposition": "dismissed",
-              "share": 0.0205761316872428
+              "share": 0.024691358024691357
             },
             {
               "count": 3,
@@ -3174,421 +3174,385 @@
           "resolved": 243
         },
         {
-          "cases": 244,
+          "cases": 238,
           "dispositions": [
             {
-              "count": 228,
+              "count": 206,
               "disposition": "denied",
-              "share": 0.9539748953974896
-            },
-            {
-              "count": 11,
-              "disposition": "dismissed",
-              "share": 0.04602510460251046
-            }
-          ],
-          "key": "Supreme Court of California",
-          "open": 5,
-          "resolved": 239
-        },
-        {
-          "cases": 241,
-          "dispositions": [
-            {
-              "count": 209,
-              "disposition": "denied",
-              "share": 0.9631336405529954
+              "share": 0.9626168224299065
             },
             {
               "count": 7,
               "disposition": "dismissed",
-              "share": 0.03225806451612903
+              "share": 0.03271028037383177
             },
             {
               "count": 1,
               "disposition": "granted",
-              "share": 0.004608294930875576
+              "share": 0.004672897196261682
             }
           ],
           "key": "District Court of Appeal of Florida, Fourth District",
           "open": 24,
-          "resolved": 217
+          "resolved": 214
         },
         {
-          "cases": 193,
+          "cases": 198,
           "dispositions": [
             {
-              "count": 188,
+              "count": 193,
               "disposition": "denied",
-              "share": 0.9894736842105263
+              "share": 0.9897435897435898
             },
             {
               "count": 2,
               "disposition": "dismissed",
-              "share": 0.010526315789473684
+              "share": 0.010256410256410256
             }
           ],
           "key": "Appellate Court of Illinois, First District",
           "open": 3,
-          "resolved": 190
+          "resolved": 195
         },
         {
-          "cases": 189,
+          "cases": 198,
           "dispositions": [
             {
-              "count": 180,
+              "count": 189,
               "disposition": "denied",
-              "share": 0.972972972972973
+              "share": 0.9742268041237113
             },
             {
               "count": 5,
               "disposition": "dismissed",
-              "share": 0.02702702702702703
+              "share": 0.02577319587628866
             }
           ],
           "key": "District Court of Appeal of Florida, First District",
           "open": 4,
-          "resolved": 185
+          "resolved": 194
         },
         {
-          "cases": 169,
+          "cases": 176,
           "dispositions": [
             {
-              "count": 161,
+              "count": 168,
               "disposition": "denied",
-              "share": 0.9640718562874252
+              "share": 0.9655172413793104
             },
             {
               "count": 4,
               "disposition": "dismissed",
-              "share": 0.023952095808383235
+              "share": 0.022988505747126436
             },
             {
               "count": 1,
               "disposition": "granted",
-              "share": 0.005988023952095809
+              "share": 0.005747126436781609
             },
             {
               "count": 1,
               "disposition": "gvr",
-              "share": 0.005988023952095809
+              "share": 0.005747126436781609
             }
           ],
           "key": "District of Columbia Court of Appeals",
           "open": 2,
-          "resolved": 167
+          "resolved": 174
         },
         {
           "cases": 142,
           "dispositions": [
             {
-              "count": 135,
+              "count": 129,
               "disposition": "denied",
-              "share": 0.9642857142857143
+              "share": 0.9772727272727273
             },
             {
-              "count": 2,
+              "count": 3,
               "disposition": "dismissed",
-              "share": 0.014285714285714285
+              "share": 0.022727272727272728
+            }
+          ],
+          "key": "District Court of Appeal of Florida, Second District",
+          "open": 10,
+          "resolved": 132
+        },
+        {
+          "cases": 141,
+          "dispositions": [
+            {
+              "count": 131,
+              "disposition": "denied",
+              "share": 0.9492753623188406
             },
             {
-              "count": 2,
-              "disposition": "granted",
-              "share": 0.014285714285714285
+              "count": 6,
+              "disposition": "dismissed",
+              "share": 0.043478260869565216
             },
             {
               "count": 1,
-              "disposition": "gvr",
-              "share": 0.007142857142857143
+              "disposition": "granted",
+              "share": 0.007246376811594203
             }
           ],
-          "key": "Court of Appeals of New York",
-          "open": 2,
-          "resolved": 140
+          "key": "Supreme Court of Georgia",
+          "open": 3,
+          "resolved": 138
         },
         {
-          "cases": 137,
+          "cases": 139,
           "dispositions": [
             {
-              "count": 126,
+              "count": 128,
               "disposition": "denied",
-              "share": 0.9473684210526315
+              "share": 0.9481481481481482
             },
             {
               "count": 5,
               "disposition": "dismissed",
-              "share": 0.03759398496240601
+              "share": 0.037037037037037035
+            },
+            {
+              "count": 2,
+              "disposition": "granted",
+              "share": 0.014814814814814815
+            }
+          ],
+          "key": "Court of Appeal of California, First Appellate District",
+          "open": 4,
+          "resolved": 135
+        },
+        {
+          "cases": 135,
+          "dispositions": [
+            {
+              "count": 128,
+              "disposition": "denied",
+              "share": 0.9624060150375939
+            },
+            {
+              "count": 2,
+              "disposition": "dismissed",
+              "share": 0.015037593984962405
             },
             {
               "count": 2,
               "disposition": "granted",
               "share": 0.015037593984962405
-            }
-          ],
-          "key": "Court of Appeal of California, First Appellate District",
-          "open": 4,
-          "resolved": 133
-        },
-        {
-          "cases": 136,
-          "dispositions": [
-            {
-              "count": 123,
-              "disposition": "denied",
-              "share": 0.9761904761904762
-            },
-            {
-              "count": 3,
-              "disposition": "dismissed",
-              "share": 0.023809523809523808
-            }
-          ],
-          "key": "District Court of Appeal of Florida, Second District",
-          "open": 10,
-          "resolved": 126
-        },
-        {
-          "cases": 134,
-          "dispositions": [
-            {
-              "count": 124,
-              "disposition": "denied",
-              "share": 0.9465648854961832
-            },
-            {
-              "count": 6,
-              "disposition": "dismissed",
-              "share": 0.04580152671755725
-            },
-            {
-              "count": 1,
-              "disposition": "granted",
-              "share": 0.007633587786259542
-            }
-          ],
-          "key": "Supreme Court of Georgia",
-          "open": 3,
-          "resolved": 131
-        },
-        {
-          "cases": 132,
-          "dispositions": [
-            {
-              "count": 128,
-              "disposition": "denied",
-              "share": 0.9846153846153847
-            },
-            {
-              "count": 2,
-              "disposition": "dismissed",
-              "share": 0.015384615384615385
-            }
-          ],
-          "key": "Superior Court of New Jersey, Appellate Division",
-          "open": 2,
-          "resolved": 130
-        },
-        {
-          "cases": 127,
-          "dispositions": [
-            {
-              "count": 119,
-              "disposition": "denied",
-              "share": 0.9834710743801653
-            },
-            {
-              "count": 1,
-              "disposition": "dismissed",
-              "share": 0.008264462809917356
             },
             {
               "count": 1,
               "disposition": "gvr",
-              "share": 0.008264462809917356
+              "share": 0.007518796992481203
+            }
+          ],
+          "key": "Court of Appeals of New York",
+          "open": 2,
+          "resolved": 133
+        },
+        {
+          "cases": 133,
+          "dispositions": [
+            {
+              "count": 129,
+              "disposition": "denied",
+              "share": 0.9847328244274809
+            },
+            {
+              "count": 2,
+              "disposition": "dismissed",
+              "share": 0.015267175572519083
+            }
+          ],
+          "key": "Superior Court of New Jersey, Appellate Division",
+          "open": 2,
+          "resolved": 131
+        },
+        {
+          "cases": 125,
+          "dispositions": [
+            {
+              "count": 114,
+              "disposition": "denied",
+              "share": 0.95
+            },
+            {
+              "count": 5,
+              "disposition": "dismissed",
+              "share": 0.041666666666666664
+            },
+            {
+              "count": 1,
+              "disposition": "granted",
+              "share": 0.008333333333333333
+            }
+          ],
+          "key": "Court of Appeals of Arizona, Division One",
+          "open": 5,
+          "resolved": 120
+        },
+        {
+          "cases": 125,
+          "dispositions": [
+            {
+              "count": 118,
+              "disposition": "denied",
+              "share": 0.9672131147540983
+            },
+            {
+              "count": 2,
+              "disposition": "dismissed",
+              "share": 0.01639344262295082
+            },
+            {
+              "count": 1,
+              "disposition": "granted",
+              "share": 0.00819672131147541
+            },
+            {
+              "count": 1,
+              "disposition": "gvr",
+              "share": 0.00819672131147541
+            }
+          ],
+          "key": "Court of Appeals of Colorado",
+          "open": 3,
+          "resolved": 122
+        },
+        {
+          "cases": 123,
+          "dispositions": [
+            {
+              "count": 115,
+              "disposition": "denied",
+              "share": 0.9829059829059829
+            },
+            {
+              "count": 1,
+              "disposition": "dismissed",
+              "share": 0.008547008547008548
+            },
+            {
+              "count": 1,
+              "disposition": "gvr",
+              "share": 0.008547008547008548
             }
           ],
           "key": "Appeals Court of Massachusetts",
           "open": 6,
-          "resolved": 121
+          "resolved": 117
         },
         {
           "cases": 121,
           "dispositions": [
             {
-              "count": 110,
+              "count": 116,
               "disposition": "denied",
-              "share": 0.9482758620689655
-            },
-            {
-              "count": 5,
-              "disposition": "dismissed",
-              "share": 0.04310344827586207
-            },
-            {
-              "count": 1,
-              "disposition": "granted",
-              "share": 0.008620689655172414
-            }
-          ],
-          "key": "Court of Appeals of Arizona, Division One",
-          "open": 5,
-          "resolved": 116
-        },
-        {
-          "cases": 119,
-          "dispositions": [
-            {
-              "count": 112,
-              "disposition": "denied",
-              "share": 0.9655172413793104
-            },
-            {
-              "count": 2,
-              "disposition": "dismissed",
-              "share": 0.017241379310344827
-            },
-            {
-              "count": 1,
-              "disposition": "granted",
-              "share": 0.008620689655172414
-            },
-            {
-              "count": 1,
-              "disposition": "gvr",
-              "share": 0.008620689655172414
-            }
-          ],
-          "key": "Court of Appeals of Colorado",
-          "open": 3,
-          "resolved": 116
-        },
-        {
-          "cases": 118,
-          "dispositions": [
-            {
-              "count": 113,
-              "disposition": "denied",
-              "share": 0.9741379310344828
+              "share": 0.9747899159663865
             },
             {
               "count": 3,
               "disposition": "dismissed",
-              "share": 0.02586206896551724
+              "share": 0.025210084033613446
             }
           ],
           "key": "Court of Appeals of Georgia",
           "open": 2,
-          "resolved": 116
+          "resolved": 119
         },
         {
-          "cases": 114,
+          "cases": 116,
           "dispositions": [
             {
-              "count": 114,
+              "count": 116,
               "disposition": "denied",
               "share": 1.0
             }
           ],
           "key": "Court of Special Appeals of Maryland",
           "open": 0,
-          "resolved": 114
+          "resolved": 116
         },
         {
           "cases": 114,
           "dispositions": [
             {
-              "count": 108,
+              "count": 102,
               "disposition": "denied",
-              "share": 0.9642857142857143
-            },
-            {
-              "count": 2,
-              "disposition": "granted",
-              "share": 0.017857142857142856
-            },
-            {
-              "count": 1,
-              "disposition": "dismissed",
-              "share": 0.008928571428571428
-            },
-            {
-              "count": 1,
-              "disposition": "gvr",
-              "share": 0.008928571428571428
-            }
-          ],
-          "key": "Supreme Court of Mississippi",
-          "open": 2,
-          "resolved": 112
-        },
-        {
-          "cases": 111,
-          "dispositions": [
-            {
-              "count": 99,
-              "disposition": "denied",
-              "share": 0.9519230769230769
+              "share": 0.9532710280373832
             },
             {
               "count": 2,
               "disposition": "dismissed",
-              "share": 0.019230769230769232
+              "share": 0.018691588785046728
             },
             {
               "count": 2,
               "disposition": "gvr",
-              "share": 0.019230769230769232
+              "share": 0.018691588785046728
             },
             {
               "count": 1,
               "disposition": "granted",
-              "share": 0.009615384615384616
+              "share": 0.009345794392523364
             }
           ],
           "key": "Court of Appeal of California, Third Appellate District",
           "open": 7,
-          "resolved": 104
+          "resolved": 107
         },
         {
-          "cases": 111,
+          "cases": 110,
           "dispositions": [
             {
-              "count": 100,
+              "count": 104,
               "disposition": "denied",
-              "share": 0.9174311926605505
+              "share": 0.9629629629629629
             },
             {
-              "count": 9,
+              "count": 2,
+              "disposition": "granted",
+              "share": 0.018518518518518517
+            },
+            {
+              "count": 1,
               "disposition": "dismissed",
-              "share": 0.08256880733944955
+              "share": 0.009259259259259259
+            },
+            {
+              "count": 1,
+              "disposition": "gvr",
+              "share": 0.009259259259259259
             }
           ],
-          "key": "District Court of Appeal of Florida, Third District",
+          "key": "Supreme Court of Mississippi",
           "open": 2,
-          "resolved": 109
+          "resolved": 108
         },
         {
-          "cases": 109,
+          "cases": 106,
           "dispositions": [
             {
-              "count": 99,
+              "count": 95,
               "disposition": "denied",
-              "share": 0.9166666666666666
+              "share": 0.9405940594059405
             },
             {
               "count": 5,
               "disposition": "dismissed",
-              "share": 0.046296296296296294
+              "share": 0.04950495049504951
             },
             {
-              "count": 4,
+              "count": 1,
               "disposition": "gvr",
-              "share": 0.037037037037037035
+              "share": 0.009900990099009901
             }
           ],
-          "key": "Court of Appeals of Oregon",
-          "open": 1,
-          "resolved": 108
+          "key": "Court of Appeals of Minnesota",
+          "open": 5,
+          "resolved": 101
         },
         {
           "cases": 105,
@@ -3596,68 +3560,122 @@
             {
               "count": 94,
               "disposition": "denied",
-              "share": 0.94
+              "share": 0.912621359223301
             },
             {
-              "count": 5,
+              "count": 9,
               "disposition": "dismissed",
-              "share": 0.05
+              "share": 0.08737864077669903
+            }
+          ],
+          "key": "District Court of Appeal of Florida, Third District",
+          "open": 2,
+          "resolved": 103
+        },
+        {
+          "cases": 105,
+          "dispositions": [
+            {
+              "count": 101,
+              "disposition": "denied",
+              "share": 0.9805825242718447
+            },
+            {
+              "count": 1,
+              "disposition": "dismissed",
+              "share": 0.009708737864077669
             },
             {
               "count": 1,
               "disposition": "gvr",
-              "share": 0.01
+              "share": 0.009708737864077669
             }
           ],
-          "key": "Court of Appeals of Minnesota",
-          "open": 5,
-          "resolved": 100
+          "key": "Supreme Court of Louisiana",
+          "open": 2,
+          "resolved": 103
+        },
+        {
+          "cases": 104,
+          "dispositions": [
+            {
+              "count": 98,
+              "disposition": "denied",
+              "share": 0.9607843137254902
+            },
+            {
+              "count": 3,
+              "disposition": "dismissed",
+              "share": 0.029411764705882353
+            },
+            {
+              "count": 1,
+              "disposition": "granted",
+              "share": 0.00980392156862745
+            }
+          ],
+          "key": "Supreme Court of Nevada",
+          "open": 2,
+          "resolved": 102
         },
         {
           "cases": 103,
           "dispositions": [
             {
-              "count": 97,
+              "count": 94,
               "disposition": "denied",
-              "share": 0.9603960396039604
+              "share": 0.9591836734693877
             },
             {
-              "count": 3,
+              "count": 4,
               "disposition": "dismissed",
-              "share": 0.0297029702970297
-            },
-            {
-              "count": 1,
-              "disposition": "granted",
-              "share": 0.009900990099009901
+              "share": 0.04081632653061224
             }
           ],
-          "key": "Supreme Court of Nevada",
-          "open": 2,
-          "resolved": 101
+          "key": "Superior Court of Pennsylvania, Philadelphia Office",
+          "open": 5,
+          "resolved": 98
         },
         {
           "cases": 102,
           "dispositions": [
             {
-              "count": 98,
+              "count": 92,
               "disposition": "denied",
-              "share": 0.98
+              "share": 0.9108910891089109
             },
             {
-              "count": 1,
+              "count": 5,
               "disposition": "dismissed",
-              "share": 0.01
+              "share": 0.04950495049504951
             },
             {
-              "count": 1,
+              "count": 4,
               "disposition": "gvr",
-              "share": 0.01
+              "share": 0.039603960396039604
             }
           ],
-          "key": "Supreme Court of Louisiana",
-          "open": 2,
-          "resolved": 100
+          "key": "Court of Appeals of Oregon",
+          "open": 1,
+          "resolved": 101
+        },
+        {
+          "cases": 101,
+          "dispositions": [
+            {
+              "count": 94,
+              "disposition": "denied",
+              "share": 0.9690721649484536
+            },
+            {
+              "count": 3,
+              "disposition": "dismissed",
+              "share": 0.030927835051546393
+            }
+          ],
+          "key": "District Court of Appeal of Florida, Fifth District",
+          "open": 4,
+          "resolved": 97
         },
         {
           "cases": 101,
@@ -3681,19 +3699,19 @@
           "cases": 99,
           "dispositions": [
             {
-              "count": 90,
+              "count": 93,
               "disposition": "denied",
-              "share": 0.9574468085106383
+              "share": 0.9789473684210527
             },
             {
-              "count": 4,
+              "count": 2,
               "disposition": "dismissed",
-              "share": 0.0425531914893617
+              "share": 0.021052631578947368
             }
           ],
-          "key": "Superior Court of Pennsylvania, Philadelphia Office",
-          "open": 5,
-          "resolved": 94
+          "key": "Court of Appeal of California, Sixth Appellate District",
+          "open": 4,
+          "resolved": 95
         },
         {
           "cases": 98,
@@ -3701,7 +3719,35 @@
             {
               "count": 92,
               "disposition": "denied",
-              "share": 0.9787234042553191
+              "share": 0.9583333333333334
+            },
+            {
+              "count": 3,
+              "disposition": "dismissed",
+              "share": 0.03125
+            },
+            {
+              "count": 1,
+              "disposition": "gvr",
+              "share": 0.010416666666666666
+            }
+          ],
+          "key": "Supreme Court of Ohio",
+          "open": 2,
+          "resolved": 96
+        },
+        {
+          "cases": 94,
+          "dispositions": [
+            {
+              "count": 88,
+              "disposition": "denied",
+              "share": 0.9361702127659575
+            },
+            {
+              "count": 4,
+              "disposition": "granted",
+              "share": 0.0425531914893617
             },
             {
               "count": 2,
@@ -3709,91 +3755,9 @@
               "share": 0.02127659574468085
             }
           ],
-          "key": "Court of Appeal of California, Sixth Appellate District",
-          "open": 4,
-          "resolved": 94
-        },
-        {
-          "cases": 95,
-          "dispositions": [
-            {
-              "count": 88,
-              "disposition": "denied",
-              "share": 0.967032967032967
-            },
-            {
-              "count": 3,
-              "disposition": "dismissed",
-              "share": 0.03296703296703297
-            }
-          ],
-          "key": "District Court of Appeal of Florida, Fifth District",
-          "open": 4,
-          "resolved": 91
-        },
-        {
-          "cases": 93,
-          "dispositions": [
-            {
-              "count": 90,
-              "disposition": "denied",
-              "share": 0.989010989010989
-            },
-            {
-              "count": 1,
-              "disposition": "dismissed",
-              "share": 0.01098901098901099
-            }
-          ],
-          "key": "Court of Appeals of Washington, Division 1",
-          "open": 2,
-          "resolved": 91
-        },
-        {
-          "cases": 92,
-          "dispositions": [
-            {
-              "count": 86,
-              "disposition": "denied",
-              "share": 0.9555555555555556
-            },
-            {
-              "count": 3,
-              "disposition": "dismissed",
-              "share": 0.03333333333333333
-            },
-            {
-              "count": 1,
-              "disposition": "gvr",
-              "share": 0.011111111111111112
-            }
-          ],
-          "key": "Supreme Court of Ohio",
-          "open": 2,
-          "resolved": 90
-        },
-        {
-          "cases": 91,
-          "dispositions": [
-            {
-              "count": 85,
-              "disposition": "denied",
-              "share": 0.9340659340659341
-            },
-            {
-              "count": 4,
-              "disposition": "granted",
-              "share": 0.04395604395604396
-            },
-            {
-              "count": 2,
-              "disposition": "dismissed",
-              "share": 0.02197802197802198
-            }
-          ],
           "key": "Supreme Court of Montana",
           "open": 0,
-          "resolved": 91
+          "resolved": 94
         },
         {
           "cases": 90,
@@ -3809,63 +3773,130 @@
           "resolved": 90
         },
         {
-          "cases": 87,
-          "dispositions": [
-            {
-              "count": 80,
-              "disposition": "denied",
-              "share": 0.9523809523809523
-            },
-            {
-              "count": 4,
-              "disposition": "dismissed",
-              "share": 0.047619047619047616
-            }
-          ],
-          "key": "Supreme Court of South Carolina",
-          "open": 3,
-          "resolved": 84
-        },
-        {
-          "cases": 82,
+          "cases": 88,
           "dispositions": [
             {
               "count": 81,
               "disposition": "denied",
-              "share": 0.9878048780487805
+              "share": 0.9529411764705882
+            },
+            {
+              "count": 4,
+              "disposition": "dismissed",
+              "share": 0.047058823529411764
+            }
+          ],
+          "key": "Supreme Court of South Carolina",
+          "open": 3,
+          "resolved": 85
+        },
+        {
+          "cases": 86,
+          "dispositions": [
+            {
+              "count": 83,
+              "disposition": "denied",
+              "share": 0.9880952380952381
             },
             {
               "count": 1,
               "disposition": "dismissed",
-              "share": 0.012195121951219513
+              "share": 0.011904761904761904
             }
           ],
-          "key": "Appellate Division, Supreme Court of New York, Fourth Judicial Department",
-          "open": 0,
-          "resolved": 82
+          "key": "Court of Appeals of Washington, Division 1",
+          "open": 2,
+          "resolved": 84
         },
         {
-          "cases": 82,
+          "cases": 85,
           "dispositions": [
             {
-              "count": 79,
+              "count": 82,
               "disposition": "denied",
-              "share": 0.9634146341463414
+              "share": 0.9647058823529412
             },
             {
               "count": 2,
               "disposition": "dismissed",
-              "share": 0.024390243902439025
+              "share": 0.023529411764705882
             },
             {
               "count": 1,
               "disposition": "granted",
-              "share": 0.012195121951219513
+              "share": 0.011764705882352941
             }
           ],
           "key": "Supreme Court of Appeals of West Virginia",
           "open": 0,
-          "resolved": 82
+          "resolved": 85
+        },
+        {
+          "cases": 84,
+          "dispositions": [
+            {
+              "count": 81,
+              "disposition": "denied",
+              "share": 0.9759036144578314
+            },
+            {
+              "count": 2,
+              "disposition": "dismissed",
+              "share": 0.024096385542168676
+            }
+          ],
+          "key": "Appellate Court of Illinois, Second District",
+          "open": 1,
+          "resolved": 83
+        },
+        {
+          "cases": 84,
+          "dispositions": [
+            {
+              "count": 83,
+              "disposition": "denied",
+              "share": 0.9880952380952381
+            },
+            {
+              "count": 1,
+              "disposition": "dismissed",
+              "share": 0.011904761904761904
+            }
+          ],
+          "key": "Appellate Division, Supreme Court of New York, Fourth Judicial Department",
+          "open": 0,
+          "resolved": 84
+        },
+        {
+          "cases": 84,
+          "dispositions": [
+            {
+              "count": 84,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Criminal Appeals of Alabama",
+          "open": 0,
+          "resolved": 84
+        },
+        {
+          "cases": 80,
+          "dispositions": [
+            {
+              "count": 76,
+              "disposition": "denied",
+              "share": 0.9620253164556962
+            },
+            {
+              "count": 3,
+              "disposition": "dismissed",
+              "share": 0.0379746835443038
+            }
+          ],
+          "key": "Superior Court of Pennsylvania, Harrisburg Office",
+          "open": 1,
+          "resolved": 79
         },
         {
           "cases": 79,
@@ -3876,45 +3907,45 @@
               "share": 1.0
             }
           ],
-          "key": "Court of Criminal Appeals of Alabama",
+          "key": "Court of Appeals of Ohio, Cuyahoga County",
           "open": 0,
           "resolved": 79
         },
         {
-          "cases": 78,
+          "cases": 79,
           "dispositions": [
             {
-              "count": 75,
+              "count": 74,
               "disposition": "denied",
-              "share": 0.974025974025974
+              "share": 0.9487179487179487
             },
             {
-              "count": 2,
+              "count": 4,
               "disposition": "dismissed",
-              "share": 0.025974025974025976
+              "share": 0.05128205128205128
             }
           ],
-          "key": "Appellate Court of Illinois, Second District",
+          "key": "Supreme Judicial Court of Massachusetts",
           "open": 1,
-          "resolved": 77
+          "resolved": 78
         },
         {
           "cases": 78,
           "dispositions": [
             {
-              "count": 74,
+              "count": 72,
               "disposition": "denied",
-              "share": 0.961038961038961
+              "share": 0.972972972972973
             },
             {
-              "count": 3,
+              "count": 2,
               "disposition": "dismissed",
-              "share": 0.03896103896103896
+              "share": 0.02702702702702703
             }
           ],
-          "key": "Superior Court of Pennsylvania, Harrisburg Office",
-          "open": 1,
-          "resolved": 77
+          "key": "Court of Appeal of California, Fourth Appellate District, Division Three",
+          "open": 4,
+          "resolved": 74
         },
         {
           "cases": 77,
@@ -3925,7 +3956,7 @@
               "share": 1.0
             }
           ],
-          "key": "Court of Appeals of Ohio, Cuyahoga County",
+          "key": "Appellate Court of Illinois, Fourth District",
           "open": 0,
           "resolved": 77
         },
@@ -3933,143 +3964,86 @@
           "cases": 75,
           "dispositions": [
             {
-              "count": 69,
+              "count": 65,
               "disposition": "denied",
-              "share": 0.971830985915493
-            },
-            {
-              "count": 2,
-              "disposition": "dismissed",
-              "share": 0.028169014084507043
-            }
-          ],
-          "key": "Court of Appeal of California, Fourth Appellate District, Division Three",
-          "open": 4,
-          "resolved": 71
-        },
-        {
-          "cases": 74,
-          "dispositions": [
-            {
-              "count": 74,
-              "disposition": "denied",
-              "share": 1.0
-            }
-          ],
-          "key": "Appellate Court of Illinois, Fourth District",
-          "open": 0,
-          "resolved": 74
-        },
-        {
-          "cases": 74,
-          "dispositions": [
-            {
-              "count": 64,
-              "disposition": "denied",
-              "share": 0.9142857142857143
+              "share": 0.9154929577464789
             },
             {
               "count": 6,
               "disposition": "dismissed",
-              "share": 0.08571428571428572
+              "share": 0.08450704225352113
             }
           ],
           "key": "Supreme Court of Delaware",
           "open": 4,
-          "resolved": 70
+          "resolved": 71
         },
         {
-          "cases": 73,
+          "cases": 74,
           "dispositions": [
             {
-              "count": 67,
+              "count": 68,
               "disposition": "denied",
-              "share": 0.9436619718309859
+              "share": 0.9444444444444444
             },
             {
               "count": 3,
               "disposition": "dismissed",
-              "share": 0.04225352112676056
+              "share": 0.041666666666666664
             },
             {
               "count": 1,
               "disposition": "gvr",
-              "share": 0.014084507042253521
+              "share": 0.013888888888888888
             }
           ],
           "key": "Supreme Court of Michigan",
           "open": 2,
-          "resolved": 71
+          "resolved": 72
         },
         {
           "cases": 72,
           "dispositions": [
             {
               "count": 71,
-              "disposition": "denied",
-              "share": 1.0
-            }
-          ],
-          "key": "Supreme Court of Pennsylvania, Middle District",
-          "open": 1,
-          "resolved": 71
-        },
-        {
-          "cases": 72,
-          "dispositions": [
-            {
-              "count": 67,
-              "disposition": "denied",
-              "share": 0.9436619718309859
-            },
-            {
-              "count": 4,
-              "disposition": "dismissed",
-              "share": 0.056338028169014086
-            }
-          ],
-          "key": "Supreme Judicial Court of Massachusetts",
-          "open": 1,
-          "resolved": 71
-        },
-        {
-          "cases": 71,
-          "dispositions": [
-            {
-              "count": 71,
-              "disposition": "denied",
-              "share": 1.0
-            }
-          ],
-          "key": "Court of Criminal Appeals of Tennessee, Eastern Division",
-          "open": 0,
-          "resolved": 71
-        },
-        {
-          "cases": 67,
-          "dispositions": [
-            {
-              "count": 67,
-              "disposition": "denied",
-              "share": 1.0
-            }
-          ],
-          "key": "Appellate Division, Supreme Court of New York, Second Judicial Department",
-          "open": 0,
-          "resolved": 67
-        },
-        {
-          "cases": 67,
-          "dispositions": [
-            {
-              "count": 66,
               "disposition": "denied",
               "share": 1.0
             }
           ],
           "key": "Court of Appeals of Nevada",
           "open": 1,
-          "resolved": 66
+          "resolved": 71
+        },
+        {
+          "cases": 69,
+          "dispositions": [
+            {
+              "count": 69,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Appellate Division, Supreme Court of New York, Second Judicial Department",
+          "open": 0,
+          "resolved": 69
+        },
+        {
+          "cases": 69,
+          "dispositions": [
+            {
+              "count": 63,
+              "disposition": "denied",
+              "share": 0.9130434782608695
+            },
+            {
+              "count": 6,
+              "disposition": "dismissed",
+              "share": 0.08695652173913043
+            }
+          ],
+          "key": "Supreme Court of Illinois",
+          "open": 0,
+          "resolved": 69
         },
         {
           "cases": 66,
@@ -4088,60 +4062,55 @@
           "cases": 65,
           "dispositions": [
             {
-              "count": 59,
+              "count": 60,
               "disposition": "denied",
-              "share": 0.9076923076923077
-            },
-            {
-              "count": 6,
-              "disposition": "dismissed",
-              "share": 0.09230769230769231
-            }
-          ],
-          "key": "Supreme Court of Illinois",
-          "open": 0,
-          "resolved": 65
-        },
-        {
-          "cases": 62,
-          "dispositions": [
-            {
-              "count": 57,
-              "disposition": "denied",
-              "share": 0.95
+              "share": 0.9523809523809523
             },
             {
               "count": 2,
               "disposition": "dismissed",
-              "share": 0.03333333333333333
+              "share": 0.031746031746031744
             },
             {
               "count": 1,
               "disposition": "gvr",
-              "share": 0.016666666666666666
+              "share": 0.015873015873015872
             }
           ],
           "key": "Court of Appeals of Texas, Fourteenth District",
           "open": 2,
-          "resolved": 60
+          "resolved": 63
         },
         {
-          "cases": 62,
+          "cases": 63,
           "dispositions": [
             {
-              "count": 59,
+              "count": 63,
               "disposition": "denied",
-              "share": 0.9833333333333333
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Appeals of Texas, First District",
+          "open": 0,
+          "resolved": 63
+        },
+        {
+          "cases": 63,
+          "dispositions": [
+            {
+              "count": 60,
+              "disposition": "denied",
+              "share": 0.9836065573770492
             },
             {
               "count": 1,
               "disposition": "granted",
-              "share": 0.016666666666666666
+              "share": 0.01639344262295082
             }
           ],
           "key": "Supreme Court of Alabama",
           "open": 2,
-          "resolved": 60
+          "resolved": 61
         },
         {
           "cases": 61,
@@ -4188,17 +4157,35 @@
           "resolved": 55
         },
         {
-          "cases": 59,
+          "cases": 58,
           "dispositions": [
             {
-              "count": 59,
+              "count": 57,
               "disposition": "denied",
               "share": 1.0
             }
           ],
-          "key": "Court of Appeals of Texas, First District",
+          "key": "Appellate Court of Connecticut",
+          "open": 1,
+          "resolved": 57
+        },
+        {
+          "cases": 58,
+          "dispositions": [
+            {
+              "count": 56,
+              "disposition": "denied",
+              "share": 0.9655172413793104
+            },
+            {
+              "count": 2,
+              "disposition": "dismissed",
+              "share": 0.034482758620689655
+            }
+          ],
+          "key": "Superior Court of Pennsylvania, Pittsburgh Office",
           "open": 0,
-          "resolved": 59
+          "resolved": 58
         },
         {
           "cases": 58,
@@ -4252,20 +4239,51 @@
           "resolved": 58
         },
         {
-          "cases": 57,
+          "cases": 58,
           "dispositions": [
             {
-              "count": 56,
+              "count": 57,
               "disposition": "denied",
-              "share": 0.9824561403508771
+              "share": 0.9827586206896551
             },
             {
               "count": 1,
               "disposition": "dismissed",
-              "share": 0.017543859649122806
+              "share": 0.017241379310344827
             }
           ],
           "key": "Supreme Court of Texas",
+          "open": 0,
+          "resolved": 58
+        },
+        {
+          "cases": 57,
+          "dispositions": [
+            {
+              "count": 54,
+              "disposition": "denied",
+              "share": 0.9818181818181818
+            },
+            {
+              "count": 1,
+              "disposition": "dismissed",
+              "share": 0.01818181818181818
+            }
+          ],
+          "key": "Court of Appeal of California, Fourth Appellate District, Division Two",
+          "open": 2,
+          "resolved": 55
+        },
+        {
+          "cases": 57,
+          "dispositions": [
+            {
+              "count": 57,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Supreme Court of Wyoming",
           "open": 0,
           "resolved": 57
         },
@@ -4273,32 +4291,19 @@
           "cases": 56,
           "dispositions": [
             {
-              "count": 56,
+              "count": 54,
               "disposition": "denied",
-              "share": 1.0
-            }
-          ],
-          "key": "Supreme Court of Wyoming",
-          "open": 0,
-          "resolved": 56
-        },
-        {
-          "cases": 55,
-          "dispositions": [
-            {
-              "count": 52,
-              "disposition": "denied",
-              "share": 0.9811320754716981
+              "share": 0.9642857142857143
             },
             {
-              "count": 1,
-              "disposition": "dismissed",
-              "share": 0.018867924528301886
+              "count": 2,
+              "disposition": "granted",
+              "share": 0.03571428571428571
             }
           ],
-          "key": "Court of Appeal of California, Fourth Appellate District, Division Two",
-          "open": 2,
-          "resolved": 53
+          "key": "Supreme Court of Arizona",
+          "open": 0,
+          "resolved": 56
         },
         {
           "cases": 55,
@@ -4322,22 +4327,30 @@
           "cases": 55,
           "dispositions": [
             {
-              "count": 53,
+              "count": 55,
               "disposition": "denied",
-              "share": 0.9636363636363636
-            },
-            {
-              "count": 2,
-              "disposition": "dismissed",
-              "share": 0.03636363636363636
+              "share": 1.0
             }
           ],
-          "key": "Superior Court of Pennsylvania, Pittsburgh Office",
+          "key": "Court of Criminal Appeals of Tennessee, Eastern Division",
           "open": 0,
           "resolved": 55
         },
         {
-          "cases": 53,
+          "cases": 55,
+          "dispositions": [
+            {
+              "count": 54,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Supreme Court of Pennsylvania, Middle District",
+          "open": 1,
+          "resolved": 54
+        },
+        {
+          "cases": 52,
           "dispositions": [
             {
               "count": 52,
@@ -4345,105 +4358,84 @@
               "share": 1.0
             }
           ],
-          "key": "Appellate Court of Connecticut",
-          "open": 1,
-          "resolved": 52
-        },
-        {
-          "cases": 53,
-          "dispositions": [
-            {
-              "count": 51,
-              "disposition": "denied",
-              "share": 0.9622641509433962
-            },
-            {
-              "count": 2,
-              "disposition": "granted",
-              "share": 0.03773584905660377
-            }
-          ],
-          "key": "Supreme Court of Arizona",
+          "key": "Court of Appeals of Kansas",
           "open": 0,
-          "resolved": 53
+          "resolved": 52
         },
         {
           "cases": 52,
           "dispositions": [
             {
-              "count": 46,
-              "disposition": "denied",
-              "share": 0.9787234042553191
-            },
-            {
-              "count": 1,
-              "disposition": "dismissed",
-              "share": 0.02127659574468085
-            }
-          ],
-          "key": "Supreme Judicial Court of Maine",
-          "open": 5,
-          "resolved": 47
-        },
-        {
-          "cases": 50,
-          "dispositions": [
-            {
-              "count": 49,
-              "disposition": "denied",
-              "share": 1.0
-            }
-          ],
-          "key": "Court of Appeals of Arizona, Division Two",
-          "open": 1,
-          "resolved": 49
-        },
-        {
-          "cases": 50,
-          "dispositions": [
-            {
-              "count": 50,
+              "count": 52,
               "disposition": "denied",
               "share": 1.0
             }
           ],
           "key": "Court of Appeals of Kentucky",
           "open": 0,
-          "resolved": 50
+          "resolved": 52
         },
         {
-          "cases": 49,
+          "cases": 52,
           "dispositions": [
             {
               "count": 49,
               "disposition": "denied",
-              "share": 1.0
-            }
-          ],
-          "key": "Court of Appeals of Kansas",
-          "open": 0,
-          "resolved": 49
-        },
-        {
-          "cases": 49,
-          "dispositions": [
-            {
-              "count": 46,
-              "disposition": "denied",
-              "share": 0.9583333333333334
+              "share": 0.9607843137254902
             },
             {
               "count": 2,
               "disposition": "dismissed",
-              "share": 0.041666666666666664
+              "share": 0.0392156862745098
             }
           ],
           "key": "Supreme Court of Arkansas",
           "open": 1,
-          "resolved": 48
+          "resolved": 51
         },
         {
-          "cases": 49,
+          "cases": 52,
+          "dispositions": [
+            {
+              "count": 50,
+              "disposition": "denied",
+              "share": 0.9615384615384616
+            },
+            {
+              "count": 1,
+              "disposition": "dismissed",
+              "share": 0.019230769230769232
+            },
+            {
+              "count": 1,
+              "disposition": "granted",
+              "share": 0.019230769230769232
+            }
+          ],
+          "key": "Supreme Court of Minnesota",
+          "open": 0,
+          "resolved": 52
+        },
+        {
+          "cases": 51,
+          "dispositions": [
+            {
+              "count": 48,
+              "disposition": "denied",
+              "share": 0.96
+            },
+            {
+              "count": 2,
+              "disposition": "dismissed",
+              "share": 0.04
+            }
+          ],
+          "key": "Supreme Court of Missouri",
+          "open": 1,
+          "resolved": 50
+        },
+        {
+          "cases": 50,
           "dispositions": [
             {
               "count": 47,
@@ -4451,18 +4443,13 @@
               "share": 0.9591836734693877
             },
             {
-              "count": 1,
-              "disposition": "dismissed",
-              "share": 0.02040816326530612
-            },
-            {
-              "count": 1,
+              "count": 2,
               "disposition": "granted",
-              "share": 0.02040816326530612
+              "share": 0.04081632653061224
             }
           ],
-          "key": "Supreme Court of Minnesota",
-          "open": 0,
+          "key": "Supreme Court of Kansas",
+          "open": 1,
           "resolved": 49
         },
         {
@@ -4484,38 +4471,38 @@
           "resolved": 46
         },
         {
-          "cases": 48,
+          "cases": 47,
           "dispositions": [
             {
-              "count": 45,
+              "count": 43,
               "disposition": "denied",
-              "share": 0.9574468085106383
+              "share": 0.9555555555555556
             },
             {
-              "count": 2,
+              "count": 1,
               "disposition": "dismissed",
-              "share": 0.0425531914893617
+              "share": 0.022222222222222223
+            },
+            {
+              "count": 1,
+              "disposition": "gvr",
+              "share": 0.022222222222222223
             }
           ],
-          "key": "Court of Appeals of Iowa",
-          "open": 1,
-          "resolved": 47
+          "key": "Court of Appeal of California, Fifth Appellate District",
+          "open": 2,
+          "resolved": 45
         },
         {
           "cases": 47,
           "dispositions": [
             {
-              "count": 45,
+              "count": 47,
               "disposition": "denied",
-              "share": 0.9574468085106383
-            },
-            {
-              "count": 2,
-              "disposition": "dismissed",
-              "share": 0.0425531914893617
+              "share": 1.0
             }
           ],
-          "key": "Supreme Court of Missouri",
+          "key": "Court of Appeals of Maryland",
           "open": 0,
           "resolved": 47
         },
@@ -4523,37 +4510,42 @@
           "cases": 46,
           "dispositions": [
             {
-              "count": 46,
+              "count": 38,
               "disposition": "denied",
-              "share": 1.0
+              "share": 0.8636363636363636
+            },
+            {
+              "count": 3,
+              "disposition": "granted",
+              "share": 0.06818181818181818
+            },
+            {
+              "count": 2,
+              "disposition": "dismissed",
+              "share": 0.045454545454545456
+            },
+            {
+              "count": 1,
+              "disposition": "gvr",
+              "share": 0.022727272727272728
             }
           ],
-          "key": "Court of Appeals of Maryland",
-          "open": 0,
-          "resolved": 46
+          "key": "Supreme Court of Washington",
+          "open": 2,
+          "resolved": 44
         },
         {
           "cases": 45,
           "dispositions": [
             {
-              "count": 41,
+              "count": 44,
               "disposition": "denied",
-              "share": 0.9534883720930233
-            },
-            {
-              "count": 1,
-              "disposition": "dismissed",
-              "share": 0.023255813953488372
-            },
-            {
-              "count": 1,
-              "disposition": "gvr",
-              "share": 0.023255813953488372
+              "share": 1.0
             }
           ],
-          "key": "Court of Appeal of California, Fifth Appellate District",
-          "open": 2,
-          "resolved": 43
+          "key": "Court of Appeals of Texas, Third District",
+          "open": 1,
+          "resolved": 44
         },
         {
           "cases": 44,
@@ -4577,19 +4569,6 @@
           "cases": 44,
           "dispositions": [
             {
-              "count": 43,
-              "disposition": "denied",
-              "share": 1.0
-            }
-          ],
-          "key": "Court of Appeals of Texas, Third District",
-          "open": 1,
-          "resolved": 43
-        },
-        {
-          "cases": 44,
-          "dispositions": [
-            {
               "count": 44,
               "disposition": "denied",
               "share": 1.0
@@ -4603,9 +4582,14 @@
           "cases": 44,
           "dispositions": [
             {
-              "count": 41,
+              "count": 36,
               "disposition": "denied",
-              "share": 0.9534883720930233
+              "share": 0.8372093023255814
+            },
+            {
+              "count": 5,
+              "disposition": "dismissed",
+              "share": 0.11627906976744186
             },
             {
               "count": 2,
@@ -4613,83 +4597,50 @@
               "share": 0.046511627906976744
             }
           ],
-          "key": "Supreme Court of Kansas",
+          "key": "Supreme Court of North Carolina",
           "open": 1,
           "resolved": 43
         },
         {
-          "cases": 44,
+          "cases": 43,
           "dispositions": [
             {
-              "count": 40,
+              "count": 42,
               "disposition": "denied",
-              "share": 0.9090909090909091
-            },
-            {
-              "count": 2,
-              "disposition": "dismissed",
-              "share": 0.045454545454545456
-            },
-            {
-              "count": 2,
-              "disposition": "gvr",
-              "share": 0.045454545454545456
+              "share": 1.0
             }
           ],
-          "key": "Supreme Court of Nebraska",
-          "open": 0,
-          "resolved": 44
-        },
-        {
-          "cases": 44,
-          "dispositions": [
-            {
-              "count": 36,
-              "disposition": "denied",
-              "share": 0.8571428571428571
-            },
-            {
-              "count": 3,
-              "disposition": "granted",
-              "share": 0.07142857142857142
-            },
-            {
-              "count": 2,
-              "disposition": "dismissed",
-              "share": 0.047619047619047616
-            },
-            {
-              "count": 1,
-              "disposition": "gvr",
-              "share": 0.023809523809523808
-            }
-          ],
-          "key": "Supreme Court of Washington",
-          "open": 2,
+          "key": "Court of Appeals of Arizona, Division Two",
+          "open": 1,
           "resolved": 42
         },
         {
           "cases": 43,
           "dispositions": [
             {
-              "count": 35,
+              "count": 38,
               "disposition": "denied",
-              "share": 0.8333333333333334
+              "share": 0.926829268292683
             },
             {
-              "count": 5,
+              "count": 1,
               "disposition": "dismissed",
-              "share": 0.11904761904761904
+              "share": 0.024390243902439025
             },
             {
-              "count": 2,
+              "count": 1,
               "disposition": "granted",
-              "share": 0.047619047619047616
+              "share": 0.024390243902439025
+            },
+            {
+              "count": 1,
+              "disposition": "gvr",
+              "share": 0.024390243902439025
             }
           ],
-          "key": "Supreme Court of North Carolina",
-          "open": 1,
-          "resolved": 42
+          "key": "Supreme Court of Kentucky",
+          "open": 2,
+          "resolved": 41
         },
         {
           "cases": 43,
@@ -4710,62 +4661,98 @@
           "resolved": 41
         },
         {
-          "cases": 41,
+          "cases": 43,
           "dispositions": [
             {
-              "count": 40,
+              "count": 41,
               "disposition": "denied",
-              "share": 0.975609756097561
-            },
-            {
-              "count": 1,
-              "disposition": "dismissed",
-              "share": 0.024390243902439025
-            }
-          ],
-          "key": "Court of Appeals of Texas, Ninth District",
-          "open": 0,
-          "resolved": 41
-        },
-        {
-          "cases": 41,
-          "dispositions": [
-            {
-              "count": 39,
-              "disposition": "denied",
-              "share": 0.975
+              "share": 0.9761904761904762
             },
             {
               "count": 1,
               "disposition": "granted",
-              "share": 0.025
+              "share": 0.023809523809523808
             }
           ],
           "key": "Supreme Court of South Dakota",
           "open": 1,
-          "resolved": 40
+          "resolved": 42
         },
         {
-          "cases": 41,
+          "cases": 43,
           "dispositions": [
             {
               "count": 37,
               "disposition": "denied",
-              "share": 0.925
-            },
-            {
-              "count": 2,
-              "disposition": "granted",
-              "share": 0.05
+              "share": 0.9736842105263158
             },
             {
               "count": 1,
               "disposition": "dismissed",
-              "share": 0.025
+              "share": 0.02631578947368421
             }
           ],
-          "key": "Supreme Court of Wisconsin",
+          "key": "Supreme Judicial Court of Maine",
+          "open": 5,
+          "resolved": 38
+        },
+        {
+          "cases": 40,
+          "dispositions": [
+            {
+              "count": 37,
+              "disposition": "denied",
+              "share": 0.9487179487179487
+            },
+            {
+              "count": 1,
+              "disposition": "dismissed",
+              "share": 0.02564102564102564
+            },
+            {
+              "count": 1,
+              "disposition": "gvr",
+              "share": 0.02564102564102564
+            }
+          ],
+          "key": "Court of Appeal of California, Fourth Appellate District, Division One",
           "open": 1,
+          "resolved": 39
+        },
+        {
+          "cases": 40,
+          "dispositions": [
+            {
+              "count": 37,
+              "disposition": "denied",
+              "share": 0.9487179487179487
+            },
+            {
+              "count": 2,
+              "disposition": "dismissed",
+              "share": 0.05128205128205128
+            }
+          ],
+          "key": "Court of Appeals of Iowa",
+          "open": 1,
+          "resolved": 39
+        },
+        {
+          "cases": 40,
+          "dispositions": [
+            {
+              "count": 38,
+              "disposition": "denied",
+              "share": 0.95
+            },
+            {
+              "count": 2,
+              "disposition": "dismissed",
+              "share": 0.05
+            }
+          ],
+          "key": "Court of Appeals of Nebraska",
+          "open": 0,
           "resolved": 40
         },
         {
@@ -4782,91 +4769,17 @@
           "resolved": 40
         },
         {
-          "cases": 39,
-          "dispositions": [
-            {
-              "count": 36,
-              "disposition": "denied",
-              "share": 0.9473684210526315
-            },
-            {
-              "count": 2,
-              "disposition": "dismissed",
-              "share": 0.05263157894736842
-            }
-          ],
-          "key": "Court of Appeals of Wisconsin, District I",
-          "open": 1,
-          "resolved": 38
-        },
-        {
-          "cases": 39,
+          "cases": 38,
           "dispositions": [
             {
               "count": 34,
               "disposition": "denied",
-              "share": 0.918918918918919
-            },
-            {
-              "count": 1,
-              "disposition": "dismissed",
-              "share": 0.02702702702702703
-            },
-            {
-              "count": 1,
-              "disposition": "granted",
-              "share": 0.02702702702702703
-            },
-            {
-              "count": 1,
-              "disposition": "gvr",
-              "share": 0.02702702702702703
+              "share": 1.0
             }
           ],
-          "key": "Supreme Court of Kentucky",
-          "open": 2,
-          "resolved": 37
-        },
-        {
-          "cases": 38,
-          "dispositions": [
-            {
-              "count": 35,
-              "disposition": "denied",
-              "share": 0.9459459459459459
-            },
-            {
-              "count": 1,
-              "disposition": "dismissed",
-              "share": 0.02702702702702703
-            },
-            {
-              "count": 1,
-              "disposition": "gvr",
-              "share": 0.02702702702702703
-            }
-          ],
-          "key": "Court of Appeal of California, Fourth Appellate District, Division One",
-          "open": 1,
-          "resolved": 37
-        },
-        {
-          "cases": 38,
-          "dispositions": [
-            {
-              "count": 36,
-              "disposition": "denied",
-              "share": 0.9473684210526315
-            },
-            {
-              "count": 2,
-              "disposition": "dismissed",
-              "share": 0.05263157894736842
-            }
-          ],
-          "key": "Court of Appeals of Nebraska",
-          "open": 0,
-          "resolved": 38
+          "key": "Supreme Court of New Hampshire",
+          "open": 4,
+          "resolved": 34
         },
         {
           "cases": 36,
@@ -4890,14 +4803,47 @@
           "cases": 36,
           "dispositions": [
             {
-              "count": 32,
+              "count": 29,
               "disposition": "denied",
-              "share": 1.0
+              "share": 0.8285714285714286
+            },
+            {
+              "count": 5,
+              "disposition": "gvr",
+              "share": 0.14285714285714285
+            },
+            {
+              "count": 1,
+              "disposition": "granted",
+              "share": 0.02857142857142857
             }
           ],
-          "key": "Supreme Court of New Hampshire",
-          "open": 4,
-          "resolved": 32
+          "key": "Court of Appeal of Louisiana, First Circuit",
+          "open": 1,
+          "resolved": 35
+        },
+        {
+          "cases": 36,
+          "dispositions": [
+            {
+              "count": 32,
+              "disposition": "denied",
+              "share": 0.8888888888888888
+            },
+            {
+              "count": 2,
+              "disposition": "dismissed",
+              "share": 0.05555555555555555
+            },
+            {
+              "count": 2,
+              "disposition": "gvr",
+              "share": 0.05555555555555555
+            }
+          ],
+          "key": "Supreme Court of Nebraska",
+          "open": 0,
+          "resolved": 36
         },
         {
           "cases": 35,
@@ -4913,17 +4859,22 @@
           "resolved": 31
         },
         {
-          "cases": 34,
+          "cases": 35,
           "dispositions": [
             {
-              "count": 32,
+              "count": 34,
               "disposition": "denied",
-              "share": 1.0
+              "share": 0.9714285714285714
+            },
+            {
+              "count": 1,
+              "disposition": "gvr",
+              "share": 0.02857142857142857
             }
           ],
-          "key": "Appellate Court of Illinois, Fifth District",
-          "open": 2,
-          "resolved": 32
+          "key": "Court of Appeals of Missouri, Western District",
+          "open": 0,
+          "resolved": 35
         },
         {
           "cases": 34,
@@ -4935,39 +4886,70 @@
             },
             {
               "count": 1,
-              "disposition": "gvr",
+              "disposition": "dismissed",
               "share": 0.029411764705882353
             }
           ],
-          "key": "Court of Appeals of Missouri, Western District",
+          "key": "Court of Appeals of Texas, Ninth District",
           "open": 0,
           "resolved": 34
+        },
+        {
+          "cases": 34,
+          "dispositions": [
+            {
+              "count": 32,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Supreme Court of Connecticut",
+          "open": 2,
+          "resolved": 32
         },
         {
           "cases": 33,
           "dispositions": [
             {
-              "count": 26,
+              "count": 30,
               "disposition": "denied",
-              "share": 0.8125
+              "share": 0.9375
             },
             {
-              "count": 5,
-              "disposition": "gvr",
-              "share": 0.15625
-            },
-            {
-              "count": 1,
-              "disposition": "granted",
-              "share": 0.03125
+              "count": 2,
+              "disposition": "dismissed",
+              "share": 0.0625
             }
           ],
-          "key": "Court of Appeal of Louisiana, First Circuit",
+          "key": "Court of Appeals of Wisconsin, District I",
           "open": 1,
           "resolved": 32
         },
         {
-          "cases": 32,
+          "cases": 33,
+          "dispositions": [
+            {
+              "count": 29,
+              "disposition": "denied",
+              "share": 0.90625
+            },
+            {
+              "count": 2,
+              "disposition": "granted",
+              "share": 0.0625
+            },
+            {
+              "count": 1,
+              "disposition": "dismissed",
+              "share": 0.03125
+            }
+          ],
+          "key": "Supreme Court of Wisconsin",
+          "open": 1,
+          "resolved": 32
+        },
+        {
+          "cases": 31,
           "dispositions": [
             {
               "count": 30,
@@ -4976,43 +4958,12 @@
             },
             {
               "count": 1,
-              "disposition": "granted",
+              "disposition": "dismissed",
               "share": 0.03225806451612903
             }
           ],
-          "key": "Court of Appeals of Mississippi",
-          "open": 1,
-          "resolved": 31
-        },
-        {
-          "cases": 32,
-          "dispositions": [
-            {
-              "count": 30,
-              "disposition": "denied",
-              "share": 1.0
-            }
-          ],
-          "key": "Supreme Court of Connecticut",
-          "open": 2,
-          "resolved": 30
-        },
-        {
-          "cases": 32,
-          "dispositions": [
-            {
-              "count": 29,
-              "disposition": "denied",
-              "share": 0.9354838709677419
-            },
-            {
-              "count": 2,
-              "disposition": "granted",
-              "share": 0.06451612903225806
-            }
-          ],
-          "key": "Supreme Court of Oklahoma",
-          "open": 1,
+          "key": "Court of Appeals of Texas, Second District",
+          "open": 0,
           "resolved": 31
         },
         {
@@ -5045,14 +4996,27 @@
           "cases": 30,
           "dispositions": [
             {
-              "count": 30,
+              "count": 28,
               "disposition": "denied",
               "share": 1.0
             }
           ],
-          "key": "ariz",
-          "open": 0,
-          "resolved": 30
+          "key": "Appellate Court of Illinois, Fifth District",
+          "open": 2,
+          "resolved": 28
+        },
+        {
+          "cases": 30,
+          "dispositions": [
+            {
+              "count": 28,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Appeals of Texas, Fourth District",
+          "open": 2,
+          "resolved": 28
         },
         {
           "cases": 30,
@@ -5081,9 +5045,22 @@
               "share": 0.034482758620689655
             }
           ],
-          "key": "Court of Appeals of Texas, Second District",
+          "key": "Appellate Court of Illinois, Third District",
           "open": 0,
           "resolved": 29
+        },
+        {
+          "cases": 29,
+          "dispositions": [
+            {
+              "count": 27,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Appeals of Wisconsin, District II",
+          "open": 2,
+          "resolved": 27
         },
         {
           "cases": 29,
@@ -5120,24 +5097,6 @@
           "cases": 28,
           "dispositions": [
             {
-              "count": 27,
-              "disposition": "denied",
-              "share": 0.9642857142857143
-            },
-            {
-              "count": 1,
-              "disposition": "dismissed",
-              "share": 0.03571428571428571
-            }
-          ],
-          "key": "Appellate Court of Illinois, Third District",
-          "open": 0,
-          "resolved": 28
-        },
-        {
-          "cases": 28,
-          "dispositions": [
-            {
               "count": 19,
               "disposition": "denied",
               "share": 0.7307692307692307
@@ -5161,32 +5120,6 @@
           "cases": 28,
           "dispositions": [
             {
-              "count": 26,
-              "disposition": "denied",
-              "share": 1.0
-            }
-          ],
-          "key": "Court of Appeals of Texas, Fourth District",
-          "open": 2,
-          "resolved": 26
-        },
-        {
-          "cases": 28,
-          "dispositions": [
-            {
-              "count": 26,
-              "disposition": "denied",
-              "share": 1.0
-            }
-          ],
-          "key": "Court of Appeals of Wisconsin, District II",
-          "open": 2,
-          "resolved": 26
-        },
-        {
-          "cases": 28,
-          "dispositions": [
-            {
               "count": 28,
               "disposition": "denied",
               "share": 1.0
@@ -5195,6 +5128,42 @@
           "key": "Supreme Court of Iowa",
           "open": 0,
           "resolved": 28
+        },
+        {
+          "cases": 27,
+          "dispositions": [
+            {
+              "count": 25,
+              "disposition": "denied",
+              "share": 0.9615384615384616
+            },
+            {
+              "count": 1,
+              "disposition": "granted",
+              "share": 0.038461538461538464
+            }
+          ],
+          "key": "Court of Appeals of Mississippi",
+          "open": 1,
+          "resolved": 26
+        },
+        {
+          "cases": 27,
+          "dispositions": [
+            {
+              "count": 25,
+              "disposition": "denied",
+              "share": 0.9615384615384616
+            },
+            {
+              "count": 1,
+              "disposition": "dismissed",
+              "share": 0.038461538461538464
+            }
+          ],
+          "key": "Court of Appeals of Ohio, Franklin County",
+          "open": 1,
+          "resolved": 26
         },
         {
           "cases": 27,
@@ -5215,17 +5184,12 @@
             {
               "count": 24,
               "disposition": "denied",
-              "share": 0.96
-            },
-            {
-              "count": 1,
-              "disposition": "dismissed",
-              "share": 0.04
+              "share": 1.0
             }
           ],
-          "key": "Court of Appeals of Ohio, Franklin County",
-          "open": 1,
-          "resolved": 25
+          "key": "Supreme Court of Rhode Island",
+          "open": 2,
+          "resolved": 24
         },
         {
           "cases": 25,
@@ -5254,14 +5218,55 @@
           "cases": 25,
           "dispositions": [
             {
-              "count": 23,
+              "count": 22,
               "disposition": "denied",
-              "share": 1.0
+              "share": 0.88
+            },
+            {
+              "count": 3,
+              "disposition": "dismissed",
+              "share": 0.12
             }
           ],
-          "key": "Supreme Court of Rhode Island",
+          "key": "Supreme Court of Oregon",
+          "open": 0,
+          "resolved": 25
+        },
+        {
+          "cases": 25,
+          "dispositions": [
+            {
+              "count": 21,
+              "disposition": "denied",
+              "share": 0.9130434782608695
+            },
+            {
+              "count": 2,
+              "disposition": "granted",
+              "share": 0.08695652173913043
+            }
+          ],
+          "key": "Supreme Court of Pennsylvania, Eastern District",
           "open": 2,
           "resolved": 23
+        },
+        {
+          "cases": 24,
+          "dispositions": [
+            {
+              "count": 23,
+              "disposition": "denied",
+              "share": 0.9583333333333334
+            },
+            {
+              "count": 1,
+              "disposition": "gvr",
+              "share": 0.041666666666666664
+            }
+          ],
+          "key": "Court of Appeals of Arkansas",
+          "open": 0,
+          "resolved": 24
         },
         {
           "cases": 24,
@@ -5280,19 +5285,32 @@
           "cases": 24,
           "dispositions": [
             {
-              "count": 20,
+              "count": 24,
               "disposition": "denied",
-              "share": 0.9090909090909091
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Appeals of Texas, Sixth District",
+          "open": 0,
+          "resolved": 24
+        },
+        {
+          "cases": 24,
+          "dispositions": [
+            {
+              "count": 21,
+              "disposition": "denied",
+              "share": 0.9130434782608695
             },
             {
               "count": 2,
               "disposition": "granted",
-              "share": 0.09090909090909091
+              "share": 0.08695652173913043
             }
           ],
-          "key": "Supreme Court of Pennsylvania, Eastern District",
-          "open": 2,
-          "resolved": 22
+          "key": "Supreme Court of Oklahoma",
+          "open": 1,
+          "resolved": 23
         },
         {
           "cases": 24,
@@ -5311,37 +5329,6 @@
           "key": "Supreme Court of Pennsylvania, Western District",
           "open": 0,
           "resolved": 24
-        },
-        {
-          "cases": 23,
-          "dispositions": [
-            {
-              "count": 22,
-              "disposition": "denied",
-              "share": 0.9565217391304348
-            },
-            {
-              "count": 1,
-              "disposition": "gvr",
-              "share": 0.043478260869565216
-            }
-          ],
-          "key": "Court of Appeals of Arkansas",
-          "open": 0,
-          "resolved": 23
-        },
-        {
-          "cases": 23,
-          "dispositions": [
-            {
-              "count": 23,
-              "disposition": "denied",
-              "share": 1.0
-            }
-          ],
-          "key": "Court of Appeals of Texas, Sixth District",
-          "open": 0,
-          "resolved": 23
         },
         {
           "cases": 23,
@@ -5484,24 +5471,6 @@
           "cases": 21,
           "dispositions": [
             {
-              "count": 18,
-              "disposition": "denied",
-              "share": 0.8571428571428571
-            },
-            {
-              "count": 3,
-              "disposition": "dismissed",
-              "share": 0.14285714285714285
-            }
-          ],
-          "key": "Supreme Court of Oregon",
-          "open": 0,
-          "resolved": 21
-        },
-        {
-          "cases": 21,
-          "dispositions": [
-            {
               "count": 20,
               "disposition": "denied",
               "share": 0.9523809523809523
@@ -5515,6 +5484,24 @@
           "key": "texcrimapp",
           "open": 0,
           "resolved": 21
+        },
+        {
+          "cases": 20,
+          "dispositions": [
+            {
+              "count": 17,
+              "disposition": "denied",
+              "share": 0.85
+            },
+            {
+              "count": 3,
+              "disposition": "gvr",
+              "share": 0.15
+            }
+          ],
+          "key": "Court of Appeal of Louisiana, Third Circuit",
+          "open": 0,
+          "resolved": 20
         },
         {
           "cases": 20,
@@ -5538,27 +5525,22 @@
               "share": 1.0
             }
           ],
-          "key": "nev",
+          "key": "ariz",
           "open": 0,
           "resolved": 20
         },
         {
-          "cases": 19,
+          "cases": 20,
           "dispositions": [
             {
-              "count": 16,
+              "count": 20,
               "disposition": "denied",
-              "share": 0.8421052631578947
-            },
-            {
-              "count": 3,
-              "disposition": "gvr",
-              "share": 0.15789473684210525
+              "share": 1.0
             }
           ],
-          "key": "Court of Appeal of Louisiana, Third Circuit",
+          "key": "nev",
           "open": 0,
-          "resolved": 19
+          "resolved": 20
         },
         {
           "cases": 19,
@@ -5600,17 +5582,12 @@
           "cases": 18,
           "dispositions": [
             {
-              "count": 16,
+              "count": 17,
               "disposition": "denied",
-              "share": 0.9411764705882353
-            },
-            {
-              "count": 1,
-              "disposition": "dismissed",
-              "share": 0.058823529411764705
+              "share": 1.0
             }
           ],
-          "key": "Court of Appeals of Wisconsin, District IV",
+          "key": "Court of Appeals of Texas, Seventh District",
           "open": 1,
           "resolved": 17
         },
@@ -5636,7 +5613,7 @@
               "share": 1.0
             }
           ],
-          "key": "Court of Appeals of Texas, Seventh District",
+          "key": "Court of Appeals of Texas, Twelfth District",
           "open": 1,
           "resolved": 16
         },
@@ -5662,19 +5639,6 @@
           "cases": 15,
           "dispositions": [
             {
-              "count": 14,
-              "disposition": "denied",
-              "share": 1.0
-            }
-          ],
-          "key": "Court of Appeals of Texas, Twelfth District",
-          "open": 1,
-          "resolved": 14
-        },
-        {
-          "cases": 15,
-          "dispositions": [
-            {
               "count": 15,
               "disposition": "denied",
               "share": 1.0
@@ -5683,6 +5647,19 @@
           "key": "Intermediate Court of Appeals of Hawaii",
           "open": 0,
           "resolved": 15
+        },
+        {
+          "cases": 14,
+          "dispositions": [
+            {
+              "count": 12,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Appeals of Ohio, Summit County",
+          "open": 2,
+          "resolved": 12
         },
         {
           "cases": 14,
@@ -5701,6 +5678,19 @@
           "cases": 13,
           "dispositions": [
             {
+              "count": 11,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Appeals of Ohio, Hamilton County",
+          "open": 2,
+          "resolved": 11
+        },
+        {
+          "cases": 13,
+          "dispositions": [
+            {
               "count": 13,
               "disposition": "denied",
               "share": 1.0
@@ -5709,19 +5699,6 @@
           "key": "Court of Appeals of Ohio, Richland County",
           "open": 0,
           "resolved": 13
-        },
-        {
-          "cases": 13,
-          "dispositions": [
-            {
-              "count": 11,
-              "disposition": "denied",
-              "share": 1.0
-            }
-          ],
-          "key": "Court of Appeals of Ohio, Summit County",
-          "open": 2,
-          "resolved": 11
         },
         {
           "cases": 13,
@@ -5753,19 +5730,6 @@
           "cases": 12,
           "dispositions": [
             {
-              "count": 10,
-              "disposition": "denied",
-              "share": 1.0
-            }
-          ],
-          "key": "Court of Appeals of Ohio, Hamilton County",
-          "open": 2,
-          "resolved": 10
-        },
-        {
-          "cases": 12,
-          "dispositions": [
-            {
               "count": 12,
               "disposition": "denied",
               "share": 1.0
@@ -5784,7 +5748,7 @@
               "share": 1.0
             }
           ],
-          "key": "Supreme Court of Tennessee, Western Division",
+          "key": "Court of Appeals of Ohio, Muskingum County",
           "open": 0,
           "resolved": 11
         },
@@ -5792,17 +5756,30 @@
           "cases": 11,
           "dispositions": [
             {
-              "count": 10,
+              "count": 9,
               "disposition": "denied",
-              "share": 0.9090909090909091
+              "share": 0.8181818181818182
             },
             {
-              "count": 1,
-              "disposition": "dismissed",
-              "share": 0.09090909090909091
+              "count": 2,
+              "disposition": "gvr",
+              "share": 0.18181818181818182
             }
           ],
-          "key": "oklacrimapp",
+          "key": "Superior Court of Arizona, Maricopa County",
+          "open": 0,
+          "resolved": 11
+        },
+        {
+          "cases": 11,
+          "dispositions": [
+            {
+              "count": 11,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Supreme Court of Tennessee, Western Division",
           "open": 0,
           "resolved": 11
         },
@@ -5867,7 +5844,7 @@
               "share": 1.0
             }
           ],
-          "key": "Court of Appeals of Ohio, Muskingum County",
+          "key": "Court of Appeals of Ohio, Montgomery County",
           "open": 0,
           "resolved": 10
         },
@@ -5881,24 +5858,6 @@
             }
           ],
           "key": "District Court of New Mexico, Otero County",
-          "open": 0,
-          "resolved": 10
-        },
-        {
-          "cases": 10,
-          "dispositions": [
-            {
-              "count": 8,
-              "disposition": "denied",
-              "share": 0.8
-            },
-            {
-              "count": 2,
-              "disposition": "gvr",
-              "share": 0.2
-            }
-          ],
-          "key": "Superior Court of Arizona, Maricopa County",
           "open": 0,
           "resolved": 10
         },
@@ -5955,12 +5914,12 @@
               "share": 0.1111111111111111
             }
           ],
-          "key": "Supreme Court of Tennessee, Eastern Division",
+          "key": "Court of Appeals of Alaska",
           "open": 0,
           "resolved": 9
         },
         {
-          "cases": 8,
+          "cases": 9,
           "dispositions": [
             {
               "count": 7,
@@ -5973,22 +5932,40 @@
               "share": 0.125
             }
           ],
-          "key": "Court of Appeals of Alaska",
-          "open": 0,
+          "key": "Court of Appeals of Wisconsin, District IV",
+          "open": 1,
           "resolved": 8
+        },
+        {
+          "cases": 9,
+          "dispositions": [
+            {
+              "count": 8,
+              "disposition": "denied",
+              "share": 0.8888888888888888
+            },
+            {
+              "count": 1,
+              "disposition": "dismissed",
+              "share": 0.1111111111111111
+            }
+          ],
+          "key": "Supreme Court of Tennessee, Eastern Division",
+          "open": 0,
+          "resolved": 9
         },
         {
           "cases": 8,
           "dispositions": [
             {
-              "count": 8,
+              "count": 7,
               "disposition": "denied",
               "share": 1.0
             }
           ],
-          "key": "Court of Appeals of Ohio, Montgomery County",
-          "open": 0,
-          "resolved": 8
+          "key": "Court of Appeals of Texas, Tenth District",
+          "open": 1,
+          "resolved": 7
         },
         {
           "cases": 8,
@@ -6033,19 +6010,6 @@
           "key": "Court of Appeals of Ohio, Stark County",
           "open": 0,
           "resolved": 7
-        },
-        {
-          "cases": 7,
-          "dispositions": [
-            {
-              "count": 6,
-              "disposition": "denied",
-              "share": 1.0
-            }
-          ],
-          "key": "Court of Appeals of Texas, Tenth District",
-          "open": 1,
-          "resolved": 6
         },
         {
           "cases": 6,
@@ -6162,6 +6126,19 @@
           "key": "Court of Appeals of Indiana, Second District",
           "open": 0,
           "resolved": 4
+        },
+        {
+          "cases": 4,
+          "dispositions": [
+            {
+              "count": 3,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Appeals of Ohio, Lake County",
+          "open": 1,
+          "resolved": 3
         },
         {
           "cases": 4,
@@ -6304,6 +6281,19 @@
               "share": 1.0
             }
           ],
+          "key": "Court of Appeals of Missouri, Southern District",
+          "open": 0,
+          "resolved": 3
+        },
+        {
+          "cases": 3,
+          "dispositions": [
+            {
+              "count": 3,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
           "key": "Court of Appeals of Ohio, Delaware County",
           "open": 0,
           "resolved": 3
@@ -6325,14 +6315,14 @@
           "cases": 3,
           "dispositions": [
             {
-              "count": 2,
+              "count": 3,
               "disposition": "denied",
               "share": 1.0
             }
           ],
-          "key": "Court of Appeals of Ohio, Lake County",
-          "open": 1,
-          "resolved": 2
+          "key": "Court of Appeals of Ohio, Lorain County",
+          "open": 0,
+          "resolved": 3
         },
         {
           "cases": 3,
@@ -6364,6 +6354,19 @@
           "cases": 3,
           "dispositions": [
             {
+              "count": 3,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Appeals of Ohio, Warren County",
+          "open": 0,
+          "resolved": 3
+        },
+        {
+          "cases": 3,
+          "dispositions": [
+            {
               "count": 2,
               "disposition": "denied",
               "share": 0.6666666666666666
@@ -6375,6 +6378,19 @@
             }
           ],
           "key": "Court of Civil Appeals of Oklahoma, First Division",
+          "open": 0,
+          "resolved": 3
+        },
+        {
+          "cases": 3,
+          "dispositions": [
+            {
+              "count": 3,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "District Court of Iowa, Woodbury County",
           "open": 0,
           "resolved": 3
         },
@@ -6503,19 +6519,6 @@
           "cases": 2,
           "dispositions": [
             {
-              "count": 2,
-              "disposition": "denied",
-              "share": 1.0
-            }
-          ],
-          "key": "Court of Appeals of Missouri, Southern District",
-          "open": 0,
-          "resolved": 2
-        },
-        {
-          "cases": 2,
-          "dispositions": [
-            {
               "count": 1,
               "disposition": "denied",
               "share": 0.5
@@ -6583,33 +6586,7 @@
               "share": 1.0
             }
           ],
-          "key": "Court of Appeals of Ohio, Lorain County",
-          "open": 0,
-          "resolved": 2
-        },
-        {
-          "cases": 2,
-          "dispositions": [
-            {
-              "count": 2,
-              "disposition": "denied",
-              "share": 1.0
-            }
-          ],
           "key": "Court of Appeals of Ohio, Tuscarawas County",
-          "open": 0,
-          "resolved": 2
-        },
-        {
-          "cases": 2,
-          "dispositions": [
-            {
-              "count": 2,
-              "disposition": "denied",
-              "share": 1.0
-            }
-          ],
-          "key": "Court of Appeals of Ohio, Warren County",
           "open": 0,
           "resolved": 2
         },
@@ -6636,6 +6613,19 @@
             }
           ],
           "key": "Court of Civil Appeals of Oklahoma, Fourth Division",
+          "open": 0,
+          "resolved": 2
+        },
+        {
+          "cases": 2,
+          "dispositions": [
+            {
+              "count": 2,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "District Court of Colorado, Adams County",
           "open": 0,
           "resolved": 2
         },
@@ -6690,6 +6680,19 @@
           "key": "Superior Court of Arizona, Pima County",
           "open": 1,
           "resolved": 1
+        },
+        {
+          "cases": 2,
+          "dispositions": [
+            {
+              "count": 2,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Superior Court of District of Columbia",
+          "open": 0,
+          "resolved": 2
         },
         {
           "cases": 2,
@@ -7068,6 +7071,19 @@
           "key": "Circuit Court of Michigan, Kent County",
           "open": 1,
           "resolved": 0
+        },
+        {
+          "cases": 1,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Circuit Court of Michigan, Saginaw County",
+          "open": 0,
+          "resolved": 1
         },
         {
           "cases": 1,
@@ -7463,19 +7479,6 @@
               "share": 1.0
             }
           ],
-          "key": "District Court of Colorado, Adams County",
-          "open": 0,
-          "resolved": 1
-        },
-        {
-          "cases": 1,
-          "dispositions": [
-            {
-              "count": 1,
-              "disposition": "denied",
-              "share": 1.0
-            }
-          ],
           "key": "District Court of Colorado, El Paso County",
           "open": 0,
           "resolved": 1
@@ -7550,19 +7553,6 @@
           "dispositions": [
             {
               "count": 1,
-              "disposition": "denied",
-              "share": 1.0
-            }
-          ],
-          "key": "District Court of Iowa, Woodbury County",
-          "open": 0,
-          "resolved": 1
-        },
-        {
-          "cases": 1,
-          "dispositions": [
-            {
-              "count": 1,
               "disposition": "dismissed",
               "share": 1.0
             }
@@ -7607,6 +7597,19 @@
             }
           ],
           "key": "District Court of Wyoming, Sheridan County",
+          "open": 0,
+          "resolved": 1
+        },
+        {
+          "cases": 1,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Orleans Parish Criminal District Court of Louisiana",
           "open": 0,
           "resolved": 1
         },
@@ -7977,13 +7980,6 @@
         },
         {
           "cases": 1,
-          "dispositions": [],
-          "key": "United States Court of Appeals for the First Circuit",
-          "open": 1,
-          "resolved": 0
-        },
-        {
-          "cases": 1,
           "dispositions": [
             {
               "count": 1,
@@ -8188,35 +8184,35 @@
     {
       "buckets": [
         {
-          "cases": 32267,
+          "cases": 32374,
           "dispositions": [
             {
-              "count": 30418,
+              "count": 30511,
               "disposition": "denied",
-              "share": 0.9648544058872042
+              "share": 0.9649577785508713
             },
             {
               "count": 746,
               "disposition": "dismissed",
-              "share": 0.023663008310600774
+              "share": 0.023593409026218412
             },
             {
               "count": 321,
               "disposition": "gvr",
-              "share": 0.01018207194062044
+              "share": 0.010152123723077897
             },
             {
               "count": 41,
               "disposition": "granted",
-              "share": 0.0013005138615745733
+              "share": 0.0012966886998323792
             }
           ],
           "key": "ifp",
-          "open": 741,
-          "resolved": 31526
+          "open": 755,
+          "resolved": 31619
         },
         {
-          "cases": 14186,
+          "cases": 14189,
           "dispositions": [
             {
               "count": 12627,
@@ -8240,7 +8236,7 @@
             }
           ],
           "key": "paid",
-          "open": 473,
+          "open": 476,
           "resolved": 13713
         },
         {
@@ -8288,9 +8284,9 @@
       ],
       "est_grant_family_rate": 0.014778325123152709,
       "est_grant_rate": 0.014778325123152709,
-      "filings": 1679,
+      "filings": 1694,
       "grants": 9,
-      "ingested": 1644,
+      "ingested": 1658,
       "median_days_to_grant": 71.0,
       "resolved": 609,
       "term": 2026,
@@ -8441,35 +8437,35 @@
       "dated_grants": 151,
       "dispositions": [
         {
-          "count": 4647,
+          "count": 4613,
           "disposition": "denied",
-          "share": 0.95069558101473
+          "share": 0.9503502266172229
         },
         {
           "count": 90,
           "disposition": "dismissed",
-          "share": 0.018412438625204582
+          "share": 0.018541409147095178
         },
         {
           "count": 87,
           "disposition": "gvr",
-          "share": 0.017798690671031098
+          "share": 0.01792336217552534
         },
         {
           "count": 64,
           "disposition": "granted",
-          "share": 0.01309328968903437
+          "share": 0.013185002060156572
         }
       ],
-      "est_grant_family_rate": 0.03089198036006547,
-      "est_grant_rate": 0.03089198036006547,
-      "filings": 2656,
+      "est_grant_family_rate": 0.03110836423568191,
+      "est_grant_rate": 0.03110836423568191,
+      "filings": 4279,
       "grants": 151,
-      "ingested": 2935,
+      "ingested": 4332,
       "median_days_to_grant": 163.0,
-      "resolved": 2935,
+      "resolved": 4332,
       "term": 2021,
-      "weighted_resolved": 4888
+      "weighted_resolved": 4854
     },
     {
       "complete": true,
@@ -8546,35 +8542,35 @@
       "dated_grants": 151,
       "dispositions": [
         {
-          "count": 6487,
+          "count": 6614,
           "disposition": "denied",
-          "share": 0.9596153846153846
+          "share": 0.9603600987367504
         },
         {
           "count": 122,
           "disposition": "dismissed",
-          "share": 0.01804733727810651
+          "share": 0.017714534630463193
         },
         {
           "count": 77,
           "disposition": "granted",
-          "share": 0.011390532544378698
+          "share": 0.011180484971685785
         },
         {
           "count": 74,
           "disposition": "gvr",
-          "share": 0.010946745562130178
+          "share": 0.010744881661100625
         }
       ],
-      "est_grant_family_rate": 0.022337278106508877,
-      "est_grant_rate": 0.022337278106508877,
+      "est_grant_family_rate": 0.02192536663278641,
+      "est_grant_rate": 0.02192536663278641,
       "filings": 1593,
       "grants": 151,
-      "ingested": 2583,
+      "ingested": 2713,
       "median_days_to_grant": 152.0,
-      "resolved": 2575,
+      "resolved": 2702,
       "term": 2018,
-      "weighted_resolved": 6760
+      "weighted_resolved": 6887
     },
     {
       "complete": true,
@@ -8615,121 +8611,121 @@
   "topic_mix": {
     "stages": [
       {
-        "cases": 10535,
+        "cases": 9635,
         "rows": 9347,
-        "scope_note": "QP-bearing rows only \u2014 9347 of 34005 in-scope ingested rows labeled; grant-enriched; primaries only; not docket-representative. Those two counts are raw rows; the bucket counts are denial-reweighted, and no reweighting recovers the docket \u2014 QP presence is itself outcome- and stream-correlated, so this stays a share of QP-bearing rows. Coverage is uneven across Terms and zero on the earliest of them, so the mix is not the whole slice's; the base-rate column is over a grant-enriched population and is not comparable to the sections above. The 24658 unlabeled row(s) span two gaps at once \u2014 rows carrying no stored questions-presented text, which no labeling batch can reach, and QP-bearing rows whose batch has not come up \u2014 and batch 11's extract sized the second: it counted 11871 QP-bearing row(s) in the frame it cut from, of which the artifact held 9351 labeled (78.8%). Both counts are batch 11's, taken at its own corpus vintage rather than this pack's: the frame grows with every pull while the labeled count moves only when a batch lands, so read that share as a ceiling on the share of the frame as it now stands, not as a reading of this blob. Labeling accrues in batches, so the labeled rows are two populations on different terms: 353 hand reference-set members, carried in every batch and so included with certainty, and 8994 drawn over this blob by a Term x fee-class-stratified, seeded-hash order from the QP-bearing frame batch 11's extract counted. Both count once here, so the reference block \u2014 grant-enriched by design and carrying no sampling weights \u2014 is over-represented by at least about 1.3x \u2014 row for row, how much likelier a reference row was to be included than a drawn one when batch 11 landed: 353 carried in with certainty against 8998 drawn from the 11518 QP-bearing row(s) outside the block that batch's extract counted. Measured against that frame rather than bounded over rows no batch could reach \u2014 and a floor rather than a ceiling at this pack's vintage, since the frame grows with every pull while the drawn count waits for the next batch. It closes to 1.0x as the frame is labeled, which a bound over unreachable rows never does, and this mix is not the frame's until every QP-bearing row is labeled. A naive share partly counts coordinated filing campaigns rather than subjects; no de-duplicated companion is published.",
+        "scope_note": "QP-bearing rows only \u2014 9347 of 35546 in-scope ingested rows labeled; grant-enriched; primaries only; not docket-representative. Those two counts are raw rows; the bucket counts are denial-reweighted, and no reweighting recovers the docket \u2014 QP presence is itself outcome- and stream-correlated, so this stays a share of QP-bearing rows. Coverage is uneven across Terms and zero on the earliest of them, so the mix is not the whole slice's; the base-rate column is over a grant-enriched population and is not comparable to the sections above. The 26199 unlabeled row(s) span two gaps at once \u2014 rows carrying no stored questions-presented text, which no labeling batch can reach, and QP-bearing rows whose batch has not come up \u2014 and batch 11's extract sized the second: it counted 11871 QP-bearing row(s) in the frame it cut from, of which the artifact held 9351 labeled (78.8%). Both counts are batch 11's, taken at its own corpus vintage rather than this pack's: the frame grows with every pull while the labeled count moves only when a batch lands, so read that share as a ceiling on the share of the frame as it now stands, not as a reading of this blob. Labeling accrues in batches, so the labeled rows are two populations on different terms: 353 hand reference-set members, carried in every batch and so included with certainty, and 8994 drawn over this blob by a Term x fee-class-stratified, seeded-hash order from the QP-bearing frame batch 11's extract counted. Both count once here, so the reference block \u2014 grant-enriched by design and carrying no sampling weights \u2014 is over-represented by at least about 1.3x \u2014 row for row, how much likelier a reference row was to be included than a drawn one when batch 11 landed: 353 carried in with certainty against 8998 drawn from the 11518 QP-bearing row(s) outside the block that batch's extract counted. Measured against that frame rather than bounded over rows no batch could reach \u2014 and a floor rather than a ceiling at this pack's vintage, since the frame grows with every pull while the drawn count waits for the next batch. It closes to 1.0x as the frame is labeled, which a bound over unreachable rows never does, and this mix is not the frame's until every QP-bearing row is labeled. A naive share partly counts coordinated filing campaigns rather than subjects; no de-duplicated companion is published.",
         "shares": [
           {
-            "cases": 3093,
-            "classified_share": 0.30347331240188385,
+            "cases": 2481,
+            "classified_share": 0.2664876476906552,
             "label": "criminal-law",
             "rows": 2292,
-            "share": 0.29359278595158994
+            "share": 0.2574987026466009
           },
           {
-            "cases": 1841,
-            "classified_share": 0.18063186813186813,
+            "cases": 1814,
+            "classified_share": 0.19484425349087003,
             "label": "civil-procedure",
             "rows": 1787,
-            "share": 0.17475083056478405
+            "share": 0.1882719252724442
           },
           {
-            "cases": 1235,
-            "classified_share": 0.1211734693877551,
+            "cases": 1217,
+            "classified_share": 0.13071965628356605,
             "label": "constitutional-rights",
             "rows": 1217,
-            "share": 0.11722828666350261
+            "share": 0.12631032693305658
           },
           {
-            "cases": 904,
-            "classified_share": 0.08869701726844584,
+            "cases": 724,
+            "classified_share": 0.07776584317937701,
             "label": "habeas-and-postconviction",
             "rows": 679,
-            "share": 0.0858092074038918
+            "share": 0.07514270887389725
           },
           {
-            "cases": 554,
-            "classified_share": 0.0543563579277865,
+            "cases": 545,
+            "classified_share": 0.05853920515574651,
             "label": "employment-and-antidiscrimination",
             "rows": 545,
-            "share": 0.052586616041765545
+            "share": 0.05656460819927348
           },
           {
             "cases": 541,
-            "classified_share": 0.05308084772370487,
+            "classified_share": 0.05810955961331901,
             "label": "business-and-financial-regulation",
             "rows": 541,
-            "share": 0.05135263407688657
+            "share": 0.05614945511157239
           },
           {
             "cases": 461,
-            "classified_share": 0.04523155416012559,
+            "classified_share": 0.049516648764769064,
             "label": "first-amendment",
             "rows": 452,
-            "share": 0.04375889890840057
+            "share": 0.047846393357550594
           },
           {
-            "cases": 430,
-            "classified_share": 0.04218995290423862,
+            "cases": 412,
+            "classified_share": 0.044253490870032226,
             "label": "firearms",
             "rows": 403,
-            "share": 0.04081632653061224
+            "share": 0.04276076803321225
           },
           {
             "cases": 367,
-            "classified_share": 0.03600863422291994,
+            "classified_share": 0.03941997851772288,
             "label": "administrative-law-and-benefit-programs",
             "rows": 367,
-            "share": 0.03483626008542952
+            "share": 0.03809029579657499
           },
           {
-            "cases": 343,
+            "cases": 325,
             "classified_share": null,
             "label": "unclassifiable",
             "rows": 316,
-            "share": 0.03255813953488372
+            "share": 0.033731188375713546
           },
           {
-            "cases": 239,
-            "classified_share": 0.023449764521193094,
+            "cases": 230,
+            "classified_share": 0.024704618689581095,
             "label": "sovereignty-and-foreign-relations",
             "rows": 230,
-            "share": 0.022686283815851922
+            "share": 0.023871302542812663
           },
           {
-            "cases": 218,
-            "classified_share": 0.021389324960753534,
+            "cases": 209,
+            "classified_share": 0.022448979591836733,
             "label": "intellectual-property",
             "rows": 209,
-            "share": 0.02069292833412435
+            "share": 0.02169174883238194
           },
           {
             "cases": 96,
-            "classified_share": 0.009419152276295133,
+            "classified_share": 0.010311493018259935,
             "label": "tax",
             "rows": 96,
-            "share": 0.009112482202183199
+            "share": 0.009963674104826155
           },
           {
             "cases": 86,
-            "classified_share": 0.008437990580847723,
+            "classified_share": 0.009237379162191191,
             "label": "election-law",
             "rows": 86,
-            "share": 0.00816326530612245
+            "share": 0.00892579138557343
           },
           {
             "cases": 84,
-            "classified_share": 0.008241758241758242,
+            "classified_share": 0.009022556390977444,
             "label": "environment-energy-and-property",
             "rows": 84,
-            "share": 0.007973421926910298
+            "share": 0.008718214841722886
           },
           {
             "cases": 43,
-            "classified_share": 0.004218995290423862,
+            "classified_share": 0.004618689581095596,
             "label": "immigration",
             "rows": 43,
-            "share": 0.004081632653061225
+            "share": 0.004462895692786715
           }
         ],
         "stage": "cert",
@@ -8859,7 +8855,7 @@
       {
         "cases": 2029,
         "rows": 2029,
-        "scope_note": "Labeled applications only \u2014 2029 of 2037 in-frame live-slice applications labeled, 1993 of the labeled read from the docket alone; primaries only; not docket-representative. Those counts are raw rows (the second includes the few duplicate rows the labeling frame folds into one per docket number); the bucket counts are reweighted like every section here. The frame is the live slice's non-extension application dockets, substantive asks and asks whose kind was never read alike, read from different inputs than the petition cut, so the two are never pooled. A docket-only row whose caption and entries name no subject is `unclassifiable` by rule, so that bucket tracks how thin the dockets are as much as what the applications are about. Batch 4's extract counted 2029 application(s) in the frame it cut from, of which the artifact held 2029 labeled (100.0%); read that share as a ceiling on the share of the frame as it now stands, since the frame grows with every pull. The reference block rides in every batch, so its 241 row(s) are over-represented against the 1788 drawn from the 1788 outside it by no factor \u2014 the frame was fully labeled when that batch landed, and this mix is not the frame's until every application is labeled. Of the labeled rows here, 241 are reference-block members and 1788 were drawn.",
+        "scope_note": "Labeled applications only \u2014 2029 of 2234 in-frame live-slice applications labeled, 1993 of the labeled read from the docket alone; primaries only; not docket-representative. Those counts are raw rows (the second includes the few duplicate rows the labeling frame folds into one per docket number); the bucket counts are reweighted like every section here. The frame is the live slice's non-extension application dockets, substantive asks and asks whose kind was never read alike, read from different inputs than the petition cut, so the two are never pooled. A docket-only row whose caption and entries name no subject is `unclassifiable` by rule, so that bucket tracks how thin the dockets are as much as what the applications are about. Batch 4's extract counted 2029 application(s) in the frame it cut from, of which the artifact held 2029 labeled (100.0%); read that share as a ceiling on the share of the frame as it now stands, since the frame grows with every pull. The reference block rides in every batch, so its 241 row(s) are over-represented against the 1788 drawn from the 1788 outside it by no factor \u2014 the frame was fully labeled when that batch landed, and this mix is not the frame's until every application is labeled. Of the labeled rows here, 241 are reference-block members and 1788 were drawn.",
         "shares": [
           {
             "cases": 894,

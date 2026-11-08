@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281102",
+  "run_id": "20261108T050129Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "functions.exec_command",
+    "fedcourts paths",
+    "fedcourts validate data --cell",
+    "Python local JSON aggregation",
+    "web.run searches and page opens",
+    "CourtListener search",
+    "CourtListener search_document"
+  ],
+  "helpful": [
+    "Provisioned full argument transcript and per-Justice feature coverage",
+    "Both sides' merits briefs and replies, including the government's support for vacatur",
+    "Merits cohort exclusion and coverage counts with machine-readable prior-Term vote and authorship data",
+    "CourtListener literal search within an identified historical opinion"
+  ],
+  "gaps": [
+    "Default uv cache was read-only; setting UV_CACHE_DIR=/tmp/uv-cache restored CLI access",
+    "Web calls returned no visible results or page content",
+    "Court-appointed amicus brief was not separately provisioned; its position was assessed from argument and the parties' replies",
+    "Argument alignment labels do not distinguish a respondent supporting vacatur from a defender of the judgment"
+  ],
+  "notes": "No packages installed. No own-case live docket or outcome lookup. The first CourtListener citation search produced an irrelevant result; a case-name/date-limited search correctly identified Preiser. Runtime cache redirection required no repository changes. Only contract-named output files are written in this cell."
+}

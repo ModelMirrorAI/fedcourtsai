@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000367",
+  "run_id": "20261108T010928Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell file reading and jq",
+    "fedcourts paths",
+    "fedcourts query",
+    "web search/open attempts",
+    "fedcourts validate"
+  ],
+  "helpful": [
+    "Frozen reached-band cert anchor avoids terminal-band conditioning errors.",
+    "Provisioned appendix supplies the actual appellate opinion and detailed pleading analysis.",
+    "Structured query reports transfer counts and explains invalid era tokens."
+  ],
+  "gaps": [
+    "Web search/open attempts returned no usable content.",
+    "Structured corpus filters cannot establish subject-matter similarity for a Texas banking-duty petition."
+  ],
+  "notes": "The default uv cache was read-only; setting UV_CACHE_DIR=/tmp/uv-cache allowed the fixed environment to run without installing packages. A denied-only prior query was used descriptively, not as a grant-rate estimator. No CourtListener lookup was needed because the relevant lower-court decisions were provisioned."
+}

@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000353",
+  "run_id": "20261108T010928Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "WebFetch supremecourt.gov docket"],
+  "helpful": ["cert_anchor in context.json", "live docket page for the companion petition"],
+  "gaps": ["The companion petition No. 25-1246 (same petitioner, same issue, same conference) was not staged in record/related/ because the Court lists no Vide link; a same-petitioner link would have caught it."],
+  "notes": "same-question.json was absent for this forward cert cell."
+}
