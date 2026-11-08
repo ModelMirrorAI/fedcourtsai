@@ -870,7 +870,9 @@ credentials (the engine keys have per-environment twins on `staging`,
 recorded where those holders are described, and `staging` also still holds the
 unused `fedcourtsai-staging` App pair until an admin deletes it), the Anthropic API key (which the case-summary
 lane also spends on, held in `summarize` by its generate job alone), the
-Codex/OpenAI key, the Gemini API key,
+Codex/OpenAI key, the Gemini API key, the four Anthropic federation
+variables (rule, organization, service account and workspace, on `staging`
+too: *Claude cells sign in by workload identity federation* below),
 the CourtListener API token (used by pull's ingestion; by the opinion
 enrichment — the dispatched enrich job's step and, step-scoped, the live job's
 awaiting-grading enrichment step and its decision-below fill step, the only two
@@ -1548,6 +1550,90 @@ cascade's own provisioning reads; the spawned agent sees neither, because the
 runner seam's scrubbed base environment strips every AWS variable and every
 credential-shaped name except the engine's own auth — the same posture as a
 back-test replay cell.
+
+### Claude cells sign in by workload identity federation
+
+The Claude cells (`run-predict`'s and `run-evaluate`'s claude-code-action
+step) and `integration-test`'s engine-actions-smoke Claude leg, which invokes
+the cells' action the way they do, sign in to the Claude API by Anthropic
+workload identity federation whenever the bound environment names a
+federation rule and organization. The action fetches the job's GitHub OIDC
+token (audience `https://api.anthropic.com`), writes it to a file under the
+runner's temp directory, rewrites it every four minutes, and points the pinned
+Claude Code CLI at it; the CLI exchanges it for a short-lived Anthropic access
+token and exchanges again before that token expires. The step and the CLI are
+handed no static key. The one exchanged credential is cached in the same temp
+directory and shared by the action's own `claude` processes, since each OIDC
+token is accepted once.
+
+Four environment **variables** carry the federation: the rule, the
+organization, the service account and the workspace. They are identifiers,
+not credentials, and they are set on an environment, never at repository or
+organization level, where a rule would reach every environment at once. The
+engine key stays an environment secret: the step is handed it only while the
+environment names no rule or no organization, because the action prefers a
+key to federation (a rule that is only whitespace withholds the key and
+federates nothing, so the step fails closed). So the switch, and the
+rollback, is the environment's variables, set or removed, with no code
+change; `staging` and `prod` switch independently. Federation changes how a
+cell obtains its credential and nothing in the request: the endpoint, model,
+prompt, settings, engine pin and process digest are the same, and usage
+meters to the rule's workspace, which is the workspace the environment's key
+belongs to.
+
+**Console setup** (an organization admin, Claude Console → *Settings →
+Workload identity*; the *Connect workload → GitHub Actions* wizard creates all
+three):
+
+1. An **issuer** for `https://token.actions.githubusercontent.com`, JWKS by
+   discovery. One issuer serves every rule below and the state-ags scan.
+2. A **service account** per environment, a member of the workspace that
+   environment's key belongs to (every service account is already a member of
+   the Default Workspace).
+3. A **federation rule** per environment, targeting that service account and
+   that workspace, with scope `workspace:developer` (the access a workspace
+   API key has) and a token lifetime of 600 seconds. Its match:
+   - subject exactly `repo:ModelMirrorAI/fedcourtsai:environment:<env>`;
+   - audience `https://api.anthropic.com`;
+   - claim `repository_id` equal to `1279067239`, so a renamed or recreated
+     repository does not inherit the rule;
+   - a condition admitting only the workflows that run a federated step:
+     `run-predict.yml`, `run-evaluate.yml` and `integration-test.yml` for
+     `prod`, and `integration-test.yml` for `staging` (on `workflow_ref`,
+     each `ModelMirrorAI/fedcourtsai/.github/workflows/<file>@` prefix).
+
+The rule's subject is the environment, and each environment admits only its
+own branches (`staging` also the promotion train's `promote/*` candidates), so
+a PR-branch job can match neither rule. A denied exchange answers
+`401 Authentication failed` with no reason; the reason is in the Console's
+authentication history.
+
+**What it changes, and what it does not yet.** The agent's shell can read the
+OIDC token file and the cached access token, as it can read the key in the
+CLI's environment while the cell signs in with a key; what it can carry away
+from those is a token that expires within minutes. But the cell jobs still
+name the key secret, for the rollback, and every secret a job names reaches
+its runner at job start, so while the environment holds the key an injected
+cell can still recover it from the runner. The key leaves the cells' reach
+only when their jobs stop naming it, which is the last step of the move, once
+a federated round has run clean in production. Meanwhile the job's OIDC
+request pair, the residual SECURITY.md states for every cell job, also
+reaches this rule: any job of the admitted workflows that binds the
+environment and holds `id-token: write` (the plan jobs and every
+`integration-test` scenario leg among them, whatever its engine) can mint a
+token, which is Claude API spend on the workspace behind its spend limit, and
+whatever else the workspace holds, which for these workspaces is nothing (the
+pipeline stores no files or batches there).
+
+The labeler (`run-analytics`' `qp-topic-label`, and `integration-test`'s
+`qp-labeler-smoke`) and the case-summary `generate` job keep the key: each
+holds no `id-token` by design, so that no OIDC exchange is reachable where the
+agent or the model call runs, and federating them needs an environment no AWS
+role trusts. The back-test replay and the engine-smoke cascade cell keep it
+too: they drive the CLI directly, where several concurrent cells would each
+exchange one shared OIDC token and all but the first would be refused. The
+key is retired from an environment only once every lane spending it there is
+federated.
 
 ### Run-time installs are refused in a cell
 
