@@ -143,10 +143,14 @@ _OUTRANKS_PROMPT = _QUERY_KEYS[: _QUERY_KEYS.index("prompt")]
 # searched or wrote survives the cut however long the content beside it.
 PATH_KEYS = ("file_path", "path", "absolute_path", "notebook_path", "dir_path")
 # A document/decision date in a result payload — the leakage grading's timing signal. The
-# quotes tolerate a backslash: a result often nests JSON inside a text block,
-# so the serialized form the regex scans carries escaped quotes.
+# quotes tolerate any run of backslashes, because each layer of JSON a result is
+# nested in escapes them once more. A Claude result nests the server's JSON in a
+# text block, so the serialized form escapes its quotes once. A Codex rollout
+# logs an MCP call's output as a string, which can hold that content list
+# already serialized, so its form escapes them twice; a pattern tolerating one
+# backslash finds no date there.
 _DOC_DATE_RE = re.compile(
-    r'\\?"(?:date_?[Ff]iled|date_?[Dd]ecided|decision_?date)\\?"\s*:\s*\\?"(\d{4}-\d{2}-\d{2})\\?"'
+    r'\\*"(?:date_?[Ff]iled|date_?[Dd]ecided|decision_?date)\\*"\s*:\s*\\*"(\d{4}-\d{2}-\d{2})\\*"'
 )
 # The shape a captured result takes when the shared upstream quota turned the
 # call away rather than answering it. **Keyed to the pinned MCP release** —

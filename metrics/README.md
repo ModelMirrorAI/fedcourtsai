@@ -1662,6 +1662,31 @@ half-blind prediction carries a frozen digest, so the frozen boards exclude
 them a gate earlier. The [freeze record](../docs/freeze-record.md) fixes their
 number, in the ledger and after the run collapse, and dates the rule.
 
+**A `codex-baseline` manifest row before the date-read boundary is
+date-blind, not undated.** From `20260916T170237Z` codex calls its
+CourtListener tools as direct items, so each call has a row of its own with its
+query, its call class and a `captured` result. But none of those rows captured
+before the carrying merge of the freeze record's 2026-11-08 *document-date
+read* entry carries a `retrieved_doc_date`, whatever the result held: the
+pattern they were read with tolerates one escape, and the freeze record states
+the measured zero and the inferred cause. Unlike the row-blind rule's, an
+unsuspected verdict on one of these gradings is a real read, not a null bit,
+because the grader saw every call; `assessed` counts it either way. What the
+grader lacked is the timing signal: the evaluate prompt offers a date "where a
+document date was legible", so a null date on a `captured` row reads as none
+legible, which over this stretch it does not mean. The gap stays with the
+logs, not the calendar: a grading formed after the merge over a log captured
+before it is date-blind too. Three consequences bind. A cross-engine leakage
+comparison over those logs is not like-for-like: `claude-baseline`'s captured
+manifest rows carry a date on about a third of calls, codex's on none. A codex
+verdict there that turns on the absence of a dated result rests on a missing
+signal, not a clean one, so the suspected share over the stretch leans toward
+a lower bound. And a codex leakage figure over the stretch carries a
+sensitivity reading with those gradings counted unassessed beside it. The date
+is read at capture and those rollouts are gone, so no re-parse dates them; the
+boundary is the ancestry of a cell's `pipeline_sha` against the carrying
+merge, and the freeze record fixes the population.
+
 **The set-aside, and its sensitivity reading.** A cell every rule above kept,
 but whose record **cannot show it was made before its outcome was public**, is
 set aside from the default figures (`fedcourtsai.set_aside`, applied by the same
