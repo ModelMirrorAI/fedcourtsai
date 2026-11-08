@@ -2062,7 +2062,15 @@ jobs:
         uses: anthropics/claude-code-action@d535f5172dec02b204866b393d6b20b9b2aaf98d # v1.0.266
         with:
           allowed_bots: "fedcourtsai-data[bot],fedcourtsai-dispatch[bot]"
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # The cells' sign-in, input for input: federation when the bound
+          # environment names a rule, else its key — so this leg checks an
+          # environment's rule and exchange before the cells depend on it. A
+          # one-word probe never reaches the token refresh a long cell does.
+          anthropic_federation_rule_id: ${{ vars.ANTHROPIC_FEDERATION_RULE_ID }}
+          anthropic_organization_id: ${{ vars.ANTHROPIC_ORGANIZATION_ID }}
+          anthropic_service_account_id: ${{ vars.ANTHROPIC_SERVICE_ACCOUNT_ID }}
+          anthropic_workspace_id: ${{ vars.ANTHROPIC_WORKSPACE_ID }}
+          anthropic_api_key: ${{ (vars.ANTHROPIC_FEDERATION_RULE_ID == '' || vars.ANTHROPIC_ORGANIZATION_ID == '') && secrets.ANTHROPIC_API_KEY || '' }}
           # The pinned CLI, as the live cells run it.
           path_to_claude_code_executable: ${{ steps.engine-cli.outputs.path }}
           # The cells' own posture: the job's own token, capped at
