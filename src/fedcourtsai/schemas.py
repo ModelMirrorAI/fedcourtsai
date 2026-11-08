@@ -14216,9 +14216,10 @@ class ExecutiveSuccess(_Strict):
     party_rule_version: str = Field(description="The party rule the scope rule composes")
     counsel_rule_version: str = Field(description="The counsel rule the scope rule composes")
     reading: Literal["finer", "registered"] = Field(
-        description="How a stored `denied` was read: `finer` re-reads it from the row's "
-        "latest snapshot under the finer interim reading, which names a partial grant "
-        "and a denial as moot; `registered` keeps the stored label"
+        description="How a stored `denied` or `granted` was read: `finer` re-reads it "
+        "from the row's latest snapshot under the finer interim reading, which names a "
+        "partial grant, a denial as moot and a dismissal in light of a companion's "
+        "relief; `registered` keeps the stored label"
     )
     as_of_field: str = Field(
         description="Which date drove the administration attribution: filed | resolved"
@@ -14272,14 +14273,15 @@ class ExecutiveSuccess(_Strict):
     reread_rows: int = Field(
         default=0,
         ge=0,
-        description="In-scope and unknown-scope rows stored `denied`, never-parsed ones "
-        "included, that the finer reading re-read; 0 under `registered`",
+        description="In-scope and unknown-scope rows stored `denied` or `granted`, "
+        "never-parsed ones included, that the finer reading re-read; 0 under `registered`",
     )
     reread_changed: int = Field(
         default=0,
         ge=0,
-        description="Of those, rows the finer reading labels other than `denied` "
-        "(granted in part and denied as moot, chiefly)",
+        description="Of those, rows the finer reading labels other than as stored "
+        "(granted in part, denied as moot, and dismissed in light of a companion's "
+        "relief, chiefly)",
     )
     reread_unobservable: int = Field(
         default=0,

@@ -2,7 +2,7 @@
 
 This document is the skeleton and evidence plan for the merits part of the
 project's end-of-Term release. [milestones.md](milestones.md) calls that
-release Release 3, the end-of-Term retrospective, once the OT2026 merits
+release Release 4, the end-of-Term retrospective, once the OT2026 merits
 docket resolves (about June–July 2027). The release's cert retrospective has
 its own sections and is outside this document. This document defines when
 the merits part is done. It is written before any merits outcome exists, so

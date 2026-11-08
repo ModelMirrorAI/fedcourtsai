@@ -3678,12 +3678,16 @@ to it.
   those dismissed or denied as moot sit beside the rate, as in the published
   tallies. An application deferred to argument has no disposition until it is
   decided, so it is `pending`, outside the rate. The default `finer` reading
-  re-reads each stored denial from its latest live snapshot, because the
-  stored label collapses a partial grant and a denial as moot to `denied`; an
-  entry dated after `--through` is not used. Quote `reading`,
-  `reread_changed`, `reread_unobservable` and `reread_after_through` beside
-  the rate. Under `registered` the government's rate is understated where it
-  filed, and overstated where it defended.
+  re-reads each stored denial and grant from its latest live snapshot,
+  because the stored label collapses a partial grant and a denial as moot to
+  `denied`, and reads an application "dismissed in light of the relief
+  granted" in a companion as `granted`, which the finer reading names
+  `dismissed-moot`; an entry dated after `--through` is
+  not used. Quote `reading`, `reread_changed`, `reread_unobservable` and
+  `reread_after_through` beside the rate. Under `registered` the government's
+  rate is understated where it filed, and overstated where it defended, and a
+  challenger's companion applications dismissed in light of a lead's grant
+  read as the executive's losses.
 - **Scope is a caption rule, and its unknowns are not zeros.** The rule reads
   the caption and the Solicitor General's counsel entries, and it narrows the
   government-respondent side only: every government application is in scope
@@ -3899,9 +3903,10 @@ column of 2026-10-19 ("Where the Supreme Court favors Trump on the emergency
 docket – and where it doesn't") counts applications involving general federal
 executive actions through 2026-10-12, and lists no rows. The figures below
 are this record's measurement under `exec-action-v1` and `controversy-v1`,
-before an empty docketed date took the first proceeding's; the current code
-cuts under `exec-action-v2` and `controversy-v2`, so it does not reproduce
-them, and a refreshed record states its own versions. Cut `--as-of filed
+before an empty docketed date took the first proceeding's, and before the
+`finer` reading re-read stored grants; the current code cuts under
+`exec-action-v2` and `controversy-v2` and re-reads both, so it does not
+reproduce them, and a refreshed record states its own versions. Cut `--as-of filed
 --through 2026-10-12` on the blob pulled 2026-10-26 (newest stored snapshot in
 the index 2026-07-13; the re-read rows' own live snapshots run later):
 `finer` reading, 59 stored denials re-read, 7 relabeled, 0 unobservable, 0
