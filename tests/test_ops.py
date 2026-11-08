@@ -526,6 +526,35 @@ def test_render_data_health_failing_lists_each_failed_check() -> None:
     assert "| corpus_opens |" not in md
 
 
+def test_render_data_health_failure_sample_leads_with_the_detail() -> None:
+    # case_dates_ordered counts two populations against separate floors; its
+    # first problem can come from the population within its floor, so the
+    # table names the exceeded floor (the detail) before the sample.
+    health = DataHealth(
+        ok=False,
+        ledger=LedgerValidation(ok=True, checked=12, invalid=0),
+        corpus=CorpusValidation(
+            ok=False,
+            corpus_rows=500,
+            checks=[
+                CorpusCheck(
+                    name="case_dates_ordered",
+                    passed=False,
+                    failures=75,
+                    detail="0 future-dated, 75 decided-before-filed (21 docket rows vs "
+                    + "accepted baseline 30, 54 SCOTUS application rows vs accepted "
+                    + "baseline 50)",
+                    problems=["case 'ca1/1' is decided before filed (docket row)"],
+                ),
+            ],
+        ),
+    )
+    md = ops.render_data_health(health)
+    row = next(line for line in md.splitlines() if line.startswith("| case_dates_ordered |"))
+    assert "54 SCOTUS application rows vs accepted baseline 50" in row
+    assert row.index("accepted baseline 50") < row.index("e.g. case 'ca1/1'")
+
+
 def test_render_data_health_skipped_corpus_reads_as_not_run() -> None:
     md = ops.render_data_health(
         DataHealth(ok=True, ledger=LedgerValidation(ok=True, checked=3), corpus=None)

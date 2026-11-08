@@ -1560,9 +1560,10 @@ recomputed, or reweighted by the bit; the cell simply is not counted. And a
 **null** bit is "not assessed", not "clean" — offline evaluators and records
 written before the field existed carry null, and those cells are scored. That is
 why the published block carries a denominator: the boards' `leakage_exclusion`
-records `excluded`, `assessed` (in-scope cells whose grading recorded the bit at
-all), and the per-predictor split, so `excluded: 0` over a ledger of nulls reads
-as "nothing was checked" rather than "nothing leaked". The split is published
+records `excluded`, `assessed` (in-scope cells whose grading recorded a bit
+that could carry information, below), and the per-predictor split, so
+`excluded: 0` over a ledger of nulls reads as "nothing was checked" rather
+than "nothing leaked". The split is published
 because exclusion falling differentially on one engine changes the scored
 population, which is the cross-engine comparability condition. The board
 builders name each dropped cell on stderr and the refresh PR body carries the
@@ -1655,12 +1656,42 @@ on leakage, not a rate**: its negatives are null bits, so there is no assessed
 denominator to divide by. And a cross-engine leakage comparison over cells
 before `20260820T181919Z` is not a comparison: the other engines' logs of that
 vintage carry their manifest calls as rows, so their unsuspected verdicts are
-real reads where codex's are null bits. `assessed` still counts such a
-grading — it counts gradings that recorded the bit, not gradings that could
-see — but only the all-versions build ever reaches one: no row-blind or
+real reads where codex's are null bits. So `assessed` does not count an
+unsuspected one: it counts gradings whose bit could carry information
+(`fedcourtsai.integrity.leakage_assessed`), and the rule keys on the scored
+prediction's run id, every `codex-baseline` run before `20260826T144640Z`
+(the merge that lifted the builtin idiom). A suspected verdict on the same
+vintage still counts, since the exclusion drops its cell. Only the
+all-versions build ever reaches one of these gradings: no row-blind or
 half-blind prediction carries a frozen digest, so the frozen boards exclude
 them a gate earlier. The [freeze record](../docs/freeze-record.md) fixes their
 number, in the ledger and after the run collapse, and dates the rule.
+
+**A `codex-baseline` manifest row before the date-read boundary is
+date-blind, not undated.** From `20260916T170237Z` codex calls its
+CourtListener tools as direct items, so each call has a row of its own with its
+query, its call class and a `captured` result. But none of those rows captured
+before the carrying merge of the freeze record's 2026-11-08 *document-date
+read* entry carries a `retrieved_doc_date`, whatever the result held: the
+pattern they were read with tolerates one escape, and the freeze record states
+the measured zero and the inferred cause. Unlike the row-blind rule's, an
+unsuspected verdict on one of these gradings is a real read, not a null bit,
+because the grader saw every call, so `assessed` counts it where it drops the
+row-blind rule's. What the
+grader lacked is the timing signal: the evaluate prompt offers a date "where a
+document date was legible", so a null date on a `captured` row reads as none
+legible, which over this stretch it does not mean. The gap stays with the
+logs, not the calendar: a grading formed after the merge over a log captured
+before it is date-blind too. Three consequences bind. A cross-engine leakage
+comparison over those logs is not like-for-like: `claude-baseline`'s captured
+manifest rows carry a date on about a third of calls, codex's on none. A codex
+verdict there that turns on the absence of a dated result rests on a missing
+signal, not a clean one, so the suspected share over the stretch leans toward
+a lower bound. And a codex leakage figure over the stretch carries a
+sensitivity reading with those gradings counted unassessed beside it. The date
+is read at capture and those rollouts are gone, so no re-parse dates them; the
+boundary is the ancestry of a cell's `pipeline_sha` against the carrying
+merge, and the freeze record fixes the population.
 
 **The set-aside, and its sensitivity reading.** A cell every rule above kept,
 but whose record **cannot show it was made before its outcome was public**, is

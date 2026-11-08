@@ -17891,6 +17891,127 @@ freeze commit is recorded here.
   names. The split, partition and grading lines also move as cells,
   outcomes and gradings land.
 
+- **The document-date read tolerates a twice-escaped result, so codex
+  manifest rows carry a `retrieved_doc_date`; recorded 2026-11-08.** A
+  **capture** change of the masking-surface class, like the 2026-10-15
+  bare-name entry, which is not otherwise edited. No digest, constant, window
+  or membership moves, and `uv run fedcourts process-digest --all` prints the
+  same `proc-v20` digests before and after.
+
+  **Why.** `retrieved_doc_date` is the leakage grading's timing signal: the
+  evaluate prompt asks the grader to look for a date on or after the event's
+  resolution. Over every committed `codex-baseline` `retrieval_log.json` at
+  `staging` `eb75c3fd7`, **0** of the **1,042** captured CourtListener rows
+  carries one: 651 bare-named rows from the stretch the 2026-10-15 entry
+  dates, and 391 resolved rows captured after it. `claude-baseline`'s
+  captured CourtListener rows carry one on **446** of **1,244**. The codex
+  item-shape distillation of the `promotion/2026-11-07` engine smoke (run
+  `42396955298`) shows the cause's half that can be shown without a
+  rollout: a Codex `function_call_output` carries its `output` as a string.
+  Where that string is the server's content list already serialized, the
+  scan's own serialization escapes the date's quotes twice, and the pattern
+  tolerated one backslash. That the string is the content list is inferred
+  from the zero rather than read off a rollout, since the distillation
+  carries types and no values.
+
+  **What moved.** `fedcourtsai.retrieval._DOC_DATE_RE` takes any run of
+  backslashes before each quote. A test parses a Codex `function_call` whose
+  output is the content list serialized around the server's JSON, and it
+  fails on the old pattern and passes on the new. Claude rows already
+  matched and still do. The read runs at capture, so no committed log
+  changes: those rollouts are gone, and the result text was digested away.
+
+  **What it reaches.** The blinding mask passes `retrieved_doc_date`
+  through, so a codex candidate's manifest rows captured after the carrying
+  merge show graders the dates a claude candidate's rows already did, under
+  unchanged evaluator digests. That is what graders read when they form the
+  `leakage_suspected` bit, so codex's `leakage_exclusion` spans two capture
+  regimes inside the `proc-v20` window. The reach is bounded, because the bit
+  rarely fires on the forward cells that make up the scored population, and
+  no codex grading in the stretch below reads suspected.
+
+  **The reading rule** (`metrics/README.md`, *The leakage exclusion*). A
+  codex manifest row captured before the carrying merge is date-blind, not
+  undated. Its grading stays assessed, and an unsuspected verdict on it is a
+  real read rather than the row-blind rule's null bit, because the grader saw
+  every call, its query and its class; but a cross-engine leakage comparison over those logs
+  is not like-for-like, a codex verdict there that turns on the absence of a
+  dated result rests on a missing signal, and a codex leakage figure over the
+  stretch carries a sensitivity reading with those gradings counted
+  unassessed. The gap follows the log, not the grading date: a grading formed
+  after the merge over a log captured before it is date-blind too. **Population**, at `staging`
+  `eb75c3fd7`: **476** `codex-baseline` predict logs from `20260916T170237Z`
+  on, **364** of them with a CourtListener call; after the run collapse,
+  **522** assessed gradings of those predictions, all in frozen scope and all
+  unsuspected (of the frozen board's **1,563** assessed). The boundary is the
+  ancestry of a cell's `pipeline_sha` against the carrying merge; a row's
+  date is only a hint, since a result with no date field looks the same
+  under either rule.
+
+  **The row-blind rule is unchanged.** The 2026-09-21 entry's row-blind and
+  half-blind regimes are named by `call_source` and run id, and both sit
+  before the bare-name stretch, so neither the bare-name rename nor this
+  change touches a log they cover.
+
+  **Why no label bump and no harness-boundary row.** The same as the
+  2026-10-15 entry: no digest moves, and no predict cell reads anything
+  different, because capture runs after the engine, on its own log.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  **Effect check.** On `main`, once a run-predict round after the carrying
+  merge has landed codex cells that called CourtListener, `jq '[.calls[] |
+  select(.tool | startswith("mcp__courtlistener__")) |
+  .retrieved_doc_date] | map(select(. != null)) | length'` over those
+  cells' `retrieval_log.json` sums to more than zero, at a share of their
+  captured CourtListener rows comparable to `claude-baseline`'s in the same
+  round.
+
+- **Unsuspected row-blind and half-blind `codex-baseline` leakage gradings
+  leave `assessed`; recorded 2026-11-08.** Settles what the 2026-09-21
+  row-blind entry left open, which is not otherwise edited. No prompt byte,
+  registry field, stamp or score moves, and `uv run fedcourts process-digest
+  --all` prints the same `proc-v20` digests before and after.
+
+  **What moved.** The leakage exclusion's denominator now counts a grading
+  only where its bit could carry information
+  (`fedcourtsai.integrity.leakage_assessed`, called by `store.stratify`). A
+  null bit stays out, and so does a `leakage_suspected: false` grading of a
+  `codex-baseline` prediction whose run id precedes `20260826T144640Z`, the
+  merge instant of `promotion/2026-08-26`, which lifted the builtin idiom.
+  That one boundary covers both regimes the 2026-09-21 entry measured:
+  row-blind (runs before `20260820T181919Z`) and half-blind (through
+  `20260825T231742Z`). It keys on the scored prediction's run id, a
+  committed path, because the `call_source` marker names only the row-blind
+  half. A suspected verdict on the same vintage still counts, since the
+  exclusion drops its cell. The `LeakageExclusionRecord.assessed`
+  description moves with it, so the three board schemas regenerate.
+
+  **What it moves.** At `staging` `e0eed9bf9`, after the run collapse, 36
+  unsuspected row-blind and 24 unsuspected half-blind gradings leave, so
+  `fedcourts leaderboard --all-versions` reads `assessed` **1,767** where it
+  read **1,827**. The frozen boards read **1,563** before and after, because no
+  row-blind or half-blind prediction carries a frozen digest. The all-versions
+  build is not published, so no rendered figure moves. Every grading that
+  leaves is `codex-baseline`'s.
+
+  The 2026-11-08 *document-date read* entry's date-blind codex gradings stay
+  assessed: their grader saw every call.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  **Effect check.** On `main` after the carrying merge, `uv run pytest
+  tests/test_integrity.py -k pre_lift` is green, and `uv run python -c "from
+  pathlib import Path; from fedcourtsai.store import stratify;
+  print(stratify(Path('data'), frozen_only=False).leakage_assessed)"` prints
+  60 fewer than the same command at the merge's first parent, so long as no
+  grading of a pre-`20260826T144640Z` codex prediction has landed between the
+  two reads (`1,767` against `1,827` at `staging` `e0eed9bf9`). The committed
+  `metrics/leaderboard.json`'s `leakage_exclusion.assessed` does not move on
+  account of this merge.
+
 - **The contact scrub reads a mailing block past the opening, in capitals, with
   a typographic apostrophe or a unit line of its own; recorded 2026-11-08.** A
   **conditioning** entry in the *what the pipeline provisions* class, under
