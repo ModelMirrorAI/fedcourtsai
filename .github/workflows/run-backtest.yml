@@ -873,7 +873,11 @@ jobs:
         id: forecasts
         continue-on-error: true
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # The key the claude lane held, when it held one; a federated lane
+          # held a token file instead, and an exchanged token is caught by
+          # shape.
+          ANTHROPIC_API_KEY: ${{ steps.claude-federation.outputs.token-file == '' && secrets.ANTHROPIC_API_KEY || '' }}
+          FEDERATED: ${{ steps.claude-federation.outputs.token-file != '' }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
@@ -923,9 +927,11 @@ jobs:
           fi
           cp -- "$kept/run-id" "$out/run-id"
           : > "$RUNNER_TEMP/no-changes.txt"
+          key_args=(--known-secret-env ANTHROPIC_API_KEY)
+          if [ "$FEDERATED" = true ]; then key_args=(); fi
           if ! uv run fedcourts scan-diff-for-secrets \
               --name-status-file "$RUNNER_TEMP/no-changes.txt" \
-              --known-secret-env ANTHROPIC_API_KEY \
+              "${key_args[@]}" \
               --known-secret-env OPENAI_API_KEY \
               --known-secret-env GEMINI_API_KEY \
               --run-id "$run_id" \

@@ -1641,8 +1641,9 @@ job that could read the corpus and call the model could send the corpus
 anywhere the model's output reaches. Under `prod` or `staging`, the
 `id-token: write` their exchange needs would let the agent, or anything in the
 model call's path, mint the web identity the corpus roles trust. So they bind
-`claude-prod` (branch policy `main`) or `claude-staging` (`staging` and
-`promote/*`) instead, the `claude-` counterpart of the same branch
+`claude-prod` (branch policy `main`) or `claude-staging` (`staging`, and
+`promote/*` for the labeler smoke, whose resolution maps a promotion candidate
+to staging) instead, the `claude-` counterpart of the same branch
 resolution. Those environments hold the four federation variables, a rule of
 their own (subject `repo:ModelMirrorAI/fedcourtsai:environment:claude-<env>`,
 the same service account and workspace as the environment they shadow, and a
@@ -1671,8 +1672,9 @@ is federated.
 does the action's part: it fetches the OIDC token into a file under the
 runner's temp directory, writes the one-line profile that turns on the CLI's
 on-disk credential cache, and rewrites the token every four minutes from a
-background loop that its stop mode ends, removing the token, the profile and
-the cached access token. The cache is what lets consecutive `claude` processes
+background loop (retrying a failed refresh after 20 seconds) that its stop mode
+ends, removing the token and the profile directory, where the CLI keeps its
+cached access token once a profile directory is named. The cache is what lets consecutive `claude` processes
 share one exchanged access token rather than spend one OIDC token twice, and
 it is safe only while they run one at a time: a back-test runs one lane per
 engine and each lane's cells in sequence, and the cascade runs one cell. The

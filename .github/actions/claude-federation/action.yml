@@ -7,8 +7,9 @@ description: >-
   OIDC token for the Claude API's audience into a token file, writes the
   one-line profile that turns on the CLI's on-disk credential cache, and
   launches a background loop that rewrites the token file every four minutes.
-  The stop mode ends the loop and removes the token, the profile and the cached
-  exchanged credential, since the runner's temp dir outlives the step.
+  The stop mode ends the loop and removes the token and the profile directory,
+  which is where the CLI keeps its cached exchanged credential when a profile
+  directory is named, since the runner's temp dir outlives the step.
 
   Why the profile: each `claude` process exchanges the OIDC token for an access
   token, and Anthropic accepts each OIDC token once. With the profile the
@@ -54,6 +55,13 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Refuse an unknown mode
+      if: inputs.mode != 'start' && inputs.mode != 'stop' && inputs.mode != 'assert-claude-only'
+      shell: bash
+      run: |
+        echo "::error::claude-federation: unknown mode; expected start, stop or assert-claude-only"
+        exit 1
+
     - name: Fetch the OIDC token and start its refresh
       id: start
       if: inputs.mode == 'start'
@@ -91,9 +99,12 @@ runs:
         printf '%s\n' '{"version":"1.0","authentication":{"type":"oidc_federation"}}' \
           > "$dir/config/configs/default.json"
         # The loop outlives this step, as the sidecars do. A failed refresh
-        # leaves the last good token in place and says so in the loop's log; a
-        # cell that then fails its exchange fails on auth, visibly.
-        nohup bash -c 'while sleep 240; do bash "$1/refresh.sh" "$1" || echo "refresh failed at $(date -u +%FT%TZ)"; done' \
+        # leaves the last good token in place, says so in the loop's log and
+        # tries again 20 seconds later rather than at the next four-minute
+        # mark, which a token of GitHub's few-minute lifetime may not outlast;
+        # a cell whose exchange still finds the token expired fails on auth,
+        # visibly.
+        nohup bash -c 'while sleep 240; do until bash "$1/refresh.sh" "$1"; do echo "refresh failed at $(date -u +%FT%TZ)"; sleep 20; done; done' \
           _ "$dir" > "$dir/refresh.log" 2>&1 &
         echo "$!" > "$dir/refresh.pid"
         {
