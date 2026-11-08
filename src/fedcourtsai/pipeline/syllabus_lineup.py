@@ -32,7 +32,9 @@ description of the Court's conventions, and no ceRt code or data is used.
   authors).
 - *Scopes*: a join or a lead clause may be limited ``as to``, ``only as
   to``, ``with respect to``, ``except as to`` or ``except for`` a list of
-  Parts, footnotes or ``the introduction``, and ``all but`` a list; a lead
+  Parts, footnotes (spelled out or abbreviated ``n. 1``, ``nn. 2 and 3``),
+  ``the introduction``, ``the footnote``, or ``the first paragraph`` or
+  ``sentence``, and ``all but`` a list; a lead
   clause's ``in which`` may follow with or without its comma.
 - *Non-participation*: ``Z took no part in the consideration or decision of
   the case``, or the lead's own ``…, except Z, who took no part …``.
@@ -103,7 +105,7 @@ COURT: Final = "scotus"
 #: The grammar's stamp on every lineup it returns.
 GRAMMAR_NAME: Final = "scotus-syllabus"
 #: Bump whenever the same text could read differently.
-GRAMMAR_VERSION: Final = 2
+GRAMMAR_VERSION: Final = 3
 
 # The title marker a Justice's printed title (", C. J.,", ", J.,", ", JJ.,")
 # collapses to, so the periods it carries cannot end a sentence and its commas
@@ -111,7 +113,7 @@ GRAMMAR_VERSION: Final = 2
 _TITLE: Final = "§"
 
 _TITLE_RE = re.compile(r",\s*(?:C\.\s*J\.|JJ\.|J\.)(?:\s*,)?", re.IGNORECASE)
-_PAGE_CITE_RE = re.compile(r",\s*(?:ante|post),\s*pp?\.\s*\d+(?:\s*[-\u2013]\s*\d+)?", re.I)
+_PAGE_CITE_RE = re.compile(r",\s*(?:ante|post),\s*(?:pp?\.|at)\s*\d+(?:\s*[-\u2013]\s*\d+)?", re.I)
 _LINE_HYPHEN_RE = re.compile(r"(\w)-[ \t]*\n\s*(\w)")
 _SPLIT_WORD_RE = re.compile(r"([A-Za-z])- ([a-z])")
 
@@ -123,7 +125,10 @@ _ID = (
     r"(?:\s*[-\u2013\u2014]\s*(?:[IVXL]+|[A-Z]|[a-z]|\d+))*)\b"
 )
 _LIST_SEP = r"(?:\s*,\s*(?:and\s+)?|\s+and\s+)"
-_SCOPE_ITEM = rf"(?:(?:Parts?|footnotes?)\s+{_ID}(?:{_LIST_SEP}{_ID})*|the\s+introduction)"
+_SCOPE_ITEM = (
+    rf"(?:(?:Parts?|footnotes?|(?-i:nn?\.))\s+{_ID}(?:{_LIST_SEP}{_ID})*"
+    r"|the\s+(?:introduction|footnote|f(?:i)?rst\s+(?:paragraph|sentence)))"
+)
 _SCOPE = rf"(?:all\s+but\s+)?{_SCOPE_ITEM}(?:{_LIST_SEP}{_SCOPE_ITEM})*"
 
 _LEAD_RE = re.compile(r"^(?P<names>.+?)\s+(?P<verb>delivered|announced)\s+(?P<rest>.+)$", re.I)
@@ -191,8 +196,15 @@ def normalize_lineup_text(text: str) -> str:
     return _TITLE_RE.sub(f" {_TITLE}", text)
 
 
+# A sentence ends at a period, except the period of the footnote abbreviation
+# ("n. 1", "nn. 2 and 3"), which a footnote number follows.
+_SENTENCE_END_RE = re.compile(
+    r"(?<=\.)(?<!\bn\.)(?<!\bnn\.)\s+|(?<=\bn\.)\s+(?!\d)|(?<=\bnn\.)\s+(?!\d)"
+)
+
+
 def _sentences(text: str) -> list[str]:
-    parts = re.split(r"(?<=\.)\s+", text)
+    parts = _SENTENCE_END_RE.split(text)
     return [p.strip().removesuffix(".").strip() for p in parts if p.strip().strip(".")]
 
 
