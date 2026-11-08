@@ -265,9 +265,12 @@ def test_deploy_environment_resolution_is_identical_at_every_site() -> None:
     for job in (
         "plan",
         "scenario",
-        "qp-labeler-smoke",
     ):
         assert workflow["jobs"][job]["environment"] == f"${{{{ {ENV_RESOLUTION} }}}}", job
+    # The labeler smoke binds the Claude-only counterpart of the same resolution.
+    assert workflow["jobs"]["qp-labeler-smoke"]["environment"] == (
+        f"${{{{ format('claude-{{0}}', {ENV_RESOLUTION}) }}}}"
+    )
     assert f"@ ${{{{ {ENV_RESOLUTION} }}}}" in workflow["run-name"]
     # No fifth consumer: anywhere else reading the raw input would bypass the
     # resolution and see the literal string `auto`. Comment lines are dropped

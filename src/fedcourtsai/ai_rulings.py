@@ -43,6 +43,7 @@ from tenacity.wait import wait_base
 
 from . import secretscan
 from .ai_activity import ACTIVITY_DIR
+from .claude_auth import ClaudeCredential
 from .config import SummariesConfig
 from .pipeline.documents import scrub_contact_details
 from .pricing import MODEL_RATES, estimate_cost_usd
@@ -456,7 +457,7 @@ def committed_summaries(data_root: Path) -> dict[int, RulingSummary]:
 # --- writing ------------------------------------------------------------------------
 
 
-def _refusal(result: CallResult, rel: str, api_key: str) -> tuple[str, list[str]]:
+def _refusal(result: CallResult, rel: str, credential: ClaudeCredential) -> tuple[str, list[str]]:
     """Why a response is not written, and the problems a retry may fix.
 
     As for a case, plus a contact detail anywhere in the body, which, like a
@@ -465,7 +466,7 @@ def _refusal(result: CallResult, rel: str, api_key: str) -> tuple[str, list[str]
     if result.stop_reason != "end_turn":
         return f"stop_reason {result.stop_reason!r}", []
     problems = body_problems(result.text)
-    findings = secretscan.scan_lines(rel, result.text.split("\n"), [api_key] if api_key else [])
+    findings = secretscan.scan_lines(rel, result.text.split("\n"), credential.secrets())
     # The contact scrub's shape pass over the whole body: a detail the staged
     # text's scrub missed, or one the model rebuilt, would reach a public email.
     contacts = scrub_contact_details(result.text).replacements
@@ -486,7 +487,7 @@ def summarize_ruling(  # noqa: PLR0913 - one ruling's inputs, each load-bearing
     system_prompt: str,
     prompt_sha: str,
     client: httpx.Client,
-    api_key: str,
+    credential: ClaudeCredential,
     now: datetime,
     wait: wait_base | None = None,
     may_retry: Callable[[], bool] = lambda: True,
@@ -506,27 +507,27 @@ def summarize_ruling(  # noqa: PLR0913 - one ruling's inputs, each load-bearing
     record = render_record(ruling, text, config.max_document_chars)
     try:
         result = call_messages_api(
-            client, api_key, build_request(config, system_prompt, record), wait=wait
+            client, credential, build_request(config, system_prompt, record), wait=wait
         )
     except SummaryCallError as exc:
         return CaseResult(None, str(exc))
     usage = result.usage
     cost = estimate_cost_usd(config.model, usage)
-    refusal, retryable = _refusal(result, str(target), api_key)
+    refusal, retryable = _refusal(result, str(target), credential)
     first_rejection = ""
     if refusal and retryable and result.text.strip() and may_retry():
         first_rejection = refusal
         retry = RetryTurn(result.text, tuple(retryable))
         try:
             result = call_messages_api(
-                client, api_key, build_request(config, system_prompt, record, retry), wait=wait
+                client, credential, build_request(config, system_prompt, record, retry), wait=wait
             )
         except SummaryCallError as exc:
             refusal = f"retry failed: {exc}"
         else:
             usage = add_usage(usage, result.usage)
             cost += estimate_cost_usd(config.model, result.usage)
-            refusal = on_retry(_refusal(result, str(target), api_key)[0])
+            refusal = on_retry(_refusal(result, str(target), credential)[0])
     if refusal:
         return CaseResult(None, refusal, cost, first_rejection)
     front = AiRulingSummaryFrontMatter(
@@ -562,7 +563,7 @@ def summarize_rulings(  # noqa: PLR0913 - the run's inputs, each load-bearing
     config: SummariesConfig,
     prompt_bytes: bytes,
     client: httpx.Client,
-    api_key: str,
+    credential: ClaudeCredential,
     now: Callable[[], datetime] = lambda: datetime.now(UTC),
     wait: wait_base | None = None,
     deadline: datetime | None = None,
@@ -594,7 +595,7 @@ def summarize_rulings(  # noqa: PLR0913 - the run's inputs, each load-bearing
             system_prompt=system_prompt,
             prompt_sha=prompt_sha,
             client=client,
-            api_key=api_key,
+            credential=credential,
             now=now(),
             wait=wait,
             may_retry=lambda: deadline is None or now() < deadline,

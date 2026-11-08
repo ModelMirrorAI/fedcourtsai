@@ -1137,6 +1137,16 @@ jobs:
       # dispatch naming an environment without the keys gets an empty key and
       # the cell fails closed regardless of step ordering. Output lands only in the
       # runner's throwaway checkout.
+      # The Claude cell signs in the way the back-test's do: federated when
+      # the bound environment names a rule, the key otherwise (the
+      # `claude-federation` action holds the reasons). Gated on the same two
+      # identifiers that withhold the key below, so the cell never runs with
+      # neither credential.
+      - name: Start the Claude federated sign-in for the cascade cell
+        id: claude-federation
+        if: ${{ matrix.scenario == 'engine-smoke' && matrix.engine == 'claude-code' && vars.ANTHROPIC_FEDERATION_RULE_ID != '' && vars.ANTHROPIC_ORGANIZATION_ID != '' }}
+        uses: ./.github/actions/claude-federation
+
       - name: Run one real-engine cascade cell over the service sidecar
         if: ${{ matrix.scenario == 'engine-smoke' }}
         env:
@@ -1155,7 +1165,14 @@ jobs:
           # pointer — harmlessly: its reads go via the sidecar, the content
           # store is unreachable without the scrubbed creds, and a pointer
           # names a blob rather than granting any reach to one.
-          ANTHROPIC_API_KEY: ${{ matrix.engine == 'claude-code' && secrets.ANTHROPIC_API_KEY || '' }}
+          ANTHROPIC_API_KEY: ${{ matrix.engine == 'claude-code' && steps.claude-federation.outputs.token-file == '' && secrets.ANTHROPIC_API_KEY || '' }}
+          ANTHROPIC_FEDERATION_RULE_ID: ${{ steps.claude-federation.outputs.token-file != '' && vars.ANTHROPIC_FEDERATION_RULE_ID || '' }}
+          ANTHROPIC_ORGANIZATION_ID: ${{ steps.claude-federation.outputs.token-file != '' && vars.ANTHROPIC_ORGANIZATION_ID || '' }}
+          ANTHROPIC_SERVICE_ACCOUNT_ID: ${{ steps.claude-federation.outputs.token-file != '' && vars.ANTHROPIC_SERVICE_ACCOUNT_ID || '' }}
+          ANTHROPIC_WORKSPACE_ID: ${{ steps.claude-federation.outputs.token-file != '' && vars.ANTHROPIC_WORKSPACE_ID || '' }}
+          ANTHROPIC_IDENTITY_TOKEN_FILE: ${{ steps.claude-federation.outputs.token-file }}
+          ANTHROPIC_CONFIG_DIR: ${{ steps.claude-federation.outputs.config-dir }}
+          ANTHROPIC_PROFILE: ${{ steps.claude-federation.outputs.token-file != '' && 'default' || '' }}
           OPENAI_API_KEY: ${{ matrix.engine == 'codex' && secrets.OPENAI_API_KEY || '' }}
           GEMINI_API_KEY: ${{ matrix.engine == 'gemini' && secrets.GEMINI_API_KEY || '' }}
           # Pin codex's home to the workspace dir the MCP config was written
@@ -1202,6 +1219,12 @@ jobs:
             sed -n '/^local-cascade /,$p' cascade-output.log
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Stop the Claude federated sign-in for the cascade cell
+        if: ${{ always() && steps.claude-federation.outputs.token-file != '' }}
+        uses: ./.github/actions/claude-federation
+        with:
+          mode: stop
 
       # --- codex-application-repro: the wedge's record shape, on demand ------
 
@@ -2938,8 +2961,9 @@ jobs:
   #
   # Its own job rather than a matrix leg, because the credential shape is
   # part of the posture under test: the labeling job holds no cloud
-  # credential and no id-token — stricter than a cell — while the matrix job
-  # grants id-token for its corpus legs. Kept in lockstep with
+  # credential, and its id-token reaches only the Claude-only environment's
+  # subject, which no AWS role trusts — stricter than a cell — while the
+  # matrix job grants id-token for its corpus legs. Kept in lockstep with
   # run-analytics's qp-topic-label job by two workflow-shape tests: one pins
   # the action pin, the settings, the argument block (the model line aside),
   # the IO paths, the prompt contract, and both jobs' credential posture; the
@@ -2971,12 +2995,15 @@ jobs:
     timeout-minutes: 30
     # Branch-resolved with an explicit override; keep this expression
     # identical to `run-name:`'s, the plan job's and the scenario job's, and
-    # see the deploy-environment input for what resolves. What the
-    # environment supplies here is exactly one secret: the engine key the
-    # labeler spends — staging's own key on a staging-bound rehearsal.
-    environment: ${{ inputs.deploy-environment != 'auto' && inputs.deploy-environment || (github.ref_name == 'main' && 'prod' || (startsWith(github.ref_name, 'promote/') && 'staging' || github.ref_name)) }}
+    # see the deploy-environment input for what resolves, which this job
+    # binds the Claude-only counterpart of (`claude-<env>`), as the paid
+    # labeler does. What that environment supplies here is the labeler's
+    # sign-in and nothing else: its federation rule, or its engine key —
+    # staging's own on a staging-bound rehearsal.
+    environment: ${{ format('claude-{0}', inputs.deploy-environment != 'auto' && inputs.deploy-environment || (github.ref_name == 'main' && 'prod' || (startsWith(github.ref_name, 'promote/') && 'staging' || github.ref_name))) }}
     permissions:
       contents: read
+      id-token: write # the labeler's federated Claude sign-in; the environment is Claude-only
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -3006,9 +3033,10 @@ jobs:
         with:
           restore-cache: "false"
 
-      # The labeling job's own tripwire, verbatim: this job assumes no role
-      # and grants no id-token, and the assertion keeps that true even if a
-      # future edit adds a credentialed step above the agent.
+      # The labeling job's own tripwire, verbatim: this job assumes no role,
+      # its OIDC tokens name the Claude-only environment, and the assertions
+      # keep that true even if a future edit adds a credentialed step above
+      # the agent or binds the job to `prod`.
       - name: Assert no cloud credential in the agent env
         run: |
           set -euo pipefail
@@ -3016,11 +3044,12 @@ jobs:
             echo "::error::AWS credential variables leaked into the job env"
             exit 1
           fi
-          if [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
-            echo "::error::OIDC token minting is reachable from the agent env"
-            exit 1
-          fi
           echo "no cloud credential in the agent env"
+
+      - name: Assert the job's OIDC tokens name a Claude-only environment
+        uses: ./.github/actions/claude-federation
+        with:
+          mode: assert-claude-only
 
       # Five invented questions-presented texts in the exact extract shape
       # `qp-corpus` hands the paid lane, staged in the one directory the
@@ -3090,7 +3119,11 @@ jobs:
           QP_TEXTS: ${{ runner.temp }}/qp-io/qp-texts.json
           LABELS_OUT: ${{ runner.temp }}/qp-io/qp-labels.jsonl
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          anthropic_federation_rule_id: ${{ vars.ANTHROPIC_FEDERATION_RULE_ID }}
+          anthropic_organization_id: ${{ vars.ANTHROPIC_ORGANIZATION_ID }}
+          anthropic_service_account_id: ${{ vars.ANTHROPIC_SERVICE_ACCOUNT_ID }}
+          anthropic_workspace_id: ${{ vars.ANTHROPIC_WORKSPACE_ID }}
+          anthropic_api_key: ${{ (vars.ANTHROPIC_FEDERATION_RULE_ID == '' || vars.ANTHROPIC_ORGANIZATION_ID == '') && secrets.ANTHROPIC_API_KEY || '' }}
           path_to_claude_code_executable: ${{ steps.claude-cli.outputs.path }}
           github_token: ${{ github.token }}
           settings: |
@@ -3268,18 +3301,21 @@ jobs:
       # twice over, as the scanner does — on an empty needle and on a `grep`
       # that could not read the file (its exit 2, which an `if` would otherwise
       # read as "no match"): a gate that cannot see its needle must not pass
-      # silently.
+      # silently. A federated labeler held no key: what it held is an
+      # exchanged access token and the OIDC token it was exchanged from, so
+      # the needle is their two shapes instead.
       - name: Refuse to publish labels containing the engine key
         id: labels_guard
         if: ${{ !cancelled() && steps.label_lines.outputs.present == 'true' }}
         continue-on-error: true
         env:
           LABELS_OUT: ${{ runner.temp }}/qp-io/qp-labels.jsonl
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ (vars.ANTHROPIC_FEDERATION_RULE_ID == '' || vars.ANTHROPIC_ORGANIZATION_ID == '') && secrets.ANTHROPIC_API_KEY || '' }}
+          FEDERATED: ${{ vars.ANTHROPIC_FEDERATION_RULE_ID != '' && vars.ANTHROPIC_ORGANIZATION_ID != '' }}
           PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
         run: |
           set -euo pipefail
-          if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
+          if [ "$FEDERATED" != true ] && [ -z "${ANTHROPIC_API_KEY:-}" ]; then
             echo "::warning::no engine key to check containment against; withholding the labels"
             exit 1
           fi
@@ -3288,7 +3324,11 @@ jobs:
             exit 1
           fi
           status=0
-          grep -qF -e "$ANTHROPIC_API_KEY" "$LABELS_OUT" || status=$?
+          if [ "$FEDERATED" = true ]; then
+            grep -qE -e 'sk-ant-[A-Za-z0-9_-]{20,}|eyJ[A-Za-z0-9_-]{8,}[.][A-Za-z0-9_-]{8,}[.]' "$LABELS_OUT" || status=$?
+          else
+            grep -qF -e "$ANTHROPIC_API_KEY" "$LABELS_OUT" || status=$?
+          fi
           if [ "$status" -eq 0 ]; then
             echo "::warning::the labels file contains the engine key; withholding the artifact"
             exit 1

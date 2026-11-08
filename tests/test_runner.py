@@ -1400,6 +1400,35 @@ def test_stub_artifacts_pass_validate(tmp_path: Path) -> None:
     assert "valid" in result.output
 
 
+# The federated sign-in a workflow's `claude-federation` action stands up.
+FEDERATION_ENV = {
+    "ANTHROPIC_FEDERATION_RULE_ID": "fdrl_fake",
+    "ANTHROPIC_ORGANIZATION_ID": "org-fake",
+    "ANTHROPIC_SERVICE_ACCOUNT_ID": "svac_fake",
+    "ANTHROPIC_WORKSPACE_ID": "wrkspc_fake",
+    "ANTHROPIC_IDENTITY_TOKEN_FILE": "/tmp/claude-federation/identity-token",
+    "ANTHROPIC_CONFIG_DIR": "/tmp/claude-federation/config",
+    "ANTHROPIC_PROFILE": "default",
+}
+
+
+def test_an_empty_own_sign_in_is_withheld_from_the_claude_agent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A federated workflow withholds the key by setting it empty; an empty key
+    # in the CLI's env would be tried ahead of the token file.
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "")
+    for name, value in FEDERATION_ENV.items():
+        monkeypatch.setenv(name, value)
+    request = _predict_request(tmp_path / "data")
+    StubRunner().run(request)
+    recorder = _Recorder()
+    ClaudeCodeRunner(command_runner=recorder).run(request)
+    assert "ANTHROPIC_API_KEY" not in recorder.env
+    for name, value in FEDERATION_ENV.items():
+        assert recorder.env[name] == value
+
+
 def test_agent_env_is_scrubbed_of_cloud_creds_and_foreign_keys(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1413,6 +1442,8 @@ def test_agent_env_is_scrubbed_of_cloud_creds_and_foreign_keys(
     monkeypatch.setenv("AWS_REGION", "us-east-2")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "fake-anthropic")
     monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", "fake-oauth")
+    for name, value in FEDERATION_ENV.items():
+        monkeypatch.setenv(name, value)
     monkeypatch.setenv("OPENAI_API_KEY", "fake-openai")
     monkeypatch.setenv("GEMINI_API_KEY", "fake-gemini")
     monkeypatch.setenv("GOOGLE_API_KEY", "fake-google")
@@ -1427,7 +1458,12 @@ def test_agent_env_is_scrubbed_of_cloud_creds_and_foreign_keys(
     StubRunner().run(request)
 
     gemini_vars = {"GEMINI_API_KEY", "GOOGLE_API_KEY", "GOOGLE_APPLICATION_CREDENTIALS"}
-    claude_vars = {"ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "CLAUDE_CODE_OAUTH_TOKEN"}
+    claude_vars = {
+        "ANTHROPIC_API_KEY",
+        "ANTHROPIC_AUTH_TOKEN",
+        "CLAUDE_CODE_OAUTH_TOKEN",
+        *FEDERATION_ENV,
+    }
     by_engine = [
         (CodexRunner, {"OPENAI_API_KEY"}, claude_vars | gemini_vars),
         (ClaudeCodeRunner, claude_vars, {"OPENAI_API_KEY"} | gemini_vars),

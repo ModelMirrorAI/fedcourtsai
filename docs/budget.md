@@ -62,7 +62,7 @@ from 2026-12-01 and rounded up, so they hold across that change. [milestones.md]
 event`** ([case-summaries.md](case-summaries.md)). It is one non-agentic
 call per predicted case (a second when a rejected response is retried) on
 Claude Sonnet 5, written only when a case's record
-changes, on the environment's Anthropic key behind the `review` hold or its
+changes, on the environment's Anthropic workspace behind the `review` hold or its
 budgeted auto-release.
 Measured basis: a median
 staged record of ~120k characters (≈50k tokens) puts a summary at

@@ -15,6 +15,7 @@ from tenacity import wait_none
 from typer.testing import CliRunner
 
 from fedcourtsai import corpus, provision, summaries
+from fedcourtsai.claude_auth import ApiKey, FederatedToken
 from fedcourtsai.cli import app
 from fedcourtsai.config import SummariesConfig, load_summaries_config
 from fedcourtsai.paths import CasePaths
@@ -370,7 +371,7 @@ def _run(
             config=CONFIG,
             prompt_bytes=b"the prompt",
             client=client,
-            api_key=FAKE_KEY,
+            credential=ApiKey(FAKE_KEY),
             now=lambda: datetime(2026, 9, 23, 4, 0, 1, 5, tzinfo=UTC),
             wait=wait_none(),
         )
@@ -622,7 +623,7 @@ def test_summarize_does_not_retry_past_the_time_budget(tmp_path: Path) -> None:
             config=CONFIG,
             prompt_bytes=b"p",
             client=client,
-            api_key=FAKE_KEY,
+            credential=ApiKey(FAKE_KEY),
             now=clock,
             deadline=start + timedelta(minutes=2),
         )
@@ -719,7 +720,7 @@ def test_summarize_defers_cases_past_the_time_budget(tmp_path: Path) -> None:
             config=CONFIG,
             prompt_bytes=b"p",
             client=client,
-            api_key=FAKE_KEY,
+            credential=ApiKey(FAKE_KEY),
             now=lambda: deadline,
             deadline=deadline,
         )
@@ -826,7 +827,7 @@ def test_summarize_skips_a_case_whose_staged_snapshot_moved(tmp_path: Path) -> N
             config=CONFIG,
             prompt_bytes=b"p",
             client=client,
-            api_key=FAKE_KEY,
+            credential=ApiKey(FAKE_KEY),
         )
     assert outcome.written == []
     assert "no staged snapshot" in outcome.skipped[0][1]
@@ -845,7 +846,7 @@ def test_summarize_refuses_a_plan_for_another_model(tmp_path: Path) -> None:
             config=CONFIG,
             prompt_bytes=b"p",
             client=client,
-            api_key=FAKE_KEY,
+            credential=ApiKey(FAKE_KEY),
         )
 
 
@@ -1459,3 +1460,55 @@ def test_stage_check_withholds_a_document_whose_residual_count_is_not_a_count(
 
     assert [what for what, _ in removed] == ["scotus/1/petition"]
     assert not paths.document("petition").exists()
+
+
+def test_a_federated_call_sends_its_bearer_token_and_scans_for_it() -> None:
+    # The access token a federated run exchanged is the credential its
+    # responses are scanned for, as the key is on a key-signed run.
+    sent: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/v1/oauth/token":
+            return httpx.Response(200, json={"access_token": "oat-exchanged", "expires_in": 600})
+        sent.append(request)
+        return _response(GOOD_BODY)
+
+    credential = FederatedToken(rule_id="fdrl_x", organization_id="org", identity_token=lambda: "j")
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        result = summaries.call_messages_api(client, credential, {"model": "m"})
+    [request] = sent
+    assert request.headers["authorization"] == "Bearer oat-exchanged"
+    assert "x-api-key" not in request.headers
+    leaked = summaries.CallResult(
+        text=GOOD_BODY + "\n\noat-exchanged", stop_reason="end_turn", usage=result.usage
+    )
+    assert "secret scan" in summaries._refusal(leaked, "x.md", credential)[0]
+
+
+def test_a_refused_sign_in_fails_the_call_rather_than_the_run() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(401, json={"error": "denied"})
+
+    credential = FederatedToken(rule_id="fdrl_x", organization_id="org", identity_token=lambda: "j")
+    with (
+        httpx.Client(transport=httpx.MockTransport(handler)) as client,
+        pytest.raises(summaries.SummaryCallError, match="sign-in failed"),
+    ):
+        summaries.call_messages_api(client, credential, {"model": "m"})
+
+
+def test_a_refused_token_is_dropped_so_the_next_case_signs_in_afresh() -> None:
+    exchanges: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/v1/oauth/token":
+            exchanges.append("x")
+            return httpx.Response(200, json={"access_token": f"oat-{len(exchanges)}"})
+        return httpx.Response(401, json={"error": "expired"})
+
+    credential = FederatedToken(rule_id="fdrl_x", organization_id="org", identity_token=lambda: "j")
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        for _ in range(2):
+            with pytest.raises(summaries.SummaryCallError, match="HTTP 401"):
+                summaries.call_messages_api(client, credential, {"model": "m"})
+    assert len(exchanges) == 2

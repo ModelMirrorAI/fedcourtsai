@@ -1,0 +1,157 @@
+name: Claude federated sign-in for a runner-driven CLI
+description: >-
+  Stand up the files the Claude Code CLI needs to sign in by workload identity
+  federation when a job drives the bare CLI (`fedcourts cert-backtest`,
+  `merits-backtest`, the engine-smoke cascade) rather than claude-code-action,
+  which does the same for the cells. The start mode fetches the job's GitHub
+  OIDC token for the Claude API's audience into a token file, writes the
+  one-line profile that turns on the CLI's on-disk credential cache, and
+  launches a background loop that rewrites the token file every four minutes.
+  The stop mode ends the loop and removes the token and the profile directory,
+  which is where the CLI keeps its cached exchanged credential when a profile
+  directory is named, since the runner's temp dir outlives the step.
+
+  Why the profile: each `claude` process exchanges the OIDC token for an access
+  token, and Anthropic accepts each OIDC token once. With the profile the
+  processes share one exchanged access token through the cache, so a cell that
+  starts within four minutes of the last one reuses it rather than spending the
+  same OIDC token twice. The cache is safe only while the job runs its claude
+  processes one at a time, which holds for every caller: a back-test runs one
+  lane per engine and each lane's cells in sequence, and the cascade runs one
+  cell. Why the loop: GitHub's OIDC tokens expire in minutes and the CLI
+  re-reads the token file whenever its access token is due to refresh, so a
+  cell that runs for most of an hour needs a fresh token each time.
+
+  The job needs `id-token: write`. The token minted here names the Claude API
+  as its audience, so no AWS role accepts it. The caller passes the outputs and
+  the federation identifiers to the engine step's env; nothing is exported job
+  wide.
+
+  The assert-claude-only mode is the tripwire for the jobs that hold this
+  sign-in and nothing else (the labeler and the case summaries): they bind a
+  Claude-only environment, whose OIDC subject no AWS role trusts, so the
+  `id-token: write` their exchange needs mints nothing that reaches the corpus.
+  The mode mints one token for a probe audience and fails unless its
+  environment claim names a Claude-only environment (`claude-` prefix), so an
+  edit that binds such a job to `prod` or `staging` fails before the agent
+  runs.
+
+inputs:
+  mode:
+    description: >-
+      "start" before the engine step, "stop" after it (with `if: always()`),
+      or "assert-claude-only" in a job that must bind a Claude-only environment.
+    required: false
+    default: start
+
+outputs:
+  token-file:
+    description: The identity token file the CLI reads (ANTHROPIC_IDENTITY_TOKEN_FILE).
+    value: ${{ steps.start.outputs.token-file }}
+  config-dir:
+    description: The profile directory that turns the credential cache on (ANTHROPIC_CONFIG_DIR).
+    value: ${{ steps.start.outputs.config-dir }}
+
+runs:
+  using: composite
+  steps:
+    - name: Refuse an unknown mode
+      if: inputs.mode != 'start' && inputs.mode != 'stop' && inputs.mode != 'assert-claude-only'
+      shell: bash
+      run: |
+        echo "::error::claude-federation: unknown mode; expected start, stop or assert-claude-only"
+        exit 1
+
+    - name: Fetch the OIDC token and start its refresh
+      id: start
+      if: inputs.mode == 'start'
+      shell: bash
+      run: |
+        set -euo pipefail
+        if [ -z "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ] || [ -z "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
+          echo "::error::Claude federation needs a GitHub OIDC token, and this job cannot request one: grant it id-token: write"
+          exit 1
+        fi
+        dir="$RUNNER_TEMP/claude-federation"
+        rm -rf "$dir"
+        mkdir -p -m 700 "$dir" "$dir/config/configs"
+        cat > "$dir/refresh.sh" <<'SCRIPT'
+        # Fetch one OIDC token for the Claude API's audience and swap it into
+        # the token file in one rename, so the CLI never reads a half-written
+        # file. GitHub's request URL already carries a query string.
+        set -euo pipefail
+        dir="$1"
+        fetch() {
+          curl -fsS --max-time 30 --retry 3 --retry-all-errors \
+            -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=https%3A%2F%2Fapi.anthropic.com" |
+            jq -er .value
+        }
+        umask 077
+        fetch > "$dir/identity-token.next"
+        mv -f "$dir/identity-token.next" "$dir/identity-token"
+        SCRIPT
+        bash "$dir/refresh.sh" "$dir"
+        # The token never reaches a log, but a masked value stays masked if a
+        # later step's failure output ever quotes it.
+        echo "::add-mask::$(cat "$dir/identity-token")"
+        umask 077
+        printf '%s\n' '{"version":"1.0","authentication":{"type":"oidc_federation"}}' \
+          > "$dir/config/configs/default.json"
+        # The loop outlives this step, as the sidecars do. A failed refresh
+        # leaves the last good token in place, says so in the loop's log and
+        # tries again 20 seconds later rather than at the next four-minute
+        # mark, which a token of GitHub's few-minute lifetime may not outlast;
+        # a cell whose exchange still finds the token expired fails on auth,
+        # visibly.
+        nohup bash -c 'while sleep 240; do until bash "$1/refresh.sh" "$1"; do echo "refresh failed at $(date -u +%FT%TZ)"; sleep 20; done; done' \
+          _ "$dir" > "$dir/refresh.log" 2>&1 &
+        echo "$!" > "$dir/refresh.pid"
+        {
+          echo "token-file=$dir/identity-token"
+          echo "config-dir=$dir/config"
+        } >> "$GITHUB_OUTPUT"
+        echo "Claude federation configured: OIDC token file in place, refreshed every 4 minutes"
+
+    - name: Stop the refresh and remove the federation files
+      if: inputs.mode == 'stop'
+      shell: bash
+      run: |
+        set -euo pipefail
+        dir="$RUNNER_TEMP/claude-federation"
+        if [ -f "$dir/refresh.pid" ]; then
+          kill "$(cat "$dir/refresh.pid")" 2>/dev/null || true
+        fi
+        if [ -f "$dir/refresh.log" ] && grep -q 'refresh failed' "$dir/refresh.log"; then
+          echo "::warning::$(grep -c 'refresh failed' "$dir/refresh.log") OIDC token refreshes failed during this job"
+        fi
+        rm -rf "$dir"
+
+    - name: Assert the job's OIDC subject is a Claude-only environment
+      if: inputs.mode == 'assert-claude-only'
+      shell: bash
+      run: |
+        set -euo pipefail
+        if [ -z "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ] || [ -z "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
+          echo "no OIDC token is reachable from this job"
+          exit 0
+        fi
+        # A probe audience no relying party accepts, so the token minted here
+        # is good for nothing but reading its own claims.
+        jwt="$(curl -fsS --max-time 30 --retry 3 --retry-all-errors \
+          -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+          "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=fedcourtsai-environment-probe" | jq -er .value)"
+        echo "::add-mask::$jwt"
+        environment="$(JWT="$jwt" python3 -I -c '
+        import base64, json, os
+        payload = os.environ["JWT"].split(".")[1]
+        claims = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
+        print(claims.get("environment") or "")
+        ')"
+        case "$environment" in
+          claude-?*) echo "OIDC tokens from this job name the Claude-only environment $environment" ;;
+          *)
+            echo "::error::this job can mint OIDC tokens for environment '${environment}', which is not a Claude-only environment"
+            exit 1
+            ;;
+        esac

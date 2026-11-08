@@ -136,6 +136,29 @@ COMPUTED_ENVIRONMENTS = {
     "summarize.yml": BRANCH_RESOLVED_ENVIRONMENT,
 }
 
+
+def _claude_only(form: str) -> str:
+    """The Claude-only counterpart of a computed environment form."""
+    inner = form.removeprefix("${{ ").removesuffix(" }}")
+    return "${{ format('claude-{0}', " + inner + ") }}"
+
+
+# The Claude-only environments, `claude-prod` (branch policy: `main`) and
+# `claude-staging` (`staging` and `promote/*`), hold one lane's sign-in and
+# nothing else: the Claude federation rule's identifiers and, for the rollback,
+# the engine key. They exist for the jobs that call Claude with no cloud
+# credential by design, which need `id-token: write` for the federated
+# exchange: no AWS role trusts a `claude-*` subject, so the token they can mint
+# reaches no corpus. Pinned per job, each to its workflow's computed form with
+# the `claude-` prefix, so no other job can move under one (and so out of the
+# reach of the corpus roles' trust while still holding a token mint), and each
+# such job's own tripwire is pinned below.
+CLAUDE_ONLY_ENVIRONMENTS: dict[tuple[str, str], str] = {
+    ("run-analytics.yml", "qp-topic-label"): _claude_only(BRANCH_RESOLVED_ENVIRONMENT),
+    ("integration-test.yml", "qp-labeler-smoke"): _claude_only(COMPUTED_ENVIRONMENT),
+    ("summarize.yml", "generate"): _claude_only(BRANCH_RESOLVED_ENVIRONMENT),
+}
+
 # Environments bound by one workflow alone, each for a risk class of its own.
 # `corpus-check` holds the read-only role for the lane that runs PR-head code
 # after the maintainer approves it (docs/corpus-check.md): its required
@@ -310,6 +333,7 @@ def test_every_privileged_job_binds_a_deployment_environment() -> None:
             assert (
                 environment in BRANCH_POLICIED_ENVIRONMENTS
                 or environment == COMPUTED_ENVIRONMENTS.get(path.name)
+                or environment == CLAUDE_ONLY_ENVIRONMENTS.get((path.name, job_name))
                 or environment in LANE_ENVIRONMENTS.get(path.name, frozenset())
             ), (
                 f"{path.name}:{job_name} mints a token, assumes the S3 role or runs an "
@@ -890,8 +914,56 @@ def test_a_job_that_names_a_secret_binds_a_branch_policied_environment() -> None
             assert (
                 environment in BRANCH_POLICIED_ENVIRONMENTS
                 or environment == COMPUTED_ENVIRONMENTS.get(path.name)
+                or environment == CLAUDE_ONLY_ENVIRONMENTS.get((path.name, job_name))
                 or environment in LANE_ENVIRONMENTS.get(path.name, frozenset())
             ), f"{path.name}:{job_name} names a secret under environment {environment!r}"
+
+
+def test_a_claude_only_environment_holds_one_sign_in_and_its_jobs_check_it() -> None:
+    """A job bound to a Claude-only environment holds the Claude sign-in alone.
+
+    Its only secret is the engine key, it assumes no role, and before any
+    other privileged step it runs the `claude-federation` composite's
+    assert-claude-only mode, which mints a probe token and fails unless its
+    environment claim is a `claude-` one: the runtime half of the pin above,
+    so a job that keeps its `id-token: write` but is bound back to `prod`
+    stops before an agent could mint the corpus role's web identity.
+    """
+    bound = {
+        (path.name, job_name)
+        for path in sorted(WORKFLOWS.glob("*.y*ml"))
+        for job_name, job in _jobs(_load(path.name)).items()
+        if "claude-" in str(job.get("environment") or "")
+    }
+    assert bound == set(CLAUDE_ONLY_ENVIRONMENTS), "the Claude-only environments' jobs drifted"
+    for name, job_name in sorted(CLAUDE_ONLY_ENVIRONMENTS):
+        job = _jobs(_load(name))[job_name]
+        dumped = yaml.safe_dump(job)
+        assert set(re.findall(r"secrets\.([A-Za-z0-9_]+)", dumped)) == {"ANTHROPIC_API_KEY"}, (
+            f"{name}:{job_name} names a secret beyond the engine key"
+        )
+        assert "configure-aws-credentials" not in dumped, f"{name}:{job_name} assumes a role"
+        assert "corpus-" not in "".join(str(step.get("uses") or "") for step in _steps(job)), (
+            f"{name}:{job_name} runs a corpus composite"
+        )
+        steps = _steps(job)
+        checks = [
+            index
+            for index, step in enumerate(steps)
+            if step.get("uses") == "./.github/actions/claude-federation"
+            and (step.get("with") or {}).get("mode") == "assert-claude-only"
+        ]
+        assert len(checks) == 1, f"{name}:{job_name} lacks its Claude-only tripwire"
+        assert "if" not in steps[checks[0]], f"{name}:{job_name}'s tripwire is conditional"
+        first_privileged = next(
+            index
+            for index, step in enumerate(steps)
+            if any(marker in str(step.get("uses") or "") for marker in PRIVILEGED_USES)
+            or "secrets." in yaml.safe_dump(step)
+        )
+        assert checks[0] < first_privileged, (
+            f"{name}:{job_name} runs privileged work before its Claude-only tripwire"
+        )
 
 
 @pytest.mark.parametrize("job_name", ["post", "post-ai-cases"])
