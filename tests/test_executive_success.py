@@ -233,9 +233,9 @@ def test_a_win_reads_in_the_executives_direction(tmp_path: Path) -> None:
     pooled = cells[("biden-46", "all")]
     assert (pooled.wins, pooled.decided) == (1, 2)
     assert ("biden-46", "government") not in cells
-    # No snapshot is stored, so every stored denial in scope keeps its label.
+    # No snapshot is stored, so every stored denial and grant in scope keeps its label.
     assert result.reading == "finer"
-    assert (result.reread_rows, result.reread_changed, result.reread_unobservable) == (3, 0, 3)
+    assert (result.reread_rows, result.reread_changed, result.reread_unobservable) == (7, 0, 7)
 
 
 def test_the_finer_reading_relabels_a_stored_denial() -> None:
@@ -271,7 +271,8 @@ def test_the_finer_reading_relabels_a_stored_denial() -> None:
         )
 
     result = cut(fetch)
-    # One batch fetch covers every counted row; only the stored denials are re-read.
+    # One batch fetch covers every counted row; the stored denials and the stored
+    # grant are re-read, and the grant, with no snapshot, keeps its label.
     assert sorted(calls) == ["24A100", "24A101", "24A902"]
     cells = _cells(result)
     assert (cells[("trump-47", "government")].wins, cells[("trump-47", "government")].decided) == (
@@ -281,7 +282,7 @@ def test_the_finer_reading_relabels_a_stored_denial() -> None:
     challenger = cells[("biden-46", "challenger")]
     assert (challenger.wins, challenger.decided, challenger.dismissed) == (0, 1, 1)
     assert challenger.dispositions == {"dismissed-moot": 1, "granted": 1}
-    assert (result.reread_rows, result.reread_changed) == (2, 2)
+    assert (result.reread_rows, result.reread_changed, result.reread_unobservable) == (3, 2, 1)
     listed = {row.docket_number: row for row in result.review_rows}
     assert (listed["24A902"].stored_disposition, listed["24A902"].reading) == (
         "denied",
@@ -291,6 +292,54 @@ def test_the_finer_reading_relabels_a_stored_denial() -> None:
     assert registered.reading == "registered"
     assert registered.reread_rows == 0
     assert _cells(registered)[("trump-47", "government")].wins == 0
+
+
+def test_the_finer_reading_relabels_a_grant_in_light_of_a_companion() -> None:
+    """A challenger's companion dismissed in light of the lead's relief leaves the rate."""
+    osha = "National Federation of Independent Business, et al. v. Department of Labor, et al."
+    db_rows = [
+        _app("scotus/1", osha, "21A244", date(2021, 12, 17), Disposition.granted),
+        _app("scotus/2", osha, "21A247", date(2021, 12, 18), Disposition.granted),
+    ]
+    payloads = {
+        "21A244": _live("21A244", "Application (21A244) granted.", "2022-01-13"),
+        "21A247": _live(
+            "21A247",
+            "Application (21A247) dismissed in light of the relief granted in No. 21A244.",
+            "2022-01-13",
+        ),
+    }
+
+    def fetch(rows: Sequence[corpus.CorpusRow]) -> list[Payload]:
+        return [payloads.get(row.docket_number) for row in rows]
+
+    def cut(fetcher: Fetcher | None) -> ExecutiveSuccess:
+        return _success(
+            db_rows,
+            as_of_field="filed",
+            through=None,
+            since=None,
+            corpus_sha256="",
+            scope_rule_version=EXEC_ACTION_RULE_VERSION,
+            fetch=fetcher,
+            reading="finer",
+            latest_pull=None,
+            latest_snapshot=None,
+        )
+
+    result = cut(fetch)
+    challenger = _cells(result)[("biden-46", "challenger")]
+    # The lead's grant is the executive's one loss; the companion decides nothing.
+    assert (challenger.wins, challenger.decided, challenger.dismissed) == (0, 1, 1)
+    assert challenger.dispositions == {"dismissed-moot": 1, "granted": 1}
+    assert (result.reread_rows, result.reread_changed, result.reread_unobservable) == (2, 1, 0)
+    listed = {row.docket_number: row for row in result.review_rows}
+    assert (listed["21A247"].stored_disposition, listed["21A247"].reading) == (
+        "granted",
+        "dismissed-moot",
+    )
+    registered = _cells(cut(None))[("biden-46", "challenger")]
+    assert (registered.wins, registered.decided) == (0, 2)
 
 
 def _live(docket: str, order: str, decided: str) -> dict[str, object]:
@@ -436,7 +485,7 @@ def test_the_command_prints_the_cut_with_its_vintage(
         "through 2025-10-01)"
     ) in result.stderr
     assert "trump-47 government: executive won 3/4 = 75.0%" in result.stderr
-    assert "finer reading re-read 3 stored denial(s)" in result.stderr
+    assert "finer reading re-read 6 stored denial(s) and grant(s)" in result.stderr
     assert (
         "trump-47 government by controversy (controversy-v2): executive won 1/1"
     ) in result.stderr

@@ -2413,8 +2413,9 @@ def executive_success_cmd(
         "finer",
         "--reading",
         help=(
-            "How a stored denial is read: 'finer' re-reads it from the latest snapshot, "
-            "naming partial grants and denials as moot; 'registered' keeps the stored label."
+            "How a stored denial or grant is read: 'finer' re-reads it from the latest "
+            "snapshot, naming partial grants, denials as moot and dismissals in light of a "
+            "companion's relief; 'registered' keeps the stored label."
         ),
     ),
 ) -> None:
@@ -2427,8 +2428,9 @@ def executive_success_cmd(
     application granted, or a challenger's application denied, is the
     executive's win. Rates are over substantively decided applications;
     withdrawn, moot, pending and unreadable rows are counted beside them. By
-    default a stored denial is re-read from the row's latest snapshot under the
-    finer interim reading, which names partial grants and denials as moot.
+    default a stored denial or grant is re-read from the row's latest snapshot
+    under the finer interim reading, which names partial grants, denials as
+    moot and dismissals in light of a companion's relief.
     A row with no docketed date takes its first proceeding entry's date where
     a live snapshot is read. The
     same applications are counted again by controversy
@@ -2505,7 +2507,8 @@ def executive_success_cmd(
         f"row(s) left out, {result.filed_before_since} earlier and "
         f"{result.filed_after_through} later than the cut, {result.filed_from_first_entry} "
         f"dated by their first proceeding; scope [{reasons}]; unknown scope "
-        f"[{unknown}]; {result.reading} reading re-read {result.reread_rows} stored denial(s), "
+        f"[{unknown}]; {result.reading} reading re-read {result.reread_rows} "
+        "stored denial(s) and grant(s), "
         f"{result.reread_changed} relabeled, {result.reread_unobservable} unobservable and "
         f"{result.reread_after_through} decided after the cut; "
         f"corpus latest pull {pulled}, latest snapshot {snapshot}",

@@ -3678,12 +3678,15 @@ to it.
   those dismissed or denied as moot sit beside the rate, as in the published
   tallies. An application deferred to argument has no disposition until it is
   decided, so it is `pending`, outside the rate. The default `finer` reading
-  re-reads each stored denial from its latest live snapshot, because the
-  stored label collapses a partial grant and a denial as moot to `denied`; an
-  entry dated after `--through` is not used. Quote `reading`,
-  `reread_changed`, `reread_unobservable` and `reread_after_through` beside
-  the rate. Under `registered` the government's rate is understated where it
-  filed, and overstated where it defended.
+  re-reads each stored denial and grant from its latest live snapshot,
+  because the stored label collapses a partial grant and a denial as moot to
+  `denied`, and reads an application "dismissed in light of the relief
+  granted" in a companion as `granted`; an entry dated after `--through` is
+  not used. Quote `reading`, `reread_changed`, `reread_unobservable` and
+  `reread_after_through` beside the rate. Under `registered` the government's
+  rate is understated where it filed, and overstated where it defended, and a
+  challenger's companion applications dismissed in light of a lead's grant
+  read as the executive's losses.
 - **Scope is a caption rule, and its unknowns are not zeros.** The rule reads
   the caption and the Solicitor General's counsel entries, and it narrows the
   government-respondent side only: every government application is in scope
