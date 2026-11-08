@@ -122,27 +122,31 @@ _MAX_PROBLEMS = 20
 # regression.
 #
 # Docket rows (everything but a SCOTUS application): a stable handful of
-# CourtListener rows carry `date_decided < date_filed`, 21 on the 2026-10-27
-# blob, several of them circuit dockets carrying the originating case's decision
-# date. Part of that count can reach the comparison through a derived column: on
-# a denied SCOTUS petition `date_decided` takes the row's own `date_cert_denied`
-# (`corpus.converge_denial_termination_dates`), so a docket whose upstream
-# `date_filed` postdates its denial entry lands here. The *pair* is still
-# upstream's — nothing is rewritten — but a future climb has two possible causes
-# rather than one, and telling them apart means asking whether the new rows are
-# denials.
+# CourtListener rows carry `date_decided < date_filed`, 21 on both the 2026-10-27
+# and 2026-11-08 blobs, several of them circuit dockets carrying the originating
+# case's decision date. Part of that count can reach the comparison through a
+# derived column: on a denied SCOTUS petition `date_decided` takes the row's own
+# `date_cert_denied` (`corpus.converge_denial_termination_dates`), so a docket
+# whose upstream `date_filed` postdates its denial entry lands here. The *pair*
+# is still upstream's — nothing is rewritten — but a future climb has two
+# possible causes rather than one, and telling them apart means asking whether
+# the new rows are denials.
 _CASE_DATE_ORDER_BASELINE = 30
 
 # SCOTUS application rows (`application_kind` set): `date_filed` is the Court's
 # `DocketedDate`, and an extension of time is often decided in chambers before
 # the Clerk dockets it, so its grant entry predates the docketing date by days.
-# A handful more carry the Clerk's turn-of-the-year slip, a January grant entry
-# dated the previous year. 38 rows on the 2026-10-27 blob, all but one an
-# extension; the one substantive row's decision date is right and its upstream
-# docketing date is not, and the interim moments open at the submission entry
-# rather than at `date_filed`, so no cut reads either date. The count grows with
-# each application Term the walker back-fills, which is why it has its own floor.
-_CASE_DATE_ORDER_APPLICATION_BASELINE = 50
+# A handful more carry a Clerk's slip in the grant entry's year or month, such
+# as a January grant dated the previous year. 54 rows on the 2026-11-08 blob,
+# with every application Term from OT2015 through OT2025 walked: 53 extensions
+# and one substantive row, one to ten per Term. The substantive row's decision
+# date is right and its upstream docketing date is not, and the interim moments
+# open at the submission entry rather than at `date_filed`, so no cut reads
+# either date. The count grows with each application Term the walker adds, live
+# or back-filled, which is why it has its own floor: the headroom covers about
+# three more Terms at that rate, so a climb well past it means something other
+# than a new Term's extensions.
+_CASE_DATE_ORDER_APPLICATION_BASELINE = 70
 
 # Stable check identifiers (the `name` field of each emitted CorpusCheck).
 CHECK_CORPUS_OPENS = "corpus_opens"

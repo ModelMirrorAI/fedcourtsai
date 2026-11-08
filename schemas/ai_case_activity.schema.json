@@ -73,6 +73,31 @@
           "title": "Kind",
           "type": "string"
         },
+        "motion": {
+          "anyOf": [
+            {
+              "enum": [
+                "partial-summary-judgment",
+                "summary-judgment",
+                "judgment-on-the-pleadings",
+                "dismiss",
+                "class-certification",
+                "preliminary-injunction",
+                "temporary-restraining-order",
+                "compel-arbitration",
+                "transfer",
+                "stay-pending-appeal"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The principal motion a motion, ruling or opinion names, under the record's rule; none for other kinds, or where the entry names none.",
+          "title": "Motion"
+        },
         "url": {
           "description": "The entry on CourtListener: its main document's page, else the docket.",
           "pattern": "^https://www\\.courtlistener\\.com/[A-Za-z0-9/_.~%#-]*$",
@@ -93,11 +118,159 @@
       ],
       "title": "AiCaseActivityEntry",
       "type": "object"
+    },
+    "AiCaseAvailableEntry": {
+      "additionalProperties": false,
+      "description": "A docket entry, filed earlier, whose documents became readable on CourtListener.",
+      "properties": {
+        "case": {
+          "description": "The watchlist case's name, as the watchlist gives it.",
+          "minLength": 1,
+          "title": "Case",
+          "type": "string"
+        },
+        "category": {
+          "description": "The case's category in the watchlist's closed vocabulary.",
+          "minLength": 1,
+          "title": "Category",
+          "type": "string"
+        },
+        "court": {
+          "description": "CourtListener court id of the docket.",
+          "minLength": 1,
+          "title": "Court",
+          "type": "string"
+        },
+        "date_filed": {
+          "description": "The day the entry was filed.",
+          "format": "date",
+          "title": "Date Filed",
+          "type": "string"
+        },
+        "docket_id": {
+          "description": "CourtListener docket id.",
+          "exclusiveMinimum": 0,
+          "title": "Docket Id",
+          "type": "integer"
+        },
+        "docket_number": {
+          "description": "The court's own docket number.",
+          "minLength": 1,
+          "title": "Docket Number",
+          "type": "string"
+        },
+        "documents": {
+          "description": "How many of the entry's documents became readable this day.",
+          "minimum": 1,
+          "title": "Documents",
+          "type": "integer"
+        },
+        "entry_id": {
+          "description": "CourtListener's id for the docket entry.",
+          "exclusiveMinimum": 0,
+          "title": "Entry Id",
+          "type": "integer"
+        },
+        "entry_number": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The entry's number on the docket; unnumbered entries carry none.",
+          "title": "Entry Number"
+        },
+        "kind": {
+          "description": "What became readable, under the record's availability rule.",
+          "enum": [
+            "opinion",
+            "judgment",
+            "ruling",
+            "complaint",
+            "exhibits",
+            "unsealed",
+            "transcript"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "motion": {
+          "anyOf": [
+            {
+              "enum": [
+                "partial-summary-judgment",
+                "summary-judgment",
+                "judgment-on-the-pleadings",
+                "dismiss",
+                "class-certification",
+                "preliminary-injunction",
+                "temporary-restraining-order",
+                "compel-arbitration",
+                "transfer",
+                "stay-pending-appeal"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The principal motion the entry names, or the one its exhibits support; none where it names none.",
+          "title": "Motion"
+        },
+        "url": {
+          "description": "The entry on CourtListener: its main document's page, else the docket.",
+          "pattern": "^https://www\\.courtlistener\\.com/[A-Za-z0-9/_.~%#-]*$",
+          "title": "Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "case",
+        "category",
+        "court",
+        "docket_id",
+        "docket_number",
+        "entry_id",
+        "date_filed",
+        "kind",
+        "documents",
+        "url"
+      ],
+      "title": "AiCaseAvailableEntry",
+      "type": "object"
     }
   },
   "additionalProperties": false,
-  "description": "``data/ai-cases/activity/<YYYY-MM-DD>.json`` \u2014 a day's significant AI-case docket entries.\n\nWritten by ``watchlist-refresh`` for the entries a refresh found that the\nstored docket lacked and that the rule (:data:`fedcourtsai.ai_activity.ACTIVITY_RULE`)\nkeeps. Identifiers, dates, kinds and links only: no docket text is copied.",
+  "description": "``data/ai-cases/activity/<YYYY-MM-DD>.json`` \u2014 a day's significant AI-case docket entries.\n\nWritten by ``watchlist-refresh`` for the entries a refresh found that the\nstored docket lacked and that the rule (:data:`fedcourtsai.ai_activity.ACTIVITY_RULE`)\nkeeps, and for the entries the stored docket already held whose documents\nbecame readable and that the availability rule\n(:data:`fedcourtsai.ai_activity.AVAILABILITY_RULE`) keeps. Identifiers,\ndates, kinds, counts and links only: no docket text is copied.",
   "properties": {
+    "available": {
+      "description": "Entries filed earlier whose documents became readable this day, oldest filing first. A day with neither list has no file.",
+      "items": {
+        "$ref": "#/$defs/AiCaseAvailableEntry"
+      },
+      "title": "Available",
+      "type": "array"
+    },
+    "available_rule": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The availability rule's label; present exactly when `available` is.",
+      "title": "Available Rule"
+    },
     "day": {
       "description": "The UTC day the refresh found these entries.",
       "format": "date",
@@ -105,11 +278,10 @@
       "type": "string"
     },
     "entries": {
-      "description": "The day's entries, oldest filing first; a quiet day has no file.",
+      "description": "The day's new significant entries, oldest filing first.",
       "items": {
         "$ref": "#/$defs/AiCaseActivityEntry"
       },
-      "minItems": 1,
       "title": "Entries",
       "type": "array"
     },
@@ -128,8 +300,7 @@
   },
   "required": [
     "day",
-    "rule",
-    "entries"
+    "rule"
   ],
   "title": "AiCaseActivity",
   "type": "object"

@@ -2995,7 +2995,10 @@ _PO_BOX_RE = re.compile(
 # Each is read as written everywhere, and in capitals on the document's
 # opening alone (`OPENING_WINDOW_CHARS`): a caption sets its lines in capitals
 # (`1234 MAPLE STREET`), but further in a heading set in capitals reads the
-# same way ("THE 2 CASES ARE ALIKE IN EVERY WAY"). The match stays
+# same way ("THE 2 CASES ARE ALIKE IN EVERY WAY"), so past the opening a
+# street in capitals is read only as the first line of a mailing block, with
+# a "City, State ZIP" line below it or below a unit line under it
+# (`_CAPITAL_BLOCK_STREET_RE`). The match stays
 # case-sensitive otherwise, so "3 blocks down the street" is not an address.
 # `CIR` is the one capital form left out even on the opening: a citation set
 # in capitals spells the circuit that way ("(5TH CIR. 2019)").
@@ -3072,7 +3075,7 @@ _STATE_NAMES = (
 # Every blank run is possessive, so a line of blanks that is not a city line
 # fails in one pass rather than retrying each way of splitting the run.
 _CITY_LINE = (
-    r"[ \t]*+[A-Z][A-Za-z'.-]{0,30}+(?:[ \t]++[A-Za-z][A-Za-z'.-]{0,30}+){0,3}"
+    r"[ \t]*+[A-Z][A-Za-z'\u2019.-]{0,30}+(?:[ \t]++[A-Za-z][A-Za-z'\u2019.-]{0,30}+){0,3}"
     r"[ \t]*+,?[ \t]*+"
     rf"(?:[A-Z]{{2}}|[A-Z]\.[ \t]?[A-Z]\.|(?i:{_STATE_NAMES.replace(' ', r'[ \t]+')}))\.?"
     r"[ \t]++\d{5}(?:-\d{4})?[ \t]*+\r?$"
@@ -3084,9 +3087,28 @@ _CITY_LINE_RE = re.compile(rf"^{_CITY_LINE}", re.MULTILINE)
 # and a compass quadrant (`1 First Street, N.E.`).
 _STREET_LINE_TAIL_RE = re.compile(r"[ \t.,]*(?:[NS]\.?[ \t]?[EW]\.?|[NSEW]\.?)?[ \t.,]*\r?\Z")
 
+# A mailing block's unit set on a line of its own between the street line and
+# the city line (`Suite 12`, `Apt. 4B`, `# 12`), the whole of its line. It is
+# withheld, with the city line below it, only where the line above it ends on
+# a withheld street address or box (`_city_line_spans`): on its own a line
+# reading `Room 5` is as often a heading or a caption's courtroom.
+_UNIT_WORDS = (
+    "Apt|Apartment|Suite|Ste|Unit|Floor|Fl|Rm|Room|No|APT|APARTMENT|SUITE|STE|UNIT|FLOOR|ROOM"
+)
+_UNIT_LINE = rf"[ \t]*+(?:(?:{_UNIT_WORDS})\b\.?[ \t]*+#?|#)[ \t]*+[\w-]{{1,8}}[ \t.,]*+"
+_UNIT_LINE_RE = re.compile(rf"{_UNIT_LINE}\r?\Z")
+
+# What follows a street line for it to open a mailing block: a "City, State
+# ZIP" line directly below it, or below a unit line directly below it, with
+# only punctuation and a compass quadrant (`N.E.`) left on the street line.
+_BLOCK_TAIL = (
+    r"(?=[ \t.,]*+(?:(?:[NS]\.?[ \t]?[EW]\.?|[NSEW]\.?)(?![\w])[ \t.,]*+)?\r?\n"
+    rf"(?:{_UNIT_LINE}\r?\n)?{_CITY_LINE})"
+)
+
 
 def _street_pattern(
-    suffixes: str, tail: str = "", name: str = r"[A-Z][\w'.-]{0,40}"
+    suffixes: str, tail: str = "", name: str = r"[A-Z][\w'\u2019.-]{0,40}"
 ) -> re.Pattern[str]:
     """The street-address shape ending on ``name`` and one of ``suffixes``, then ``tail``.
 
@@ -3095,26 +3117,31 @@ def _street_pattern(
     """
     return re.compile(
         r"(?:(?<![\w.-])|(?<=^[.-]))\d[0-9OoIl]{0,5}[A-Za-z]?[ \t]+"
-        rf"(?:(?:[A-Z0-9][\w'.-]{{0,40}}|{_STREET_CONNECTORS})[ \t]+){{0,4}}"
+        rf"(?:(?:[A-Z0-9][\w'\u2019.-]{{0,40}}|{_STREET_CONNECTORS})[ \t]+){{0,4}}"
         rf"{_OHIO_REPORTER}(?:{name}|\d{{1,3}}(?:st|nd|rd|th))[ \t]+"
         rf"(?:{suffixes})\b\.?"
-        r"(?:[ \t]*+,?[ \t]*+(?:Apt|Apartment|Suite|Ste|Unit|Floor|Fl|Rm|Room|No|APT|UNIT)"
+        rf"(?:[ \t]*+,?[ \t]*+(?:{_UNIT_WORDS})"
         r"\.?[ \t]*+[\w-]+"
-        rf"|[ \t]*+#[ \t]*+[\w-]+)?{tail}",
+        rf"|[ \t]*+,?[ \t]*+#[ \t]*+[\w-]+)?{tail}",
         re.MULTILINE,
     )
 
 
 _STREET_RE = _street_pattern(_STREET_SUFFIXES)
 _CAPITAL_STREET_RE = _street_pattern(_STREET_CAPITAL_SUFFIXES)
+# A street set in capitals past the opening is read only as the first line of
+# a mailing block (`_BLOCK_TAIL`): a letter reproduced in an appendix sets its
+# addressee's block that way, and a heading set in capitals has no city line
+# below it.
+_CAPITAL_BLOCK_STREET_RE = _street_pattern(_STREET_CAPITAL_SUFFIXES, _BLOCK_TAIL)
 # The three abbreviations the street types leave out, read only as the first
-# line of a mailing block: a "City, State ZIP" line must follow directly. The
-# street's name before them is a word of two letters or more, so a reporter
-# cite broken before its page (`141 S. Ct`) is not read as one.
+# line of a mailing block (`_BLOCK_TAIL`). The street's name before them is a
+# word of two letters or more, so a reporter cite broken before its page
+# (`141 S. Ct`) is not read as one.
 _SHORT_SUFFIX_STREET_RE = _street_pattern(
     "Dr|Ct|Pl|DR|CT|PL",
-    rf"(?=[ \t.,]*+\r?\n{_CITY_LINE})",
-    name=r"[A-Z][A-Za-z][\w'.-]{0,39}",
+    _BLOCK_TAIL,
+    name=r"[A-Z][A-Za-z][\w'\u2019.-]{0,39}",
 )
 
 # Every pattern here, and every value pattern below, is matched against the
@@ -3136,12 +3163,19 @@ _CONTACT_PATTERNS: tuple[re.Pattern[str], ...] = (
     _PO_BOX_RE,
     _STREET_RE,
     _CAPITAL_STREET_RE,
+    _CAPITAL_BLOCK_STREET_RE,
     _SHORT_SUFFIX_STREET_RE,
 )
 
 # The shapes a "City, State ZIP" line is withheld below (`_city_line_spans`).
 _ADDRESS_PATTERNS: frozenset[re.Pattern[str]] = frozenset(
-    {_PO_BOX_RE, _STREET_RE, _CAPITAL_STREET_RE, _SHORT_SUFFIX_STREET_RE}
+    {
+        _PO_BOX_RE,
+        _STREET_RE,
+        _CAPITAL_STREET_RE,
+        _CAPITAL_BLOCK_STREET_RE,
+        _SHORT_SUFFIX_STREET_RE,
+    }
 )
 
 # The telephone shapes whose letter-for-digit readings are kept honest by a
@@ -3397,8 +3431,8 @@ _RESIDUAL_STREET_SUFFIX_WORDS = "|".join(
 )
 _RESIDUAL_STREET_RE = re.compile(
     r"^[^\w\n]{0,3}\d[0-9OoIl]{0,5}[A-Za-z]?[ \t]+"
-    r"(?:[A-Za-z][\w'.-]{0,40}[ \t]+){0,4}"
-    rf"{_OHIO_REPORTER}(?:[A-Za-z][\w'.-]{{0,40}}|\d{{1,3}}(?:st|nd|rd|th))[ \t]+"
+    r"(?:[A-Za-z][\w'\u2019.-]{0,40}[ \t]+){0,4}"
+    rf"{_OHIO_REPORTER}(?:[A-Za-z][\w'\u2019.-]{{0,40}}|\d{{1,3}}(?:st|nd|rd|th))[ \t]+"
     rf"(?:{_RESIDUAL_STREET_SUFFIX_WORDS}|{_RESIDUAL_STREET_SUFFIX_WORDS.upper()})\b",
     re.MULTILINE,
 )
@@ -3408,8 +3442,8 @@ _RESIDUAL_STREET_RE = re.compile(
 # words in any case.
 _RESIDUAL_SHORT_SUFFIX_STREET_RE = re.compile(
     r"^[^\w\n]{0,3}\d[0-9OoIl]{0,5}[A-Za-z]?[ \t]+"
-    r"(?:[A-Za-z][\w'.-]{0,40}[ \t]+){0,4}"
-    r"(?:[A-Za-z][A-Za-z][\w'.-]{0,39}|\d{1,3}(?:st|nd|rd|th))[ \t]+"
+    r"(?:[A-Za-z][\w'\u2019.-]{0,40}[ \t]+){0,4}"
+    r"(?:[A-Za-z][A-Za-z][\w'\u2019.-]{0,39}|\d{1,3}(?:st|nd|rd|th))[ \t]+"
     r"(?:Dr|Ct|Pl|DR|CT|PL)\b[^\n]{0,40}+\n"
     rf"{_CITY_LINE}",
     re.MULTILINE,
@@ -3494,27 +3528,42 @@ def _city_line_spans(text: str, spans: list[tuple[int, int]]) -> list[tuple[int,
     ``spans`` are the withheld street addresses and boxes. A mailing block's
     second line carries the filer's city and ZIP code, and is withheld with the
     line above it where that line ends on one of them (punctuation or a compass
-    quadrant may follow it). Each is withheld as a span of its
+    quadrant may follow it). Where the block sets its unit on a line of its own
+    between the two (`_UNIT_LINE_RE`), the unit line and the city line below it
+    are both withheld. Each is withheld as a span of its
     own, so the block's lines each keep a placeholder rather than one spanning
     the line break. A city line under anything else is left alone, since the
     Court's own address line is set the same way with no street line above it;
     under a court or clerk street address it is withheld like any other.
     """
     found: list[tuple[int, int]] = []
+
+    def ends_on_withheld(line_start: int, line_end: int) -> bool:
+        return any(
+            line_start < end <= line_end and _STREET_LINE_TAIL_RE.match(text, end, line_end)
+            for _, end in spans
+        )
+
+    def trimmed(line_start: int, line_end: int) -> tuple[int, int]:
+        # A line's leading and trailing blanks stay, as a shape match's do.
+        line = text[line_start:line_end]
+        lead = len(line) - len(line.lstrip(" \t"))
+        return line_start + lead, line_start + len(line.rstrip(" \t\r"))
+
     for match in _CITY_LINE_RE.finditer(text):
         line_start = match.start()
         if line_start == 0:
             continue
         above_end = line_start - 1
         above_start = text.rfind("\n", 0, above_end) + 1
-        if any(
-            above_start < end <= above_end and _STREET_LINE_TAIL_RE.match(text, end, above_end)
-            for _, end in spans
-        ):
-            # The line's leading and trailing blanks stay, as a shape match's do.
-            line = match.group()
-            lead = len(line) - len(line.lstrip(" \t"))
-            found.append((line_start + lead, line_start + len(line.rstrip(" \t\r"))))
+        if ends_on_withheld(above_start, above_end):
+            found.append(trimmed(line_start, line_start + len(match.group())))
+        elif above_start > 0 and _UNIT_LINE_RE.match(text, above_start, above_end):
+            street_end = above_start - 1
+            street_start = text.rfind("\n", 0, street_end) + 1
+            if ends_on_withheld(street_start, street_end):
+                found.append(trimmed(above_start, above_end))
+                found.append(trimmed(line_start, line_start + len(match.group())))
     return found
 
 
@@ -3548,13 +3597,16 @@ def scrub_contact_details(
     line of its own says what it is), a post-office box, and a street address
     (house number, name, street type, and any unit after it), with the "City,
     State ZIP" line directly below a line ending on a withheld street address or
-    box — withheld as a span of its own, so each line keeps its placeholder.
+    box, or below a unit line (`Suite 12`) directly below one, which is then
+    withheld too — each withheld as a span of its own, so each line keeps its
+    placeholder.
     Nothing else is a target — a
     docket number, a date, a pin cite and a reporter citation all lack the
     shapes above, which is why the patterns are anchored on what a contact
     detail has and legal prose does not rather than on where in the document it
     sits. No shape pattern's match spans a newline (the `Dr`/`Ct`/`Pl` street
-    shape looks past one to the city line below, but stops at it).
+    shape and the capitals street past the opening look past one or two, to
+    a unit line and the city line below, but stop at them).
 
     Overlapping matches from either pass are merged, and each merged span is
     replaced once, by the placeholder followed by every line boundary the span

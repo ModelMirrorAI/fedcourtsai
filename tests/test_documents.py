@@ -5328,6 +5328,93 @@ def test_the_city_line_below_a_withheld_street_is_withheld_on_its_own(street: st
     assert scrubbed.replacements == 2
 
 
+def test_a_mailing_block_in_an_appendix_letter_is_withheld_line_by_line() -> None:
+    # A clerk's letter reproduced deep in an appendix: the addressee's street
+    # name carries a typographic apostrophe and the unit sits on its own line.
+    letter = (
+        "OFFICE OF THE CLERK\nCLERK 500 S. EXAMPLE PLACE,\nSuite 115\n"
+        "SPRINGFIELD, ST 00000\nOctober 15, 2025\nMr. John Roe\n"
+        "1000 Brook\u2019s Lane\nSuite 12\nSpringfield, IL 62701\nNo. 00-00000\n"
+    )
+    text = "x" * (2 * documents_module.OPENING_WINDOW_CHARS) + "\n" + letter
+
+    scrubbed = scrub_contact_details(text)
+
+    lines = scrubbed.text.split("\n")[-11:]
+    assert (
+        lines
+        == [
+            "OFFICE OF THE CLERK",
+            # The clerk's block, a street address in capitals with a city line
+            # below it, is withheld as any other mailing block is.
+            f"CLERK {CONTACT_PLACEHOLDER},",
+            CONTACT_PLACEHOLDER,
+            CONTACT_PLACEHOLDER,
+            "October 15, 2025",
+            "Mr. John Roe",
+            CONTACT_PLACEHOLDER,
+            CONTACT_PLACEHOLDER,
+            CONTACT_PLACEHOLDER,
+            "No. 00-00000",
+            "",
+        ][-11:]
+    )
+    assert scrubbed.replacements == 6
+
+
+@pytest.mark.parametrize("apostrophe", ["'", "\u2019"])
+def test_a_street_name_with_an_apostrophe_is_withheld(apostrophe: str) -> None:
+    text = f"Jane Doe\n12 O{apostrophe}Malley{apostrophe}s Way\nQUESTION PRESENTED\n"
+
+    scrubbed = scrub_contact_details(text)
+
+    assert scrubbed.text == f"Jane Doe\n{CONTACT_PLACEHOLDER}\nQUESTION PRESENTED\n"
+
+
+@pytest.mark.parametrize(
+    "block",
+    [
+        "88 N. QUAIL HOLLOW CIRCLE, STE. 4\nRIVERTON NV 89000",
+        "12 ASPEN DR., # 3\nHILLTOWN, N.J. 07000",
+        "1000 MAPLE STREET\nSUITE 12\nHOUSTON, TX 77002",
+        "1234 MAPLE STREET NW\nWASHINGTON, DC 20001",
+    ],
+)
+def test_a_capitals_mailing_block_past_the_opening_is_withheld(block: str) -> None:
+    text = "x" * (2 * documents_module.OPENING_WINDOW_CHARS) + "\nJOHN ROE\n" + block + "\n"
+
+    scrubbed = scrub_contact_details(text)
+    scrubbed_tail = scrubbed.text.split("\n")[-(block.count("\n") + 2) :]
+
+    # A compass quadrant after the street stays, as it does on the opening.
+    assert [line.removesuffix(" NW") for line in scrubbed_tail] == [CONTACT_PLACEHOLDER] * (
+        block.count("\n") + 1
+    ) + [""]
+
+
+def test_a_capitals_street_past_the_opening_without_a_city_line_is_left_alone() -> None:
+    text = "x" * (2 * documents_module.OPENING_WINDOW_CHARS) + "\n1000 MAPLE STREET\nNEXT\n"
+
+    assert scrub_contact_details(text).text == text
+
+
+@pytest.mark.parametrize(
+    "between",
+    [
+        # A unit line under something that is not a withheld street.
+        "Jane Doe\nSuite 200\nHouston, TX 77002\n",
+        # A line that only opens like a unit.
+        "1234 Maple Street\nRoom 5 was empty\nHouston, TX 77002\n",
+        # A word that only opens with a unit word.
+        "1234 Maple Street\nNotes\nHouston, TX 77002\n",
+    ],
+)
+def test_a_unit_line_outside_a_mailing_block_is_left_alone(between: str) -> None:
+    scrubbed = scrub_contact_details(between)
+
+    assert scrubbed.text.endswith("\nHouston, TX 77002\n")
+
+
 def test_a_mailing_block_with_crlf_line_ends_is_withheld_line_by_line() -> None:
     text = _ABBREVIATED_COVER.replace("\n", "\r\n")
 
@@ -5343,8 +5430,11 @@ def test_a_mailing_block_with_crlf_line_ends_is_withheld_line_by_line() -> None:
         "Word" + " " * 150_000 + "x\n",
         "1 Ab Dr" + " " * 150_000 + "\n",
         "1234 Maple St" + " " * 150_000 + "\nx",
+        "x" * 7_000 + "\n1234 MAPLE STREET" + " " * 150_000 + "\nx",
+        "1234 Maple Street\nSuite" + " " * 150_000 + "1\nx",
+        "1 AB DR," + " " * 150_000 + "#1\nx",
     ],
-    ids=["city-line", "abbreviated-street", "street-unit"],
+    ids=["city-line", "abbreviated-street", "street-unit", "capitals-block", "unit-line", "hash"],
 )
 def test_the_mailing_block_shapes_scan_a_run_of_blanks_in_linear_time(text: str) -> None:
     # A blank run at the document cap that is not a city line fails in one pass.

@@ -29,8 +29,16 @@ runbook, [docs/security.md](docs/security.md).
 - **Least-privilege permissions.** Every workflow sets top-level `permissions: {}`
   and grants only what each job needs.
 - **No static key in the runner's process env where untrusted code runs.** The
-  Claude and Codex engine *actions* proxy or scope their model API keys so those
-  CLIs never hold them. The engines this repo drives directly — Gemini
+  Codex engine action keeps its model API key behind a localhost proxy so the
+  CLI never holds it; the Claude engine action hands its key to the CLI's
+  environment. So the Claude cells, and the engine-actions-smoke leg that
+  invokes them, sign in by workload identity federation once their
+  environment names a federation rule: the step and the CLI are handed no
+  Anthropic key, only a token, exchanged from the job's OIDC token, that
+  expires within minutes. Their jobs still name the key for the rollback, so
+  it reaches their runners until that reference is removed (*Claude cells
+  sign in by workload identity federation* in
+  [docs/security.md](docs/security.md)). The engines this repo drives directly — Gemini
   everywhere, and all three in the cert back-test and the integration suite's
   engine smoke — are the exception: their key is a scoped step env on the agent
   step, so the control there is the Gemini
@@ -222,7 +230,13 @@ runbook, [docs/security.md](docs/security.md).
   corpus writer jobs bind, and nothing else — an IAM statement the promotion
   gate cannot read, which the maintainer keeps (*`corpus-write` holds the
   production read-write role* in [docs/security.md](docs/security.md)).
-  Beyond AWS it is the Claude GitHub App's installation-token exchange, which
+  Beyond AWS it is the Anthropic federation rule of the job's environment,
+  which admits only the workflows that run a Claude cell or its smoke and
+  yields a short-lived token on the workspace those cells spend, to any job of
+  those workflows holding `id-token: write`: Claude API spend behind the
+  workspace's spend limit, on a workspace that stores no files or batches.
+  And it is the Claude GitHub App's
+  installation-token exchange, which
   accepts a token from any job in this repository holding `id-token: write`
   and yields one with the App's write grant: an **accepted residual** — the
   App also serves Claude Code's own GitHub access, so it stays installed, and

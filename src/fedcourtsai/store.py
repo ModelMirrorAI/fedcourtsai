@@ -32,6 +32,7 @@ from .integrity import (
     classify_stratum,
     forward_claim_breach,
     latest_evaluation_runs,
+    leakage_assessed,
     leakage_excluded,
 )
 from .paths import CasePaths
@@ -1584,10 +1585,13 @@ class StratifiedRun(NamedTuple):
     ``leaked`` is the second, independent exclusion ledger: cells whose grading
     carries ``leakage_suspected``, dropped from every stratum whatever the
     forward-claim policy is. ``leakage_assessed`` is its denominator — in-scope
-    cells whose grading recorded the bit at all — because a null bit is "not
-    assessed" rather than "clean". A cell caught by both rules appears in
-    ``excluded`` **and** ``leaked``: they answer different questions over one
-    population, so the counts are published side by side and never summed.
+    cells whose grading recorded a bit that could carry information
+    (:func:`fedcourtsai.integrity.leakage_assessed`) — because a null bit is "not
+    assessed" rather than "clean", and so is an unsuspected verdict on a log
+    that could not show the calls it would have rested on. A cell caught by
+    both rules appears in ``excluded`` **and** ``leaked``: they answer
+    different questions over one population, so the counts are published side
+    by side and never summed.
 
     ``voided`` is the third ledger: in-scope gradings of an event
     :data:`fedcourtsai.voids.VOIDED_EVENTS` voids, whose outcome describes
@@ -1793,7 +1797,7 @@ def stratify(  # noqa: PLR0912, PLR0915 - one pass: scope gate, collapse, window
     claim_set_aside: dict[EvaluationKey, Mapping[str, SetAsideReason]] = {}
     excluded: list[ExcludedCell] = []
     leaked: list[ExcludedCell] = []
-    leakage_assessed = 0
+    assessed_count = 0
     claimed_forward = 0
     scoped: list[_ScopedCell] = []
     for path in sorted(cases_dir.glob("*/*/events/*/evaluations/*/*/*/evaluation.json")):
@@ -1858,8 +1862,8 @@ def stratify(  # noqa: PLR0912, PLR0915 - one pass: scope gate, collapse, window
         outcome = read_model(event_dir / "outcome.json", Outcome)
         if scored.context is not None and scored.context.mode == "forward":
             claimed_forward += 1
-        if evaluation.leakage_suspected is not None:
-            leakage_assessed += 1
+        if leakage_assessed(evaluation, scored.run_id):
+            assessed_count += 1
         breach = forward_claim_breach(scored, outcome)
         if breach is not None:
             excluded.append(ExcludedCell(evaluation, breach))
@@ -1914,7 +1918,7 @@ def stratify(  # noqa: PLR0912, PLR0915 - one pass: scope gate, collapse, window
         leaked,
         claimed_forward,
         superseded,
-        leakage_assessed,
+        assessed_count,
         cell_windows,
         voided,
         set_aside,

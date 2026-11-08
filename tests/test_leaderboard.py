@@ -172,6 +172,7 @@ def _write_cell(  # noqa: PLR0913 - one keyword per artifact field a test varies
     big_case_score: float | None = None,
     predicted_disposition: Disposition = Disposition.granted,
     actual_disposition: Disposition = Disposition.granted,
+    prediction_run_id: str = "p1",
 ) -> None:
     """A full scored cell: evaluation plus the event, prediction, and outcome it targets.
 
@@ -182,7 +183,7 @@ def _write_cell(  # noqa: PLR0913 - one keyword per artifact field a test varies
     ``context`` is the harness-frozen conditioning the realized-Term skill reads
     the band, version, and Term off. ``predicted_disposition`` and
     ``actual_disposition`` set the call and the outcome; each side's binary
-    follows from its label.
+    follows from its label. ``prediction_run_id`` names the prediction's run.
     """
     predicted_granted = int(predicted_disposition in GRANTED_DISPOSITIONS)
     _write(data_root, ev)
@@ -200,13 +201,13 @@ def _write_cell(  # noqa: PLR0913 - one keyword per artifact field a test varies
         ),
     )
     write_json(
-        event.prediction(ev.predictor_id, "p1"),
+        event.prediction(ev.predictor_id, prediction_run_id),
         Prediction(
             case_id=ev.case_id,
             event_id=ev.event_id,
             predictor_id=ev.predictor_id,
             engine=Engine.claude_code,
-            run_id="p1",
+            run_id=prediction_run_id,
             created_at=predicted_at,
             input_snapshot="corpus",
             granted=predicted_granted,
@@ -2082,6 +2083,34 @@ def test_an_assessed_clean_cell_is_scored_and_counted_in_the_denominator(
     assert len(run.cells) == 1
     assert run.leaked == []
     assert run.leakage_assessed == 1
+
+
+def test_an_unsuspected_pre_lift_codex_grading_leaves_the_denominator(tmp_path: Path) -> None:
+    # A row-blind codex log could not show the calls an unsuspected verdict
+    # rests on, so the pass scores the cell but does not count the bit; a
+    # suspected verdict on the same vintage still counts, and still leaks.
+    data_root = tmp_path / "data"
+    _write_cell(
+        data_root,
+        _evaluation("codex-baseline", event_id="evt-a", leakage_suspected=False),
+        prediction_run_id="20260816T173750Z",
+    )
+    _write_cell(
+        data_root,
+        _evaluation("codex-baseline", event_id="evt-b", leakage_suspected=True),
+        prediction_run_id="20260816T173750Z",
+    )
+    _write_cell(
+        data_root,
+        _evaluation("codex-baseline", event_id="evt-c", leakage_suspected=False),
+        prediction_run_id="20260827T155120Z",
+    )
+
+    run = stratify(data_root, frozen_only=False)
+
+    assert run.leakage_assessed == 2
+    assert [cell.evaluation.event_id for cell in run.leaked] == ["evt-b"]
+    assert sorted(ev.event_id for ev, _, _, _ in run.cells) == ["evt-a", "evt-c"]
 
 
 def test_a_leaked_cell_leaves_the_retrospective_rank_key(tmp_path: Path) -> None:

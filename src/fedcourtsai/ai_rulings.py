@@ -162,8 +162,10 @@ def owed_rulings(
     """The recorded rulings owed a summary, oldest filing first.
 
     A ruling is owed when an activity record dated within ``max_age_days`` of
-    ``today`` lists it under a kind a court writes and no summary file exists
-    for its entry.
+    ``today`` lists it under a kind a court writes, as a new entry or as one
+    whose document became readable, and no summary file exists for its entry.
+    So a ruling whose text reached CourtListener late is planned from the day
+    it did.
     """
     root = data_root / ACTIVITY_DIR
     oldest = today - timedelta(days=max_age_days)
@@ -175,7 +177,13 @@ def owed_rulings(
             continue
         if day < oldest:
             continue
-        for entry in read_model(path, AiCaseActivity).entries:
+        record = read_model(path, AiCaseActivity)
+        readable = [
+            AiCaseActivityEntry.model_validate(e.model_dump(exclude={"documents"}))
+            for e in record.available
+            if e.kind in SUMMARIZED_KINDS
+        ]
+        for entry in [*record.entries, *readable]:
             if (
                 entry.kind in SUMMARIZED_KINDS
                 and not summary_path(data_root, entry.entry_id).is_file()

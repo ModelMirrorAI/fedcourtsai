@@ -96,7 +96,7 @@ from .agent_feedback import issue_bodies, open_issue_once, post_agent_feedback, 
 from .agent_flags import CellCoordinates, coordinates_from_path, normalise_flags
 from .agent_tooling import normalise_tooling
 from .ai_cases_update import ai_cases_subject, build_ai_cases_update, render_ai_cases_update
-from .ai_watchlist import AI_WATCHLIST_FILENAME, load_ai_watchlist, tagged_case_ids
+from .ai_watchlist import AI_WATCHLIST_FILENAME, AiWatchlist, load_ai_watchlist, tagged_case_ids
 from .application_migration import (
     MOTION_BASELINE_EVENT_ID,
     relabel_application_baseline_events,
@@ -550,6 +550,7 @@ from .schemas import (
     AgentFlags,
     AgentToolingFeedback,
     AiCaseActivityEntry,
+    AiCaseAvailableEntry,
     AlignmentFits,
     AlignmentSideCode,
     AlignmentSideCodes,
@@ -10918,9 +10919,10 @@ def statpack_at_command(
     prediction: Annotated[
         Path,
         typer.Argument(
-            help="A predict cell's `prediction.json`, or its run directory "
-            "(`.../predictions/<predictor_id>/<run_id>/`). The directory's name is the "
-            "run id the build is bound by.",
+            help="A predict cell's `prediction.json`, or its directory: its run directory "
+            "(`.../predictions/<predictor_id>/<run_id>/`), whose name is the run id the "
+            "build is bound by, or a judge's blinded copy (`record/blinded/<alias>/`), "
+            "bound by the document's own `run_id`.",
         ),
     ],
     out_dir: Annotated[
@@ -10928,7 +10930,8 @@ def statpack_at_command(
         typer.Option(
             "--out-dir",
             help="Write the build's `statpack.json` and `statpack.md`, as committed at "
-            "its landing commit, into this directory.",
+            "its landing commit, into this directory (an alternative's under "
+            "`alternative/`).",
         ),
     ] = None,
     repo: Annotated[
@@ -10956,22 +10959,40 @@ def statpack_at_command(
     gets the build in force at its run id, and the replaced one beside it where
     the slack leaves both possible.
 
-    JSON on stdout: the run id, the recorded digest and which field carried it,
+    The bound is the run directory's name where it is a run id, and otherwise
+    the document's own ``run_id``: a judge's blinded copy
+    (``record/blinded/<alias>/``) sits under its alias, and the document field is
+    then the only run id in reach. ``run_id_from`` says which bound was used.
+    A document bound is the candidate's word: a recorded digest is checked
+    against the builds at it, but with nothing recorded it alone picks the build.
+
+    JSON on stdout: the run id and its source, the recorded digest and which field carried it,
     the build's landing commit and time, and the alternative, if any.
     ``--out-dir`` writes that commit's ``statpack.json`` and ``statpack.md``,
-    the files the cell's prompt sent it to. Exit 1 where the run id does not
+    the files the cell's prompt sent it to, and the alternative's under
+    ``alternative/`` beside them. Exit 1 where the run id does not
     parse, the prediction does not read, no build landed by the run id, a
     recorded digest names neither candidate, or a file ``--out-dir`` asks for
     is missing at the build's commit. Needs the full history (a shallow clone holds too little).
     """
     cell = prediction.parent if prediction.name == "prediction.json" else prediction
     try:
-        provisioned_by = ids.parse_run_id(cell.name)
-        scored = read_model(cell / "prediction.json", Prediction)
-    except (OSError, ValueError) as exc:
+        document = json.loads((cell / "prediction.json").read_text())
+        raw_context = document.get("context") if isinstance(document, dict) else None
+        context = None if raw_context is None else PredictionContext.model_validate(raw_context)
+        bound_from = "directory"
+        try:
+            run_id = cell.name
+            provisioned_by = ids.parse_run_id(run_id)
+        except ValueError:
+            # A judge's blinded copy sits under its alias, not its run id: the
+            # document's own run id is the bound there.
+            bound_from = "document"
+            run_id = str(document.get("run_id"))
+            provisioned_by = ids.parse_run_id(run_id)
+    except (OSError, ValueError, AttributeError) as exc:
         typer.echo(f"statpack-at: {exc}", err=True)
         raise typer.Exit(code=1) from exc
-    context = scored.context
     recorded: str | None = None
     carrier: str | None = None
     if context is not None and context.statpack_digest is not None:
@@ -10981,13 +11002,14 @@ def statpack_at_command(
     history = statpack_history.GitStatpackHistory(repo, ref)
     found = statpack_history.placed_build(recorded, provisioned_by, history)
     if isinstance(found, str):
-        typer.echo(f"statpack-at: {cell.name}: {found}", err=True)
+        typer.echo(f"statpack-at: {run_id}: {found}", err=True)
         raise typer.Exit(code=1)
     build, alternative = found.build, found.alternative
     typer.echo(
         json.dumps(
             {
-                "run_id": cell.name,
+                "run_id": run_id,
+                "run_id_from": bound_from,
                 "recorded_digest": recorded,
                 "recorded_in": carrier,
                 "build_sha": build.sha,
@@ -11000,19 +11022,24 @@ def statpack_at_command(
     )
     if alternative is not None:
         typer.echo(
-            f"statpack-at: {cell.name} recorded no build, and {build.sha[:12]} landed within "
+            f"statpack-at: {run_id} recorded no build, and {build.sha[:12]} landed within "
             f"the checkout slack of its run id: it may have read {alternative.sha[:12]} instead.",
             err=True,
         )
     if out_dir is None:
         return
-    for name in ("statpack.json", "statpack.md"):
-        text = history.file_at(build.sha, f"metrics/{name}")
-        if text is None:
-            typer.echo(f"statpack-at: no metrics/{name} at {build.sha[:12]}", err=True)
-            raise typer.Exit(code=1)
-        write_text(out_dir / name, text)
-    typer.echo(f"statpack-at: {build.sha[:12]} -> {out_dir}", err=True)
+    written = [(build, out_dir)]
+    if alternative is not None:
+        written.append((alternative, out_dir / "alternative"))
+    for each, dest in written:
+        for name in ("statpack.json", "statpack.md"):
+            text = history.file_at(each.sha, f"metrics/{name}")
+            if text is None:
+                typer.echo(f"statpack-at: no metrics/{name} at {each.sha[:12]}", err=True)
+                raise typer.Exit(code=1)
+            write_text(dest / name, text)
+    for each, dest in written:
+        typer.echo(f"statpack-at: {each.sha[:12]} -> {dest}", err=True)
 
 
 @app.command("segment-anchors")
@@ -16497,6 +16524,12 @@ def post_public_update_cmd(
     typer.echo(f"post-public-update: {chosen}: {verb} {draft.email_id}{where}")
 
 
+def _ai_cases_watchlist(config_root: Path) -> AiWatchlist | None:
+    """The watchlist the AI-cases update introduces its cases from, where the tree has one."""
+    path = config_root / AI_WATCHLIST_FILENAME
+    return load_ai_watchlist(path) if path.exists() else None
+
+
 def _ai_cases_span(week: str, day: str) -> tuple[date, date]:
     """The span an AI-cases command names: one day, one ISO week, or the last complete week."""
     if week and day:
@@ -16527,14 +16560,13 @@ def ai_cases_update_cmd(
     """Render the AI-cases update from the committed watchlist activity records.
 
     Read-only and deterministic: the same tree and span render the same bytes.
-    Exits 3, writing nothing, when the span recorded no significant entry.
+    A span with nothing recorded renders the quiet note.
     """
     settings = get_settings()
     start, end = _ai_cases_span(week, day)
-    update = build_ai_cases_update(settings.data_root, start, end)
-    if update.empty:
-        typer.echo(f"ai-cases-update: nothing to send for {start} to {end}.", err=True)
-        raise typer.Exit(code=3)
+    update = build_ai_cases_update(
+        settings.data_root, start, end, _ai_cases_watchlist(settings.config_root)
+    )
     text = render_ai_cases_update(update)
     if out is None:
         typer.echo(text, nl=False)
@@ -16575,9 +16607,9 @@ def post_ai_cases_update_cmd(
 
     Draft only: a person reads it and presses send in Buttondown. Idempotent per
     span, since an email already carrying the span's subject is returned rather
-    than duplicated. Exits 3 on a span with nothing to send, 2 on a bad span or a
-    missing key, 1 when Buttondown refuses. The key is read from the environment
-    and never printed.
+    than duplicated; a span with nothing recorded posts the quiet note. Exits 2
+    on a bad span or a missing key, 1 when Buttondown refuses. The key is read
+    from the environment and never printed.
     """
     settings = get_settings()
     if bool(tag.strip()) == bool(tag_id.strip()):
@@ -16588,10 +16620,9 @@ def post_ai_cases_update_cmd(
     except typer.BadParameter as exc:
         typer.echo(f"post-ai-cases-update: {exc}", err=True)
         raise typer.Exit(code=2) from exc
-    update = build_ai_cases_update(settings.data_root, start, end)
-    if update.empty:
-        typer.echo(f"post-ai-cases-update: nothing to send for {start} to {end}.", err=True)
-        raise typer.Exit(code=3)
+    update = build_ai_cases_update(
+        settings.data_root, start, end, _ai_cases_watchlist(settings.config_root)
+    )
     subject = ai_cases_subject(update)
     body = render_ai_cases_update(update, title=False)
     if dry_run:
@@ -17316,6 +17347,7 @@ def watchlist_refresh_cmd(
         for court, docket_id in case.dockets()
     }
     recorded: list[AiCaseActivityEntry] = []
+    became: list[AiCaseAvailableEntry] = []
 
     def record(done: watchlist_refresh.Refreshed) -> None:
         # Recorded docket by docket, as each write lands: an entry the corpus
@@ -17324,9 +17356,13 @@ def watchlist_refresh_cmd(
         found = ai_activity.activity_entries(
             *named[done.case_id], done.docket, done.added, today=today
         )
-        if found:
-            ai_activity.record_activity(settings.data_root, today, found)
+        readable = ai_activity.available_entries(
+            *named[done.case_id], done.docket, done.gained, today=today
+        )
+        if found or readable:
+            ai_activity.record_activity(settings.data_root, today, found, readable)
             recorded.extend(found)
+            became.extend(readable)
 
     with _client("watchlist") as client:
         result = watchlist_refresh.refresh_watchlist(
@@ -17341,9 +17377,12 @@ def watchlist_refresh_cmd(
             on_refreshed=record,
         )
     _ensure_corpus_layout(db)
-    if recorded:
+    if recorded or became:
         path = ai_activity.activity_path(settings.data_root, today)
-        typer.echo(f"watchlist-refresh: {len(recorded)} significant new entr(ies) -> {path}")
+        typer.echo(
+            f"watchlist-refresh: {len(recorded)} significant new entr(ies), "
+            + f"{len(became)} newly readable -> {path}"
+        )
     if report is not None:
         write_raw_json(report, result.as_json())
     changed = sum(1 for r in result.refreshed if r.changed)

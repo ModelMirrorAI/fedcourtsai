@@ -17717,3 +17717,410 @@ freeze commit is recorded here.
   statpack refreshed after it, at commit `56230cceb4a2de447f0fbc447bd0f9443c069481`,
   reads the OT2025 pool as `154/1254` and the
   OT2024 pool as `138/1060`.
+
+- **`proc-v20`, judges rebuild the statpack a candidate read, and the predict
+  prompt names the Solicitor General's posted filing on a paper-only docket;
+  recorded 2026-11-07.** Carried to `main` by the promotion tagged `<FILL: promotion tag>`
+  (merge commit `<FILL: merge hash>`, merged `<FILL: merged-at>`), to be tagged
+  **`prereg/proc-v20`**. Registered under the merge-stamped rule, so its
+  counting instant, its bless moments and every window edge it moves are the
+  carrying merge's committer time. Both prompts change, so all six digests
+  move. No harness boundary is registered here, and no scored number moves.
+
+  **What changes.**
+  - *The evaluate prompt.* Where it names the committed `metrics/statpack.md`
+    as the base-rate surface, it now says that pack is the judge's, and that a
+    refresh may have landed after a candidate ran. Before marking a
+    candidate's base-rate figure wrong for disagreeing with it, a judge runs
+    `fedcourts statpack-at` on the candidate's blinded copy, which names the
+    build the candidate was placed against (its `context.statpack_digest`, or
+    a cert cell's `cert_anchor`, checked against `main`'s first-parent
+    statpack history at its run id) and writes that build's `statpack.json`
+    and `statpack.md` to a scratch directory outside the tree. The judge
+    grades the candidate's base-rate use against that build and says so in
+    `evaluation.md`. Where the bound leaves two builds possible, both are
+    written and a figure matching either is not wrong. Where the command
+    fails, the judge grades against the committed pack and says so. The
+    command reads only the statpack's own history, so it stays inside the
+    blind.
+  - *The predict prompt.* Its paper-only sentence now says that on such a
+    docket with the United States as a party the government's own filing
+    may still be staged: its petition (with the questions presented
+    extracted from it), its brief in opposition or its cert-stage reply, from the copy the
+    Solicitor General's office posts, under the usual kinds and cut at the
+    Court's own entry. A cell reads it like any staged document, treats the
+    other side's absent papers as absent rather than silent, and says in
+    `reasoning.md` that only the government's filing was staged.
+
+  **Why.** The evaluate change answers the judges' flags on 26A612 and
+  26A634 (evaluate `20261105T213408Z`): candidates placed before the
+  application-reread refresh saw zero finer interim counts, the judges read
+  the refreshed pack, and they could not tell which figures a forecast was
+  formed from. The harness half, which records the build on every predict
+  cell and adds the command, changed no digest and rides the promotion cut
+  as `promote/2026-11-07-2`. The PR carrying this label also changes that
+  command, with no digest moving: it bounds a blinded copy by the document's
+  own run id (the masked copy's directory is an alias, not a run id), writes
+  the second build under `alternative/` where two are possible, and passes
+  its repository as a `safe.directory` on the git command line, since a
+  judge that runs as its own user (the codex judge) would otherwise be
+  refused the runner-owned checkout. Where nothing recorded a build and the
+  bound came from the document, the run id is the candidate's word; a
+  recorded digest is checked against the builds at that bound, so a wrong
+  run id fails the command and the judge falls back to the committed pack. The predict sentence is the one the 2026-11-07
+  entry *A paper-only docket stages the Solicitor General's own posted
+  filing* left true but incomplete: cells on either side of this label are
+  given the same documents under the `sg-posted-briefs` boundary, which is
+  not re-registered, and only the instruction for reading them differs. That
+  entry is not otherwise edited. No score motivates either change.
+
+  **Pre-registered.** No skill movement is predicted. The evaluate change can
+  move any judge-authored grade (`reasoning_quality`,
+  `predicted_reasoning_quality`, and a claim a judge grades as a base-rate
+  misreading) on a cell graded after a refresh that
+  postdates its placement, in the direction of fewer base-rate errors
+  charged. A movement in **either** direction across this label in those
+  grades, or in skill on paper-only dockets, is not read as a model effect:
+  the first population is whatever cells a refresh happens to straddle, and
+  the second is a handful of dockets (6 in the boundary entry's
+  measurement).
+
+  **The amendment debt.** It is unchanged. This entry adds no new token.
+
+  The runnable effect check once it is live:
+  - on `main`, `uv run python -c "from fedcourtsai.process_version import
+    CURRENT_PROCESS_LABEL as L; print(L)"` prints `proc-v20`, and `uv run
+    fedcourts process-digest --all` prints the six digests below;
+  - `grep -c 'statpack-at' .github/prompts/evaluate.md` and `grep -c
+    "only the government's filing" .github/prompts/predict.md` on `main`
+    each print a count above 0 (the second prints 0 on `proc-v19`);
+  - on the first evaluate run's collect PR after the carrying merge whose
+    candidates were placed before the newest statpack refresh, an
+    evaluation's `retrieval.md` or `evaluation.md` names a `statpack-at`
+    call, or the cell's `retrieval_log.json` logs one.
+
+  **The registration** (`uv run fedcourts register-process --label
+  proc-v20`, run 2026-11-07 over `staging` at `e364c2464` with `proc-v19`
+  stamped). All six digests move.
+
+  | Actor | Before | `proc-v20` |
+  | --- | --- | --- |
+  | `claude-baseline` | `sha256:1789dc26189e0e14ae71d9ed1f622751dd2c849d8fba4a85542336fab0b15080` (`proc-v19`) | `sha256:69076c7e6ef3b55358bbb298c3ab3e821f14f7ce165f7a1eed2e51a550f5ca21` (new) |
+  | `codex-baseline` | `sha256:a939a164bc3cb0658e12c0c98b2300a878aecea15a93189e96579103382002d8` (`proc-v19`) | `sha256:56f5da33ed8eeda29c8094135a9141710b69c76fb939abe281da85d263d238a7` (new) |
+  | `gemini-baseline` | `sha256:889d53dc033d7303ca39cf2bf3faa859dc0886a296ed2f0ad5ac00edf96705b7` (`proc-v19`) | `sha256:154ba5e6732eb9627dfa988245cba7a2f5a5682fa4b9bf6ac5d0c7e6e4e984de` (new) |
+  | `claude-judge` | `sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf` (`proc-v17`) | `sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768` (new) |
+  | `codex-judge` | `sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a` (`proc-v17`) | `sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c` (new) |
+  | `gemini-judge` | `sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9` (`proc-v17`) | `sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5` (new) |
+
+  **What was made under the retiring digests.** At `origin/main`
+  `f4a505ff2` (`2026-11-07T17:00:14Z`), committed files under `data/cases`
+  naming each retiring digest: 0 for each of the three `proc-v19` predictor
+  digests (the label was stamped at 15:59Z and no predict round had landed
+  since), and 21 for each of the three `proc-v17` evaluator digests.
+
+  **Step 0.** At the same commit, the count of committed files under
+  `data/cases` naming `sha256:<digest>` is **0** for each of the six newly
+  blessed digests, and **3543** files there carry a `process_version` stamp.
+
+  **Windows** (`COUNTING_WINDOWS`, once the carrying merge stamps them):
+
+  | Predictor | Label | Opens | Closes |
+  | --- | --- | --- | --- |
+  | `claude-baseline` (`1789dc26…`) | `proc-v19` | `2026-11-07T15:59:33Z` | this label's instant (was open) |
+  | `codex-baseline` (`a939a164…`) | `proc-v19` | `2026-11-07T15:59:33Z` | this label's instant (was open) |
+  | `gemini-baseline` (`889d53dc…`) | `proc-v19` | `2026-11-07T15:59:33Z` | this label's instant (was open) |
+  | `claude-baseline` (`ce61f013…`) | `proc-v20` | this label's instant | open (new) |
+  | `codex-baseline` (`9ea12185…`) | `proc-v20` | this label's instant | open (new) |
+  | `gemini-baseline` (`ee73c2f4…`) | `proc-v20` | this label's instant | open (new) |
+
+  Earlier windows keep the closes earlier labels gave them.
+
+  **What the close owes, provisional.** Run with this commit's pending rows
+  stamped by hand at a provisional instant, `2026-11-08T00:00:00Z`, in a
+  scratch copy of the registry, over the ledger at `origin/main`
+  `f4a505ff2`. `uv run fedcourts successor-disclosures --closed proc-v19
+  --successor proc-v20`:
+
+  ```
+  successor proc-v20 closes proc-v19 at 2026-11-08T00:00:00+00:00
+    closed proc-v19 (no cells): 0 counted event(s) — 0 resolved, 0 pending at close
+    closed proc-v19 (no cells): 0 counted event(s) — 0 resolved, 0 pending at close
+    closed proc-v19 (no cells): 0 counted event(s) — 0 resolved, 0 pending at close
+    split events: 0 (0 resolved) — in no complete grid
+  ```
+
+  Cells keep landing until the instant, so the run is repeated once the
+  carrying merge has stamped the registry, and a dated follow-up entry quotes
+  it before any `proc-v19` window figure is quoted outside the committed
+  board.
+
+- **Readings the `proc-v19` entry owes, recorded 2026-11-07.** No rule moves
+  here. The `proc-v19` entry (dated 2026-11-07), carried to `main` by
+  `promotion/2026-11-07` (merge `18f62b8a7`, registry stamped by `aae734d87`)
+  and tagged `prereg/proc-v19`, quoted its `successor-disclosures` lines at
+  a provisional instant and owed them again once the carrying merge had
+  stamped the registry, before any figure of a `proc-v18` window is quoted
+  outside the committed board. That entry is not otherwise edited.
+
+  The run reads the ledger and registry at `origin/main`'s `80955ad65`
+  (`2026-11-07T18:19:10Z`), after the stamp and after `promotion/2026-11-07-2`,
+  which stamps no label. No `proc-v19` predict cell
+  had landed by then: the 17:33Z round's plan owed none.
+
+  **`proc-v19` closes `proc-v18`.** `uv run fedcourts successor-disclosures
+  --closed proc-v18 --successor proc-v19` prints:
+
+  ```
+  successor proc-v19 closes proc-v18 at 2026-11-07T15:59:33+00:00
+    closed proc-v18 codex-baseline: 4 counted event(s) — 0 resolved, 4 pending at close
+    closed proc-v18 gemini-baseline: 4 counted event(s) — 0 resolved, 4 pending at close
+    closed proc-v18 claude-baseline: 4 counted event(s) — 0 resolved, 4 pending at close
+    split events: 0 (0 resolved) — in no complete grid
+  ```
+
+  The closed lines match the provisional run's (4 counted events per engine,
+  none resolved), though the stamped instant, `2026-11-07T15:59:33Z`, fell
+  earlier than the provisional `2026-11-08T00:00:00Z`. No successor-counted
+  line prints because no engine has committed a `proc-v19` cell yet, so
+  there is no earlier-window failure, uncounted cell or missing cell to
+  disclose, and no `graded by` line prints because no grading of a
+  `proc-v18`-window cell is recorded yet.
+
+  The closed-window resolved counts can still move: an outcome dated on or
+  before the close's day may land late, and an event void de-counts what it
+  names. The split, partition and grading lines also move as cells,
+  outcomes and gradings land.
+
+- **The document-date read tolerates a twice-escaped result, so codex
+  manifest rows carry a `retrieved_doc_date`; recorded 2026-11-08.** A
+  **capture** change of the masking-surface class, like the 2026-10-15
+  bare-name entry, which is not otherwise edited. No digest, constant, window
+  or membership moves, and `uv run fedcourts process-digest --all` prints the
+  same `proc-v20` digests before and after.
+
+  **Why.** `retrieved_doc_date` is the leakage grading's timing signal: the
+  evaluate prompt asks the grader to look for a date on or after the event's
+  resolution. Over every committed `codex-baseline` `retrieval_log.json` at
+  `staging` `eb75c3fd7`, **0** of the **1,042** captured CourtListener rows
+  carries one: 651 bare-named rows from the stretch the 2026-10-15 entry
+  dates, and 391 resolved rows captured after it. `claude-baseline`'s
+  captured CourtListener rows carry one on **446** of **1,244**. The codex
+  item-shape distillation of the `promotion/2026-11-07` engine smoke (run
+  `42396955298`) shows the cause's half that can be shown without a
+  rollout: a Codex `function_call_output` carries its `output` as a string.
+  Where that string is the server's content list already serialized, the
+  scan's own serialization escapes the date's quotes twice, and the pattern
+  tolerated one backslash. That the string is the content list is inferred
+  from the zero rather than read off a rollout, since the distillation
+  carries types and no values.
+
+  **What moved.** `fedcourtsai.retrieval._DOC_DATE_RE` takes any run of
+  backslashes before each quote. A test parses a Codex `function_call` whose
+  output is the content list serialized around the server's JSON, and it
+  fails on the old pattern and passes on the new. Claude rows already
+  matched and still do. The read runs at capture, so no committed log
+  changes: those rollouts are gone, and the result text was digested away.
+
+  **What it reaches.** The blinding mask passes `retrieved_doc_date`
+  through, so a codex candidate's manifest rows captured after the carrying
+  merge show graders the dates a claude candidate's rows already did, under
+  unchanged evaluator digests. That is what graders read when they form the
+  `leakage_suspected` bit, so codex's `leakage_exclusion` spans two capture
+  regimes inside the `proc-v20` window. The reach is bounded, because the bit
+  rarely fires on the forward cells that make up the scored population, and
+  no codex grading in the stretch below reads suspected.
+
+  **The reading rule** (`metrics/README.md`, *The leakage exclusion*). A
+  codex manifest row captured before the carrying merge is date-blind, not
+  undated. Its grading stays assessed, and an unsuspected verdict on it is a
+  real read rather than the row-blind rule's null bit, because the grader saw
+  every call, its query and its class; but a cross-engine leakage comparison over those logs
+  is not like-for-like, a codex verdict there that turns on the absence of a
+  dated result rests on a missing signal, and a codex leakage figure over the
+  stretch carries a sensitivity reading with those gradings counted
+  unassessed. The gap follows the log, not the grading date: a grading formed
+  after the merge over a log captured before it is date-blind too. **Population**, at `staging`
+  `eb75c3fd7`: **476** `codex-baseline` predict logs from `20260916T170237Z`
+  on, **364** of them with a CourtListener call; after the run collapse,
+  **522** assessed gradings of those predictions, all in frozen scope and all
+  unsuspected (of the frozen board's **1,563** assessed). The boundary is the
+  ancestry of a cell's `pipeline_sha` against the carrying merge; a row's
+  date is only a hint, since a result with no date field looks the same
+  under either rule.
+
+  **The row-blind rule is unchanged.** The 2026-09-21 entry's row-blind and
+  half-blind regimes are named by `call_source` and run id, and both sit
+  before the bare-name stretch, so neither the bare-name rename nor this
+  change touches a log they cover.
+
+  **Why no label bump and no harness-boundary row.** The same as the
+  2026-10-15 entry: no digest moves, and no predict cell reads anything
+  different, because capture runs after the engine, on its own log.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  **Effect check.** On `main`, once a run-predict round after the carrying
+  merge has landed codex cells that called CourtListener, `jq '[.calls[] |
+  select(.tool | startswith("mcp__courtlistener__")) |
+  .retrieved_doc_date] | map(select(. != null)) | length'` over those
+  cells' `retrieval_log.json` sums to more than zero, at a share of their
+  captured CourtListener rows comparable to `claude-baseline`'s in the same
+  round.
+
+- **Unsuspected row-blind and half-blind `codex-baseline` leakage gradings
+  leave `assessed`; recorded 2026-11-08.** Settles what the 2026-09-21
+  row-blind entry left open, which is not otherwise edited. No prompt byte,
+  registry field, stamp or score moves, and `uv run fedcourts process-digest
+  --all` prints the same `proc-v20` digests before and after.
+
+  **What moved.** The leakage exclusion's denominator now counts a grading
+  only where its bit could carry information
+  (`fedcourtsai.integrity.leakage_assessed`, called by `store.stratify`). A
+  null bit stays out, and so does a `leakage_suspected: false` grading of a
+  `codex-baseline` prediction whose run id precedes `20260826T144640Z`, the
+  merge instant of `promotion/2026-08-26`, which lifted the builtin idiom.
+  That one boundary covers both regimes the 2026-09-21 entry measured:
+  row-blind (runs before `20260820T181919Z`) and half-blind (through
+  `20260825T231742Z`). It keys on the scored prediction's run id, a
+  committed path, because the `call_source` marker names only the row-blind
+  half. A suspected verdict on the same vintage still counts, since the
+  exclusion drops its cell. The `LeakageExclusionRecord.assessed`
+  description moves with it, so the three board schemas regenerate.
+
+  **What it moves.** At `staging` `e0eed9bf9`, after the run collapse, 36
+  unsuspected row-blind and 24 unsuspected half-blind gradings leave, so
+  `fedcourts leaderboard --all-versions` reads `assessed` **1,767** where it
+  read **1,827**. The frozen boards read **1,563** before and after, because no
+  row-blind or half-blind prediction carries a frozen digest. The all-versions
+  build is not published, so no rendered figure moves. Every grading that
+  leaves is `codex-baseline`'s.
+
+  The 2026-11-08 *document-date read* entry's date-blind codex gradings stay
+  assessed: their grader saw every call.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  **Effect check.** On `main` after the carrying merge, `uv run pytest
+  tests/test_integrity.py -k pre_lift` is green, and `uv run python -c "from
+  pathlib import Path; from fedcourtsai.store import stratify;
+  print(stratify(Path('data'), frozen_only=False).leakage_assessed)"` prints
+  60 fewer than the same command at the merge's first parent, so long as no
+  grading of a pre-`20260826T144640Z` codex prediction has landed between the
+  two reads (`1,767` against `1,827` at `staging` `e0eed9bf9`). The committed
+  `metrics/leaderboard.json`'s `leakage_exclusion.assessed` does not move on
+  account of this merge.
+
+- **The contact scrub reads a mailing block past the opening, in capitals, with
+  a typographic apostrophe or a unit line of its own; recorded 2026-11-08.** A
+  **conditioning** entry in the *what the pipeline provisions* class, under
+  unchanged digests: no prompt byte and no registry field the digests read
+  moves, and `uv run fedcourts process-digest --all` at this commit prints
+  what it prints at its parent on `staging`: `proc-v20` and the six digests
+  `69076c7e…` (claude-baseline), `56f5da33…` (codex-baseline), `154ba5e6…`
+  (gemini-baseline), `b9a5d840…` (claude-judge), `ce1c037e…` (codex-judge)
+  and `b29afb1d…` (gemini-judge).
+
+  **What changes**, on the staged copy alone
+  (`pipeline.documents.scrub_contact_details` and the residual detector).
+  - **A street name's apostrophe is read straight or typographic** (`’`), in
+    the shape pass's street and city-line shapes and in the detector's.
+  - **A unit set on a line of its own** between a withheld street line and
+    its "City, State ZIP" line (`Suite 12`) is withheld with the city line,
+    each line keeping its placeholder.
+  - **A street address in capitals past the opening is read as the first
+    line of a mailing block**: where a city line sits directly below it, or
+    below a unit line under it. On the opening it is read as before, on its
+    own. The `Dr`, `Ct` and `Pl` shape takes the same unit line.
+  - **The residual detector still reads the opening and closing alone.** Over
+    the scrub before this change, reading the whole text would flag 1,043 of
+    24,364 shape-scrubbed documents instead of 528, while the same reading
+    flags 1,129 of 31,558 documents on represented dockets, where no scrub
+    runs (every figure in this entry is read over blob `bb0d7027…`, below);
+    a hand reading of 41 middle-of-document hits on a sample of 345
+    self-represented dockets found about five that are a filer's own detail,
+    the rest a court's, an agency's or counsel's address or OCR noise. Read
+    over the whole text, the detector would mark several hundred documents
+    not scrubbed, and the summary lane would withhold them, on mostly
+    institutional or noise matches; the shapes the hand reading found are
+    instead taken by the scrub itself.
+
+  **The executed check.** `scotus/9026000378`, the docket the codex cell
+  flagged (`evt-petition-disposition`, run `20261108T010928Z`), scrubbed from
+  the production content store on 2026-11-08 (blob
+  `bb0d70278f3cc5a54d002c65f1ce8f906c07f437b374c75a3d54a54228d20ca9`, newest
+  pull 2026-11-08, newest stored snapshot row 2026-07-13): at the parent the
+  scrub withheld 14 details on `appendix.txt` and left the addressee's
+  street, unit and city lines of the clerk's letter on App-7, the row reading
+  `contact_scrubbed: true`, `contact_residuals: 0`; at this commit it
+  withholds 26 there (`provision-snapshot`, 23 → 35 across the five staged
+  documents): the letter's three addressee lines carry the placeholder, and
+  the rest are court and clerk mailing blocks set in capitals further in,
+  newly read, and withheld as the scrub withholds a court address written
+  with a street number in mixed case. No other staged document of the docket changes.
+
+  **The population**, over the same blob with
+  `scripts/checks/contact_scrub_residual_census.py --base` the parent: of
+  the 49,326 live-slice SCOTUS rows, 10,233 dockets are read as
+  self-represented and 24,364 of their documents are shape-scrubbed. This
+  change withholds 3,335 more spans across 969 of them and none fewer. The
+  documents the detector flags on the opening or closing, which provisioning
+  records as `contact_scrubbed: false` and the summary lane withholds, fall
+  from 528 to 360, and those carrying a residual-shaped match anywhere in
+  the text from 1,043 to 764. The figure is an upper bound on the dockets a
+  post-change cell reads differently, since a docket provisions only when an
+  event on it is owed.
+
+  **A harness boundary under the 2026-10-11 pooled rule.** The change moves
+  what a predict cell reads under unchanged digests, so it is composition and
+  not a cut: the pooled default and the paired figure keep both sides and list
+  each engine's `n` before and after.
+  - **The registry row** is `scrub-apostrophe-and-unit-line`: every
+    predictor, reach `self-represented dockets`, not gradual, since
+    provisioning reads the stored documents and the next cell provisioned on
+    an affected docket reads the change. It is registered **pending** in the
+    change's own PR (`fedcourts register-boundary`). Its `merge` and `at`
+    stay null until the promotion merge that carries it to `main` stamps them
+    (`promotion-record`); until then it is left out of
+    `process_version.HARNESS_BOUNDARIES`, so no cell has a side of it.
+  - **The side test** is the registered one: a stamped cell is after the
+    change if the carrying merge is an ancestor of, or equal to, its
+    `process_version.pipeline_sha`; a cell with no `pipeline_sha` is on
+    neither side, and its number is listed.
+  - **Evaluate cells are dated by this entry, not partitioned**: the boundary
+    registry splits predictor cells only, and an evaluate cell provisioned
+    after the carrying merge reads the narrower text under the same evaluator
+    digests.
+
+  **What a post-change cell reads.** A predict or evaluate cell provisioned
+  on a self-represented docket after the carrying merge reads the wider
+  withholding, and the case-summary lane's staging reads the same text from
+  then on; cells already run stay as they are, and nothing is written to the
+  corpus. Because the detector's street and city-line shapes now read a
+  typographic apostrophe, a document whose such street the scrub still
+  misses (a lower-case name word) can move from `contact_scrubbed: true` to
+  `false`, and the summary lane then withholds it.
+
+  **What does not move.** No base rate re-prices, no membership rule moves
+  and no scored figure moves. No skill movement is predicted, and a movement
+  in **either** direction across this boundary may not be read as a model
+  effect.
+
+  **The amendment debt.** It is unchanged. This entry adds no new token.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_documents.py -k "appendix_letter or capitals or
+    apostrophe or unit_line"` is green;
+  - `uv run fedcourts process-digest --all` prints the same label and digests
+    at the carrying merge as at its first parent;
+  - where the corpus is pulled, `uv run fedcourts provision-snapshot --court
+    scotus --docket 9026000378 --event evt-petition-disposition` writes
+    `appendix.txt` with `contact_replacements: 26` on its manifest row;
+  - on `main` once the promotion has merged, `uv run python -c "from
+    fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
+    print('scrub-apostrophe-and-unit-line' in {b.name for b in H})"` prints
+    `True`.

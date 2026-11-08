@@ -3632,6 +3632,48 @@ def test_a_cells_three_engines_are_handed_the_same_kickoff() -> None:
         )
 
 
+# The claude-code-action inputs that decide how a Claude cell signs in. The
+# federation identifiers are the bound environment's variables; the key is
+# withheld whenever a rule and organization are named (the action federates
+# only with both), because it prefers a key to federation and would otherwise
+# never federate.
+CLAUDE_AUTH_INPUTS = {
+    "anthropic_federation_rule_id": "${{ vars.ANTHROPIC_FEDERATION_RULE_ID }}",
+    "anthropic_organization_id": "${{ vars.ANTHROPIC_ORGANIZATION_ID }}",
+    "anthropic_service_account_id": "${{ vars.ANTHROPIC_SERVICE_ACCOUNT_ID }}",
+    "anthropic_workspace_id": "${{ vars.ANTHROPIC_WORKSPACE_ID }}",
+    "anthropic_api_key": (
+        "${{ (vars.ANTHROPIC_FEDERATION_RULE_ID == '' || vars.ANTHROPIC_ORGANIZATION_ID == '')"
+        " && secrets.ANTHROPIC_API_KEY || '' }}"
+    ),
+}
+
+
+def test_the_claude_cells_sign_in_by_federation_when_a_rule_is_named() -> None:
+    """Both cell lanes carry the same sign-in, in a job that can mint its token.
+
+    The action fetches the job's GitHub OIDC token for the exchange, so the job
+    must hold `id-token: write`; and no step-level or job-level env may put a
+    key back in front of federation.
+    """
+    for name, job_name in (("run-predict.yml", "predict"), ("run-evaluate.yml", "evaluate")):
+        job = _load(name)["jobs"][job_name]
+        assert job["permissions"].get("id-token") == "write", name
+        assert "ANTHROPIC_API_KEY" not in (job.get("env") or {}), name
+        assert "ANTHROPIC_API_KEY" not in (_load(name).get("env") or {}), name
+        steps = [
+            step
+            for step in job["steps"]
+            if str(step.get("uses") or "").startswith("anthropics/claude-code-action@")
+        ]
+        assert len(steps) == 1, f"{name}: expected one claude-code-action step"
+        (step,) = steps
+        auth = {k: v for k, v in step["with"].items() if k in CLAUDE_AUTH_INPUTS}
+        assert auth == CLAUDE_AUTH_INPUTS, f"{name}: the Claude cell's sign-in drifted"
+        assert "claude_code_oauth_token" not in step["with"], name
+        assert "ANTHROPIC_API_KEY" not in (step.get("env") or {}), name
+
+
 def test_the_action_path_smoke_invokes_each_engine_the_way_the_cells_do() -> None:
     """The `engine-actions-smoke` legs run the cells' own invocation surfaces.
 
@@ -3677,7 +3719,11 @@ def test_the_action_path_smoke_invokes_each_engine_the_way_the_cells_do() -> Non
         "the action-path smoke pins a different claude-code-action than the cells"
     )
     assert claude["with"]["allowed_bots"] == cell_claude["with"]["allowed_bots"]
-    assert claude["with"]["anthropic_api_key"] == cell_claude["with"]["anthropic_api_key"]
+    for auth_input in CLAUDE_AUTH_INPUTS:
+        assert claude["with"][auth_input] == cell_claude["with"][auth_input], (
+            f"the action-path smoke signs in differently from the cells ({auth_input}), "
+            "so a green smoke would not rehearse the cells' sign-in"
+        )
     assert claude["with"]["settings"] == cell_claude["with"]["settings"]
     assert claude["with"]["github_token"] == "${{ github.token }}", (
         "the smoke must hand claude-code-action the job's read-capped token: "
