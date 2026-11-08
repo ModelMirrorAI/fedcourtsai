@@ -5851,7 +5851,10 @@ class LeakageExclusionRecord(_Strict):
     assessed: int = Field(
         ge=0,
         description="The denominator: in-scope gradings that recorded the "
-        "bit at all (true or false). A null bit is 'not assessed', not 'clean', "
+        "bit (true or false) where it could carry information. A null bit is "
+        "'not assessed', not 'clean', and so is an unsuspected verdict on a "
+        "`codex-baseline` log too blind to show the calls it rests on "
+        "(`fedcourtsai.integrity.leakage_assessed`), "
         "so `excluded: 0` over a ledger of null bits means 'nothing was checked' "
         "rather than 'nothing leaked' — this count is what tells the two apart. "
         "Stage-blind and taken before the exclusion, exactly like `excluded` "

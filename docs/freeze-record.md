@@ -17967,3 +17967,47 @@ freeze commit is recorded here.
   cells' `retrieval_log.json` sums to more than zero, at a share of their
   captured CourtListener rows comparable to `claude-baseline`'s in the same
   round.
+
+- **Unsuspected row-blind and half-blind `codex-baseline` leakage gradings
+  leave `assessed`; recorded 2026-11-08.** Settles what the 2026-09-21
+  row-blind entry left open, which is not otherwise edited. No prompt byte,
+  registry field, stamp or score moves, and `uv run fedcourts process-digest
+  --all` prints the same `proc-v20` digests before and after.
+
+  **What moved.** The leakage exclusion's denominator now counts a grading
+  only where its bit could carry information
+  (`fedcourtsai.integrity.leakage_assessed`, called by `store.stratify`). A
+  null bit stays out, and so does a `leakage_suspected: false` grading of a
+  `codex-baseline` prediction whose run id precedes `20260826T144640Z`, the
+  merge instant of `promotion/2026-08-26`, which lifted the builtin idiom.
+  That one boundary covers both regimes the 2026-09-21 entry measured:
+  row-blind (runs before `20260820T181919Z`) and half-blind (through
+  `20260825T231742Z`). It keys on the scored prediction's run id, a
+  committed path, because the `call_source` marker names only the row-blind
+  half. A suspected verdict on the same vintage still counts, since the
+  exclusion drops its cell. The `LeakageExclusionRecord.assessed`
+  description moves with it, so the three board schemas regenerate.
+
+  **What it moves.** At `staging` `e0eed9bf9`, after the run collapse, 36
+  unsuspected row-blind and 24 unsuspected half-blind gradings leave, so
+  `fedcourts leaderboard --all-versions` reads `assessed` **1,767** where it
+  read **1,827**. The frozen boards read **1,563** before and after, because no
+  row-blind or half-blind prediction carries a frozen digest. The all-versions
+  build is not published, so no rendered figure moves. Every grading that
+  leaves is `codex-baseline`'s.
+
+  The 2026-11-08 *document-date read* entry's date-blind codex gradings stay
+  assessed: their grader saw every call.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  **Effect check.** On `main` after the carrying merge, `uv run pytest
+  tests/test_integrity.py -k pre_lift` is green, and `uv run python -c "from
+  pathlib import Path; from fedcourtsai.store import stratify;
+  print(stratify(Path('data'), frozen_only=False).leakage_assessed)"` prints
+  60 fewer than the same command at the merge's first parent, so long as no
+  grading of a pre-`20260826T144640Z` codex prediction has landed between the
+  two reads (`1,767` against `1,827` at `staging` `e0eed9bf9`). The committed
+  `metrics/leaderboard.json`'s `leakage_exclusion.assessed` does not move on
+  account of this merge.
