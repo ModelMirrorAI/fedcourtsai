@@ -549,3 +549,21 @@ def test_a_listing_link_off_the_courts_host_is_never_fetched() -> None:
     assert reading.status == "failed"
     assert reading.reason is not None and "off the Court's host" in reading.reason
     assert requested == []
+
+
+@pytest.mark.parametrize(
+    "lead",
+    [
+        pytest.param("Breyer, J. delivered the opinion of the Court.", id="no-trailing-comma"),
+        pytest.param("Barrett, J., fled an opinion for a unanimous Court.", id="filed-lead"),
+    ],
+)
+def test_the_lead_line_variants_the_prints_carry_open_the_paragraph(lead: str) -> None:
+    text = (
+        "No. 20\u20131. Argued March 1, 2021\u2014Decided June 1, 2021\n"
+        + f"{lead}\n"
+        + "Michael L. Zuckerman, Deputy Solicitor General, argued the cause.\n"
+    )
+    located = locate_lineup(text)
+    assert located.problems == ()
+    assert located.paragraph == lead
