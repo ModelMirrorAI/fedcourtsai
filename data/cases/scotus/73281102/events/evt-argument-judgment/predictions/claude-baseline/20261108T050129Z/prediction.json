@@ -1,0 +1,153 @@
+{
+  "big_case_rationale": "Recurring, practically important habeas-vehicle question for First Step Act time credits across federal prisons, but narrow doctrinally and likely to be decided on a limited Preiser-based rule.",
+  "big_case_score": 0.4,
+  "case_id": "scotus/73281102",
+  "claim_distributions": [
+    {
+      "claim_id": "majority-author",
+      "probabilities": {
+        "Alito": 0.03,
+        "Barrett": 0.15,
+        "Gorsuch": 0.1,
+        "Jackson": 0.12,
+        "Kagan": 0.15,
+        "Kavanaugh": 0.12,
+        "Roberts": 0.1,
+        "Sotomayor": 0.12,
+        "Thomas": 0.03,
+        "per-curiam": 0.08
+      }
+    },
+    {
+      "claim_id": "separate-writers",
+      "probabilities": {
+        "Alito": 0.55,
+        "Barrett": 0.15,
+        "Gorsuch": 0.35,
+        "Jackson": 0.3,
+        "Kagan": 0.1,
+        "Kavanaugh": 0.15,
+        "Roberts": 0.05,
+        "Sotomayor": 0.2,
+        "Thomas": 0.5
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.85
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "elevated",
+    "band_refused": null,
+    "cert_anchor": null,
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-11-03",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 3,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v8",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_contact_scrub": {
+      "blocks": 1,
+      "fields": 4,
+      "sides": [
+        "Petitioner"
+      ]
+    },
+    "snapshot_date": "2026-11-03",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "statpack_digest": "sha256:b122cc43052b1328321031e3615601101a1b85c7dcdc87d23e5436373b03f133",
+    "term": 2025,
+    "vide_links": []
+  },
+  "created_at": "2026-11-08T05:08:22.833692Z",
+  "engine": "claude-code",
+  "event_id": "evt-argument-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-11-03.json",
+  "judgment": "vacated",
+  "model": "claude-opus-5-5",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.85,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:1789dc26189e0e14ae71d9ed1f622751dd2c849d8fba4a85542336fab0b15080",
+    "label": "proc-v19",
+    "pipeline_sha": "43c150122c7ae1d070d0ad9c53978d2657ea38b8",
+    "stamped_at": "2026-11-08T05:08:22.833692Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261108T050129Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority holds that a federal prisoner's claim that BOP unlawfully withheld First Step Act time credits and thereby his statutory transfer out of prison to a halfway house or home confinement is cognizable under 28 U.S.C. 2241, resting on Preiser v. Rodriguez: transfer from prison into prerelease custody in the community is treated as materially like release to parole, so the claim attacks the fact or duration of confinement in prison; the Fifth Circuit's Melot 'automatic accelerated release' bright-line rule is rejected."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The holding is narrow: it is confined to claims seeking release from a prison into community-based prerelease custody (halfway house or home confinement), expressly declines to adopt petitioner's general 'distinct and lower level of custody' test, reserves intra-prison security-level transfers, and expressly leaves the 3621(b) judicial-review bar, exhaustion and mootness for remand without deciding them."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "majority",
+      "writing": null
+    }
+  ]
+}
