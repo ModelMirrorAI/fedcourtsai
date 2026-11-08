@@ -1,10 +1,10 @@
 {
-  "cases": 372,
+  "cases": 377,
   "cases_out_of_scope": 0,
   "cases_without_score": 1,
   "coverage": [
     {
-      "cases": 336,
+      "cases": 341,
       "n": 3
     },
     {
@@ -16,7 +16,7 @@
       "n": 1
     }
   ],
-  "current_reads": 1114,
+  "current_reads": 1129,
   "declared_no_view": 26,
   "frozen_process": {
     "digests": [
@@ -2270,7 +2270,12 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [],
+      "schedule": [
+        {
+          "date": "2026-12-14",
+          "kind": "response_due"
+        }
+      ],
       "scheduled": null,
       "score_max": 0.95,
       "score_min": 0.85,
@@ -5380,7 +5385,12 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [],
+      "schedule": [
+        {
+          "date": "2026-11-20",
+          "kind": "response_due"
+        }
+      ],
       "scheduled": null,
       "score_max": 0.84,
       "score_min": 0.8,
@@ -11101,6 +11111,10 @@
         {
           "date": "2026-11-13",
           "kind": "conference"
+        },
+        {
+          "date": "2026-11-30",
+          "kind": "response_due"
         }
       ],
       "scheduled": {
@@ -13942,6 +13956,132 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Texas",
+      "caption": "Texas, et al. v. Jerry Black, et al.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000335",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Facial constitutionality of a whole federal regulatory regime and the first major application of Consumers' Research's private-nondelegation framework; narrow industry, but a doctrinally significant structural question.",
+          "big_case_score": 0.55,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261108T010928Z"
+        },
+        {
+          "big_case_rationale": "The validity of nationwide horseracing regulation is important in itself; the limits on private rulemaking could also affect other federally supervised self-regulatory systems and state regulatory authority.",
+          "big_case_score": 0.68,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261108T010928Z"
+        },
+        {
+          "big_case_rationale": "Major private-nondelegation challenge by Texas to the Horseracing Integrity and Safety Act's rulemaking structure, cross-petitioning alongside the federal government's and Authority's petitions on HISA's enforcement powers.",
+          "big_case_score": 0.72,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261108T010928Z"
+        }
+      ],
+      "docket_id": 9026000335,
+      "docket_number": "26-335",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-335.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Facial constitutionality of a whole federal regulatory regime and the first major application of Consumers' Research's private-nondelegation framework; narrow industry, but a doctrinally significant structural question.",
+              "big_case_score": 0.55,
+              "cell_path": "data/cases/scotus/9026000335/events/evt-petition-disposition/predictions/claude-baseline/20261108T010928Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000335/events/evt-petition-disposition/predictions/claude-baseline/20261108T010928Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.42,
+              "run_id": "20261108T010928Z"
+            },
+            {
+              "big_case_rationale": "The validity of nationwide horseracing regulation is important in itself; the limits on private rulemaking could also affect other federally supervised self-regulatory systems and state regulatory authority.",
+              "big_case_score": 0.68,
+              "cell_path": "data/cases/scotus/9026000335/events/evt-petition-disposition/predictions/codex-baseline/20261108T010928Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000335/events/evt-petition-disposition/predictions/codex-baseline/20261108T010928Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.18,
+              "run_id": "20261108T010928Z"
+            },
+            {
+              "big_case_rationale": "Major private-nondelegation challenge by Texas to the Horseracing Integrity and Safety Act's rulemaking structure, cross-petitioning alongside the federal government's and Authority's petitions on HISA's enforcement powers.",
+              "big_case_score": 0.72,
+              "cell_path": "data/cases/scotus/9026000335/events/evt-petition-disposition/predictions/gemini-baseline/20261108T010928Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000335/events/evt-petition-disposition/predictions/gemini-baseline/20261108T010928Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.14,
+              "run_id": "20261108T010928Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Texas, et al. v. Jerry Black, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.65,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-09-14",
+      "n": 3,
+      "other_party": "Black",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Texas' case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Texas' petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-12-04",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-12-04",
+        "kind": "conference"
+      },
+      "score_max": 0.72,
+      "score_min": 0.55,
+      "score_range": 0.17,
+      "short_caption": "Texas v. Black",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "National Horsemen's Benevolent and Protective Association",
       "caption": "National Horsemen's Benevolent and Protective Association, et al. v. Horseracing Integrity and Safety Authority, Incorporated, et al.",
       "caption_event_id": "evt-petition-disposition",
@@ -14405,6 +14545,132 @@
       "score_min": 0.55,
       "score_range": 0.2,
       "short_caption": "Cantero v. Bank of America",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Gulf Coast Racing LLC.",
+      "caption": "Gulf Coast Racing LLC., et al. v. Horseracing Integrity and Safety Authority, Incorporated, et al.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000332",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Whether a nationwide private-label regulator's board must be appointed under Article II matters to HISA, the horseracing industry and other public-private regulators, but this is a cross-petition beside the lead federal petitions.",
+          "big_case_score": 0.55,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261108T010928Z"
+        },
+        {
+          "big_case_rationale": "The constitutional limits on assigning federal regulatory power to privately selected directors extend beyond the national horseracing regime to other public-private regulators.",
+          "big_case_score": 0.77,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261108T010928Z"
+        },
+        {
+          "big_case_rationale": "Conditional cross-petition in high-profile nationwide constitutional litigation over the Horseracing Integrity and Safety Act (HISA), presenting Appointments Clause (Lebron) and private-nondelegation questions alongside lead petitions Nos. 26-199 and 26-201.",
+          "big_case_score": 0.62,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261108T010928Z"
+        }
+      ],
+      "docket_id": 9026000332,
+      "docket_number": "26-332",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-332.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Whether a nationwide private-label regulator's board must be appointed under Article II matters to HISA, the horseracing industry and other public-private regulators, but this is a cross-petition beside the lead federal petitions.",
+              "big_case_score": 0.55,
+              "cell_path": "data/cases/scotus/9026000332/events/evt-petition-disposition/predictions/claude-baseline/20261108T010928Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000332/events/evt-petition-disposition/predictions/claude-baseline/20261108T010928Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.2,
+              "run_id": "20261108T010928Z"
+            },
+            {
+              "big_case_rationale": "The constitutional limits on assigning federal regulatory power to privately selected directors extend beyond the national horseracing regime to other public-private regulators.",
+              "big_case_score": 0.77,
+              "cell_path": "data/cases/scotus/9026000332/events/evt-petition-disposition/predictions/codex-baseline/20261108T010928Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000332/events/evt-petition-disposition/predictions/codex-baseline/20261108T010928Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.18,
+              "run_id": "20261108T010928Z"
+            },
+            {
+              "big_case_rationale": "Conditional cross-petition in high-profile nationwide constitutional litigation over the Horseracing Integrity and Safety Act (HISA), presenting Appointments Clause (Lebron) and private-nondelegation questions alongside lead petitions Nos. 26-199 and 26-201.",
+              "big_case_score": 0.62,
+              "cell_path": "data/cases/scotus/9026000332/events/evt-petition-disposition/predictions/gemini-baseline/20261108T010928Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000332/events/evt-petition-disposition/predictions/gemini-baseline/20261108T010928Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.08,
+              "run_id": "20261108T010928Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Gulf Coast Racing LLC., et al. v. Horseracing Integrity and Safety Authority, Incorporated, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.6467,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-09-11",
+      "n": 3,
+      "other_party": "Horseracing Integrity and Safety Authority",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Gulf Coast Racing LLC.'s case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Gulf Coast Racing LLC.'s petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-12-04",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-12-04",
+        "kind": "conference"
+      },
+      "score_max": 0.77,
+      "score_min": 0.55,
+      "score_range": 0.22,
+      "short_caption": "Gulf Coast Racing LLC. v. Horseracing Integrity and Safety Authority",
       "status": "pending"
     },
     {
@@ -18439,36 +18705,36 @@
       "asking_declined": null,
       "asking_party": "Nielsen",
       "caption": "The Nielsen Company (US), LLC v. Cumulus Media New Holdings Inc.",
-      "caption_event_id": "evt-petition-disposition",
+      "caption_event_id": "evt-order-call-for-response-disposition",
       "case_id": "scotus/9026000370",
       "court_id": "scotus",
       "current_reads": [
         {
-          "big_case_rationale": "Revives the long-standing LePage's v. PeaceHealth split on bundled discounts under Sherman Act Section 2; significant for antitrust doctrine and multiproduct sellers, though a private commercial dispute on a preliminary-injunction record.",
-          "big_case_score": 0.55,
-          "event_id": "evt-petition-disposition",
+          "big_case_rationale": "A Section 2 tying/bundled-pricing rule touching a 20-year LePage's/PeaceHealth divide matters across the economy, but the case itself is a two-firm radio-ratings dispute on a preliminary injunction.",
+          "big_case_score": 0.5,
+          "event_id": "evt-order-call-for-response-disposition",
           "leakage_suspected": false,
           "predictor_id": "claude-baseline",
           "process_window": null,
-          "run_id": "20261031T010306Z"
+          "run_id": "20261108T010928Z"
         },
         {
-          "big_case_rationale": "A rule governing above-cost bundled pricing and constructive tying could affect multiproduct businesses well beyond radio ratings, although this is an interlocutory private commercial dispute rather than a nationwide governmental program.",
-          "big_case_score": 0.58,
-          "event_id": "evt-petition-disposition",
+          "big_case_rationale": "The boundary between lawful bundled discounts and monopolistic tying could affect pricing across many industries, although this vehicle concerns a preliminary injunction in a commercial radio-data dispute.",
+          "big_case_score": 0.64,
+          "event_id": "evt-order-call-for-response-disposition",
           "leakage_suspected": false,
           "predictor_id": "codex-baseline",
           "process_window": null,
-          "run_id": "20261031T010306Z"
+          "run_id": "20261108T010928Z"
         },
         {
-          "big_case_rationale": "Significant Sherman Act Section 2 question on whether a standalone price alongside a discounted bundle can constitute a 'constructive tie' without below-cost pricing, affecting multiproduct firms broadly if decided on the merits.",
-          "big_case_score": 0.65,
-          "event_id": "evt-petition-disposition",
+          "big_case_rationale": "A Supreme Court merits ruling on whether above-cost bundled discounts or unbundled standalone pricing can constitute 'constructive tying' under Section 2 of the Sherman Act would have broad doctrinal and commercial importance across U.S. industries.",
+          "big_case_score": 0.62,
+          "event_id": "evt-order-call-for-response-disposition",
           "leakage_suspected": false,
           "predictor_id": "gemini-baseline",
           "process_window": null,
-          "run_id": "20261031T141655Z"
+          "run_id": "20261108T010928Z"
         }
       ],
       "docket_id": 9026000370,
@@ -18476,6 +18742,56 @@
       "docket_number_source": "case_id",
       "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-370.html",
       "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-call-for-response-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A Section 2 tying/bundled-pricing rule touching a 20-year LePage's/PeaceHealth divide matters across the economy, but the case itself is a two-firm radio-ratings dispute on a preliminary injunction.",
+              "big_case_score": 0.5,
+              "cell_path": "data/cases/scotus/9026000370/events/evt-order-call-for-response-disposition/predictions/claude-baseline/20261108T010928Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000370/events/evt-order-call-for-response-disposition/predictions/claude-baseline/20261108T010928Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.13,
+              "run_id": "20261108T010928Z"
+            },
+            {
+              "big_case_rationale": "The boundary between lawful bundled discounts and monopolistic tying could affect pricing across many industries, although this vehicle concerns a preliminary injunction in a commercial radio-data dispute.",
+              "big_case_score": 0.64,
+              "cell_path": "data/cases/scotus/9026000370/events/evt-order-call-for-response-disposition/predictions/codex-baseline/20261108T010928Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000370/events/evt-order-call-for-response-disposition/predictions/codex-baseline/20261108T010928Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.22,
+              "run_id": "20261108T010928Z"
+            },
+            {
+              "big_case_rationale": "A Supreme Court merits ruling on whether above-cost bundled discounts or unbundled standalone pricing can constitute 'constructive tying' under Section 2 of the Sherman Act would have broad doctrinal and commercial importance across U.S. industries.",
+              "big_case_score": 0.62,
+              "cell_path": "data/cases/scotus/9026000370/events/evt-order-call-for-response-disposition/predictions/gemini-baseline/20261108T010928Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000370/events/evt-order-call-for-response-disposition/predictions/gemini-baseline/20261108T010928Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.08,
+              "run_id": "20261108T010928Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "The Nielsen Company (US), LLC v. Cumulus Media New Holdings Inc."
+        },
         {
           "actual_disposition": null,
           "event_id": "evt-petition-disposition",
@@ -18528,9 +18844,9 @@
         }
       ],
       "leakage_suspected": false,
-      "mean_big_case_score": 0.5933,
-      "moment": "evt-petition-disposition",
-      "moment_opened_at": "2026-09-17",
+      "mean_big_case_score": 0.5867,
+      "moment": "evt-order-call-for-response-disposition",
+      "moment_opened_at": "2026-11-05",
       "n": 3,
       "other_party": "Cumulus Media New Holdings",
       "outcome_lines": [
@@ -18549,15 +18865,19 @@
         {
           "date": "2026-11-13",
           "kind": "conference"
+        },
+        {
+          "date": "2026-12-07",
+          "kind": "response_due"
         }
       ],
       "scheduled": {
         "date": "2026-11-13",
         "kind": "conference"
       },
-      "score_max": 0.65,
-      "score_min": 0.55,
-      "score_range": 0.1,
+      "score_max": 0.64,
+      "score_min": 0.5,
+      "score_range": 0.14,
       "short_caption": "Nielsen v. Cumulus Media New Holdings",
       "status": "pending"
     },
@@ -26927,7 +27247,12 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [],
+      "schedule": [
+        {
+          "date": "2026-12-08",
+          "kind": "response_due"
+        }
+      ],
       "scheduled": null,
       "score_max": 0.65,
       "score_min": 0.38,
@@ -32992,6 +33317,132 @@
       "score_range": 0.15,
       "short_caption": "Independent Specialty Insurance v. Lower Cameron Hospital Service District",
       "status": "resolved"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Vasquez",
+      "caption": "Richard Vasquez, Jr. v. Eric Guerrero, Director, Texas Department of Criminal Justice, Correctional Institutions Division",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000353",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Capital case on a recurring AEDPA second-or-successive question Justice Sotomayor has flagged; nationally modest unless granted.",
+          "big_case_score": 0.3,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261108T010928Z"
+        },
+        {
+          "big_case_rationale": "A capital case asking a nationally consequential question about federal review of concealed exculpatory evidence, although presented through a narrow and procedurally complicated habeas appeal.",
+          "big_case_score": 0.6,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261108T010928Z"
+        },
+        {
+          "big_case_rationale": "Capital habeas petition raising a recurring AEDPA question (whether Panetti v. Quarterman exempts newly discovered Brady/Napue claims from 28 U.S.C. 2244(b)), but severely limited by case-specific procedural and vehicle defects.",
+          "big_case_score": 0.25,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261108T010928Z"
+        }
+      ],
+      "docket_id": 9026000353,
+      "docket_number": "26-353",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-353.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Capital case on a recurring AEDPA second-or-successive question Justice Sotomayor has flagged; nationally modest unless granted.",
+              "big_case_score": 0.3,
+              "cell_path": "data/cases/scotus/9026000353/events/evt-petition-disposition/predictions/claude-baseline/20261108T010928Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000353/events/evt-petition-disposition/predictions/claude-baseline/20261108T010928Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.08,
+              "run_id": "20261108T010928Z"
+            },
+            {
+              "big_case_rationale": "A capital case asking a nationally consequential question about federal review of concealed exculpatory evidence, although presented through a narrow and procedurally complicated habeas appeal.",
+              "big_case_score": 0.6,
+              "cell_path": "data/cases/scotus/9026000353/events/evt-petition-disposition/predictions/codex-baseline/20261108T010928Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000353/events/evt-petition-disposition/predictions/codex-baseline/20261108T010928Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.025,
+              "run_id": "20261108T010928Z"
+            },
+            {
+              "big_case_rationale": "Capital habeas petition raising a recurring AEDPA question (whether Panetti v. Quarterman exempts newly discovered Brady/Napue claims from 28 U.S.C. 2244(b)), but severely limited by case-specific procedural and vehicle defects.",
+              "big_case_score": 0.25,
+              "cell_path": "data/cases/scotus/9026000353/events/evt-petition-disposition/predictions/gemini-baseline/20261108T010928Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000353/events/evt-petition-disposition/predictions/gemini-baseline/20261108T010928Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.015,
+              "run_id": "20261108T010928Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Richard Vasquez, Jr. v. Eric Guerrero, Director, Texas Department of Criminal Justice, Correctional Institutions Division"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.3833,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-09-16",
+      "n": 3,
+      "other_party": "Guerrero",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Vasquez's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Vasquez's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-12-04",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-12-04",
+        "kind": "conference"
+      },
+      "score_max": 0.6,
+      "score_min": 0.25,
+      "score_range": 0.35,
+      "short_caption": "Vasquez v. Guerrero",
+      "status": "pending"
     },
     {
       "asking_declined": null,
@@ -46147,6 +46598,132 @@
       "status": "pending"
     },
     {
+      "asking_declined": null,
+      "asking_party": "Venkatraman",
+      "caption": "Venky Venkatraman v. Bank of America, N.A.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000367",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Single-plaintiff Texas-law bank negligence claim over ~$68,000; no federal question, no split, unpublished summary-calendar ruling.",
+          "big_case_score": 0.04,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261108T010928Z"
+        },
+        {
+          "big_case_rationale": "Potentially important to fraud victims and receiving banks, but this vehicle concerns Texas tort duties and a thin individual pleading record rather than a nationwide federal liability rule.",
+          "big_case_score": 0.32,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261108T010928Z"
+        },
+        {
+          "big_case_rationale": "Routine diversity tort dispute applying settled Texas law on bank duties regarding deposits into third-party accounts; unpublished summary-calendar per curiam opinion with no circuit split.",
+          "big_case_score": 0.05,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261108T010928Z"
+        }
+      ],
+      "docket_id": 9026000367,
+      "docket_number": "26-367",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-367.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Single-plaintiff Texas-law bank negligence claim over ~$68,000; no federal question, no split, unpublished summary-calendar ruling.",
+              "big_case_score": 0.04,
+              "cell_path": "data/cases/scotus/9026000367/events/evt-petition-disposition/predictions/claude-baseline/20261108T010928Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000367/events/evt-petition-disposition/predictions/claude-baseline/20261108T010928Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.004,
+              "run_id": "20261108T010928Z"
+            },
+            {
+              "big_case_rationale": "Potentially important to fraud victims and receiving banks, but this vehicle concerns Texas tort duties and a thin individual pleading record rather than a nationwide federal liability rule.",
+              "big_case_score": 0.32,
+              "cell_path": "data/cases/scotus/9026000367/events/evt-petition-disposition/predictions/codex-baseline/20261108T010928Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000367/events/evt-petition-disposition/predictions/codex-baseline/20261108T010928Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.004,
+              "run_id": "20261108T010928Z"
+            },
+            {
+              "big_case_rationale": "Routine diversity tort dispute applying settled Texas law on bank duties regarding deposits into third-party accounts; unpublished summary-calendar per curiam opinion with no circuit split.",
+              "big_case_score": 0.05,
+              "cell_path": "data/cases/scotus/9026000367/events/evt-petition-disposition/predictions/gemini-baseline/20261108T010928Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000367/events/evt-petition-disposition/predictions/gemini-baseline/20261108T010928Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.002,
+              "run_id": "20261108T010928Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Venky Venkatraman v. Bank of America, N.A."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.1367,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-09-17",
+      "n": 3,
+      "other_party": "Bank of America",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Venkatraman's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Venkatraman's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-12-04",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-12-04",
+        "kind": "conference"
+      },
+      "score_max": 0.32,
+      "score_min": 0.04,
+      "score_range": 0.28,
+      "short_caption": "Venkatraman v. Bank of America",
+      "status": "pending"
+    },
+    {
       "asking_declined": "short_form",
       "asking_party": null,
       "caption": "James C. \"Chris\" McNeil, et al. v. Court of Common Pleas of South Carolina, Ninth Judicial Circuit, Charleston County",
@@ -46782,120 +47359,128 @@
     },
     {
       "asking_declined": null,
-      "asking_party": "Lowery",
-      "caption": "Marlin D. Lowery v. Cheboygan, MI Area Public Schools, et al.",
-      "caption_event_id": "evt-petition-arrival-disposition",
-      "case_id": "scotus/9026000386",
+      "asking_party": "Charles Kakembo Sessanga",
+      "caption": "Charles Kakembo Sessanga v. City of DeSoto Police Department, et al.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000378",
       "court_id": "scotus",
       "current_reads": [
         {
-          "big_case_rationale": "A pro se school bus driver's individual unemployment-benefits dispute, dismissed below for failure to state a federal claim; the questions presented are idiosyncratic to the petitioner and no institutional party, split, or doctrinal question is in play, so even a decision would have no reach beyond this claimant.",
-          "big_case_score": 0.03,
-          "event_id": "evt-petition-arrival-disposition",
+          "big_case_rationale": "Fact-bound pro se \u00a7 1983 malicious-prosecution dismissal from an unpublished per curiam; little reach beyond the parties.",
+          "big_case_score": 0.04,
+          "event_id": "evt-petition-disposition",
           "leakage_suspected": false,
           "predictor_id": "claude-baseline",
           "process_window": null,
-          "run_id": "20260927T182226Z"
+          "run_id": "20261108T010928Z"
         },
         {
-          "big_case_rationale": "A ruling on seasonal school-worker unemployment eligibility could affect many workers, but this record presents an individual benefits dispute and alleged disparate treatment without a demonstrated national conflict.",
-          "big_case_score": 0.22,
-          "event_id": "evt-petition-arrival-disposition",
+          "big_case_rationale": "A ruling on pleading police misconduct before discovery could affect civil-rights litigation nationally, but this petition also presents substantial case-specific pleading and amendment questions.",
+          "big_case_score": 0.28,
+          "event_id": "evt-petition-disposition",
           "leakage_suspected": false,
           "predictor_id": "codex-baseline",
           "process_window": null,
-          "run_id": "20260927T182226Z"
+          "run_id": "20261108T010928Z"
         },
         {
-          "big_case_rationale": null,
-          "big_case_score": 0.1,
-          "event_id": "evt-petition-arrival-disposition",
+          "big_case_rationale": "Routine pro se \u00a7 1983 malicious-prosecution screening dismissal with no genuine circuit split, institutional stakes, or broader legal significance beyond the individual dispute.",
+          "big_case_score": 0.03,
+          "event_id": "evt-petition-disposition",
           "leakage_suspected": false,
           "predictor_id": "gemini-baseline",
           "process_window": null,
-          "run_id": "20260927T182226Z"
+          "run_id": "20261108T010928Z"
         }
       ],
-      "docket_id": 9026000386,
-      "docket_number": "26-386",
+      "docket_id": 9026000378,
+      "docket_number": "26-378",
       "docket_number_source": "case_id",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-386.html",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-378.html",
       "events": [
         {
           "actual_disposition": null,
-          "event_id": "evt-petition-arrival-disposition",
+          "event_id": "evt-petition-disposition",
           "reads": [
             {
-              "big_case_rationale": "A pro se school bus driver's individual unemployment-benefits dispute, dismissed below for failure to state a federal claim; the questions presented are idiosyncratic to the petitioner and no institutional party, split, or doctrinal question is in play, so even a decision would have no reach beyond this claimant.",
-              "big_case_score": 0.03,
-              "cell_path": "data/cases/scotus/9026000386/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260927T182226Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000386/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260927T182226Z",
+              "big_case_rationale": "Fact-bound pro se \u00a7 1983 malicious-prosecution dismissal from an unpublished per curiam; little reach beyond the parties.",
+              "big_case_score": 0.04,
+              "cell_path": "data/cases/scotus/9026000378/events/evt-petition-disposition/predictions/claude-baseline/20261108T010928Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000378/events/evt-petition-disposition/predictions/claude-baseline/20261108T010928Z",
               "confidence": null,
               "granted": 0,
               "leakage_suspected": false,
               "mode": "forward",
               "predicted_disposition": "denied",
               "predictor_id": "claude-baseline",
-              "probability": 0.005,
-              "run_id": "20260927T182226Z"
+              "probability": 0.008,
+              "run_id": "20261108T010928Z"
             },
             {
-              "big_case_rationale": "A ruling on seasonal school-worker unemployment eligibility could affect many workers, but this record presents an individual benefits dispute and alleged disparate treatment without a demonstrated national conflict.",
-              "big_case_score": 0.22,
-              "cell_path": "data/cases/scotus/9026000386/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260927T182226Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000386/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260927T182226Z",
+              "big_case_rationale": "A ruling on pleading police misconduct before discovery could affect civil-rights litigation nationally, but this petition also presents substantial case-specific pleading and amendment questions.",
+              "big_case_score": 0.28,
+              "cell_path": "data/cases/scotus/9026000378/events/evt-petition-disposition/predictions/codex-baseline/20261108T010928Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000378/events/evt-petition-disposition/predictions/codex-baseline/20261108T010928Z",
               "confidence": null,
               "granted": 0,
               "leakage_suspected": false,
               "mode": "forward",
               "predicted_disposition": "denied",
               "predictor_id": "codex-baseline",
-              "probability": 0.004,
-              "run_id": "20260927T182226Z"
+              "probability": 0.01,
+              "run_id": "20261108T010928Z"
             },
             {
-              "big_case_rationale": null,
-              "big_case_score": 0.1,
-              "cell_path": "data/cases/scotus/9026000386/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260927T182226Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000386/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260927T182226Z",
+              "big_case_rationale": "Routine pro se \u00a7 1983 malicious-prosecution screening dismissal with no genuine circuit split, institutional stakes, or broader legal significance beyond the individual dispute.",
+              "big_case_score": 0.03,
+              "cell_path": "data/cases/scotus/9026000378/events/evt-petition-disposition/predictions/gemini-baseline/20261108T010928Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000378/events/evt-petition-disposition/predictions/gemini-baseline/20261108T010928Z",
               "confidence": null,
               "granted": 0,
               "leakage_suspected": false,
               "mode": "forward",
               "predicted_disposition": "denied",
               "predictor_id": "gemini-baseline",
-              "probability": 0.01,
-              "run_id": "20260927T182226Z"
+              "probability": 0.005,
+              "run_id": "20261108T010928Z"
             }
           ],
           "resolved_at": null,
-          "title": "Marlin D. Lowery v. Cheboygan, MI Area Public Schools, et al."
+          "title": "Charles Kakembo Sessanga v. City of DeSoto Police Department, et al."
         }
       ],
       "leakage_suspected": false,
       "mean_big_case_score": 0.1167,
-      "moment": "evt-petition-arrival-disposition",
-      "moment_opened_at": "2026-09-22",
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-09-21",
       "n": 3,
-      "other_party": "Cheboygan",
+      "other_party": "City of DeSoto Police Department",
       "outcome_lines": [
         {
           "action": "granted",
-          "line": "The Court takes up Lowery's case. A grant alone decides nothing yet about who is right.",
+          "line": "The Court takes up Charles Kakembo Sessanga's case. A grant alone decides nothing yet about who is right.",
           "side": "granted"
         },
         {
           "action": "denied",
-          "line": "Lowery's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "line": "Charles Kakembo Sessanga's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
           "side": "not-granted"
         }
       ],
-      "schedule": [],
-      "scheduled": null,
-      "score_max": 0.22,
+      "schedule": [
+        {
+          "date": "2026-12-04",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-12-04",
+        "kind": "conference"
+      },
+      "score_max": 0.28,
       "score_min": 0.03,
-      "score_range": 0.19,
-      "short_caption": "Lowery v. Cheboygan",
+      "score_range": 0.25,
+      "short_caption": "Charles Kakembo Sessanga v. City of DeSoto Police Department",
       "status": "pending"
     },
     {
@@ -49887,6 +50472,182 @@
       "score_range": 0.18,
       "short_caption": "Mazza v. Bank of New York Mellon",
       "status": "resolved"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Lowery",
+      "caption": "Marlin D. Lowery v. Cheboygan Area Schools, et al.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000386",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Pro se claim over one school bus driver's summer unemployment benefits under a long-standing, federally sanctioned between-terms denial rule; no broader stakes.",
+          "big_case_score": 0.02,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261108T010928Z"
+        },
+        {
+          "big_case_rationale": "School employees' unemployment benefits have meaningful practical stakes, but this procedurally defective individual suit presents no demonstrated national conflict.",
+          "big_case_score": 0.18,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261108T010928Z"
+        },
+        {
+          "big_case_rationale": "Routine pro se challenge to a state school-break unemployment benefits denial with forfeited claims and no circuit split.",
+          "big_case_score": 0.02,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261108T010928Z"
+        }
+      ],
+      "docket_id": 9026000386,
+      "docket_number": "26-386",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-386.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-arrival-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A pro se school bus driver's individual unemployment-benefits dispute, dismissed below for failure to state a federal claim; the questions presented are idiosyncratic to the petitioner and no institutional party, split, or doctrinal question is in play, so even a decision would have no reach beyond this claimant.",
+              "big_case_score": 0.03,
+              "cell_path": "data/cases/scotus/9026000386/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260927T182226Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000386/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260927T182226Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.005,
+              "run_id": "20260927T182226Z"
+            },
+            {
+              "big_case_rationale": "A ruling on seasonal school-worker unemployment eligibility could affect many workers, but this record presents an individual benefits dispute and alleged disparate treatment without a demonstrated national conflict.",
+              "big_case_score": 0.22,
+              "cell_path": "data/cases/scotus/9026000386/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260927T182226Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000386/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260927T182226Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.004,
+              "run_id": "20260927T182226Z"
+            },
+            {
+              "big_case_rationale": null,
+              "big_case_score": 0.1,
+              "cell_path": "data/cases/scotus/9026000386/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260927T182226Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000386/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260927T182226Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.01,
+              "run_id": "20260927T182226Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Marlin D. Lowery v. Cheboygan, MI Area Public Schools, et al."
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Pro se claim over one school bus driver's summer unemployment benefits under a long-standing, federally sanctioned between-terms denial rule; no broader stakes.",
+              "big_case_score": 0.02,
+              "cell_path": "data/cases/scotus/9026000386/events/evt-petition-disposition/predictions/claude-baseline/20261108T010928Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000386/events/evt-petition-disposition/predictions/claude-baseline/20261108T010928Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.003,
+              "run_id": "20261108T010928Z"
+            },
+            {
+              "big_case_rationale": "School employees' unemployment benefits have meaningful practical stakes, but this procedurally defective individual suit presents no demonstrated national conflict.",
+              "big_case_score": 0.18,
+              "cell_path": "data/cases/scotus/9026000386/events/evt-petition-disposition/predictions/codex-baseline/20261108T010928Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000386/events/evt-petition-disposition/predictions/codex-baseline/20261108T010928Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.003,
+              "run_id": "20261108T010928Z"
+            },
+            {
+              "big_case_rationale": "Routine pro se challenge to a state school-break unemployment benefits denial with forfeited claims and no circuit split.",
+              "big_case_score": 0.02,
+              "cell_path": "data/cases/scotus/9026000386/events/evt-petition-disposition/predictions/gemini-baseline/20261108T010928Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000386/events/evt-petition-disposition/predictions/gemini-baseline/20261108T010928Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.002,
+              "run_id": "20261108T010928Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Marlin D. Lowery v. Cheboygan Area Schools, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.0733,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-09-22",
+      "n": 3,
+      "other_party": "Cheboygan Area Schools",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Lowery's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Lowery's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-12-04",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-12-04",
+        "kind": "conference"
+      },
+      "score_max": 0.18,
+      "score_min": 0.02,
+      "score_range": 0.16,
+      "short_caption": "Lowery v. Cheboygan Area Schools",
+      "status": "pending"
     },
     {
       "asking_declined": null,
@@ -53117,5 +53878,5 @@
   ],
   "rows_with_leakage_flag": 4,
   "schema_version": "1.4",
-  "scored_reads": 1078
+  "scored_reads": 1093
 }
