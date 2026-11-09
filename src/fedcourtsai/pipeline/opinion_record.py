@@ -64,10 +64,11 @@ caption and its footnotes sit below an em-dash rule; and the preliminary print
 in plain mode (its layout mode letter-spaces), where opinions run on within a
 page and footnotes are told from body text by their smaller type.
 
-**Not read.** A listing row linked into a whole preliminary-print or
-bound volume (every row before OT2020 on the Court's listings, and some of
-OT2020's) is skipped unfetched; a document whose text does not extract is
-refused.
+**Volumes.** A listing row linked into a whole preliminary-print or bound
+volume at a page (every row before OT2020 on the Court's listings, and some of
+OT2020's) is read from a slice of that volume (:class:`VolumeReader`), as a
+print; a sweep skips it unfetched. **Not read:** a decree's ``D``-numbered row,
+skipped unfetched; a document whose text does not extract is refused.
 
 **Who sat.** Each read signed decision also gets one ``opinion_benches`` row:
 the bench and the Justices who took no part, read off its syllabus lineup
@@ -131,7 +132,7 @@ from typing import Annotated, Any, Final, Literal, Protocol
 
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
-from pypdf import PdfReader
+from pypdf import PdfReader, PdfWriter
 from pypdf.errors import PyPdfError
 
 from .. import casestore, corpus
@@ -164,10 +165,14 @@ TEXT_RULE_VERSION: Final = 1
 #: The opinion-header reader's stamp, on a per curiam's writings.
 HEADER_READER: Final = "scotus-opinion-headers"
 #: Bump whenever the same headers could read differently.
-HEADER_READER_VERSION: Final = 2
+HEADER_READER_VERSION: Final = 3
 
 SLIP: Final = "slip"
 PRELIMINARY_PRINT: Final = "preliminary-print"
+#: A case sliced out of a whole volume the listing links into.
+PRELIMINARY_PRINT_VOLUME: Final = "preliminary-print-volume"
+BOUND_VOLUME: Final = "bound-volume"
+SOURCE_FORMATS: Final = frozenset({SLIP, PRELIMINARY_PRINT, PRELIMINARY_PRINT_VOLUME, BOUND_VOLUME})
 
 # --- counting -----------------------------------------------------------------
 
@@ -322,7 +327,16 @@ def read_header(text: str, *, bench: Sequence[str]) -> Header | None:  # noqa: P
         if authors is None:
             return None
         return Header(match.group(0), WritingKind.statement, authors)
-    if (match := _SEPARATE_RE.match(normalized)) is not None:
+    match = _SEPARATE_RE.match(normalized)
+    if match is None:
+        # A print occasionally drops a header's closing period
+        # ("Justice Ginsburg, dissenting"); read it only where the header is
+        # the whole of its line, so a body sentence never reads as one.
+        first = next((line for line in text.splitlines() if line.strip()), "")
+        line = _SPLIT_WORD_RE.sub(r"\1\2", normalize_order_text(first)).rstrip()
+        whole = _SEPARATE_RE.fullmatch(f"{line}.") if line and not line.endswith(".") else None
+        match = whole
+    if match is not None:
         authors = _names(match.group("authors"), bench)
         joins = _joins(match.group("with") or "", bench)
         if authors is None or joins is None:
@@ -835,8 +849,15 @@ def _stray_headers(sections: Sequence[Section], bench: Sequence[str]) -> list[st
     return found
 
 
-def read_document(entry: OpinionListing, data: bytes) -> OpinionDocumentReading:
-    """Split one fetched document into its opinions and record each, or refuse it."""
+def read_document(
+    entry: OpinionListing, data: bytes, *, volume_format: str | None = None
+) -> OpinionDocumentReading:
+    """Split one fetched document into its opinions and record each, or refuse it.
+
+    ``volume_format`` marks ``data`` as one case sliced out of a volume
+    (:func:`read_volume_entry`): it is read as a print, whatever its first page
+    carries, and stamped with that format.
+    """
     per_curiam = entry.author_code == "PC"
     plain = extract_pdf_text(data, char_cap=TEXT_CHAR_CAP)
     if not plain.text.strip():
@@ -856,7 +877,7 @@ def read_document(entry: OpinionListing, data: bytes) -> OpinionDocumentReading:
         bench = lineup.bench if lineup is not None else bench_on(decided)
     except ValueError as exc:
         return _base(entry, status="refused", reason=str(exc))
-    prelim = is_preliminary_print(data)
+    prelim = volume_format is not None or is_preliminary_print(data)
     try:
         if prelim:
             sections, problems = split_print(print_pages(data), bench=bench)
@@ -866,7 +887,7 @@ def read_document(entry: OpinionListing, data: bytes) -> OpinionDocumentReading:
             sections, problems = split_slip(pages, bench=bench)
     except (PyPdfError, ValueError, TypeError) as exc:
         return _base(entry, status="refused", reason=f"the PDF could not be split: {exc}")
-    fmt = PRELIMINARY_PRINT if prelim else SLIP
+    fmt = volume_format or (PRELIMINARY_PRINT if prelim else SLIP)
     if not sections:
         problems.append("no opinion header found")
     if per_curiam:
@@ -908,11 +929,16 @@ def participation(lineup: Lineup) -> dict[str, list[str]]:
 
 def skip_reason(entry: OpinionListing) -> str | None:
     """Why a listing row is not read at all, or ``None`` to read it."""
+    if is_decree(entry):
+        return "a decree: the listing's D-numbered rows print no opinion"
     if entry.volume_linked:
         return "volume-linked: the listing links into a whole volume, not one opinion"
-    if entry.number.startswith("D"):
-        return "a decree: the listing's D-numbered rows print no opinion"
     return None
+
+
+def is_decree(entry: OpinionListing) -> bool:
+    """Whether a listing row is a decree's (``D1``), which prints no opinion."""
+    return entry.number.startswith("D")
 
 
 class OpinionSource(Protocol):
@@ -934,6 +960,103 @@ def read_listing_entry(entry: OpinionListing, fetcher: OpinionSource) -> Opinion
     if data is None:
         return _base(entry, status="refused", reason="the opinion is not served")
     return read_document(entry, data)
+
+
+# --- volumes -----------------------------------------------------------------------
+
+# A case's first page in a print or bound volume carries the Term's head
+# ("OCTOBER TERM, 2018"); no later page of the case does.
+_CASE_START_RE = re.compile(r"OCTOBER\s+TERM,?\s*\d{4}")
+_PAGE_ANCHOR_RE = re.compile(r"#page=(\d+)$")
+_CASE_START_LINES: Final = 4
+
+
+def volume_url(entry: OpinionListing) -> str:
+    """The whole volume a volume-linked row links into, without its page anchor."""
+    return entry.url.split("#", 1)[0]
+
+
+def volume_page(entry: OpinionListing) -> int | None:
+    """The 1-based page a volume-linked row's link opens at, or ``None``."""
+    found = _PAGE_ANCHOR_RE.search(entry.url)
+    return int(found.group(1)) if found else None
+
+
+def case_start_pages(reader: PdfReader) -> list[int]:
+    """The 1-based pages of a volume that open a case: the Term's head near the top."""
+    starts: list[int] = []
+    for number, page in enumerate(reader.pages, start=1):
+        text = (page.extract_text() or "").replace(_WATERMARK, "")
+        top = "\n".join(text.strip().splitlines()[:_CASE_START_LINES])
+        if _CASE_START_RE.search(top):
+            starts.append(number)
+    return starts
+
+
+def slice_pages(reader: PdfReader, first: int, last: int) -> bytes:
+    """Pages ``first`` to ``last`` (1-based, inclusive) as a PDF of their own."""
+    writer = PdfWriter()
+    for index in range(first - 1, last):
+        writer.add_page(reader.pages[index])
+    out = io.BytesIO()
+    writer.write(out)
+    return out.getvalue()
+
+
+@dataclass
+class _Volume:
+    reader: PdfReader | None
+    case_starts: list[int]
+
+
+class VolumeReader:
+    """Reads volume-linked listing rows, fetching each volume once.
+
+    A row's case runs from its link's page to the page before the next case
+    opens: the next page another row of the same volume links to, or the next
+    page that carries the Term's head, whichever comes first, or the volume's
+    end. ``anchors`` are the linked pages of every row seen for each volume,
+    read and recorded alike, so a recorded neighbour still bounds a case.
+    """
+
+    def __init__(self, fetcher: OpinionSource, anchors: dict[str, set[int]]) -> None:
+        self._fetcher = fetcher
+        self._anchors = anchors
+        self._volumes: dict[str, _Volume] = {}
+
+    def _volume(self, url: str) -> _Volume:
+        if url not in self._volumes:
+            data = self._fetcher.opinion(url)
+            reader = PdfReader(io.BytesIO(data)) if data is not None else None
+            starts = case_start_pages(reader) if reader is not None else []
+            self._volumes[url] = _Volume(reader, starts)
+        return self._volumes[url]
+
+    def read(self, entry: OpinionListing) -> OpinionDocumentReading:  # noqa: PLR0911 - one return per refusal
+        """Slice ``entry``'s case out of its volume and read it, or say why not."""
+        first = volume_page(entry)
+        if first is None:
+            return _base(entry, status="refused", reason="the volume link names no page")
+        url = volume_url(entry)
+        try:
+            volume = self._volume(url)
+        except httpx.HTTPError as exc:
+            return _base(entry, status="refused", reason=f"fetch failed: {exc}")
+        except (PyPdfError, ValueError, TypeError) as exc:
+            return _base(entry, status="refused", reason=f"the volume could not be read: {exc}")
+        if volume.reader is None:
+            return _base(entry, status="refused", reason="the volume is not served")
+        total = len(volume.reader.pages)
+        if first > total:
+            return _base(entry, status="refused", reason="the link's page is past the volume")
+        later = [p for p in (*self._anchors.get(url, ()), *volume.case_starts) if p > first]
+        last = min(later, default=total + 1) - 1
+        fmt = BOUND_VOLUME if "/boundvolumes/" in url else PRELIMINARY_PRINT_VOLUME
+        try:
+            data = slice_pages(volume.reader, first, last)
+        except (PyPdfError, ValueError, TypeError) as exc:
+            return _base(entry, status="refused", reason=f"the volume could not be sliced: {exc}")
+        return read_document(entry, data, volume_format=fmt)
 
 
 # --- the writer ---------------------------------------------------------------------
@@ -1157,7 +1280,7 @@ def read_opinion_record(
 
     ``max_documents`` is a sweep's per-window slice of the rows that need a
     fetch: at most that many are read and the rest are counted in ``deferred``
-    for a later window. A row skipped unfetched (volume-linked) costs nothing
+    for a later window. A row skipped unfetched (volume-linked or a decree) costs nothing
     and is always reported. Two thirds of the slice go newest decision first,
     so a decision is read the window after it issues; the last third goes to
     the older rows rotated by ``rotation`` (a window index), so a run of rows
@@ -1167,6 +1290,7 @@ def read_opinion_record(
     result = OpinionRecordResult(applied=False, terms=list(terms))
     wanted = {n for d in dockets if (n := corpus.normalize_docket_number(d)) is not None}
     owed: list[OpinionListing] = []
+    anchors: dict[str, set[int]] = {}
     for term in terms:
         try:
             listing = fetcher.listing(term % 100)
@@ -1174,6 +1298,8 @@ def read_opinion_record(
             result.failures.append(f"OT{term}: the opinions listing could not be read: {exc}")
             continue
         for entry in listing:
+            if entry.volume_linked and (page := volume_page(entry)) is not None:
+                anchors.setdefault(volume_url(entry), set()).add(page)
             printed = {corpus.normalize_docket_number(d) for d in listed_dockets(entry)}
             if wanted and not wanted & printed:
                 continue
@@ -1185,7 +1311,14 @@ def read_opinion_record(
     if max_documents is not None:
         owed = _sweep_slice(owed, max_documents, rotation)
         result.deferred = result.listed - result.already_recorded - len(owed)
-    result.readings = [read_listing_entry(entry, fetcher) for entry in owed]
+    # A sweep reads only the newest Terms and never a whole volume.
+    volumes = VolumeReader(fetcher, anchors) if max_documents is None else None
+    result.readings = [
+        volumes.read(entry)
+        if volumes is not None and entry.volume_linked and not is_decree(entry)
+        else read_listing_entry(entry, fetcher)
+        for entry in owed
+    ]
     read = [(r, _row_key(r.term, r.listing_number)) for r in result.readings if r.status == "read"]
     # A recorded document is in one of the two re-read sets, so a key in
     # neither is a new document, which owes every row.
@@ -1474,7 +1607,7 @@ def _opinions_problem(reading: OpinionDocumentReading) -> str | None:  # noqa: P
         return "is read but records no opinion"
     if [o.position for o in opinions] != list(range(1, len(opinions) + 1)):
         return "numbers its opinions out of order"
-    if reading.source_format not in (SLIP, PRELIMINARY_PRINT):
+    if reading.source_format not in SOURCE_FORMATS:
         return f"names no known source format: {str(reading.source_format)[:40]!r}"
     if reading.lineup is None or not _STAMP_RE.match(reading.lineup):
         return "carries no reader stamp"

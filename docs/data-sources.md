@@ -158,14 +158,21 @@ each fetching in a job that holds no credential
 - **Source and scope.** Every row of a Term's opinions listing, read through
   the same client: the signed merits opinions, the per curiams (summary
   reversals and argued per curiams alike), and the applications and original
-  actions the listing also carries. A row the listing links into a whole
-  preliminary-print or bound volume is skipped unfetched, as is a decree's
-  `D`-numbered row, which prints no opinion. On the Court's listings as read
-  on 2026-10-01, every row before OT2020 and some of OT2020's are
-  volume-linked. Before OT2017 there is no listing to read: the OT2015 and
-  OT2016 listing addresses redirect to the Court's U.S. Reports page (as
-  fetched on 2026-11-08), so those Terms need another index of the documents
-  as well as a volume reader.
+  actions the listing also carries. A decree's `D`-numbered row prints no
+  opinion and is skipped unfetched. On the Court's listings as read on
+  2026-10-01, every row before OT2020 and some of OT2020's link into a whole
+  preliminary-print or bound volume at a page (`…/588US2PP_final.pdf#page=414`).
+  Such a row is read from a slice of its volume: each volume is fetched once,
+  and a case runs from its link's page to the page before the next case
+  opens, which is the next page another row of the volume links to or the
+  next page whose head carries the Term ("OCTOBER TERM, 2018"), whichever
+  comes first. The slice is read as a print and stamped
+  `preliminary-print-volume` or `bound-volume`. As fetched on 2026-11-09,
+  OT2017's four volume links answer 404, so its rows are refused as not
+  served. Before OT2017 there is no listing to read: the OT2015 and OT2016
+  listing addresses redirect to the Court's U.S. Reports page (as fetched on
+  2026-11-08), so those Terms need another index of the documents. The daily
+  sweep reads only the newest Terms and skips a volume-linked row unfetched.
 - **Who wrote what.** For a signed decision the syllabus lineup is the record
   of each writing's kind, author, coauthors and joiners: the grammar above,
   unchanged. A partial join is stored with its printed limit as the
@@ -195,17 +202,21 @@ each fetching in a job that holds no credential
   either docket's reading would misstate the other's. Where only the headers
   carry the difference ("concurring as to No. 19-8709, and … dissenting … as
   to No. 20-444"), the split disagrees with the syllabus and refuses it.
-- **Coverage, and what it leaves out.** As projected on 2026-11-08 (the
-  record then stored, plus what a dry run of the current reader would add;
-  the stored record shows more refusals until the next `opinion-record`
-  apply), documents recorded, refused and skipped per Term: OT2025 72 / 1 / 1
-  (the decree; 177 opinions),
-  OT2024 66 / 1 / 0 (163), OT2023 60 / 0 / 0 (159), OT2022 57 / 1 / 0 (135),
-  OT2021 66 / 0 / 0 (159), OT2020 51 / 2 / 15 (122); OT2017–OT2019 are
-  skipped whole (volume-linked). The refusals are not random: two are the
+- **Coverage, and what it leaves out.** As projected on 2026-11-09 (the
+  record stored on 2026-11-08, plus what a dry run of the current reader over
+  OT2017–OT2025 would add; the stored record shows more refusals until the
+  next `opinion-record` apply, and run-repair's pass reads OT2020–OT2025
+  only), documents recorded, refused and skipped per Term: OT2025 72 / 1 / 1
+  (the decree; 177 opinions), OT2024 66 / 1 / 0 (163), OT2023 60 / 0 / 0
+  (159), OT2022 57 / 1 / 0 (135), OT2021 66 / 0 / 0 (159), OT2020 66 / 2 / 0
+  (150), OT2019 62 / 1 / 0 (155), OT2018 73 / 0 / 0 (167); OT2017 0 / 56 / 0
+  (volumes not served). The refusals are not random: two are the
   consolidated decisions above, the most fractured shape there is; two are
   prints whose text layer runs words together; one is a two-line per curiam
-  into whose page the print runs the amici list. The shapes nearest the
+  into whose page the print runs the amici list; and one (OT2019's Atlantic
+  Richfield) prints its lead's joins as "Parts I and II–A of which were
+  unanimous, Part II–B of which was joined by …", which the grammar does not
+  read. The shapes nearest the
   grammar's edge (scoped and plurality leads, joins with two limits) are
   fractured, many-opinion decisions too, so a total, an average or a
   "longest" list taken from the table under-represents exactly those. A figure read

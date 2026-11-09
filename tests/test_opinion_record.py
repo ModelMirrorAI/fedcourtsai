@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import ast
 import dataclasses
+import io
 import json
 import re
 import sqlite3
@@ -18,6 +19,8 @@ from typing import Any
 
 import httpx
 import pytest
+from pypdf import PdfReader, PdfWriter
+from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
 from typer.testing import CliRunner
 
 from fedcourtsai import casestore, corpus
@@ -147,6 +150,10 @@ def test_headers_read_lead_per_curiam_and_separate_writings() -> None:
         bench=BENCH,
     )
     assert listed is not None and listed.kind is WritingKind.concurrence_in_part_dissent_in_part
+    unstopped = read_header("Justice Kagan, dissenting\nThe Court holds that", bench=BENCH)
+    assert unstopped is not None and unstopped.kind is WritingKind.dissent
+    # Without its period, a header must be the whole of its line.
+    assert read_header("Justice Kagan, dissenting from the view that", bench=BENCH) is None
     dissent_parts = read_header("Justice Kagan, dissenting in Parts I and II.", bench=BENCH)
     assert dissent_parts is not None
     assert dissent_parts.kind is WritingKind.concurrence_in_part_dissent_in_part
@@ -1661,3 +1668,164 @@ def test_a_planned_text_padded_past_its_words_is_refused(_corpus: Path, tmp_path
     plan_file.write_text(json.dumps(raw))
     with pytest.raises(HandoffRefused, match="more characters than its words"):
         _apply(_corpus, plan_file, max_rows=10)
+
+
+# --- volumes -------------------------------------------------------------------------
+
+
+def _volume_pdf(texts: list[str]) -> bytes:
+    """A minimal PDF whose i-th page draws ``texts[i]`` (no parens) at its top."""
+    writer = PdfWriter()
+    font = DictionaryObject(
+        {
+            NameObject("/Type"): NameObject("/Font"),
+            NameObject("/Subtype"): NameObject("/Type1"),
+            NameObject("/BaseFont"): NameObject("/Helvetica"),
+        }
+    )
+    font_ref = writer._add_object(font)
+    for text in texts:
+        page = writer.add_blank_page(width=612, height=792)
+        stream = DecodedStreamObject()
+        stream.set_data(f"BT /F1 12 Tf 50 700 Td ({text}) Tj ET".encode())
+        page[NameObject("/Contents")] = writer._add_object(stream)
+        page[NameObject("/Resources")] = DictionaryObject(
+            {NameObject("/Font"): DictionaryObject({NameObject("/F1"): font_ref})}
+        )
+    out = io.BytesIO()
+    writer.write(out)
+    return out.getvalue()
+
+
+_VOLUME = "https://www.supremecourt.gov/opinions/preliminaryprint/588US2PP_final.pdf"
+
+
+def _volume_row(number: str, page: int | None, *, url: str = _VOLUME) -> OpinionListing:
+    return OpinionListing(
+        term=18,
+        number=number,
+        decided=date(2019, 6, 27),
+        docket=f"18-{number}",
+        name=f"Case {number}",
+        url=url if page is None else f"{url}#page={page}",
+        author_code="R",
+    )
+
+
+class _VolumeFetcher:
+    def __init__(self, rows: list[OpinionListing], data: bytes | None) -> None:
+        self.rows = rows
+        self.data = data
+        self.fetched: list[str] = []
+
+    def listing(self, term: int) -> list[OpinionListing]:
+        assert term == 18
+        return self.rows
+
+    def opinion(self, url: str) -> bytes | None:
+        self.fetched.append(url)
+        return self.data
+
+
+# Pages 1 and 3 open a case each; page 5 opens the orders that follow the
+# last case, which no listing row links to.
+_PAGES = [
+    "OCTOBER TERM, 2018 Syllabus FIRST v. CASE",
+    "Opinion of the Court",
+    "OCTOBER TERM, 2018 Syllabus SECOND v. CASE",
+    "Opinion of the Court",
+    "OCTOBER TERM, 2018 ORDERS FOR JUNE 28, 2019",
+    "ORDERS",
+]
+
+
+def test_case_start_pages_find_the_term_head() -> None:
+    reader = PdfReader(io.BytesIO(_volume_pdf(_PAGES)))
+    assert opinion_record.case_start_pages(reader) == [1, 3, 5]
+
+
+def test_a_volume_is_fetched_once_and_each_case_sliced_to_its_own_pages(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seen: dict[str, tuple[int, str | None]] = {}
+
+    def read(
+        entry: OpinionListing, data: bytes, *, volume_format: str | None = None
+    ) -> OpinionDocumentReading:
+        seen[entry.number] = (len(PdfReader(io.BytesIO(data)).pages), volume_format)
+        return opinion_record._base(entry, status="refused", reason="stub")
+
+    monkeypatch.setattr(opinion_record, "read_document", read)
+    rows = [_volume_row("1", 1), _volume_row("2", 3)]
+    fetcher = _VolumeFetcher(rows, _volume_pdf(_PAGES))
+    result = opinion_record.read_opinion_record(fetcher, terms=[2018], recorded=set())
+    assert fetcher.fetched == [_VOLUME]
+    # The second case stops before the orders' Term head, not at the volume's end.
+    assert seen == {
+        "1": (2, opinion_record.PRELIMINARY_PRINT_VOLUME),
+        "2": (2, opinion_record.PRELIMINARY_PRINT_VOLUME),
+    }
+    assert [r.status for r in result.readings] == ["refused", "refused"]
+
+
+def test_a_recorded_neighbour_still_bounds_a_case(monkeypatch: pytest.MonkeyPatch) -> None:
+    pages: dict[str, int] = {}
+
+    def read(
+        entry: OpinionListing, data: bytes, *, volume_format: str | None = None
+    ) -> OpinionDocumentReading:
+        del volume_format
+        pages[entry.number] = len(PdfReader(io.BytesIO(data)).pages)
+        return opinion_record._base(entry, status="refused", reason="stub")
+
+    monkeypatch.setattr(opinion_record, "read_document", read)
+    # No Term head on page 2: only row 2's link (recorded already) ends row 1.
+    texts = ["OCTOBER TERM, 2018 FIRST", "PER CURIAM SECOND", "more", "OCTOBER TERM, 2018 X"]
+    rows = [_volume_row("1", 1), _volume_row("2", 2)]
+    opinion_record.read_opinion_record(
+        _VolumeFetcher(rows, _volume_pdf(texts)), terms=[2018], recorded={(2018, "2")}
+    )
+    assert pages == {"1": 1}
+
+
+def test_volume_refusals_name_their_reason() -> None:
+    rows = [_volume_row("1", None), _volume_row("2", 9), _volume_row("3", 1)]
+    served = opinion_record.read_opinion_record(
+        _VolumeFetcher(rows[:2], _volume_pdf(_PAGES)), terms=[2018], recorded=set()
+    )
+    assert [r.reason for r in served.readings] == [
+        "the volume link names no page",
+        "the link's page is past the volume",
+    ]
+    unserved = opinion_record.read_opinion_record(
+        _VolumeFetcher(rows[2:], None), terms=[2018], recorded=set()
+    )
+    assert unserved.readings[0].reason == "the volume is not served"
+
+
+def test_a_bound_volume_slice_is_stamped_as_such(monkeypatch: pytest.MonkeyPatch) -> None:
+    formats: list[str | None] = []
+
+    def read(
+        entry: OpinionListing, data: bytes, *, volume_format: str | None = None
+    ) -> OpinionDocumentReading:
+        del data
+        formats.append(volume_format)
+        return opinion_record._base(entry, status="refused", reason="stub")
+
+    monkeypatch.setattr(opinion_record, "read_document", read)
+    bound = "https://www.supremecourt.gov/opinions/boundvolumes/586BV.pdf"
+    rows = [_volume_row("1", 1, url=bound)]
+    opinion_record.read_opinion_record(
+        _VolumeFetcher(rows, _volume_pdf(_PAGES)), terms=[2018], recorded=set()
+    )
+    assert formats == [opinion_record.BOUND_VOLUME]
+
+
+def test_a_sweep_still_skips_volume_rows_unfetched() -> None:
+    fetcher = _VolumeFetcher([_volume_row("1", 1)], _volume_pdf(_PAGES))
+    result = opinion_record.read_opinion_record(
+        fetcher, terms=[2018], recorded=set(), max_documents=5
+    )
+    assert fetcher.fetched == []
+    assert [r.status for r in result.readings] == ["skipped"]

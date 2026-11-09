@@ -1573,8 +1573,9 @@ joiners and word count — into the corpus `opinions` table, with who sat on eac
 signed decision in `opinion_benches` and each writing's text in the content
 store, pointed at from `opinion_texts` (`fedcourts
 backfill-opinion-record`), for OT2020–OT2025, a range pinned in the workflow rather
-than taken as an input (OT2017–OT2019 list only whole volumes, which the pass
-skips). It fetches each document the Court's opinions listing links that the
+than taken as an input (the command reads OT2018–OT2019's volume-linked rows
+too, from slices of their volumes, but the pass's range does not reach
+them). It fetches each document the Court's opinions listing links that the
 record does not yet hold whole — unrecorded, a signed decision recorded
 without its bench row, or a document recorded without its text row — from supremecourt.gov at about one request a second and
 inserts fill-only, and

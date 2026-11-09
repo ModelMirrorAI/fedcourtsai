@@ -27,8 +27,11 @@ description of the Court's conventions, and no ceRt code or data is used.
   delivered …``). A lead's clauses are joined by ``, and an opinion``, ``, and
   the opinion of the Court`` (a unanimous clause then a Court clause with its
   own joiners), or a middle ``, an opinion with respect to`` set off by its
-  comma alone. A lead printed as ``X filed an opinion for a unanimous Court``
-  reads as delivered.
+  comma alone, or a clause continued after a semicolon (``…, in which A
+  joined; with respect to Part IV-A, in which B joined; and with respect to
+  Part V, …``), which repeats the head of the clause before it. A lead
+  printed as ``X filed an opinion for a unanimous Court`` reads as
+  delivered.
 - *Separate writing*: ``X filed a concurring opinion[, in which Y joined
   as to Part II-B]``, ``… an opinion concurring in the judgment``, ``… an
   opinion concurring in part`` (with or without ``and concurring in the
@@ -40,11 +43,12 @@ description of the Court's conventions, and no ceRt code or data is used.
 - *Scopes*: a join or a lead clause may be limited ``as to``, ``only as
   to``, ``with respect to``, ``except as to`` or ``except for`` a list of
   Parts, footnotes (spelled out or abbreviated ``n. 1``, ``nn. 2 and 3``),
-  ``the introduction``, ``the footnote``, or ``the first paragraph`` or
-  ``sentence``, and ``all but`` a list, and a join's limit may carry a second
-  carving out of it (``as to Parts III and IV, except for n. 12``); a lead
-  clause's ``in which``, and a separate writing's, may follow with or without
-  its comma, and a separate writing's joiners may follow a bare ``, which``.
+  ``the introduction``, ``the footnote``, ``the first`` (or ``final``,
+  ``last``) ``paragraph`` or ``sentence``, optionally ``in Part II-A``, and
+  ``all but`` a list, and a join's limit may carry a second carving out of
+  it (``as to Parts III and IV, except for n. 12``); a lead clause's ``in
+  which``, and a separate writing's, may follow with or without its comma,
+  and a separate writing's joiners may follow a bare ``, which``.
 - *Non-participation*: ``Z took no part in the consideration or decision of
   the case``, or the lead's own ``…, except Z, who took no part …``.
 - *Per curiam*: a ``PER CURIAM`` sentence in place of a lead.
@@ -87,7 +91,8 @@ text layer that drops the "fi" ligature (``fled``), and line-end hyphenation
 (``con- curring``). Matching is case-blind, page cites are stripped, ``filed``
 matches with or without its ``i``, and a hyphen that ends a line or splits a
 lowercase word is closed up. A page cite may print without ``ante`` or
-``post`` (``p. 192``), a title may lose its leading comma (``BARRETT JJ.,``),
+``post`` (``p. 192``), without the comma before ``post`` or the period after
+``p``, a title may lose its leading comma (``BARRETT JJ.,``),
 and a name may be spaced after its initial (``J ackson``, closed up only into
 a roster surname). Locating the paragraph in an opinion and
 stripping running heads is the fetching channel's job, not this grammar's.
@@ -120,7 +125,7 @@ COURT: Final = "scotus"
 #: The grammar's stamp on every lineup it returns.
 GRAMMAR_NAME: Final = "scotus-syllabus"
 #: Bump whenever the same text could read differently.
-GRAMMAR_VERSION: Final = 5
+GRAMMAR_VERSION: Final = 6
 
 # The title marker a Justice's printed title (", C. J.,", ", J.,", ", JJ.,")
 # collapses to, so the periods it carries cannot end a sentence and its commas
@@ -132,8 +137,11 @@ _TITLE: Final = "§"
 _TITLE_RE = re.compile(
     r"(?:,\s*|\s+(?=J{1,2}\.\s*,))(?:C\.\s*J\.|JJ\.|J\.)(?:\s*,)?", re.IGNORECASE
 )
+# The comma before "post" and the period after "p" are sometimes dropped
+# ("in part post, p. 36", "post, p 87").
 _PAGE_CITE_RE = re.compile(
-    r",\s*(?:(?:ante|post),\s*(?:pp?\.|at)|pp?\.)\s*\d+(?:\s*[-\u2013]\s*\d+)?", re.I
+    r"(?:(?:,\s*|\s+)(?:ante|post),\s*(?:pp?\.?|at)|,\s*pp?\.)\s*\d+(?:\s*[-\u2013]\s*\d+)?",
+    re.I,
 )
 _LINE_HYPHEN_RE = re.compile(r"(\w)-[ \t]*\n\s*(\w)")
 _SPLIT_WORD_RE = re.compile(r"([A-Za-z])- ([a-z])")
@@ -157,7 +165,8 @@ _ID = (
 _LIST_SEP = r"(?:\s*,\s*(?:and\s+)?|\s+and\s+)"
 _SCOPE_ITEM = (
     rf"(?:(?:Parts?|footnotes?|(?-i:nn?\.))\s+{_ID}(?:{_LIST_SEP}{_ID})*"
-    r"|the\s+(?:introduction|footnote|f(?:i)?rst\s+(?:paragraph|sentence)))"
+    r"|the\s+(?:introduction|footnote|(?:f(?:i)?rst|f(?:i)?nal|last)\s+(?:paragraph|sentence)"
+    rf"(?:\s+(?:in|of)\s+Parts?\s+{_ID})?))"
 )
 _SCOPE = rf"(?:all\s+but\s+)?{_SCOPE_ITEM}(?:{_LIST_SEP}{_SCOPE_ITEM})*"
 
@@ -182,10 +191,15 @@ _EXCEPT_ABSENT_RE = re.compile(
 # A lead's clauses: "…, and an opinion with respect to …", "…, and the
 # opinion of the Court with respect to …", or a middle clause set off by its
 # comma alone ("…, an opinion with respect to …, and an opinion …").
+# A clause may also continue the one before it after a semicolon ("…, in
+# which A joined; with respect to Part IV, in which B joined; and with respect
+# to Part V, …"), and then it repeats that clause's head.
 _CLAUSE_SPLIT_RE = re.compile(
-    r",?\s+and\s+(?=(?:an|the)\s+opinion\b)|,\s+(?=an\s+opinion\s+(?:with\s+respect|as)\s+to\b)",
+    r",?\s+and\s+(?=(?:an|the)\s+opinion\b)|,\s+(?=an\s+opinion\s+(?:with\s+respect|as)\s+to\b)"
+    r"|;\s*(?:and\s+)?(?=with\s+respect\s+to\b)",
     re.I,
 )
+_CONTINUED_CLAUSE_RE = re.compile(r"^with\s+respect\s+to\b", re.I)
 _CLAUSE_RE = re.compile(
     r"^(?P<head>the\s+opinion\s+(?:of|for)\s+(?P<court>the|a\s+unanimous)\s+Court"
     r"|an\s+opinion)"
@@ -396,11 +410,16 @@ def _read_lead(
         absent.update(n for n in _names(excepted.group("names"), problems) if n != _ALL_OTHERS)
         rest = rest[: excepted.start()] + rest[excepted.end() :]
     clauses: list[_Clause] = []
+    head: str | None = None
     for raw in _CLAUSE_SPLIT_RE.split(rest.strip(" ,")):
-        match = _CLAUSE_RE.match(raw.strip(" ,"))
+        text = raw.strip(" ,")
+        if _CONTINUED_CLAUSE_RE.match(text) and head is not None:
+            text = f"{head} {text}"
+        match = _CLAUSE_RE.match(text)
         if match is None:
             problems.append(f"unreadable lead clause {raw!r}")
             return None
+        head = match.group("head")
         scope, excepted_parts = match.group("scope"), match.group("except")
         label_parts = []
         if scope:
