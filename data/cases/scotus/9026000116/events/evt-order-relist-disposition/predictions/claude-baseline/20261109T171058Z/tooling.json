@@ -1,0 +1,11 @@
+{
+  "case_id": "scotus/9026000116",
+  "run_id": "20261109T171058Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "statpack.md", "WebFetch supremecourt.gov"],
+  "helpful": ["same-question.json surfaced the companion jurisdictional statements immediately"],
+  "gaps": ["Companion appeals 26-117/26-118 not staged under record/related/ despite being the controlling dockets; no Vide link recorded", "corpus query has no way to find priors that pair a direct appeal with a cert-before-judgment companion"]
+}

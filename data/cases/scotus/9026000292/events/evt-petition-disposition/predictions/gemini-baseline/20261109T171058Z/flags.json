@@ -1,0 +1,27 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/9026000292",
+  "flags": [
+    {
+      "category": "provisioning",
+      "event_id": "evt-petition-disposition",
+      "issue": null,
+      "message": "The 2026-11-09 snapshot docket records a 'Motion for leave to file a supplemental brief filed by petitioners Fiona Havlish, et al. (Distributed)' on Oct 30, 2026 (with PDF link 26-292_Motion and Supplemental Brief.pdf), but supplemental-brief.txt was not staged under record/documents/.",
+      "normalised": false,
+      "severity": "info",
+      "source": "agent"
+    },
+    {
+      "category": "other",
+      "event_id": "evt-petition-disposition",
+      "issue": null,
+      "message": "Harness check: this cell's logged tool calls named a committed predictions/ or evaluations/ path other than this cell's own run directory (another predictor's output, an earlier run, or a glob over them): 1 call(s), e.g. 'predictions/gemini-baseline/20261109T171058Z.'. Read from retrieval_log.json, which records that a call named the path, not what it returned; check the transcript before treating it as a read.",
+      "normalised": false,
+      "severity": "warning",
+      "source": "harness"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20261109T171058Z",
+  "schema_version": "1.0"
+}

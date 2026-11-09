@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000071",
+  "run_id": "20261109T171058Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts validate"
+  ],
+  "helpful": [
+    "provisioned filings in record/documents/ (petition, BIO, cert-reply, decision-below, lower-court-docket)",
+    "cert_anchor and conditioning state in record/context.json",
+    "metrics/statpack.md band and relist cuts",
+    "fedcourts query --docket-number for companion petition No. 25-828"
+  ],
+  "gaps": [],
+  "notes": "Lookup of companion petition No. 25-828 via fedcourts query --docket-number clarified that both petitions were distributed for the November 6, 2026 conference after a pre-conference reschedule in No. 26-71."
+}

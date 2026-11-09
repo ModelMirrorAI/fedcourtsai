@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000294",
+  "run_id": "20261109T171058Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "provisioned record"],
+  "helpful": ["Vide companion snapshots", "cert_anchor in context.json"],
+  "gaps": ["No base-rate cut for petitions whose respondent never appears (default posture)"],
+  "notes": "lower-court-docket.txt reports no en banc dissent, but the petition documents five dissenting judges; the matcher may miss dissents in order text."
+}

@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000117",
+  "run_id": "20261109T171058Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts paths", "fedcourts query", "CourtListener MCP search", "CourtListener MCP search_document", "CourtListener MCP read_document", "web search", "committed statpack", "fedcourts validate"],
+  "helpful": ["Frozen cert anchor and matching prior-Term counts", "Provisioned jurisdictional statement and embedded district-court opinion", "CourtListener case-name search located recent precedent despite citation-search misses"],
+  "gaps": ["Appellees' motion to dismiss or affirm and September opposition were docketed but not provisioned as text", "The May 26 opinion is cut mid-analysis by the text cap", "Summary-reversal prior query returned no rows after a large cold corpus read", "Default uv cache was read-only; an alternate cache and no-sync mode were required"],
+  "notes": "Direct-appeal posture requires the schema's probable-jurisdiction and summary-affirmance mappings. Citation search produced one unrelated match that was rejected. Web searches supplied no usable evidence. No dependencies were installed. A possible first-relist timing discrepancy is recorded separately in flags.json."
+}

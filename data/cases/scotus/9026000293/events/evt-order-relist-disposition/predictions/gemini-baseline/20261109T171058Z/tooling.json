@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000293",
+  "run_id": "20261109T171058Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_read_document"
+  ],
+  "helpful": [
+    "fedcourts query --docket-number for companion petitions (26-292, 26-294) and intervening precedent (24-699)",
+    "CourtListener MCP read_document for the full text of the Second Circuit en banc denial opinions (opinion_id=11277807) truncated in Appendix B of petition.txt",
+    "metrics/statpack.md and context.json cert_anchor for the relist cohort base rate"
+  ],
+  "gaps": [
+    "Full text of the amicus briefs filed on the cert dockets (Naseer A. Faiq in 26-293; Iowa and 30 States in vide-linked 26-292)"
+  ],
+  "notes": "Searching CourtListener MCP by recent Federal Reporter 4th citations (152 F.4th 339 and 170 F.4th 100) returned 0 results because those reporter citations were not yet indexed on the clusters, whereas full-text query search (q='Da Afghanistan Bank') located both clusters immediately."
+}

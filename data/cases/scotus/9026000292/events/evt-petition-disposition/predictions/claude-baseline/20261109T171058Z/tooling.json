@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000292",
+  "run_id": "20261109T171058Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "statpack.md", "WebFetch (supremecourt.gov docket)", "WebSearch"],
+  "helpful": ["cert_anchor in context.json", "related/ Vide snapshots", "relist and CVSG cuts"],
+  "gaps": ["Amicus briefs (incl. the opposing Afghan mission brief) and the supplemental brief were not staged as documents", "No base-rate cut for petitions with no respondent appearance / no BIO"],
+  "notes": "The corpus query by disposition alone returns unrelated recent grants; it would need a subject filter to be useful for a case like this."
+}

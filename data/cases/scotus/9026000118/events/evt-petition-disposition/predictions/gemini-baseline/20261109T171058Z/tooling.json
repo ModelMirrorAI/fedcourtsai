@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000118",
+  "run_id": "20261109T171058Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_call_endpoint",
+    "mcp_courtlistener_read_document"
+  ],
+  "helpful": [
+    "fedcourts query by --docket-number retrieved prior-round dockets (25-273, 25-274), stay applications (25A1314, 25A1315), and companion petitions (26-116, 26-117)",
+    "CourtListener MCP read_document retrieved the June 2, 2026 Supreme Court stay opinion (146 S. Ct. 1377) and the July 20, 2026 N.D. Ala. order staying trial proceedings pending appeal",
+    "metrics/statpack.md relist and salience-band tables anchored the cert-stage base rate"
+  ],
+  "gaps": [
+    "Appellees' September 18, 2026 Motion to Dismiss and Appellants' September 29, 2026 Response to Motion to Dismiss were listed on the docket snapshot (2026-11-09.json) with supremecourt.gov PDF links but were not staged in record/documents/"
+  ],
+  "notes": "Combining corpus docket lookups with CourtListener RECAP district court filings provided full visibility into the post-Callais procedural posture."
+}

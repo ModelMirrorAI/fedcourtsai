@@ -1,0 +1,25 @@
+{
+  "case_id": "scotus/9026000310",
+  "run_id": "20261109T171058Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener_mcp:search",
+    "courtlistener_mcp:search_document",
+    "courtlistener_mcp:read_document"
+  ],
+  "helpful": [
+    "Provisioned petition, decision-below, and appendix texts allowed direct comparison between the Tenth Circuit's Young I and Young II holdings and the complaint's attached training slides.",
+    "fedcourts query --docket-number 26-156 quickly confirmed that the related equity-training petition cited in footnote 10 of the petition (Springfield R-12 School District v. Henderson) was denied on October 5, 2026.",
+    "CourtListener MCP search and read_document surfaced the Ninth Circuit's September 28, 2026 published opinion in Diemert v. City of Seattle (which was pending when the petition was filed on September 4, 2026) and its discussion of Chislett (2d Cir.) and Spengler (7th Cir.)."
+  ],
+  "gaps": [
+    "A statpack cut conditioning specifically on the 'response-requested' moment (call for a response following a respondent waiver) would help calibrate how far a CFR lifts grant odds above the baseline salience band."
+  ],
+  "notes": "All provisioned documents and corpus/MCP tools worked cleanly without errors."
+}

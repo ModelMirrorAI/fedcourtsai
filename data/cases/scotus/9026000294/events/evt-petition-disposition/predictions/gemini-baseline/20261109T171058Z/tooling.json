@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000294",
+  "run_id": "20261109T171058Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "courtlistener MCP (search, read_document)"
+  ],
+  "helpful": [
+    "Provisioned petition.txt, questions-presented.txt, and related vide snapshots (26-292.json, 26-293.json)",
+    "Pre-computed cert_anchor in context.json and signal cuts in metrics/statpack.md",
+    "CourtListener MCP read_document access to the Second Circuit panel (152 F.4th 339) and en banc (170 F.4th 100) opinions"
+  ],
+  "gaps": [
+    "Provisioned petition.txt for vide-linked companion dockets (26-292 and 26-293) would clarify how their questions presented differ from 26-294 without relying solely on the lower-court opinions."
+  ],
+  "notes": "Used fedcourts query to inspect 2020s SCOTUS granted/denied cert priors and the companion rows for Nos. 26-292 and 26-293, and used CourtListener MCP to read the full Second Circuit panel and en banc denial opinions."
+}

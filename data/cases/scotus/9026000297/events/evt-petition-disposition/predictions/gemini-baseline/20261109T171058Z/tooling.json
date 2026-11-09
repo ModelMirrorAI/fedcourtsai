@@ -1,0 +1,23 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/9026000297",
+  "gaps": [
+    "An --originating-court filter on fedcourts query to filter prior SCOTUS petitions by circuit below directly"
+  ],
+  "helpful": [
+    "fedcourts query --docket-number for retrieving exact priors from Round 1 of this litigation (22-240) and analogous foster-care cases (19-765, 25-165)",
+    "Provisioned decision-below.txt, petition.txt, and questions-presented.txt in record/documents/",
+    "Frozen cert_anchor rate and statpack base-rate tables"
+  ],
+  "notes": "The provisioned documents and docket-number corpus lookups provided complete context without needing external MCP calls.",
+  "role": "predictor",
+  "run_id": "20261109T171058Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

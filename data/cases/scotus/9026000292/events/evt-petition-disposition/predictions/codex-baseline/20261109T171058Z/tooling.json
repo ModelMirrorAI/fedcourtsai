@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000292",
+  "run_id": "20261109T171058Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts paths", "fedcourts query", "metrics/statpack.md", "CourtListener MCP search", "CourtListener MCP search_document", "CourtListener MCP read_document", "web.run search", "fedcourts validate"],
+  "helpful": ["Placement-frozen reached-band anchor", "Dated snapshot and official Vide companions", "CourtListener text confirmed that the alleged circuit split is not fully square"],
+  "gaps": ["Default uv cache path is read-only; temporary UV_CACHE_DIR was necessary", "Corpus reporter-citation coverage is sparse", "Web searches returned no visible results", "Amicus and supplemental-brief texts were not in the provisioned record"],
+  "notes": "No packages installed. MCP retrieval succeeded after an exact reporter search missed Stansell; case-name and date filters located it. The standalone appendix was principally a party roster, while the panel opinion appended to the petition was partly truncated. No known or retrieved Supreme Court outcome informed the forecast."
+}

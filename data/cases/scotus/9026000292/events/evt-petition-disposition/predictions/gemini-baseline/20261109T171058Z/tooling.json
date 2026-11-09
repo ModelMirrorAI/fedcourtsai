@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000292",
+  "run_id": "20261109T171058Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_read_document"
+  ],
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "helpful": [
+    "record/context.json cert_anchor base rate and salience band",
+    "mcp_courtlistener_read_document for reading the omitted pages (42a-78a, 82a-118a) of the Second Circuit panel and en banc opinions",
+    "fedcourts query for checking companion Vide dockets 26-293 and 26-294 and OT 2026 conference dispositions"
+  ],
+  "gaps": [
+    "The Oct 5, 2026 amicus briefs (Iowa et al. and Faiq) and the Oct 30, 2026 motion/supplemental brief listed on the snapshot docket were not staged in record/documents/"
+  ],
+  "notes": "Provisioned petition.txt truncated the middle of the appendix (App. 42a-78a and 82a-118a), but CourtListener MCP had both the panel opinion (opinion_id 11127439) and the en banc opinions (opinion_id 11277807) in full."
+}

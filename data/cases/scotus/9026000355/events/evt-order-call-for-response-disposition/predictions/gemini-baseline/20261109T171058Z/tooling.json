@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000355",
+  "run_id": "20261109T171058Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener.search",
+    "fedcourts validate"
+  ],
+  "helpful": [
+    "Provisioned petition.txt included the full district court opinion and Fifth Circuit Rule 47.6 judgment in the appendix, revealing independent state-law dismissal grounds.",
+    "Frozen cert_anchor in context.json provided the exact risk-set baseline rate for the salience band."
+  ],
+  "gaps": [],
+  "notes": "All provisioned inputs and corpus/MCP tools operated cleanly."
+}

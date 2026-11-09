@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000297",
+  "run_id": "20261109T171058Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts paths", "fedcourts query", "CourtListener search", "CourtListener search_document", "web.run", "fedcourts validate"],
+  "helpful": ["Frozen state-band reached-rate anchor", "Provisioned amended opinion and dissent", "CourtListener historical opinion snippets", "Paid-segment signal cuts"],
+  "gaps": ["No base-rate cut conditional on a cert-stage response request", "Sparse corpus reporter-citation coverage", "Web attempts supplied no usable visible result"],
+  "notes": "Used a writable temporary uv cache and --no-sync with the provisioned environment after a default-cache permission failure; installed nothing. The narrower procedural question is more review-worthy than the petition's sweeping constitutional framing."
+}

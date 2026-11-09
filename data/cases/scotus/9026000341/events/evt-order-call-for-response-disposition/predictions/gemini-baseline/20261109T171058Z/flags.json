@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000341",
+  "run_id": "20261109T171058Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-order-call-for-response-disposition",
+      "message": "In record/documents/documents.json, the decision-below entry records cluster_id 10775540 in the opinion_id field (the combined opinion on CourtListener is opinion_id 11242127), and decision-below.txt is capped at 150,000 characters (ending at page 74 of 211); we read the remainder via CourtListener MCP opinion_id 11242127."
+    }
+  ]
+}

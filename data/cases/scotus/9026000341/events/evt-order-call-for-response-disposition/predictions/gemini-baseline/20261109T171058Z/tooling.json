@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000341",
+  "run_id": "20261109T171058Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts validate",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_read_document",
+    "mcp_courtlistener_search_document"
+  ],
+  "helpful": [
+    "fedcourts query --docket-number",
+    "metrics/statpack.md",
+    "mcp_courtlistener_read_document",
+    "mcp_courtlistener_search_document"
+  ],
+  "gaps": [],
+  "notes": "Querying by `--docket-number '25-466' --full` located the SCOTUS corpus record for `Sripetch v. SEC` (`scotus/73215957`), and CourtListener MCP `read_document` allowed reading the full slip opinion of `Sripetch` (`opinion_id=11337516`) as well as the portion of the Eleventh Circuit slip opinion (`opinion_id=11242127`) beyond the 150,000-character cap in `record/documents/decision-below.txt`."
+}

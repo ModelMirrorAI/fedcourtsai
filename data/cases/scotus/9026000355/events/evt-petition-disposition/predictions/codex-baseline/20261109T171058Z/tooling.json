@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000355",
+  "run_id": "20261109T171058Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell local reads",
+    "fedcourts paths",
+    "fedcourts query",
+    "CourtListener MCP search",
+    "web search/open",
+    "apply_patch",
+    "fedcourts validate"
+  ],
+  "helpful": [
+    "Frozen cert_anchor supplied the exact prior-Term reached-band baseline.",
+    "Petition appendix supplied the district court's competing rationale and actual en banc order.",
+    "Separate relist/CVSG/amicus cuts clarified terminal-population versus forward-increment distinctions."
+  ],
+  "gaps": [
+    "Default uv cache was read-only; UV_CACHE_DIR=/tmp/uv-cache was required.",
+    "CourtListener MCP precedent lookup was throttled with HTTP 429.",
+    "General-precedent web attempts returned no usable content.",
+    "Corpus citation coverage was sparse; a three-row structured query transferred roughly 70 MB per attempt.",
+    "Large combined terminal outputs were clipped; compact projection is preferable."
+  ],
+  "notes": "No installations, direct CourtListener REST fallback, or subject-outcome retrieval. The requested opposition is not yet due, so its absence is not a provisioning failure. The redistribution forecast accounts for a response request after the initial distribution."
+}

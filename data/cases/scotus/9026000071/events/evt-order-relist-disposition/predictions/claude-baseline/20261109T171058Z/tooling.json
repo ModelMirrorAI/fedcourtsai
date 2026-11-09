@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000071",
+  "run_id": "20261109T171058Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "statpack.md", "WebFetch supremecourt.gov docket"],
+  "helpful": ["--docket-number lookup for the companion petition", "cert_anchor in context.json"],
+  "gaps": ["The companion Nwauzor docket was not staged under record/related/ although both briefs link it; same-question.json was empty despite a near-identical companion"],
+  "notes": "The companion's SG brief was not provisioned; I relied on the cert reply's characterization of it."
+}

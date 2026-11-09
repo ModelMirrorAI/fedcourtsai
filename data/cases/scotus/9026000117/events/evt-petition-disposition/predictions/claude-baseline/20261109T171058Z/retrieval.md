@@ -1,0 +1,11 @@
+# Retrieval log
+- WebFetch: supremecourt.gov docket page for 26-117. The entries matched the snapshot exactly, through "DISTRIBUTED for Conference of 11/13/2026".
+- WebSearch: "Allen v. Milligan 26-117 jurisdictional statement conference November 2026". It returned the docket pages and the 14-day waiver. Nothing indicated a disposition.
+- WebFetch: the appellees' Motion to Dismiss or Affirm PDF from supremecourt.gov. The PDF text was unreadable through the fetch, so I extracted it locally with `uv run fedcourts pdf-text`. Its lead argument is that the appeal is moot because the injunction was limited to the 2026 elections.
+- `uv run fedcourts query --docket-number 25-274` (no --court). This was a usage error: the flag needs --court.
+- `uv run fedcourts query --court scotus --docket-number 25-274`. stderr: `ranged corpus reads: 18 GET(s), 4718592 byte(s)`. Result: the prior Alabama appeal, disposition `gvr`.
+- `uv run fedcourts query --court scotus --disposition gvr --era roberts --limit 3`. This was a usage error (unknown era).
+- `uv run fedcourts query --court scotus --disposition gvr --era 2020s --limit 3`. stderr: `ranged corpus reads: 33 GET(s), 8650752 byte(s)`. It returned unrelated GVR rows.
+- `uv run fedcourts query --court scotus --docket-number 26-116 --include-open`. stderr: `ranged corpus reads: 0 GET(s), 0 byte(s)`. It returned the Caster companion (pending).
+- `uv run fedcourts query --court scotus --docket-number 25-274` was re-run twice to read the disposition and field names (output piped; transfer lines not captured).
+- Statpack: `metrics/statpack.md`, the "Segment base rate by salience band (sal-v8)" table.

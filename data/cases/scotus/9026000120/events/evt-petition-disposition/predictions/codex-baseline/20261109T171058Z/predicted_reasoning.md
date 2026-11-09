@@ -1,0 +1,13 @@
+# Forecast of the Court's action
+
+The Court will most likely deny the petition without a separate writing. The case presents a serious free-speech concern, but the asserted inter-circuit conflict and the boundary between rule enforcement and management of legislative hearings do not make plenary review the most likely outcome.
+
+The record already contains **two distributions**: October 14 for the November 6 conference, and November 9 for the November 13 conference. The intervening November 5 reschedule does not establish a completed conference consideration. From that two-distribution state, the probability of at least one additional distribution is **30%**. The modal forecast is none; if additional consideration occurs, one or two more distributions are the likeliest short path, rather than a prolonged hold. On the modal path, disposition should follow the November 13 conference, likely in the ensuing order cycle; further consideration would push it into later November or December.
+
+No CVSG has occurred. The probability of a new call for the Solicitor General's views is **2.5%**; I expect the Court to resolve the petition without one. In that unlikely branch, the call would most naturally come during the upcoming conference cycles and postpone final action for months.
+
+The probability of any grant is **22%**. Conditional on a grant, the likelier route is plenary briefing and argument, with only **10%** assigned to disposition in the cert order itself. There is no identified intervening controlling decision furnishing a natural GVR vehicle, and the competing readings of legislative immunity are substantial enough to favor full treatment over summary reversal.
+
+If review is granted, the most likely framing will center on the first question: whether legislative immunity bars official-capacity claims for prospective relief against state legislators. The second question, concerning enforcement of a facially viewpoint-discriminatory public-comment policy, would likely remain relevant to distinguishing protected legislative conduct from unprotected enforcement. The Court is less likely to take a broad question about the ultimate constitutionality of the speech policy divorced from immunity. Any merits analysis would thus remain conditional on review and need not resolve every free-speech issue in the complaint.
+
+Conditional on denial, the probability of a noted dissent or statement respecting denial is **14%**. No writing is the central forecast. If a Justice does write, Thomas or Alito, followed by Gorsuch, is more likely than the other members to focus on the consequences for dissenting public speakers. Individual, unconditional probabilities appear in the `order-writers` distribution; no cert vote tally is predicted.
