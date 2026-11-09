@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000657",
+  "run_id": "20261109T032540Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "flags": [
+    {
+      "category": "capture-gap",
+      "severity": "info",
+      "event_id": "evt-motion-disposition",
+      "message": "Provisioned `record/documents/application.txt` (61 pages) has `empty_text: true` and `ocr_derived: false` (scanned pro se filing with no extractable text layer). The subject matter of the underlying Fourth Circuit proceeding (No. 26-2406, `In re: Paul Schultz`, denying mandamus to compel District Judge Brinkema's recusal in a bankruptcy appeal against Chapter 7 Trustee Kevin McCarthy) was verified via CourtListener (`opinion_id: 11514107`)."
+    }
+  ]
+}

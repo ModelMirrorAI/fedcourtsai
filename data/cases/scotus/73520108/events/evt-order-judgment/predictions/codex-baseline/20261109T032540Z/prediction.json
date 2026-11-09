@@ -1,0 +1,151 @@
+{
+  "big_case_rationale": "A nationally consequential boundary between consumer bankruptcy enforcement and contractual arbitration, but not a wholesale reconsideration of bankruptcy jurisdiction or the FAA.",
+  "big_case_score": 0.62,
+  "case_id": "scotus/73520108",
+  "claim_distributions": [
+    {
+      "claim_id": "majority-author",
+      "probabilities": {
+        "Alito": 0.14,
+        "Barrett": 0.13,
+        "Gorsuch": 0.21,
+        "Jackson": 0.035,
+        "Kagan": 0.08,
+        "Kavanaugh": 0.16,
+        "Roberts": 0.12,
+        "Sotomayor": 0.035,
+        "Thomas": 0.08,
+        "per-curiam": 0.01
+      }
+    },
+    {
+      "claim_id": "separate-writers",
+      "probabilities": {
+        "Alito": 0.06,
+        "Barrett": 0.05,
+        "Gorsuch": 0.08,
+        "Jackson": 0.29,
+        "Kagan": 0.16,
+        "Kavanaugh": 0.04,
+        "Roberts": 0.03,
+        "Sotomayor": 0.35,
+        "Thomas": 0.18
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.82
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "band_refused": null,
+    "cert_anchor": null,
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-11-07",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 4,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v8",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_contact_scrub": {
+      "blocks": 0,
+      "fields": 0,
+      "sides": []
+    },
+    "snapshot_date": "2026-11-07",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "statpack_digest": "sha256:b122cc43052b1328321031e3615601101a1b85c7dcdc87d23e5436373b03f133",
+    "term": 2025,
+    "vide_links": []
+  },
+  "created_at": "2026-11-09T03:35:32.884523Z",
+  "engine": "codex",
+  "event_id": "evt-order-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-11-07.json",
+  "judgment": "reversed",
+  "model": "gpt-6.1-sol",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.82,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:56f5da33ed8eeda29c8094135a9141710b69c76fb939abe281da85d263d238a7",
+    "label": "proc-v20",
+    "pipeline_sha": "995ff3ae7bd29d976e5f0a65ce6faf1957012f76",
+    "stamped_at": "2026-11-09T03:35:32.884523Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261109T032540Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority holds that Section 362(k)'s private damages remedy does not displace the FAA's requirement to enforce these arbitration agreements: core-bankruptcy status and generalized interests in centralization, expertise, uniformity, and deterrence do not establish the requisite congressional intent, particularly because arbitration leaves the bankruptcy court's own contempt-enforcement authority intact."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The majority announces a generally applicable arbitrability rule for private Section 362(k) damages claims, not a rule limited to discharged Chapter 7 debtors; it reserves the treatment of Section 105(a) contempt proceedings and does not hold that every core bankruptcy proceeding must be arbitrated."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "dissent",
+      "writing": "dissent"
+    },
+    {
+      "justice": "Kagan",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": "majority"
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "dissent",
+      "writing": null
+    }
+  ]
+}

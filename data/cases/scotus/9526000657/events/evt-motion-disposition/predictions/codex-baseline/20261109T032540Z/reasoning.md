@@ -1,0 +1,29 @@
+# Rationale
+
+## Call and information set
+
+I forecast denial of the stay application, with P(relief granted in whole or in part | not dismissed or denied as moot) = **0.07**. This is an interim application forecast, not a prediction about certiorari or a merits judgment.
+
+The event definition identifies the arrival moment on November 2, 2026. I read `record/snapshots/2026-11-03.json`, the snapshot named by `record/context.json`. Its only proceeding is the November 2 submission of application 26A657 for a stay to the Chief Justice. The lower court is the Fourth Circuit, docket 26-2406. Context records forward mode, an arrival-position cut at index zero, no requested response, no full-Court referral, and zero amicus entries. The November 3 cutoff is a baseline marker, not evidence that the application spent a day without action. The application was submitted to an individual Justice; that is not a referral to the Court. No later state of this Supreme Court docket was retrieved.
+
+## Content limitation
+
+I examined `record/documents/application.txt` and `documents.json`. The application was fetched and is listed as 61 pages, but `empty_text: true`, `ocr_derived: false`, and the text contains only page separators. It is content-unavailable, not an absent application or a paper-only docket. The metadata's November 6 fetch time does not establish a later substantive filing: the row associates the document with the November 2 submission. I cannot identify the challenged order, the requested stay's precise scope, the legal grounds, the claimed harm, or preservation and jurisdictional obstacles. I infer none of those from the caption, page count, or blank extraction. In particular, the respondent's name alone establishes neither an official capacity nor a constitutional dispute. The applicant's listing as his own representative suggests self-representation, but I do not apply an unmeasured numerical penalty for that inference.
+
+A CourtListener search for the Fourth Circuit docket filed before November 3 returned no matches. That is a retrieval coverage limitation, not evidence that the lower-court proceeding does not exist. Attempts to obtain general official Court rules through the web tool returned no usable material; no external rule text informed the forecast. I know no outcome of this application and encountered none.
+
+## Published prior and adjustment
+
+I read the interim section of `metrics/statpack.md` and computed the required pool directly from `metrics/statpack.json`. The application Term is 2026, so the applicable window is **2016 through 2025**, inclusive, not the post-2026 three-Term widened-ask window. The finer-reading grant/resolution counts, in ascending Term order, are 9/107, 13/124, 14/113, 13/119, 27/133, 17/107, 9/103, 17/124, 18/189, and 19/218. They sum to **156/1,337 = 11.6679%**. Every pooled Term has `finer_unread = 0`, and the pool clears the 50-resolution floor. Partial grants count as grants and moot dispositions are excluded. I did not use the older substantive-count rate or the pack-level rate, which includes 2026. The prose table's older denial-first discussion does not override the required finer counts in JSON.
+
+Parse coverage is uneven: the 2016 application cohort has 15 unparsed applications and 2017 has one; the other pooled Terms report zero. The computed baseline therefore describes the matched population, not every application filed. The table's ladder counts include unresolved matters, are right-censored, and do not condition on the arrival state. The reserve's selection also differs from the unconditioned pool. Those limitations prevent treating the raw ladder frequencies as fitted transition probabilities.
+
+The applicant is **private** under the caption rule, and the snapshot explicitly does not mark this a capital case. The relevant published private/unmarked cut is **63/906 = 6.9536%**, well above its 30-resolution descriptive floor. I lean on that cell, rather than the private margin of 73/1,194 or all-applicant unmarked margin of 126/1,021. This moves the estimate roughly 4.7 percentage points below the whole-pool yardstick, to a rounded **7%**. It is descriptive context, not a replacement scoring baseline. Given the missing substantive text, I make no further merits adjustment: the record does not support either a stronger exception to the cohort prior or a claim that the application is frivolous. The lack of escalation at the opening entry is not evidence of subsequent inattention.
+
+## Other probabilities and uncertainty
+
+From the frozen zero-state, I assign a 12% chance of a later requested response, a 30% chance of a later full-Court referral, and a 2% chance that the amicus count rises above zero. These are judgmental, not published conditioned rates. A referral need not imply relief or a response request. An additional amicus entry includes a submitted brief as well as the Latin-form entries specified by the contract, with no double counting of one submitted/accepted lifecycle. My modal path is denial without a response request or referral, with no new amici.
+
+The order-writer probabilities are unconditional and independent by Justice. They overwhelmingly favor an unwritten disposition. Roberts receives the highest small probability because the application was submitted to him; the record provides no issue-specific basis for identifying another likely author. There is no predicted merits opinion or cert-stage relist/CVSG claim.
+
+I leave stakes null, with an explanation in the structured prediction, because neither an individual's caption nor the application's length identifies the dispute's significance. The principal uncertainty is substantive content, recorded in `flags.json`. A successful reading of the application could materially move the relief probability in either direction. This forecast is completed on the available record rather than blocked.

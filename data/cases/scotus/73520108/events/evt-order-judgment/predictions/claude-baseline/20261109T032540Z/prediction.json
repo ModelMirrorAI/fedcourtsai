@@ -1,0 +1,151 @@
+{
+  "big_case_rationale": "Settles a recurring FAA-versus-Bankruptcy-Code conflict affecting consumer debtors and card issuers nationwide; important to practitioners but low public salience.",
+  "big_case_score": 0.4,
+  "case_id": "scotus/73520108",
+  "claim_distributions": [
+    {
+      "claim_id": "majority-author",
+      "probabilities": {
+        "Alito": 0.11,
+        "Barrett": 0.14,
+        "Gorsuch": 0.14,
+        "Jackson": 0.06,
+        "Kagan": 0.09,
+        "Kavanaugh": 0.16,
+        "Roberts": 0.09,
+        "Sotomayor": 0.04,
+        "Thomas": 0.12,
+        "per-curiam": 0.05
+      }
+    },
+    {
+      "claim_id": "separate-writers",
+      "probabilities": {
+        "Alito": 0.12,
+        "Barrett": 0.1,
+        "Gorsuch": 0.22,
+        "Jackson": 0.45,
+        "Kagan": 0.15,
+        "Kavanaugh": 0.12,
+        "Roberts": 0.03,
+        "Sotomayor": 0.35,
+        "Thomas": 0.25
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.79
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "band_refused": null,
+    "cert_anchor": null,
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-11-07",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 4,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v8",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_contact_scrub": {
+      "blocks": 0,
+      "fields": 0,
+      "sides": []
+    },
+    "snapshot_date": "2026-11-07",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "statpack_digest": "sha256:b122cc43052b1328321031e3615601101a1b85c7dcdc87d23e5436373b03f133",
+    "term": 2025,
+    "vide_links": []
+  },
+  "created_at": "2026-11-09T03:32:10.707565Z",
+  "engine": "claude-code",
+  "event_id": "evt-order-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-11-07.json",
+  "judgment": "reversed",
+  "model": "claude-opus-5-5",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.79,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:69076c7e6ef3b55358bbb298c3ab3e821f14f7ce165f7a1eed2e51a550f5ca21",
+    "label": "proc-v20",
+    "pipeline_sha": "995ff3ae7bd29d976e5f0a65ce6faf1957012f76",
+    "stamped_at": "2026-11-09T03:32:10.707565Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261109T032540Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority holds that the FAA requires enforcing the arbitration agreement as to the Section 362(k) damages claim because nothing in the Bankruptcy Code's text (Section 362(k), or the core-proceeding designation in 28 U.S.C. 157) supplies the clear and manifest congressional command Epic Systems and CompuCredit demand; it rejects the Fourth Circuit's McMahon-derived 'inherent conflict with the Code's underlying purposes' inquiry as a basis for displacing the FAA, endorsing the Second Circuit's result in MBNA v. Hill."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The ground is categorical rather than case-specific: the Court announces that a bankruptcy court has no discretion to refuse enforcement of a valid arbitration agreement over a federal statutory claim on the basis of generalized Bankruptcy Code policies or core-proceeding status, reaching beyond Section 362(k) and these debtors, while expressly reserving whether a bankruptcy court's own Section 105(a) contempt power over violations of its stay may be kept from arbitration."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "dissent",
+      "writing": null
+    }
+  ]
+}

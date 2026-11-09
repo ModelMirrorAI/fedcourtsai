@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000658",
+  "run_id": "20261109T032540Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_get_endpoint_item",
+    "mcp_courtlistener_call_endpoint",
+    "mcp_courtlistener_read_document"
+  ],
+  "helpful": [
+    "metrics/statpack.md and metrics/statpack.json for exact per-Term finer_granted/finer_resolved interim base rates and applicant-class cuts",
+    "CourtListener MCP docket lookup and read_document to recover the Fourth Circuit's Oct. 22, 2026 per curiam opinion in In re: Paul Schultz (No. 26-2404) when application.txt had empty_text: true",
+    "fedcourts query --docket-number to inspect 26A658 and companion application 26A657"
+  ],
+  "gaps": [
+    "application.txt (57 pages) had empty_text: true and ocr_derived: false; OCR fallback on the upstream application PDF would allow direct inspection of the applicant's stay arguments"
+  ],
+  "notes": "CourtListener REST endpoints (dockets -> clusters -> read_document) cleanly resolved the underlying Fourth Circuit mandamus decision (No. 26-2404) despite supremecourt.gov's docket mis-listing the lower court as the 10th Circuit BAP."
+}
