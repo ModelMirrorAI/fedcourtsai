@@ -210,7 +210,7 @@ each fetching in a job that holds no credential
   (the decree; 177 opinions), OT2024 66 / 1 / 0 (163), OT2023 60 / 0 / 0
   (159), OT2022 57 / 1 / 0 (135), OT2021 66 / 0 / 0 (159), OT2020 66 / 2 / 0
   (150), OT2019 62 / 1 / 0 (155), OT2018 73 / 0 / 0 (167); OT2017 0 / 56 / 0
-  (volumes not served). The refusals are not random: two are the
+  (volumes not served). Besides OT2017's, the refusals are not random: two are the
   consolidated decisions above, the most fractured shape there is; two are
   prints whose text layer runs words together; one is a two-line per curiam
   into whose page the print runs the amici list; and one (OT2019's Atlantic
