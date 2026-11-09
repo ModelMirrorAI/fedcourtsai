@@ -1,0 +1,67 @@
+# Rationale for Certiorari Prediction: *Katherine Novotny, et al. v. Wes Moore, Governor of Maryland, et al.* (No. 25-1324)
+
+- **Top-level call:** `granted = 0`, `probability = 0.22`, `predicted_disposition = "denied"`
+- **Big-case score:** `0.72` (major post-*Bruen* facial challenge to nine categories of "sensitive places" under Maryland's Gun Safety Act of 2023)
+- **Declared `cert-v3` claims:** `disposition = 0.22`, `relist-increment = 0.62`, `cvsg-increment = 0.01`, `summary-disposition-route = 0.12`, `dissent-from-denial = 0.55`
+
+---
+
+## 1. Base-Rate Anchor and Docket Trajectory
+
+### A. Frozen Conditioning State and Base-Rate Anchor
+In `record/context.json`, the cell runs in `forward` mode with `snapshot_date: "2026-11-09"` (`2026-11-09.json`), `salience_version: "sal-v8"`, `band: "high"`, `distribution_count: 5`, `cvsg_date: null`, and `term: 2025`.
+
+The pre-computed base-rate anchor in `context.json` (`cert_anchor`) pools the `high` salience band's bracketed `reached` grant rate across the 10 prior Terms (`lookback_terms: 10`), giving **`rate = 0.3455056179775281` (34.6%)**. In `metrics/statpack.md` (`Segment base rate by salience band (sal-v8)`), the 9 rendered prior Terms (`OT2017–OT2025`) show a closely matching pooled `high` reached rate of `34.8%` (`269` grants across `n = 772` weighted resolved petitions, ranging from `26.5%` in OT2021 and OT2023 to `43.2%` in OT2024 and `38.3%` in OT2025).
+
+Cross-checking the other signal cuts in `metrics/statpack.md`:
+- **Relist count (`Cert petitions by relist count (paid scored segment)`):** Pooling all buckets from `1` up (`1` with `n = 2,532`, grant family `8.3% granted + 5.2% gvr = 13.5%`; `2` with `n = 495`, grant family `28.3% + 12.9% = 41.2%`; `3+` with `n = 483`, grant family `23.2% + 14.1% = 37.3%`) yields a pooled grant-family rate of **20.7%** (`n = 3,510`), and **37.3%** (`n = 483`) in the `3+` bucket alone.
+- **CVSG status (`paid scored segment`):** With no CVSG (`none`, `n = 13,550` resolved), the marginal grant-family rate is **6.4%** (`4.1% granted`, `2.3% gvr`).
+- **Amicus-brief count (`paid scored segment`):** The docket carries **1** cert-stage amicus brief (`Brief amici curiae of Gun Owners of America, et al. filed` on June 29, 2026). In the `1` amicus bucket (`n = 1,159` resolved), the grant-family rate is **14.9%** (`10.2% granted`, `4.7% gvr`).
+- **Originating circuit (`ca4`):** For Fourth Circuit petitions (`n = 3,425` resolved in the modern cert slice), the marginal grant-family rate is **2.6%** (`1.2% granted`, `1.4% gvr`).
+
+### B. Decomposing the Five Distributions on `2026-11-09.json`
+Inspecting `ProceedingsandOrder` in `record/snapshots/2026-11-09.json` reveals a critical distinction between the raw `distribution_count = 5` and the number of conferences that have actually considered the petition:
+1. **Sept. 2, 2026:** `DISTRIBUTED for Conference of 9/28/2026` (same day Petitioners' Reply Brief was filed) — followed by **`Rescheduled` on Sept. 24, 2026**, prior to the Long Conference.
+2. **Oct. 5, 2026:** `DISTRIBUTED for Conference of 10/9/2026` — followed by **`Rescheduled` on Oct. 6, 2026**, prior to the conference.
+3. **Oct. 13, 2026:** `DISTRIBUTED for Conference of 10/16/2026` — followed by **`Rescheduled` on Oct. 13, 2026**, prior to the conference.
+4. **Nov. 2, 2026:** `DISTRIBUTED for Conference of 11/6/2026` — the **first conference** that actually sat on the petition without a pre-conference reschedule.
+5. **Nov. 9, 2026:** `DISTRIBUTED for Conference of 11/13/2026` — the petition's **first post-conference relist**, which opened `evt-order-relist-disposition`.
+
+Because the stored `dist-v2` count includes pre-conference reschedules, three of the five distributions reflect pre-conference holds (`Rescheduled`) rather than post-conference relists. While three consecutive reschedules followed by a conference relist clearly signal that at least one chambers has flagged the petition for close scrutiny, the petition is at its **first post-conference relist** rather than its fourth post-conference relist. That procedural reality already warrants shading downward from the `34.6%` `high`-band anchor toward the single-relist/multi-reschedule range.
+
+---
+
+## 2. Analysis of the Provisioned Filings and Decision Below
+
+We read all provisioned filings in `record/documents/` (`questions-presented.txt`, `petition.txt`, `brief-in-opposition.txt`, `cert-reply.txt`, `decision-below.txt`, and `lower-court-docket.txt`; no `record/related/` or `record/same-question.json` was present). Note that `decision-below.txt` and Appendix A of `petition.txt` were truncated at the 150,000-character pipeline cap (omitting the final ~26 pages of Judge Agee's 43-page partial dissent), but the entire majority opinion, the first 18 pages of Judge Agee's partial dissent (containing his full methodological framework and location analyses for government buildings, schools, health care facilities, and mass transit), and both sides' complete certiorari briefs were available in full.
+
+### A. What the Fourth Circuit Decided (*Kipke v. Moore*, 165 F.4th 459 (4th Cir. 2026))
+On cross-appeals from final summary judgment in two consolidated facial challenges to Maryland's Gun Safety Act of 2023 (SB 1), the Fourth Circuit panel (Gregory, J., joined by Diaz, C.J., with Agee, J., concurring in part and dissenting in part):
+- **Unanimously invalidated (3–0)** Maryland's private-property default rule ("vampire rule"), Md. Code, Crim. Law § 6-411(d). Maryland's separate cert petition on that issue (*Moore v. Kipke*, No. 25-1206, `scotus/73281690`) was voluntarily dismissed under Rule 46 on August 13, 2026 after *Wolford v. Lopez*, 609 U.S. ___, 146 S. Ct. 2032 (June 25, 2026), invalidated Hawaii's parallel rule.
+- **Unanimously upheld (3–0)** Maryland's prohibitions on carrying firearms in **government buildings**, on **school grounds**, and in **health care facilities**, with Judge Agee expressly concurring on all three categories (`decision-below.txt` at 57–60).
+- **Upheld by a 2–1 vote** Maryland's prohibitions in (1) **state parks and state forests**, (2) **mass-transit vehicles and facilities**, (3) **places of amusement** (museums, stadiums, racetracks, amusement parks, casinos, and video lottery facilities), (4) **establishments licensed to sell alcohol for on-site consumption**, and (5) **within 1,000 feet of a public demonstration** after a police order to leave (Petitioners do not press the public-demonstration provision in the body of their Petition). Judge Agee dissented as to those categories, arguing that *Bruen* and *United States v. Rahimi*, 602 U.S. 680 (2024), require Founding-era (1791) historical analogues and that mid-to-late-19th-century statutes, municipal park rules, and private railroad regulations cannot establish a historical tradition of regulation where none existed at the Founding.
+
+### B. Weighing the Petition (`petition.txt` & `cert-reply.txt`) Against the BIO (`brief-in-opposition.txt`)
+1. **No Bottom-Line Circuit Split on the Challenged Locations:**
+   As the BIO demonstrates (`brief-in-opposition.txt` at 14–21), every federal court of appeals to reach final judgment on post-*Bruen* "sensitive places" laws has upheld restrictions across these same categories:
+   - **Second Circuit:** *Antonyuk v. James*, 120 F.4th 941 (2d Cir. 2024), *cert. denied*, 145 S. Ct. 1900 (2025) (upholding bans in parks, zoos, bars/restaurants serving alcohol, healthcare facilities, and theaters/entertainment venues).
+   - **Third Circuit:** *Koons v. Attorney General New Jersey*, 156 F.4th 213 (3d Cir. Sept. 17, 2025) (upholding bans in parks, mass transit, bars/restaurants serving alcohol, healthcare facilities, museums, and entertainment facilities).
+   - **Seventh Circuit:** *Schoenthal v. Raoul*, 150 F.4th 898 (7th Cir. 2025), *cert. denied*, No. 25-541 (Apr. 6, 2026) (upholding Illinois's ban on public transit).
+   - **Ninth Circuit:** *Wolford v. Lopez*, 116 F.4th 959 (9th Cir. 2024), *rev'd in part on other grounds*, 146 S. Ct. 2032 (2026) (upholding bans in parks, bars/restaurants serving alcohol, and places of amusement).
+   Petitioners' claimed methodological split rests primarily on the Third Circuit's decision in *Lara v. Commissioner Pennsylvania State Police*, 125 F.4th 428 (3d Cir. 2025) (striking down a ban on carry by 18-to-20-year-olds because late-19th-century age limits contradicted Founding-era militia laws). Yet the Third Circuit itself in *Koons* reconciled its sensitive-places holdings with *Lara*, leaving no inter-circuit conflict on sensitive places.
+2. **Recent Supreme Court Denials on the Exact Same Issues:**
+   - In *Wolford v. Lopez* (No. 24-1046), the petitioners asked this Court to review both Hawaii's private-property default rule *and* the Ninth Circuit's reliance on Reconstruction-era evidence to uphold bans in public parks and establishments serving alcohol. The Court granted certiorari **only** on the private-property default rule and denied review of the sensitive-places questions. Moreover, in *Wolford*, 146 S. Ct. at 2055, Justice Barrett's concurrence (joined in Part II-B by Justices Thomas and Gorsuch) explained why lower courts' consultation of Reconstruction-era evidence remained understandable while the Court has left open the 1791-versus-1868 question.
+   - In ***Schoenthal v. Raoul***, No. 25-541 (`scotus/73278986`), retrieved via `uv run fedcourts query`, the same Counsel of Record (David H. Thompson) petitioned for review of the Seventh Circuit's decision upholding Illinois's public-transit carry ban. After **4 distributions** (`distribution_count = 4`), the Court **denied certiorari** on April 6, 2026.
+   - In addition, on June 30, 2026, the Court already granted certiorari in its flagship OT2026 Second Amendment cases—*Viramontes v. Cook County* (No. 25-238) and *Grant v. Higgins* (No. 25-566)—which address semi-automatic rifle bans rather than locational carry restrictions.
+3. **Omnibus Question Presented and Vehicle Overbreadth:**
+   Rather than isolating one or two clean location categories, `questions-presented.txt` asks a single sweeping question: *"Whether Maryland's numerous prohibitions on carrying firearms in many places frequented by the general public violate the Second and Fourteenth Amendments."* That single question bundles nine distinct categories, including three (government buildings, school grounds, and health care facilities) that were upheld **3–0** below and that directly implicate *Heller* and *Bruen*'s explicit "schools and government buildings" safe harbor. Even if four Justices wished to revisit a single category (such as state forests or alcohol-serving restaurants), the omnibus facial posture makes *Novotny* an unwieldy vehicle.
+
+---
+
+## 3. Rationale for Individual Claim Probabilities
+
+- **`disposition` / `probability` (`0.22`):** Starting from the `high`-band `cert_anchor` of `0.3455` (`34.6%`), I adjust downward to **`0.22`** for three reasons: (1) three of the five distributions on `2026-11-09.json` are pre-conference `Rescheduled` entries, making Nov. 9 the petition's first post-conference relist; (2) there is no circuit split on any of the nine challenged locations across the 2d, 3d, 4th, 7th, and 9th Circuits, and the Court denied certiorari on public transit in *Schoenthal* (No. 25-541) after 4 distributions in April 2026 and declined the park/alcohol questions in *Wolford*; and (3) the omnibus nine-category Question Presented is overbroad. I do not adjust lower than `0.22` because the case arrives on a final summary-judgment record with a forceful 43-page partial dissent by Judge Agee and elite Second Amendment counsel.
+- **`relist-increment` (`0.62`):** Because November 9 is the petition's first true conference relist (following three pre-conference reschedules), the odds of at least one further distribution after the November 13 Conference are high (`0.62`). Whether a Justice is circulating a dissent from denial (as in *Antonyuk* and *Harrel*) or testing whether four votes exist for a narrowed grant, multi-relist Second Amendment petitions rarely resolve on the very first relist conference.
+- **`cvsg-increment` (`0.01`):** A CVSG is virtually impossible (`0.01`) on a pure state-law Second Amendment challenge with no federal statutory or administrative interest at stake, already in November conference consideration.
+- **`summary-disposition-route` (`0.12` conditional on grant):** Conditional on a grant, plenary review is strongly favored (`88%`), because *Wolford* was already decided in June 2026 and briefed in the BIO and Reply. I assign `0.12` to the conditional summary-disposition route mainly for the possibility that the Court holds the petition for *Viramontes* / *Grant* and later GVRs if those opinions address the 1791-versus-1868 historical-timeframe question.
+- **`dissent-from-denial` (`0.55` conditional on denial) and `order-writers`:** The three pre-conference reschedules plus the November 9 relist on a splitless Second Amendment petition with a 43-page partial dissent below strongly point toward a separate writing respecting or dissenting from denial. Justice Thomas has repeatedly authored dissents from denial in post-*Bruen* challenges, making him the most probable writer (`Thomas: 0.38`), followed by Justices Alito (`0.08`) and Gorsuch (`0.08`), with smaller probabilities for Justices Kavanaugh (`0.03`) and Barrett (`0.02`) and `0.01` each for Chief Justice Roberts and Justices Sotomayor, Kagan, and Jackson.

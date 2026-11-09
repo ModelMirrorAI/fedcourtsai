@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000398",
+  "run_id": "20261109T212928Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "WebSearch"],
+  "helpful": ["cert_anchor in context.json", "petition text with QP extracted"],
+  "gaps": ["No same-question.json was staged; it would have surfaced the Solomon (25-228) and Hughes denials directly."],
+  "notes": "The prompt is very long; the corpus query added little for this cell."
+}

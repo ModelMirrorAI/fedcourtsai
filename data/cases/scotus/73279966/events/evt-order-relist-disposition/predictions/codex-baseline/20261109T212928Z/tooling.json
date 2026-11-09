@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73279966",
+  "run_id": "20261109T212928Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts paths", "fedcourts query", "CourtListener MCP search", "CourtListener MCP search_document", "web search/open", "jq", "fedcourts validate"],
+  "helpful": ["Frozen cert anchor", "Invited SG brief and post-SG supplemental briefs", "Provisioned lower-court opinion and docket summary", "CourtListener historical opinion snippets"],
+  "gaps": ["Combined BIO truncates the detainees' substantive argument", "Web calls returned no usable content", "Default uv cache was not writable"],
+  "notes": "Temporary UV_CACHE_DIR and --no-sync resolved CLI startup without installing packages. The era usage error was corrected to 2020s. Grant-filtered corpus examples were used only for procedural context, not rate estimation."
+}

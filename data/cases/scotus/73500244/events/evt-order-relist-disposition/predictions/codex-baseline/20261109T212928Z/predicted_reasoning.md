@@ -1,0 +1,11 @@
+# Forecast of the Court's action
+
+The Court will most likely **deny certiorari**, leaving the Eleventh Circuit judgment in place without endorsing its reasoning. The principal competing outcome is plenary review of the federal kidnapping statute's reach, not a summary reversal.
+
+The baseline already shows **three distributions**, most recently for the **November 13, 2026 conference**. I expect **one further distribution** before disposition, with a second additional distribution a plausible alternative. The probability of at least one distribution after the recorded three is **60%**; immediate disposition after the currently scheduled conference remains a substantial alternative. The Court will not call for the Solicitor General's views: the United States has already filed its opposition, and a new CVSG has only a **0.5%** probability.
+
+If review is granted, the Court will take the existing single question, understood in the concrete setting of **whether an automobile used solely within one state automatically satisfies the instrumentality-of-interstate-commerce element of 18 U.S.C. 1201(a)(1)**. It will not take the separate evidentiary objections rejected below. A grant would most likely produce briefing and argument. Only **6% of grant outcomes** are assigned to disposition in the cert order itself; no identified intervening ruling supplies a natural grant-vacate-remand route.
+
+If denied, the likeliest order will contain no explanation. The probability of a noted dissent or statement respecting denial is **35%, conditional on denial**. Thomas is the most plausible writer, followed by Gorsuch, because the proposed limit on federal commerce power supplies a natural basis for objecting to denial. Neither a separate writing nor its author is treated as certain.
+
+The likely reason not to intervene is that the asserted conflict is not yet square: Chavarria's limited holding about a generic motor-vehicle allegation leaves room to distinguish Brown's expressly identified Toyota. If the Court instead grants, the likely focus will be the relationship between the statutory instrumentality language and the constitutional boundary on federalizing local crime, with statutory narrowing available before a broader constitutional ruling. No unconditional merits outcome, majority author, or vote lineup is forecast at this cert stage.

@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000398",
+  "run_id": "20261109T212928Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_call_endpoint",
+    "mcp_courtlistener_read_document",
+    "fedcourts validate"
+  ],
+  "helpful": [
+    "fedcourts query --docket-number for related VPPA cases (25-459, 24-994, 26A23)",
+    "mcp_courtlistener_read_document for Second and Sixth Circuit VPPA opinions",
+    "metrics/statpack.md for sal-v8 baseline risk-set rates and signal cuts"
+  ],
+  "gaps": [
+    "Searching SCOTUS corpus rows by originating circuit docket number or party name substring when S. Ct. cert-denial citations are not populated"
+  ],
+  "notes": "Looking up related dockets by --docket-number (25-459, 24-994, 26A23) worked cleanly and provided useful context on counsel overlap and procedural dates."
+}

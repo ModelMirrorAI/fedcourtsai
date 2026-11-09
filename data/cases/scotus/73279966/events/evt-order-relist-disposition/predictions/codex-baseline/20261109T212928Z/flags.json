@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73279966",
+  "run_id": "20261109T212928Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "capture-gap",
+      "severity": "info",
+      "event_id": "evt-order-relist-disposition",
+      "message": "The provisioned combined brief-in-opposition is marked truncated and ends during the individual respondents' circuit-split argument. The State's opposition and both September 29 supplemental briefs were available and used; missing portions were not treated as concessions. This limits complete assessment of the individual respondents' vehicle and preemption objections, but does not block the forecast."
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73539054",
+  "run_id": "20261109T212928Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts open-events",
+    "fedcourts query",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_read_document"
+  ],
+  "helpful": [
+    "Provisioned full text of petition, BIO, cert-reply, and D.C. Circuit opinion below",
+    "record/context.json pre-computed cert_anchor rate for the elevated band",
+    "CourtListener MCP read_document for reading the June 4, 2026 slip opinion in FCC v. AT&T, Inc. (No. 25-406)",
+    "fedcourts query for checking companion dockets 25-406 and 25-567"
+  ],
+  "gaps": [],
+  "notes": "Used fedcourts query to inspect the target docket (25-1422), the preceding SCOTUS dockets (FCC v. AT&T, Inc., No. 25-406, and Verizon Communications Inc. v. FCC, No. 25-567), and recent conference dispositions, alongside CourtListener MCP read_document to read the full slip opinion in FCC v. AT&T, Inc., 608 U.S. 531 (2026)."
+}

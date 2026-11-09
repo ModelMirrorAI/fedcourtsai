@@ -1,0 +1,173 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "call_source": "transcript_item",
+      "params_digest": "ae09807a0117ca9e",
+      "query": "cat .github/prompts/predict.md; ls -R data/cases/scotus/73280982/",
+      "result_capture": "captured",
+      "result_digest": "9e17f655a3967fa5",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-09T21:56:40.538Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "2f18468e31a8859e",
+      "query": "cd data/cases/scotus/73280982; find . -type f | head -50; cat record/context.json",
+      "result_capture": "captured",
+      "result_digest": "5102ef7b39a69158",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-09T21:56:42.186Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "b65c9637bab5a5d3",
+      "query": "{\"file_path\": \"/home/runner/.claude/projects/-home-runner-work-fedcourtsai-fedcourtsai/8b00f2c6-3e98-4c25-bdcb-45afe4ded6e2/tool-results/b4ovwbtvu.txt\"}",
+      "result_capture": "captured",
+      "result_digest": "f273b9e9e6fe4762",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-09T21:56:42.768Z",
+      "tool": "Read"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "8ce9cb2ffc313fd4",
+      "query": "{\"file_path\": \"/home/runner/.claude/projects/-home-runner-work-fedcourtsai-fedcourtsai/8b00f2c6-3e98-4c25-bdcb-45afe4ded6e2/tool-results/b4ovwbtvu.txt\", \"limit\": 630, \"offset\": 927}",
+      "result_capture": "captured",
+      "result_digest": "8ff461c6b4c7da57",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-09T21:56:44.914Z",
+      "tool": "Read"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "ca0b7e2df62781b4",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280982; cat events/evt-order-relist-disposition/event.yaml; python3 -c \"\nimport json;d=json.load(open('record/snapshots/2026-11-09.json'));print(json.dumps({k:v for k,v in d.items() if k!='docket_entries' and k!='proceedings'},indent=1)[:3000])\nfor e in d.get('proceedings',d.get('docket_entries',[])): print(e)\n\"; cat record/documents/documents.json | head -80; cat record/documents/questions-presented.txt",
+      "result_capture": "captured",
+      "result_digest": "9ecf17ed9641e141",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-09T21:56:47.997Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "8abad9969bf4f4d7",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280982; python3 -c \"\nimport json;d=json.load(open('record/snapshots/2026-11-09.json'))\nfor e in d['ProceedingsandOrder']: print(e['Date'],'|',e['Text'][:300])\n\"; head -c 1500 summaries/2026-10-27.md",
+      "result_capture": "captured",
+      "result_digest": "d4e64db55ca23d43",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-09T21:56:51.516Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "8c39b828d518b7b4",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280982/record/documents; wc -c *.txt; grep -n -i -E \"should be (granted|denied)|recommend|vacate|hold\" sg-invited-brief.txt | head -30; head -c 4000 sg-invited-brief.txt",
+      "result_capture": "captured",
+      "result_digest": "2f5333b2a07e064e",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-09T21:56:54.784Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "5afd0a908dc2b4f1",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280982/record/documents; sed -n 170,190p sg-invited-brief.txt; sed -n 455,490p sg-invited-brief.txt; sed -n 795,850p sg-invited-brief.txt; tail -40 sg-invited-brief.txt; grep -n \"===\" supplemental-brief.txt; head -c 3000 supplemental-brief.txt; cat lower-court-docket.txt",
+      "result_capture": "captured",
+      "result_digest": "0e0b71fdddfb0666",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-09T21:56:56.960Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "5faea568ea1ba0d6",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; grep -n -A14 -E \"^#+ .*(by relist count \\(paid|by CVSG status \\(paid|Segment base rate by salience)\" metrics/statpack.md | head -90; uv run fedcourts query --help | head -40",
+      "result_capture": "captured",
+      "result_digest": "636acc6410ab797a",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-09T21:57:01.980Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "55d60a3ba6a773a1",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; uv run fedcourts query --court scotus --disposition granted --era modern --limit 5 2>&1 | cut -c1-300 | tail -8; cat schemas/prediction.schema.json | python3 -c \"import json,sys;d=json.load(sys.stdin);print(list(d['properties']))\"",
+      "result_capture": "captured",
+      "result_digest": "eb02a4e3b3023a23",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-09T21:57:05.211Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "700b3dc08c54f9c3",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; uv run fedcourts query --court scotus --disposition granted --limit 5 2>&1 | cut -c1-250",
+      "result_capture": "captured",
+      "result_digest": "20612792a2b00fd5",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-09T21:57:07.822Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "949d99f4eca975af",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; D=data/cases/scotus/73280982/events/evt-order-relist-disposition/predictions/claude-baseline/20261109T212928Z; mkdir -p $D; cd $D\ncat > prediction.json <<'EOF'\n{\n  \"schema_version\": \"1.0\",\n  \"case_id\": \"scotus/73280982\",\n  \"event_id\": \"evt-order-relist-disposition\",\n  \"predictor_id\": \"claude-baseline\",\n  \"engine\": \"claude-code\",\n  \"model\": \"claude-opus-5-5\",\n  \"run_id\": \"20261109T212928Z\",\n  \"created_at\": \"2026-11-09T21:30:00Z\",\n  \"input_snapshot\": \"",
+      "result_capture": "captured",
+      "result_digest": "8e0a985425784239",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-09T21:57:47.442Z",
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73280982",
+  "corpus_service": {
+    "open_events": 0,
+    "open_events_ok": 0,
+    "queries": 1,
+    "queries_ok": 1
+  },
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "result_capture_coverage": 1.0,
+  "role": "predictor",
+  "run_id": "20261109T212928Z",
+  "schema_version": "1.0",
+  "self_provisioned_fetches": 0,
+  "throttled_calls": null
+}

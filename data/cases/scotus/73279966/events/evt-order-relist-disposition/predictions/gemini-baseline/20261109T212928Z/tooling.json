@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73279966",
+  "run_id": "20261109T212928Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts validate",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_get_endpoint_item",
+    "mcp_courtlistener_read_document",
+    "mcp_courtlistener_search_document"
+  ],
+  "helpful": [
+    "Provisioned sg-invited-brief.txt, supplemental-brief.txt, and decision-below.txt in record/documents/",
+    "Pre-computed cert_anchor in record/context.json and segment tables in metrics/statpack.md",
+    "fedcourts query --docket-number 26-71 to verify synchronized conference distribution of companion petition The GEO Group, Inc. v. Ferguson",
+    "CourtListener MCP read_document and search_document for companion Ninth Circuit en banc order in GEO Group v. Inslee and SCOTUS opinion in Hencely v. Fluor Corp."
+  ],
+  "gaps": [],
+  "notes": "All provisioned documents and corpus/MCP tools worked cleanly."
+}

@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500257",
+  "run_id": "20261109T212928Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "capture-gap",
+      "severity": "info",
+      "event_id": "evt-order-relist-disposition",
+      "message": "The staged decision-below.txt is the original September 8, 2025 opinion, not the controlling March 6, 2026 amended opinion. The lower-court-docket.txt rehearing excerpt stops in November 2025 and reports no disposition or dissent found. The official petition appendix supplies the amended opinion, rehearing denial, and eight-judge dissent; forecast relies on that appendix instead. Not blocking."
+    }
+  ]
+}
