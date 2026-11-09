@@ -2203,10 +2203,11 @@ the PDF reader's warnings carry text from fetched PDFs. Its Term range is
 pinned in the workflow to OT2018–OT2025, not spent on a dispatch input, so
 the dry run and the apply it bounds read the same Terms. Every listing row
 before OT2020, and some of OT2020's, is read from a slice of its volume; the
-range opens at OT2018 because OT2017's volumes are not served. The parse
-fetches about four seconds a document over some 540 documents and a dozen
-volumes, outside the lock, and only the documents the record does not hold
-whole. It takes no dedupe
+range opens at OT2018 because OT2017's volumes are not served. The parse,
+outside the lock, fetches only the documents the record does not hold whole:
+about four seconds each for a document of its own, at most some 400 on an
+empty record, while a volume is fetched once and every page of it read, and a
+slice of it costs no request of its own. It takes no dedupe
 prerequisite: it writes only its own three tables, keyed by Term and listing
 number (and position, for an opinion row) rather than by case row, and the
 content-store objects they point at, and nothing that gates a cell reads them. All

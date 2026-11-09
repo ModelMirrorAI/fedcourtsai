@@ -202,10 +202,11 @@ each fetching in a job that holds no credential
   either docket's reading would misstate the other's. Where only the headers
   carry the difference ("concurring as to No. 19-8709, and … dissenting … as
   to No. 20-444"), the split disagrees with the syllabus and refuses it.
-- **Coverage, and what it leaves out.** As projected on 2026-11-09 (the
-  record stored on 2026-11-09, plus what a dry run of the current reader over
-  OT2017–OT2019 would add; the stored record holds no OT2018–OT2019 row until
-  the next `opinion-record` apply, and run-repair's pass reads OT2018–OT2025),
+- **Coverage, and what it leaves out.** As projected on 2026-11-09 (for
+  OT2020–OT2025, the record as of that day's `opinion-record` apply, which
+  inserted the 126 rows its dry run planned; for OT2017–OT2019, what a dry run
+  of the current reader over the live listings and volumes would add, since
+  the stored record holds no row before OT2020 until the pass's next apply),
   documents recorded, refused and skipped per Term: OT2025 72 / 1 / 1
   (the decree; 177 opinions), OT2024 66 / 1 / 0 (163), OT2023 60 / 0 / 0
   (159), OT2022 57 / 1 / 0 (135), OT2021 66 / 0 / 0 (159), OT2020 66 / 2 / 0

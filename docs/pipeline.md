@@ -1574,8 +1574,8 @@ signed decision in `opinion_benches` and each writing's text in the content
 store, pointed at from `opinion_texts` (`fedcourts
 backfill-opinion-record`), for OT2018–OT2025, a range pinned in the workflow rather
 than taken as an input (a row linked into a whole volume, every one before
-OT2020, is read from a slice of its volume; OT2017's volumes are not
-served). It fetches each document the Court's opinions listing links that the
+OT2020 and some of OT2020's, is read from a slice of its volume; OT2017's
+volumes are not served). It fetches each document the Court's opinions listing links that the
 record does not yet hold whole — unrecorded, a signed decision recorded
 without its bench row, or a document recorded without its text row — from supremecourt.gov at about one request a second and
 inserts fill-only, and

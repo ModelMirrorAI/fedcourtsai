@@ -2162,12 +2162,13 @@ jobs:
       # OT2018 would only add refusals.
       - name: Read the opinion record
         if: ${{ inputs.repair == 'opinion-record' }}
-        # About four seconds a document — the 1 req/s pacing plus the PDF
-        # parse — and only the documents the record does not hold whole are
-        # fetched. The largest read owed is OT2018–OT2019's, some 140 cases cut
-        # from about a dozen volumes, each fetched once and every page of it
-        # read for the Term heads: on the order of 15 minutes, so the cap is
-        # better than twice that for a slower runner or a slow site.
+        # Only the documents the record does not hold whole are read. A
+        # document of its own costs about four seconds (the 1 req/s pacing
+        # plus the PDF parse); a volume is fetched once and every page of it
+        # text-extracted for the Term heads, which dominates OT2018–OT2019's
+        # read of some 140 documents from about a dozen volumes: on the order
+        # of 15 minutes, and about 40 for a cold read of all eight Terms, both
+        # within the cap.
         timeout-minutes: 60
         env:
           HANDOFF_PROJECTION: ${{ runner.temp }}/handoff/projection.json
