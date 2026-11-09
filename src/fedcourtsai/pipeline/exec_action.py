@@ -115,15 +115,17 @@ every row it leaves out was left out.
      government on the other side. Neither reading can be trusted alone, so
      the row is left for review, with the government on the counsel's side.
    - **The United States itself against a state** (``suit-against-state-law``,
-     out of scope). Where the caption names the United States alone, with no
-     ``et al.`` of agencies or officers beside it, and a state on the other
-     side, the dispute is the government's suit against a state's own law:
-     it challenges no federal executive action and defends none. A government
+     ``unknown``). Where the caption names the United States alone, with no
+     ``et al.`` of agencies or officers beside it, on one side and a state on
+     the other, the dispute is often the government's suit against a state's
+     own law, which challenges no federal executive action and defends none;
+     but it may also be a federal suit enforcing an agency's reading of a
+     statute against a state, which the hand reading puts in scope, or a
+     state's own challenge to a federal action under the same caption. The
+     caption cannot tell these apart, so the row is left for review rather
+     than read as a challenge or a government application. A government
      defending its own policy against a state is named with its agencies or
-     officers (``United States, et al.``, a Secretary) and keeps steps 2 and
-     3. Where the state law is read against an agency's own interpretation of
-     a statute, the hand reading may still put the dispute in scope, and the
-     caption cannot tell the two apart.
+     officers (``United States, et al.``, a Secretary) and keeps steps 2 and 3.
    - **The United States Trustee** (``bankruptcy-trustee``, out of scope). The
      trustee is a Justice Department officer, so the caption reads federal,
      but the trustee's application contests one bankruptcy plan, not a
@@ -175,11 +177,11 @@ ScopeReason = Literal[
     "individual-group",
     "sg-respondent-only",
     "caption-counsel-conflict",
+    "suit-against-state-law",
     "federal-prosecution",
     "federal-court",
     "individual-claim",
     "procedural-request",
-    "suit-against-state-law",
     "bankruptcy-trustee",
     "no-federal-party",
     "hand-in-scope",
@@ -193,11 +195,11 @@ SCOPE_REASONS: Final[tuple[ScopeReason, ...]] = (
     "individual-group",
     "sg-respondent-only",
     "caption-counsel-conflict",
+    "suit-against-state-law",
     "federal-prosecution",
     "federal-court",
     "individual-claim",
     "procedural-request",
-    "suit-against-state-law",
     "bankruptcy-trustee",
     "no-federal-party",
     "hand-in-scope",
@@ -217,7 +219,7 @@ REASON_SCOPE: Final[Mapping[ScopeReason, bool | None]] = MappingProxyType(
         "federal-court": False,
         "individual-claim": False,
         "procedural-request": False,
-        "suit-against-state-law": False,
+        "suit-against-state-law": None,
         "bankruptcy-trustee": False,
         "no-federal-party": False,
         "hand-in-scope": True,
@@ -362,13 +364,13 @@ _ORGANIZATION_V4_RE: Final = re.compile(r"\bSeminary\b", re.IGNORECASE)
 #: A caption half that is the United States alone: no agency, officer or
 #: ``et al.`` beside it.
 _UNITED_STATES_ALONE_RE: Final = re.compile(
-    r"^\s*(?:the\s+)?United\s+States(?:\s+of\s+America)?\s*(?:,\s*Applicants?)?\s*,?\s*$",
+    r"^\s*(?:the\s+)?United\s+States(?:\s+of\s+America)?\s*(?:,\s*(?:Applicants?|Petitioners?|Respondents?))?\s*,?\s*$",
     re.IGNORECASE,
 )
 
 #: A caption half naming the United States Trustee, the bankruptcy officer.
 _US_TRUSTEE_RE: Final = re.compile(
-    r"\b(?:United\s+States|U\.\s?S\.)\s+Trustee\b",
+    r"\b(?:United\s+States|U\.?\s?S\.?)\s+Trustee\b",
     re.IGNORECASE,
 )
 

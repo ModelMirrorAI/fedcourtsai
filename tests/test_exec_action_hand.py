@@ -152,5 +152,5 @@ def test_v5_applies_the_hand_reading_over_v4() -> None:
     assert (rule.rule_version, rule.reason, rule.in_scope) == (
         "exec-action-v5",
         "suit-against-state-law",
-        False,
+        None,
     )

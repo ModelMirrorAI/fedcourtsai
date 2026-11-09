@@ -176,7 +176,15 @@ def test_the_reason_codes_are_registered_once() -> None:
             "caption-counsel-conflict",
             "respondent",
         ),
-        # The United States alone suing a state over its law, on either side.
+        # A federal respondent the caption names, with the office for the applicant.
+        (
+            "Acme Corp. v. Department of Labor, et al.",
+            ["petitioner"],
+            "gov-applicant",
+            "caption-counsel-conflict",
+            "applicant",
+        ),
+        # The United States alone against a state, on either side.
         (
             "United States v. Texas, et al.",
             ["petitioner"],
@@ -194,6 +202,22 @@ def test_the_reason_codes_are_registered_once() -> None:
         (
             "Missouri, et al. v. United States",
             ["respondent"],
+            "challenge-to-executive-action",
+            "suit-against-state-law",
+            "respondent",
+        ),
+        (
+            "United States, Petitioner v. Texas",
+            [],
+            "gov-applicant",
+            "suit-against-state-law",
+            "applicant",
+        ),
+        # The cost the docs name: a federal suit enforcing an agency's reading
+        # against a state, which the hand reading may put in scope.
+        (
+            "Idaho v. United States",
+            [],
             "challenge-to-executive-action",
             "suit-against-state-law",
             "respondent",
@@ -236,7 +260,7 @@ def test_the_reason_codes_are_registered_once() -> None:
             "applicant",
         ),
         (
-            "Acme Holdings LLC v. Jane Roe, U.S. Trustee",
+            "Acme Holdings LLC v. Jane Roe, US Trustee",
             ["respondent"],
             "sg-respondent-only",
             "bankruptcy-trustee",
@@ -289,9 +313,12 @@ def test_v4_sets_a_procedural_request_out_as_v2_does() -> None:
         counsel=[_sg("petitioner")],
     )
     payload = _submitted("25A99999", "to file a brief in excess of the word limits")
-    for annotator in (exec_action_annotations_v2, exec_action_annotations_v4):
+    for annotator, version in (
+        (exec_action_annotations_v2, EXEC_ACTION_RULE_VERSION),
+        (exec_action_annotations_v4, EXEC_ACTION_RULE_VERSION_V4),
+    ):
         annotation = annotator(row, row.date_filed, payload)
-        assert annotation.reason == "procedural-request"
+        assert (annotation.reason, annotation.rule_version) == ("procedural-request", version)
 
 
 def _app(
