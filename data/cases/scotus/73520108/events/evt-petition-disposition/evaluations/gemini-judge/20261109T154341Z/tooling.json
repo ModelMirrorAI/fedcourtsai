@@ -1,0 +1,19 @@
+{
+  "actor_id": "gemini-judge",
+  "case_id": "scotus/73520108",
+  "gaps": [],
+  "helpful": [
+    "fedcourts statpack-at reconstructed the exact sal-v4 statpack table from prediction time to verify the candidates' 17.2% pooled elevated reached anchor"
+  ],
+  "notes": "Evaluated three blinded candidates (claude-baseline, codex-baseline, gemini-baseline) for scotus/73520108 evt-petition-disposition.",
+  "role": "evaluator",
+  "run_id": "20261109T154341Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts statpack-at",
+    "fedcourts paths",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

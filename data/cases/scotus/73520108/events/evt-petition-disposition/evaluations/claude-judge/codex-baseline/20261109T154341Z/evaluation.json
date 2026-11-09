@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.5,
+    "notes": "Plenary grant on whether a bankruptcy court may refuse to compel arbitration of Section 362(k) automatic-stay damages claims, over a 4th/2nd Circuit split. This would be the Court's first word on McMahon in bankruptcy, and it reaches arbitration clauses in consumer-credit contracts across consumer bankruptcies nationwide. It is a significant business and statutory case with low general public salience."
+  },
+  "brier_score": 0.3844,
+  "brier_skill_score": 0.4365838921341535,
+  "case_id": "scotus/73520108",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.17400568181818182,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.38,
+        "score": 0.2978666136686466
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.45,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.06,
+        "score": null
+      },
+      {
+        "baseline": 0.345367027677497,
+        "claim_id": "summary-disposition-route",
+        "outcome": 0,
+        "probability": 0.08,
+        "score": 0.11287838380678897
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.15,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.4107449974754356,
+    "total": 0.4107449974754356
+  },
+  "correct": 0,
+  "created_at": "2026-11-09T15:47:35.220489Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell: predicted 2026-10-06 against the 2026-10-05 snapshot; the petition was granted 2026-11-06. The log shows no retrieved_doc_date on or after resolution, and no query for or citation of this petition's disposition. Its web retrieval was limited to the Sept 14/15 supplemental briefs linked in the snapshot; one web-open row is unobserved and is graded on its query (that brief's URL), which is pre-decision. No read of data/qp-topics/. Nothing about an outcome that did not yet exist could have leaked.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-opus-5-5",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.22,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Docket entry Nov 06 2026: 'Petition GRANTED.'",
+        "claim": "The Court will most likely deny certiorari (P(any grant) 0.38).",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "Two further distributions followed (Oct 13, Nov 2). Only the October\u2013November timing held: the petition was granted Nov 6.",
+        "claim": "No further distribution before disposition (45% for at least one more); resolution in October or November 2026.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "The Court granted despite the supplemental briefing on the dismissal.",
+        "claim": "The unstable pleading after the Sept 10 dismissal, together with the contested conflict, will be the reason to pass on this vehicle.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "No CVSG on the docket; outcome cvsg_date null.",
+        "claim": "The Court will not call for the SG's views (6%).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json disposition_route plenary; the grant order notes no limitation.",
+        "claim": "If granted, plenary review on the single question substantially as presented (92% plenary).",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261005T231540Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+    "label": "proc-v20",
+    "pipeline_sha": "09c5756a9470878a78d684640ddeed4552d7df7b",
+    "stamped_at": "2026-11-09T15:47:35.220489Z"
+  },
+  "reasoning_quality": 0.6,
+  "run_id": "20261109T154341Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.17400568181818182,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}
