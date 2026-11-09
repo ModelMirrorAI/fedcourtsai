@@ -1547,8 +1547,8 @@ class OpinionRecordPlan(BaseModel):
     and non-participation the syllabus states — with ``case_id`` left empty,
     to be resolved by the writer from its own corpus. The refused rows'
     reasons quote at most a header's opening words. The texts are most of its
-    bytes: a Term's run to about 4.5 MB, so the six Terms the repair pass reads
-    stay well under the handoff cap.
+    bytes: a Term's run to about 4.5 MB, so the eight Terms the repair pass reads
+    stay under the handoff cap.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)

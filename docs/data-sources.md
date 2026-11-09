@@ -150,7 +150,7 @@ statistics count per opinion rather than per case. It is a historical record,
 held corpus-side and read by nothing a predict cell or a registered evaluate
 cell sees; a pilot round's evaluate cell is given each decision's writings
 (`provision-opinion --writings`). Its
-apply runs as run-repair's `opinion-record` pass over OT2020–OT2025, and as a
+apply runs as run-repair's `opinion-record` pass over OT2018–OT2025, and as a
 standing sweep on run-seed's daily window over the current and previous Term,
 each fetching in a job that holds no credential
 ([data-pipeline.md](data-pipeline.md#maintenance-passes)).
@@ -202,11 +202,12 @@ each fetching in a job that holds no credential
   either docket's reading would misstate the other's. Where only the headers
   carry the difference ("concurring as to No. 19-8709, and … dissenting … as
   to No. 20-444"), the split disagrees with the syllabus and refuses it.
-- **Coverage, and what it leaves out.** As projected on 2026-11-09 (the
-  record stored on 2026-11-08, plus what a dry run of the current reader over
-  OT2017–OT2025 would add; the stored record shows more refusals until the
-  next `opinion-record` apply, and run-repair's pass reads OT2020–OT2025
-  only), documents recorded, refused and skipped per Term: OT2025 72 / 1 / 1
+- **Coverage, and what it leaves out.** As projected on 2026-11-09 (for
+  OT2020–OT2025, the record as of that day's `opinion-record` apply, which
+  inserted the 126 rows its dry run planned; for OT2017–OT2019, what a dry run
+  of the current reader over the live listings and volumes would add, since
+  the stored record holds no row before OT2020 until the pass's next apply),
+  documents recorded, refused and skipped per Term: OT2025 72 / 1 / 1
   (the decree; 177 opinions), OT2024 66 / 1 / 0 (163), OT2023 60 / 0 / 0
   (159), OT2022 57 / 1 / 0 (135), OT2021 66 / 0 / 0 (159), OT2020 66 / 2 / 0
   (150), OT2019 62 / 1 / 0 (155), OT2018 73 / 0 / 0 (167); OT2017 0 / 56 / 0

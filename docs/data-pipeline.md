@@ -1795,7 +1795,7 @@ Term (`backfill-opinion-record --sweep`), slicing in the parse, where the
 fetches are: at most `historical.sweep_caps.opinion_record` documents a window,
 two thirds newest decision first and the rest rotated through the older rows,
 and a class above `opinion_record_ceiling` refused
-whole by the writer. The dispatched pass stays pinned to OT2020–OT2025 under a
+whole by the writer. The dispatched pass stays pinned to OT2018–OT2025 under a
 maintainer's bound.
 
 **One pass per dispatch, dry-run first.** `repair` is a single choice, so no
@@ -1891,7 +1891,7 @@ passes, commits from the same record.
 | `order-votes` | `stamp-order-votes` (split, as above) | `--max-stamps` (outcomes stamped, new records and replacements together) | — | `replace-differing` |
 | `application-backfill` | `backfill-applications` (split, as above) | `--max-rows` (rows landed, onboarded and enriched together; the dry run's count is an upper bound) | two-digit October Term, **required in both modes** | — |
 | `decision-record` | `backfill-decision-record` | `--max-fills` (rows filled, not the `candidates` denominator) | — | — |
-| `opinion-record` | `backfill-opinion-record` (split, as above; Terms pinned in the workflow to `--first-term 2020 --last-term 2025`) | `--max-rows` (opinion, bench and text rows inserted — the dry run's "would insert N", not the listing rows or documents read) | — | — |
+| `opinion-record` | `backfill-opinion-record` (split, as above; Terms pinned in the workflow to `--first-term 2018 --last-term 2025`) | `--max-rows` (opinion, bench and text rows inserted — the dry run's "would insert N", not the listing rows or documents read) | — | — |
 
 A bound is required on `apply` wherever the pass takes one, and refused before
 the scan runs unless it is a positive integer — blank, zero, negative, decimal
@@ -2200,12 +2200,14 @@ opinion-record steps that print readings — the parse, and the writer, which
 prints the plan's copy back — suspend workflow commands while the command runs
 and copy only its own ledger lines to the run summary, since the readings and
 the PDF reader's warnings carry text from fetched PDFs. Its Term range is
-pinned in the workflow to OT2020–OT2025, not spent on a dispatch input, so
-the dry run and the apply it bounds read the same Terms. The pass reads
-OT2020's volume-linked rows, from slices of their volumes; the command also
-reads those of earlier Terms, which the pinned range does not reach. The parse
-fetches about four seconds a document over some 400 documents and one volume,
-outside the lock. It takes no dedupe
+pinned in the workflow to OT2018–OT2025, not spent on a dispatch input, so
+the dry run and the apply it bounds read the same Terms. Every listing row
+before OT2020, and some of OT2020's, is read from a slice of its volume; the
+range opens at OT2018 because OT2017's volumes are not served. The parse,
+outside the lock, fetches only the documents the record does not hold whole:
+about four seconds each for a document of its own, at most some 400 on an
+empty record, while a volume is fetched once and every page of it read, and a
+slice of it costs no request of its own. It takes no dedupe
 prerequisite: it writes only its own three tables, keyed by Term and listing
 number (and position, for an opinion row) rather than by case row, and the
 content-store objects they point at, and nothing that gates a cell reads them. All
@@ -2538,7 +2540,7 @@ gh workflow run run-repair.yml --ref main \
 gh workflow run run-repair.yml --ref main \
   -f repair=decision-record -f repair_mode=apply -f repair_bound=<would fill N>
 
-# The opinion record reads OT2020–OT2025 (pinned in the workflow). Its apply
+# The opinion record reads OT2018–OT2025 (pinned in the workflow). Its apply
 # fetches every document the record does not hold whole again — unrecorded, a
 # signed decision recorded without its bench row, or a document recorded without
 # its text row — and runs no dry run first, which would double the pass's traffic

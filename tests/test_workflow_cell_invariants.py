@@ -5091,8 +5091,16 @@ def test_the_opinion_record_steps_suspend_workflow_commands_around_fetched_text(
         assert run.index('echo "::${stop_token}::"') > invocation, name
         summary_writes = [ln.strip() for ln in run.splitlines() if "GITHUB_STEP_SUMMARY" in ln]
         assert summary_writes == ['>> "$GITHUB_STEP_SUMMARY" || true'], (name, summary_writes)
-        assert "--first-term 2020 --last-term 2025" in _norm(run), name
+        assert "--first-term 2018 --last-term 2025" in _norm(run), name
         assert "--cache-dir" not in run, name
+    # The projection reads the same Terms, so the parse fetches only what the
+    # record lacks across the whole range.
+    projection = str(
+        _named_step("run-repair.yml", "handoff-projection", "Write the opinion-record projection")[
+            "run"
+        ]
+    )
+    assert "--first-term 2018 --last-term 2025" in _norm(projection)
 
 
 @pytest.mark.parametrize(
