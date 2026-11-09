@@ -392,7 +392,7 @@ and the word-counting rule are in [docs/data-sources.md](../docs/data-sources.md
 | `footnote_words` | integer       | the footnotes' share of `words` |
 | `word_rule`      | text          | `<rule>/<version>` of the counting rule (`scotus-opinion-words/1`) |
 | `lineup`         | text          | `<reader>/<version>` the writings were read by: the syllabus grammar, or the header reader for a per curiam |
-| `source_format`  | text          | `slip` or `preliminary-print` |
+| `source_format`  | text          | `slip`, `preliminary-print`, or a case sliced out of a whole volume: `preliminary-print-volume` or `bound-volume` |
 | `document_url`   | text          | the supremecourt.gov PDF read |
 | `header`         | text          | the opinion's header sentence as printed, normalized (spacing and split words closed up) |
 | `read_at`        | timestamp     | when the row was written |

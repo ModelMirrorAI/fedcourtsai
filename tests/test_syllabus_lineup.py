@@ -1226,3 +1226,78 @@ def test_a_consolidated_decision_read_docket_by_docket_is_refused(text: str) -> 
 )
 def test_the_printed_variants_stop_short_of_their_lookalikes(text: str) -> None:
     _assert_refused(parse_syllabus_lineup(text, bench=OT23))
+
+
+OT18 = (
+    "Roberts",
+    "Thomas",
+    "Ginsburg",
+    "Breyer",
+    "Alito",
+    "Sotomayor",
+    "Kagan",
+    "Gorsuch",
+    "Kavanaugh",
+)
+
+
+def test_lead_clauses_continued_after_semicolons_repeat_their_head() -> None:
+    lineup = parse_syllabus_lineup(
+        "Roberts, C. J., delivered the opinion for a unanimous Court with respect to Parts "
+        + "I and II, and the opinion of the Court with respect to Parts III, IV-B, and IV-C, "
+        + "in which Thomas, Alito, Gorsuch, and Kavanaugh, JJ., joined; with respect to Part "
+        + "IV-A, in which Thomas, Ginsburg, Breyer, Sotomayor, Kagan, and Kavanaugh, JJ., "
+        + "joined; and with respect to Part V, in which Ginsburg, Breyer, Sotomayor, and "
+        + "Kagan, JJ., joined. Thomas, J., filed an opinion concurring in part and dissenting "
+        + "in part, in which Gorsuch and Kavanaugh, JJ., joined. Breyer, J., filed an opinion "
+        + "concurring in part and dissenting in part, in which Ginsburg, Sotomayor, and "
+        + "Kagan, JJ., joined. Alito, J., filed an opinion concurring in part and dissenting "
+        + "in part.",
+        bench=OT18,
+    )
+    assert lineup.complete
+    lead = lineup.lead
+    assert lead is not None and lead.scope is not None
+    assert lead.scope.count("the opinion of the Court") == 4
+    ginsburg = next(j for j in lead.joins if j.justice == "Ginsburg")
+    assert ginsburg.qualifier == (
+        "with respect to Parts I and II; with respect to Part IV-A; with respect to Part V"
+    )
+
+
+def test_a_join_except_for_the_final_paragraph_in_a_part() -> None:
+    lineup = parse_syllabus_lineup(
+        "Kagan, J., delivered the opinion of the Court, in which Roberts, C. J., and Alito, "
+        + "Sotomayor, Gorsuch, and Kavanaugh, JJ., joined, and in which Thomas, J., joined "
+        + "except for the final paragraph in Part II-A and the final paragraph in Part II-B. "
+        + "Thomas, J., filed an opinion concurring in part and concurring in the judgment. "
+        + "Breyer, J., filed an opinion concurring in the judgment, in which Ginsburg, J., "
+        + "joined.",
+        bench=OT18,
+    )
+    assert lineup.complete
+    assert lineup.lead is not None
+    assert (
+        Join(
+            "Thomas",
+            "except for the final paragraph in Part II-A and the final paragraph in Part II-B",
+        )
+        in lineup.lead.joins
+    )
+
+
+@pytest.mark.parametrize(
+    "cite",
+    [
+        pytest.param(", post, p 87", id="no-period-after-p"),
+        pytest.param(" post, p. 87", id="no-comma-before-post"),
+    ],
+)
+def test_page_cite_slips_are_dropped(cite: str) -> None:
+    lineup = parse_syllabus_lineup(
+        "Thomas, J., delivered the opinion of the Court, in which Breyer, Alito, Gorsuch, and "
+        + "Kavanaugh, JJ., joined. Sotomayor, J., filed a dissenting opinion, in which "
+        + f"Roberts, C. J., and Ginsburg and Kagan, JJ., joined{cite}.",
+        bench=OT18,
+    )
+    assert lineup.complete
