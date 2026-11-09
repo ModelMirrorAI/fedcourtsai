@@ -15,10 +15,11 @@ current Term's copy is a scanned image with no text layer, so it is not read.
 
 Three invariants:
 
-- **Fail closed.** A served document that does not parse whole (an
-  unrecognised line, a title naming another Term, a conference out of the
-  Term's window, a row distributed on or after its conference, other than one
-  long conference) refuses the whole refresh, and the committed file stays as
+- **Fail closed.** A served document that does not parse whole (for
+  instance an unrecognised line, a title naming another Term, a conference out
+  of the Term's window, a row distributed on or after its conference, a
+  document over the size cap, or anything but exactly one conference taking the
+  summer lists) refuses the whole refresh, and the committed file stays as
   it was. Nothing writes a calendar without sessions.
 - **The Court's host only.** Fetched through the live channel's
   :class:`~fedcourtsai.supremecourt.SupremeCourtClient`, which refuses any hop
@@ -39,7 +40,7 @@ from typing import Protocol
 
 from pydantic import ValidationError
 from pypdf import PdfReader
-from pypdf.errors import PdfReadError
+from pypdf.errors import PyPdfError
 
 from .schemas import (
     TermCalendar,
@@ -79,6 +80,14 @@ _ROW = re.compile(
 _TITLE = re.compile(r"^CASEDISTRIBUTIONSCHEDULE[-\u2013\u2014]OCTOBERTERM(?P<term>\d{4})$")
 _COLUMN_HEADER = "DISTRIBUTIONDATELISTCONFERENCE"
 
+#: A served schedule is tens of kilobytes; anything past this is not one, and
+#: is refused before the parser sees it.
+MAX_DOCUMENT_BYTES = 2_000_000
+
+#: The most the refresh may wait on the Court, across both documents, so a
+#: degraded upstream cannot hold the live poll past its own budget.
+FETCH_DEADLINE_SECONDS = 120.0
+
 #: Fewer rows than this is not a whole Term's schedule: a served Term prints
 #: well over a hundred.
 _MIN_ROWS = 40
@@ -104,8 +113,8 @@ def pdf_text(data: bytes) -> str:
     try:
         reader = PdfReader(io.BytesIO(data))
         return "\n".join(page.extract_text() or "" for page in reader.pages)
-    except (PdfReadError, ValueError, KeyError, TypeError) as exc:
-        raise CalendarRefused(f"not a readable PDF ({type(exc).__name__}: {exc})") from exc
+    except (PyPdfError, ValueError, KeyError, TypeError) as exc:
+        raise CalendarRefused(f"not a readable PDF ({type(exc).__name__}: {str(exc)!r})") from exc
 
 
 def _day(month: str, day: str, year: str) -> date:
@@ -222,6 +231,8 @@ def build_calendar(
             if term == current:
                 raise CalendarRefused(f"OT{term} schedule not served at {url}")
             continue
+        if len(data) > MAX_DOCUMENT_BYTES:
+            raise CalendarRefused(f"OT{term} schedule is {len(data)} bytes, over the cap")
         rows.extend(parse_schedule(extract(data), term=term))
         sources.append(
             TermCalendarSource(term=term, url=url, sha256=hashlib.sha256(data).hexdigest())

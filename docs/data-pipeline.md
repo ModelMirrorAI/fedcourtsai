@@ -581,8 +581,8 @@ ingested row, never a row itself — so it moves whenever the corpus does, and t
 committed copy is a point-in-time snapshot that nothing schedules or gates (see
 [cli.md](cli.md)).
 
-`data/schedule/schedule.json` is the one repo-level file the **live poll**
-writes, beside the per-case outcomes and event records: after each cycle, `fedcourts live-poll` rebuilds it
+`data/schedule/schedule.json` is one of the two repo-level files the **live poll**
+writes (the other is the term calendar below), beside the per-case outcomes and event records: after each cycle, `fedcourts live-poll` rebuilds it
 from the corpus it just refreshed, and it rides that window's data commit to
 `main`. It carries three dates per public docket, each read off the docket's
 entries by the live poll: the conference the docket is distributed for while it
@@ -612,19 +612,23 @@ written beside it and renamed over it); it never fails the poll. `fedcourts sche
 a pulled corpus.
 
 Beside it sits `data/schedule/term-calendar.json`, the Court's own conference
-calendar, which the same poll refreshes at most once a UTC day, before it
-rebuilds the schedule (`fedcourtsai.term_calendar`). It is read from the
+calendar, which the same poll refreshes before it rebuilds the schedule: once
+a UTC day after a read succeeds, and again each window while the day's read is
+refused (`fedcourtsai.term_calendar`). It is read from the
 Court's *Case Distribution Schedule* PDF for the October Term the day falls in
 and, once the Court publishes it, the next one: one session row per conference
 day, the one the summer lists go to marked as the Term's long conference, and
 every distribution row behind them, with each document's URL and SHA-256. The
 schedule reads it for one field, `court_next_conference`, the Court's first
-conference on or after `as_of`, which the site can show even when no public
-docket is distributed for that day. It fails closed: a served schedule that
-does not parse whole (an unrecognised line, a title naming another Term, a
-conference outside the Term's window, a row distributed on or after its
-conference, other than one long conference) leaves the committed calendar as it
-was and emits a `::warning::`, and nothing writes a calendar without sessions.
+conference on or after `as_of`, set even when no public docket is distributed
+for that day. The big-case board does not join it, so the public site does not
+show it yet. It fails closed: a served schedule that
+does not parse whole (for instance an unrecognised line, a title naming another
+Term, a conference outside the Term's window, a row distributed on or after its
+conference, a document over the size cap, or anything but exactly one
+conference taking the summer lists) leaves the committed calendar as it
+was and emits a `::warning::`, the fetch is bounded at two minutes across both
+documents so it cannot hold the poll, and nothing writes a calendar without sessions.
 Like the schedule it is display data and never a cell input; the
 long-conference rule salience and selection key on does not read it.
 `fedcourts term-calendar` refreshes it by hand.

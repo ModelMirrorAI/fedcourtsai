@@ -664,7 +664,7 @@ from .store import (
     unpopulated_cases,
 )
 from .supremecourt import (
-    OffHostFetch,
+    DeadlineExceeded,
     SupremeCourtClient,
     current_docket_term,
     october_term_year,
@@ -8467,11 +8467,18 @@ def term_calendar_cmd(
     as_of = date.fromisoformat(today) if today else datetime.now(UTC).date()
     live_cfg = load_live_config(settings.config_root)
     try:
-        with SupremeCourtClient(throttle_seconds=live_cfg.throttle_seconds) as client:
+        with SupremeCourtClient(
+            throttle_seconds=live_cfg.throttle_seconds,
+            deadline_seconds=term_calendar.FETCH_DEADLINE_SECONDS,
+        ) as client:
             line = term_calendar.refresh_calendar(
                 client, settings.data_root, today=as_of, force=force
             )
-    except (term_calendar.CalendarRefused, httpx.HTTPError, OffHostFetch) as exc:
+    except (
+        term_calendar.CalendarRefused,
+        httpx.HTTPError,
+        DeadlineExceeded,
+    ) as exc:
         typer.echo(f"term-calendar: refused: {exc}", err=True)
         raise typer.Exit(1) from exc
     typer.echo(line)
@@ -8485,10 +8492,16 @@ def _refresh_term_calendar(data_root: Path, *, today: date, throttle_seconds: fl
     as a failed poll.
     """
     try:
-        with SupremeCourtClient(throttle_seconds=throttle_seconds) as client:
+        with SupremeCourtClient(
+            throttle_seconds=throttle_seconds,
+            deadline_seconds=term_calendar.FETCH_DEADLINE_SECONDS,
+        ) as client:
             line = term_calendar.refresh_calendar(client, data_root, today=today)
     except Exception as exc:  # any failure degrades to a warning
-        typer.echo(f"::warning::term-calendar: not refreshed ({type(exc).__name__}: {exc})")
+        # One line, whatever the message carries: a workflow command reads a
+        # newline in it as the start of another command.
+        reason = " ".join(str(exc).split())
+        typer.echo(f"::warning::term-calendar: not refreshed ({type(exc).__name__}: {reason})")
         return
     typer.echo(line)
 
@@ -23335,8 +23348,9 @@ def live_poll(
     (daily-debounced), ground truth for the rest. Resolution is detected from
     the proceedings text, so a decided petition or application lands
     ``outcome.json`` deterministically. Writes the same three queue files
-    as ``pull-all``, then rebuilds ``data/schedule/schedule.json`` from the
-    refreshed corpus (warning, never failing, if that build breaks).
+    as ``pull-all``, refreshes ``data/schedule/term-calendar.json`` once a UTC
+    day after a good read, then rebuilds ``data/schedule/schedule.json`` from
+    the refreshed corpus (warning, never failing, if either breaks).
     """
     settings = get_settings()
     live_cfg = load_live_config(settings.config_root)
@@ -23379,12 +23393,13 @@ def live_poll(
     out.write_text(json.dumps(queues.predict) + "\n")
     evaluate_out.write_text(json.dumps(queues.evaluate) + "\n")
     unrecorded_out.write_text(json.dumps(queues.unrecorded) + "\n")
-    # The schedule rides the cycle that moved its dates, into the same data
-    # commit. Display data, so a failure here costs the site one cycle's dates
-    # and never the poll's facts or queues.
+    # The Court's calendar first, so the schedule below reads today's copy.
     _refresh_term_calendar(
         settings.data_root, today=today, throttle_seconds=live_cfg.throttle_seconds
     )
+    # The schedule rides the cycle that moved its dates, into the same data
+    # commit. Display data, so a failure here costs the site one cycle's dates
+    # and never the poll's facts or queues.
     try:
         _write_schedule(
             settings.data_root, db, schedule.schedule_path(settings.data_root), as_of=today

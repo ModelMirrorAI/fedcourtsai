@@ -16,8 +16,8 @@ History is never a date ahead; the upcoming conference is ``next_conference``.
 
 Above the rows, ``court_next_conference`` is the Court's own next conference
 day, read from the committed term calendar (:mod:`fedcourtsai.term_calendar`),
-so the site has a next conference even when no public docket is distributed
-for it.
+set even when no public docket is distributed for it. The big-case board does
+not join it.
 
 It is the forward-looking data the public site's case timeline shows beside
 each step, joined onto the big-case board by ``fedcourts big-cases`` so the

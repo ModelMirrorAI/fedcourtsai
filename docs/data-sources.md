@@ -40,7 +40,8 @@ ingestion channels (**pull**, **live**, **historical**, **enrich** —
   The same terms cover **the Court's conference calendar**: its *Case
   Distribution Schedule* PDF for the current and the next October Term, which
   the Court publishes on its own site for the bar and the public, read by the
-  live poll at most once a day (two requests, same client, same host guard).
+  live poll once a day after a read succeeds (one document per Term, same
+  client, same host guard).
   Unlike the channels above, what it reads is republished in public git, as
   `data/schedule/term-calendar.json`: the Court's conference days and
   distribution dates with the list names it prints, plus the document's URL and

@@ -339,9 +339,11 @@ schedule marks it `passed`.
 
 The schedule's court-wide next conference comes from no docket: the live poll
 reads the Court's *Case Distribution Schedule*
-(`/casedistribution/casedistributionschedule<YYYY>.pdf`) at most once a UTC
-day into `data/schedule/term-calendar.json`, through the same client and its
-host guard, two requests at most (*the Court's conference calendar* in
+(`/casedistribution/casedistributionschedule<YYYY>.pdf`) into
+`data/schedule/term-calendar.json` once a UTC day after a read succeeds (a
+refused read is tried again the next window), through the same client, its
+host guard and its one retry, one document per Term for two Terms, bounded at
+two minutes in all (*the Court's conference calendar* in
 [data-sources.md](data-sources.md), the format in
 [data-pipeline.md](data-pipeline.md)). The Court's illustrated *Term Calendar*
 PDF, which also marks argument days, non-argument sessions and holidays, is not

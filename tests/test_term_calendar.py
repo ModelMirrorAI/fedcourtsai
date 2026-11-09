@@ -150,6 +150,15 @@ def test_an_unserved_current_term_or_a_bad_next_term_refuses_the_build() -> None
         tc.build_calendar(bad_next, today=date(2026, 11, 9), extract=_text)
 
 
+def test_an_oversized_document_is_refused_before_it_is_parsed() -> None:
+    def _never(data: bytes) -> str:
+        raise AssertionError("parsed")
+
+    huge = _Fetcher({2026: "x" * (tc.MAX_DOCUMENT_BYTES + 1)})
+    with pytest.raises(tc.CalendarRefused, match="over the cap"):
+        tc.build_calendar(huge, today=date(2026, 11, 9), extract=_never)
+
+
 def test_a_bad_pdf_is_refused_not_raised() -> None:
     with pytest.raises(tc.CalendarRefused, match="not a readable PDF"):
         tc.pdf_text(b"<html>error</html>")
@@ -294,12 +303,13 @@ def test_a_calendar_failure_warns_and_never_fails_the_live_cycle(
     _stub_cycle(monkeypatch, tmp_path)
 
     def _refused(*args: object, **kwargs: object) -> str:
-        raise tc.CalendarRefused("unrecognised line: 'x'; nothing written")
+        raise tc.CalendarRefused("not a readable PDF ('a\n::stop-commands::x'); nothing written")
 
     monkeypatch.setattr(tc, "refresh_calendar", _refused)
     result = _invoke_live_poll(tmp_path)
     assert result.exit_code == 0, result.output
     assert "::warning::term-calendar: not refreshed (CalendarRefused" in result.output
+    assert not any(line.startswith("::stop-commands") for line in result.output.splitlines())
     assert (tmp_path / "p.json").exists()
 
 

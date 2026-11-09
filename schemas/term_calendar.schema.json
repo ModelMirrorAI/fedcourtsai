@@ -14,7 +14,7 @@
               "type": "null"
             }
           ],
-          "description": "The conference the list goes to; null for a summer list the schedule prints without one, which the next Term's schedule assigns",
+          "description": "The conference the list goes to; null for a summer list the schedule prints without one",
           "title": "Conference"
         },
         "distributed": {

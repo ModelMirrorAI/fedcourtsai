@@ -9416,7 +9416,7 @@ class TermCalendarDistribution(_Strict):
     )
     conference: date | None = Field(
         description="The conference the list goes to; null for a summer list the schedule "
-        "prints without one, which the next Term's schedule assigns"
+        "prints without one"
     )
     term: int = Field(description="The October Term whose schedule prints the row")
 
