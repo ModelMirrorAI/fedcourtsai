@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.5,
+    "notes": "A nationwide forum-allocation issue at the intersection of consumer bankruptcy and arbitration, with potential consequences for automatic-stay enforcement and class litigation. Substantial specialized significance, but this grant alone establishes no merits rule and the question is not a broad constitutional restructuring."
+  },
+  "brier_score": 0.3844,
+  "brier_skill_score": 0.4365838921341535,
+  "case_id": "scotus/73520108",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.17400568181818182,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.38,
+        "score": 0.2978666136686466
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.45,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.06,
+        "score": null
+      },
+      {
+        "baseline": 0.345367027677497,
+        "claim_id": "summary-disposition-route",
+        "outcome": 0,
+        "probability": 0.08,
+        "score": 0.11287838380678897
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.15,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.4107449974754356,
+    "total": 0.4107449974754356
+  },
+  "correct": 0,
+  "created_at": "2026-11-09T15:51:52.516836Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction activity on October 6 preceded the November 6 resolution. Of 32 calls, 31 have captured results; one unobserved hosted call targets the September 14 supplemental-brief PDF, not a result search. The logged shell retrievals concern September briefs about a bankruptcy-court dismissal. No query or reasoning shows this petition's Supreme Court disposition as already decided. The unobserved call is not treated as an empty result.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.25,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The November 6 disposition was granted, not denied. The grant does not disclose how the Court weighed the vehicle objections.",
+        "claim": "The Court will most likely deny certiorari without explanation, with the contested conflict and unstable pleading providing reasons to pass.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "The central no-further-distribution expectation failed: two additional distributions occurred. The broader timing component was correct because the grant issued November 6.",
+        "claim": "No further distribution is the most likely path from the two-distribution state, although resolution should occur during October or November 2026.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "No CVSG appears in the staged docket, and outcome.signals.cvsg_date is null.",
+        "claim": "The Court will not call for the Solicitor General's views.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The grant occurred and the outcome expressly identifies the disposition route as plenary.",
+        "claim": "If review is granted, the principal route will be plenary briefing and argument rather than disposition in the cert order.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The staged record contains no merits judgment or reasoned ruling resolving that proposed ground and precise scope.",
+        "claim": "On plenary review the Court will likely reject a categorical bankruptcy exception for Section 362(k) damages while leaving standalone Section 105(a) contempt outside the question.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261005T231540Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v20",
+    "pipeline_sha": "09c5756a9470878a78d684640ddeed4552d7df7b",
+    "stamped_at": "2026-11-09T15:51:52.516836Z"
+  },
+  "reasoning_quality": 0.9,
+  "run_id": "20261109T154341Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.17400568181818182,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

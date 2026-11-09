@@ -1,0 +1,112 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.45,
+    "notes": "Significant commercial, consumer-finance, and bankruptcy-law case resolving a recurring circuit split over whether the Federal Arbitration Act applies to private automatic-stay damages claims under 11 U.S.C. \u00a7 362(k), affecting standard consumer credit agreements across consumer bankruptcies nationwide, though without major constitutional or political salience."
+  },
+  "brier_score": 0.42250000000000004,
+  "brier_skill_score": 0.3807406202567113,
+  "case_id": "scotus/73520108",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.17400568181818182,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.35,
+        "score": 0.25976661366864656
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.3,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": 0.345367027677497,
+        "claim_id": "summary-disposition-route",
+        "outcome": 0,
+        "probability": 0.05,
+        "score": 0.11677838380678897
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.25,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.3765449974754355,
+    "total": 0.3765449974754355
+  },
+  "correct": 0,
+  "created_at": "2026-11-09T16:08:08.969440Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction placed on 2026-10-06 against the 2026-10-05 snapshot, one month before the 2026-11-06 cert grant. Retrieval log shows only local file reads of the provisioned inputs and committed statpack plus two failed local CLI attempts to run fedcourts query.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-argon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.5,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The Court granted certiorari on November 6, 2026 (outcome.json: actual_disposition = granted, actual_granted = 1).",
+        "claim": "The petition will be denied (assigning a 35% grant probability), with a 25% conditional chance of a dissent from denial by Justice Thomas or Justice Alito.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "outcome.json records cvsg_date = null and distribution_count = 4 (two further distributions occurred, though the candidate leaned against further relists at 30%).",
+        "claim": "There is roughly a 30% chance of at least one further relist before a decision on the petition, and no CVSG is expected (5% probability).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records disposition_route = plenary and disposition_basis = standard.",
+        "claim": "If granted, the Court will take the question presented as written and proceed to plenary review rather than a summary disposition or GVR (5% summary-disposition probability).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "This event resolves only the cert-stage disposition; the merits stage remains pending.",
+        "claim": "If granted, the Court will likely reverse the Fourth Circuit, finding no clear and manifest congressional intent in the Bankruptcy Code to displace the FAA for \u00a7 362(k) claims.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261005T231540Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+    "label": "proc-v20",
+    "pipeline_sha": "09c5756a9470878a78d684640ddeed4552d7df7b",
+    "stamped_at": "2026-11-09T16:08:08.969440Z"
+  },
+  "reasoning_quality": 0.68,
+  "run_id": "20261109T154341Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.17400568181818182,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.5,
+    "notes": "A nationwide forum-allocation issue at the intersection of consumer bankruptcy and arbitration, with potential consequences for automatic-stay enforcement and class litigation. Substantial specialized significance, but this grant alone establishes no merits rule and the question is not a broad constitutional restructuring."
+  },
+  "brier_score": 0.48999999999999994,
+  "brier_skill_score": 0.28180568976518017,
+  "case_id": "scotus/73520108",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.17400568181818182,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.3,
+        "score": 0.19226661366864667
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.42,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.12,
+        "score": null
+      },
+      {
+        "baseline": 0.345367027677497,
+        "claim_id": "summary-disposition-route",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": 0.11767838380678897
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.22,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.30994499747543564,
+    "total": 0.30994499747543564
+  },
+  "correct": 0,
+  "created_at": "2026-11-09T15:51:52.516836Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "All 36 logged calls carry captured results. The October 5-6 prediction preceded the November 6 disposition. Case searches, the September reply and supplemental briefs, and the disclosed lower-court dismissal do not reveal this petition's Supreme Court outcome. No logged query or prose shows that outcome as already decided; null document dates are not independently proof of clean retrieval.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.2,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The outcome records granted, actual_granted 1, on November 6, 2026; the staged docket also records Petition GRANTED.",
+        "claim": "The petition is more likely to be denied than granted.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "After the two frozen distributions, the docket adds distributions on October 13 and November 2, for October 16 and November 6; resolution was November 6. The minority further-relist branch occurred instead.",
+        "claim": "The petition should be resolved at or just after the October 9 conference, with another distribution less likely than not.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "The staged docket contains no invitation for the Solicitor General's views, and outcome.signals.cvsg_date is null.",
+        "claim": "A new CVSG is unlikely before disposition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The grant occurred, and outcome.disposition_route is plenary.",
+        "claim": "If review is granted, it will be plenary rather than a summary disposition in the cert order.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The staged record supplies a petition grant, not a merits judgment or a reasoned ruling fixing that doctrinal ground or the proposed precise scope.",
+        "claim": "On a grant the Court will confine review to Section 362(k), not Section 105(a), and likely reverse under the FAA's clear-and-manifest-command framework.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261005T231540Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v20",
+    "pipeline_sha": "09c5756a9470878a78d684640ddeed4552d7df7b",
+    "stamped_at": "2026-11-09T15:51:52.516836Z"
+  },
+  "reasoning_quality": 0.85,
+  "run_id": "20261109T154341Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.17400568181818182,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}
