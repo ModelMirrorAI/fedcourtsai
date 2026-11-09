@@ -350,6 +350,29 @@ def sweep_selection(conn: corpus.ReadConnection, *, cap: int, now: datetime) -> 
     )
 
 
+def forward_slice(selection: SweepSelection) -> SweepSelection:
+    """``selection`` with its slice cut to the candidates a forward cell reads.
+
+    What a window takes when the class is above ``ocr_ceiling`` but its forward
+    share is not. The ceiling is the guard on a widened predicate, and the
+    backlog is where a widening shows first: the walker storing older Terms'
+    scanned filings grows it by the hundred, which a slice of ten a window
+    never drains and which a dispatched pass under a maintainer's bound is for.
+    The forward share is what the sweep exists for, the few filings a cell is
+    about to read, and holding it behind the backlog is what lets a cell mint
+    on empty text once its hold lapses. Sweep order already puts every forward
+    candidate ahead of the backlog, so the cut keeps the slice's order and
+    drops only its backlog tail.
+    """
+    return SweepSelection(
+        class_size=selection.class_size,
+        forward_size=selection.forward_size,
+        class_by_kind=selection.class_by_kind,
+        documents_seen=selection.documents_seen,
+        slice=tuple(c for c in selection.slice if c.forward),
+    )
+
+
 def sweep_worklist(selection: SweepSelection, *, cap: int) -> OcrWorklist:
     """The selection as the public worklist the parse job reads."""
     return OcrWorklist(

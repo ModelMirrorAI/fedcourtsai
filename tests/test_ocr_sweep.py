@@ -48,10 +48,12 @@ from fedcourtsai.pipeline.ocr_sweep import (
     OcrWorkItem,
     OcrWorklist,
     SweepCandidate,
+    SweepSelection,
     apply_ocr_plan,
     check_plan,
     dispatched_worklist,
     forward_case_ids,
+    forward_slice,
     order_sweep_class,
     plan_worklist,
     select_sweep,
@@ -696,6 +698,129 @@ def test_the_cli_dry_run_lists_the_slice_and_fetches_nothing(
     # rotated forward tier, which still precedes the backlog.
     assert lines[0].startswith("slice scotus/2 application: 12 pages, forward")
     assert lines[1].startswith("slice scotus/1 petition: 12 pages, backlog")
+
+
+def _ceiling_config(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, ceiling: int, forward_ceiling: int = 50
+) -> None:
+    """A cap of 2, or 1 where a ceiling of 1 forces it, so a slice could hold a backlog row."""
+    cap = min(2, ceiling, forward_ceiling)
+    config = tmp_path / "config"
+    config.mkdir()
+    (config / "tracking.yaml").write_text(
+        f"historical:\n  sweep_caps:\n    ocr: {cap}\n"
+        f"    ocr_ceiling: {ceiling}\n    ocr_forward_ceiling: {forward_ceiling}\n"
+    )
+    monkeypatch.setenv("FEDCOURTS_CONFIG_ROOT", str(config))
+
+
+def _emit(tmp_path: Path) -> tuple[int, str, Path]:
+    worklist = tmp_path / "handoff" / "worklist.json"
+    result = runner.invoke(
+        app, ["ocr-recover-petitions", "--sweep", "--emit-worklist", str(worklist)]
+    )
+    return result.exit_code, result.output, worklist
+
+
+def test_the_forward_slice_keeps_sweep_order_and_drops_the_backlog() -> None:
+    older = _candidate("scotus/1", forward=True, fetched_at=_TODAY - timedelta(days=3))
+    newer = _candidate("scotus/2", forward=True, fetched_at=_TODAY - timedelta(days=1))
+    backlog = _candidate("scotus/3", forward=False)
+    ordered = select_sweep([older, newer, backlog], cap=3, rotation=0, today=_TODAY)
+    selection = SweepSelection(
+        class_size=3, forward_size=2, class_by_kind={}, documents_seen=3, slice=ordered
+    )
+    assert _keys(forward_slice(selection).slice) == ["scotus/2 petition", "scotus/1 petition"]
+
+
+def test_a_class_above_the_ceiling_holds_the_backlog_and_sweeps_the_forward_share(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The walker's older-Term scans grow the backlog; the forward cell's scan still reads."""
+    _seed(
+        tmp_path / "corpus",
+        [_document("scotus/1"), _document("scotus/2"), _document("scotus/3", KIND_APPLICATION)],
+        events=[_open_event("scotus/3")],
+    )
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    _ceiling_config(tmp_path, monkeypatch, ceiling=2)
+    code, output, worklist = _emit(tmp_path)
+    assert code == 0, output
+    assert "would fill 3; filled 0; remaining 3 (cap 2)" in output
+    assert "::warning::ocr-recover-petitions --sweep: backlog held" in output
+    assert "class holds 3 rows, above its ceiling of 2" in output
+    # A cap of 2 would take a backlog row beside the forward one; held, it takes none.
+    handed = read_handoff(worklist, OcrWorklist)
+    assert [item.key for item in handed.items] == ["scotus/3 application"]
+    assert handed.class_size == 3 and handed.forward_size == 1
+    dry = runner.invoke(app, ["ocr-recover-petitions", "--sweep"])
+    assert dry.exit_code == 0, dry.output
+    assert "backlog held" in dry.output
+    assert ", backlog, stored" not in dry.output
+
+
+def test_a_class_at_the_ceiling_is_swept_whole(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _seed(
+        tmp_path / "corpus",
+        [_document("scotus/1"), _document("scotus/2", KIND_APPLICATION)],
+        events=[_open_event("scotus/2")],
+    )
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    _ceiling_config(tmp_path, monkeypatch, ceiling=2)
+    code, output, worklist = _emit(tmp_path)
+    assert code == 0, output
+    assert "backlog held" not in output
+    assert len(read_handoff(worklist, OcrWorklist).items) == 2
+
+
+def test_a_held_backlog_with_no_forward_share_hands_the_parse_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _seed(tmp_path / "corpus", [_document("scotus/1"), _document("scotus/2")])
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    _ceiling_config(tmp_path, monkeypatch, ceiling=1)
+    code, output, worklist = _emit(tmp_path)
+    assert code == 0, output
+    assert "backlog held" in output
+    assert read_handoff(worklist, OcrWorklist).items == []
+
+
+def test_a_forward_share_above_its_ceiling_refuses_the_window(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Many forward rows emptied at once is a regression, not scans to read."""
+    _seed(
+        tmp_path / "corpus",
+        [_document("scotus/1"), _document("scotus/2")],
+        events=[_open_event("scotus/1"), _open_event("scotus/2")],
+    )
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    _ceiling_config(tmp_path, monkeypatch, ceiling=1, forward_ceiling=1)
+    dry = runner.invoke(app, ["ocr-recover-petitions", "--sweep"])
+    assert dry.exit_code == 0, dry.output
+    assert "the forward share is above its ceiling of 1" in dry.output
+    code, output, worklist = _emit(tmp_path)
+    assert code == 1
+    assert "refusing to apply — the forward share holds 2 rows, above its ceiling of 1" in output
+    assert "extractor or fetch regression" in output
+    assert not worklist.exists()
+
+
+def test_a_forward_share_at_its_ceiling_is_swept(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _seed(
+        tmp_path / "corpus",
+        [_document("scotus/1"), _document("scotus/2")],
+        events=[_open_event("scotus/1"), _open_event("scotus/2")],
+    )
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    _ceiling_config(tmp_path, monkeypatch, ceiling=2, forward_ceiling=2)
+    code, output, worklist = _emit(tmp_path)
+    assert code == 0, output
+    assert len(read_handoff(worklist, OcrWorklist).items) == 2
 
 
 def test_the_cli_split_round_trips_through_its_files(

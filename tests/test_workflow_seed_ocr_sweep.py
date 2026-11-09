@@ -213,8 +213,31 @@ def test_the_chain_is_non_blocking_every_window_and_gated_on_step_outputs() -> N
         body = str(jobs[job]["steps"][_names(jobs[job]).index(step)]["run"])
         assert "set -euo pipefail" in body, job
         assert f'echo "{output}=written" >> "$GITHUB_OUTPUT"' in body, job
-    assert own_needs(jobs["guard"]) == ["seed"]
+    # The guard reads the projection's outcome, and nothing else of the sweep.
+    assert own_needs(jobs["guard"]) == ["seed", "ocr-sweep-projection"]
     assert set(JOBS) <= set(own_needs(jobs["run-gate"]))
+
+
+def test_a_failing_projection_escalates_although_the_run_is_green() -> None:
+    """continue-on-error masks the job's failure, so the guard reads the step's outcome."""
+    projection = _job("ocr-sweep-projection")
+    assert projection["continue-on-error"] is True
+    assert _norm(projection["outputs"]["projection-outcome"]) == "${{ steps.worklist.outcome }}"
+    guard = _job("guard")
+    assert "ocr-sweep-projection" in guard["needs"]
+    step = next(
+        s for s in guard["steps"] if s.get("name") == "Escalate a failing OCR sweep projection"
+    )
+    assert step["if"] == "${{ !cancelled() }}"
+    assert step["env"]["OUTCOME"] == (
+        "${{ needs.ocr-sweep-projection.outputs.projection-outcome }}"
+    )
+    run = str(step["run"])
+    # Only a succeeded projection clears; empty (never reached) and every other
+    # outcome escalate onto the one issue this step owns.
+    assert '[ "$OUTCOME" = "success" ]' in run
+    assert '--title "OCR sweep failing"' in run
+    assert 'select(.title == "OCR sweep failing"' in run
 
 
 def test_the_parse_deadline_sits_under_its_step_cap() -> None:

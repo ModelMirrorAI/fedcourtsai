@@ -627,11 +627,16 @@ class SweepCapsConfig(BaseModel):
     # Each sweep's refusing ceiling on the WHOLE class it finds, before the
     # slice: above it the window writes nothing and the step fails, because a
     # class that size is a widened predicate rather than a backlog to drain.
+    # The OCR sweep's is the exception: above it the window holds the backlog
+    # and still reads the forward share (`fedcourtsai.pipeline.ocr_sweep.forward_slice`),
+    # and its refusal is `ocr_forward_ceiling`, on the forward share alone.
     docket_markings_ceiling: int = Field(default=500, ge=1, le=10_000)
     response_fills_ceiling: int = Field(default=500, ge=1, le=10_000)
     decision_fills_ceiling: int = Field(default=500, ge=1, le=10_000)
     order_votes_ceiling: int = Field(default=1500, ge=1, le=10_000)
     ocr_ceiling: int = Field(default=500, ge=1, le=10_000)
+    # The OCR sweep's refusal: a forward share above it fails the window whole.
+    ocr_forward_ceiling: int = Field(default=50, ge=1, le=10_000)
     opinion_record_ceiling: int = Field(default=200, ge=1, le=10_000)
 
     @model_validator(mode="after")
@@ -646,6 +651,8 @@ class SweepCapsConfig(BaseModel):
         ):
             if getattr(self, f"{name}_ceiling") < getattr(self, name):
                 raise ValueError(f"sweep_caps.{name}_ceiling must be at least sweep_caps.{name}")
+        if self.ocr_forward_ceiling < self.ocr:
+            raise ValueError("sweep_caps.ocr_forward_ceiling must be at least sweep_caps.ocr")
         return self
 
 

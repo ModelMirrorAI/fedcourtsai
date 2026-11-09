@@ -2039,6 +2039,7 @@ INLINE_GH_RETRY_STEPS = (
     ("run-pull.yml", "pull", "Open the failure run-log issue"),
     ("run-pull.yml", "live", "Open the failure run-log issue"),
     ("run-seed.yml", "guard", "Escalate a cancelled or failed seed walk"),
+    ("run-seed.yml", "guard", "Escalate a failing OCR sweep projection"),
 )
 # The find-or-create alarms, where an exhausted listing that reads as an empty
 # result opens a second thread for the same broken day.
@@ -2590,6 +2591,12 @@ def test_the_retried_listings_are_captured_before_they_are_filtered() -> None:
 # each one files its issue under.
 SELF_CLEARING_ALARM_STEPS = (
     ("run-seed.yml", "guard", "Escalate a cancelled or failed seed walk", "Seed walk failing"),
+    (
+        "run-seed.yml",
+        "guard",
+        "Escalate a failing OCR sweep projection",
+        "OCR sweep failing",
+    ),
     (
         "run-ops.yml",
         "ops",
