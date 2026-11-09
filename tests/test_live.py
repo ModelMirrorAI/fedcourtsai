@@ -170,6 +170,7 @@ def test_live_poll_cli_defaults_the_probe_to_the_docket_term(
 
     monkeypatch.setattr(cli_module, "live_poll_all", _fake_poll)
     monkeypatch.setattr(cli_module, "evaluate_backlog", lambda *a, **k: None)
+    monkeypatch.setattr(cli_module, "_refresh_term_calendar", lambda *a, **k: None)
     monkeypatch.setattr(cli_module, "date", _AugustToday)
     monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
     monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(tmp_path / "data"))

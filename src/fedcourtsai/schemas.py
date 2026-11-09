@@ -9339,11 +9339,11 @@ class Schedule(_Strict):
     present.
     """
 
-    schema_version: Literal["1.0", "1.1", "1.2"] = Field(
-        default="1.2",
+    schema_version: Literal["1.0", "1.1", "1.2", "1.3"] = Field(
+        default="1.3",
         description="The artifact's schema version. A reader keys on it: a `1.1` row adds "
         "`argument` and `response_due`, and may name no conference; a `1.2` row adds "
-        "`conferences` and `relists`",
+        "`conferences` and `relists`; `1.3` adds the court-wide `court_next_conference`",
     )
     skipped: bool = Field(
         default=False, description="True when no corpus was present; nothing was read"
@@ -9358,6 +9358,13 @@ class Schedule(_Strict):
         description="One entry per pending public docket with a conference, an argument "
         "day or a response deadline in play, in case_id order",
     )
+    court_next_conference: date | None = Field(
+        default=None,
+        description="The Court's first conference on or after `as_of`, read from the "
+        "committed term calendar (`data/schedule/term-calendar.json`) whether or not any "
+        "public docket is distributed for it; null when no calendar is committed or it "
+        "names no conference that far ahead",
+    )
 
     @model_validator(mode="after")
     def _a_1_0_row_is_a_conference(self) -> Schedule:
@@ -9369,10 +9376,93 @@ class Schedule(_Strict):
             for entry in self.entries
         ):
             raise ValueError("argument, response_due and conference-less rows need 1.1")
-        if self.schema_version != "1.2" and any(
+        if self.schema_version in ("1.0", "1.1") and any(
             entry.conferences is not None for entry in self.entries
         ):
             raise ValueError("conferences and relists need 1.2")
+        if self.schema_version != "1.3" and self.court_next_conference is not None:
+            raise ValueError("court_next_conference needs 1.3")
+        return self
+
+
+TermCalendarSessionKind = Literal["conference"]
+
+
+class TermCalendarSession(_Strict):
+    """One dated session of the Court, as its published schedule names it."""
+
+    day: date = Field(description="The day of the session")
+    kind: TermCalendarSessionKind = Field(
+        description="What the Court sits for that day: `conference`, a day the Justices "
+        "meet to act on distributed petitions and motions"
+    )
+    term: int = Field(
+        description="The October Term whose published schedule names the session (four-digit "
+        "year), which for the late-September conference is the incoming Term"
+    )
+    long_conference: bool = Field(
+        description="True for the conference that receives the summer's distributions, "
+        "the Term's opening (long) conference; exactly one per Term"
+    )
+
+
+class TermCalendarDistribution(_Strict):
+    """One row of the Court's case distribution schedule."""
+
+    distributed: date = Field(description="The distribution date the row names")
+    list_name: str = Field(
+        description="The distribution list as printed, upper-cased with single spaces: "
+        "`LIST 1 (PAID)`, `SUMMER LIST 23 (PAID)`, `LIST 27`"
+    )
+    conference: date | None = Field(
+        description="The conference the list goes to; null for a summer list the schedule "
+        "prints without one"
+    )
+    term: int = Field(description="The October Term whose schedule prints the row")
+
+
+class TermCalendarSource(_Strict):
+    """One fetched schedule document behind the calendar."""
+
+    term: int = Field(description="The October Term the document covers (four-digit year)")
+    url: str = Field(description="The supremecourt.gov URL the document was read from")
+    sha256: str = Field(description="SHA-256 of the document's bytes as served")
+
+
+class TermCalendar(_Strict):
+    """``data/schedule/term-calendar.json`` — the Court's published conference calendar.
+
+    Read by the live poll, at most once a UTC day, from the Court's case
+    distribution schedule for the current and the next October Term (the next
+    is optional: the Court publishes it late in a Term). Fails closed: a
+    document that does not parse whole leaves the committed file as it was,
+    and no build ever writes a calendar without sessions. Display data for the
+    schedule export: no cell is provisioned with it, and nothing predicts,
+    evaluates or scores on it.
+    """
+
+    schema_version: Literal["1.0"] = Field(
+        default="1.0", description="The artifact's schema version"
+    )
+    checked_on: date = Field(
+        description="The UTC day the schedules were last fetched and parsed whole"
+    )
+    sources: list[TermCalendarSource] = Field(
+        min_length=1, description="The documents read, one per October Term, in Term order"
+    )
+    sessions: list[TermCalendarSession] = Field(
+        min_length=1, description="Every dated session the documents name, in day order"
+    )
+    distributions: list[TermCalendarDistribution] = Field(
+        description="Every distribution row the documents print, in Term and print order"
+    )
+
+    @model_validator(mode="after")
+    def _one_session_per_day_in_order(self) -> TermCalendar:
+        """Sessions are strictly ordered by day, so a reader's first match is the next."""
+        days = [session.day for session in self.sessions]
+        if days != sorted(set(days)):
+            raise ValueError("sessions must be one per day, in day order")
         return self
 
 
@@ -16186,6 +16276,7 @@ FILENAME_MODELS: dict[str, type[_Strict]] = {
     "blinding.json": BlindingRecord,
     "scope.json": ScopeManifest,
     "schedule.json": Schedule,
+    "term-calendar.json": TermCalendar,
     "qp-topic-reference.json": QpTopicReference,
     "qp-topic-reference-applications.json": QpTopicApplicationReference,
     "qp-topics.json": QpTopicLabels,
@@ -16216,6 +16307,7 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "corpus_scope_audit": CorpusScopeAudit,
     "scope_manifest": ScopeManifest,
     "schedule": Schedule,
+    "term_calendar": TermCalendar,
     "live_frontier": LiveFrontier,
     "analytics_report": AnalyticsReport,
     "statpack": StatPack,

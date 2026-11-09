@@ -330,7 +330,7 @@ deterministically and committed for review: `metrics/` and `data/scope/scope.jso
 (the published prediction-scope decision for the already-public case set) —
 plus `data/schedule/schedule.json`, the live poll's display file of each
 pending public docket's next conference, argument day and response deadline,
-with each petition's conference history and exact relist count (rewritten each live window, not a reviewed roll-up), and the `data/qp-topics/` artifacts, which are not roll-ups at all
+with each petition's conference history and exact relist count (rewritten each live window, not a reviewed roll-up), and its source `data/schedule/term-calendar.json`, the Court's conference calendar read from its case distribution schedule (refreshed daily by the same poll), and the `data/qp-topics/` artifacts, which are not roll-ups at all
 (`docs/qp-topic.md`): `qp-topic-reference.json`, the hand-labeled topic
 reference set, authored as a judgment and changed only in its own reviewed diff,
 and `qp-topic-reference-applications.json`, its application block, authored

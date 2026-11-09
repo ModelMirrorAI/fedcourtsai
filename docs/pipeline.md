@@ -1818,6 +1818,10 @@ daily ×4 → run-seed → walk Terms newest-first, ingest every decided petitio
                                  │    window's step summary
                                  ├─ route the predict queue (as above)
                                  ├─ derive the evaluate backlog (as above)
+                                 ├─ refresh data/schedule/term-calendar.json
+                                 │    (once a UTC day after a good read; display
+                                 │    only; a refusal keeps the last good file,
+                                 │    warns, and is retried next window)
                                  └─ rebuild data/schedule/schedule.json
                                       (display only; a failure warns)
    daily ×2 → run-predict → plan (derive the predict backlog from committed state,

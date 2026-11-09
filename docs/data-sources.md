@@ -37,6 +37,18 @@ ingestion channels (**pull**, **live**, **historical**, **enrich** —
   transcript list and the transcript PDFs it links, prepared by the Court's
   contract reporter and posted by the Court on its own site, read by the live
   poll's transcript pass and stored as extracted text in the same corpus.
+  The same terms cover **the Court's conference calendar**: its *Case
+  Distribution Schedule* PDF for the current and the next October Term, which
+  the Court publishes on its own site for the bar and the public, read by the
+  live poll once a day after a read succeeds (one document per Term, same
+  client, same host guard).
+  Unlike the channels above, what it reads is republished in public git, as
+  `data/schedule/term-calendar.json`: the Court's conference days and
+  distribution dates with the list names it prints, plus the document's URL and
+  checksum. That is the Court's own published schedule of public sessions,
+  restated as dates; it carries no docket, party or filing, so it is neither
+  corpus content nor personal data, and republishing it is on the same
+  public-record footing as the Court identifiers the site already shows.
 
 A further channel is planned but not yet adopted: Free Law Project's commercial
 **database replication** offering, the intended eventual upstream for the
