@@ -42,14 +42,16 @@ undecided applications are left out, as the column leaves them out.
 | Biden | 10 of 15 | 10 of 15 |
 | Trump, second term | 27 of 33 | 26 of 32 |
 
-**How applications were placed.** A rule reads each docket's caption to decide
-whether the case challenges or defends a federal action. Two AI raters also
-coded 298 applications by hand, and where they code an application, their
-code is used instead of the rule's. The AI agent that wrote this release
-settled 55 of those codes, where the raters split or both read a case
-differently from it, and it did so with the column's figures in view, so part
-of the match is by design. The caption rule alone, with no hand codes, gives
-26 of 34, 12 of 20 and 27 of 33. Two Biden applications stay unplaced.
+**How applications were placed.** Two AI raters coded 298 applications by
+hand for whether the case challenges or defends a federal action, and every
+application counted above rests on their codes; a rule that reads each
+docket's caption sets aside the rest. The AI agent that wrote this release
+settled 55 of the codes, where the raters split or where it read a case
+differently from both, and set requests to file over the page limit aside. It
+did this with the column's figures in view, so part of the match is by
+design. A caption rule alone, with no hand codes, gives 26 of 34, 12 of 20
+and 27 of 33: it matches the column exactly for Trump's second term, and the
+hand codes move that pair one off. Two Biden applications stay unplaced.
 
 The totals of applications differ more than the rates do. This release counts
 182 applications in all against the column's 165: 49 under Trump's first term
@@ -82,7 +84,9 @@ finely, so these figures differ more: for Trump's second term it counts 30 of
 - **Biden is where the hand codes matter.** They set aside or re-read six of
   the government applications the caption rule counts under Biden, among them
   a bankruptcy trustee's objection and a suit over a state law, and that
-  closes the whole gap between 12 of 20 and 10 of 15.
+  closes the whole gap between 12 of 20 and 10 of 15. Four of the six were
+  settled with the column in view; without those four the pair would be 11 of
+  18.
 - **It is not a measure of favoritism.** Which disputes reach the Court
   depends on who chooses to apply and on what the lower courts did. A count of
   wins does not adjust for that; a later release will.

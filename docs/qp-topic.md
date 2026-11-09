@@ -799,18 +799,24 @@ Three consequences bind every use of the set:
   application of a two-rater check in or out of scope with the government's
   side. Together they name a few hundred applications from OT2016 on, most of
   them with no directory under `data/cases`. Membership is **population-
-  conditioned**, not outcome-conditioned: the hand reading holds every
-  federal-side application of the check's cuts and a seeded sample of the
-  rest, and the other two hold applications those cuts counted. So
-  presence says the pipeline holds the docket and that its caption names a
-  federal party, both facts the Court's own docket page states; it carries no
-  grant signal beyond what the Court's published orders already say. Each row
-  carries identifiers and a hand judgment (a scope, a side, an area, a key
-  name, a short note), never application or docket-entry text. It is
-  accepted because what it discloses is a slice of the compilation extent
+  conditioned**, not outcome-conditioned: the hand reading holds the
+  applications the scope check's rating rounds coded, filed in the
+  replication's window (federal-side applications, the caption rule's
+  in-scope and unknown rows, out-of-scope rows naming a federal agency or
+  officer, and a seeded sample of the others), and the other two hold
+  applications those cuts counted. So presence says the pipeline holds the
+  docket and that it is federal-side or in the seeded sample, facts the
+  Court's own docket page states; it carries no grant signal beyond what the
+  Court's published orders already say, and differenced against the
+  application labels file it reveals at most that federal-side status. Each
+  row carries identifiers and a hand judgment (a scope, a side, an area, a key
+  name), never application or docket-entry text; the policy labels' short
+  notes summarize the docket's subject, with party names from the caption. It
+  is accepted because what it discloses is a slice of the compilation extent
   over public dockets, and because a published replication of a public tally
-  is only checkable if the reading it applied is published with it. None of
-  the three is read by a predict or evaluate cell.
+  is only checkable if the reading it applied is published with it. Nothing a
+  predict or evaluate cell reads is derived from the three, and none carries
+  an outcome.
 
   **One non-committed channel — carrying three artifacts — is in scope too,
   because the boundary is about disclosure and not about git.** The labeling run's extract (`fedcourts

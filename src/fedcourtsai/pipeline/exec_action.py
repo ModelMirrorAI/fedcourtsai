@@ -95,9 +95,10 @@ every row it leaves out was left out.
    was made with a published tally's figures in view, so a hand code is a
    reading of the record, not a measurement of the rule, and a cut under this
    version is not an independent replication of that tally. The codes cover
-   the applications filed from 2017-01-20 through 2026-10-12 that the rule
-   then read in scope or unknown, and the out-of-scope rows naming a federal
-   agency or officer; a later application reads by the rule until a code
+   the applications filed from 2017-01-20 through 2026-10-12 that the scope
+   check's rating rounds coded: federal-side applications, the rule's
+   in-scope and unknown rows, out-of-scope rows naming a federal agency or
+   officer, and a seeded sample of the others; a later application reads by the rule until a code
    lists it, and adding one under the same rules keeps the label.
 
 ``unknown`` is a result, never an error: the rule cannot tell those rows apart
@@ -213,13 +214,23 @@ class HandCode:
     basis: HandBasis
 
 
+def _refuse_repeated_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    """Build a JSON object, refusing a key the document repeats verbatim."""
+    built: dict[str, object] = {}
+    for key, value in pairs:
+        if key in built:
+            raise ValueError(f"the hand reading lists {key.strip().upper()} twice")
+        built[key] = value
+    return built
+
+
 def parse_hand_codes(text: str) -> Mapping[str, HandCode]:
     """Parse a hand-reading document, keyed by normalized docket number.
 
     Refuses an unknown version, a docket listed twice in any spelling, an
     unknown scope, side or basis, and an in-scope code with no side.
     """
-    document = json.loads(text)
+    document = json.loads(text, object_pairs_hook=_refuse_repeated_keys)
     if not isinstance(document, dict) or not isinstance(document.get("rows"), dict):
         raise ValueError("the hand reading is an object with a rows object")
     if document.get("rule_version") != EXEC_ACTION_RULE_VERSION_V3:

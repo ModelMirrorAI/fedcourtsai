@@ -10,6 +10,7 @@ from datetime import date
 import pytest
 
 from fedcourtsai import corpus
+from fedcourtsai.pipeline import exec_action as exec_action_module
 from fedcourtsai.pipeline.exec_action import (
     EXEC_ACTION_RULE_VERSION,
     EXEC_ACTION_RULE_VERSION_V3,
@@ -94,8 +95,43 @@ def test_a_hand_code_replaces_the_caption_reading() -> None:
             ),
             "lists 23A1 twice",
         ),
+        (
+            '{"rule_version": "exec-action-v3", "rows": {'
+            + '"23A1": {"scope": "out", "basis": "override"}, '
+            + '"23A1": {"scope": "in", "government_side": "applicant", "basis": "override"}}}',
+            "lists 23A1 twice",
+        ),
     ],
 )
 def test_a_malformed_reading_is_refused(text: str, message: str) -> None:
     with pytest.raises(ValueError, match=message):
         parse_hand_codes(text)
+
+
+def test_the_hand_side_replaces_the_caption_side_and_falls_back_to_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    codes = parse_hand_codes(
+        _document(
+            {
+                "24A1": {"scope": "in", "government_side": "respondent", "basis": "override"},
+                "24A2": {"scope": "unclear", "basis": "adjudicated"},
+            }
+        )
+    )
+    monkeypatch.setattr(exec_action_module, "hand_codes", lambda: codes)
+    v2, v3 = (
+        exec_action_rule(EXEC_ACTION_RULE_VERSION),
+        exec_action_rule(EXEC_ACTION_RULE_VERSION_V3),
+    )
+    caption = "Kristi Noem, Secretary of Homeland Security v. Doe"
+    replaced = _row(caption, "24A1")
+    assert v2(replaced, None, None).government_side == "applicant"
+    assert v3(replaced, None, None).government_side == "respondent"
+    kept = _row(caption, "24A2")
+    hand = v3(kept, None, None)
+    assert (hand.reason, hand.in_scope, hand.government_side) == (
+        "hand-unclear",
+        None,
+        "applicant",
+    )

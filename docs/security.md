@@ -2167,7 +2167,10 @@ two classes: every application with a stored application document, and every
 application pending at the draw. So, against the application labels file,
 absence from the block says an application was decided at the draw (a
 fact the Court's docket page states), and nothing finer, since its granted
-applications are sampled. That composition is the thing argued in
+applications are sampled. The three analytics references are
+population-conditioned, not outcome-conditioned: differenced against the
+application labels file, they reveal at most which applications are
+federal-side. That composition is the thing argued in
 `docs/qp-topic.md`, alongside the non-git channel the labeling run adds — three
 artifacts under the same one-day window, publicly downloadable on this
 repository: its extract, riding between the mode's two jobs (stored petition

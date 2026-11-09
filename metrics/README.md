@@ -3715,8 +3715,7 @@ to it.
   `hand-in-scope`, `hand-out-of-scope` and `hand-unclear` (the last counted
   under `unknown_scope`). The reading is the two-rater check below: each row
   carries its `basis` — `raters-agreed`, `adjudicated` (the authoring
-  session settled a split), `override` (the session re-read a row both raters
-  agreed on) or `procedural` (a request to file over the word or page limit,
+  session settled a split), `override` (the session overrode both raters) or `procedural` (a request to file over the word or page limit,
   out). The adjudications and overrides were made with the published tally in
   view, and some were chosen to match its reading, so an `exec-action-v3` figure
   is not an independent check of that tally; quote `exec-action-v2` beside it
@@ -3871,11 +3870,10 @@ unclear), 8 in, 1 unclear. It drew one line worth stating: a federal suit to
 enforce an agency's reading of a statute against a state (the EMTALA suits,
 `23A469`, `23A470`) is in scope, while a preemption suit against a state law
 (`23A296`, `23A814`) contests no executive action and is out. The
-hand codes are committed as `exec-action-v3`'s hand reading, with three
-later changes the reading's `basis` field marks: the procedural requests set
-out (`procedural`), the OT2016 applications added, and 26 rows
-re-read by the authoring session (`override`). Against the codes as this
-check left them the rule agrees on 255 of 292:
+hand codes are committed as `exec-action-v3`'s hand reading, which also
+holds the OT2016 applications, sets the procedural requests out
+(`procedural`), and marks the 26 rows where the authoring session overrode
+both raters (`override`). Against this check's own codes the rule agrees on 255 of 292:
 196 of the 232 federal-side rows and 59 of the 60 sampled others, none of
 which is in scope by hand. Of the 37 differences:
 

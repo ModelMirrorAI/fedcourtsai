@@ -48,11 +48,13 @@ match itself.
 
 **Two readings of scope, and which leads.** The headline applies scope rule
 `exec-action-v3`: the caption rule, with a committed hand reading of scope
-taking its place for every application the reading lists (section 4). The
-reading is committed in the tag, so anyone with corpus access can reproduce
-every headline figure with one command. Part of it was settled with the
-column's figures in view, so part of its closeness to the column is by
-construction, and section 4 says where. The **caption rule alone**
+taking its place for every application the reading lists (section 4). In this
+window the hand reading places every counted application, and the caption
+rule only sets aside the ones the reading does not list. The reading is
+committed in the tag, so anyone with corpus access can reproduce every
+headline figure with one command. Part of it was settled with the column's
+figures in view, so part of its closeness to the column is by construction,
+and section 4 says where, cell by cell. The **caption rule alone**
 (`exec-action-v2`), which applies no hand code, is quoted beside it for that
 reason.
 
@@ -71,7 +73,7 @@ FEDCOURTS_CORPUS_BACKEND=ranged uv run fedcourts executive-success \
 ```
 
 The caption-rule figures in section 4 are the same command with
-`--scope-rule exec-action-v2`. It prints an `ExecutiveSuccess` to stdout and
+`--scope-rule exec-action-v2`, read from the same commit and blob. It prints an `ExecutiveSuccess` to stdout and
 the human cut, with the corpus vintage, to stderr. Its reading rules are in
 [metrics/README.md](../metrics/README.md), *What may be claimed from the
 executive success cut*, and its options in [cli.md](cli.md).
@@ -146,12 +148,14 @@ Beside each government pair:
   (counted like any other).
 - **Biden:** 16 applications; 1 with no disposition stored (21A477), 1
   unreadable ask.
-- **Trump II:** 41 applications; 2 pending at the cut (26A416 and 26A476,
-  filed 2026-09-28 and 2026-10-08, decided after it), 4 withdrawn, 3 dismissed
-  or denied as moot, 4 unreadable asks.
+- **Trump II:** 41 applications; 2 with no disposition stored at the cut
+  (26A416 and 26A476, filed 2026-09-28 and 2026-10-08), 4 withdrawn, 3
+  dismissed or denied as moot, 4 unreadable asks.
 
 Beside the challengers' Biden pair: 67 applications, 1 with no disposition
 stored (20A150), 1 withdrawn, 13 moot (the relabels above), 9 unreadable asks.
+An unreadable ask is one the parser could not read (`unknown_ask`), counted
+like any other.
 
 **Unknown scope.** Two Biden applications are unplaced (23A60 and 23A138,
 which the hand reading codes unclear). They are in no cell above and are
@@ -163,7 +167,8 @@ administration.
 
 **What this shows.** The government pair matches the column exactly for
 Biden and comes within one application for each Trump administration, one
-more for Trump I and one fewer for Trump II. The totals agree in ratio, not
+more for Trump I and one fewer for Trump II. The Biden match rests partly on
+codes made with the column in view (section 4). The totals agree in ratio, not
 membership: the column lists no applications, so which applications differ
 cannot be checked against it, and the totals of applications differ more than
 the pairs do (section 5).
@@ -223,8 +228,9 @@ Biden's firearms pair and Trump II's education and health pairs. Trump II
 immigration is 10 of 10 against the column's 11 of 12, Biden's health pair is
 3 of 3 against 4 of 4, Biden immigration is 1 of 3 against 2 of 4, and Biden
 education, where the column has the government losing all 3 decided, is 2 of
-5 here. So Biden's government pair matches the column's in total while its
-areas do not, which is one more sign that a matching total can hold different
+5 here. Summed, the four Biden areas are 8 of 13 in both, so Biden's
+government pair matches the column's in total and in these areas' sum while
+the areas themselves do not, which is one more sign that a matching total can hold different
 applications.
 
 On the challengers' side under Biden, the column counts 25 health and 23
@@ -267,9 +273,13 @@ so what the hand reading adds is mostly scope.
 applications, 182 in scope, 114 out and 2 unclear, each with the government's
 side where it is in scope and the basis of its code: 216 where the raters
 agreed, 29 the session adjudicated, 26 where it overrode both raters, and 27
-requests to file over the limit, set out as procedural. The 55 adjudicated and
-overridden codes are the ones made with the column in view. The reading names
-dockets and judgments only, and no docket text.
+requests to file over the limit, set out as procedural. The 29 adjudicated and
+26 overridden codes were made with the column in view, and so was the
+decision to set the 27 procedural requests out: 82 codes in all. Of the 182
+applications in scope, 29 rest on such a code (9 adjudicated, 20 overridden)
+and the other 153 on the raters' agreement. The raters' own codes and their
+agreement figures above are kept with the project's files, not in the
+repository; the reading names dockets and judgments only, and no docket text.
 
 **Evidence.** The section 1 command, under each scope rule.
 
@@ -280,7 +290,7 @@ dockets and judgments only, and no docket text.
 | Trump II, government as applicant | 27 of 33 | 26 of 32 | 27 of 33 |
 | Trump I, controversies | 18 of 24 | 31 of 37 | 29 of 36 |
 | Biden, controversies | 29 of 39 | 30 of 44 | 24 of 37 |
-| Biden, controversies challengers started | 21 of 27 | 22 of 31 | 14 of 19 |
+| Biden, controversies challengers brought | 21 of 27 | 22 of 31 | 14 of 19 |
 | Trump II, controversies | 23 of 30 | 30 of 37 | 29 of 34 |
 | Applications in scope (column: 165) | | 182 | 163 |
 | Applications left unknown | | 2 | 48 (17 Trump I, 24 Biden, 7 Trump II) |
@@ -294,10 +304,14 @@ mandate, the Air Force vaccine mandate, three OSHA applications and an EPA
 power-plant application. Under Biden the caption rule's government pair
 carries six applications the hand reading sets aside or reads as a
 challenger's (two wins, three losses and one with no disposition stored),
-which is the whole gap between 12 of 20 and 10 of 15. Two of the six are a
-bankruptcy trustee's objection (23A87) and a suit over a state law (23A814).
-Under Trump II the hand reading sets aside one government win, one person's
-removal case (24A949), on which the raters split.
+which is the whole gap between 12 of 20 and 10 of 15. Four of the six rest on
+codes made with the column in view (21A85, 21A272, 23A87 and 23A814, among
+them a bankruptcy trustee's objection and a suit over a state law), and two
+on the raters' agreement (22A230 and 24A407). With the four left to the
+caption rule, the Biden pair would be 11 of 18. Under Trump II it runs the
+other way: the caption rule alone matches the column exactly, and the hand
+reading moves it one off by setting aside one government win, one person's
+removal case (24A949), on an adjudicated code where the raters split.
 
 **What the caption rule still misses.** The hand reading covers the
 applications it lists, and every other application, including every one filed
@@ -331,7 +345,32 @@ list does not name, are not yet rules of their own.
 publication, and what the reviewer found. A blocker is fixed or rebutted in
 writing.
 
-‹pass record›
+**Pass run 2026-11-09** over both filled documents, with every figure checked
+against the saved output of the section 1 command under both scope rules and
+against the committed hand reading. Verdict: **changes needed**. No quoted
+number was found wrong. Disposition:
+
+1. *Blocker:* the caption-rule figures were read from an earlier blob than the
+   headline. **Fixed:** re-run on the section 1 blob and commit; every field
+   was identical, and section 1 says so.
+2. *Blocker:* the Biden exact match rests partly on codes made with the column
+   in view, and neither document said which. **Fixed:** section 4 names the
+   four of six such codes and gives the pair without them (11 of 18), and the
+   public page says the same.
+3. *Recommended:* the count of column-in-view codes left out the procedural
+   requests. **Fixed:** section 4 counts 82.
+4. *Recommended:* the documents overstated the caption rule's role under
+   `exec-action-v3`. **Fixed:** both say every counted application rests on a
+   hand code, and section 4 splits the 182 by basis.
+5. *Recommended:* say that the caption rule alone matches Trump II exactly.
+   **Fixed,** in section 4 and on the public page.
+6. *Recommended:* "decided after the cut" for 26A416 and 26A476 was not shown
+   by the output. **Fixed:** "no disposition stored at the cut".
+7. *Recommended:* the rater agreement figures had no stated source.
+   **Fixed:** section 4 says they are kept with the project's files.
+8. *Nits:* "unreadable ask" defined against `unknown_ask`, one name for the
+   Biden challenger row, and the Biden areas' equal sum. **All fixed.**
+
 
 ## 7. The publishing tag
 
