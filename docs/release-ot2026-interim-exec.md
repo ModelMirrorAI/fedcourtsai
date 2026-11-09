@@ -318,7 +318,8 @@ applications it lists, and every other application, including every one filed
 after the window, falls to the caption rule. The patterns behind the
 differences above, a government side the caption misreads, a suit over a
 state law, a bankruptcy trustee's objection, and a challenger the rule's word
-list does not name, are not yet rules of their own.
+list does not name, are rules of their own only under `exec-action-v4`, which
+this release does not apply and whose figures it does not quote.
 
 ## 5. Deltas the release cannot close
 

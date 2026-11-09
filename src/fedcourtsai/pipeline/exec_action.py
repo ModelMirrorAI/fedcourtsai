@@ -101,13 +101,45 @@ every row it leaves out was left out.
    officer, and a seeded sample of the others; a later application reads by the rule until a code
    lists it, and adding one under the same rules keeps the label.
 
+6. **Three caption shapes the hand reading showed the rule misreads**, under
+   ``exec-action-v4``, which is ``exec-action-v2`` with these checks ahead of
+   steps 2 and 3 and applies no hand code. They let an application the hand
+   reading does not list, such as one filed after its window, read as the
+   hand reading reads its like.
+
+   - **The caption and the counsel put the government on opposite sides**
+     (``caption-counsel-conflict``, ``unknown``). The caption's federal words
+     also match an officer who no longer speaks for the executive (a former
+     President) and a state officer with a federal-sounding title (a
+     Commissioner), while the Solicitor General's office appears for the
+     government on the other side. Neither reading can be trusted alone, so
+     the row is left for review, with the government on the counsel's side.
+   - **The United States itself against a state** (``suit-against-state-law``,
+     out of scope). Where the caption names the United States alone, with no
+     ``et al.`` of agencies or officers beside it, and a state on the other
+     side, the dispute is the government's suit against a state's own law:
+     it challenges no federal executive action and defends none. A government
+     defending its own policy against a state is named with its agencies or
+     officers (``United States, et al.``, a Secretary) and keeps steps 2 and
+     3. Where the state law is read against an agency's own interpretation of
+     a statute, the hand reading may still put the dispute in scope, and the
+     caption cannot tell the two apart.
+   - **The United States Trustee** (``bankruptcy-trustee``, out of scope). The
+     trustee is a Justice Department officer, so the caption reads federal,
+     but the trustee's application contests one bankruptcy plan, not a
+     general executive action.
+
+   The organization word list also reads ``Seminary`` under this version.
+
 ``unknown`` is a result, never an error: the rule cannot tell those rows apart
 from the caption, and a reader counts them beside the in-scope population
 rather than guessing which way they go.
 
 **Versioned like the party and counsel rules, and for the same reason.**
 ``exec-action-v1`` is steps 1 to 3 over ``party-v2`` and ``sg-office-v1``;
-``exec-action-v2`` adds step 4; ``exec-action-v3`` adds step 5.
+``exec-action-v2`` adds step 4; ``exec-action-v3`` adds step 5;
+``exec-action-v4`` adds step 6 to ``exec-action-v2``; and ``exec-action-v5``
+is step 5 over ``exec-action-v4``.
 :data:`EXEC_ACTION_RULES` registers each under
 its label, and a change to what any reason means, or to the rules it composes,
 is a new label beside them.
@@ -142,10 +174,13 @@ ScopeReason = Literal[
     "challenge-to-executive-action",
     "individual-group",
     "sg-respondent-only",
+    "caption-counsel-conflict",
     "federal-prosecution",
     "federal-court",
     "individual-claim",
     "procedural-request",
+    "suit-against-state-law",
+    "bankruptcy-trustee",
     "no-federal-party",
     "hand-in-scope",
     "hand-unclear",
@@ -157,10 +192,13 @@ SCOPE_REASONS: Final[tuple[ScopeReason, ...]] = (
     "challenge-to-executive-action",
     "individual-group",
     "sg-respondent-only",
+    "caption-counsel-conflict",
     "federal-prosecution",
     "federal-court",
     "individual-claim",
     "procedural-request",
+    "suit-against-state-law",
+    "bankruptcy-trustee",
     "no-federal-party",
     "hand-in-scope",
     "hand-unclear",
@@ -174,10 +212,13 @@ REASON_SCOPE: Final[Mapping[ScopeReason, bool | None]] = MappingProxyType(
         "challenge-to-executive-action": True,
         "individual-group": None,
         "sg-respondent-only": None,
+        "caption-counsel-conflict": None,
         "federal-prosecution": False,
         "federal-court": False,
         "individual-claim": False,
         "procedural-request": False,
+        "suit-against-state-law": False,
+        "bankruptcy-trustee": False,
         "no-federal-party": False,
         "hand-in-scope": True,
         "hand-unclear": None,
@@ -191,6 +232,10 @@ EXEC_ACTION_RULE_VERSION_V1: Final[str] = "exec-action-v1"
 EXEC_ACTION_RULE_VERSION: Final[str] = "exec-action-v2"
 #: The rule that also applies the committed hand reading (step 5).
 EXEC_ACTION_RULE_VERSION_V3: Final[str] = "exec-action-v3"
+#: The caption rule with the shapes the hand reading exposed (step 6), and the
+#: hand reading over it.
+EXEC_ACTION_RULE_VERSION_V4: Final[str] = "exec-action-v4"
+EXEC_ACTION_RULE_VERSION_V5: Final[str] = "exec-action-v5"
 
 #: The committed hand reading step 5 applies, at the package root.
 EXEC_ACTION_HAND_RESOURCE: Final[str] = "exec_action_hand.json"
@@ -311,6 +356,22 @@ _ORGANIZATION_RE: Final = re.compile(
 
 _ET_AL_RE: Final = re.compile(r"\bet\.?\s*al\b", re.IGNORECASE)
 
+#: ``exec-action-v4``'s additions to the organization words.
+_ORGANIZATION_V4_RE: Final = re.compile(r"\bSeminary\b", re.IGNORECASE)
+
+#: A caption half that is the United States alone: no agency, officer or
+#: ``et al.`` beside it.
+_UNITED_STATES_ALONE_RE: Final = re.compile(
+    r"^\s*(?:the\s+)?United\s+States(?:\s+of\s+America)?\s*(?:,\s*Applicants?)?\s*,?\s*$",
+    re.IGNORECASE,
+)
+
+#: A caption half naming the United States Trustee, the bankruptcy officer.
+_US_TRUSTEE_RE: Final = re.compile(
+    r"\b(?:United\s+States|U\.\s?S\.)\s+Trustee\b",
+    re.IGNORECASE,
+)
+
 
 @dataclass(frozen=True)
 class ExecActionAnnotation:
@@ -322,9 +383,16 @@ class ExecActionAnnotation:
     government_side: GovernmentSide | None
 
 
-def _applicant_kind(text: str, petitioner_is_state: bool) -> ScopeReason:
-    """Read a challenger's caption half: organization, state, or individual(s)."""
-    if petitioner_is_state or _ORGANIZATION_RE.search(text):
+def _applicant_kind(text: str, petitioner_is_state: bool, *, shapes: bool = False) -> ScopeReason:
+    """Read a challenger's caption half: organization, state, or individual(s).
+
+    ``shapes`` adds ``exec-action-v4``'s organization words.
+    """
+    if (
+        petitioner_is_state
+        or _ORGANIZATION_RE.search(text)
+        or (shapes and _ORGANIZATION_V4_RE.search(text))
+    ):
         return "challenge-to-executive-action"
     if _ET_AL_RE.search(text):
         return "individual-group"
@@ -356,7 +424,26 @@ def exec_action_annotations_v2(
     where the caption steps leave the row in scope or unknown and the stored
     ask is not substantive; without one the caption reason stands.
     """
-    annotation = _caption_annotation(row, as_of, EXEC_ACTION_RULE_VERSION)
+    return _with_procedural(_caption_annotation(row, as_of, EXEC_ACTION_RULE_VERSION), row, payload)
+
+
+def exec_action_annotations_v4(
+    row: corpus.CorpusRow, as_of: date | None, payload: Payload = None
+) -> ExecActionAnnotation:
+    """The ``exec-action-v4`` annotation of ``row``: step 6 over ``exec-action-v2``.
+
+    The caption steps read the three shapes step 6 names before steps 2 and 3,
+    and step 4 then reads ``payload`` as under v2. No hand code is applied.
+    """
+    return _with_procedural(
+        _caption_annotation(row, as_of, EXEC_ACTION_RULE_VERSION_V4, shapes=True), row, payload
+    )
+
+
+def _with_procedural(
+    annotation: ExecActionAnnotation, row: corpus.CorpusRow, payload: Payload
+) -> ExecActionAnnotation:
+    """Step 4 over a caption annotation: set a procedural request out of scope."""
     if (
         annotation.government_side is None
         or annotation.in_scope is False
@@ -366,7 +453,7 @@ def exec_action_annotations_v2(
     ):
         return annotation
     return ExecActionAnnotation(
-        rule_version=EXEC_ACTION_RULE_VERSION,
+        rule_version=annotation.rule_version,
         in_scope=REASON_SCOPE["procedural-request"],
         reason="procedural-request",
         government_side=annotation.government_side,
@@ -381,17 +468,38 @@ def exec_action_annotations_v3(
     A row the committed hand reading lists takes its hand scope, and its hand
     side where the code names one; any other row reads as under v2.
     """
-    rule = exec_action_annotations_v2(row, as_of, payload)
+    return _with_hand(
+        exec_action_annotations_v2(row, as_of, payload), row, EXEC_ACTION_RULE_VERSION_V3
+    )
+
+
+def exec_action_annotations_v5(
+    row: corpus.CorpusRow, as_of: date | None, payload: Payload = None
+) -> ExecActionAnnotation:
+    """The ``exec-action-v5`` annotation of ``row``: step 5 over ``exec-action-v4``.
+
+    A row the committed hand reading lists takes its hand scope, as under v3;
+    any other row reads as under v4.
+    """
+    return _with_hand(
+        exec_action_annotations_v4(row, as_of, payload), row, EXEC_ACTION_RULE_VERSION_V5
+    )
+
+
+def _with_hand(
+    rule: ExecActionAnnotation, row: corpus.CorpusRow, rule_version: str
+) -> ExecActionAnnotation:
+    """Step 5 over a rule annotation: a listed row takes its hand code."""
     code = hand_codes().get((row.docket_number or "").strip().upper())
     if code is None:
         return ExecActionAnnotation(
-            rule_version=EXEC_ACTION_RULE_VERSION_V3,
+            rule_version=rule_version,
             in_scope=rule.in_scope,
             reason=rule.reason,
             government_side=rule.government_side,
         )
     return ExecActionAnnotation(
-        rule_version=EXEC_ACTION_RULE_VERSION_V3,
+        rule_version=rule_version,
         in_scope=REASON_SCOPE[code.reason],
         reason=code.reason,
         government_side=code.government_side or rule.government_side,
@@ -399,33 +507,29 @@ def exec_action_annotations_v3(
 
 
 def _caption_annotation(
-    row: corpus.CorpusRow, as_of: date | None, rule_version: str
+    row: corpus.CorpusRow, as_of: date | None, rule_version: str, *, shapes: bool = False
 ) -> ExecActionAnnotation:
-    """Steps 1 to 3: the caption and counsel reading both versions share."""
+    """Steps 1 to 3, and step 6 where ``shapes``: the caption and counsel reading."""
     party = party_rule(EXEC_ACTION_PARTY_RULE)(row, as_of)
     counsel = counsel_rule(EXEC_ACTION_COUNSEL_RULE)(row, None).side
     caption_applicant = party.federal_party in ("petitioner", "both")
     caption_respondent = party.federal_party == "respondent"
     side: GovernmentSide | None
-    if caption_applicant or counsel in ("petitioner", "both"):
+    reason: ScopeReason
+    if shapes and (
+        (party.federal_party == "petitioner" and counsel == "respondent")
+        or (caption_respondent and counsel == "petitioner")
+    ):
+        side = "applicant" if counsel == "petitioner" else "respondent"
+        reason = "caption-counsel-conflict"
+    elif caption_applicant or counsel in ("petitioner", "both"):
         side = "applicant"
-        reason: ScopeReason = "gov-applicant"
+        reason = _applicant_side_reason(row, party.respondent_class == "state", shapes=shapes)
     elif caption_respondent or counsel == "respondent":
         side = "respondent"
-        respondent = respondent_caption(row) or ""
-        petitioner_is_state = party.petitioner_class == "state"
-        if _FEDERAL_COURT_RE.search(respondent):
-            reason = "federal-court"
-        elif _CUSTODY_RE.search(respondent):
-            reason = "federal-prosecution"
-        elif not caption_respondent:
-            reason = "sg-respondent-only"
-        elif _UNITED_STATES_RE.match(respondent):
-            reason = (
-                "challenge-to-executive-action" if petitioner_is_state else "federal-prosecution"
-            )
-        else:
-            reason = _applicant_kind(petitioner_caption(row), petitioner_is_state)
+        reason = _respondent_side_reason(
+            row, party.petitioner_class == "state", caption_respondent, shapes=shapes
+        )
     else:
         side = None
         reason = "no-federal-party"
@@ -437,6 +541,47 @@ def _caption_annotation(
     )
 
 
+def _applicant_side_reason(
+    row: corpus.CorpusRow, respondent_is_state: bool, *, shapes: bool
+) -> ScopeReason:
+    """Step 2, with step 6's trustee and state-law shapes where ``shapes``."""
+    petitioner = petitioner_caption(row)
+    if shapes and _US_TRUSTEE_RE.search(petitioner):
+        return "bankruptcy-trustee"
+    if shapes and respondent_is_state and _UNITED_STATES_ALONE_RE.match(petitioner):
+        return "suit-against-state-law"
+    return "gov-applicant"
+
+
+def _respondent_side_reason(
+    row: corpus.CorpusRow, petitioner_is_state: bool, caption_respondent: bool, *, shapes: bool
+) -> ScopeReason:
+    """Step 3, with step 6's trustee and state-law shapes where ``shapes``."""
+    respondent = respondent_caption(row) or ""
+    if shapes and _US_TRUSTEE_RE.search(respondent):
+        return "bankruptcy-trustee"
+    if _FEDERAL_COURT_RE.search(respondent):
+        return "federal-court"
+    if _CUSTODY_RE.search(respondent):
+        return "federal-prosecution"
+    if not caption_respondent:
+        return "sg-respondent-only"
+    if _UNITED_STATES_RE.match(respondent):
+        return _against_united_states(respondent, petitioner_is_state, shapes=shapes)
+    return _applicant_kind(petitioner_caption(row), petitioner_is_state, shapes=shapes)
+
+
+def _against_united_states(
+    respondent: str, petitioner_is_state: bool, *, shapes: bool
+) -> ScopeReason:
+    """An application against the United States itself, by who filed it."""
+    if not petitioner_is_state:
+        return "federal-prosecution"
+    if shapes and _UNITED_STATES_ALONE_RE.match(respondent):
+        return "suit-against-state-law"
+    return "challenge-to-executive-action"
+
+
 #: A scope annotator: a row, the cut's date for it, and its snapshot where read.
 Annotator = Callable[[corpus.CorpusRow, date | None, Payload], ExecActionAnnotation]
 
@@ -446,6 +591,8 @@ EXEC_ACTION_RULES: Final[Mapping[str, Annotator]] = MappingProxyType(
         EXEC_ACTION_RULE_VERSION_V1: exec_action_annotations,
         EXEC_ACTION_RULE_VERSION: exec_action_annotations_v2,
         EXEC_ACTION_RULE_VERSION_V3: exec_action_annotations_v3,
+        EXEC_ACTION_RULE_VERSION_V4: exec_action_annotations_v4,
+        EXEC_ACTION_RULE_VERSION_V5: exec_action_annotations_v5,
     }
 )
 

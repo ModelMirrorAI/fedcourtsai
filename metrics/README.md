@@ -3722,7 +3722,21 @@ to it.
   where independence matters. An application the reading does not list —
   everything outside the check's window, and every later filing — falls to
   the caption rule, so the reading's reach is the check's population, not the
-  cut's.
+  cut's. `exec-action-v4` is that caption rule taught three shapes the hand
+  reading showed it misreads, and applies no hand code: a caption and
+  counsel entries that put the government on opposite sides
+  (`caption-counsel-conflict`, unknown), the United States alone against a
+  state (`suit-against-state-law`, out), and the United States Trustee
+  (`bankruptcy-trustee`, out). `exec-action-v5` is the hand reading over it,
+  so a later filing falls to `exec-action-v4` instead. Against the 298
+  committed hand codes, `exec-action-v4` makes 12 definite calls the codes
+  contradict where `exec-action-v2` makes 16, and it leaves 49 unknown where
+  `exec-action-v2` leaves 48; inside the check's window `exec-action-v5`
+  prints the same cut as `exec-action-v3`, because the hand reading lists
+  every row the new shapes reach there (blob pulled 2026-11-09). The
+  suit-against-state-law shape also sets aside a state's own suit over an
+  agency's reading of a statute against its law, which the hand reading may
+  put in scope (23A470), and quoting `exec-action-v4` names that limit.
 - **An unreadable ask is in the population.** In-scope applications whose ask
   the parser could not read are counted like any other and tallied as
   `unknown_ask`. They include granted federal applications (`24A884`,

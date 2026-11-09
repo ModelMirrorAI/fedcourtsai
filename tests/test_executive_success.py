@@ -27,10 +27,14 @@ from fedcourtsai.pipeline.controversy import (
 from fedcourtsai.pipeline.exec_action import (
     EXEC_ACTION_RULE_VERSION,
     EXEC_ACTION_RULE_VERSION_V1,
+    EXEC_ACTION_RULE_VERSION_V4,
+    EXEC_ACTION_RULE_VERSION_V5,
     REASON_SCOPE,
     SCOPE_REASONS,
     exec_action_annotations,
     exec_action_annotations_v2,
+    exec_action_annotations_v4,
+    exec_action_annotations_v5,
     exec_action_rule,
 )
 from fedcourtsai.pipeline.executive_success import (
@@ -147,8 +151,147 @@ def test_the_reason_codes_are_registered_once() -> None:
     assert len(SCOPE_REASONS) == len(set(SCOPE_REASONS))
     assert exec_action_rule(EXEC_ACTION_RULE_VERSION_V1) is exec_action_annotations
     assert exec_action_rule(EXEC_ACTION_RULE_VERSION) is exec_action_annotations_v2
+    assert exec_action_rule(EXEC_ACTION_RULE_VERSION_V4) is exec_action_annotations_v4
+    assert exec_action_rule(EXEC_ACTION_RULE_VERSION_V5) is exec_action_annotations_v5
     with pytest.raises(KeyError):
         exec_action_rule("exec-action-v9")
+
+
+@pytest.mark.parametrize(
+    ("case_name", "counsel", "v2_reason", "v4_reason", "side"),
+    [
+        # The caption reads a former President as federal; the office is opposite.
+        (
+            "Donald J. Trump, former President of the United States v. Jane Roe, et al.",
+            ["respondent"],
+            "gov-applicant",
+            "caption-counsel-conflict",
+            "respondent",
+        ),
+        # A state officer whose title the caption reads as federal.
+        (
+            "Susan Roe, Commissioner, et al. v. Virginia Coalition for Voters, et al.",
+            ["respondent"],
+            "gov-applicant",
+            "caption-counsel-conflict",
+            "respondent",
+        ),
+        # The United States alone suing a state over its law, on either side.
+        (
+            "United States v. Texas, et al.",
+            ["petitioner"],
+            "gov-applicant",
+            "suit-against-state-law",
+            "applicant",
+        ),
+        (
+            "United States, Applicant v. Texas",
+            [],
+            "gov-applicant",
+            "suit-against-state-law",
+            "applicant",
+        ),
+        (
+            "Missouri, et al. v. United States",
+            ["respondent"],
+            "challenge-to-executive-action",
+            "suit-against-state-law",
+            "respondent",
+        ),
+        # A government defending its own policy keeps steps 2 and 3.
+        (
+            "United States, et al. v. Texas, et al.",
+            ["petitioner"],
+            "gov-applicant",
+            "gov-applicant",
+            "applicant",
+        ),
+        (
+            "Department of Homeland Security, et al. v. Texas",
+            ["petitioner"],
+            "gov-applicant",
+            "gov-applicant",
+            "applicant",
+        ),
+        (
+            "Idaho v. United States, et al.",
+            [],
+            "challenge-to-executive-action",
+            "challenge-to-executive-action",
+            "respondent",
+        ),
+        (
+            "John Roe v. United States",
+            [],
+            "federal-prosecution",
+            "federal-prosecution",
+            "respondent",
+        ),
+        # The bankruptcy trustee, on either side.
+        (
+            "William Roe, United States Trustee, Region 2 v. Acme Pharma L.P., et al.",
+            ["petitioner"],
+            "gov-applicant",
+            "bankruptcy-trustee",
+            "applicant",
+        ),
+        (
+            "Acme Holdings LLC v. Jane Roe, U.S. Trustee",
+            ["respondent"],
+            "sg-respondent-only",
+            "bankruptcy-trustee",
+            "respondent",
+        ),
+        # The added organization word.
+        (
+            "The Southern Theological Seminary, et al. v. Department of Labor, et al.",
+            [],
+            "individual-group",
+            "challenge-to-executive-action",
+            "respondent",
+        ),
+    ],
+)
+def test_v4_reads_the_shapes_the_hand_reading_exposed(
+    case_name: str, counsel: list[str], v2_reason: str, v4_reason: str, side: str
+) -> None:
+    row = _row(
+        "scotus/1",
+        case_name,
+        docket_number="25A99999",
+        date_filed=date(2025, 6, 1),
+        counsel=[_sg(role) for role in counsel],
+    )
+    assert exec_action_annotations_v2(row, row.date_filed).reason == v2_reason
+    v4 = exec_action_annotations_v4(row, row.date_filed)
+    assert (v4.reason, v4.government_side, v4.rule_version) == (
+        v4_reason,
+        side,
+        EXEC_ACTION_RULE_VERSION_V4,
+    )
+    assert v4.in_scope is REASON_SCOPE[v4.reason]
+    # v5 reads an unlisted row as v4 does.
+    v5 = exec_action_annotations_v5(row, row.date_filed)
+    assert (v5.reason, v5.government_side, v5.rule_version) == (
+        v4_reason,
+        side,
+        EXEC_ACTION_RULE_VERSION_V5,
+    )
+
+
+def test_v4_sets_a_procedural_request_out_as_v2_does() -> None:
+    row = _row(
+        "scotus/1",
+        "United States, et al. v. Texas, et al.",
+        docket_number="25A99999",
+        date_filed=date(2025, 3, 1),
+        application_kind="unknown",
+        counsel=[_sg("petitioner")],
+    )
+    payload = _submitted("25A99999", "to file a brief in excess of the word limits")
+    for annotator in (exec_action_annotations_v2, exec_action_annotations_v4):
+        annotation = annotator(row, row.date_filed, payload)
+        assert annotation.reason == "procedural-request"
 
 
 def _app(

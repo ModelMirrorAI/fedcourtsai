@@ -2409,7 +2409,8 @@ def executive_success_cmd(
         "--scope-rule",
         help="Which registered scope rule reads an application as executive action "
         "(exec-action-v3, the default, which applies the committed hand reading; "
-        "exec-action-v2; or exec-action-v1).",
+        "exec-action-v2; exec-action-v1; exec-action-v4, the caption rule with the "
+        "shapes the hand reading exposed; or exec-action-v5, the hand reading over v4).",
     ),
     reading: str = typer.Option(
         "finer",
