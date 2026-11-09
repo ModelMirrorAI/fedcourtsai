@@ -1,0 +1,14 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/9026000459",
+  "gaps": [],
+  "helpful": [],
+  "notes": "Used corpus query to inspect recent OT2026 cert grants and GVRs alongside statpack base rates; verified Batson step-three precedent (including Pitchford v. Cain and Salters v. New York City Transit Authority) via CourtListener MCP.\n[harness] tooling.json did not validate; normalised: unknown key 'consulted_same_question' = true dropped; unknown key 'queries' = [\"--court scotus --era 2020s --disposition granted --limit 5\", \"--court scotu... dropped; unknown key 'read_provisioned_documents' = [\"appendix\", \"decision-below\", \"lower-court-docket\", \"petition\", \"questions-p... dropped; unknown key 'read_provisioned_snapshot' = true dropped; unknown key 'same_question_note' = null dropped; unknown key 'usefulness' = \"relevant\" dropped",
+  "role": "predictor",
+  "run_id": "20261109T171058Z",
+  "schema_version": "1.0",
+  "tool_manifest": null,
+  "tools_used": [],
+  "used_base_rates": false,
+  "used_corpus_query": true
+}
