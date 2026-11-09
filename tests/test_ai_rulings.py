@@ -14,7 +14,7 @@ from tenacity import wait_none
 from typer.testing import CliRunner
 
 from fedcourtsai import ai_rulings, corpus, summaries
-from fedcourtsai.ai_cases_update import build_ai_cases_update, render_ai_cases_update
+from fedcourtsai.ai_cases_update import build_ai_cases_update, model_name, render_ai_cases_update
 from fedcourtsai.claude_auth import ApiKey
 from fedcourtsai.cli import app
 from fedcourtsai.config import SummariesConfig
@@ -424,7 +424,7 @@ def test_the_update_quotes_a_rulings_summary_under_its_item(tmp_path: Path) -> N
     assert item in text
     after = text.split(item, 1)[1]
     assert f"  > {HEADLINE}" in after
-    assert "  > *Summary written by claude-sonnet-5 from the ruling's own text." in after
+    assert "  > *Summary written by Claude Sonnet 5 from the ruling's own text." in after
     # The entry without a summary renders as an item alone.
     assert after.count("> *Summary written by") == 1
 
@@ -583,3 +583,19 @@ def test_stage_check_removes_an_ai_rulings_path_that_is_not_a_directory(tmp_path
     (stage / "ai-rulings").unlink(missing_ok=True)
     (stage / "ai-rulings").symlink_to(elsewhere)
     assert summaries.prune_stage(plan, stage) == [("ai-rulings", "not a case tree")]
+
+
+@pytest.mark.parametrize(
+    ("model", "name"),
+    [
+        ("claude-sonnet-5", "Claude Sonnet 5"),
+        ("claude-sonnet-5-5", "Claude Sonnet 5.5"),
+        ("claude-opus-5-5", "Claude Opus 5.5"),
+        ("claude-haiku-5-5", "Claude Haiku 5.5"),
+        # Another shape is shown as recorded rather than guessed at.
+        ("claude-sonnet-5-20260101", "claude-sonnet-5-20260101"),
+        ("gpt-6.1-sol", "gpt-6.1-sol"),
+    ],
+)
+def test_the_summary_credit_names_the_model_in_words(model: str, name: str) -> None:
+    assert model_name(model) == name

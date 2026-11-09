@@ -289,12 +289,29 @@ def _item(entry: AiCaseActivityEntry) -> str:
     return f"- {when}: {item_label(entry)} ({_escape(where)}). [View on CourtListener]({entry.url})"
 
 
+#: A Claude model id: family, then a major and an optional minor version.
+_CLAUDE_MODEL: Final = re.compile(r"claude-(opus|sonnet|haiku|fable)-(\d+)(?:-(\d{1,2}))?")
+
+
+def model_name(model: str) -> str:
+    """The model in the reader's words: ``claude-sonnet-5-5`` reads "Claude Sonnet 5.5".
+
+    An id of another shape is shown as recorded, since a guessed name could
+    credit the wrong model.
+    """
+    match = _CLAUDE_MODEL.fullmatch(model.strip())
+    if match is None:
+        return model
+    family, major, minor = match.groups()
+    return f"Claude {family.capitalize()} {major}" + (f".{minor}" if minor else "")
+
+
 def _summary(summary: RulingSummary) -> list[str]:
     """A ruling's summary as a quote under its list item, labeled with its model."""
     paragraphs = [_escape(summary.headline)]
     paragraphs += [_escape(p) for p in re.split(r"\n\s*\n", summary.decided) if p.strip()]
     paragraphs.append(
-        f"*Summary written by {_escape(summary.model)} from the ruling's own text. "
+        f"*Summary written by {_escape(model_name(summary.model))} from the ruling's own text. "
         + "It may contain errors; the ruling is the authority.*"
     )
     lines: list[str] = []
