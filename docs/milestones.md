@@ -116,7 +116,8 @@ with the one the public cares about most:
   written from each sitting is visible (~25). The pattern is read but not yet
   declared as a moment: the live poll stores the Court's argument sittings, and
   `fedcourts authorship-tally` reads each sitting's authors and undecided cases
-  as of a day from the per-opinion record. That record holds OT2020–OT2025,
+  as of a day from the per-opinion record. That record holds OT2020–OT2025
+  (OT2018–OT2019 join it at the pass's next apply),
   and the opinion-record standing sweep on run-seed's daily window keeps the
   current and previous Term in it; the live poll back-fills the sittings of
   every Term from OT2020 on, so the tally reads the Terms that record holds.

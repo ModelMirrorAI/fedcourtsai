@@ -1761,7 +1761,7 @@ jobs:
           HANDOFF_PROJECTION: ${{ runner.temp }}/handoff/projection.json
         run: |
           set -euo pipefail
-          uv run fedcourts backfill-opinion-record --first-term 2020 --last-term 2025 \
+          uv run fedcourts backfill-opinion-record --first-term 2018 --last-term 2025 \
             --emit-corpus-projection "${HANDOFF_PROJECTION}"
 
       # The recovery class and the worklist the parse reads: on an apply the
@@ -2154,18 +2154,20 @@ jobs:
 
       # Fetch and read every listed document the projection does not record.
       #
-      # The Term range is pinned rather than spent on a dispatch input: the
-      # record's first phase is OT2020–OT2025, and OT2017–OT2019 are left out
-      # by design, since every listing row there links into a whole
-      # preliminary-print or bound volume and the pass would skip each one
-      # unfetched. A dry run and the apply it bounds therefore always read the
-      # same Terms, so the bound read off one answers for the other.
+      # The Term range is pinned rather than spent on a dispatch input, so a
+      # dry run and the apply it bounds always read the same Terms and the
+      # bound read off one answers for the other. It opens at OT2018: before
+      # OT2020 every listing row links into a whole volume, read a slice at a
+      # time, and OT2017's volumes are not served, so a Term earlier than
+      # OT2018 would only add refusals.
       - name: Read the opinion record
         if: ${{ inputs.repair == 'opinion-record' }}
         # About four seconds a document — the 1 req/s pacing plus the PDF
-        # parse — over the roughly 380 documents the six Terms list
-        # unfetched-and-unskipped: about 25 minutes, so the cap is better than
-        # twice that for a slower runner or a slow site.
+        # parse — and only the documents the record does not hold whole are
+        # fetched. The largest read owed is OT2018–OT2019's, some 140 cases cut
+        # from about a dozen volumes, each fetched once and every page of it
+        # read for the Term heads: on the order of 15 minutes, so the cap is
+        # better than twice that for a slower runner or a slow site.
         timeout-minutes: 60
         env:
           HANDOFF_PROJECTION: ${{ runner.temp }}/handoff/projection.json
@@ -2185,7 +2187,7 @@ jobs:
           stop_token="$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')"
           echo "::stop-commands::${stop_token}"
           status=0
-          uv run fedcourts backfill-opinion-record --first-term 2020 --last-term 2025 \
+          uv run fedcourts backfill-opinion-record --first-term 2018 --last-term 2025 \
             --projection "${HANDOFF_PROJECTION}" --plan-out "${HANDOFF_PLAN}" \
             3>&1 1>&2 2>&3 3>&- | tee "$ledger" || status=$?
           echo "::${stop_token}::"
@@ -3202,7 +3204,7 @@ jobs:
           stop_token="$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')"
           echo "::stop-commands::${stop_token}"
           status=0
-          uv run fedcourts backfill-opinion-record --first-term 2020 --last-term 2025 \
+          uv run fedcourts backfill-opinion-record --first-term 2018 --last-term 2025 \
             --from-plan "${HANDOFF_PLAN}" --apply --max-rows "${REPAIR_BOUND}" \
             3>&1 1>&2 2>&3 3>&- | tee "$ledger" || status=$?
           echo "::${stop_token}::"
