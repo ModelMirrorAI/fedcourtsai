@@ -3760,7 +3760,10 @@ pattern: a `guard`
 job raises one long-lived **pipeline-health** issue if the checkpointed walk is
 ever cancelled or fails (e.g. a chunk overran the job's hard timeout), and clears
 that issue, and only that one, when a later walk finishes clean — so a silent, PR-less writer failure still
-reaches a durable home.
+reaches a durable home. The same job keeps a second one, *OCR sweep failing*,
+for a window whose OCR sweep projection did not succeed: that job is
+continue-on-error, so its failure leaves the run green, and a sweep that reads
+nothing lets forward cells mint on empty scans once their hold lapses.
 Separately, every cell may also write a `tooling.json` self-report on its
 environment/tooling, committed with the cell's output; only its
 `used_corpus_query` line is read per run (it is the served side of the

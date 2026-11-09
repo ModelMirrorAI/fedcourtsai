@@ -3277,9 +3277,22 @@ def _ocr_sweep(  # noqa: PLR0912, PLR0913, PLR0915 - keyword-only; one flag per 
         )
         raise typer.Exit(code=1)
     found = selection.class_size
+    # Above the ceiling the backlog is held and the forward share still swept;
+    # only a forward share above its own ceiling refuses the window whole.
+    backlog_held = found > caps.ocr_ceiling
+    if backlog_held:
+        selection = ocr_sweep.forward_slice(selection)
     _echo_sweep_ledger(command, written=False, planned=found, deferred=0, cap=caps.ocr)
     typer.echo(f"  {selection.forward_size} of the class a forward cell reads")
     _echo_by_kind("class", selection.class_by_kind)
+    if backlog_held:
+        typer.echo(
+            f"::warning::{command} --sweep: backlog held — the class holds {found} rows, "
+            f"above its ceiling of {caps.ocr_ceiling} (historical.sweep_caps), so this "
+            f"window reads only the {selection.forward_size} a forward cell reads. Triage "
+            "the class with run-repair's ocr-recovery dry run; the dispatched pass drains "
+            "the backlog under a maintainer's bound."
+        )
     for candidate in selection.slice:
         document = candidate.scanned.document
         tier = "forward" if candidate.forward else "backlog"
@@ -3287,15 +3300,23 @@ def _ocr_sweep(  # noqa: PLR0912, PLR0913, PLR0915 - keyword-only; one flag per 
             f"  slice {candidate.key}: {document.pages} pages, {tier}, "
             f"stored {document.fetched_at.isoformat()}"
         )
-    refused = found > caps.ocr_ceiling
+    forward = selection.forward_size
+    refused = forward > caps.ocr_forward_ceiling
     if emit_worklist is None:
         if refused:
             typer.echo(
-                f"  the class is above its ceiling of {caps.ocr_ceiling}: the projection "
-                "would refuse it"
+                f"  the forward share is above its ceiling of {caps.ocr_forward_ceiling}: "
+                "the projection would refuse it"
             )
         return
-    _refuse_sweep_above_ceiling(command, refused=refused, found=found, ceiling=caps.ocr_ceiling)
+    _refuse_sweep_above_ceiling(
+        command,
+        refused=refused,
+        found=forward,
+        ceiling=caps.ocr_forward_ceiling,
+        population="forward share",
+        reason="means an extractor or fetch regression emptied stored text",
+    )
     write_handoff(emit_worklist, ocr_sweep.sweep_worklist(selection, cap=caps.ocr))
 
 
@@ -3689,10 +3710,12 @@ def ocr_recover_petitions_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; opt
         typer.Option(
             "--sweep",
             help="Standing-sweep mode (run-seed's windows): take the window's slice at "
-            "`historical.sweep_caps.ocr`, forward-cell candidates first, and refuse a "
-            "class above `ocr_ceiling`. Alone, a dry run that lists the slice it would "
-            "OCR and fetches nothing; with --emit-worklist, the projection; with "
-            "--from-plan, the writer. Takes no --max-cases.",
+            "`historical.sweep_caps.ocr`, forward-cell candidates first; above "
+            "`ocr_ceiling` take only those, and refuse a forward share above "
+            "`ocr_forward_ceiling`. Alone, "
+            "a dry run that lists the slice it would OCR and fetches nothing; with "
+            "--emit-worklist, the projection; with --from-plan, the writer. Takes no "
+            "--max-cases.",
         ),
     ] = False,
     emit_worklist: Annotated[
@@ -5544,12 +5567,20 @@ def _echo_sweep_ledger(
     )
 
 
-def _refuse_sweep_above_ceiling(command: str, *, refused: bool, found: int, ceiling: int) -> None:
+def _refuse_sweep_above_ceiling(
+    command: str,
+    *,
+    refused: bool,
+    found: int,
+    ceiling: int,
+    population: str = "class",
+    reason: str = "means the predicate widened",
+) -> None:
     if refused:
         typer.echo(
-            f"::error::{command} --sweep: refusing to apply — the class holds {found} rows, "
-            f"above its ceiling of {ceiling} (historical.sweep_caps). A class this size "
-            "means the predicate widened; triage the dry run before raising the ceiling.",
+            f"::error::{command} --sweep: refusing to apply — the {population} holds {found} "
+            f"rows, above its ceiling of {ceiling} (historical.sweep_caps). A {population} "
+            f"this size {reason}; triage the dry run before raising the ceiling.",
             err=True,
         )
         raise typer.Exit(code=1)

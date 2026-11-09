@@ -2414,7 +2414,7 @@ That is accepted because the orders source's records are banked, never
 scored — vote scoring reads only a complete merits record — and each is a
 committed, reviewable `outcome.json` change. run-seed's OCR sweep is the
 same shape with a weaker review: a compromised parse could write up to the
-window's cap (`historical.sweep_caps.ocr`, 10) of arbitrary text, each up to
+window's cap (`historical.sweep_caps.ocr`, 50) of arbitrary text, each up to
 the document cap (150,000 characters), into the empty scanned rows of that
 window's worklist, marked `ocr_derived`. Those rows go to the content store,
 not git, so no diff review sees them, and forward cells, the case-summary

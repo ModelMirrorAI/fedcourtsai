@@ -1528,8 +1528,12 @@ jobs:
   # at most one seed window for its text, rather than a day.
   #
   # Standing-sweep posture: every job is continue-on-error, so a fetch hiccup
-  # converges next window; the projection refuses only a class above
-  # `ocr_ceiling`, and each hand-off is a step output.
+  # converges next window, and each hand-off is a step output. Above
+  # `ocr_ceiling` the projection holds the backlog and still hands on the
+  # forward share; it refuses only a forward share above
+  # `ocr_forward_ceiling`. Because continue-on-error leaves the run green, the
+  # projection publishes its write step's outcome and the guard escalates any
+  # window whose projection did not succeed. The parse and the writer converge next window and raise nothing.
   ocr-sweep-projection:
     needs: [authorize]
     if: >-
@@ -1552,6 +1556,10 @@ jobs:
       # The writer downloads this exact artifact by id: the parse can replace
       # an artifact by name, but cannot forge another job's outputs.
       worklist-artifact: ${{ steps.upload-worklist.outputs.artifact-id }}
+      # The write step's own outcome, which continue-on-error does not mask:
+      # `success`, or `failure` / `skipped` / `cancelled` (empty when the job
+      # never reached it). The guard escalates anything but `success`.
+      projection-outcome: ${{ steps.worklist.outcome }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -1625,7 +1633,7 @@ jobs:
     continue-on-error: true
     runs-on: ubuntu-26.04
     # Setup, the binary install and the read step's cap.
-    timeout-minutes: 50
+    timeout-minutes: 125
     permissions:
       contents: read
     outputs:
@@ -1685,21 +1693,21 @@ jobs:
           merge-multiple: true
           path: ${{ runner.temp }}/handoff
 
-      # Fetch and read each item. The slice deadline (1800s) sits under this
-      # step's 40-minute cap by what a started candidate can run past it: one
+      # Fetch and read each item. The slice deadline (6000s) sits under this
+      # step's 115-minute cap by what a started candidate can run past it: one
       # document's 600s recognition budget is the larger part, and the plan
       # write after the loop is seconds. A declined item is reported unreached
       # and heads the next window's slice.
       - name: Read the scanned filings
         id: plan
-        timeout-minutes: 40
+        timeout-minutes: 115
         env:
           HANDOFF_WORKLIST: ${{ runner.temp }}/handoff/worklist.json
           HANDOFF_PLAN: ${{ runner.temp }}/handoff/plan.json
         run: |
           set -euo pipefail
           uv run fedcourts ocr-recover-petitions --worklist "${HANDOFF_WORKLIST}" \
-            --plan-out "${HANDOFF_PLAN}" --deadline-seconds 1800 2>&1 \
+            --plan-out "${HANDOFF_PLAN}" --deadline-seconds 6000 2>&1 \
             | tee -a "$GITHUB_STEP_SUMMARY"
           # A plan that read nothing gives the writer nothing to pull a corpus for.
           rows="$(jq '.rows | length' "${HANDOFF_PLAN}")"
@@ -2275,16 +2283,17 @@ jobs:
   # name the step that stopped the run, and raise ONE long-lived escalation issue
   # — clearing it when a later walk finishes clean. Mirrors run-ops' idiom.
   guard:
-    needs: [authorize, seed]
+    needs: [authorize, seed, ocr-sweep-projection]
     if: >-
       ${{ always()
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-26.04
-    # Sized to the retry worst case: 4 retried call groups x 3 bounded 30s
-    # attempts plus 60s of backoff sleeps. Nothing downstream waits on this job.
-    timeout-minutes: 10
+    # Sized to the retry worst case: 7 retried call groups (4 for the walk's
+    # alarm, 3 for the OCR sweep's) x 3 bounded 30s attempts plus 15s of
+    # backoff sleeps each. Nothing downstream waits on this job.
+    timeout-minutes: 15
     # This job reads the needs result plus the run's own step outcomes, and writes
     # a NON-triggering issue — no checkout, no corpus, no contents. Per
     # docs/security.md that is exactly the ambient-GITHUB_TOKEN case; the data App
@@ -2377,6 +2386,68 @@ jobs:
           else
             gh_retry gh issue create --repo "$REPO" --label pipeline-health \
               --title "Seed walk failing" --body "$body"
+          fi
+
+      - name: Escalate a failing OCR sweep projection
+        # The projection job is continue-on-error, so a refused or broken
+        # window leaves the run green and nothing else reports it. A forward
+        # cell's hold lapses after `pull.SCAN_HOLD_DAYS`, so a sweep that reads
+        # nothing for that long mints cells on empty text. One long-lived
+        # issue, as for the walk, cleared by the next window that succeeds.
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          OUTCOME: ${{ needs.ocr-sweep-projection.outputs.projection-outcome }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          echo "OCR sweep projection outcome: ${OUTCOME:-not reached}" >> "$GITHUB_STEP_SUMMARY"
+          # Inline copy of scripts/gh_retry.sh's gh_retry — this job deliberately
+          # has no checkout (it must fire even when the walk died before one), so
+          # it cannot source the file; the workflow-invariants test pins the
+          # copies identical. Contract and rationale live in that script's header.
+          gh_retry() {
+            local attempt out what
+            what="${1:-} ${2:-} ${3:-}"
+            for attempt in 1 2 3; do
+              if out=$(timeout "${GH_RETRY_TIMEOUT:-30}" "$@"); then
+                printf '%s\n' "$out"
+                return 0
+              fi
+              if [ "$attempt" -lt 3 ]; then
+                echo "::warning::${what} failed (attempt ${attempt}/3) — retrying" >&2
+                sleep $((attempt * 5))
+              fi
+            done
+            echo "::error::${what} failed after 3 attempts" >&2
+            return 1
+          }
+          # The label exists once the walk's step above has run; this job's own
+          # issue is matched by title and author, as there.
+          listing=$(gh_retry gh api "repos/${REPO}/issues?labels=pipeline-health&state=open&per_page=100")
+          num=$(jq -r '[.[] | select(.title == "OCR sweep failing"
+                          and .user.login == "github-actions[bot]"
+                          and (has("pull_request") | not))][0].number // empty' <<<"$listing")
+          if [ "$OUTCOME" = "success" ]; then
+            if [ -n "$num" ]; then
+              gh_retry gh issue comment "$num" --repo "$REPO" \
+                --body "✅ The OCR sweep's projection succeeded again ($RUN_URL) — closing."
+              gh_retry gh issue close "$num" --repo "$REPO" --reason completed
+            fi
+            exit 0
+          fi
+          if [ "$OUTCOME" = "failure" ]; then
+            cause="The projection's step summary names the cause; a forward share above \`ocr_ceiling\` refuses the window."
+          else
+            cause="The write step never ran to an end: an earlier step (checkout, setup, the corpus pull) failed, or the job ran out of time."
+          fi
+          body="⚠️ The OCR sweep's projection ended \`${OUTCOME:-not reached}\` in a green run-seed run. Scanned filings go unread while it fails, and once a forward cell's scan hold lapses the cell mints on empty text. ${cause} ${RUN_URL}"
+          if [ -n "$num" ]; then
+            gh_retry gh issue comment "$num" --repo "$REPO" --body "$body"
+          else
+            gh_retry gh issue create --repo "$REPO" --label pipeline-health \
+              --title "OCR sweep failing" --body "$body"
           fi
 
   # The run gate's verdict on the run as a whole. A refused partial re-run

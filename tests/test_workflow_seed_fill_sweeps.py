@@ -155,8 +155,9 @@ def test_every_configured_cap_has_exactly_one_sweep() -> None:
     caps = {f for f in fields if not f.endswith("_ceiling")}
     assert {cap for _, _, cap in FILL_SWEEPS} | SPLIT_SWEEP_CAPS == caps
     assert not {cap for _, _, cap in FILL_SWEEPS} & SPLIT_SWEEP_CAPS
-    # And every cap has the refusing ceiling beside it.
-    assert {f"{cap}_ceiling" for cap in caps} == fields - caps
+    # And every cap has the refusing ceiling beside it, and the OCR sweep a
+    # second one on its forward share (`tests/test_ocr_sweep.py`).
+    assert {f"{cap}_ceiling" for cap in caps} | {"ocr_forward_ceiling"} == fields - caps
 
 
 def test_the_committed_caps_load() -> None:

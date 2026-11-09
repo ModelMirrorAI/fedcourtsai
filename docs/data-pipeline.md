@@ -1471,8 +1471,16 @@ or network.
   row that salience has not deferred, or an open merits event) stored within
   the last week first, newest first; then the older forward candidates and
   the backlog, each in class order rotated one cap further each window, so
-  an unreadable head cannot take every window's cap. It
-  refuses a class above `ocr_ceiling`. Its worklist carries each candidate's
+  an unreadable head cannot take every window's cap. Above `ocr_ceiling`
+  it holds the backlog and takes only the forward candidates, with a warning
+  on the summary, because the walker storing older Terms' scanned filings
+  grows the backlog faster than any window's cap drains it, and that backlog
+  is the dispatched `ocr-recovery` pass's to drain under a maintainer's
+  bound. It refuses the window only when the forward share is above
+  `ocr_forward_ceiling`, which is an extractor or fetch regression rather
+  than a backlog. The job is continue-on-error, so the run's `guard` keeps an
+  *OCR sweep failing* pipeline-health issue for any window whose projection
+  did not succeed. Its worklist carries each candidate's
   case id, kind, Court URL and page count, and nothing else. `ocr-sweep-parse`
   holds no credential, installs the two OCR binaries, re-fetches and reads each
   item under a slice deadline, and writes the plan: the text it read. That
