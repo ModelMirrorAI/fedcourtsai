@@ -1656,6 +1656,13 @@ the job unless its `environment` claim is a `claude-` one: an edit that binds
 one of these jobs back to `prod` while it keeps `id-token: write` stops before
 the agent runs. `tests/test_workflow_auth_gate.py` pins which jobs bind them,
 that their only secret is the engine key, and that the tripwire comes first.
+The promotion gate's `contexts` stage checks both environments whenever it
+runs (`fedcourts assert-claude-only-environment`): each exists, its branch
+policy admits its own branches alone (`main` for `claude-prod`; `staging` and
+at most `promote/*` for `claude-staging`), it holds no secret but the engine
+key and no variable but the four federation identifiers, and no repository or
+organization secret shares the key's name. The Console rules are outside its
+read and the maintainer's to keep.
 The summaries call the Messages API directly, so their exchange is the
 harness's own (`fedcourtsai.claude_auth`): a fresh OIDC token per exchange, an
 access token replaced three minutes before it expires, and each response

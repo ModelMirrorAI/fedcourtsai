@@ -28159,6 +28159,62 @@ def assert_corpus_write_environment_cmd(
     typer.echo("the corpus-write environment admits main alone and holds only the writers' names")
 
 
+@app.command("assert-claude-only-environment")
+def assert_claude_only_environment_cmd(
+    name: Annotated[str, typer.Option(help="The environment: `claude-prod` or `claude-staging`.")],
+    environment_file: Annotated[
+        Path,
+        typer.Option(help="`GET /repos/{repo}/environments/<name>`; absent means unread."),
+    ],
+    branch_policies_file: Annotated[
+        Path, typer.Option(help="Its `deployment-branch-policies`; absent means unread.")
+    ],
+    secrets_file: Annotated[
+        Path, typer.Option(help="Its `secrets` listing (admin read); absent means unread.")
+    ],
+    variables_file: Annotated[
+        Path, typer.Option(help="Its `variables` listing (admin read); absent means unread.")
+    ],
+    repository_secrets_file: Annotated[
+        Path,
+        typer.Option(help="`GET /repos/{repo}/actions/secrets` (admin read); absent means unread."),
+    ],
+    organization_secrets_file: Annotated[
+        Path,
+        typer.Option(
+            help="`GET /repos/{repo}/actions/organization-secrets` (admin read); "
+            + "absent means unread."
+        ),
+    ],
+) -> None:
+    """Check a Claude-only environment still keeps the Claude spend on its own branches.
+
+    Requires the environment to exist, its deployment branches to be a custom
+    policy admitting `main` alone (`claude-prod`) or `staging` and at most
+    `promote/*` (`claude-staging`), it to hold no secret but the engine key
+    and no variable but the four federation identifiers, and no repository or
+    organization secret to share the key's name, since a workflow on any
+    branch reads one. Names each problem and exits non-zero if there is any;
+    an unread or truncated listing is a problem.
+    """
+    problems = environment_checks.claude_only_problems(
+        name,
+        _read_document(environment_file),
+        _read_document(branch_policies_file),
+        _read_document(secrets_file),
+        _read_document(variables_file),
+    ) + environment_checks.shadow_secret_problems(
+        _read_document(repository_secrets_file),
+        _read_document(organization_secrets_file),
+        environment_checks.CLAUDE_ONLY_SECRETS,
+    )
+    for problem in problems:
+        typer.echo(f"::error::{name} environment: {problem}", err=True)
+    if problems:
+        raise typer.Exit(code=1)
+    typer.echo(f"the {name} environment admits its own branches alone and holds only its sign-in")
+
+
 @app.command("finalize-produced")
 def finalize_produced_cmd(
     role: Annotated[FinalizeRole, typer.Option(help="predict | evaluate.")],

@@ -442,7 +442,8 @@ runbook, [docs/security.md](docs/security.md).
   environment whose branch policy pins the ref it may run from — `prod` to
   `main`, `staging` to `staging` and the promotion train's `promote/*`
   candidates (below), `corpus-write`, `corpus-check`,
-  `corpus-check-auto` and `website` to `main` — so a
+  `corpus-check-auto`, `website` and `claude-prod` to `main`; `claude-staging`
+  to `staging` and `promote/*` — so a
   dispatch from any other ref
   holds no role, no secret, no agent: a job naming an environment as a literal
   is refused at the deployment-branch gate before a step runs, and the three
