@@ -690,7 +690,7 @@ def test_the_cli_dry_run_lists_the_slice_and_fetches_nothing(
     assert result.exit_code == 0, result.output
     # The fill sweeps' ledger shape (config/tracking.yaml), exactly.
     assert (
-        "sweep ledger — ocr-recover-petitions: would fill 2; filled 0; remaining 2 (cap 10)\n"
+        "sweep ledger — ocr-recover-petitions: would fill 2; filled 0; remaining 2 (cap 50)\n"
     ) in result.output
     assert "1 of the class a forward cell reads" in result.output
     lines = [line.strip() for line in result.output.splitlines() if "slice " in line]
@@ -891,7 +891,7 @@ def test_the_cli_split_round_trips_through_its_files(
         ],
     )
     assert written.exit_code == 0, written.output
-    assert "would fill 1; filled 1; remaining 0 (cap 10)" in written.output
+    assert "would fill 1; filled 1; remaining 0 (cap 50)" in written.output
     assert "Recovered page text" not in written.output
     stored = _documents(db, "scotus/1")[KIND_PETITION]
     assert "Recovered page text." in stored.text and stored.ocr_derived is True
@@ -982,13 +982,13 @@ def test_the_cli_refuses_a_mode_it_cannot_tell_apart(
 def test_the_cli_writer_refuses_a_plan_above_the_cap(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    documents = [_document(f"scotus/{n}") for n in range(1, 13)]
+    documents = [_document(f"scotus/{n}") for n in range(1, 53)]
     db = _seed(tmp_path / "corpus", documents)
     monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
     plan = OcrPlan(rows=[_row(d) for d in documents])
     plan_path, bound_path = tmp_path / "plan.json", tmp_path / "worklist.json"
     write_handoff(plan_path, plan)
-    write_handoff(bound_path, _bound(plan, cap=12))
+    write_handoff(bound_path, _bound(plan, cap=52))
     result = runner.invoke(
         app,
         [
@@ -1002,7 +1002,7 @@ def test_the_cli_writer_refuses_a_plan_above_the_cap(
         ],
     )
     assert result.exit_code == 1, result.output
-    assert "above the cap of 10" in result.output
+    assert "above the cap of 50" in result.output
     assert _documents(db, "scotus/1")[KIND_PETITION].text == ""
 
 

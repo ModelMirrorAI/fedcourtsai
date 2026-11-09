@@ -1633,7 +1633,7 @@ jobs:
     continue-on-error: true
     runs-on: ubuntu-26.04
     # Setup, the binary install and the read step's cap.
-    timeout-minutes: 50
+    timeout-minutes: 125
     permissions:
       contents: read
     outputs:
@@ -1693,21 +1693,21 @@ jobs:
           merge-multiple: true
           path: ${{ runner.temp }}/handoff
 
-      # Fetch and read each item. The slice deadline (1800s) sits under this
-      # step's 40-minute cap by what a started candidate can run past it: one
+      # Fetch and read each item. The slice deadline (6000s) sits under this
+      # step's 115-minute cap by what a started candidate can run past it: one
       # document's 600s recognition budget is the larger part, and the plan
       # write after the loop is seconds. A declined item is reported unreached
       # and heads the next window's slice.
       - name: Read the scanned filings
         id: plan
-        timeout-minutes: 40
+        timeout-minutes: 115
         env:
           HANDOFF_WORKLIST: ${{ runner.temp }}/handoff/worklist.json
           HANDOFF_PLAN: ${{ runner.temp }}/handoff/plan.json
         run: |
           set -euo pipefail
           uv run fedcourts ocr-recover-petitions --worklist "${HANDOFF_WORKLIST}" \
-            --plan-out "${HANDOFF_PLAN}" --deadline-seconds 1800 2>&1 \
+            --plan-out "${HANDOFF_PLAN}" --deadline-seconds 6000 2>&1 \
             | tee -a "$GITHUB_STEP_SUMMARY"
           # A plan that read nothing gives the writer nothing to pull a corpus for.
           rows="$(jq '.rows | length' "${HANDOFF_PLAN}")"

@@ -84,7 +84,7 @@ upstream.
 | `live.document_text_cap`, `historical.document_text_cap` | 150,000 characters | The stored text of one document |
 | `live.document_freshness_per_run` | 10 | Cases the freshness pass fetches for in one live cycle |
 | `live.argument_transcripts_per_run` | 5 | Transcripts the argument-transcript pass downloads in one live cycle |
-| `historical.sweep_caps.ocr` | 10 | Documents the OCR sweep recovers in one walker window |
+| `historical.sweep_caps.ocr` | 50 | Documents the OCR sweep recovers in one walker window |
 | `historical.document_floor_term` | 21 | The oldest Term whose historical petitions get documents fetched; the Court's document links reach back only about five Terms |
 
 The values are the ones in [config/tracking.yaml](../config/tracking.yaml),

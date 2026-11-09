@@ -318,9 +318,11 @@ historical:
     # filings re-fetched and read by OCR, forward-cell candidates first. Its
     # cost is runner minutes in the parse job, about three seconds a page, so
     # the parse's slice deadline is what holds a heavy slice inside its step;
-    # the cap holds the spend. The class held 10 on the index blob of
-    # 2026-10-17 (sha 7c62d6e4), so one window drains it.
-    ocr: 10
+    # the cap holds the spend. At about 100 seconds a median filing (23
+    # pages), 50 fill the parse's 6000-second deadline: some 200 a day, above
+    # the hundred a day the Term walker stores while it walks older Terms
+    # (the class held 1,015 on the index blob of 2026-11-09, sha 4a27e01c).
+    ocr: 50
     # `backfill-opinion-record --sweep` (split jobs beside the daily window):
     # opinion documents read into the per-opinion record, two thirds newest
     # decision first and the rest rotated through the older rows, sliced in
@@ -343,12 +345,13 @@ historical:
     # such as a Term newly in reach, which the dispatched `order-votes` pass
     # applies under a maintainer's bound.
     order_votes_ceiling: 1500
-    # Far above the 10 scanned filings of 2026-10-17. A class above it holds
-    # its backlog with a warning, and the window reads only the filings a
-    # forward cell reads: ordinarily the backlog is the walker storing older
-    # Terms' scans by the hundred, which the dispatched `ocr-recovery` pass
-    # drains under a bound, and its dry run is the triage.
-    ocr_ceiling: 500
+    # Above the class the walker is expected to leave once it has walked every
+    # Term in reach (1,015 on 2026-11-09, growing about a hundred a day), so
+    # the sweep drains that backlog at its cap. A class above it holds its
+    # backlog with a warning, and the window reads only the filings a forward
+    # cell reads: the dispatched `ocr-recovery` pass drains a backlog that
+    # size under a bound, and its dry run is the triage.
+    ocr_ceiling: 3000
     # The refusal: a forward share above it fails the window whole. The share
     # held 2 on the index blob of 2026-11-09 (sha 4a27e01c), so a share this
     # size is an extractor or fetch regression emptying stored text.
