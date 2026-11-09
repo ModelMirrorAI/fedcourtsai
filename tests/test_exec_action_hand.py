@@ -14,6 +14,7 @@ from fedcourtsai.pipeline import exec_action as exec_action_module
 from fedcourtsai.pipeline.exec_action import (
     EXEC_ACTION_RULE_VERSION,
     EXEC_ACTION_RULE_VERSION_V3,
+    EXEC_ACTION_RULE_VERSION_V5,
     exec_action_rule,
     hand_codes,
     parse_hand_codes,
@@ -134,4 +135,22 @@ def test_the_hand_side_replaces_the_caption_side_and_falls_back_to_it(
         "hand-unclear",
         None,
         "applicant",
+    )
+
+
+def test_v5_applies_the_hand_reading_over_v4() -> None:
+    v5 = exec_action_rule(EXEC_ACTION_RULE_VERSION_V5)
+    listed = _row("Mike Moyle, Speaker, et al. v. United States", "23A469")
+    hand = v5(listed, None, None)
+    assert (hand.rule_version, hand.reason, hand.government_side) == (
+        "exec-action-v5",
+        "hand-in-scope",
+        "respondent",
+    )
+    unlisted = _row("United States v. California, et al.", "26A99999")
+    rule = v5(unlisted, None, None)
+    assert (rule.rule_version, rule.reason, rule.in_scope) == (
+        "exec-action-v5",
+        "suit-against-state-law",
+        None,
     )

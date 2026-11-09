@@ -3722,7 +3722,28 @@ to it.
   where independence matters. An application the reading does not list —
   everything outside the check's window, and every later filing — falls to
   the caption rule, so the reading's reach is the check's population, not the
-  cut's.
+  cut's. `exec-action-v4` is that caption rule with three shapes added, and applies
+  no hand code: a caption and counsel entries that put the government on
+  opposite sides (`caption-counsel-conflict`), and the United States alone
+  against a state (`suit-against-state-law`), both unknown, and the United
+  States Trustee (`bankruptcy-trustee`, out). `exec-action-v5` is the hand
+  reading over it, so a later filing falls to `exec-action-v4` instead.
+  The shapes were drawn from the rows where the caption rule and the hand
+  reading differ, and most of those rows' codes were settled with the
+  published tally in view, so `exec-action-v4` is no more independent of that
+  tally than `exec-action-v3`: its closer agreement with the hand codes is a
+  fit, not a validation, and `exec-action-v2` stays the caption figure to
+  quote where independence matters. Read against the 298 hand codes,
+  `exec-action-v2` agrees with 232, is contradicted by 17, leaves 48 unknown
+  and makes a definite call on 1 the codes leave unclear; `exec-action-v4`
+  agrees with 233, is contradicted by 11 and leaves 54 unknown. Inside the
+  check's window `exec-action-v5` prints the same cut as `exec-action-v3`,
+  because the hand reading lists every row the shapes reach there (blob
+  `405d1a4b`, newest pull 2026-11-09, newest stored snapshot 2026-07-13). The
+  state shape also leaves unknown a federal suit enforcing an agency's
+  reading of a statute against a state, which the hand reading puts in scope
+  (`23A470`), and the caption cannot tell it from a suit over a state's own
+  law.
 - **An unreadable ask is in the population.** In-scope applications whose ask
   the parser could not read are counted like any other and tallied as
   `unknown_ask`. They include granted federal applications (`24A884`,
