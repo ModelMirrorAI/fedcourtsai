@@ -101,8 +101,8 @@
     {
       "label": "proc-v20",
       "since": {
-        "at": null,
-        "merge": null,
+        "at": "2026-11-08T18:17:04Z",
+        "merge": "bdc22126251ba1ef016a647715c93e1374806844",
         "source": "merge"
       }
     }
@@ -114,8 +114,8 @@
       "actor_id": "claude-baseline",
       "label": "proc-v20",
       "blessed": {
-        "at": null,
-        "merge": null,
+        "at": "2026-11-08T18:17:04Z",
+        "merge": "bdc22126251ba1ef016a647715c93e1374806844",
         "source": "merge"
       }
     },
@@ -125,8 +125,8 @@
       "actor_id": "codex-baseline",
       "label": "proc-v20",
       "blessed": {
-        "at": null,
-        "merge": null,
+        "at": "2026-11-08T18:17:04Z",
+        "merge": "bdc22126251ba1ef016a647715c93e1374806844",
         "source": "merge"
       }
     },
@@ -136,8 +136,8 @@
       "actor_id": "gemini-baseline",
       "label": "proc-v20",
       "blessed": {
-        "at": null,
-        "merge": null,
+        "at": "2026-11-08T18:17:04Z",
+        "merge": "bdc22126251ba1ef016a647715c93e1374806844",
         "source": "merge"
       }
     },
@@ -147,8 +147,8 @@
       "actor_id": "claude-judge",
       "label": "proc-v20",
       "blessed": {
-        "at": null,
-        "merge": null,
+        "at": "2026-11-08T18:17:04Z",
+        "merge": "bdc22126251ba1ef016a647715c93e1374806844",
         "source": "merge"
       }
     },
@@ -158,8 +158,8 @@
       "actor_id": "codex-judge",
       "label": "proc-v20",
       "blessed": {
-        "at": null,
-        "merge": null,
+        "at": "2026-11-08T18:17:04Z",
+        "merge": "bdc22126251ba1ef016a647715c93e1374806844",
         "source": "merge"
       }
     },
@@ -169,8 +169,8 @@
       "actor_id": "gemini-judge",
       "label": "proc-v20",
       "blessed": {
-        "at": null,
-        "merge": null,
+        "at": "2026-11-08T18:17:04Z",
+        "merge": "bdc22126251ba1ef016a647715c93e1374806844",
         "source": "merge"
       }
     }
@@ -666,8 +666,8 @@
         "source": "merge"
       },
       "closes": {
-        "at": null,
-        "merge": null,
+        "at": "2026-11-08T18:17:04Z",
+        "merge": "bdc22126251ba1ef016a647715c93e1374806844",
         "source": "merge"
       },
       "revoked_at": null
@@ -682,8 +682,8 @@
         "source": "merge"
       },
       "closes": {
-        "at": null,
-        "merge": null,
+        "at": "2026-11-08T18:17:04Z",
+        "merge": "bdc22126251ba1ef016a647715c93e1374806844",
         "source": "merge"
       },
       "revoked_at": null
@@ -698,8 +698,8 @@
         "source": "merge"
       },
       "closes": {
-        "at": null,
-        "merge": null,
+        "at": "2026-11-08T18:17:04Z",
+        "merge": "bdc22126251ba1ef016a647715c93e1374806844",
         "source": "merge"
       },
       "revoked_at": null
@@ -709,8 +709,8 @@
       "digest": "sha256:69076c7e6ef3b55358bbb298c3ab3e821f14f7ce165f7a1eed2e51a550f5ca21",
       "predictor_id": "claude-baseline",
       "opens": {
-        "at": null,
-        "merge": null,
+        "at": "2026-11-08T18:17:04Z",
+        "merge": "bdc22126251ba1ef016a647715c93e1374806844",
         "source": "merge"
       },
       "closes": null,
@@ -721,8 +721,8 @@
       "digest": "sha256:56f5da33ed8eeda29c8094135a9141710b69c76fb939abe281da85d263d238a7",
       "predictor_id": "codex-baseline",
       "opens": {
-        "at": null,
-        "merge": null,
+        "at": "2026-11-08T18:17:04Z",
+        "merge": "bdc22126251ba1ef016a647715c93e1374806844",
         "source": "merge"
       },
       "closes": null,
@@ -733,8 +733,8 @@
       "digest": "sha256:154ba5e6732eb9627dfa988245cba7a2f5a5682fa4b9bf6ac5d0c7e6e4e984de",
       "predictor_id": "gemini-baseline",
       "opens": {
-        "at": null,
-        "merge": null,
+        "at": "2026-11-08T18:17:04Z",
+        "merge": "bdc22126251ba1ef016a647715c93e1374806844",
         "source": "merge"
       },
       "closes": null,
@@ -1168,8 +1168,8 @@
     },
     {
       "name": "scrub-apostrophe-and-unit-line",
-      "merge": null,
-      "at": null,
+      "merge": "bdc22126251ba1ef016a647715c93e1374806844",
+      "at": "2026-11-08T18:17:04Z",
       "predictors": null,
       "reach": "self-represented dockets",
       "gradual": false

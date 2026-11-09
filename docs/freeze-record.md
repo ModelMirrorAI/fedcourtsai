@@ -17720,8 +17720,8 @@ freeze commit is recorded here.
 
 - **`proc-v20`, judges rebuild the statpack a candidate read, and the predict
   prompt names the Solicitor General's posted filing on a paper-only docket;
-  recorded 2026-11-07.** Carried to `main` by the promotion tagged `<FILL: promotion tag>`
-  (merge commit `<FILL: merge hash>`, merged `<FILL: merged-at>`), to be tagged
+  recorded 2026-11-07.** Carried to `main` by the promotion tagged `promotion/2026-11-08`
+  (merge commit `bdc22126251ba1ef016a647715c93e1374806844`, merged `2026-11-08T18:17:04Z`), to be tagged
   **`prereg/proc-v20`**. Registered under the merge-stamped rule, so its
   counting instant, its bless moments and every window edge it moves are the
   carrying merge's committer time. Both prompts change, so all six digests
@@ -17957,8 +17957,8 @@ freeze commit is recorded here.
   2026-10-15 entry: no digest moves, and no predict cell reads anything
   different, because capture runs after the engine, on its own log.
 
-  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
-  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by the promotion tagged `promotion/2026-11-08` (merge
+  commit `bdc22126251ba1ef016a647715c93e1374806844`, merged `2026-11-08T18:17:04Z`).
 
   **Effect check.** On `main`, once a run-predict round after the carrying
   merge has landed codex cells that called CourtListener, `jq '[.calls[] |
@@ -17999,8 +17999,8 @@ freeze commit is recorded here.
   The 2026-11-08 *document-date read* entry's date-blind codex gradings stay
   assessed: their grader saw every call.
 
-  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
-  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by the promotion tagged `promotion/2026-11-08` (merge
+  commit `bdc22126251ba1ef016a647715c93e1374806844`, merged `2026-11-08T18:17:04Z`).
 
   **Effect check.** On `main` after the carrying merge, `uv run pytest
   tests/test_integrity.py -k pre_lift` is green, and `uv run python -c "from
@@ -18109,8 +18109,8 @@ freeze commit is recorded here.
 
   **The amendment debt.** It is unchanged. This entry adds no new token.
 
-  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
-  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by the promotion tagged `promotion/2026-11-08` (merge
+  commit `bdc22126251ba1ef016a647715c93e1374806844`, merged `2026-11-08T18:17:04Z`).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_documents.py -k "appendix_letter or capitals or
