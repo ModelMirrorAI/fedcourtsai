@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000118",
+  "run_id": "20261109T171058Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "fedcourts pdf-text", "WebFetch", "statpack.md"],
+  "helpful": ["Provisioned jurisdictional statement and QPs", "same-question.json surfacing the companion dockets"],
+  "gaps": ["The motion to dismiss / response on an appeal docket (Rule 18 filings) were not provisioned as documents; they carry the decisive mootness dispute", "No statpack cut for mandatory appeals (jurisdictional statements) as distinct from cert petitions"],
+  "notes": "This cell is a §1253 direct appeal; cert-band anchors understate the grant family because denial is not an available disposition."
+}

@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000294",
+  "run_id": "20261109T171058Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "leakage-disclosure",
+      "severity": "warning",
+      "event_id": "evt-order-relist-disposition",
+      "message": "A web search for the existing Faiq filing (query: Faiq and 26-294) incidentally returned snippets of other forecasts for this petition from an external prediction website. Those pages were not opened, and the snippets' probabilities and analysis were disregarded. This flags incidental forecast contamination, not exposure to an actual disposition; no own-case outcome was sought or seen."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-order-relist-disposition",
+      "message": "The provisioned lower-court-docket.txt reports no en banc dissent noted, while petition.txt describes five dissenting judges and cites two separate rehearing writings. I treated the summary's negative as incomplete capture and relied on the petition with attribution; the original rehearing text was not provisioned."
+    }
+  ]
+}

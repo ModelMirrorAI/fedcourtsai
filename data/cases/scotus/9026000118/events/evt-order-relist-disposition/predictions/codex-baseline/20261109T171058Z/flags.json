@@ -1,0 +1,20 @@
+{
+  "case_id": "scotus/9026000118",
+  "run_id": "20261109T171058Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-order-relist-disposition",
+      "message": "The first-relist event opened November 9, 2026, but its snapshot already contains September 30 distribution for October 16 and November 2 redistribution for November 6 before the November 9 distribution for November 13. Thus the supplied baseline has three distributions and appears later than the first relist. Forecast conditioned on all three, consistent with frozen distribution_count=3; no snapshot or event modified."
+    },
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-order-relist-disposition",
+      "message": "This cert-stage cell is substantively a section 1253 direct appeal opened by a jurisdictional statement, not a discretionary cert petition. Used the frozen high-band anchor as required but adjusted for direct-appeal and summary-action posture. November 3 election-related mootness may lead to Munsingwear vacatur, scored as GVR/granted under the contract, rather than substantive merits review. Ordinary discretionary-cert base rates are an imperfect comparison population."
+    }
+  ]
+}

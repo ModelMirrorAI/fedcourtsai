@@ -1,0 +1,29 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/9026000341",
+  "gaps": [
+    "Party or counsel filter flags on `fedcourts query` (e.g., `--party` or `--attorney`) to retrieve prior cert petitions involving the same agency or public-interest litigation group without knowing docket numbers in advance."
+  ],
+  "helpful": [
+    "Provisioned `decision-below.txt`, `petition.txt`, and `questions-presented.txt` under `record/documents/`",
+    "Frozen `cert_anchor` and conditioning state in `record/context.json`",
+    "Committed base-rate tables in `metrics/statpack.md`",
+    "CourtListener MCP `search_document` and `read_document` tools for inspecting the full June 2026 opinion in `Sripetch v. SEC` and the truncated portion of the Eleventh Circuit dissent below",
+    "`fedcourts query --docket-number` for checking the corpus record of `Sripetch v. SEC` (No. 25-466)"
+  ],
+  "notes": "Provisioned `decision-below.txt` was capped at 150,000 characters inside the Eleventh Circuit majority opinion; CourtListener MCP `search_document` made it easy to verify that Judge Tjoflat's dissent addressed shotgun pleadings rather than the questions presented.",
+  "role": "predictor",
+  "run_id": "20261109T171058Z",
+  "schema_version": "1.0",
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener MCP (search, get_endpoint_item, search_document, read_document)"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

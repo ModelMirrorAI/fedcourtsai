@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000310",
+  "run_id": "20261109T171058Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_read_document"
+  ],
+  "helpful": [
+    "fedcourts query --docket-number to check the disposition of related petition No. 26-156",
+    "CourtListener MCP search and read_document to inspect the recent Ninth Circuit published opinion in Diemert v. City of Seattle",
+    "Provisioned statpack and context.json base-rate anchors"
+  ],
+  "gaps": [],
+  "notes": "Corpus query confirmed that Springfield R-12 School District v. Henderson (No. 26-156) was denied certiorari on October 5, 2026, and CourtListener MCP provided full text of the Ninth Circuit's September 28, 2026 opinion in Diemert v. City of Seattle."
+}

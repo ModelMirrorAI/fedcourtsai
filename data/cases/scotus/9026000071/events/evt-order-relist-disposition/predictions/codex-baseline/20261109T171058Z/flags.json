@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000071",
+  "run_id": "20261109T171058Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "leakage-disclosure",
+      "severity": "info",
+      "event_id": "evt-order-relist-disposition",
+      "message": "A web search restricted in its query text to supremecourt.gov for companion 25-828's September 15 United States brief unexpectedly surfaced GitHub snippets of other cases' committed prediction files. I did not open those files or use their forecasts; no own-case outcome appeared. Continued using provisioned inputs, aggregate priors, and the official companion docket and brief only."
+    }
+  ]
+}

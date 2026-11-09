@@ -1,0 +1,7 @@
+# Forecast — No. 26-8
+
+The docket shows two distributions: the original 11/6 setting, rescheduled, and the 11/13 conference. There has never been a true relist after a conference held. I expect at least one further relist after 11/13, with roughly even odds. That would most likely happen because a Justice is preparing a writing on the denial, or because the Court is choosing between a GVR and plenary review. No CVSG will issue, since no federal interest is implicated.
+
+The most likely single outcome is **denial**. The case is a poor vehicle: the appeal is interlocutory, MCPS has revised its policy, Polk has been reinstated with the accommodation she asked for, and the Title VII claim is still pending below. If the Court acts favourably, a **GVR in light of Mirabelli v. Bonta** is as likely as plenary review. Both sides' papers point to that remand (the respondent suggests it, the petitioner resists it). If the Court grants plenary review, it would most likely take QP2, the Garcetti/compelled-pronoun question that Judge Wilkinson's dissent framed, possibly narrowed to non-curricular classroom speech. It is less likely to take QP1's invitation to limit Smith.
+
+If the Court denies, a writing respecting or dissenting from the denial is a real possibility. Justice Alito is the likeliest author, then Justice Thomas, then Justice Gorsuch. Such a writing would flag the Garcetti and Smith questions for a cleaner vehicle.

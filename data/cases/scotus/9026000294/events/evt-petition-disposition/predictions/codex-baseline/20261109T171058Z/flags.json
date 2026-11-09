@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000294",
+  "run_id": "20261109T171058Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Provisioned lower-court-docket.txt reports that no rehearing dissent was noted, but petition.txt at printed pages 12–13 describes five judges dissenting in two opinions and cites appendix pages 94 and 96–131. I relied on the petition's specific account, while recognizing that the appendix and decision below were not provisioned and a CourtListener citation search returned no match. This is an input-summary discrepancy, not outcome leakage or a blocker."
+    }
+  ]
+}

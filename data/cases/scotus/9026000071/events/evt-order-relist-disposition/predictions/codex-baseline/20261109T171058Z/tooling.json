@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000071",
+  "run_id": "20261109T171058Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts paths", "fedcourts query", "local statpack", "provisioned document text", "web search", "official companion docket and invited brief", "fedcourts validate"],
+  "helpful": ["Frozen cert anchor", "Provisioned opposing briefs and appellate record", "Structured companion-docket lookup"],
+  "gaps": ["Broad web search returned unrelated prediction artifacts despite an official-domain query", "Combined command output truncation obscured the first query's transfer line"],
+  "notes": "Used /tmp uv cache after the default cache failed on a read-only filesystem; no package installation. Avoided live retrieval of this petition's own outcome. General grant query also returned an interim application, which was excluded as a cert analogue."
+}

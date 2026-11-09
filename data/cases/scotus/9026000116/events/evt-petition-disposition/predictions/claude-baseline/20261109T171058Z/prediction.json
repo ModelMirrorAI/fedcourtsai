@@ -1,0 +1,101 @@
+{
+  "big_case_rationale": "Alabama's congressional map under Section 2 after Louisiana v. Callais, a nationally watched voting-rights matter, though the injunction at issue covered only the 2026 cycle.",
+  "big_case_score": 0.8,
+  "case_id": "scotus/9026000116",
+  "claim_distributions": [
+    {
+      "claim_id": "order-writers",
+      "probabilities": {
+        "Alito": 0.07,
+        "Barrett": 0.05,
+        "Gorsuch": 0.08,
+        "Jackson": 0.4,
+        "Kagan": 0.12,
+        "Kavanaugh": 0.07,
+        "Roberts": 0.03,
+        "Sotomayor": 0.35,
+        "Thomas": 0.15
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.72
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.45
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.01
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.85
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.3
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "band_refused": null,
+    "cert_anchor": {
+      "lookback_terms": 10,
+      "rate": 0.3484455958549223,
+      "statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653"
+    },
+    "cut_anchor_index": null,
+    "cut_kind": null,
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 3,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v8",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_contact_scrub": {
+      "blocks": 0,
+      "fields": 0,
+      "sides": []
+    },
+    "snapshot_date": "2026-11-09",
+    "snapshot_provenance": "as-stored",
+    "snapshot_uptake": "read",
+    "statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+    "term": 2026,
+    "vide_links": []
+  },
+  "created_at": "2026-11-09T17:36:39.266777Z",
+  "engine": "claude-code",
+  "event_id": "evt-petition-disposition",
+  "granted": 1,
+  "input_snapshot": "2026-11-09.json",
+  "judgment": null,
+  "model": "claude-opus-5-5",
+  "predicted_disposition": "gvr",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.72,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:69076c7e6ef3b55358bbb298c3ab3e821f14f7ce165f7a1eed2e51a550f5ca21",
+    "label": "proc-v20",
+    "pipeline_sha": "f3108c6d8ff690e7bb71e9615393fabbe929a346",
+    "stamped_at": "2026-11-09T17:36:39.266777Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261109T171058Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

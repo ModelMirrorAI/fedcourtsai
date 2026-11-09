@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000239",
+  "run_id": "20261109T171058Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "CourtListener MCP search",
+    "web search and official-source open",
+    "committed statpack",
+    "fedcourts validate"
+  ],
+  "helpful": [
+    "Frozen federal cert anchor reproduced exactly from prior-Term statpack counts.",
+    "Staged opposition and reply identified the independent-vacatur vehicle objection and D.V.D. hold alternative.",
+    "Companion corpus lookup independently confirmed the separate grant identified in the staged reply."
+  ],
+  "gaps": [
+    "The default uv cache directory was read-only; setting UV_CACHE_DIR under /tmp and disabling sync resolved CLI startup.",
+    "Verbose corpus attorney metadata truncated a combined response; compact field projection was needed for usable retrieval output.",
+    "Web-tool calls returned no readable response payload, preventing independent official-opinion and companion-docket review."
+  ],
+  "notes": "No installations, credential access, or current-case outcome retrieval. Petition and lower-court opinion truncation were disclosed. Increment probabilities are judgment calls because the available cuts are terminal rather than forward hazards."
+}

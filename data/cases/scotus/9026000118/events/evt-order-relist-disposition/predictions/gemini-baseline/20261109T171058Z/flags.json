@@ -1,0 +1,15 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/9026000118",
+  "flags": [
+    {
+      "category": "provisioning",
+      "event_id": "evt-order-relist-disposition",
+      "message": "On this 28 U.S.C. 1253 direct appeal docket, Appellees filed a 'Motion to dismiss' on September 18, 2026 (rather than a 'Motion to dismiss or affirm') and Appellants filed a 'Response to motion to dismiss' on September 29, 2026. Both entries carry supremecourt.gov DocketPDF URLs in snapshots/2026-11-09.json, but neither filing was provisioned into record/documents/documents.json.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20261109T171058Z",
+  "schema_version": "1.0"
+}

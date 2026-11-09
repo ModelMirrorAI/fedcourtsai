@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000297",
+  "run_id": "20261109T171058Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-order-call-for-response-disposition",
+      "message": "The separately provisioned decision-below.txt prints Decided: June 4, 2025 on its face, while the filing headers, snapshot, petition, and amended appendix identify the judgment as June 4, 2026. Treated as an apparent source-document year typo; used June 4, 2026 and preferred the amended appendix. This did not block the forecast."
+    }
+  ]
+}

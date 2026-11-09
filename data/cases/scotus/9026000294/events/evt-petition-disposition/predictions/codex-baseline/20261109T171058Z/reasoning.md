@@ -1,0 +1,37 @@
+# Rationale
+
+## Call and information state
+
+I assign a **32% probability of any grant**, including a grant-vacate-remand or summary reversal, and predict denial as the most likely single disposition. This is a cert-stage distribution-moment forecast, not a merits forecast. I read the provisioned `record/snapshots/2026-11-09.json` and condition on its two distributions: October 21 for the November 6 conference, and November 9 for the November 13 conference. This is an actual post-conference redistribution, not merely two advance scheduling entries. There is no CVSG on the record. The only amicus-brief entry on this docket is Faiq's October 5 filing; its title does not make it a party's brief in opposition.
+
+The cell is forward mode with no cutoff. I did not retrieve this petition's own disposition or subsequent history and do not know its outcome. The forecast rests on the supplied record, not an inference from missing later entries.
+
+## Anchor and adjustments
+
+The authoritative context assigns `elevated` under `sal-v8` and supplies a frozen prior-Term reached-band anchor of **0.24813153961136025**, using a ten-Term lookback. That is my principal starting point, not the lower rate among cases that ultimately ended in this band. The matching sal-v8 table in `metrics/statpack.md` shows prior elevated risk sets from Terms 2017–2025; I exclude the case's own 2026 row. The modern whole-docket table reports 639 plenary grants and 637 GVRs against 43,342 denials and 919 dismissals: roughly 2.8% grant-family outcomes, useful background but not this selected petition's anchor.
+
+The paid-segment terminal relist buckets provide a cross-check, not a forward transition model: one relist has 13.5% grant-family outcomes among 2,532 resolved petitions; two relists has 41.2% among 495; three or more has 37.3% among 483. These are terminal populations and cannot replace the reached-band anchor or directly price another relist. Similarly, the CVSG group has 34.8% grants plus GVRs among 164 resolved petitions, versus 6.4% among 13,550 without a CVSG. A future invitation remains uncertain, not an observed signal to add twice.
+
+The one-amicus bucket has 14.9% grant-family outcomes, n=1,159 resolved (1,209 total). This is a terminal-count, marginal stakes proxy; it neither measures supporting amici alone nor supplies an independent multiplier. I give this filing little positive weight without its text, since an Afghan representative's intervention could oppose attachment. I do not transfer the separate Iowa amicus on companion 26-292 onto this docket.
+
+I move the frozen anchor upward by about seven percentage points for the combination of a true first relist, an identified legal disagreement, and unusual stakes. This is a judgment adjustment to the anchor, not a statistical estimate or a second mechanical relist bonus.
+
+## Petition strengths and weaknesses
+
+The fully extracted, untruncated `petition.txt`, especially printed pages 2–3, 10–17 and 23–25, presents a substantial issue: whether Executive recognition evidence controls foreign-state status under the Foreign Sovereign Immunities Act, rather than merely informing an independent statutory determination. The petition reports a divided panel and five judges dissenting from denial of rehearing en banc. Its account of approximately $3.5 billion in available assets and a $5.2 billion judgment explains the stakes. The provisioned question presented focuses on judicial interpretation versus Executive deference, not every route to collecting the judgment.
+
+But the asserted circuit conflict is less clean than the question's framing implies. As the petition itself describes them, OI European Group concerns Venezuela's instrumentality and alter-ego relationship under rival governments; Ungar concerns Palestinian entities' statehood; and O'Bryan concerns the Holy See. Those are relevant analogies, not demonstrated opposite outcomes on the same Afghan-central-bank question. The panel's distinction between recognition of a state and recognition of its current government offers a potentially narrower explanation than wholesale surrender of statutory interpretation. Nonrecognition of the Taliban does not, without more analysis, establish that Afghanistan has ceased to be a state or that DAB's property belongs to the Taliban. Those are vehicle and merits uncertainties, not findings against petitioners.
+
+The Taliban and DAB did not appear below according to the petition; the supplied Supreme Court record likewise shows no respondent BIO. The absence of an adversarial merits presentation and the possibility of alternative obstacles to execution temper the attractive separation-of-powers framing. The United States' district-court letter matters, but I have no current Solicitor General recommendation and do not treat that earlier letter as one.
+
+## Companions, procedural forecasts and limitations
+
+Both related records are formal **Vide** links, not inferred shared-amicus matches: 26-292 and 26-293. Their staged records show distribution for November 6, and 26-292 additionally shows an October 30 motion for leave to file a supplemental brief. Neither staged companion establishes a grant or hold; their lack of a November 9 redistribution does not prove differential treatment. Their shared asset dispute raises the possibility that another petition becomes the lead vehicle and this one later receives derivative treatment, contributing to my 25% summary-route probability conditional on a grant. The empty same-question list supplies no additional lead case.
+
+I assign 58% to at least one additional distribution beyond the two observed and 35% to a new CVSG. The unusually direct federal foreign-relations interest supports an invitation much more strongly than a routine private civil dispute would, but the Court may simply deny. The most likely eventual denial is unsigned, with a 10% conditional chance of a dissent or statement. The small independent order-writer probabilities reflect that aggregate view; Thomas, Alito and Gorsuch are my likeliest potential authors, not predicted cert votes.
+
+The lower-court docket summary records denial of rehearing but says no dissent was noted, whereas the petition expressly describes and cites five dissenting judges. I prefer the petition's specific account but flag the discrepancy; the actual lower opinion and appendix were not provisioned, and a CourtListener citation search returned no match. The petition's references to its appendix are not a substitute for my independently reading that appendix. The Faiq brief and companion supplemental filing were also not provisioned as text. These gaps limit confidence in split and vehicle assessment without making the cell unfinishable.
+
+The corpus's Samantar citation lookup was empty with an express sparse-citation warning. A broader grant-filtered lookup returned unrelated recent grants with distribution counts of two, four and five; these illustrate procedural variety, not a matched comparison set or a frequency estimate. Web attempts for general recognition/immunity authorities returned no usable material. No external opinion text entered the legal assessment. The initial CLI invocation encountered a read-only default uv cache; subsequent commands use a temporary cache and `--no-sync`, without installing packages.
+
+The stakes score of 0.82 measures the financial, humanitarian and institutional importance if decided, not the probability that the Court agrees to hear this particular petition.

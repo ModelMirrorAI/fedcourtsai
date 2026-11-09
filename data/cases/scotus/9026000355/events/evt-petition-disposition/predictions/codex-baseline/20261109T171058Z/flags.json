@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000355",
+  "run_id": "20261109T171058Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Provisioned same-question.json declares cutoff 2026-11-10, one day after both the 2026-11-09 snapshot and this run's current date. Its petitions array is empty; no related-case fact or outcome was exposed. I did not rely on that file as a timing-consistent or exhaustive companion search. This metadata discrepancy does not block the forecast."
+    }
+  ]
+}

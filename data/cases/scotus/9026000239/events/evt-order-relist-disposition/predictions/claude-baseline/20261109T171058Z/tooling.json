@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000239",
+  "run_id": "20261109T171058Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md"],
+  "helpful": ["cert_anchor frozen in context.json", "provisioned petition/BIO/reply text"],
+  "gaps": ["query --help era values are not shown up front; 'modern' fails while the statpack uses 'modern' wording"],
+  "notes": "Straightforward SG petition at first relist."
+}

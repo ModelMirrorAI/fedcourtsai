@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000341",
+  "run_id": "20261109T171058Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["shell read-only inspection", "fedcourts paths", "fedcourts query", "CourtListener MCP search and opinion access", "web search", "fedcourts validate"],
+  "helpful": ["Frozen cert anchor", "Provisioned petition and lower opinion", "Paid-segment statpack cuts", "CourtListener literal opinion search"],
+  "gaps": ["Default uv cache is read-only; used /tmp cache and --no-sync", "Sparse corpus reporter-citation coverage", "Provisioned decision truncation omits the dissent", "Web search surfaced no primary-source results"],
+  "notes": "CourtListener supplied the recent Sripetch decision and the opening of the lower-court dissent. No packages were installed. The requested government response is not yet due in the snapshot."
+}

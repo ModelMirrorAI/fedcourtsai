@@ -1,0 +1,9 @@
+# Forecast — No. 26-310, Young v. Colorado Department of Corrections
+
+**State forecast from:** one distribution (for the 11/6/2026 conference), then a Response Requested on Oct 22, 2026 (due Nov 23). No CVSG. Two amicus briefs supporting the petitioner (20 States; Buckeye Institute).
+
+- **Relisting:** the petition will be distributed again once the State's brief in opposition and any reply are in — most likely for a mid-December 2026 or early-January 2027 conference. I expect it to be decided at that first post-response conference or after one relist; a run of two-plus relists would signal either a grant in the making or a dissent from denial being written.
+- **CVSG:** none expected. Colorado is the respondent and will file its own opposition; the Court has no reason to seek the Solicitor General's view on a Title VII pleading question.
+- **Disposition:** denied (about 86%). The BIO will frame the case as a fact-bound application of the settled "severe or pervasive" standard to one training session, distinguish Chislett, and point to pending CA3 (De Piero) and CA9 (Diemert) appeals as better future vehicles.
+- **If granted:** the Court would take the QP as written — whether employer-mandated training conveying racial stereotypes can alone be sufficiently severe to state a hostile-environment claim without repetition — likely reformulated around whether the Tenth Circuit applied a categorical single-incident rule. Plenary review, not a summary disposition; no intervening decision supports a GVR.
+- **Separate writing:** a meaningful chance (about one in five, given a denial) that a Justice — most likely Justice Thomas or Justice Alito, possibly Justice Gorsuch — writes a dissent from or statement respecting denial, flagging DEI-training harassment as an issue for a future case.

@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000459",
+  "run_id": "20261109T171058Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts paths", "fedcourts query", "committed statpack", "CourtListener MCP search", "CourtListener MCP read_document", "CourtListener MCP search_document", "web.run", "fedcourts validate"],
+  "helpful": ["Frozen risk-set cert anchor", "Provisioned petition and matching appellate opinion", "Snapshot response-request entry", "MCP targeted precedent excerpts"],
+  "gaps": ["Default uv cache path is read-only; writable temporary cache override was necessary", "Web calls returned no visible results", "Corpus structured filters cannot directly isolate this legal issue"],
+  "notes": "No packages installed. Corrected invalid era modern to 2020s after the CLI's explicit vocabulary guidance. Government opposition is not yet due, so the principal remaining uncertainty is substantive rather than a provisioning failure."
+}
