@@ -897,28 +897,6 @@
     },
     {
       "argument": null,
-      "case_id": "scotus/9026000018",
-      "conferences": [
-        {
-          "conference": "2026-09-28",
-          "distributed": "2026-07-29",
-          "transition": "first"
-        },
-        {
-          "conference": "2026-11-06",
-          "distributed": "2026-10-21",
-          "transition": "reschedule"
-        }
-      ],
-      "distributed_for_conference": "2026-11-06",
-      "last_live_polled": "2026-11-09",
-      "next_conference": null,
-      "relists": 0,
-      "response_due": null,
-      "stale_reason": "conference_passed"
-    },
-    {
-      "argument": null,
       "case_id": "scotus/9026000019",
       "conferences": null,
       "distributed_for_conference": "2026-09-28",
@@ -1060,23 +1038,6 @@
     },
     {
       "argument": null,
-      "case_id": "scotus/9026000055",
-      "conferences": [
-        {
-          "conference": "2026-11-06",
-          "distributed": "2026-10-14",
-          "transition": "first"
-        }
-      ],
-      "distributed_for_conference": "2026-11-06",
-      "last_live_polled": "2026-11-09",
-      "next_conference": null,
-      "relists": 0,
-      "response_due": null,
-      "stale_reason": "conference_passed"
-    },
-    {
-      "argument": null,
       "case_id": "scotus/9026000060",
       "conferences": null,
       "distributed_for_conference": "2026-09-28",
@@ -1121,31 +1082,19 @@
           "conference": "2026-11-06",
           "distributed": "2026-10-07",
           "transition": "reschedule"
-        }
-      ],
-      "distributed_for_conference": "2026-11-06",
-      "last_live_polled": "2026-11-09",
-      "next_conference": null,
-      "relists": 0,
-      "response_due": null,
-      "stale_reason": "conference_passed"
-    },
-    {
-      "argument": null,
-      "case_id": "scotus/9026000087",
-      "conferences": [
+        },
         {
-          "conference": "2026-11-06",
-          "distributed": "2026-10-07",
-          "transition": "first"
+          "conference": "2026-11-13",
+          "distributed": "2026-11-09",
+          "transition": "relist"
         }
       ],
-      "distributed_for_conference": "2026-11-06",
+      "distributed_for_conference": "2026-11-13",
       "last_live_polled": "2026-11-09",
-      "next_conference": null,
-      "relists": 0,
+      "next_conference": "2026-11-13",
+      "relists": 1,
       "response_due": null,
-      "stale_reason": "conference_passed"
+      "stale_reason": null
     },
     {
       "argument": null,
@@ -1205,14 +1154,19 @@
           "conference": "2026-11-06",
           "distributed": "2026-10-21",
           "transition": "reschedule"
+        },
+        {
+          "conference": "2026-11-13",
+          "distributed": "2026-11-09",
+          "transition": "reschedule"
         }
       ],
-      "distributed_for_conference": "2026-11-06",
+      "distributed_for_conference": "2026-11-13",
       "last_live_polled": "2026-11-09",
-      "next_conference": null,
+      "next_conference": "2026-11-13",
       "relists": 0,
       "response_due": null,
-      "stale_reason": "conference_passed"
+      "stale_reason": null
     },
     {
       "argument": null,
@@ -1257,28 +1211,6 @@
     },
     {
       "argument": null,
-      "case_id": "scotus/9026000107",
-      "conferences": [
-        {
-          "conference": "2026-09-28",
-          "distributed": "2026-09-02",
-          "transition": "first"
-        },
-        {
-          "conference": "2026-11-06",
-          "distributed": "2026-10-21",
-          "transition": "reschedule"
-        }
-      ],
-      "distributed_for_conference": "2026-11-06",
-      "last_live_polled": "2026-11-09",
-      "next_conference": null,
-      "relists": 0,
-      "response_due": null,
-      "stale_reason": "conference_passed"
-    },
-    {
-      "argument": null,
       "case_id": "scotus/9026000110",
       "conferences": null,
       "distributed_for_conference": "2026-09-28",
@@ -1309,37 +1241,92 @@
     },
     {
       "argument": null,
-      "case_id": "scotus/9026000115",
+      "case_id": "scotus/9026000116",
       "conferences": [
         {
-          "conference": "2026-11-06",
-          "distributed": "2026-10-14",
+          "conference": "2026-10-16",
+          "distributed": "2026-09-30",
           "transition": "first"
+        },
+        {
+          "conference": "2026-11-06",
+          "distributed": "2026-11-02",
+          "transition": "redistributed"
+        },
+        {
+          "conference": "2026-11-13",
+          "distributed": "2026-11-09",
+          "transition": "relist"
         }
       ],
-      "distributed_for_conference": "2026-11-06",
+      "distributed_for_conference": "2026-11-13",
       "last_live_polled": "2026-11-09",
-      "next_conference": null,
-      "relists": 0,
+      "next_conference": "2026-11-13",
+      "relists": 1,
       "response_due": null,
-      "stale_reason": "conference_passed"
+      "stale_reason": null
     },
     {
       "argument": null,
-      "case_id": "scotus/9026000119",
+      "case_id": "scotus/9026000117",
       "conferences": [
         {
-          "conference": "2026-11-06",
-          "distributed": "2026-10-14",
+          "conference": "2026-10-16",
+          "distributed": "2026-09-30",
           "transition": "first"
+        },
+        {
+          "conference": "2026-11-06",
+          "distributed": "2026-11-02",
+          "transition": "redistributed"
+        },
+        {
+          "conference": "2026-11-13",
+          "distributed": "2026-11-09",
+          "transition": "relist"
         }
       ],
-      "distributed_for_conference": "2026-11-06",
+      "distributed_for_conference": "2026-11-13",
       "last_live_polled": "2026-11-09",
-      "next_conference": null,
-      "relists": 0,
-      "response_due": null,
-      "stale_reason": "conference_passed"
+      "next_conference": "2026-11-13",
+      "relists": 1,
+      "response_due": {
+        "set_for": "2026-09-18",
+        "stale_reason": "passed",
+        "upcoming": null
+      },
+      "stale_reason": null
+    },
+    {
+      "argument": null,
+      "case_id": "scotus/9026000118",
+      "conferences": [
+        {
+          "conference": "2026-10-16",
+          "distributed": "2026-09-30",
+          "transition": "first"
+        },
+        {
+          "conference": "2026-11-06",
+          "distributed": "2026-11-02",
+          "transition": "redistributed"
+        },
+        {
+          "conference": "2026-11-13",
+          "distributed": "2026-11-09",
+          "transition": "relist"
+        }
+      ],
+      "distributed_for_conference": "2026-11-13",
+      "last_live_polled": "2026-11-09",
+      "next_conference": "2026-11-13",
+      "relists": 1,
+      "response_due": {
+        "set_for": "2026-09-18",
+        "stale_reason": "passed",
+        "upcoming": null
+      },
+      "stale_reason": null
     },
     {
       "argument": null,
@@ -1611,28 +1598,6 @@
     },
     {
       "argument": null,
-      "case_id": "scotus/9026000222",
-      "conferences": [
-        {
-          "conference": "2026-09-28",
-          "distributed": "2026-09-02",
-          "transition": "first"
-        },
-        {
-          "conference": "2026-11-06",
-          "distributed": "2026-10-21",
-          "transition": "reschedule"
-        }
-      ],
-      "distributed_for_conference": "2026-11-06",
-      "last_live_polled": "2026-11-09",
-      "next_conference": null,
-      "relists": 0,
-      "response_due": null,
-      "stale_reason": "conference_passed"
-    },
-    {
-      "argument": null,
       "case_id": "scotus/9026000223",
       "conferences": null,
       "distributed_for_conference": "2026-10-09",
@@ -1680,14 +1645,19 @@
           "conference": "2026-11-06",
           "distributed": "2026-10-07",
           "transition": "first"
+        },
+        {
+          "conference": "2026-11-13",
+          "distributed": "2026-11-09",
+          "transition": "relist"
         }
       ],
-      "distributed_for_conference": "2026-11-06",
+      "distributed_for_conference": "2026-11-13",
       "last_live_polled": "2026-11-09",
-      "next_conference": null,
-      "relists": 0,
+      "next_conference": "2026-11-13",
+      "relists": 1,
       "response_due": null,
-      "stale_reason": "conference_passed"
+      "stale_reason": null
     },
     {
       "argument": null,
@@ -1702,23 +1672,6 @@
         "stale_reason": null,
         "upcoming": "2026-11-17"
       },
-      "stale_reason": "conference_passed"
-    },
-    {
-      "argument": null,
-      "case_id": "scotus/9026000241",
-      "conferences": [
-        {
-          "conference": "2026-11-06",
-          "distributed": "2026-10-07",
-          "transition": "first"
-        }
-      ],
-      "distributed_for_conference": "2026-11-06",
-      "last_live_polled": "2026-11-09",
-      "next_conference": null,
-      "relists": 0,
-      "response_due": null,
       "stale_reason": "conference_passed"
     },
     {
@@ -1743,23 +1696,6 @@
         {
           "conference": "2026-11-06",
           "distributed": "2026-10-21",
-          "transition": "first"
-        }
-      ],
-      "distributed_for_conference": "2026-11-06",
-      "last_live_polled": "2026-11-09",
-      "next_conference": null,
-      "relists": 0,
-      "response_due": null,
-      "stale_reason": "conference_passed"
-    },
-    {
-      "argument": null,
-      "case_id": "scotus/9026000249",
-      "conferences": [
-        {
-          "conference": "2026-11-06",
-          "distributed": "2026-10-14",
           "transition": "first"
         }
       ],
@@ -1802,41 +1738,81 @@
     },
     {
       "argument": null,
-      "case_id": "scotus/9026000290",
+      "case_id": "scotus/9026000292",
       "conferences": [
         {
           "conference": "2026-11-06",
           "distributed": "2026-10-21",
           "transition": "first"
+        },
+        {
+          "conference": "2026-11-13",
+          "distributed": "2026-11-09",
+          "transition": "relist"
         }
       ],
-      "distributed_for_conference": "2026-11-06",
+      "distributed_for_conference": "2026-11-13",
       "last_live_polled": "2026-11-09",
-      "next_conference": null,
-      "relists": 0,
+      "next_conference": "2026-11-13",
+      "relists": 1,
       "response_due": {
         "set_for": "2026-10-05",
         "stale_reason": "passed",
         "upcoming": null
       },
-      "stale_reason": "conference_passed"
+      "stale_reason": null
     },
     {
       "argument": null,
-      "case_id": "scotus/9026000296",
+      "case_id": "scotus/9026000293",
       "conferences": [
         {
           "conference": "2026-11-06",
-          "distributed": "2026-10-14",
+          "distributed": "2026-10-21",
           "transition": "first"
+        },
+        {
+          "conference": "2026-11-13",
+          "distributed": "2026-11-09",
+          "transition": "relist"
         }
       ],
-      "distributed_for_conference": "2026-11-06",
+      "distributed_for_conference": "2026-11-13",
       "last_live_polled": "2026-11-09",
-      "next_conference": null,
-      "relists": 0,
-      "response_due": null,
-      "stale_reason": "conference_passed"
+      "next_conference": "2026-11-13",
+      "relists": 1,
+      "response_due": {
+        "set_for": "2026-10-05",
+        "stale_reason": "passed",
+        "upcoming": null
+      },
+      "stale_reason": null
+    },
+    {
+      "argument": null,
+      "case_id": "scotus/9026000294",
+      "conferences": [
+        {
+          "conference": "2026-11-06",
+          "distributed": "2026-10-21",
+          "transition": "first"
+        },
+        {
+          "conference": "2026-11-13",
+          "distributed": "2026-11-09",
+          "transition": "relist"
+        }
+      ],
+      "distributed_for_conference": "2026-11-13",
+      "last_live_polled": "2026-11-09",
+      "next_conference": "2026-11-13",
+      "relists": 1,
+      "response_due": {
+        "set_for": "2026-10-05",
+        "stale_reason": "passed",
+        "upcoming": null
+      },
+      "stale_reason": null
     },
     {
       "argument": null,
@@ -1914,23 +1890,6 @@
         "stale_reason": null,
         "upcoming": "2026-11-19"
       },
-      "stale_reason": "conference_passed"
-    },
-    {
-      "argument": null,
-      "case_id": "scotus/9026000314",
-      "conferences": [
-        {
-          "conference": "2026-11-06",
-          "distributed": "2026-10-14",
-          "transition": "first"
-        }
-      ],
-      "distributed_for_conference": "2026-11-06",
-      "last_live_polled": "2026-11-09",
-      "next_conference": null,
-      "relists": 0,
-      "response_due": null,
       "stale_reason": "conference_passed"
     },
     {
@@ -2092,23 +2051,6 @@
     },
     {
       "argument": null,
-      "case_id": "scotus/9026000351",
-      "conferences": [
-        {
-          "conference": "2026-11-06",
-          "distributed": "2026-10-21",
-          "transition": "first"
-        }
-      ],
-      "distributed_for_conference": "2026-11-06",
-      "last_live_polled": "2026-11-09",
-      "next_conference": null,
-      "relists": 0,
-      "response_due": null,
-      "stale_reason": "conference_passed"
-    },
-    {
-      "argument": null,
       "case_id": "scotus/9026000352",
       "conferences": null,
       "distributed_for_conference": "2026-11-13",
@@ -2152,23 +2094,6 @@
         "stale_reason": null,
         "upcoming": "2026-11-18"
       },
-      "stale_reason": "conference_passed"
-    },
-    {
-      "argument": null,
-      "case_id": "scotus/9026000359",
-      "conferences": [
-        {
-          "conference": "2026-11-06",
-          "distributed": "2026-10-14",
-          "transition": "first"
-        }
-      ],
-      "distributed_for_conference": "2026-11-06",
-      "last_live_polled": "2026-11-09",
-      "next_conference": null,
-      "relists": 0,
-      "response_due": null,
       "stale_reason": "conference_passed"
     },
     {
@@ -2457,23 +2382,6 @@
     },
     {
       "argument": null,
-      "case_id": "scotus/9026000405",
-      "conferences": [
-        {
-          "conference": "2026-11-06",
-          "distributed": "2026-10-21",
-          "transition": "first"
-        }
-      ],
-      "distributed_for_conference": "2026-11-06",
-      "last_live_polled": "2026-11-09",
-      "next_conference": null,
-      "relists": 0,
-      "response_due": null,
-      "stale_reason": "conference_passed"
-    },
-    {
-      "argument": null,
       "case_id": "scotus/9026000420",
       "conferences": null,
       "distributed_for_conference": "2026-11-13",
@@ -2567,23 +2475,6 @@
       "relists": null,
       "response_due": null,
       "stale_reason": null
-    },
-    {
-      "argument": null,
-      "case_id": "scotus/9026000436",
-      "conferences": [
-        {
-          "conference": "2026-11-06",
-          "distributed": "2026-10-07",
-          "transition": "first"
-        }
-      ],
-      "distributed_for_conference": "2026-11-06",
-      "last_live_polled": "2026-11-09",
-      "next_conference": null,
-      "relists": 0,
-      "response_due": null,
-      "stale_reason": "conference_passed"
     },
     {
       "argument": null,
@@ -2689,28 +2580,6 @@
       "last_live_polled": "2026-11-07",
       "next_conference": null,
       "relists": null,
-      "response_due": null,
-      "stale_reason": "conference_passed"
-    },
-    {
-      "argument": null,
-      "case_id": "scotus/9026000462",
-      "conferences": [
-        {
-          "conference": "2026-09-28",
-          "distributed": "2026-09-09",
-          "transition": "first"
-        },
-        {
-          "conference": "2026-11-06",
-          "distributed": "2026-10-14",
-          "transition": "redistributed"
-        }
-      ],
-      "distributed_for_conference": "2026-11-06",
-      "last_live_polled": "2026-11-09",
-      "next_conference": null,
-      "relists": 0,
       "response_due": null,
       "stale_reason": "conference_passed"
     },
