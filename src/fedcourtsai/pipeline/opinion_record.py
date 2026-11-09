@@ -238,6 +238,8 @@ _ROLE_WORDS = (
     r"(?:concurring|dissenting)"
     rf"(?:(?:\s*,)?\s+(?:{_PARTS}|in|part|the|judgment|and|concurring|dissenting))*"
 )
+_ROLE_CONTINUES_RE = re.compile(r"^(?:[a-z]|(?:and|in|the|part)\b)")
+_ROLE_DANGLES_RE = re.compile(r"\b(?:and|in|the|part\s+and)\s*$", re.I)
 _SEPARATE_RE = re.compile(
     rf"^(?P<authors>{_NAME_LIST})(?P<with>\s*,\s*with\s+whom\s+.+?)?\s*,\s*"
     rf"(?P<role>{_ROLE_WORDS}){_MARK}\s*\.",
@@ -335,7 +337,12 @@ def read_header(text: str, *, bench: Sequence[str]) -> Header | None:  # noqa: P
         first = next((line for line in text.splitlines() if line.strip()), "")
         line = _SPLIT_WORD_RE.sub(r"\1\2", normalize_order_text(first)).rstrip()
         whole = _SEPARATE_RE.fullmatch(f"{line}.") if line and not line.endswith(".") else None
-        match = whole
+        # A role that wraps onto the next line is not whole: refuse it rather
+        # than read its first half as the kind.
+        rest = [ln.strip() for ln in text.splitlines() if ln.strip()][1:2]
+        wraps = bool(rest) and _ROLE_CONTINUES_RE.match(rest[0]) is not None
+        if whole is not None and not wraps and not _ROLE_DANGLES_RE.search(whole.group("role")):
+            match = whole
     if match is not None:
         authors = _names(match.group("authors"), bench)
         joins = _joins(match.group("with") or "", bench)
@@ -982,6 +989,16 @@ def volume_page(entry: OpinionListing) -> int | None:
     return int(found.group(1)) if found else None
 
 
+def volume_format(url: str) -> str | None:
+    """The source format a reading of ``url`` must carry when it is a volume slice.
+
+    ``None`` for a link with no page anchor, which is a document of its own.
+    """
+    if _PAGE_ANCHOR_RE.search(url) is None:
+        return None
+    return BOUND_VOLUME if "/boundvolumes/" in url else PRELIMINARY_PRINT_VOLUME
+
+
 def case_start_pages(reader: PdfReader) -> list[int]:
     """The 1-based pages of a volume that open a case: the Term's head near the top."""
     starts: list[int] = []
@@ -1007,6 +1024,7 @@ def slice_pages(reader: PdfReader, first: int, last: int) -> bytes:
 class _Volume:
     reader: PdfReader | None
     case_starts: list[int]
+    refusal: str | None = None
 
 
 class VolumeReader:
@@ -1025,25 +1043,29 @@ class VolumeReader:
         self._volumes: dict[str, _Volume] = {}
 
     def _volume(self, url: str) -> _Volume:
+        """The volume at ``url``, fetched and read once; a failure is kept too."""
         if url not in self._volumes:
-            data = self._fetcher.opinion(url)
-            reader = PdfReader(io.BytesIO(data)) if data is not None else None
-            starts = case_start_pages(reader) if reader is not None else []
-            self._volumes[url] = _Volume(reader, starts)
+            try:
+                data = self._fetcher.opinion(url)
+                reader = PdfReader(io.BytesIO(data)) if data is not None else None
+                starts = case_start_pages(reader) if reader is not None else []
+                volume = _Volume(reader, starts)
+            except httpx.HTTPError as exc:
+                volume = _Volume(None, [], f"fetch failed: {exc}")
+            except (PyPdfError, ValueError, TypeError) as exc:
+                volume = _Volume(None, [], f"the volume could not be read: {exc}")
+            self._volumes[url] = volume
         return self._volumes[url]
 
-    def read(self, entry: OpinionListing) -> OpinionDocumentReading:  # noqa: PLR0911 - one return per refusal
+    def read(self, entry: OpinionListing) -> OpinionDocumentReading:
         """Slice ``entry``'s case out of its volume and read it, or say why not."""
         first = volume_page(entry)
-        if first is None:
+        if first is None or first < 1:
             return _base(entry, status="refused", reason="the volume link names no page")
         url = volume_url(entry)
-        try:
-            volume = self._volume(url)
-        except httpx.HTTPError as exc:
-            return _base(entry, status="refused", reason=f"fetch failed: {exc}")
-        except (PyPdfError, ValueError, TypeError) as exc:
-            return _base(entry, status="refused", reason=f"the volume could not be read: {exc}")
+        volume = self._volume(url)
+        if volume.refusal is not None:
+            return _base(entry, status="refused", reason=volume.refusal)
         if volume.reader is None:
             return _base(entry, status="refused", reason="the volume is not served")
         total = len(volume.reader.pages)
@@ -1051,7 +1073,7 @@ class VolumeReader:
             return _base(entry, status="refused", reason="the link's page is past the volume")
         later = [p for p in (*self._anchors.get(url, ()), *volume.case_starts) if p > first]
         last = min(later, default=total + 1) - 1
-        fmt = BOUND_VOLUME if "/boundvolumes/" in url else PRELIMINARY_PRINT_VOLUME
+        fmt = volume_format(entry.url) or PRELIMINARY_PRINT_VOLUME
         try:
             data = slice_pages(volume.reader, first, last)
         except (PyPdfError, ValueError, TypeError) as exc:
@@ -1609,6 +1631,11 @@ def _opinions_problem(reading: OpinionDocumentReading) -> str | None:  # noqa: P
         return "numbers its opinions out of order"
     if reading.source_format not in SOURCE_FORMATS:
         return f"names no known source format: {str(reading.source_format)[:40]!r}"
+    sliced = volume_format(reading.url)
+    if sliced is not None and reading.source_format != sliced:
+        return f"is a volume slice yet names source format {reading.source_format!r}"
+    if sliced is None and reading.source_format in (PRELIMINARY_PRINT_VOLUME, BOUND_VOLUME):
+        return "names a volume source format for a document of its own"
     if reading.lineup is None or not _STAMP_RE.match(reading.lineup):
         return "carries no reader stamp"
     for o in opinions:

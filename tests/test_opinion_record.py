@@ -154,6 +154,12 @@ def test_headers_read_lead_per_curiam_and_separate_writings() -> None:
     assert unstopped is not None and unstopped.kind is WritingKind.dissent
     # Without its period, a header must be the whole of its line.
     assert read_header("Justice Kagan, dissenting from the view that", bench=BENCH) is None
+    # Nor may its role run on to the next line, or end on a word that wants one.
+    for wrapped in (
+        "JUSTICE GORSUCH, concurring in part\nand dissenting in part\nI agree",
+        "JUSTICE GORSUCH, concurring in part and\ndissenting in part\nI agree",
+    ):
+        assert read_header(wrapped, bench=BENCH) is None, wrapped
     dissent_parts = read_header("Justice Kagan, dissenting in Parts I and II.", bench=BENCH)
     assert dissent_parts is not None
     assert dissent_parts.kind is WritingKind.concurrence_in_part_dissent_in_part
@@ -1829,3 +1835,48 @@ def test_a_sweep_still_skips_volume_rows_unfetched() -> None:
     )
     assert fetcher.fetched == []
     assert [r.status for r in result.readings] == ["skipped"]
+
+
+def test_a_failed_volume_is_fetched_once_and_refuses_each_of_its_rows() -> None:
+    class _Failing(_VolumeFetcher):
+        def opinion(self, url: str) -> bytes | None:
+            self.fetched.append(url)
+            raise httpx.ConnectError("refused")
+
+    fetcher = _Failing([_volume_row("1", 1), _volume_row("2", 3)], None)
+    result = opinion_record.read_opinion_record(fetcher, terms=[2018], recorded=set())
+    assert fetcher.fetched == [_VOLUME]
+    assert [r.reason for r in result.readings] == ["fetch failed: refused"] * 2
+    garbled = opinion_record.read_opinion_record(
+        _VolumeFetcher([_volume_row("1", 1)], b"not a pdf"), terms=[2018], recorded=set()
+    )
+    assert (garbled.readings[0].reason or "").startswith("the volume could not be read")
+
+
+def test_a_page_zero_link_names_no_page() -> None:
+    result = opinion_record.read_opinion_record(
+        _VolumeFetcher([_volume_row("1", 0)], _volume_pdf(_PAGES)), terms=[2018], recorded=set()
+    )
+    assert result.readings[0].reason == "the volume link names no page"
+
+
+@pytest.mark.parametrize(
+    ("url", "fmt", "ok"),
+    [
+        (f"{_VOLUME}#page=3", "preliminary-print-volume", True),
+        (f"{_VOLUME}#page=3", "slip", False),
+        (f"{_VOLUME}#page=3", "bound-volume", False),
+        (
+            "https://www.supremecourt.gov/opinions/boundvolumes/586BV.pdf#page=3",
+            "bound-volume",
+            True,
+        ),
+        ("https://www.supremecourt.gov/opinions/25pdf/25-1_x.pdf", "bound-volume", False),
+        ("https://www.supremecourt.gov/opinions/25pdf/25-1_x.pdf", "slip", True),
+    ],
+)
+def test_a_planned_source_format_must_fit_its_link(url: str, fmt: str, ok: bool) -> None:
+    entry = dataclasses.replace(_listing("1", "25-1"), url=url)
+    reading = _reading(entry, b"").model_copy(update={"source_format": fmt})
+    problem = opinion_record.reading_problems(reading, terms=[2025])
+    assert (problem is None) is ok, problem
