@@ -14212,7 +14212,7 @@ class ExecutiveSuccess(_Strict):
     """
 
     schema_version: Literal["1.0"] = SCHEMA_VERSION
-    scope_rule_version: str = Field(description="The committed scope rule, e.g. exec-action-v2")
+    scope_rule_version: str = Field(description="The committed scope rule, e.g. exec-action-v3")
     party_rule_version: str = Field(description="The party rule the scope rule composes")
     counsel_rule_version: str = Field(description="The counsel rule the scope rule composes")
     reading: Literal["finer", "registered"] = Field(

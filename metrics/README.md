@@ -3657,7 +3657,7 @@ it.
 **What may be claimed from the executive success cut.** `fedcourts
 executive-success` (`pipeline.executive_success`, [docs/cli.md](../docs/cli.md))
 publishes the federal executive's emergency-docket record by administration
-and by who filed, over the applications the scope rule `exec-action-v2`
+and by who filed, over the applications the scope rule `exec-action-v3`
 (`pipeline.exec_action`) reads as challenging or defending a general federal
 executive action. It is an analytics artifact like the party rates, and every
 rule of the party rates on dates, coverage, the rule version and the corpus
@@ -3708,6 +3708,22 @@ to it.
   only the counsel entries put on the government-respondent side — and a
   quoted figure names that count beside it. `review_rows` lists them, and every
   in-scope row, for hand review.
+- **Under `exec-action-v3`, a hand code replaces the caption reading.** The
+  default rule applies `exec-action-v2` and then, for every application the
+  committed hand reading (`src/fedcourtsai/exec_action_hand.json`) lists,
+  takes that reading's scope and government side instead, under the reasons
+  `hand-in-scope`, `hand-out-of-scope` and `hand-unclear` (the last counted
+  under `unknown_scope`). The reading is the two-rater check below: each row
+  carries its `basis` — `raters-agreed`, `adjudicated` (the authoring
+  session settled a split), `override` (the session re-read a row both raters
+  agreed on) or `procedural` (a request to file over the word or page limit,
+  out). The adjudications and overrides were made with the published tally in
+  view, and some were chosen to match its reading, so an `exec-action-v3` figure
+  is not an independent check of that tally; quote `exec-action-v2` beside it
+  where independence matters. An application the reading does not list —
+  everything outside the check's window, and every later filing — falls to
+  the caption rule, so the reading's reach is the check's population, not the
+  cut's.
 - **An unreadable ask is in the population.** In-scope applications whose ask
   the parser could not read are counted like any other and tallied as
   `unknown_ask`. They include granted federal applications (`24A884`,
@@ -3855,8 +3871,11 @@ unclear), 8 in, 1 unclear. It drew one line worth stating: a federal suit to
 enforce an agency's reading of a statute against a state (the EMTALA suits,
 `23A469`, `23A470`) is in scope, while a preemption suit against a state law
 (`23A296`, `23A814`) contests no executive action and is out. The
-hand codes are not committed; they are the measurement set a narrower rule's
-change would commit beside it. Against them the rule agrees on 255 of 292:
+hand codes are committed as `exec-action-v3`'s hand reading, with three
+later changes the reading's `basis` field marks: the procedural requests set
+out (`procedural`), the OT2016 applications added, and 26 rows
+re-read by the authoring session (`override`). Against the codes as this
+check left them the rule agrees on 255 of 292:
 196 of the 232 federal-side rows and 59 of the 60 sampled others, none of
 which is in scope by hand. Of the 37 differences:
 
@@ -3894,7 +3913,7 @@ limit. None has a docketed date, so under `exec-action-v1`, which this check
 read, they sit among the unattributed rows and in no administration's pair;
 `exec-action-v2` dates them by their first proceeding and sets them out of
 scope as `procedural-request`. The second policy-label
-round's hand codes, not committed either, put such a request out of scope as
+round's hand codes, committed in the hand reading, put such a request out of scope as
 procedural, since its grant is no ruling on the executive action; the counts
 of this check hold the five in scope.
 

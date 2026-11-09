@@ -709,7 +709,7 @@ Three consequences bind every use of the set:
   are maximally public (SCOTUS petitions, named on the Court's own site) and
   no QP text is republished; the extent-by-counts the coverage caveat also
   carries is the posture the docket pack already publishes. The exception is
-  accepted for **exactly four committed artifacts** — this set; the
+  accepted for **exactly four committed labeling artifacts** — this set; the
   labeler's per-case labels file `data/qp-topics/qp-topics.json`, which every
   labeling run commits in full so a reviewer reads the labels themselves rather
   than a summary of them — every row, including the batches before this one, and
@@ -718,9 +718,11 @@ Three consequences bind every use of the set:
   `data/qp-topics/qp-topic-reference-applications.json`; and the application
   labels file `data/qp-topics/qp-topics-applications.json`, the `qp-topic-v1`
   counterpart of the petition labels file, committed in full the same way. The
-  last two are argued below together. None is precedent for a fifth: any
-  further committed surface that enumerates the ingested corpus is argued here,
-  before it exists.
+  last two are argued below together. Beside them, the exception covers
+  **three hand references of the emergency-docket analytics**, argued last
+  below. None of the seven is precedent for another: any further committed
+  surface that enumerates the ingested corpus is argued here, before it
+  exists.
 
   **What the second artifact adds, stated plainly.** Its own membership is
   **fetch-conditioned** — a case is in it because a questions-presented
@@ -788,6 +790,27 @@ Three consequences bind every use of the set:
   application text or docket-entry text: they carry identifiers, an input kind
   and a subject label. Nor does it relax the cell boundary, since the predict
   and evaluate prompts already prohibit the whole `data/qp-topics/` path.
+
+  **The emergency-docket analytics references, stated plainly.** Three
+  committed, hand-built references under `src/fedcourtsai/` name application
+  dockets by number for the `executive-success` cut (`docs/cli.md`): the
+  policy-area labels `policy_areas.json`, the policy keys `policy_keys.json`,
+  and the scope rule's hand reading `exec_action_hand.json`, which codes each
+  application of a two-rater check in or out of scope with the government's
+  side. Together they name a few hundred applications from OT2016 on, most of
+  them with no directory under `data/cases`. Membership is **population-
+  conditioned**, not outcome-conditioned: the hand reading holds every
+  federal-side application of the check's cuts and a seeded sample of the
+  rest, and the other two hold applications those cuts counted. So
+  presence says the pipeline holds the docket and that its caption names a
+  federal party, both facts the Court's own docket page states; it carries no
+  grant signal beyond what the Court's published orders already say. Each row
+  carries identifiers and a hand judgment (a scope, a side, an area, a key
+  name, a short note), never application or docket-entry text. It is
+  accepted because what it discloses is a slice of the compilation extent
+  over public dockets, and because a published replication of a public tally
+  is only checkable if the reading it applied is published with it. None of
+  the three is read by a predict or evaluate cell.
 
   **One non-committed channel — carrying three artifacts — is in scope too,
   because the boundary is about disclosure and not about git.** The labeling run's extract (`fedcourts

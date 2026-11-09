@@ -109,7 +109,7 @@ from .controversy import (
 from .exec_action import (
     EXEC_ACTION_COUNSEL_RULE,
     EXEC_ACTION_PARTY_RULE,
-    EXEC_ACTION_RULE_VERSION,
+    EXEC_ACTION_RULE_VERSION_V3,
     SCOPE_REASONS,
     ExecActionAnnotation,
     exec_action_rule,
@@ -139,7 +139,7 @@ _CONTROVERSY_FILERS: Final[tuple[ControversyFiler, ...]] = ("government", "chall
 READINGS: Final[tuple[Reading, ...]] = ("finer", "registered")
 
 #: The scope rule the cut defaults to.
-DEFAULT_SCOPE_RULE: Final[str] = EXEC_ACTION_RULE_VERSION
+DEFAULT_SCOPE_RULE: Final[str] = EXEC_ACTION_RULE_VERSION_V3
 
 #: Reading labels on the grant side: the executive's win where it applied. A
 #: GVR and a summary reversal are the binary outcome's granted side; they reach

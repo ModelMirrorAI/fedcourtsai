@@ -2130,8 +2130,11 @@ understood: on a bucket of only public court-derived objects, `ListBucket` lets
 a holder *enumerate* the ingested-set extent — the compilation extent, the same
 boundary `data/scope/scope.json` withholds from the committed public surface
 (it can enumerate keys for ingested-but-unpublished dockets). The stated,
-bounded exception to that boundary covers exactly four committed artifacts,
-all argued and accepted in `docs/qp-topic.md` and nowhere else: the
+bounded exception to that boundary covers exactly seven committed artifacts,
+all argued and accepted in `docs/qp-topic.md` and nowhere else: the three
+emergency-docket analytics references under `src/fedcourtsai/` (the
+policy-area labels, the policy keys, and the scope rule's hand reading), which
+name application dockets beside a hand judgment and no text; and the
 hand-labeled qp-topic reference set; the accrued per-case qp-topic labels file
 over the QP-bearing rows *in the labeling scope* — the live-slice modern
 discretionary-cert frame; its `qp-topic-v1` counterpart, the accrued
