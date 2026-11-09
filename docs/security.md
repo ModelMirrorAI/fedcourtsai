@@ -2130,8 +2130,11 @@ understood: on a bucket of only public court-derived objects, `ListBucket` lets
 a holder *enumerate* the ingested-set extent — the compilation extent, the same
 boundary `data/scope/scope.json` withholds from the committed public surface
 (it can enumerate keys for ingested-but-unpublished dockets). The stated,
-bounded exception to that boundary covers exactly four committed artifacts,
-all argued and accepted in `docs/qp-topic.md` and nowhere else: the
+bounded exception to that boundary covers exactly seven committed artifacts,
+all argued and accepted in `docs/qp-topic.md` and nowhere else: the three
+emergency-docket analytics references under `src/fedcourtsai/` (the
+policy-area labels, the policy keys, and the scope rule's hand reading), which
+name application dockets beside a hand judgment and no text; and the
 hand-labeled qp-topic reference set; the accrued per-case qp-topic labels file
 over the QP-bearing rows *in the labeling scope* — the live-slice modern
 discretionary-cert frame; its `qp-topic-v1` counterpart, the accrued
@@ -2164,7 +2167,10 @@ two classes: every application with a stored application document, and every
 application pending at the draw. So, against the application labels file,
 absence from the block says an application was decided at the draw (a
 fact the Court's docket page states), and nothing finer, since its granted
-applications are sampled. That composition is the thing argued in
+applications are sampled. The three analytics references are
+population-conditioned, not outcome-conditioned: differenced against the
+application labels file, they reveal at most which applications are
+federal-side. That composition is the thing argued in
 `docs/qp-topic.md`, alongside the non-git channel the labeling run adds — three
 artifacts under the same one-day window, publicly downloadable on this
 repository: its extract, riding between the mode's two jobs (stored petition

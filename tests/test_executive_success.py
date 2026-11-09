@@ -416,8 +416,13 @@ def test_the_rereader_reads_the_live_snapshot_and_respects_the_cut(tmp_path: Pat
         corpus.upsert_snapshot(
             conn, "scotus/2", date(2025, 6, 2), _live("24A790", moot, "2025-06-01")
         )
-        whole = executive_success(conn, as_of_field="filed")
-        cut = executive_success(conn, as_of_field="filed", through=date(2025, 5, 1))
+        # The fixture's docket numbers are real ones the hand reading lists, so
+        # the reading is tested under the caption rule.
+        v2 = EXEC_ACTION_RULE_VERSION
+        whole = executive_success(conn, as_of_field="filed", scope_rule_version=v2)
+        cut = executive_success(
+            conn, as_of_field="filed", through=date(2025, 5, 1), scope_rule_version=v2
+        )
     listed = {row.docket_number: row.reading for row in whole.review_rows}
     assert listed == {"24A949": "granted-in-part", "24A790": "dismissed-moot"}
     assert (whole.reread_rows, whole.reread_changed, whole.reread_unobservable) == (2, 2, 0)
@@ -433,7 +438,9 @@ def test_scope_and_exclusions_are_counted_beside_the_rate(tmp_path: Path) -> Non
     db = tmp_path / "corpus.db"
     _success_corpus(db)
     with corpus.connect(db) as conn:
-        result = executive_success(conn, as_of_field="filed")
+        result = executive_success(
+            conn, as_of_field="filed", scope_rule_version=EXEC_ACTION_RULE_VERSION
+        )
     assert (result.duplicate_rows, result.extension_rows, result.applications) == (1, 1, 12)
     assert result.scope_reasons == {
         "gov-applicant": 7,
@@ -509,7 +516,7 @@ def test_the_command_prints_the_cut_with_its_vintage(
     )
     assert result.exit_code == 0, result.output
     assert (
-        "executive success (exec-action-v2 over party-v2 and sg-office-v1, as-of filed, "
+        "executive success (exec-action-v3 over party-v2 and sg-office-v1, as-of filed, "
         "through 2025-10-01)"
     ) in result.stderr
     assert "trump-47 government: executive won 3/4 = 75.0%" in result.stderr
@@ -521,7 +528,7 @@ def test_the_command_prints_the_cut_with_its_vintage(
     assert "policy areas (policy-area-v1):" in result.stderr
     payload = json.loads(result.stdout)
     assert payload["through"] == "2025-10-01"
-    assert payload["scope_rule_version"] == "exec-action-v2"
+    assert payload["scope_rule_version"] == "exec-action-v3"
 
 
 @pytest.mark.parametrize(

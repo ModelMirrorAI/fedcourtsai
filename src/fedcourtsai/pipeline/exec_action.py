@@ -73,25 +73,57 @@ every row it leaves out was left out.
    reason, so a cut that reads no snapshot gives v1's reasons under v2's
    label.
 
+5. **A committed hand reading wins where it exists** (``hand-in-scope``,
+   ``hand-out-of-scope``, ``hand-unclear``), under ``exec-action-v3``. The
+   caption cannot tell a federal suit against a state law from one enforcing
+   an agency's rule, a bankruptcy trustee from the executive, or a government
+   named on the wrong side of a caption, and two AI raters reading the docket
+   can. Their adjudicated codes are committed as the package's
+   ``exec_action_hand.json``, one row per application with its scope, the
+   government's side where it has one, and the code's ``basis``: both raters
+   agreed (``raters-agreed``), the authoring session settled a disagreement
+   (``adjudicated``), it overrode both raters on one of three stated points
+   (``override``: a government application defending a policy, through
+   mandamus or the federal execution schedule, is in scope; an individual
+   prisoner's execution application is out), or the row is a request to file
+   over the word or page limit (``procedural``, out). For a listed row the
+   hand scope replaces steps 1 to 4, and its side replaces the caption's where
+   the code names one; every other row reads as under ``exec-action-v2``.
+
+   **What a hand code is.** The raters were blind to each other but not to
+   the outcome (the docket entries carry the orders), and the adjudication
+   was made with a published tally's figures in view, so a hand code is a
+   reading of the record, not a measurement of the rule, and a cut under this
+   version is not an independent replication of that tally. The codes cover
+   the applications filed from 2017-01-20 through 2026-10-12 that the scope
+   check's rating rounds coded: federal-side applications, the rule's
+   in-scope and unknown rows, out-of-scope rows naming a federal agency or
+   officer, and a seeded sample of the others; a later application reads by the rule until a code
+   lists it, and adding one under the same rules keeps the label.
+
 ``unknown`` is a result, never an error: the rule cannot tell those rows apart
 from the caption, and a reader counts them beside the in-scope population
 rather than guessing which way they go.
 
 **Versioned like the party and counsel rules, and for the same reason.**
 ``exec-action-v1`` is steps 1 to 3 over ``party-v2`` and ``sg-office-v1``;
-``exec-action-v2`` adds step 4. :data:`EXEC_ACTION_RULES` registers each under
+``exec-action-v2`` adds step 4; ``exec-action-v3`` adds step 5.
+:data:`EXEC_ACTION_RULES` registers each under
 its label, and a change to what any reason means, or to the rules it composes,
 is a new label beside them.
 """
 
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import date
+from functools import cache
+from importlib.resources import files
 from types import MappingProxyType
-from typing import Any, Final, Literal
+from typing import Any, Final, Literal, cast
 
 from .. import corpus
 from .caption import petitioner_caption
@@ -115,6 +147,9 @@ ScopeReason = Literal[
     "individual-claim",
     "procedural-request",
     "no-federal-party",
+    "hand-in-scope",
+    "hand-unclear",
+    "hand-out-of-scope",
 ]
 
 SCOPE_REASONS: Final[tuple[ScopeReason, ...]] = (
@@ -127,6 +162,9 @@ SCOPE_REASONS: Final[tuple[ScopeReason, ...]] = (
     "individual-claim",
     "procedural-request",
     "no-federal-party",
+    "hand-in-scope",
+    "hand-unclear",
+    "hand-out-of-scope",
 )
 
 #: The scope each reason implies: ``True`` in scope, ``False`` out, ``None`` unknown.
@@ -141,6 +179,9 @@ REASON_SCOPE: Final[Mapping[ScopeReason, bool | None]] = MappingProxyType(
         "individual-claim": False,
         "procedural-request": False,
         "no-federal-party": False,
+        "hand-in-scope": True,
+        "hand-unclear": None,
+        "hand-out-of-scope": False,
     }
 )
 
@@ -148,6 +189,85 @@ REASON_SCOPE: Final[Mapping[ScopeReason, bool | None]] = MappingProxyType(
 #: procedural request (step 4), which the cut defaults to.
 EXEC_ACTION_RULE_VERSION_V1: Final[str] = "exec-action-v1"
 EXEC_ACTION_RULE_VERSION: Final[str] = "exec-action-v2"
+#: The rule that also applies the committed hand reading (step 5).
+EXEC_ACTION_RULE_VERSION_V3: Final[str] = "exec-action-v3"
+
+#: The committed hand reading step 5 applies, at the package root.
+EXEC_ACTION_HAND_RESOURCE: Final[str] = "exec_action_hand.json"
+
+#: How a hand code came to be, as the reference records it.
+HandBasis = Literal["raters-agreed", "adjudicated", "override", "procedural"]
+_HAND_BASES: Final[frozenset[str]] = frozenset(
+    {"raters-agreed", "adjudicated", "override", "procedural"}
+)
+_HAND_SCOPES: Final[Mapping[str, ScopeReason]] = MappingProxyType(
+    {"in": "hand-in-scope", "out": "hand-out-of-scope", "unclear": "hand-unclear"}
+)
+
+
+@dataclass(frozen=True)
+class HandCode:
+    """One application's committed hand reading."""
+
+    reason: ScopeReason
+    government_side: GovernmentSide | None
+    basis: HandBasis
+
+
+def _refuse_repeated_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    """Build a JSON object, refusing a key the document repeats verbatim."""
+    built: dict[str, object] = {}
+    for key, value in pairs:
+        if key in built:
+            raise ValueError(f"the hand reading lists {key.strip().upper()} twice")
+        built[key] = value
+    return built
+
+
+def parse_hand_codes(text: str) -> Mapping[str, HandCode]:
+    """Parse a hand-reading document, keyed by normalized docket number.
+
+    Refuses an unknown version, a docket listed twice in any spelling, an
+    unknown scope, side or basis, and an in-scope code with no side.
+    """
+    document = json.loads(text, object_pairs_hook=_refuse_repeated_keys)
+    if not isinstance(document, dict) or not isinstance(document.get("rows"), dict):
+        raise ValueError("the hand reading is an object with a rows object")
+    if document.get("rule_version") != EXEC_ACTION_RULE_VERSION_V3:
+        raise ValueError(
+            f"the hand reading is {document.get('rule_version')!r}, "
+            f"not {EXEC_ACTION_RULE_VERSION_V3!r}"
+        )
+    codes: dict[str, HandCode] = {}
+    for docket, entry in document["rows"].items():
+        spelled = docket.strip().upper()
+        if spelled in codes:
+            raise ValueError(f"the hand reading lists {spelled} twice")
+        if not isinstance(entry, dict) or not set(entry) <= {"scope", "government_side", "basis"}:
+            raise ValueError(f"{docket}: a code holds scope, government_side and basis")
+        scope, side, basis = entry.get("scope"), entry.get("government_side"), entry.get("basis")
+        if not isinstance(scope, str) or scope not in _HAND_SCOPES:
+            raise ValueError(f"{docket}: unknown scope {scope!r}")
+        if side not in (None, "applicant", "respondent"):
+            raise ValueError(f"{docket}: unknown government side {side!r}")
+        if not isinstance(basis, str) or basis not in _HAND_BASES:
+            raise ValueError(f"{docket}: unknown basis {basis!r}")
+        if scope == "in" and side is None:
+            raise ValueError(f"{docket}: an in-scope code names the government's side")
+        codes[spelled] = HandCode(
+            reason=_HAND_SCOPES[scope],
+            government_side=cast("GovernmentSide | None", side),
+            basis=cast(HandBasis, basis),
+        )
+    return MappingProxyType(codes)
+
+
+@cache
+def hand_codes() -> Mapping[str, HandCode]:
+    """The committed hand reading, keyed by normalized docket number."""
+    resource = files("fedcourtsai").joinpath(EXEC_ACTION_HAND_RESOURCE)
+    return parse_hand_codes(resource.read_text(encoding="utf-8"))
+
 
 #: The rules both versions compose.
 EXEC_ACTION_PARTY_RULE: Final[str] = PARTY_RULE_VERSION_V2
@@ -253,6 +373,31 @@ def exec_action_annotations_v2(
     )
 
 
+def exec_action_annotations_v3(
+    row: corpus.CorpusRow, as_of: date | None, payload: Payload = None
+) -> ExecActionAnnotation:
+    """The ``exec-action-v3`` annotation of ``row``: step 5 over ``exec-action-v2``.
+
+    A row the committed hand reading lists takes its hand scope, and its hand
+    side where the code names one; any other row reads as under v2.
+    """
+    rule = exec_action_annotations_v2(row, as_of, payload)
+    code = hand_codes().get((row.docket_number or "").strip().upper())
+    if code is None:
+        return ExecActionAnnotation(
+            rule_version=EXEC_ACTION_RULE_VERSION_V3,
+            in_scope=rule.in_scope,
+            reason=rule.reason,
+            government_side=rule.government_side,
+        )
+    return ExecActionAnnotation(
+        rule_version=EXEC_ACTION_RULE_VERSION_V3,
+        in_scope=REASON_SCOPE[code.reason],
+        reason=code.reason,
+        government_side=code.government_side or rule.government_side,
+    )
+
+
 def _caption_annotation(
     row: corpus.CorpusRow, as_of: date | None, rule_version: str
 ) -> ExecActionAnnotation:
@@ -300,6 +445,7 @@ EXEC_ACTION_RULES: Final[Mapping[str, Annotator]] = MappingProxyType(
     {
         EXEC_ACTION_RULE_VERSION_V1: exec_action_annotations,
         EXEC_ACTION_RULE_VERSION: exec_action_annotations_v2,
+        EXEC_ACTION_RULE_VERSION_V3: exec_action_annotations_v3,
     }
 )
 
