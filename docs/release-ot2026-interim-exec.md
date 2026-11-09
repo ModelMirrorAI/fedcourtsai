@@ -398,11 +398,14 @@ maintainer's, in this order:
    refreshed several times a day and the window is closed, so a newer blob
    should print the same cells; a cell that moved is a re-fill, with the new
    blob stated in section 1, and the candidate check again.
-   Candidate commit: ‹candidate commit›; blob it was checked against:
-   ‹sha256, newest pull›; result: ‹identical, or what moved›.
+   Candidate commit: `8c154564e` (promotion 2026-11-09); blob it was checked against:
+   `265e345d5851b56697ce330e5ecb9210bb43b35024e7ce8d794e0b7ce84e2c68`, newest pull 2026-11-09; result: identical.
 2. **Tag.** Only once both documents' placeholder greps return nothing and the
    section 6 pass is resolved, since the `results/` namespace blocks update and
-   deletion:
+   deletion. The candidate cannot carry its own check, so the tag goes on the
+   later promotion merge that carries the filled line above, once step 1's
+   command prints the same cells there; that merge is the `<candidate-commit>`
+   below:
 
    ```bash
    git tag -a results/ot2026-interim-exec -m "Executive-action emergency docket replication" <candidate-commit>
