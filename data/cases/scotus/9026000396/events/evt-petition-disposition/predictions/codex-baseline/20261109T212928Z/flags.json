@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000396",
+  "run_id": "20261109T212928Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-petition-disposition",
+      "message": "context.json response_requested is null, but the provisioned 2026-11-09 snapshot expressly records Response Requested on October 13, 2026 and a November 6 extension of that response deadline to December 14, 2026. The forecast uses those docket entries and preserves the supplied baseline band and frozen anchor without recomputing them. The discrepancy materially affects interpretation of the procedural posture and future-distribution probability."
+    },
+    {
+      "category": "capture-gap",
+      "severity": "warning",
+      "event_id": "evt-petition-disposition",
+      "message": "The October 9 party-letter.txt contains only letterhead/contact details and no substantive body, although documents.json marks it empty_text=false and truncated=false. An attempt to open its exact predecision PDF through the web tool returned no usable content. The letter's substantive position is unavailable and was not inferred; it could bear on the vehicle or related litigation."
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+# Forecast: Sprint Corp. v. FCC, No. 25-1422 (first relist)
+
+**State forecast from:** two distributions so far (conference of Nov. 6, 2026; redistributed for Nov. 13, 2026). This is the first relist. There is no CVSG, and none is needed because the federal government is the respondent and has already filed its brief in opposition. Two amicus briefs support the petition: CTIA and the U.S. Chamber of Commerce.
+
+**Disposition: denied (P(any grant) = 0.15).** The likeliest outcome is a denial, probably with a separate writing. In my view the relist is mainly a sign that a Justice is writing about the denial, not that the Court is building toward plenary review. The GVR request is the only route with a real chance. However, the Court affirmed Verizon's judgment in *FCC v. AT&T*, 608 U.S. 531 (2026), on the same posture, and on Aug. 17, 2026 it denied Verizon's rehearing petition, which asked for the same remand to consider whether the forfeiture orders misled the carriers. Granting T-Mobile/Sprint what it refused Verizon would be inconsistent.
+
+**Further relists:** more likely than not (0.55). If a dissent from denial is being drafted, the petition often moves through one or more further conferences before the order issues. A denial with a statement could still come out of the Nov. 13 conference, perhaps on the Nov. 16/17 order list, which is the main path to "no further distribution."
+
+**CVSG:** essentially nil (0.01). The SG already represents the respondents.
+
+**If granted:** most likely a GVR in light of *AT&T* (P(summary route | grant) = 0.65). The remand would let the D.C. Circuit consider whether the orders' "shall be paid within 30 days" language misled the carriers into paying (the argument left open in *AT&T* n.5). Plenary review, if it happens, would most likely take QP 2 (whether device-location data is "location" CPNI under § 222(h)(1)). The D.C. and Second Circuits agree on that question, so there is no split. QP 3, the § 503(b) count of continuing violations under *Loper Bright*, carries a forfeiture finding below that makes it a poor vehicle.
+
+**Dissent from / statement respecting denial (given denial): 0.45.** The most likely writer is Justice Thomas, the lone dissenter in *AT&T*. He took the view that the government must go through an Article III court before depriving a person of property. He may say these carriers paid penalties never adjudicated by a court and deserve at least a remand. Justice Gorsuch is a secondary candidate given his writing on jury rights and agency adjudication (*Jarkesy* concurrence). A writing from the Court's liberal wing is unlikely.

@@ -1,0 +1,25 @@
+# Predicted Court Action and Procedural Trajectory — *The GEO Group, Inc. v. Ugochukwu Nwauzor, et al.*, No. 25-828
+
+## 1. Certiorari Disposition and Relist Trajectory (`disposition`: 0.72, `relist-increment`: 0.35)
+
+The docket as of the November 9, 2026 snapshot records **three conference distributions** (`distribution_count = 3`): the initial distribution on April 29, 2026 for the May 14, 2026 conference (which produced the May 18, 2026 CVSG order), the post-CVSG distribution on September 30, 2026 for the October 16, 2026 conference, and the November 4/9, 2026 redistribution and relist for the November 13, 2026 conference alongside petitioner's companion Ninth Circuit petition in *The GEO Group, Inc. v. Ferguson*, No. 26-71.
+
+The Court is likely (`probability = 0.72`) to **grant the petition for a writ of certiorari** for plenary review. Most likely (`0.65`), the Court will issue its disposition immediately following the November 13, 2026 conference without a fourth conference distribution, having used the November 6 to November 13 relist for standard pre-grant vehicle verification and comparison with No. 26-71. There is a `0.35` probability (`relist-increment = 0.35`) that the petition will be distributed at least once more after November 13, 2026—either to coordinate the exact disposition structure between No. 25-828 and No. 26-71 or, in the event certiorari is denied, to accommodate the drafting of a dissent from the denial of certiorari.
+
+## 2. Call for the Views of the Solicitor General (`cvsg-increment`: 0.01)
+
+The Court already invited the Solicitor General to express the views of the United States on May 18, 2026, and the Solicitor General filed the United States' amicus brief on September 14, 2026 recommending a plenary grant. Because a CVSG is already on the docket, the `cvsg-increment` claim is vacuous for this cell; no second CVSG will occur (`cvsg-increment = 0.01`).
+
+## 3. Scope of Review and Questions Presented
+
+If certiorari is granted, the Court is likely either to grant the petition across all three questions presented—covering (1) direct-regulation intergovernmental immunity, (2) discriminatory intergovernmental immunity, and (3) federal conflict/obstacle preemption—or to adopt the Solicitor General's consolidated formulation of the question presented ("Whether the Supremacy Clause permits a State to apply its minimum-wage statute to alien detainees at private immigration detention facilities operated by federal contractors, where the State exempts its own detainees from that statute"), which encompasses both the intergovernmental-immunity and preemption challenges.
+
+## 4. Plenary Review vs. Summary Disposition (`summary-disposition-route`: 0.04)
+
+Conditional on the Court granting review, a summary disposition in the certiorari order itself (either a GVR or a summary reversal) is very unlikely (`summary-disposition-route = 0.04`). Neither petitioner nor the Solicitor General requested a GVR or summary reversal; no intervening Supreme Court decision favors petitioner so as to warrant a GVR; and the constitutional and statutory questions regarding how Supremacy Clause intergovernmental immunity and obstacle preemption apply to federal immigration-detention contractors will be set for full merits briefing and oral argument.
+
+If granted and decided on the merits, the Court is likely to reverse the Ninth Circuit's judgment, holding that applying Washington's Minimum Wage Act to civil immigration detainees participating in the federal Voluntary Work Program at the Tacoma Northwest ICE Processing Center impermissibly discriminates against the federal government and its contractor under *United States v. Washington*, 596 U.S. 832 (2022), and *Dawson v. Steager*, 586 U.S. 171 (2019)—because Washington exempts detainees in state, county, and municipal correctional and detention institutions while barring state private correctional contracts—and/or stands as an obstacle to the federal statutory scheme governing immigration detention and detainee work allowances under 8 U.S.C. §§ 1231(g)(1) and 1555(d).
+
+## 5. Separate Writings on the Certiorari Order (`dissent-from-denial`: 0.42, `order-writers`)
+
+If the Court grants certiorari, the grant order will issue without any separate writing. Conditional on the Court instead denying certiorari (`1 - 0.72 = 0.28`), there is a substantial likelihood (`dissent-from-denial = 0.42`) that one or more Justices will author a dissent from the denial of certiorari, given the Solicitor General's forceful recommendation to grant, the ~$37 million judgment and permanent injunction below, and the detailed dissents by Judge Bennett, Judge Bumatay, and Judge Collins (joined by seven Ninth Circuit judges in total). Unconditionally across all certiorari-order outcomes (`order-writers`), the Justices most likely to author a separate writing (specifically a dissent from denial if review is denied) are Justice Alito (`0.08`), Justice Thomas (`0.07`), and Justice Gorsuch (`0.06`).

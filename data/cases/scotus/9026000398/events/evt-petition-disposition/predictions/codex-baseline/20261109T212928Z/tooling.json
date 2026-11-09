@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000398",
+  "run_id": "20261109T212928Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts paths", "fedcourts query", "metrics/statpack.md", "CourtListener MCP search", "CourtListener MCP read_document", "CourtListener MCP search_document", "web.run", "fedcourts validate"],
+  "helpful": ["Frozen reached-rate cert anchor", "Petition with attached appellate order", "Companion lookup by docket number", "Primary circuit opinions through MCP"],
+  "gaps": ["Default UV cache was read-only; a /tmp cache and no-sync mode worked", "Web requests returned no visible content", "Structured response_requested was null despite an explicit response request in the snapshot"],
+  "notes": "No dependency installation. The absent opposition is consistent with its future deadline, not a provisioning failure. Forecast distinguishes another distribution needed after the response from a substantive relist."
+}

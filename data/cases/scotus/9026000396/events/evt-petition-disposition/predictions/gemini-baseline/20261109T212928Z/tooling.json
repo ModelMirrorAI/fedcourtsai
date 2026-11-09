@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000396",
+  "run_id": "20261109T212928Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_read_document"
+  ],
+  "helpful": [
+    "fedcourts query --docket-number for checking Hargrove (25-818) and Maxwell (25-5930)",
+    "metrics/statpack.md for baseline band, relist, CVSG, and amicus base rates",
+    "CourtListener MCP search for checking post-March 2026 circuit decisions on 18 U.S.C. 3632(d)(4)(C)"
+  ],
+  "gaps": [],
+  "notes": "Provisioned petition.txt included the full Second Circuit majority and dissenting opinions in Appendix A, which made evaluating the merits and circuit landscape straightforward."
+}

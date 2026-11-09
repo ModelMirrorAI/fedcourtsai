@@ -1,0 +1,51 @@
+# Reasoning: *Sherhonda Golden v. NBCUniversal Media, LLC* (No. 26-398)
+
+## Summary of Call
+
+- **Predicted disposition:** `denied` (`granted: 0`)
+- **P(any grant):** `0.04` (plenary grant ~1.5%, GVR ~2.5%)
+- **Input snapshot:** `2026-11-09.json` (`mode: forward`, `moment: distribution`)
+
+## Base-Rate Anchoring
+
+From `record/context.json`, this cell is a `forward` cert-stage prediction at `moment: distribution` with frozen conditioning state `band: "baseline"` (`salience_version: "sal-v8"`), `distribution_count: 1`, `cvsg_date: null`, `amicus_briefs: null`, and `term: 2026`.
+
+1. **Primary skill anchor (`cert_anchor`):** `record/context.json` provides the pre-pooled risk-set rate for `baseline` under `sal-v8` across the 10-Term lookback window strictly preceding OT2026 (OT2017–OT2025): **`0.0515879` (~5.16%)**. Across those nine prior Terms in `metrics/statpack.md` ("Segment base rate by salience band (sal-v8)"), the bracketed `reached` rate for `baseline` ranges from 4.0% (`n = 1290` in OT2025) to 6.0% (`n = 1243` in OT2024; `n = 1283` in OT2023), while the terminal rate for petitions ending in `baseline` is 0.7%–1.9%.
+2. **Additional statpack cuts (`metrics/statpack.md`):**
+   - **Modern discretionary-cert petitions overall:** Among 45,537 weighted resolved cases, 95.2% were denied (43,342), 2.0% dismissed (919), 1.4% granted (639), and 1.4% GVR'd (637) — a ~2.8% grant-family rate.
+   - **Originating circuit (`ca2`):** In the modern cert petitions by originating circuit table (`n = 2081` resolved), Second Circuit petitions resolved as 92.6% denied, 2.6% granted, 2.5% dismissed, and 2.4% GVR (5.0% grant-family rate; in the table including state courts, `n = 1892` resolved: 91.8% denied, 2.9% granted, 2.7% dismissed, 2.6% GVR).
+   - **Relist count (`relist_bucket = 0`, paid scored segment):** Petitions terminating with 0 relists (1 distribution) resolve at 96.8% denied, 1.3% dismissed, 1.3% granted, and 0.5% GVR (`n = 10,204`, 1.8% grant-family rate), whereas petitions reaching 1 relist (`relist_bucket = 1`, `n = 2,532`) resolve at 85.5% denied, 8.3% granted, 5.2% GVR, and 1.0% dismissed (13.5% grant-family rate).
+   - **CVSG status (`none`, paid scored segment):** Without a CVSG (`n = 13,550`), the resolved breakdown is 92.4% denied, 4.1% granted, 2.3% GVR, and 1.2% dismissed.
+   - **Amicus count (`0`, paid scored segment):** With zero cert-stage amicus briefs (`n = 11,109`), the breakdown is 95.0% denied, 2.0% granted, 1.8% GVR, and 1.3% dismissed.
+
+## Case-Specific Adjustments
+
+Starting from the **5.16%** `cert_anchor` rate, I weigh the following upward and downward case-specific signals from `record/snapshots/2026-11-09.json`, `record/documents/questions-presented.txt`, and `record/documents/petition.txt`:
+
+### Upward Factors
+1. **Call for Response (CFR) on October 22, 2026:** Respondent NBCUniversal Media, LLC waived a response on October 5, 2026, and the petition was distributed on October 7, 2026 for the October 30, 2026 conference. On October 22, 2026 — before that conference met and eight days after oral argument in *Salazar v. Paramount Global*, No. 25-459 — the Court requested a response ( subsequently extended to December 23, 2026). Although most petitions drawing a CFR are ultimately denied once the Brief in Opposition arrives, a CFR confirms active chambers interest and guarantees at least one additional distribution once briefing completes.
+2. **Acknowledged 3–1 Circuit Split and Capable Counsel:** The petition (filed by Joshua Ian Hammack of Bailey & Glasser, LLP, who also represents the petitioner in *Salazar v. Paramount Global*, No. 25-459; opposed by Kannon K. Shanmugam of Davis Polk & Wardwell LLP) presents an acknowledged circuit split over the meaning of "personally identifiable information" (PII) under the Video Privacy Protection Act (VPPA), 18 U.S.C. § 2710(a)(3): the Second, Third, and Ninth Circuits apply an "ordinary person" standard (*Solomon v. Flipps Media, Inc.*, 136 F.4th 41 (2d Cir. 2025); *In re Nickelodeon Consumer Privacy Litig.*, 827 F.3d 262 (3d Cir. 2016); *Eichenberger v. ESPN, Inc.*, 876 F.3d 979 (9th Cir. 2017)), whereas the First Circuit applies a "reasonable foreseeability" standard (*Yershov v. Gannett Satellite Info. Network, Inc.*, 820 F.3d 482 (1st Cir. 2016)).
+3. **Overlap with *Salazar v. Paramount Global* (No. 25-459):** The petition explicitly asks in the alternative (Pet. 12–13, 30–34) to hold this case pending *Salazar v. Paramount Global* (granted Jan. 26, 2026; argued Oct. 14, 2026), which interprets the definition of "consumer" ("subscriber of goods or services from a video tape service provider") in 18 U.S.C. § 2710(a)(1). That overlap likely explains the October 22, 2026 call for a response.
+
+### Downward Factors (Decisive)
+1. **Repeated, Recent Denials of the Exact Question Presented from the Same Circuit:** As the petition candidly discloses (Pet. 3, 12, 19, 34), the Supreme Court has already denied certiorari twice in the past year on this exact Question Presented arising out of Second Circuit Facebook Pixel litigation:
+   - First, the Court denied certiorari in *Solomon v. Flipps Media, Inc.*, 136 F.4th 41 (2d Cir. 2025), *cert. denied*, 146 S. Ct. 885 (Dec. 8, 2025) — the Second Circuit's published precedent establishing the "ordinary person" rule applied here.
+   - Second, the Court denied certiorari in *Hughes v. National Football League*, No. 24-2656, 2025 WL 1720295 (2d Cir. June 20, 2025), *cert. denied*, 146 S. Ct. 1790 (Mar. 9, 2026) — another Second Circuit summary order applying *Solomon* to Facebook Pixel claims, which the Court denied **after** having already granted certiorari in *Salazar v. Paramount Global* on January 26, 2026.
+2. **Independent Adequacy of the *Solomon* Ground Forecloses a Routine *Salazar* GVR:** Even if the Court holds this petition pending *Salazar v. Paramount Global*, a GVR is unlikely to follow whatever *Salazar* holds on the "consumer" question:
+   - In the district court, Judge Engelmayer dismissed Golden's Third Amended Complaint solely because the Facebook Pixel transmission of a URL and Facebook ID (`c_user` cookie) did not constitute PII under *Solomon*, and expressly declined to reach NBCUniversal's alternative argument that Golden was not a VPPA "consumer" (Pet. App. 2a–3a, 14a–15a). The Second Circuit likewise affirmed in a four-page summary order solely on the *Solomon* PII ground, after Golden conceded that *Solomon* foreclosed her claim in the circuit (Pet. App. 3a–4a).
+   - If *Salazar v. Paramount Global* **affirms** the Sixth Circuit (narrowing "consumer" to exclude general newsletter subscribers), Golden's claim fails on *both* threshold grounds, leaving no basis to disturb the Second Circuit's affirmance of dismissal.
+   - If *Salazar v. Paramount Global* **reverses** the Sixth Circuit (agreeing with the Second Circuit's existing rule in *Salazar v. National Basketball Ass'n*, 118 F.4th 533 (2d Cir. 2024)), the Second Circuit's judgment in *Golden* still rests on a wholly independent, adequate ground (*Solomon*'s interpretation of § 2710(a)(3) PII) that was already the law of the Second Circuit alongside *Salazar v. NBA*. Only if the *Salazar* opinion unexpectedly reaches beyond § 2710(a)(1) to cast doubt on the "ordinary person" test under § 2710(a)(3) would a GVR be warranted.
+3. **Unpublished Summary Order and Absence of Amici:** Unlike *Solomon*, the decision below is a brief non-precedential summary order applying settled circuit law to a claim concededly foreclosed below, and the petition attracted zero amicus briefs.
+
+Weighing these considerations, I estimate a **1.5%** probability of a plenary grant and a **2.5%** probability of a GVR (in the event *Salazar v. Paramount Global* speaks broadly to the statutory structure of § 2710(a) in a manner the Court deems worth a remand), yielding a combined **`probability = 0.04`** (4.0%), slightly below the 5.16% `cert_anchor` baseline.
+
+## Rationale for Secondary Claims and Distributions
+
+- **`relist-increment` (`0.95`):** The provisioned snapshot (`2026-11-09.json`) and `record/context.json` record `distribution_count = 1` (the October 7, 2026 distribution for the October 30, 2026 conference, following Respondent's October 5, 2026 waiver). Because the Court requested a response on October 22, 2026 (now due December 23, 2026), the petition will be distributed again for a conference after the Brief in Opposition is filed (or the time expires). Thus, `distribution_count` at resolution is virtually certain to exceed 1 unless the case is voluntarily dismissed under Rule 46 before redistribution.
+- **`cvsg-increment` (`0.01`):** The Court did not invite the Solicitor General's views in *Solomon*, *Hughes*, *NBA v. Salazar*, or *Salazar v. Paramount Global*, and *Salazar* is already argued and under submission.
+- **`summary-disposition-route` (`0.62`):** Conditional on any grant (`P = 0.04`), a GVR following *Salazar v. Paramount Global* (~0.025 unconditional) is substantially likelier than plenary review of a summary order on an issue the Court twice declined to review in *Solomon* and *Hughes* (~0.015 unconditional): `0.025 / 0.04 = 0.625` (~0.62).
+- **`dissent-from-denial` (`0.02`) and `order-writers`:** Neither *Solomon* nor *Hughes* drew a dissent or statement respecting denial of certiorari. I assign a 2% conditional probability of any separate writing on denial, distributed across the nine sitting Justices with slightly higher weights on Justices Thomas (`0.006`), Gorsuch (`0.005`), and Alito (`0.004`).
+
+## Uncertainties
+
+The primary uncertainty is why the Court called for a response on October 22, 2026 despite having denied *Hughes v. NFL* on March 9, 2026 while *Salazar v. Paramount Global* was already pending. Because the Brief in Opposition is not due until December 23, 2026, only the petition (`petition.txt` and `questions-presented.txt`) is on the record; once NBCUniversal files its BIO emphasizing that the judgment below rests independently on *Solomon*'s PII holding regardless of how *Salazar* resolves the "consumer" question, the likelihood of denial (either immediately at first post-BIO conference or upon the release of *Salazar*) is very high.

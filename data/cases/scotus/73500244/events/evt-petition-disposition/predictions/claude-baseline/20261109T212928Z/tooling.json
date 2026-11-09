@@ -1,0 +1,11 @@
+{
+  "case_id": "scotus/73500244",
+  "run_id": "20261109T212928Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "WebFetch supremecourt.gov dockets"],
+  "helpful": ["--docket-number lookup for the companion petition cited in the BIO", "cert_anchor in context.json"],
+  "gaps": ["same-question.json was not provisioned for this cell; the companion had to be found from the BIO footnote"]
+}

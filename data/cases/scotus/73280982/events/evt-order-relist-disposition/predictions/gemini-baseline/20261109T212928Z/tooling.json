@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73280982",
+  "run_id": "20261109T212928Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md"
+  ],
+  "helpful": [
+    "record/context.json cert_anchor",
+    "provisioned filings (sg-invited-brief.txt, supplemental-brief.txt, decision-below.txt)",
+    "metrics/statpack.md"
+  ],
+  "gaps": [
+    "statpack breakdown of CVSG grant rates conditioned on Solicitor General recommendation (grant vs. partial grant vs. deny)"
+  ],
+  "notes": "Provisioned CVSG brief, supplemental briefs, and dated snapshot provided complete context for this post-CVSG relist disposition forecast."
+}

@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000398",
+  "run_id": "20261109T212928Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md"],
+  "helpful": ["Petition text including its cites to prior cert denials on the same question"],
+  "gaps": ["No structured link from a petition to the merits case it asks to be held for (Salazar v. Paramount, 25-459)"],
+  "notes": "--era takes decades, not 'modern'; the first query errored."
+}
