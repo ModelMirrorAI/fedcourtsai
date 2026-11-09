@@ -192,7 +192,7 @@
           "mean_vote_accuracy": null,
           "population_brier_skill_score": 0.36949742165424915,
           "population_in_sample_skill_score": 0.3520548717948717,
-          "population_realized_term_skill_score": 0.35535556257134315,
+          "population_realized_term_skill_score": 0.35578228150548186,
           "realized_term_skill_scored": 240,
           "reasoning_quality_rubrics": [
             {
@@ -331,7 +331,7 @@
           "mean_vote_accuracy": null,
           "population_brier_skill_score": 0.4880619029000919,
           "population_in_sample_skill_score": 0.47150171052631584,
-          "population_realized_term_skill_score": 0.43892257100251475,
+          "population_realized_term_skill_score": 0.44104131265392155,
           "realized_term_skill_scored": 111,
           "reasoning_quality_rubrics": [
             {
@@ -537,7 +537,7 @@
           "mean_vote_accuracy": null,
           "population_brier_skill_score": 0.5415137437935713,
           "population_in_sample_skill_score": 0.5,
-          "population_realized_term_skill_score": 0.5373751560549314,
+          "population_realized_term_skill_score": 0.5341500765696785,
           "realized_term_skill_scored": 6,
           "reasoning_quality_rubrics": [
             {
@@ -694,7 +694,7 @@
           "mean_vote_accuracy": null,
           "population_brier_skill_score": 0.501390886118875,
           "population_in_sample_skill_score": 0.5363295014005602,
-          "population_realized_term_skill_score": 0.42656761719305936,
+          "population_realized_term_skill_score": 0.427451061343869,
           "realized_term_skill_scored": 360,
           "reasoning_quality_rubrics": [
             {
@@ -836,7 +836,7 @@
         "mean_vote_accuracy": null,
         "population_brier_skill_score": 0.501390886118875,
         "population_in_sample_skill_score": 0.5363295014005602,
-        "population_realized_term_skill_score": 0.42656761719305936,
+        "population_realized_term_skill_score": 0.427451061343869,
         "realized_term_skill_scored": 360,
         "reasoning_quality_rubrics": [
           {
@@ -1455,7 +1455,7 @@
           "mean_vote_accuracy": null,
           "population_brier_skill_score": 0.6049573815352016,
           "population_in_sample_skill_score": 0.594028717948718,
-          "population_realized_term_skill_score": 0.596096772183327,
+          "population_realized_term_skill_score": 0.5963641337626134,
           "realized_term_skill_scored": 240,
           "reasoning_quality_rubrics": [
             {
@@ -1594,7 +1594,7 @@
           "mean_vote_accuracy": null,
           "population_brier_skill_score": 0.3740433375362995,
           "population_in_sample_skill_score": 0.3537948684210527,
-          "population_realized_term_skill_score": 0.24293785697467674,
+          "population_realized_term_skill_score": 0.2457966764748607,
           "realized_term_skill_scored": 111,
           "reasoning_quality_rubrics": [
             {
@@ -1800,7 +1800,7 @@
           "mean_vote_accuracy": null,
           "population_brier_skill_score": 0.9061020147289234,
           "population_in_sample_skill_score": 0.8976,
-          "population_realized_term_skill_score": 0.90525443196005,
+          "population_realized_term_skill_score": 0.9045939356814702,
           "realized_term_skill_scored": 6,
           "reasoning_quality_rubrics": [
             {
@@ -1957,7 +1957,7 @@
           "mean_vote_accuracy": null,
           "population_brier_skill_score": 0.5130921803778953,
           "population_in_sample_skill_score": 0.5442753694444444,
-          "population_realized_term_skill_score": 0.44482356394768485,
+          "population_realized_term_skill_score": 0.44567888253415344,
           "realized_term_skill_scored": 360,
           "reasoning_quality_rubrics": [
             {
@@ -2099,7 +2099,7 @@
         "mean_vote_accuracy": null,
         "population_brier_skill_score": 0.5130921803778953,
         "population_in_sample_skill_score": 0.5442753694444444,
-        "population_realized_term_skill_score": 0.44482356394768485,
+        "population_realized_term_skill_score": 0.44567888253415344,
         "realized_term_skill_scored": 360,
         "reasoning_quality_rubrics": [
           {
@@ -2414,7 +2414,7 @@
           "mean_vote_accuracy": null,
           "population_brier_skill_score": 0.3198214276683998,
           "population_in_sample_skill_score": 0.3010046153846153,
-          "population_realized_term_skill_score": 0.3045653607600566,
+          "population_realized_term_skill_score": 0.30502569999636997,
           "realized_term_skill_scored": 240,
           "reasoning_quality_rubrics": [
             {
@@ -2553,7 +2553,7 @@
           "mean_vote_accuracy": null,
           "population_brier_skill_score": 0.0057903360017896865,
           "population_in_sample_skill_score": -0.026370394736842107,
-          "population_realized_term_skill_score": -0.43922367865198453,
+          "population_realized_term_skill_score": -0.43378887946731703,
           "realized_term_skill_scored": 111,
           "reasoning_quality_rubrics": [
             {
@@ -2759,7 +2759,7 @@
           "mean_vote_accuracy": null,
           "population_brier_skill_score": -1.3566193569010436,
           "population_in_sample_skill_score": -1.5699999999999998,
-          "population_realized_term_skill_score": -1.377891697877653,
+          "population_realized_term_skill_score": -1.3944686064318526,
           "realized_term_skill_scored": 6,
           "reasoning_quality_rubrics": [
             {
@@ -2916,7 +2916,7 @@
           "mean_vote_accuracy": null,
           "population_brier_skill_score": 0.056502703365184925,
           "population_in_sample_skill_score": 0.11692739444444444,
-          "population_realized_term_skill_score": -0.23745431755776347,
+          "population_realized_term_skill_score": -0.23554786474568234,
           "realized_term_skill_scored": 360,
           "reasoning_quality_rubrics": [
             {
@@ -3058,7 +3058,7 @@
         "mean_vote_accuracy": null,
         "population_brier_skill_score": 0.056502703365184925,
         "population_in_sample_skill_score": 0.11692739444444444,
-        "population_realized_term_skill_score": -0.23745431755776347,
+        "population_realized_term_skill_score": -0.23554786474568234,
         "realized_term_skill_scored": 360,
         "reasoning_quality_rubrics": [
           {
@@ -3531,7 +3531,7 @@
           "mean_vote_accuracy": null,
           "population_brier_skill_score": 0.6049573815352016,
           "population_in_sample_skill_score": 0.594028717948718,
-          "population_realized_term_skill_score": 0.596096772183327,
+          "population_realized_term_skill_score": 0.5963641337626134,
           "realized_term_skill_scored": 240,
           "reasoning_quality_rubrics": [
             {
@@ -3670,7 +3670,7 @@
           "mean_vote_accuracy": null,
           "population_brier_skill_score": 0.3740433375362995,
           "population_in_sample_skill_score": 0.3537948684210527,
-          "population_realized_term_skill_score": 0.24293785697467674,
+          "population_realized_term_skill_score": 0.2457966764748607,
           "realized_term_skill_scored": 111,
           "reasoning_quality_rubrics": [
             {
@@ -3876,7 +3876,7 @@
           "mean_vote_accuracy": null,
           "population_brier_skill_score": 0.9061020147289234,
           "population_in_sample_skill_score": 0.8976,
-          "population_realized_term_skill_score": 0.90525443196005,
+          "population_realized_term_skill_score": 0.9045939356814702,
           "realized_term_skill_scored": 6,
           "reasoning_quality_rubrics": [
             {
@@ -4033,7 +4033,7 @@
           "mean_vote_accuracy": null,
           "population_brier_skill_score": 0.5130921803778953,
           "population_in_sample_skill_score": 0.5442753694444444,
-          "population_realized_term_skill_score": 0.44482356394768485,
+          "population_realized_term_skill_score": 0.44567888253415344,
           "realized_term_skill_scored": 360,
           "reasoning_quality_rubrics": [
             {
@@ -4175,7 +4175,7 @@
         "mean_vote_accuracy": null,
         "population_brier_skill_score": 0.5130921803778953,
         "population_in_sample_skill_score": 0.5442753694444444,
-        "population_realized_term_skill_score": 0.44482356394768485,
+        "population_realized_term_skill_score": 0.44567888253415344,
         "realized_term_skill_scored": 360,
         "reasoning_quality_rubrics": [
           {
@@ -4642,7 +4642,7 @@
           "mean_vote_accuracy": null,
           "population_brier_skill_score": 0.36949742165424915,
           "population_in_sample_skill_score": 0.3520548717948717,
-          "population_realized_term_skill_score": 0.35535556257134315,
+          "population_realized_term_skill_score": 0.35578228150548186,
           "realized_term_skill_scored": 240,
           "reasoning_quality_rubrics": [
             {
@@ -4781,7 +4781,7 @@
           "mean_vote_accuracy": null,
           "population_brier_skill_score": 0.4880619029000919,
           "population_in_sample_skill_score": 0.47150171052631584,
-          "population_realized_term_skill_score": 0.43892257100251475,
+          "population_realized_term_skill_score": 0.44104131265392155,
           "realized_term_skill_scored": 111,
           "reasoning_quality_rubrics": [
             {
@@ -4987,7 +4987,7 @@
           "mean_vote_accuracy": null,
           "population_brier_skill_score": 0.5415137437935713,
           "population_in_sample_skill_score": 0.5,
-          "population_realized_term_skill_score": 0.5373751560549314,
+          "population_realized_term_skill_score": 0.5341500765696785,
           "realized_term_skill_scored": 6,
           "reasoning_quality_rubrics": [
             {
@@ -5144,7 +5144,7 @@
           "mean_vote_accuracy": null,
           "population_brier_skill_score": 0.49691679099110664,
           "population_in_sample_skill_score": 0.5291359055555556,
-          "population_realized_term_skill_score": 0.42656761719305936,
+          "population_realized_term_skill_score": 0.427451061343869,
           "realized_term_skill_scored": 360,
           "reasoning_quality_rubrics": [
             {
@@ -5286,7 +5286,7 @@
         "mean_vote_accuracy": null,
         "population_brier_skill_score": 0.49691679099110664,
         "population_in_sample_skill_score": 0.5291359055555556,
-        "population_realized_term_skill_score": 0.42656761719305936,
+        "population_realized_term_skill_score": 0.427451061343869,
         "realized_term_skill_scored": 360,
         "reasoning_quality_rubrics": [
           {
@@ -5775,7 +5775,7 @@
           "mean_vote_accuracy": null,
           "population_brier_skill_score": 0.3198214276683998,
           "population_in_sample_skill_score": 0.3010046153846153,
-          "population_realized_term_skill_score": 0.3045653607600566,
+          "population_realized_term_skill_score": 0.30502569999636997,
           "realized_term_skill_scored": 240,
           "reasoning_quality_rubrics": [
             {
@@ -5914,7 +5914,7 @@
           "mean_vote_accuracy": null,
           "population_brier_skill_score": 0.0057903360017896865,
           "population_in_sample_skill_score": -0.026370394736842107,
-          "population_realized_term_skill_score": -0.43922367865198453,
+          "population_realized_term_skill_score": -0.43378887946731703,
           "realized_term_skill_scored": 111,
           "reasoning_quality_rubrics": [
             {
@@ -6120,7 +6120,7 @@
           "mean_vote_accuracy": null,
           "population_brier_skill_score": -1.3566193569010436,
           "population_in_sample_skill_score": -1.5699999999999998,
-          "population_realized_term_skill_score": -1.377891697877653,
+          "population_realized_term_skill_score": -1.3944686064318526,
           "realized_term_skill_scored": 6,
           "reasoning_quality_rubrics": [
             {
@@ -6277,7 +6277,7 @@
           "mean_vote_accuracy": null,
           "population_brier_skill_score": 0.056502703365184925,
           "population_in_sample_skill_score": 0.11692739444444444,
-          "population_realized_term_skill_score": -0.23745431755776347,
+          "population_realized_term_skill_score": -0.23554786474568234,
           "realized_term_skill_scored": 360,
           "reasoning_quality_rubrics": [
             {
@@ -6419,7 +6419,7 @@
         "mean_vote_accuracy": null,
         "population_brier_skill_score": 0.056502703365184925,
         "population_in_sample_skill_score": 0.11692739444444444,
-        "population_realized_term_skill_score": -0.23745431755776347,
+        "population_realized_term_skill_score": -0.23554786474568234,
         "realized_term_skill_scored": 360,
         "reasoning_quality_rubrics": [
           {
@@ -7379,14 +7379,14 @@
   "forward_evaluations": 1161,
   "frozen_process": {
     "digests": [
-      "sha256:1789dc26189e0e14ae71d9ed1f622751dd2c849d8fba4a85542336fab0b15080",
-      "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
-      "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
-      "sha256:889d53dc033d7303ca39cf2bf3faa859dc0886a296ed2f0ad5ac00edf96705b7",
-      "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
-      "sha256:a939a164bc3cb0658e12c0c98b2300a878aecea15a93189e96579103382002d8"
+      "sha256:154ba5e6732eb9627dfa988245cba7a2f5a5682fa4b9bf6ac5d0c7e6e4e984de",
+      "sha256:56f5da33ed8eeda29c8094135a9141710b69c76fb939abe281da85d263d238a7",
+      "sha256:69076c7e6ef3b55358bbb298c3ab3e821f14f7ce165f7a1eed2e51a550f5ca21",
+      "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+      "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+      "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c"
     ],
-    "since": "2026-11-07T15:59:33Z",
+    "since": "2026-11-08T18:17:04Z",
     "windows": [
       {
         "closes": "2026-10-11T12:00:00Z",
@@ -7629,7 +7629,7 @@
         "revoked_at": null
       },
       {
-        "closes": null,
+        "closes": "2026-11-08T18:17:04Z",
         "digest": "sha256:1789dc26189e0e14ae71d9ed1f622751dd2c849d8fba4a85542336fab0b15080",
         "label": "proc-v19",
         "opens": "2026-11-07T15:59:33Z",
@@ -7637,7 +7637,7 @@
         "revoked_at": null
       },
       {
-        "closes": null,
+        "closes": "2026-11-08T18:17:04Z",
         "digest": "sha256:a939a164bc3cb0658e12c0c98b2300a878aecea15a93189e96579103382002d8",
         "label": "proc-v19",
         "opens": "2026-11-07T15:59:33Z",
@@ -7645,10 +7645,34 @@
         "revoked_at": null
       },
       {
-        "closes": null,
+        "closes": "2026-11-08T18:17:04Z",
         "digest": "sha256:889d53dc033d7303ca39cf2bf3faa859dc0886a296ed2f0ad5ac00edf96705b7",
         "label": "proc-v19",
         "opens": "2026-11-07T15:59:33Z",
+        "predictor_id": "gemini-baseline",
+        "revoked_at": null
+      },
+      {
+        "closes": null,
+        "digest": "sha256:69076c7e6ef3b55358bbb298c3ab3e821f14f7ce165f7a1eed2e51a550f5ca21",
+        "label": "proc-v20",
+        "opens": "2026-11-08T18:17:04Z",
+        "predictor_id": "claude-baseline",
+        "revoked_at": null
+      },
+      {
+        "closes": null,
+        "digest": "sha256:56f5da33ed8eeda29c8094135a9141710b69c76fb939abe281da85d263d238a7",
+        "label": "proc-v20",
+        "opens": "2026-11-08T18:17:04Z",
+        "predictor_id": "codex-baseline",
+        "revoked_at": null
+      },
+      {
+        "closes": null,
+        "digest": "sha256:154ba5e6732eb9627dfa988245cba7a2f5a5682fa4b9bf6ac5d0c7e6e4e984de",
+        "label": "proc-v20",
+        "opens": "2026-11-08T18:17:04Z",
         "predictor_id": "gemini-baseline",
         "revoked_at": null
       }
@@ -7696,7 +7720,7 @@
             "mean_vote_accuracy": null,
             "population_brier_skill_score": 0.6163494283635701,
             "population_in_sample_skill_score": 0.6073990660919542,
-            "population_realized_term_skill_score": 0.5255064782976221,
+            "population_realized_term_skill_score": 0.5267880189739778,
             "realized_term_skill_scored": 255,
             "reasoning_quality_rubrics": [
               {
@@ -7811,7 +7835,7 @@
             "mean_vote_accuracy": null,
             "population_brier_skill_score": 0.6214628954114538,
             "population_in_sample_skill_score": 0.6126318275862069,
-            "population_realized_term_skill_score": 0.5493546836137277,
+            "population_realized_term_skill_score": 0.5505718136210799,
             "realized_term_skill_scored": 255,
             "reasoning_quality_rubrics": [
               {
@@ -7926,7 +7950,7 @@
             "mean_vote_accuracy": null,
             "population_brier_skill_score": 0.39907243590216634,
             "population_in_sample_skill_score": 0.3850531178160921,
-            "population_realized_term_skill_score": 0.35177648395673256,
+            "population_realized_term_skill_score": 0.3535272450634369,
             "realized_term_skill_scored": 255,
             "reasoning_quality_rubrics": [
               {
@@ -8139,7 +8163,7 @@
             "mean_vote_accuracy": null,
             "population_brier_skill_score": 0.6049573815352016,
             "population_in_sample_skill_score": 0.594028717948718,
-            "population_realized_term_skill_score": 0.596096772183327,
+            "population_realized_term_skill_score": 0.5963641337626134,
             "realized_term_skill_scored": 240,
             "reasoning_quality_rubrics": [
               {
@@ -8278,7 +8302,7 @@
             "mean_vote_accuracy": null,
             "population_brier_skill_score": 0.3740433375362995,
             "population_in_sample_skill_score": 0.3537948684210527,
-            "population_realized_term_skill_score": 0.24293785697467674,
+            "population_realized_term_skill_score": 0.2457966764748607,
             "realized_term_skill_scored": 111,
             "reasoning_quality_rubrics": [
               {
@@ -8484,7 +8508,7 @@
             "mean_vote_accuracy": null,
             "population_brier_skill_score": 0.9061020147289234,
             "population_in_sample_skill_score": 0.8976,
-            "population_realized_term_skill_score": 0.90525443196005,
+            "population_realized_term_skill_score": 0.9045939356814702,
             "realized_term_skill_scored": 6,
             "reasoning_quality_rubrics": [
               {
@@ -8640,7 +8664,7 @@
           "mean_vote_accuracy": null,
           "population_brier_skill_score": 0.5130921803778953,
           "population_in_sample_skill_score": 0.5442753694444444,
-          "population_realized_term_skill_score": 0.44482356394768485,
+          "population_realized_term_skill_score": 0.44567888253415344,
           "realized_term_skill_scored": 360,
           "reasoning_quality_rubrics": [
             {
@@ -8874,7 +8898,7 @@
             "mean_vote_accuracy": null,
             "population_brier_skill_score": 0.36949742165424915,
             "population_in_sample_skill_score": 0.3520548717948717,
-            "population_realized_term_skill_score": 0.35535556257134315,
+            "population_realized_term_skill_score": 0.35578228150548186,
             "realized_term_skill_scored": 240,
             "reasoning_quality_rubrics": [
               {
@@ -9013,7 +9037,7 @@
             "mean_vote_accuracy": null,
             "population_brier_skill_score": 0.4880619029000919,
             "population_in_sample_skill_score": 0.47150171052631584,
-            "population_realized_term_skill_score": 0.43892257100251475,
+            "population_realized_term_skill_score": 0.44104131265392155,
             "realized_term_skill_scored": 111,
             "reasoning_quality_rubrics": [
               {
@@ -9219,7 +9243,7 @@
             "mean_vote_accuracy": null,
             "population_brier_skill_score": 0.5415137437935713,
             "population_in_sample_skill_score": 0.5,
-            "population_realized_term_skill_score": 0.5373751560549314,
+            "population_realized_term_skill_score": 0.5341500765696785,
             "realized_term_skill_scored": 6,
             "reasoning_quality_rubrics": [
               {
@@ -9375,7 +9399,7 @@
           "mean_vote_accuracy": null,
           "population_brier_skill_score": 0.49691679099110664,
           "population_in_sample_skill_score": 0.5291359055555556,
-          "population_realized_term_skill_score": 0.42656761719305936,
+          "population_realized_term_skill_score": 0.427451061343869,
           "realized_term_skill_scored": 360,
           "reasoning_quality_rubrics": [
             {
@@ -9631,7 +9655,7 @@
             "mean_vote_accuracy": null,
             "population_brier_skill_score": 0.3198214276683998,
             "population_in_sample_skill_score": 0.3010046153846153,
-            "population_realized_term_skill_score": 0.3045653607600566,
+            "population_realized_term_skill_score": 0.30502569999636997,
             "realized_term_skill_scored": 240,
             "reasoning_quality_rubrics": [
               {
@@ -9770,7 +9794,7 @@
             "mean_vote_accuracy": null,
             "population_brier_skill_score": 0.0057903360017896865,
             "population_in_sample_skill_score": -0.026370394736842107,
-            "population_realized_term_skill_score": -0.43922367865198453,
+            "population_realized_term_skill_score": -0.43378887946731703,
             "realized_term_skill_scored": 111,
             "reasoning_quality_rubrics": [
               {
@@ -9976,7 +10000,7 @@
             "mean_vote_accuracy": null,
             "population_brier_skill_score": -1.3566193569010436,
             "population_in_sample_skill_score": -1.5699999999999998,
-            "population_realized_term_skill_score": -1.377891697877653,
+            "population_realized_term_skill_score": -1.3944686064318526,
             "realized_term_skill_scored": 6,
             "reasoning_quality_rubrics": [
               {
@@ -10132,7 +10156,7 @@
           "mean_vote_accuracy": null,
           "population_brier_skill_score": 0.056502703365184925,
           "population_in_sample_skill_score": 0.11692739444444444,
-          "population_realized_term_skill_score": -0.23745431755776347,
+          "population_realized_term_skill_score": -0.23554786474568234,
           "realized_term_skill_scored": 360,
           "reasoning_quality_rubrics": [
             {
@@ -10336,7 +10360,7 @@
           "mean_vote_accuracy": null,
           "population_brier_skill_score": 0.4518222260625647,
           "population_in_sample_skill_score": 0.5311332,
-          "population_realized_term_skill_score": 0.4235983414952843,
+          "population_realized_term_skill_score": 0.4244860550116204,
           "realized_term_skill_scored": 378,
           "reasoning_quality_rubrics": [
             {
@@ -10481,7 +10505,7 @@
           "mean_vote_accuracy": null,
           "population_brier_skill_score": 0.5104904110922455,
           "population_in_sample_skill_score": 0.5813132063492064,
-          "population_realized_term_skill_score": 0.44224012614527763,
+          "population_realized_term_skill_score": 0.443099129535683,
           "realized_term_skill_scored": 378,
           "reasoning_quality_rubrics": [
             {
@@ -10626,7 +10650,7 @@
           "mean_vote_accuracy": null,
           "population_brier_skill_score": 0.06265301056974815,
           "population_in_sample_skill_score": 0.1982694222222222,
-          "population_realized_term_skill_score": -0.23923695104811116,
+          "population_realized_term_skill_score": -0.23732840797722132,
           "realized_term_skill_scored": 378,
           "reasoning_quality_rubrics": [
             {
@@ -11638,7 +11662,7 @@
               "mean_vote_accuracy": null,
               "population_brier_skill_score": 0.6137967928753707,
               "population_in_sample_skill_score": 0.6044653913043478,
-              "population_realized_term_skill_score": 0.5206529156866009,
+              "population_realized_term_skill_score": 0.5219468645698487,
               "realized_term_skill_scored": 270,
               "reasoning_quality_rubrics": [
                 {
@@ -11753,7 +11777,7 @@
               "mean_vote_accuracy": null,
               "population_brier_skill_score": 0.6183452415592156,
               "population_in_sample_skill_score": 0.6091237391304348,
-              "population_realized_term_skill_score": 0.5437463744652002,
+              "population_realized_term_skill_score": 0.5449779848964689,
               "realized_term_skill_scored": 270,
               "reasoning_quality_rubrics": [
                 {
@@ -11868,7 +11892,7 @@
               "mean_vote_accuracy": null,
               "population_brier_skill_score": 0.39790607830365277,
               "population_in_sample_skill_score": 0.383358347826087,
-              "population_realized_term_skill_score": 0.3479515060214543,
+              "population_realized_term_skill_score": 0.3497116448607579,
               "realized_term_skill_scored": 270,
               "reasoning_quality_rubrics": [
                 {
@@ -12081,7 +12105,7 @@
               "mean_vote_accuracy": null,
               "population_brier_skill_score": 0.6003578668949038,
               "population_in_sample_skill_score": 0.5869517261904762,
-              "population_realized_term_skill_score": 0.588717431517677,
+              "population_realized_term_skill_score": 0.5889894156174413,
               "realized_term_skill_scored": 258,
               "reasoning_quality_rubrics": [
                 {
@@ -12220,7 +12244,7 @@
               "mean_vote_accuracy": null,
               "population_brier_skill_score": 0.3740433375362995,
               "population_in_sample_skill_score": 0.3537948684210527,
-              "population_realized_term_skill_score": 0.24293785697467674,
+              "population_realized_term_skill_score": 0.2457966764748607,
               "realized_term_skill_scored": 111,
               "reasoning_quality_rubrics": [
                 {
@@ -12444,7 +12468,7 @@
               "mean_vote_accuracy": null,
               "population_brier_skill_score": 0.9061020147289234,
               "population_in_sample_skill_score": 0.8976,
-              "population_realized_term_skill_score": 0.90525443196005,
+              "population_realized_term_skill_score": 0.9045939356814702,
               "realized_term_skill_scored": 6,
               "reasoning_quality_rubrics": [
                 {
@@ -12600,7 +12624,7 @@
             "mean_vote_accuracy": null,
             "population_brier_skill_score": 0.5104904110922455,
             "population_in_sample_skill_score": 0.5813132063492064,
-            "population_realized_term_skill_score": 0.44224012614527763,
+            "population_realized_term_skill_score": 0.443099129535683,
             "realized_term_skill_scored": 378,
             "reasoning_quality_rubrics": [
               {
@@ -12834,7 +12858,7 @@
               "mean_vote_accuracy": null,
               "population_brier_skill_score": 0.36558888492322883,
               "population_in_sample_skill_score": 0.3443073333333333,
-              "population_realized_term_skill_score": 0.3471102987684914,
+              "population_realized_term_skill_score": 0.3475420593906111,
               "realized_term_skill_scored": 258,
               "reasoning_quality_rubrics": [
                 {
@@ -12973,7 +12997,7 @@
               "mean_vote_accuracy": null,
               "population_brier_skill_score": 0.4880619029000919,
               "population_in_sample_skill_score": 0.47150171052631584,
-              "population_realized_term_skill_score": 0.43892257100251475,
+              "population_realized_term_skill_score": 0.44104131265392155,
               "realized_term_skill_scored": 111,
               "reasoning_quality_rubrics": [
                 {
@@ -13197,7 +13221,7 @@
               "mean_vote_accuracy": null,
               "population_brier_skill_score": 0.5415137437935713,
               "population_in_sample_skill_score": 0.5,
-              "population_realized_term_skill_score": 0.5373751560549314,
+              "population_realized_term_skill_score": 0.5341500765696785,
               "realized_term_skill_scored": 6,
               "reasoning_quality_rubrics": [
                 {
@@ -13353,7 +13377,7 @@
             "mean_vote_accuracy": null,
             "population_brier_skill_score": 0.4518222260625647,
             "population_in_sample_skill_score": 0.5311332,
-            "population_realized_term_skill_score": 0.4235983414952843,
+            "population_realized_term_skill_score": 0.4244860550116204,
             "realized_term_skill_scored": 378,
             "reasoning_quality_rubrics": [
               {
@@ -13609,7 +13633,7 @@
               "mean_vote_accuracy": null,
               "population_brier_skill_score": 0.3188904600921638,
               "population_in_sample_skill_score": 0.29604239285714284,
-              "population_realized_term_skill_score": 0.29905168202712706,
+              "population_realized_term_skill_score": 0.29951522415571463,
               "realized_term_skill_scored": 258,
               "reasoning_quality_rubrics": [
                 {
@@ -13748,7 +13772,7 @@
               "mean_vote_accuracy": null,
               "population_brier_skill_score": 0.0057903360017896865,
               "population_in_sample_skill_score": -0.026370394736842107,
-              "population_realized_term_skill_score": -0.43922367865198453,
+              "population_realized_term_skill_score": -0.43378887946731703,
               "realized_term_skill_scored": 111,
               "reasoning_quality_rubrics": [
                 {
@@ -13972,7 +13996,7 @@
               "mean_vote_accuracy": null,
               "population_brier_skill_score": -1.3566193569010436,
               "population_in_sample_skill_score": -1.5699999999999998,
-              "population_realized_term_skill_score": -1.377891697877653,
+              "population_realized_term_skill_score": -1.3944686064318526,
               "realized_term_skill_scored": 6,
               "reasoning_quality_rubrics": [
                 {
@@ -14128,7 +14152,7 @@
             "mean_vote_accuracy": null,
             "population_brier_skill_score": 0.06265301056974815,
             "population_in_sample_skill_score": 0.1982694222222222,
-            "population_realized_term_skill_score": -0.23923695104811116,
+            "population_realized_term_skill_score": -0.23732840797722132,
             "realized_term_skill_scored": 378,
             "reasoning_quality_rubrics": [
               {
@@ -16155,7 +16179,7 @@
               "mean_vote_accuracy": null,
               "population_brier_skill_score": 0.790620893342529,
               "population_in_sample_skill_score": null,
-              "population_realized_term_skill_score": 0.8313528888888889,
+              "population_realized_term_skill_score": 0.8379288241415193,
               "realized_term_skill_scored": 3,
               "reasoning_quality_rubrics": [
                 {
@@ -16218,7 +16242,7 @@
               "mean_vote_accuracy": null,
               "population_brier_skill_score": 0.790620893342529,
               "population_in_sample_skill_score": null,
-              "population_realized_term_skill_score": 0.8313528888888889,
+              "population_realized_term_skill_score": 0.8379288241415193,
               "realized_term_skill_scored": 3,
               "reasoning_quality_rubrics": [
                 {
@@ -16282,7 +16306,7 @@
             "mean_vote_accuracy": null,
             "population_brier_skill_score": 0.790620893342529,
             "population_in_sample_skill_score": null,
-            "population_realized_term_skill_score": 0.8313528888888889,
+            "population_realized_term_skill_score": 0.8379288241415193,
             "realized_term_skill_scored": 3,
             "reasoning_quality_rubrics": [
               {
@@ -16350,7 +16374,7 @@
               "mean_vote_accuracy": null,
               "population_brier_skill_score": -0.44275290681163515,
               "population_in_sample_skill_score": null,
-              "population_realized_term_skill_score": -0.16208399999999967,
+              "population_realized_term_skill_score": -0.11677169614984395,
               "realized_term_skill_scored": 3,
               "reasoning_quality_rubrics": [
                 {
@@ -16413,7 +16437,7 @@
               "mean_vote_accuracy": null,
               "population_brier_skill_score": -0.44275290681163515,
               "population_in_sample_skill_score": null,
-              "population_realized_term_skill_score": -0.16208399999999967,
+              "population_realized_term_skill_score": -0.11677169614984395,
               "realized_term_skill_scored": 3,
               "reasoning_quality_rubrics": [
                 {
@@ -16477,7 +16501,7 @@
             "mean_vote_accuracy": null,
             "population_brier_skill_score": -0.44275290681163515,
             "population_in_sample_skill_score": null,
-            "population_realized_term_skill_score": -0.16208399999999967,
+            "population_realized_term_skill_score": -0.11677169614984395,
             "realized_term_skill_scored": 3,
             "reasoning_quality_rubrics": [
               {
@@ -16545,7 +16569,7 @@
               "mean_vote_accuracy": null,
               "population_brier_skill_score": -0.001911740841413323,
               "population_in_sample_skill_score": null,
-              "population_realized_term_skill_score": 0.1929972222222225,
+              "population_realized_term_skill_score": 0.22446409989594174,
               "realized_term_skill_scored": 3,
               "reasoning_quality_rubrics": [
                 {
@@ -16608,7 +16632,7 @@
               "mean_vote_accuracy": null,
               "population_brier_skill_score": -0.001911740841413323,
               "population_in_sample_skill_score": null,
-              "population_realized_term_skill_score": 0.1929972222222225,
+              "population_realized_term_skill_score": 0.22446409989594174,
               "realized_term_skill_scored": 3,
               "reasoning_quality_rubrics": [
                 {
@@ -16672,7 +16696,7 @@
             "mean_vote_accuracy": null,
             "population_brier_skill_score": -0.001911740841413323,
             "population_in_sample_skill_score": null,
-            "population_realized_term_skill_score": 0.1929972222222225,
+            "population_realized_term_skill_score": 0.22446409989594174,
             "realized_term_skill_scored": 3,
             "reasoning_quality_rubrics": [
               {
@@ -16742,7 +16766,7 @@
               "mean_vote_accuracy": null,
               "population_brier_skill_score": 0.790620893342529,
               "population_in_sample_skill_score": null,
-              "population_realized_term_skill_score": 0.8313528888888889,
+              "population_realized_term_skill_score": 0.8379288241415193,
               "realized_term_skill_scored": 3,
               "reasoning_quality_rubrics": [
                 {
@@ -16805,7 +16829,7 @@
               "mean_vote_accuracy": null,
               "population_brier_skill_score": 0.790620893342529,
               "population_in_sample_skill_score": null,
-              "population_realized_term_skill_score": 0.8313528888888889,
+              "population_realized_term_skill_score": 0.8379288241415193,
               "realized_term_skill_scored": 3,
               "reasoning_quality_rubrics": [
                 {
@@ -16869,7 +16893,7 @@
             "mean_vote_accuracy": null,
             "population_brier_skill_score": 0.790620893342529,
             "population_in_sample_skill_score": null,
-            "population_realized_term_skill_score": 0.8313528888888889,
+            "population_realized_term_skill_score": 0.8379288241415193,
             "realized_term_skill_scored": 3,
             "reasoning_quality_rubrics": [
               {
@@ -16950,7 +16974,7 @@
               "mean_vote_accuracy": null,
               "population_brier_skill_score": -0.44275290681163515,
               "population_in_sample_skill_score": null,
-              "population_realized_term_skill_score": -0.16208399999999967,
+              "population_realized_term_skill_score": -0.11677169614984395,
               "realized_term_skill_scored": 3,
               "reasoning_quality_rubrics": [
                 {
@@ -17013,7 +17037,7 @@
               "mean_vote_accuracy": null,
               "population_brier_skill_score": -0.44275290681163515,
               "population_in_sample_skill_score": null,
-              "population_realized_term_skill_score": -0.16208399999999967,
+              "population_realized_term_skill_score": -0.11677169614984395,
               "realized_term_skill_scored": 3,
               "reasoning_quality_rubrics": [
                 {
@@ -17077,7 +17101,7 @@
             "mean_vote_accuracy": null,
             "population_brier_skill_score": -0.44275290681163515,
             "population_in_sample_skill_score": null,
-            "population_realized_term_skill_score": -0.16208399999999967,
+            "population_realized_term_skill_score": -0.11677169614984395,
             "realized_term_skill_scored": 3,
             "reasoning_quality_rubrics": [
               {
@@ -17158,7 +17182,7 @@
               "mean_vote_accuracy": null,
               "population_brier_skill_score": -0.001911740841413323,
               "population_in_sample_skill_score": null,
-              "population_realized_term_skill_score": 0.1929972222222225,
+              "population_realized_term_skill_score": 0.22446409989594174,
               "realized_term_skill_scored": 3,
               "reasoning_quality_rubrics": [
                 {
@@ -17221,7 +17245,7 @@
               "mean_vote_accuracy": null,
               "population_brier_skill_score": -0.001911740841413323,
               "population_in_sample_skill_score": null,
-              "population_realized_term_skill_score": 0.1929972222222225,
+              "population_realized_term_skill_score": 0.22446409989594174,
               "realized_term_skill_scored": 3,
               "reasoning_quality_rubrics": [
                 {
@@ -17285,7 +17309,7 @@
             "mean_vote_accuracy": null,
             "population_brier_skill_score": -0.001911740841413323,
             "population_in_sample_skill_score": null,
-            "population_realized_term_skill_score": 0.1929972222222225,
+            "population_realized_term_skill_score": 0.22446409989594174,
             "realized_term_skill_scored": 3,
             "reasoning_quality_rubrics": [
               {
@@ -17393,7 +17417,7 @@
                 "mean_vote_accuracy": null,
                 "population_brier_skill_score": 0.790620893342529,
                 "population_in_sample_skill_score": null,
-                "population_realized_term_skill_score": 0.8313528888888889,
+                "population_realized_term_skill_score": 0.8379288241415193,
                 "realized_term_skill_scored": 3,
                 "reasoning_quality_rubrics": [
                   {
@@ -17455,7 +17479,7 @@
               "mean_vote_accuracy": null,
               "population_brier_skill_score": 0.790620893342529,
               "population_in_sample_skill_score": null,
-              "population_realized_term_skill_score": 0.8313528888888889,
+              "population_realized_term_skill_score": 0.8379288241415193,
               "realized_term_skill_scored": 3,
               "reasoning_quality_rubrics": [
                 {
@@ -17535,7 +17559,7 @@
                 "mean_vote_accuracy": null,
                 "population_brier_skill_score": -0.44275290681163515,
                 "population_in_sample_skill_score": null,
-                "population_realized_term_skill_score": -0.16208399999999967,
+                "population_realized_term_skill_score": -0.11677169614984395,
                 "realized_term_skill_scored": 3,
                 "reasoning_quality_rubrics": [
                   {
@@ -17597,7 +17621,7 @@
               "mean_vote_accuracy": null,
               "population_brier_skill_score": -0.44275290681163515,
               "population_in_sample_skill_score": null,
-              "population_realized_term_skill_score": -0.16208399999999967,
+              "population_realized_term_skill_score": -0.11677169614984395,
               "realized_term_skill_scored": 3,
               "reasoning_quality_rubrics": [
                 {
@@ -17677,7 +17701,7 @@
                 "mean_vote_accuracy": null,
                 "population_brier_skill_score": -0.001911740841413323,
                 "population_in_sample_skill_score": null,
-                "population_realized_term_skill_score": 0.1929972222222225,
+                "population_realized_term_skill_score": 0.22446409989594174,
                 "realized_term_skill_scored": 3,
                 "reasoning_quality_rubrics": [
                   {
@@ -17739,7 +17763,7 @@
               "mean_vote_accuracy": null,
               "population_brier_skill_score": -0.001911740841413323,
               "population_in_sample_skill_score": null,
-              "population_realized_term_skill_score": 0.1929972222222225,
+              "population_realized_term_skill_score": 0.22446409989594174,
               "realized_term_skill_scored": 3,
               "reasoning_quality_rubrics": [
                 {
