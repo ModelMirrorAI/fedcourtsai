@@ -6,7 +6,7 @@ event_id: evt-petition-disposition
 kind: petition
 moment: distribution
 opened_at: '2026-06-23'
-resolved: false
+resolved: true
 schema_version: '1.0'
 stage: cert
-title: Goldman Sachs Bank USA, dba Marcus by Goldman Sachs v. Rhea Ann Brown, et al.
+title: Goldman Sachs Bank USA, dba Marcus by Goldman Sachs v. Rhea Ann Brown
