@@ -337,6 +337,17 @@ before the columns existed carries none until its next poll. A removal from the
 argument calendar is not read: the setting stands until it passes, when the
 schedule marks it `passed`.
 
+The schedule's court-wide next conference comes from no docket: the live poll
+reads the Court's *Case Distribution Schedule*
+(`/casedistribution/casedistributionschedule<YYYY>.pdf`) at most once a UTC
+day into `data/schedule/term-calendar.json`, through the same client and its
+host guard, two requests at most (*the Court's conference calendar* in
+[data-sources.md](data-sources.md), the format in
+[data-pipeline.md](data-pipeline.md)). The Court's illustrated *Term Calendar*
+PDF, which also marks argument days, non-argument sessions and holidays, is not
+read: it marks a day's kind by colour alone, and the current Term's copy is a
+scanned image with no text layer.
+
 The same cert-branch parse keeps the petition's **conference history**
 (`conference_history`, `pipeline.cert_signals.conference_history`): every
 conference a petition distribution (the `dist-v2` reading) names, one step per

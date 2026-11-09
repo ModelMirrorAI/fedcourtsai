@@ -1,0 +1,162 @@
+{
+  "$defs": {
+    "TermCalendarDistribution": {
+      "additionalProperties": false,
+      "description": "One row of the Court's case distribution schedule.",
+      "properties": {
+        "conference": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The conference the list goes to; null for a summer list the schedule prints without one, which the next Term's schedule assigns",
+          "title": "Conference"
+        },
+        "distributed": {
+          "description": "The distribution date the row names",
+          "format": "date",
+          "title": "Distributed",
+          "type": "string"
+        },
+        "list_name": {
+          "description": "The distribution list as printed, upper-cased with single spaces: `LIST 1 (PAID)`, `SUMMER LIST 23 (PAID)`, `LIST 27`",
+          "title": "List Name",
+          "type": "string"
+        },
+        "term": {
+          "description": "The October Term whose schedule prints the row",
+          "title": "Term",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "distributed",
+        "list_name",
+        "conference",
+        "term"
+      ],
+      "title": "TermCalendarDistribution",
+      "type": "object"
+    },
+    "TermCalendarSession": {
+      "additionalProperties": false,
+      "description": "One dated session of the Court, as its published schedule names it.",
+      "properties": {
+        "day": {
+          "description": "The day of the session",
+          "format": "date",
+          "title": "Day",
+          "type": "string"
+        },
+        "kind": {
+          "const": "conference",
+          "description": "What the Court sits for that day: `conference`, a day the Justices meet to act on distributed petitions and motions",
+          "title": "Kind",
+          "type": "string"
+        },
+        "long_conference": {
+          "description": "True for the conference that receives the summer's distributions, the Term's opening (long) conference; exactly one per Term",
+          "title": "Long Conference",
+          "type": "boolean"
+        },
+        "term": {
+          "description": "The October Term whose published schedule names the session (four-digit year), which for the late-September conference is the incoming Term",
+          "title": "Term",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "day",
+        "kind",
+        "term",
+        "long_conference"
+      ],
+      "title": "TermCalendarSession",
+      "type": "object"
+    },
+    "TermCalendarSource": {
+      "additionalProperties": false,
+      "description": "One fetched schedule document behind the calendar.",
+      "properties": {
+        "sha256": {
+          "description": "SHA-256 of the document's bytes as served",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "term": {
+          "description": "The October Term the document covers (four-digit year)",
+          "title": "Term",
+          "type": "integer"
+        },
+        "url": {
+          "description": "The supremecourt.gov URL the document was read from",
+          "title": "Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "term",
+        "url",
+        "sha256"
+      ],
+      "title": "TermCalendarSource",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``data/schedule/term-calendar.json`` \u2014 the Court's published conference calendar.\n\nRead by the live poll, at most once a UTC day, from the Court's case\ndistribution schedule for the current and the next October Term (the next\nis optional: the Court publishes it late in a Term). Fails closed: a\ndocument that does not parse whole leaves the committed file as it was,\nand no build ever writes a calendar without sessions. Display data for the\nschedule export: no cell is provisioned with it, and nothing predicts,\nevaluates or scores on it.",
+  "properties": {
+    "checked_on": {
+      "description": "The UTC day the schedules were last fetched and parsed whole",
+      "format": "date",
+      "title": "Checked On",
+      "type": "string"
+    },
+    "distributions": {
+      "description": "Every distribution row the documents print, in Term and print order",
+      "items": {
+        "$ref": "#/$defs/TermCalendarDistribution"
+      },
+      "title": "Distributions",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "description": "The artifact's schema version",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "sessions": {
+      "description": "Every dated session the documents name, in day order",
+      "items": {
+        "$ref": "#/$defs/TermCalendarSession"
+      },
+      "minItems": 1,
+      "title": "Sessions",
+      "type": "array"
+    },
+    "sources": {
+      "description": "The documents read, one per October Term, in Term order",
+      "items": {
+        "$ref": "#/$defs/TermCalendarSource"
+      },
+      "minItems": 1,
+      "title": "Sources",
+      "type": "array"
+    }
+  },
+  "required": [
+    "checked_on",
+    "sources",
+    "sessions",
+    "distributions"
+  ],
+  "title": "TermCalendar",
+  "type": "object"
+}

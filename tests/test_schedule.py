@@ -161,6 +161,7 @@ def test_live_poll_writes_the_schedule_after_its_cycle(
         cli_module, "live_poll_all", lambda *a, **k: (PullQueues(), LiveDiscovery())
     )
     monkeypatch.setattr(cli_module, "evaluate_backlog", lambda *a, **k: None)
+    monkeypatch.setattr(cli_module, "_refresh_term_calendar", lambda *a, **k: None)
     monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(data_root))
     monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
     result = CliRunner().invoke(
@@ -188,6 +189,7 @@ def test_a_schedule_failure_never_fails_the_live_cycle(
         cli_module, "live_poll_all", lambda *a, **k: (PullQueues(), LiveDiscovery())
     )
     monkeypatch.setattr(cli_module, "evaluate_backlog", lambda *a, **k: None)
+    monkeypatch.setattr(cli_module, "_refresh_term_calendar", lambda *a, **k: None)
     monkeypatch.setattr(schedule_module, "build_schedule", _broken)
     monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(tmp_path / "data"))
     monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
@@ -386,4 +388,4 @@ def test_a_1_0_schedule_carries_conferences_only() -> None:
     )
     with pytest.raises(ValueError, match=r"need 1\.1"):
         Schedule(schema_version="1.0", as_of=_AS_OF, entries=[entry])
-    assert Schedule(as_of=_AS_OF, entries=[entry]).schema_version == "1.2"
+    assert Schedule(as_of=_AS_OF, entries=[entry]).schema_version == "1.3"

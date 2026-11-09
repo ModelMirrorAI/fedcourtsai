@@ -611,6 +611,24 @@ failed build warns and leaves the committed file as it was (the new file is
 written beside it and renamed over it); it never fails the poll. `fedcourts schedule` rebuilds it by hand from
 a pulled corpus.
 
+Beside it sits `data/schedule/term-calendar.json`, the Court's own conference
+calendar, which the same poll refreshes at most once a UTC day, before it
+rebuilds the schedule (`fedcourtsai.term_calendar`). It is read from the
+Court's *Case Distribution Schedule* PDF for the October Term the day falls in
+and, once the Court publishes it, the next one: one session row per conference
+day, the one the summer lists go to marked as the Term's long conference, and
+every distribution row behind them, with each document's URL and SHA-256. The
+schedule reads it for one field, `court_next_conference`, the Court's first
+conference on or after `as_of`, which the site can show even when no public
+docket is distributed for that day. It fails closed: a served schedule that
+does not parse whole (an unrecognised line, a title naming another Term, a
+conference outside the Term's window, a row distributed on or after its
+conference, other than one long conference) leaves the committed calendar as it
+was and emits a `::warning::`, and nothing writes a calendar without sessions.
+Like the schedule it is display data and never a cell input; the
+long-conference rule salience and selection key on does not read it.
+`fedcourts term-calendar` refreshes it by hand.
+
 ### Credentials and access roles
 
 The corpus remote and the content store are private S3 behind **GitHub OIDC** —

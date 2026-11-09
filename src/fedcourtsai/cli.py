@@ -89,6 +89,7 @@ from . import (
     site_status,
     statpack_history,
     summaries,
+    term_calendar,
     tool_usage,
     window_records,
     write_confinement,
@@ -663,6 +664,7 @@ from .store import (
     unpopulated_cases,
 )
 from .supremecourt import (
+    OffHostFetch,
     SupremeCourtClient,
     current_docket_term,
     october_term_year,
@@ -8440,6 +8442,55 @@ def _write_schedule(data_root: Path, db_path: Path, destination: Path, *, as_of:
         f"{conferences} conference(s), {arguments} argument(s), {responses} response "
         f"deadline(s), as of {built.as_of} -> {destination}"
     )
+
+
+@app.command("term-calendar")
+def term_calendar_cmd(
+    today: Annotated[
+        str | None,
+        typer.Option(help="Read the calendar as of this ISO date (default: UTC today)."),
+    ] = None,
+    force: Annotated[
+        bool, typer.Option(help="Re-read even when the committed calendar was read that day.")
+    ] = False,
+) -> None:
+    """Read the Court's conference calendar into ``data/schedule/term-calendar.json``.
+
+    Fetches the Court's case distribution schedule for the current and, once
+    published, the next October Term from supremecourt.gov (no token, no API
+    budget) and writes every conference day with the distribution rows behind
+    it. Fails closed: a schedule that does not parse whole exits non-zero and
+    leaves the committed file as it was. The live poll runs the same refresh
+    at most once a UTC day; this command is for a dev checkout.
+    """
+    settings = get_settings()
+    as_of = date.fromisoformat(today) if today else datetime.now(UTC).date()
+    live_cfg = load_live_config(settings.config_root)
+    try:
+        with SupremeCourtClient(throttle_seconds=live_cfg.throttle_seconds) as client:
+            line = term_calendar.refresh_calendar(
+                client, settings.data_root, today=as_of, force=force
+            )
+    except (term_calendar.CalendarRefused, httpx.HTTPError, OffHostFetch) as exc:
+        typer.echo(f"term-calendar: refused: {exc}", err=True)
+        raise typer.Exit(1) from exc
+    typer.echo(line)
+
+
+def _refresh_term_calendar(data_root: Path, *, today: date, throttle_seconds: float) -> None:
+    """The live poll's once-a-day calendar refresh, which only ever warns.
+
+    Display data, like the schedule it feeds: a refusal or a transport error
+    keeps the committed calendar and is reported as a workflow warning, never
+    as a failed poll.
+    """
+    try:
+        with SupremeCourtClient(throttle_seconds=throttle_seconds) as client:
+            line = term_calendar.refresh_calendar(client, data_root, today=today)
+    except Exception as exc:  # any failure degrades to a warning
+        typer.echo(f"::warning::term-calendar: not refreshed ({type(exc).__name__}: {exc})")
+        return
+    typer.echo(line)
 
 
 def _work_tree_root() -> Path | None:
@@ -23331,6 +23382,9 @@ def live_poll(
     # The schedule rides the cycle that moved its dates, into the same data
     # commit. Display data, so a failure here costs the site one cycle's dates
     # and never the poll's facts or queues.
+    _refresh_term_calendar(
+        settings.data_root, today=today, throttle_seconds=live_cfg.throttle_seconds
+    )
     try:
         _write_schedule(
             settings.data_root, db, schedule.schedule_path(settings.data_root), as_of=today
