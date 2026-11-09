@@ -608,23 +608,32 @@ _PARTY_WORD = r"(?:petitioners?|respondents?|appellants?|appellees?)\b"
 #   "Second supplemental brief of petitioner Kevin Byrd filed."
 #   "Supplemental reply letter brief of respondents Township of Scott … filed."
 #   "Letter brief of petitioner … filed."
+#   "Supplemental response filed by petitioner Goldman Sachs Bank USA … ."
+#   "Supplemental reply of appellant Louisiana filed."
+#   "Response to supplemental brief filed by respondents Bryan Collier, et al."
 #
 # Start-anchored on the "supplemental … brief" opening, an ordinal allowed in
 # front and a "reply" or "letter" allowed inside — or on a bare "letter brief",
 # the form the Court asks for when it wants new matter briefed short, which is
-# the same paper under a shorter caption — then the filer clause and a
-# party word within three words, the way the opposition's respondent reading
-# is. The anchor is what keeps a filing *about* a supplemental brief out: "Motion
-# of respondent for leave to file a supplemental brief under seal" and "Motion …
-# for leave to file a petition … with the supplemental appendix" open on
-# "Motion". Excluded besides: an amicus's supplemental brief (the Solicitor
-# General's "Supplemental letter brief of United States as amicus curiae"
-# among them), supplemental papers on rehearing, a filing the Clerk did not
-# accept, and anything naming a motion.
+# the same paper under a shorter caption; or on "supplemental response",
+# "supplemental reply" or "response to … supplemental brief", the captions a
+# party's answer to the other side's supplemental brief carries, which is the
+# same Rule 15.8 paper from the other side — then the filer clause ("of", "for",
+# "from", "by" or "on behalf of", a "filed" allowed in front of it, since the
+# Clerk sometimes writes the verb before the filer) and a party word within
+# three words, the way the opposition's respondent reading is. The anchor is
+# what keeps a filing *about* a supplemental brief out: "Motion of respondent
+# for leave to file a supplemental brief under seal" and "Motion … for leave to
+# file a petition … with the supplemental appendix" open on "Motion". Excluded
+# besides: an amicus's supplemental brief (the Solicitor General's "Supplemental
+# letter brief of United States as amicus curiae" among them), supplemental
+# papers on rehearing, a filing the Clerk did not accept, and anything naming a
+# motion.
 _SUPPLEMENTAL_BRIEF_RE = re.compile(
-    r"^\s*(?:(?:(?:second|third|fourth|fifth)\s+)?supplemental\s+(?:reply\s+)?(?:letter\s+)?"
-    r"|letter\s+)brief\s+"
-    r"(?:of|for|from|on\s+behalf\s+of)\s+(?:the\s+)?(?:\S+\s+){0,3}?" + _PARTY_WORD,
+    r"^\s*(?:(?:(?:second|third|fourth|fifth)\s+)?supplemental\s+"
+    r"(?:(?:reply\s+)?(?:letter\s+)?brief|response|reply)|letter\s+brief"
+    r"|response\s+to\s+(?:the\s+)?(?:\S+\s+){0,2}?supplemental\s+(?:letter\s+)?brief)\s+"
+    r"(?:filed\s+)?(?:of|for|from|by|on\s+behalf\s+of)\s+(?:the\s+)?(?:\S+\s+){0,3}?" + _PARTY_WORD,
     re.IGNORECASE,
 )
 _SUPPLEMENTAL_BRIEF_EXCLUDE_RE = re.compile(

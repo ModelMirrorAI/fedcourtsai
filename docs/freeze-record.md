@@ -18159,3 +18159,90 @@ freeze commit is recorded here.
   before the close's day may land late, and an event void de-counts what it
   names. The split, partition and grading lines also move as cells,
   outcomes and gradings land.
+
+- **The supplemental-brief row takes the other side's answer under its own
+  captions; recorded 2026-11-09.** A **provisioning-cutoff** change with a
+  harness boundary, recorded ahead of the promotion that carries it.
+
+  **Why.** When one side files a Rule 15.8 supplemental brief, the other side's
+  answer is the same kind of paper, but the Clerk sometimes enters it under a
+  caption that is not "supplemental … brief": "Supplemental response filed by
+  petitioner Goldman Sachs Bank USA … ." (25-1408), "Supplemental response
+  filed by respondents LUKOIL Pan Americas LLC, et al." (22-1209), "Response to
+  supplemental brief filed by respondents Bryan Collier, et al." (19A1034). The
+  selector required a "supplemental … brief" or "letter brief" opening with the
+  filer clause right after it, so none of these was ever stored, and a cell on
+  25-1408 read the respondents' supplemental brief without the petitioner's
+  answer to it. A predict cell (codex-baseline, `evt-order-judgment`) flagged
+  the gap in run `20261109T032540Z`.
+
+  **What moved.** `pipeline.documents._SUPPLEMENTAL_BRIEF_RE` also opens on
+  "supplemental response", "supplemental reply" and "response to … supplemental
+  (letter) brief", and its filer clause also reads "by", with a "filed" allowed
+  in front of it ("filed by petitioner …"). The party-word requirement, the
+  exclusions (amicus, rehearing, not accepted, motion), the filing verb and the
+  pending-petition bound are unchanged. The entry joins the combined
+  `supplemental-brief` row under its own header. No other kind's selection
+  moves.
+
+  No prompt byte and no registry field other than the boundary row moves, so
+  no digest moves. `uv run fedcourts process-digest --all` prints `proc-v20`
+  and the six digests `69076c7e…` (claude-baseline), `56f5da33…`
+  (codex-baseline), `154ba5e6…` (gemini-baseline), `b9a5d840…`
+  (claude-judge), `ce1c037e…` (codex-judge) and `b29afb1d…` (gemini-judge),
+  with and without the change. The predict prompt already describes
+  `supplemental-brief.txt` as every party's supplemental brief while the
+  petition is pending, which the answer is.
+
+  **A harness boundary under the 2026-10-11 pooled rule.** The change adds to
+  what a predict cell reads under unchanged digests. It is composition, not a
+  cut. The pooled default and the paired figure keep both sides and list each
+  engine's `n` before and after. It cuts only a figure that reads its own
+  effect.
+  - **The registry row** is `supplemental-response-captions`. It applies to
+    every predictor, and its reach is `all`, because no narrower registered
+    reach names these dockets. It is **gradual**. A stored supplemental-brief
+    row changes only when its docket's documents are fetched again: a live
+    poll's provisioning, or the freshness pass over predict-relevant cases,
+    which fetches any case whose stored combined set differs from the
+    selected one. A decided docket is not re-fetched. It is registered
+    **pending** in this change's own PR (`fedcourts register-boundary`),
+    under the 2026-10-14 merge-stamping declaration, and its `merge` and `at`
+    stay null until the promotion merge that carries it to `main` stamps them
+    (`promotion-record`).
+  - **The side test** is the registered one, against the carrying merge.
+    Because the boundary is gradual, an after-side cell provisioned before its
+    docket was re-fetched still lacks the answer, so the after-side `n` is an
+    upper bound on exposure.
+
+  **The population.** Measured read-only over blob
+  `4a27e01c37736768feedadd51a3c82d72a2cbb4c5f36cb4c046248f4abe3485b` (newest
+  pull 2026-11-09, newest stored snapshot row 2026-07-13), comparing the
+  previous and the changed selection over each SCOTUS docket filed since
+  2016-01-01 at its latest stored snapshot (67,550 dockets, 51,033 with a
+  snapshot). Three dockets gain one `supplemental-brief` link each: 25-1408
+  (granted 2026-11-06, merits pending, with committed cells; the answer is
+  dated 2025-09-15, inside the pending-petition bound), 22-1209 (decided, with
+  committed cells) and 19A1034 (decided). No docket loses a link and no other kind gains one.
+
+  **What does not move.** No base rate re-prices, no membership rule moves
+  and no scored figure moves. No skill movement is predicted, and a movement
+  in **either** direction across this boundary may not be read as a model
+  effect.
+
+  **The amendment debt.** It is unchanged. This entry adds no new token.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_supplemental_documents.py` is green;
+  - after the first live cycles following the promotion, where the corpus is
+    pulled, `uv run fedcourts provision-snapshot --court scotus --docket
+    73520108 --event evt-order-judgment` stages a `supplemental-brief.txt`
+    whose block headers include the petitioner's "Supplemental response"
+    entry;
+  - on `main` once the promotion has merged, `uv run python -c "from
+    fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
+    print('supplemental-response-captions' in {b.name for b in H})"` prints
+    `True`.

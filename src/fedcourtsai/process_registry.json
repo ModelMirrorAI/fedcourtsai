@@ -1173,6 +1173,14 @@
       "predictors": null,
       "reach": "self-represented dockets",
       "gradual": false
+    },
+    {
+      "name": "supplemental-response-captions",
+      "merge": null,
+      "at": null,
+      "predictors": null,
+      "reach": "all",
+      "gradual": true
     }
   ]
 }

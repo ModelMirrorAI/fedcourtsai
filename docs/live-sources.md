@@ -605,8 +605,12 @@ the docket form, so one function serves both lanes:
   (`provision.WITHHELD_KINDS`) until the re-bless whose prompt names it.
 - **`supplemental-brief`** / **`party-letter`** — every party's **Rule
   15.8 supplemental brief** ("Supplemental brief of petitioner … filed.",
-  "Second supplemental brief of respondent … filed.", and a "letter brief",
-  supplemental or bare — "Letter brief of petitioner … filed."), and every party's **letter to the Clerk** that bears on the case —
+  "Second supplemental brief of respondent … filed.", a "letter brief",
+  supplemental or bare, "Letter brief of petitioner … filed.", and the other
+  side's answer under its own captions, "Supplemental response filed by
+  petitioner … .", "Supplemental reply of appellant … filed." or "Response to
+  supplemental brief filed by respondents … ."), and every party's **letter
+  to the Clerk** that bears on the case —
   a suggestion of mootness, a settlement, a withdrawal, a notice of an
   intervening decision or new law, a change of position. Each is one combined
   row, as the opposition is, of every distinct `Main Document` link in docket
