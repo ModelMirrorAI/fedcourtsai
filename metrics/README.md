@@ -3657,7 +3657,7 @@ it.
 **What may be claimed from the executive success cut.** `fedcourts
 executive-success` (`pipeline.executive_success`, [docs/cli.md](../docs/cli.md))
 publishes the federal executive's emergency-docket record by administration
-and by who filed, over the applications the scope rule `exec-action-v2`
+and by who filed, over the applications the scope rule `exec-action-v3`
 (`pipeline.exec_action`) reads as challenging or defending a general federal
 executive action. It is an analytics artifact like the party rates, and every
 rule of the party rates on dates, coverage, the rule version and the corpus
@@ -3678,12 +3678,16 @@ to it.
   those dismissed or denied as moot sit beside the rate, as in the published
   tallies. An application deferred to argument has no disposition until it is
   decided, so it is `pending`, outside the rate. The default `finer` reading
-  re-reads each stored denial from its latest live snapshot, because the
-  stored label collapses a partial grant and a denial as moot to `denied`; an
-  entry dated after `--through` is not used. Quote `reading`,
-  `reread_changed`, `reread_unobservable` and `reread_after_through` beside
-  the rate. Under `registered` the government's rate is understated where it
-  filed, and overstated where it defended.
+  re-reads each stored denial and grant from its latest live snapshot,
+  because the stored label collapses a partial grant and a denial as moot to
+  `denied`, and reads an application "dismissed in light of the relief
+  granted" in a companion as `granted`, which the finer reading names
+  `dismissed-moot`; an entry dated after `--through` is
+  not used. Quote `reading`, `reread_changed`, `reread_unobservable` and
+  `reread_after_through` beside the rate. Under `registered` the government's
+  rate is understated where it filed, and overstated where it defended, and a
+  challenger's companion applications dismissed in light of a lead's grant
+  read as the executive's losses.
 - **Scope is a caption rule, and its unknowns are not zeros.** The rule reads
   the caption and the Solicitor General's counsel entries, and it narrows the
   government-respondent side only: every government application is in scope
@@ -3704,6 +3708,42 @@ to it.
   only the counsel entries put on the government-respondent side — and a
   quoted figure names that count beside it. `review_rows` lists them, and every
   in-scope row, for hand review.
+- **Under `exec-action-v3`, a hand code replaces the caption reading.** The
+  default rule applies `exec-action-v2` and then, for every application the
+  committed hand reading (`src/fedcourtsai/exec_action_hand.json`) lists,
+  takes that reading's scope and government side instead, under the reasons
+  `hand-in-scope`, `hand-out-of-scope` and `hand-unclear` (the last counted
+  under `unknown_scope`). The reading is the two-rater check below: each row
+  carries its `basis` — `raters-agreed`, `adjudicated` (the authoring
+  session settled a split), `override` (the session overrode both raters) or `procedural` (a request to file over the word or page limit,
+  out). The adjudications and overrides were made with the published tally in
+  view, and some were chosen to match its reading, so an `exec-action-v3` figure
+  is not an independent check of that tally; quote `exec-action-v2` beside it
+  where independence matters. An application the reading does not list —
+  everything outside the check's window, and every later filing — falls to
+  the caption rule, so the reading's reach is the check's population, not the
+  cut's. `exec-action-v4` is that caption rule with three shapes added, and applies
+  no hand code: a caption and counsel entries that put the government on
+  opposite sides (`caption-counsel-conflict`), and the United States alone
+  against a state (`suit-against-state-law`), both unknown, and the United
+  States Trustee (`bankruptcy-trustee`, out). `exec-action-v5` is the hand
+  reading over it, so a later filing falls to `exec-action-v4` instead.
+  The shapes were drawn from the rows where the caption rule and the hand
+  reading differ, and most of those rows' codes were settled with the
+  published tally in view, so `exec-action-v4` is no more independent of that
+  tally than `exec-action-v3`: its closer agreement with the hand codes is a
+  fit, not a validation, and `exec-action-v2` stays the caption figure to
+  quote where independence matters. Read against the 298 hand codes,
+  `exec-action-v2` agrees with 232, is contradicted by 17, leaves 48 unknown
+  and makes a definite call on 1 the codes leave unclear; `exec-action-v4`
+  agrees with 233, is contradicted by 11 and leaves 54 unknown. Inside the
+  check's window `exec-action-v5` prints the same cut as `exec-action-v3`,
+  because the hand reading lists every row the shapes reach there (blob
+  `405d1a4b`, newest pull 2026-11-09, newest stored snapshot 2026-07-13). The
+  state shape also leaves unknown a federal suit enforcing an agency's
+  reading of a statute against a state, which the hand reading puts in scope
+  (`23A470`), and the caption cannot tell it from a suit over a state's own
+  law.
 - **An unreadable ask is in the population.** In-scope applications whose ask
   the parser could not read are counted like any other and tallied as
   `unknown_ask`. They include granted federal applications (`24A884`,
@@ -3851,8 +3891,10 @@ unclear), 8 in, 1 unclear. It drew one line worth stating: a federal suit to
 enforce an agency's reading of a statute against a state (the EMTALA suits,
 `23A469`, `23A470`) is in scope, while a preemption suit against a state law
 (`23A296`, `23A814`) contests no executive action and is out. The
-hand codes are not committed; they are the measurement set a narrower rule's
-change would commit beside it. Against them the rule agrees on 255 of 292:
+hand codes are committed as `exec-action-v3`'s hand reading, which also
+holds the OT2016 applications, sets the procedural requests out
+(`procedural`), and marks the 26 rows where the authoring session overrode
+both raters (`override`). Against this check's own codes the rule agrees on 255 of 292:
 196 of the 232 federal-side rows and 59 of the 60 sampled others, none of
 which is in scope by hand. Of the 37 differences:
 
@@ -3890,7 +3932,7 @@ limit. None has a docketed date, so under `exec-action-v1`, which this check
 read, they sit among the unattributed rows and in no administration's pair;
 `exec-action-v2` dates them by their first proceeding and sets them out of
 scope as `procedural-request`. The second policy-label
-round's hand codes, not committed either, put such a request out of scope as
+round's hand codes, committed in the hand reading, put such a request out of scope as
 procedural, since its grant is no ruling on the executive action; the counts
 of this check hold the five in scope.
 
@@ -3899,9 +3941,10 @@ column of 2026-10-19 ("Where the Supreme Court favors Trump on the emergency
 docket – and where it doesn't") counts applications involving general federal
 executive actions through 2026-10-12, and lists no rows. The figures below
 are this record's measurement under `exec-action-v1` and `controversy-v1`,
-before an empty docketed date took the first proceeding's; the current code
-cuts under `exec-action-v2` and `controversy-v2`, so it does not reproduce
-them, and a refreshed record states its own versions. Cut `--as-of filed
+before an empty docketed date took the first proceeding's, and before the
+`finer` reading re-read stored grants; the current code cuts under
+`exec-action-v2` and `controversy-v2` and re-reads both, so it does not
+reproduce them, and a refreshed record states its own versions. Cut `--as-of filed
 --through 2026-10-12` on the blob pulled 2026-10-26 (newest stored snapshot in
 the index 2026-07-13; the re-read rows' own live snapshots run later):
 `finer` reading, 59 stored denials re-read, 7 relabeled, 0 unobservable, 0

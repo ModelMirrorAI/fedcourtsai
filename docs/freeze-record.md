@@ -18124,3 +18124,38 @@ freeze commit is recorded here.
     fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
     print('scrub-apostrophe-and-unit-line' in {b.name for b in H})"` prints
     `True`.
+
+- **Readings the `proc-v20` entry owes, recorded 2026-11-08.** No rule moves
+  here. The `proc-v20` entry (dated 2026-11-07), carried to `main` by
+  `promotion/2026-11-08` (merge `bdc221262`, registry stamped by `6fbd2394f`)
+  and tagged `prereg/proc-v20`, quoted its `successor-disclosures` lines at
+  a provisional instant and owed them again once the carrying merge had
+  stamped the registry, before any figure of a `proc-v19` window is quoted
+  outside the committed board. That entry is not otherwise edited.
+
+  The run reads the ledger and registry at `origin/main`'s `6fbd2394f`
+  (`2026-11-08T18:17:51Z`), the registry stamp itself.
+
+  **`proc-v20` closes `proc-v19`.** `uv run fedcourts successor-disclosures
+  --closed proc-v19 --successor proc-v20` prints:
+
+  ```
+  successor proc-v20 closes proc-v19 at 2026-11-08T18:17:04+00:00
+    closed proc-v19 claude-baseline: 8 counted event(s) — 0 resolved, 8 pending at close
+    closed proc-v19 gemini-baseline: 8 counted event(s) — 0 resolved, 8 pending at close
+    closed proc-v19 codex-baseline: 8 counted event(s) — 0 resolved, 8 pending at close
+    split events: 0 (0 resolved) — in no complete grid
+  ```
+
+  The provisional run printed no counted events, because no `proc-v19`
+  predict cell had landed at its ledger commit. By the stamped instant,
+  `2026-11-08T18:17:04Z`, each engine held 8 counted events in the window,
+  none resolved. No successor-counted line prints because no engine has
+  committed a `proc-v20` cell yet, so there is no earlier-window failure,
+  uncounted cell or missing cell to disclose, and no `graded by` line prints
+  because no grading of a `proc-v19`-window cell is recorded yet.
+
+  The closed-window resolved counts can still move: an outcome dated on or
+  before the close's day may land late, and an event void de-counts what it
+  names. The split, partition and grading lines also move as cells,
+  outcomes and gradings land.

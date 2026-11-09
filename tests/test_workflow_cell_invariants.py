@@ -3674,6 +3674,88 @@ def test_the_claude_cells_sign_in_by_federation_when_a_rule_is_named() -> None:
         assert "ANTHROPIC_API_KEY" not in (step.get("env") or {}), name
 
 
+RUNNER_FEDERATION_ENV = {
+    "ANTHROPIC_API_KEY": (
+        "${{ steps.claude-federation.outputs.token-file == '' && secrets.ANTHROPIC_API_KEY || '' }}"
+    ),
+    "ANTHROPIC_FEDERATION_RULE_ID": (
+        "${{ steps.claude-federation.outputs.token-file != '' "
+        "&& vars.ANTHROPIC_FEDERATION_RULE_ID || '' }}"
+    ),
+    "ANTHROPIC_ORGANIZATION_ID": (
+        "${{ steps.claude-federation.outputs.token-file != '' "
+        "&& vars.ANTHROPIC_ORGANIZATION_ID || '' }}"
+    ),
+    "ANTHROPIC_SERVICE_ACCOUNT_ID": (
+        "${{ steps.claude-federation.outputs.token-file != '' "
+        "&& vars.ANTHROPIC_SERVICE_ACCOUNT_ID || '' }}"
+    ),
+    "ANTHROPIC_WORKSPACE_ID": (
+        "${{ steps.claude-federation.outputs.token-file != '' "
+        "&& vars.ANTHROPIC_WORKSPACE_ID || '' }}"
+    ),
+    "ANTHROPIC_IDENTITY_TOKEN_FILE": "${{ steps.claude-federation.outputs.token-file }}",
+    "ANTHROPIC_CONFIG_DIR": "${{ steps.claude-federation.outputs.config-dir }}",
+    "ANTHROPIC_PROFILE": (
+        "${{ steps.claude-federation.outputs.token-file != '' && 'default' || '' }}"
+    ),
+}
+
+
+def test_the_runner_driven_claude_cells_sign_in_by_federation_when_a_rule_is_named() -> None:
+    """The back-test's replays and the engine-smoke cascade federate like the cells.
+
+    Each starts the `claude-federation` action before its engine step, gated on
+    both identifiers that name a rule, in a job that can mint the OIDC token;
+    hands the engine step the federated sign-in, with the key withheld exactly
+    when the token file exists; and stops the refresh after the engine step
+    whatever its outcome.
+    """
+    rule_named = "vars.ANTHROPIC_FEDERATION_RULE_ID != '' && vars.ANTHROPIC_ORGANIZATION_ID != ''"
+    cases = (
+        (
+            "run-backtest.yml",
+            "backtest",
+            ("Run the cert back-test", "Run the merits back-test"),
+        ),
+        (
+            "integration-test.yml",
+            "scenario",
+            ("Run one real-engine cascade cell over the service sidecar",),
+        ),
+    )
+    for name, job_name, engine_steps in cases:
+        job = _load(name)["jobs"][job_name]
+        assert job["permissions"].get("id-token") == "write", name
+        steps = job["steps"]
+        uses = [
+            index
+            for index, step in enumerate(steps)
+            if step.get("uses") == "./.github/actions/claude-federation"
+        ]
+        assert len(uses) == 2, f"{name}: expected one start and one stop"
+        start, stop = (steps[index] for index in uses)
+        assert start.get("id") == "claude-federation", name
+        assert "with" not in start, f"{name}: the start step runs the action's default mode"
+        assert rule_named in str(start["if"]), name
+        assert stop["with"] == {"mode": "stop"}, name
+        assert str(stop["if"]).replace("${{ ", "").startswith("always()"), name
+        by_name = {str(step.get("name")): index for index, step in enumerate(steps)}
+        for step_name in engine_steps:
+            index = by_name[step_name]
+            assert uses[0] < index < uses[1], f"{name}: {step_name} runs outside the sign-in"
+            env = steps[index]["env"]
+            auth = {key: value for key, value in env.items() if key in RUNNER_FEDERATION_ENV}
+            expected = dict(RUNNER_FEDERATION_ENV)
+            if name == "integration-test.yml":
+                expected["ANTHROPIC_API_KEY"] = (
+                    "${{ matrix.engine == 'claude-code' && "
+                    "steps.claude-federation.outputs.token-file == '' && "
+                    "secrets.ANTHROPIC_API_KEY || '' }}"
+                )
+            assert auth == expected, f"{name}: {step_name}'s Claude sign-in drifted"
+
+
 def test_the_action_path_smoke_invokes_each_engine_the_way_the_cells_do() -> None:
     """The `engine-actions-smoke` legs run the cells' own invocation surfaces.
 
@@ -4320,22 +4402,32 @@ def test_the_labeler_smoke_sends_the_labeling_lanes_own_invocation_block() -> No
     assert lane_with == smoke_with, "the with: mappings diverge beyond the model"
 
     # The credential posture, and the two fences the agent must run behind.
-    assert smoke_job["permissions"] == {"contents": "read"}, "the smoke job's grant widened"
-    assert lane_job["permissions"] == {"contents": "read"}, "the lane job's grant widened"
+    # `id-token` is the federated sign-in's, under a Claude-only environment
+    # (test_workflow_auth_gate.py pins the environments and the tripwire).
+    grant = {"contents": "read", "id-token": "write"}
+    assert smoke_job["permissions"] == grant, "the smoke job's grant widened"
+    assert lane_job["permissions"] == grant, "the lane job's grant widened"
     for job_name, steps, at in (
         ("qp-topic-label", lane_steps, agent_index(lane_steps)),
         ("qp-labeler-smoke", smoke_steps, agent_index(smoke_steps)),
     ):
         tripwire = next(
-            (
-                i
-                for i, s in enumerate(steps)
-                if "ACTIONS_ID_TOKEN_REQUEST_URL" in str(s.get("run") or "")
-            ),
+            (i for i, s in enumerate(steps) if "grep -E '^AWS_'" in str(s.get("run") or "")),
             None,
         )
         assert tripwire is not None and tripwire < at, (
             f"{job_name}: the no-cloud-credential tripwire must precede the agent"
+        )
+        subject = next(
+            (
+                i
+                for i, s in enumerate(steps)
+                if (s.get("with") or {}).get("mode") == "assert-claude-only"
+            ),
+            None,
+        )
+        assert subject is not None and subject < at, (
+            f"{job_name}: the Claude-only subject tripwire must precede the agent"
         )
         # The lane moves the oracle aside (its measure step needs it back);
         # the smoke deletes it. Either way it must leave the tree pre-agent.
@@ -4384,6 +4476,13 @@ def test_run_analytics_environments_resolve_from_the_dispatching_branch() -> Non
             continue
         if job_id == "tool-usage":
             assert "environment" not in job, "tool-usage reaches nothing; no environment"
+        elif job_id == "qp-topic-label":
+            # The labeler binds the Claude-only counterpart of the same
+            # resolution (test_workflow_auth_gate.py pins it).
+            assert job.get("environment") == (
+                "${{ format('claude-{0}', "
+                "github.ref_name == 'main' && 'prod' || github.ref_name) }}"
+            ), "qp-topic-label does not resolve its Claude-only environment from the branch"
         else:
             assert job.get("environment") == resolved, (
                 f"{job_id} does not resolve its environment from the dispatching branch"

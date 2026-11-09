@@ -122,8 +122,13 @@ _DECIDED_RE = re.compile(rf"\bDecided\s+{_DATE}")
 _HEADER_HYPHEN_RE = re.compile(r"(\w)-[ \t]*\n\s*(\w)")
 
 # A lead sentence opens the paragraph: a printed name and title, then the verb.
+# The title's trailing comma is sometimes dropped ("BREYER, J. delivered"), and
+# a lead is occasionally printed as filed ("filed an opinion for a unanimous
+# Court"), which the grammar reads as delivered.
 _LEAD_START_RE = re.compile(
-    r"^\s*[A-Z][A-Za-z'\u2019.\- ]{0,40}?,\s*(?:C\.\s*J\.|J\.)\s*,\s*(?:delivered|announced)\b"
+    r"^\s*[A-Z][A-Za-z'\u2019.\- ]{0,40}?,\s*(?:C\.\s*J\.|J\.)\s*,?\s*"
+    r"(?:delivered|announced|f(?:i)?led\s+(?:an|the)\s+opinion\s+(?:for|of)\s+"
+    r"(?:the|a\s+unanimous)\s+Court)\b"
 )
 # Where the paragraph has certainly ended: the slip opinion's rule and notice,
 # the opinion's own caption or heading, or the preliminary print's counsel list.
@@ -156,7 +161,14 @@ _RUNNING_HEAD_RES: Final = (
     re.compile(r"^\s*(?:Syllabus|Opinion of the Court|Page Proof Pending Publication)\s*$"),
     re.compile(r"^\s*\d+\s+[^a-z]*\bv\.\s[^a-z]*$"),
     re.compile(r"^\s*\d+\s*$"),
+    # A print's even-page head, whose case name wraps before its "v."
+    # ("660 LITTLE SISTERS OF THE POOR SAINTS PETER").
+    re.compile(r"^\s*\d+\s+[^a-z]+$"),
 )
+# The wrapped rest of a case-name running head ("AND PAUL HOME v. PENNSYLVANIA",
+# "REGENTS OF UNIV. OF CAL."): dropped only straight after a running head, and
+# only where it names no Justice, so a lineup line in small capitals is kept.
+_HEAD_CONTINUATION_RE = re.compile(r"^\s*(?:[^a-z]|\bv\.)+$")
 # The text layer's stray spaces inside a name: the slip opinion sets names in
 # small capitals and leaves a space after the full-size initial ("S OTOMAYOR"),
 # and some preliminary prints split an initial the same way ("K avanaugh").
@@ -274,6 +286,13 @@ def _clean_line(line: str) -> str:
     return _SPLIT_INITIAL_RE.sub(_join_initial, _SPACE_BEFORE_PUNCT_RE.sub("", line))
 
 
+def _head_continuation(line: str) -> bool:
+    """Whether ``line`` is the wrapped rest of a running head: capitals, no Justice."""
+    if _HEAD_CONTINUATION_RE.match(line) is None:
+        return False
+    return not any(resolve_surname(word) for word in re.findall(r"[A-Za-z'\-]+", line))
+
+
 def locate_lineup(text: str, *, truncated: bool = False) -> LocatedLineup:
     """Find the syllabus lineup paragraph and the argued/decided dates.
 
@@ -297,13 +316,20 @@ def locate_lineup(text: str, *, truncated: bool = False) -> LocatedLineup:
         return LocatedLineup(None, None, None, ("no syllabus lineup paragraph found",))
     body: list[str] = []
     ended = False
+    after_head = False
     for line in lines[start:]:
         cleaned = _clean_line(line)
         if body and any(pattern.search(cleaned) for pattern in _END_RES):
             ended = True
             break
-        if not cleaned.strip() or any(p.match(cleaned) for p in _RUNNING_HEAD_RES):
+        if not cleaned.strip():
             continue
+        if any(p.match(cleaned) for p in _RUNNING_HEAD_RES):
+            after_head = True
+            continue
+        if after_head and _head_continuation(cleaned):
+            continue
+        after_head = False
         body.append(cleaned.rstrip())
     if not ended:
         problems.append(

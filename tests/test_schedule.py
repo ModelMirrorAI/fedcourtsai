@@ -375,7 +375,7 @@ def test_a_row_names_a_date_and_a_day_says_why_it_is_not_upcoming() -> None:
 
 
 def test_the_scheduled_columns_never_reach_the_retrieval_surface() -> None:
-    assert {"argument_set_for", "response_due", "response_due_state"} <= (
+    assert {"argument_set_for", "response_due", "response_due_state", "conference_history"} <= (
         corpus.RETRIEVAL_WITHHELD_COLUMNS
     )
 
@@ -386,4 +386,4 @@ def test_a_1_0_schedule_carries_conferences_only() -> None:
     )
     with pytest.raises(ValueError, match=r"need 1\.1"):
         Schedule(schema_version="1.0", as_of=_AS_OF, entries=[entry])
-    assert Schedule(as_of=_AS_OF, entries=[entry]).schema_version == "1.1"
+    assert Schedule(as_of=_AS_OF, entries=[entry]).schema_version == "1.2"

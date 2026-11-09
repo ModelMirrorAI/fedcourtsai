@@ -1023,6 +1023,22 @@ _CREDENTIAL_SHAPE = re.compile(r"TOKEN|SECRET|PASSWORD|CREDENTIAL|API_KEY|AUTH")
 # config, the same exception the cell workflows' credential-free guard makes.
 _AWS_REGION_VARS = frozenset({"AWS_REGION", "AWS_DEFAULT_REGION"})
 
+# Claude's federated sign-in, which the claude runner declares as its own auth:
+# the rule and the identities it names, the GitHub OIDC token file it exchanges,
+# and the profile directory whose credential cache holds the exchanged access
+# token. Only the token file is credential-shaped by name, so the rest are
+# listed here to keep them from every other engine's agent as well: the
+# profile directory is where the exchanged access token sits.
+_CLAUDE_FEDERATION_VARS = (
+    "ANTHROPIC_FEDERATION_RULE_ID",
+    "ANTHROPIC_ORGANIZATION_ID",
+    "ANTHROPIC_SERVICE_ACCOUNT_ID",
+    "ANTHROPIC_WORKSPACE_ID",
+    "ANTHROPIC_IDENTITY_TOKEN_FILE",
+    "ANTHROPIC_CONFIG_DIR",
+    "ANTHROPIC_PROFILE",
+)
+
 
 def _agent_base_env(own_auth: Collection[str]) -> dict[str, str]:
     """The scrubbed base environment an agent subprocess inherits.
@@ -1032,17 +1048,24 @@ def _agent_base_env(own_auth: Collection[str]) -> dict[str, str]:
     key, but the agent it spawns must hold only its own engine's auth — the
     same no-credential-in-agent-env posture the live cell workflows
     guard-assert before their agent steps. Drops every ``AWS_*`` variable
-    except the region names, and every credential-shaped name
-    (:data:`_CREDENTIAL_SHAPE`) not in ``own_auth``.
+    except the region names, every credential-shaped name
+    (:data:`_CREDENTIAL_SHAPE`) and every Claude federation name not in
+    ``own_auth``, and every ``own_auth`` name set to the empty string: a
+    workflow withholds one sign-in by setting its variable empty, and an empty
+    key must not reach a CLI that would try it ahead of the other sign-in.
     """
     keep = set(own_auth)
     return {
         name: value
         for name, value in os.environ.items()
-        if name in keep
-        or not (
-            (name.startswith("AWS_") and name not in _AWS_REGION_VARS)
-            or _CREDENTIAL_SHAPE.search(name)
+        if (name in keep and value != "")
+        or (
+            name not in keep
+            and name not in _CLAUDE_FEDERATION_VARS
+            and not (
+                (name.startswith("AWS_") and name not in _AWS_REGION_VARS)
+                or _CREDENTIAL_SHAPE.search(name)
+            )
         )
     }
 
@@ -1646,9 +1669,11 @@ class AgenticRunner:
 class ClaudeCodeRunner(AgenticRunner):
     """Run the ``claude`` CLI headless, mirroring ``run-predict``'s claude-code step.
 
-    Auth is inherited from the environment: ``ANTHROPIC_API_KEY`` (pay-per-token,
-    as CI uses) or — for local iteration that does not bill per token — the
-    subscription ``CLAUDE_CODE_OAUTH_TOKEN`` from ``claude setup-token``.
+    Auth is inherited from the environment: ``ANTHROPIC_API_KEY`` (pay-per-token),
+    the federated sign-in a workflow stands up with its ``claude-federation``
+    action (:data:`_CLAUDE_FEDERATION_VARS`, billed to the same workspace), or —
+    for local iteration that does not bill per token — the subscription
+    ``CLAUDE_CODE_OAUTH_TOKEN`` from ``claude setup-token``.
     """
 
     backend: str = "claude-code"
@@ -1658,6 +1683,7 @@ class ClaudeCodeRunner(AgenticRunner):
         "ANTHROPIC_API_KEY",
         "ANTHROPIC_AUTH_TOKEN",
         "CLAUDE_CODE_OAUTH_TOKEN",
+        *_CLAUDE_FEDERATION_VARS,
     )
     max_turns: int = _MAX_TURNS
 

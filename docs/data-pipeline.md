@@ -592,7 +592,12 @@ decision is set for argument (`argument_set_for`, as `argument`, until an
 argument on or after that day is read), and the newest stated response deadline
 while the docket is undecided and the response is still owed (`response_due`,
 while `response_due_state` is `due`). A row exists when any one of them is in
-play. Each date is published as upcoming only while it is on or after the
+play. Beside the dates, each row carries the petition's conference history
+(`conference_history`, as `conferences`: every conference it was distributed
+for, in docket order, each marked `relist`, `reschedule` or another move) and
+`relists`, the exact relist count that history gives; both are null on an application,
+whose history is not read, and on a docket the poll has not read since the
+column existed. Each date is published as upcoming only while it is on or after the
 schedule's `as_of`, and as null with a stale reason (`conference_passed`, or
 `passed` on an argument day or deadline) once it has passed, so the public site
 never shows a past date as upcoming. Like the scope manifest it is enumerated
@@ -2195,11 +2200,12 @@ opinion-record steps that print readings — the parse, and the writer, which
 prints the plan's copy back — suspend workflow commands while the command runs
 and copy only its own ledger lines to the run summary, since the readings and
 the PDF reader's warnings carry text from fetched PDFs. Its Term range is
-pinned in the workflow to OT2020–OT2025, not spent on a dispatch input:
-OT2017–OT2019 are skipped by design, every listing row there linking into a
-whole volume, and a pinned range means the dry run and the apply it bounds read
-the same Terms. The parse fetches about four seconds a document over some 380
-documents, outside the lock. It takes no dedupe
+pinned in the workflow to OT2020–OT2025, not spent on a dispatch input, so
+the dry run and the apply it bounds read the same Terms. The pass reads
+OT2020's volume-linked rows, from slices of their volumes; the command also
+reads those of earlier Terms, which the pinned range does not reach. The parse
+fetches about four seconds a document over some 400 documents and one volume,
+outside the lock. It takes no dedupe
 prerequisite: it writes only its own three tables, keyed by Term and listing
 number (and position, for an opinion row) rather than by case row, and the
 content-store objects they point at, and nothing that gates a cell reads them. All

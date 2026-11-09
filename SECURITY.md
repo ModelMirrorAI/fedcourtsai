@@ -38,9 +38,13 @@ runbook, [docs/security.md](docs/security.md).
   expires within minutes. Their jobs still name the key for the rollback, so
   it reaches their runners until that reference is removed (*Claude cells
   sign in by workload identity federation* in
-  [docs/security.md](docs/security.md)). The engines this repo drives directly — Gemini
-  everywhere, and all three in the cert back-test and the integration suite's
-  engine smoke — are the exception: their key is a scoped step env on the agent
+  [docs/security.md](docs/security.md)). The Claude cells this repo drives
+  through the bare CLI — the back-test's replays and the integration suite's
+  engine-smoke cascade — federate on the same switch, from a token file the
+  `claude-federation` composite keeps fresh. The engines this repo drives directly — Gemini
+  everywhere, and Codex and Gemini in the back-test and the integration suite's
+  engine smoke, with Claude there while its environment names no rule — are
+  the exception: their key is a scoped step env on the agent
   step, so the control there is the Gemini
   CLI's own sanitizer, which strips every env var it has not been asked to
   allowlist and **refuses to allowlist** any name matching
@@ -231,7 +235,8 @@ runbook, [docs/security.md](docs/security.md).
   gate cannot read, which the maintainer keeps (*`corpus-write` holds the
   production read-write role* in [docs/security.md](docs/security.md)).
   Beyond AWS it is the Anthropic federation rule of the job's environment,
-  which admits only the workflows that run a Claude cell or its smoke and
+  which admits only the workflows that run a Claude cell or its smoke (and,
+  for the Claude-only environments, the labeler and the summaries) and
   yields a short-lived token on the workspace those cells spend, to any job of
   those workflows holding `id-token: write`: Claude API spend behind the
   workspace's spend limit, on a workspace that stores no files or batches.
@@ -380,14 +385,19 @@ runbook, [docs/security.md](docs/security.md).
 - **The case-summary lane never holds its model key and a corpus credential
   together.** `summarize` reads the corpus in its `plan` and `stage` jobs
   (read-only role) and calls the model in its `generate` job, which assumes no
-  role, holds no `id-token`, and fails before its first key-bearing step if an
-  AWS credential or OIDC minting is reachable; the staged record crosses as a
+  role and binds a Claude-only environment, whose OIDC subject no AWS role
+  trusts and whose `id-token` serves the federated Claude sign-in alone; it
+  fails before its first credential-bearing step if an AWS credential is
+  reachable or a token it mints names anything but a `claude-` environment
+  (*The Claude-only environments* in [docs/security.md](docs/security.md),
+  where the labeler and its smoke hold the same shape); the staged record
+  crosses as a
   one-day run artifact, which on this public repository any signed-in user
   can download while it exists, and which the lane therefore fills only with
   supremecourt.gov content. The model call carries no tools, so the model reaches
-  nothing but the record it is sent. The key is the bound environment's
-  Anthropic key, held in this lane by the generate job alone and shared with the
-  cells' spend limit, so every run spends only behind the `review` hold or
+  nothing but the record it is sent. The sign-in spends the same Anthropic
+  workspace as the cells, held in this lane by the generate job alone and
+  sharing the cells' spend limit, so every run spends only behind the `review` hold or
   the budgeted auto-release that routes a small round past it.
   `tests/test_workflow_summarize.py` pins the split; the lane's contract is
   [docs/case-summaries.md](docs/case-summaries.md).

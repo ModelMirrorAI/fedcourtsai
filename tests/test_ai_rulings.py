@@ -15,6 +15,7 @@ from typer.testing import CliRunner
 
 from fedcourtsai import ai_rulings, corpus, summaries
 from fedcourtsai.ai_cases_update import build_ai_cases_update, render_ai_cases_update
+from fedcourtsai.claude_auth import ApiKey
 from fedcourtsai.cli import app
 from fedcourtsai.config import SummariesConfig
 from fedcourtsai.pipeline.documents import scrub_contact_details
@@ -155,7 +156,7 @@ def _summarize(
             config=CONFIG,
             prompt_bytes=b"the ruling prompt",
             client=client,
-            api_key=FAKE_KEY,
+            credential=ApiKey(FAKE_KEY),
             now=lambda: datetime(2026, 11, 4, 4, 0, 1, 5, tzinfo=UTC),
             wait=wait_none(),
         )

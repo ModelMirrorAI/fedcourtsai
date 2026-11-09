@@ -180,6 +180,7 @@ _MERGE_SPECIAL = frozenset(
         "predict_excluded",
         "sample_weight",
         "distribution_count",
+        "conference_history",
         "has_opinion",
         "capital_case",
         "salience_score",
@@ -709,7 +710,8 @@ def _merged_row(keep: corpus.CorpusRow, drop: corpus.CorpusRow, weight: int) -> 
     it lacks takes the twin's — so the live channel's signals (the conference
     stamps, the lower-court name, the cert dates) survive the drop. The columns
     with their own semantics merge by them: ``distribution_count`` takes the max
-    (proceedings only grow), ``has_opinion`` and ``capital_case`` OR
+    and ``conference_history`` the longer list (proceedings only grow),
+    ``has_opinion`` and ``capital_case`` OR
     (monotonic — the live twin is the only row that could have seen the
     capital marking), ``salience_selected`` stays sticky, the salience score/version and the queue
     stamps fill in, and ``sample_weight`` takes the pair minimum computed by the
@@ -726,6 +728,10 @@ def _merged_row(keep: corpus.CorpusRow, drop: corpus.CorpusRow, weight: int) -> 
     counts = [c for c in (keep.distribution_count, drop.distribution_count) if c is not None]
     if counts:
         updates["distribution_count"] = max(counts)
+    histories = [h for h in (keep.conference_history, drop.conference_history) if h is not None]
+    if histories:
+        # Keep-side wins a tie, as the corpus latch's equal-length rule would.
+        updates["conference_history"] = max(histories, key=len)
     updates["has_opinion"] = keep.has_opinion or drop.has_opinion
     updates["capital_case"] = keep.capital_case or drop.capital_case
     updates["sample_weight"] = weight

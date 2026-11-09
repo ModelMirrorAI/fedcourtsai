@@ -24,17 +24,19 @@ it, and so are pending and ``other`` rows, as the published tallies this cut is
 replicated against do. Every cell carries its per-label counts so a reader can
 recompute under another convention.
 
-**A stored denial is re-read.** The corpus stores the registered interim
-reading, which collapses a partial grant to ``denied`` and reads an application
-denied as moot as ``denied`` too. Both errors move the executive's rate, and in
-opposite directions on the two sides of the docket. So under the default
-``finer`` reading, every in-scope or unknown-scope row stored ``denied`` is
-re-read from its latest live-shaped snapshot under the finer interim reading
-(:func:`.ingest.interim_reading`), which names both forms. A row with no live
-snapshot, or no entry the reading matches, keeps its stored label and is
-counted; so does one whose re-read entry is dated after ``through``, which the
-cut's moment had not reached. The re-read is descriptive and writes nothing.
-``registered`` keeps the stored labels.
+**A stored denial or grant is re-read.** The corpus stores the registered
+interim reading, which collapses a partial grant to ``denied``, reads an
+application denied as moot as ``denied`` too, and reads one "dismissed in light
+of the relief granted" in a companion application as ``granted``. Each error
+moves the executive's rate, and in opposite directions on the two sides of the
+docket. So under the default ``finer`` reading, every in-scope or unknown-scope
+row stored ``denied`` or ``granted`` is re-read from its latest live-shaped
+snapshot under the finer interim reading (:func:`.ingest.interim_reading`),
+which names all three forms. A row with no live snapshot, or no entry the
+reading matches, keeps its stored label and is counted; so does one whose
+re-read entry is dated after ``through``, which the cut's moment had not
+reached. The re-read is descriptive and writes nothing. ``registered`` keeps
+the stored labels.
 
 **Deferred applications are pending.** An application the Court defers to
 argument carries no disposition until it is decided, so it sits in
@@ -107,7 +109,7 @@ from .controversy import (
 from .exec_action import (
     EXEC_ACTION_COUNSEL_RULE,
     EXEC_ACTION_PARTY_RULE,
-    EXEC_ACTION_RULE_VERSION,
+    EXEC_ACTION_RULE_VERSION_V3,
     SCOPE_REASONS,
     ExecActionAnnotation,
     exec_action_rule,
@@ -123,6 +125,10 @@ from .prefetch import prefetch_by_case
 Filer = Literal["government", "challenger", "all"]
 
 Reading = Literal["finer", "registered"]
+#: The stored labels the finer reading re-reads: a denial (a partial grant or a
+#: denial as moot, collapsed) and a grant (a dismissal in light of a companion's
+#: relief, latched on the companion's "granted").
+_REREAD: Final = frozenset({Disposition.denied, Disposition.granted})
 
 #: Who filed a controversy's applications.
 ControversyFiler = Literal["government", "challenger", "both"]
@@ -133,7 +139,7 @@ _CONTROVERSY_FILERS: Final[tuple[ControversyFiler, ...]] = ("government", "chall
 READINGS: Final[tuple[Reading, ...]] = ("finer", "registered")
 
 #: The scope rule the cut defaults to.
-DEFAULT_SCOPE_RULE: Final[str] = EXEC_ACTION_RULE_VERSION
+DEFAULT_SCOPE_RULE: Final[str] = EXEC_ACTION_RULE_VERSION_V3
 
 #: Reading labels on the grant side: the executive's win where it applied. A
 #: GVR and a summary reversal are the binary outcome's granted side; they reach
@@ -326,10 +332,10 @@ class _Fold:
     results: dict[str, bool | None] = field(default_factory=dict)
 
     def label(self, stored: Disposition | None, payload: Payload) -> str | None:
-        """The label the cut reads a row under: a stored denial re-read, else as stored."""
+        """The label the cut reads a row under: a stored denial or grant re-read, else as stored."""
         if stored is None:
             return None
-        if stored != Disposition.denied or not self.rereading:
+        if stored not in _REREAD or not self.rereading:
             return stored.value
         self.rereads["rows"] += 1
         reading, decided = interim_reading(payload) if payload is not None else (None, None)
@@ -340,7 +346,7 @@ class _Fold:
         if self.through is not None and decided is not None and decided > self.through:
             self.rereads["after_through"] += 1
             return stored.value
-        if label != InterimReading.denied.value:
+        if label != stored.value:
             self.rereads["changed"] += 1
         return label
 

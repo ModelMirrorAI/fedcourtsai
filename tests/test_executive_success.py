@@ -27,10 +27,14 @@ from fedcourtsai.pipeline.controversy import (
 from fedcourtsai.pipeline.exec_action import (
     EXEC_ACTION_RULE_VERSION,
     EXEC_ACTION_RULE_VERSION_V1,
+    EXEC_ACTION_RULE_VERSION_V4,
+    EXEC_ACTION_RULE_VERSION_V5,
     REASON_SCOPE,
     SCOPE_REASONS,
     exec_action_annotations,
     exec_action_annotations_v2,
+    exec_action_annotations_v4,
+    exec_action_annotations_v5,
     exec_action_rule,
 )
 from fedcourtsai.pipeline.executive_success import (
@@ -147,8 +151,174 @@ def test_the_reason_codes_are_registered_once() -> None:
     assert len(SCOPE_REASONS) == len(set(SCOPE_REASONS))
     assert exec_action_rule(EXEC_ACTION_RULE_VERSION_V1) is exec_action_annotations
     assert exec_action_rule(EXEC_ACTION_RULE_VERSION) is exec_action_annotations_v2
+    assert exec_action_rule(EXEC_ACTION_RULE_VERSION_V4) is exec_action_annotations_v4
+    assert exec_action_rule(EXEC_ACTION_RULE_VERSION_V5) is exec_action_annotations_v5
     with pytest.raises(KeyError):
         exec_action_rule("exec-action-v9")
+
+
+@pytest.mark.parametrize(
+    ("case_name", "counsel", "v2_reason", "v4_reason", "side"),
+    [
+        # The caption reads a former President as federal; the office is opposite.
+        (
+            "Donald J. Trump, former President of the United States v. Jane Roe, et al.",
+            ["respondent"],
+            "gov-applicant",
+            "caption-counsel-conflict",
+            "respondent",
+        ),
+        # A state officer whose title the caption reads as federal.
+        (
+            "Susan Roe, Commissioner, et al. v. Virginia Coalition for Voters, et al.",
+            ["respondent"],
+            "gov-applicant",
+            "caption-counsel-conflict",
+            "respondent",
+        ),
+        # A federal respondent the caption names, with the office for the applicant.
+        (
+            "Acme Corp. v. Department of Labor, et al.",
+            ["petitioner"],
+            "gov-applicant",
+            "caption-counsel-conflict",
+            "applicant",
+        ),
+        # The United States alone against a state, on either side.
+        (
+            "United States v. Texas, et al.",
+            ["petitioner"],
+            "gov-applicant",
+            "suit-against-state-law",
+            "applicant",
+        ),
+        (
+            "United States, Applicant v. Texas",
+            [],
+            "gov-applicant",
+            "suit-against-state-law",
+            "applicant",
+        ),
+        (
+            "Missouri, et al. v. United States",
+            ["respondent"],
+            "challenge-to-executive-action",
+            "suit-against-state-law",
+            "respondent",
+        ),
+        (
+            "United States, Petitioner v. Texas",
+            [],
+            "gov-applicant",
+            "suit-against-state-law",
+            "applicant",
+        ),
+        # The cost the docs name: a federal suit enforcing an agency's reading
+        # against a state, which the hand reading may put in scope.
+        (
+            "Idaho v. United States",
+            [],
+            "challenge-to-executive-action",
+            "suit-against-state-law",
+            "respondent",
+        ),
+        # A government defending its own policy keeps steps 2 and 3.
+        (
+            "United States, et al. v. Texas, et al.",
+            ["petitioner"],
+            "gov-applicant",
+            "gov-applicant",
+            "applicant",
+        ),
+        (
+            "Department of Homeland Security, et al. v. Texas",
+            ["petitioner"],
+            "gov-applicant",
+            "gov-applicant",
+            "applicant",
+        ),
+        (
+            "Idaho v. United States, et al.",
+            [],
+            "challenge-to-executive-action",
+            "challenge-to-executive-action",
+            "respondent",
+        ),
+        (
+            "John Roe v. United States",
+            [],
+            "federal-prosecution",
+            "federal-prosecution",
+            "respondent",
+        ),
+        # The bankruptcy trustee, on either side.
+        (
+            "William Roe, United States Trustee, Region 2 v. Acme Pharma L.P., et al.",
+            ["petitioner"],
+            "gov-applicant",
+            "bankruptcy-trustee",
+            "applicant",
+        ),
+        (
+            "Acme Holdings LLC v. Jane Roe, US Trustee",
+            ["respondent"],
+            "sg-respondent-only",
+            "bankruptcy-trustee",
+            "respondent",
+        ),
+        # The added organization word.
+        (
+            "The Southern Theological Seminary, et al. v. Department of Labor, et al.",
+            [],
+            "individual-group",
+            "challenge-to-executive-action",
+            "respondent",
+        ),
+    ],
+)
+def test_v4_reads_the_shapes_the_hand_reading_exposed(
+    case_name: str, counsel: list[str], v2_reason: str, v4_reason: str, side: str
+) -> None:
+    row = _row(
+        "scotus/1",
+        case_name,
+        docket_number="25A99999",
+        date_filed=date(2025, 6, 1),
+        counsel=[_sg(role) for role in counsel],
+    )
+    assert exec_action_annotations_v2(row, row.date_filed).reason == v2_reason
+    v4 = exec_action_annotations_v4(row, row.date_filed)
+    assert (v4.reason, v4.government_side, v4.rule_version) == (
+        v4_reason,
+        side,
+        EXEC_ACTION_RULE_VERSION_V4,
+    )
+    assert v4.in_scope is REASON_SCOPE[v4.reason]
+    # v5 reads an unlisted row as v4 does.
+    v5 = exec_action_annotations_v5(row, row.date_filed)
+    assert (v5.reason, v5.government_side, v5.rule_version) == (
+        v4_reason,
+        side,
+        EXEC_ACTION_RULE_VERSION_V5,
+    )
+
+
+def test_v4_sets_a_procedural_request_out_as_v2_does() -> None:
+    row = _row(
+        "scotus/1",
+        "United States, et al. v. Texas, et al.",
+        docket_number="25A99999",
+        date_filed=date(2025, 3, 1),
+        application_kind="unknown",
+        counsel=[_sg("petitioner")],
+    )
+    payload = _submitted("25A99999", "to file a brief in excess of the word limits")
+    for annotator, version in (
+        (exec_action_annotations_v2, EXEC_ACTION_RULE_VERSION),
+        (exec_action_annotations_v4, EXEC_ACTION_RULE_VERSION_V4),
+    ):
+        annotation = annotator(row, row.date_filed, payload)
+        assert (annotation.reason, annotation.rule_version) == ("procedural-request", version)
 
 
 def _app(
@@ -233,9 +403,9 @@ def test_a_win_reads_in_the_executives_direction(tmp_path: Path) -> None:
     pooled = cells[("biden-46", "all")]
     assert (pooled.wins, pooled.decided) == (1, 2)
     assert ("biden-46", "government") not in cells
-    # No snapshot is stored, so every stored denial in scope keeps its label.
+    # No snapshot is stored, so every stored denial and grant in scope keeps its label.
     assert result.reading == "finer"
-    assert (result.reread_rows, result.reread_changed, result.reread_unobservable) == (3, 0, 3)
+    assert (result.reread_rows, result.reread_changed, result.reread_unobservable) == (7, 0, 7)
 
 
 def test_the_finer_reading_relabels_a_stored_denial() -> None:
@@ -271,7 +441,8 @@ def test_the_finer_reading_relabels_a_stored_denial() -> None:
         )
 
     result = cut(fetch)
-    # One batch fetch covers every counted row; only the stored denials are re-read.
+    # One batch fetch covers every counted row; the stored denials and the stored
+    # grant are re-read, and the grant, with no snapshot, keeps its label.
     assert sorted(calls) == ["24A100", "24A101", "24A902"]
     cells = _cells(result)
     assert (cells[("trump-47", "government")].wins, cells[("trump-47", "government")].decided) == (
@@ -281,7 +452,7 @@ def test_the_finer_reading_relabels_a_stored_denial() -> None:
     challenger = cells[("biden-46", "challenger")]
     assert (challenger.wins, challenger.decided, challenger.dismissed) == (0, 1, 1)
     assert challenger.dispositions == {"dismissed-moot": 1, "granted": 1}
-    assert (result.reread_rows, result.reread_changed) == (2, 2)
+    assert (result.reread_rows, result.reread_changed, result.reread_unobservable) == (3, 2, 1)
     listed = {row.docket_number: row for row in result.review_rows}
     assert (listed["24A902"].stored_disposition, listed["24A902"].reading) == (
         "denied",
@@ -291,6 +462,82 @@ def test_the_finer_reading_relabels_a_stored_denial() -> None:
     assert registered.reading == "registered"
     assert registered.reread_rows == 0
     assert _cells(registered)[("trump-47", "government")].wins == 0
+
+
+def test_the_finer_reading_relabels_a_grant_in_light_of_a_companion() -> None:
+    """A challenger's companion dismissed in light of the lead's relief leaves the rate."""
+    osha = "National Federation of Independent Business, et al. v. Department of Labor, et al."
+    db_rows = [
+        _app("scotus/1", osha, "21A244", date(2021, 12, 17), Disposition.granted),
+        _app("scotus/2", osha, "21A247", date(2021, 12, 18), Disposition.granted),
+    ]
+    payloads = {
+        "21A244": _live("21A244", "Application (21A244) granted.", "2022-01-13"),
+        "21A247": _live(
+            "21A247",
+            "Application (21A247) dismissed in light of the relief granted in No. 21A244.",
+            "2022-01-13",
+        ),
+    }
+
+    def fetch(rows: Sequence[corpus.CorpusRow]) -> list[Payload]:
+        return [payloads.get(row.docket_number) for row in rows]
+
+    def cut(fetcher: Fetcher | None) -> ExecutiveSuccess:
+        return _success(
+            db_rows,
+            as_of_field="filed",
+            through=None,
+            since=None,
+            corpus_sha256="",
+            scope_rule_version=EXEC_ACTION_RULE_VERSION,
+            fetch=fetcher,
+            reading="finer",
+            latest_pull=None,
+            latest_snapshot=None,
+        )
+
+    result = cut(fetch)
+    challenger = _cells(result)[("biden-46", "challenger")]
+    # The lead's grant is the executive's one loss; the companion decides nothing.
+    assert (challenger.wins, challenger.decided, challenger.dismissed) == (0, 1, 1)
+    assert challenger.dispositions == {"dismissed-moot": 1, "granted": 1}
+    assert (result.reread_rows, result.reread_changed, result.reread_unobservable) == (2, 1, 0)
+    listed = {row.docket_number: row for row in result.review_rows}
+    assert (listed["21A247"].stored_disposition, listed["21A247"].reading) == (
+        "granted",
+        "dismissed-moot",
+    )
+    registered = _cells(cut(None))[("biden-46", "challenger")]
+    assert (registered.wins, registered.decided) == (0, 2)
+
+
+def test_a_stored_grant_reads_in_part_and_respects_the_cut() -> None:
+    """A stored grant re-reads as a partial grant, unless its entry postdates the cut."""
+    travel = "Donald J. Trump, President of the United States, et al. v. Hawaii, et al."
+    db_rows = [_app("scotus/1", travel, "17A550", date(2017, 11, 20), Disposition.granted)]
+    payload = _live("17A550", "The application is granted in part.", "2017-12-04")
+
+    def cut(through: date | None) -> ExecutiveSuccess:
+        return _success(
+            db_rows,
+            as_of_field="filed",
+            through=through,
+            since=None,
+            corpus_sha256="",
+            scope_rule_version=EXEC_ACTION_RULE_VERSION,
+            fetch=lambda rows: [payload for _ in rows],
+            reading="finer",
+            latest_pull=None,
+            latest_snapshot=None,
+        )
+
+    whole = cut(None)
+    assert {r.docket_number: r.reading for r in whole.review_rows} == {"17A550": "granted-in-part"}
+    assert _cells(whole)[("trump-45", "government")].wins == 1
+    assert (whole.reread_rows, whole.reread_changed, whole.reread_after_through) == (1, 1, 0)
+    early = cut(date(2017, 12, 1))
+    assert (early.reread_changed, early.reread_after_through) == (0, 1)
 
 
 def _live(docket: str, order: str, decided: str) -> dict[str, object]:
@@ -339,8 +586,13 @@ def test_the_rereader_reads_the_live_snapshot_and_respects_the_cut(tmp_path: Pat
         corpus.upsert_snapshot(
             conn, "scotus/2", date(2025, 6, 2), _live("24A790", moot, "2025-06-01")
         )
-        whole = executive_success(conn, as_of_field="filed")
-        cut = executive_success(conn, as_of_field="filed", through=date(2025, 5, 1))
+        # The fixture's docket numbers are real ones the hand reading lists, so
+        # the reading is tested under the caption rule.
+        v2 = EXEC_ACTION_RULE_VERSION
+        whole = executive_success(conn, as_of_field="filed", scope_rule_version=v2)
+        cut = executive_success(
+            conn, as_of_field="filed", through=date(2025, 5, 1), scope_rule_version=v2
+        )
     listed = {row.docket_number: row.reading for row in whole.review_rows}
     assert listed == {"24A949": "granted-in-part", "24A790": "dismissed-moot"}
     assert (whole.reread_rows, whole.reread_changed, whole.reread_unobservable) == (2, 2, 0)
@@ -356,7 +608,9 @@ def test_scope_and_exclusions_are_counted_beside_the_rate(tmp_path: Path) -> Non
     db = tmp_path / "corpus.db"
     _success_corpus(db)
     with corpus.connect(db) as conn:
-        result = executive_success(conn, as_of_field="filed")
+        result = executive_success(
+            conn, as_of_field="filed", scope_rule_version=EXEC_ACTION_RULE_VERSION
+        )
     assert (result.duplicate_rows, result.extension_rows, result.applications) == (1, 1, 12)
     assert result.scope_reasons == {
         "gov-applicant": 7,
@@ -432,11 +686,11 @@ def test_the_command_prints_the_cut_with_its_vintage(
     )
     assert result.exit_code == 0, result.output
     assert (
-        "executive success (exec-action-v2 over party-v2 and sg-office-v1, as-of filed, "
+        "executive success (exec-action-v3 over party-v2 and sg-office-v1, as-of filed, "
         "through 2025-10-01)"
     ) in result.stderr
     assert "trump-47 government: executive won 3/4 = 75.0%" in result.stderr
-    assert "finer reading re-read 3 stored denial(s)" in result.stderr
+    assert "finer reading re-read 6 stored denial(s) and grant(s)" in result.stderr
     assert (
         "trump-47 government by controversy (controversy-v2): executive won 1/1"
     ) in result.stderr
@@ -444,7 +698,7 @@ def test_the_command_prints_the_cut_with_its_vintage(
     assert "policy areas (policy-area-v1):" in result.stderr
     payload = json.loads(result.stdout)
     assert payload["through"] == "2025-10-01"
-    assert payload["scope_rule_version"] == "exec-action-v2"
+    assert payload["scope_rule_version"] == "exec-action-v3"
 
 
 @pytest.mark.parametrize(

@@ -549,3 +549,51 @@ def test_a_listing_link_off_the_courts_host_is_never_fetched() -> None:
     assert reading.status == "failed"
     assert reading.reason is not None and "off the Court's host" in reading.reason
     assert requested == []
+
+
+@pytest.mark.parametrize(
+    "lead",
+    [
+        pytest.param("Breyer, J. delivered the opinion of the Court.", id="no-trailing-comma"),
+        pytest.param("Barrett, J., fled an opinion for a unanimous Court.", id="filed-lead"),
+    ],
+)
+def test_the_lead_line_variants_the_prints_carry_open_the_paragraph(lead: str) -> None:
+    text = (
+        "No. 20\u20131. Argued March 1, 2021\u2014Decided June 1, 2021\n"
+        + f"{lead}\n"
+        + "Michael L. Zuckerman, Deputy Solicitor General, argued the cause.\n"
+    )
+    located = locate_lineup(text)
+    assert located.problems == ()
+    assert located.paragraph == lead
+
+
+def test_a_wrapped_case_name_running_head_is_dropped_from_the_paragraph() -> None:
+    text = (
+        "No. 19\u2013431. Argued May 6, 2020\u2014Decided July 8, 2020\n"
+        + "Thomas, J., delivered the opinion of the Court, in which Roberts, C. J.,\n"
+        + "and Alito, Gorsuch, and Kavanaugh, JJ., joined. Kagan, J.,\n"
+        + "fled an opinion concurring in the judgment, in which Breyer, J., joined,\n"
+        + "660 LITTLE SISTERS OF THE POOR SAINTS PETER\n"
+        + "AND PAUL HOME v. PENNSYLVANIA\n"
+        + "post, p. 704. Ginsburg, J., fled a dissenting opinion.\n"
+        + "Michael L. Zuckerman, Deputy Solicitor General, argued the cause.\n"
+    )
+    located = locate_lineup(text)
+    assert located.paragraph is not None
+    assert "LITTLE SISTERS" not in located.paragraph and "PAUL HOME" not in located.paragraph
+    assert "post, p. 704" in located.paragraph
+
+
+def test_a_capitals_line_naming_justices_after_a_head_is_kept() -> None:
+    text = (
+        "No. 17\u20131. Argued March 1, 2018\u2014Decided June 1, 2018\n"
+        + "ROBERTS, C. J., delivered the opinion of the Court, in which\n"
+        + "12 SOME CASE v. OTHER\n"
+        + "THOMAS, ALITO, GORSUCH, AND KAVANAUGH, JJ., joined.\n"
+        + "NOTICE: This opinion is subject to formal revision.\n"
+    )
+    located = locate_lineup(text)
+    assert located.paragraph is not None
+    assert "THOMAS, ALITO" in located.paragraph

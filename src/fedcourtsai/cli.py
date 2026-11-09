@@ -55,6 +55,7 @@ from . import (
     casestore,
     catch_up,
     cell_policy,
+    claude_auth,
     cleanup,
     contexts_due,
     corpus,
@@ -2407,14 +2408,18 @@ def executive_success_cmd(
         DEFAULT_SCOPE_RULE,
         "--scope-rule",
         help="Which registered scope rule reads an application as executive action "
-        "(exec-action-v2, the default, or exec-action-v1).",
+        "(exec-action-v3, the default, which applies the committed hand reading; "
+        "exec-action-v2; exec-action-v1; exec-action-v4, the caption rule with three "
+        "shapes added (counsel conflict, United States against a state, United States "
+        "Trustee); or exec-action-v5, the hand reading over v4).",
     ),
     reading: str = typer.Option(
         "finer",
         "--reading",
         help=(
-            "How a stored denial is read: 'finer' re-reads it from the latest snapshot, "
-            "naming partial grants and denials as moot; 'registered' keeps the stored label."
+            "How a stored denial or grant is read: 'finer' re-reads it from the latest "
+            "snapshot, naming partial grants, denials as moot and dismissals in light of a "
+            "companion's relief; 'registered' keeps the stored label."
         ),
     ),
 ) -> None:
@@ -2427,8 +2432,9 @@ def executive_success_cmd(
     application granted, or a challenger's application denied, is the
     executive's win. Rates are over substantively decided applications;
     withdrawn, moot, pending and unreadable rows are counted beside them. By
-    default a stored denial is re-read from the row's latest snapshot under the
-    finer interim reading, which names partial grants and denials as moot.
+    default a stored denial or grant is re-read from the row's latest snapshot
+    under the finer interim reading, which names partial grants, denials as
+    moot and dismissals in light of a companion's relief.
     A row with no docketed date takes its first proceeding entry's date where
     a live snapshot is read. The
     same applications are counted again by controversy
@@ -2505,7 +2511,8 @@ def executive_success_cmd(
         f"row(s) left out, {result.filed_before_since} earlier and "
         f"{result.filed_after_through} later than the cut, {result.filed_from_first_entry} "
         f"dated by their first proceeding; scope [{reasons}]; unknown scope "
-        f"[{unknown}]; {result.reading} reading re-read {result.reread_rows} stored denial(s), "
+        f"[{unknown}]; {result.reading} reading re-read {result.reread_rows} "
+        "stored denial(s) and grant(s), "
         f"{result.reread_changed} relabeled, {result.reread_unobservable} unobservable and "
         f"{result.reread_after_through} decided after the cut; "
         f"corpus latest pull {pulled}, latest snapshot {snapshot}",
@@ -21491,15 +21498,24 @@ def summarize_cmd(
     sits in the length band, opens no paragraph with "Whether", and passes the
     secret scan. A response rejected only on the body rules is retried once in
     the same run, told why; anything else, a rejected retry, and any call that
-    still fails after bounded retries, is reported as skipped. The API key is
-    read from the environment variable ``summaries.API_KEY_ENV`` names. Exits 1
-    when the plan held cases and none was written, so a dead key or a broken
-    prompt fails the run rather than reading as an empty success.
+    still fails after bounded retries, is reported as skipped. The credential
+    comes from the environment (``fedcourtsai.claude_auth``): the federated
+    sign-in when a federation rule is named, the API key otherwise. Exits 1
+    when the plan held cases and none was written, so a dead credential or a
+    broken prompt fails the run rather than reading as an empty success.
     """
     settings = get_settings()
-    api_key = os.environ.get(summaries.API_KEY_ENV, "")
-    if not api_key:
-        typer.echo(f"{summaries.API_KEY_ENV} is unset; nothing to call the API with", err=True)
+    try:
+        credential = claude_auth.from_environment()
+    except claude_auth.ClaudeAuthError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=2) from exc
+    if credential is None:
+        typer.echo(
+            f"neither {claude_auth.KEY_ENV} nor {claude_auth.RULE_ENV} is set; "
+            "nothing to call the API with",
+            err=True,
+        )
         raise typer.Exit(code=2)
     if not summaries.PROMPT_PATH.is_file():
         typer.echo(f"prompt {summaries.PROMPT_PATH} not found (run from the repo root)", err=True)
@@ -21519,7 +21535,7 @@ def summarize_cmd(
                 config=config,
                 prompt_bytes=summaries.PROMPT_PATH.read_bytes(),
                 client=client,
-                api_key=api_key,
+                credential=credential,
                 deadline=deadline,
             )
             if plan.rulings:
@@ -21531,7 +21547,7 @@ def summarize_cmd(
                     config=config,
                     prompt_bytes=ai_rulings.PROMPT_PATH.read_bytes(),
                     client=client,
-                    api_key=api_key,
+                    credential=credential,
                     deadline=deadline,
                 )
     except ValueError as exc:

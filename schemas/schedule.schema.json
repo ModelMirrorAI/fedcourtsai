@@ -1,5 +1,50 @@
 {
   "$defs": {
+    "ConferenceStep": {
+      "additionalProperties": false,
+      "description": "One conference a cert petition was distributed for, in docket order.\n\nRead off the petition's own \"DISTRIBUTED for Conference of \u2026\" entries\n(:func:`fedcourtsai.pipeline.cert_signals.conference_history`), one step per\ndistinct conference date, so a docket's steps are exactly the conferences\nits corpus ``distribution_count`` counts. ``transition`` says how the\npetition reached this conference from the one before it.",
+      "properties": {
+        "conference": {
+          "description": "The conference date the distribution entry names",
+          "format": "date",
+          "title": "Conference",
+          "type": "string"
+        },
+        "distributed": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The filing date of the docket entry that first named this conference; null when the entry carries no fully specified date",
+          "title": "Distributed"
+        },
+        "transition": {
+          "description": "How the petition reached this conference: `first` (its first distribution); `relist` (the conference before sat on the petition and left it undecided, and this entry was docketed after that conference and within 14 days of it); `reschedule` (the conference before never sat on it: this entry was docketed before that conference day, or a call for response or a 'Rescheduled' entry took the petition off it first); `redistributed` (the conference before sat, and this entry came more than 14 days later, as after a hold or an invited brief); `after_decision` (docketed after the petition was decided, as for rehearing); `unknown` (the entry's date will not parse, or it is the conference day itself, which cannot say whether the conference had sat, or it names a conference no later than the one before)",
+          "enum": [
+            "first",
+            "relist",
+            "reschedule",
+            "redistributed",
+            "after_decision",
+            "unknown"
+          ],
+          "title": "Transition",
+          "type": "string"
+        }
+      },
+      "required": [
+        "conference",
+        "transition"
+      ],
+      "title": "ConferenceStep",
+      "type": "object"
+    },
     "ScheduleEntry": {
       "additionalProperties": false,
       "description": "One pending, already-public docket's next dates at the Court.\n\nA row exists for every docket on the public set that has at least one of\nthree dates in play: the conference an undecided petition is distributed\nfor, the day a granted case awaiting its merits decision is set for\nargument, and the deadline for a response that is still owed. Each date is\npublished only while it falls on or after the schedule's `as_of`; once it\nhas passed and the docket has not moved, the row keeps the date as read and\nsays why it is no longer a scheduled date, so a past date is never shown as\nupcoming.",
@@ -20,6 +65,22 @@
           "description": "``<court>/<docket>`` of an already-public case",
           "title": "Case Id",
           "type": "string"
+        },
+        "conferences": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/ConferenceStep"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Every conference the petition was distributed for, in docket order, each with how it got there (`relist`, `reschedule`, \u2026). History, never a scheduled date: the upcoming one is `next_conference`. Null on a 1.1 row, on an application (the history is read for cert petitions only), and where the live channel has not read the history since it was first kept; an empty list on a docket never distributed",
+          "title": "Conferences"
         },
         "distributed_for_conference": {
           "anyOf": [
@@ -62,6 +123,19 @@
           "default": null,
           "description": "The conference the docket is distributed for, when it falls on or after `as_of`; null when `stale_reason` is set, and when the row names no conference (`distributed_for_conference` null)",
           "title": "Next Conference"
+        },
+        "relists": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How many times the Court relisted the petition: the `conferences` steps marked `relist`. Exact, and at most the number of conferences less one. Null exactly when `conferences` is",
+          "title": "Relists"
         },
         "response_due": {
           "anyOf": [
@@ -168,11 +242,12 @@
       "type": "array"
     },
     "schema_version": {
-      "default": "1.1",
-      "description": "The artifact's schema version. A reader keys on it: a `1.1` row adds `argument` and `response_due`, and may name no conference",
+      "default": "1.2",
+      "description": "The artifact's schema version. A reader keys on it: a `1.1` row adds `argument` and `response_due`, and may name no conference; a `1.2` row adds `conferences` and `relists`",
       "enum": [
         "1.0",
-        "1.1"
+        "1.1",
+        "1.2"
       ],
       "title": "Schema Version",
       "type": "string"
