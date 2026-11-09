@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73520108",
+  "run_id": "20261109T032540Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "read_file",
+    "list_directory",
+    "grep_search",
+    "run_shell_command",
+    "write_file",
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts validate"
+  ],
+  "helpful": [
+    "Provisioned cert-stage filings (petition.txt, brief-in-opposition.txt, cert-reply.txt, supplemental-brief.txt, decision-below.txt) gave a complete picture of the Fourth Circuit split with MBNA America Bank v. Hill and the September 2026 bankruptcy-court dismissal without prejudice.",
+    "metrics/statpack.md merits docket table (with excluded counts) and per-Justice merits votes tables provided clean, strictly-prior base rates."
+  ],
+  "gaps": [
+    "Petitioner's September 15, 2026 supplemental response on the docket was not staged in supplemental-brief.txt (only respondents' September 14, 2026 supplemental brief was included), though its substance was clear from the cert reply and docket."
+  ],
+  "notes": "All provisioned filings and base-rate tables were clear and complete for a grant-moment merits forecast."
+}

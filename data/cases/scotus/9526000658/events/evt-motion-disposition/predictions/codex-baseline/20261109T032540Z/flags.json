@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000658",
+  "run_id": "20261109T032540Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "capture-gap",
+      "severity": "info",
+      "event_id": "evt-motion-disposition",
+      "message": "The application was fetched (57 pages), but documents.json marks empty_text=true and ocr_derived=false; application.txt contains no usable content. Prediction completed from the submission docket and prior-Term interim rates without assessing the application's arguments. OCR or usable filing text would materially improve the forecast; this is not a missing-snapshot or absent-filing claim."
+    }
+  ]
+}

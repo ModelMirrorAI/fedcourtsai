@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000658",
+  "run_id": "20261109T032540Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-motion-disposition",
+      "message": "The upstream supremecourt.gov snapshot (2026-11-03.json) lists LowerCourt as 'United States Bankruptcy Appellate Panel for the 10th Circuit' for LowerCourtCaseNumbers '(26-2404)', even though the application was submitted to The Chief Justice (Circuit Justice for the Fourth Circuit), the Virginia pro se applicant is litigating against an E.D. Va. Chapter 7 bankruptcy trustee (H. Jason Gold), companion application 26A657 (from No. 26-2406) lists the Fourth Circuit, and CourtListener confirms that No. 26-2404 is In re: Paul Schultz in the U.S. Court of Appeals for the Fourth Circuit (arising from E.D. Va. No. 1:26-cv-02804-LMB-IDD)."
+    }
+  ]
+}

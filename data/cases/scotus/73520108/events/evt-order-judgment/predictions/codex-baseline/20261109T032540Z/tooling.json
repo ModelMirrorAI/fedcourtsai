@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73520108",
+  "run_id": "20261109T032540Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["shell and jq", "fedcourts paths", "fedcourts query", "CourtListener MCP search", "CourtListener MCP search_document", "web search/open attempts", "fedcourts validate data --cell"],
+  "helpful": ["Separate appellate opinion text and document manifest", "Prior-Term merits denominator with explicit exclusions", "CourtListener opinion snippets for precise precedent checks", "Machine-readable per-Justice vote and authorship counts"],
+  "gaps": ["Petitioner's September 15 supplemental response not staged", "Corpus reporter citations sparse and citation search sometimes inexact on MCP", "Web attempts returned no usable content", "Default uv cache path read-only; required temporary cache override"],
+  "notes": "Grant-stage forecast with cert advocacy but no merits briefing or argument. Distinguished docket Term 2025 from grant Term 2026. The broader corpus query supplied no useful merits comparator; primary precedent checks succeeded through MCP. No packages installed."
+}

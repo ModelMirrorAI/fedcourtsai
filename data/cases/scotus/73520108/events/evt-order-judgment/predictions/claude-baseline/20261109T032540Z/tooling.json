@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/73520108",
+  "run_id": "20261109T032540Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "provisioned documents"],
+  "helpful": ["statpack merits section with excluded counts", "decision-below.txt for the panel split and dissent"],
+  "gaps": ["corpus query has no way to filter priors by subject (e.g., FAA/arbitration merits decisions)"],
+  "notes": "Merits grant-moment cell; no merits briefs were provisioned, as expected."
+}

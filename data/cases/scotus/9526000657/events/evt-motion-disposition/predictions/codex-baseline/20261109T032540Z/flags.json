@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000657",
+  "run_id": "20261109T032540Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "capture-gap",
+      "severity": "warning",
+      "event_id": "evt-motion-disposition",
+      "message": "The 61-page application was provisioned with empty_text=true and ocr_derived=false; application.txt contains only page separators. The arrival snapshot identifies neither the challenged order nor the legal grounds or harm. The forecast therefore rests principally on the private/unmarked application prior, not a substantive reading of the application. A bounded Fourth Circuit docket search returned no matches. This is an extraction/content limitation, not an absent filing or a failure to locate the case-level record; the prediction is complete."
+    }
+  ]
+}

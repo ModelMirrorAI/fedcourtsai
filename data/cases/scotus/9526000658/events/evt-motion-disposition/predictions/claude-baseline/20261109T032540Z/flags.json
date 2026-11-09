@@ -1,0 +1,10 @@
+{
+  "case_id": "scotus/9526000658",
+  "run_id": "20261109T032540Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {"category": "data-quality", "severity": "info", "event_id": "evt-motion-disposition",
+     "message": "Staged application.txt is empty_text (no text layer) on a 57-page PDF; forecast made from docket and base rates. Also: lower court listed as BAP for the 10th Circuit, but applicant is in Virginia and the application went to the Chief Justice (4th Cir. Circuit Justice); the 4th Circuit has no BAP, so the lower-court label may be wrong."}
+  ]
+}

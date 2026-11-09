@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000657",
+  "run_id": "20261109T032540Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_call_endpoint",
+    "mcp_courtlistener_get_endpoint_item",
+    "mcp_courtlistener_read_document",
+    "fedcourts validate"
+  ],
+  "helpful": [
+    "CourtListener MCP docket-to-cluster lookup (`dockets` -> `clusters` -> `read_document`) resolved the underlying Fourth Circuit opinion in No. 26-2406 (`In re: Paul Schultz`, opinion_id 11514107) even though `application.txt` was a 61-page scanned PDF with `empty_text: true`.",
+    "The interim-docket applicant-class breakdown in `metrics/statpack.md` cleanly separated `private` `unmarked` applications (9 of 92, 9.8%) from the federal-dominated overall interim base rate (30 of 148, 20.3%)."
+  ],
+  "gaps": [
+    "The provisioned `application.txt` (61 pages) was a scanned PDF without OCR (`empty_text: true`, `ocr_derived: false`); running OCR on scanned interim applications during document provisioning would make the applicant's exact framing directly readable."
+  ],
+  "notes": "Although CourtListener's opinion search index (`type='o'`) did not return Fourth Circuit No. 26-2406 by docket number, the RECAP docket record (`docket_id: 74925989`) linked directly to cluster `11046332` and opinion `11514107`."
+}
