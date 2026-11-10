@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000201",
+  "run_id": "20261110T032227Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["shell", "fedcourts paths", "fedcourts query", "committed statpack", "web.run search", "apply_patch", "fedcourts validate"],
+  "helpful": ["Frozen federal-band risk-set anchor", "Combined respondent responses and government reply", "Matched lower-court opinion", "Provisioned companion dockets"],
+  "gaps": ["General official-domain web searches returned no visible results", "Default uv cache path was read-only; a writable cache and no-sync execution resolved CLI startup"],
+  "notes": "The required structured corpus query succeeded after correcting the era token. Its results were not subject-matched and did not drive the forecast. The provisioned record supplied the decisive evidence. No additional dependencies were installed."
+}

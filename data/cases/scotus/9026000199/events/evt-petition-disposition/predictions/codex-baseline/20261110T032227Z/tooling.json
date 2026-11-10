@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000199",
+  "run_id": "20261110T032227Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts paths", "fedcourts query", "CourtListener MCP search", "web.run", "local provisioned text", "jq", "fedcourts validate"],
+  "helpful": ["Frozen cert anchor", "Combined respondents' briefs", "Available appellate opinion in appendix", "Related docket snapshots", "Explicit shared-amicus relation labels"],
+  "gaps": ["CourtListener citation search returned no Sixth Circuit opinion", "Web attempts returned no usable content"],
+  "notes": "Default uv cache was read-only; UV_CACHE_DIR=/tmp/uv-cache restored CLI operation without installing packages. An invalid era token was corrected to 2020s using the CLI's vocabulary. Broad grant queries can include substantive applications, so their output was not treated as a cert-only rate. The provisioned adversarial briefing was sufficient to finish without live opinion retrieval."
+}

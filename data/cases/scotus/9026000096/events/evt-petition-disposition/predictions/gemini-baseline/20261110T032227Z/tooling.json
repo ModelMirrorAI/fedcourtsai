@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000096",
+  "run_id": "20261110T032227Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_get_endpoint_item",
+    "mcp_courtlistener_read_document",
+    "google_web_search"
+  ],
+  "helpful": [
+    "cert_anchor in record/context.json and metrics/statpack.md",
+    "provisioned briefs in record/documents/ and companion snapshot in record/related/26-109.json",
+    "CourtListener MCP read_document for the untruncated Ninth Circuit en banc dissents"
+  ],
+  "gaps": [],
+  "notes": "Read the full text of the Ninth Circuit en banc dissents via CourtListener MCP (opinion 11313593) to supplement Appendix B of petition.txt, which was truncated at the 150,000-character cap."
+}
