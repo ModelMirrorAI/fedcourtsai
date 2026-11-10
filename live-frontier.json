@@ -202,11 +202,11 @@
     },
     {
       "conference": "2026-09-28",
-      "petitions": 74
+      "petitions": 73
     },
     {
       "conference": "2026-10-09",
-      "petitions": 30
+      "petitions": 28
     },
     {
       "conference": "2026-10-16",
@@ -222,7 +222,7 @@
     },
     {
       "conference": "2026-12-04",
-      "petitions": 85
+      "petitions": 111
     }
   ],
   "documents_provisioned": 166,
@@ -231,5 +231,5 @@
   "next_conference_petitions": 153,
   "schema_version": "1.0",
   "skipped": false,
-  "watchlist": 506
+  "watchlist": 529
 }
