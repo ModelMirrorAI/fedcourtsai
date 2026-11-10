@@ -105,6 +105,7 @@ from .caption import _scored_segment
 # same entry.
 from .cert_signals import (
     cert_grant_date,
+    direct_appeal_exit_gates,
     is_direct_appeal_docket,
     is_sg_invited_brief_entry,
     match_disposition_signal,
@@ -613,12 +614,14 @@ def _is_cert_reply_entry(text: str, *, filed: date | None, granted_on: date | No
 #
 # They are the same two papers a cert cell reads, the other side's whole answer
 # and the last word on it, so the motion joins the combined opposition row and
-# the appellant's answer is stored as the cert-stage reply. Neither reading is
-# offered on a cert docket: the caller opens both only where the docket carries
-# the direct appeal's own papers (:func:`cert_signals.is_direct_appeal_docket`),
-# which is what keeps a Rule 46 motion to dismiss, or a respondent's motion to
-# dismiss the writ as improvidently granted, out of a petition's opposition
-# row.
+# the appellant's answer is stored as the cert-stage reply. The caller opens
+# both readings only where the docket's entries name the direct appeal's own
+# papers (:func:`cert_signals.is_direct_appeal_docket`), which is what keeps a
+# Rule 46 motion to dismiss, or a respondent's motion to dismiss the writ as
+# improvidently granted, out of an ordinary petition's opposition row. That
+# test reads entry text, so a petition whose entries mention a jurisdictional
+# statement is open to both, and the appellee filer clause is what such a
+# docket would still have to carry.
 #
 # The **motion** opens the entry, asks to dismiss or to affirm, and is filed by
 # an appellee: the filer clause ("of", "by" or "from", the party word within
@@ -634,7 +637,10 @@ def _is_cert_reply_entry(text: str, *, filed: date | None, granted_on: date | No
 # appellant. Where it names a motion, the motion is the one to dismiss or
 # affirm, or is named bare ("Opposition to motion of appellants …"): a paper
 # naming any other motion (to expedite, for leave, to intervene, for divided
-# argument) is collateral practice. The caller adds the order: it is read only
+# argument) is collateral practice, and so is a response to an order or to a
+# suggestion of mootness. A paper whose own opening names an appellee as its
+# filer ("Reply of appellees to opposition of appellants …") is the other
+# side's, as a motion opening on an appellant is. The caller adds the order: it is read only
 # after an appellee's motion on the same docket, before the Court notes
 # jurisdiction, and before the first disposition entry.
 _APPEAL_ANSWER_RE = re.compile(
@@ -646,11 +652,12 @@ _APPEAL_ANSWER_FILER_RE = re.compile(
 )
 _APPEAL_ANSWER_EXCLUDE_RE = re.compile(
     r"\bgranted\b|\bdenied\b|\bwithdrawn\b|\bnot\s+accepted\b|\bamic(?:us|i)\b"
-    r"|\bapplication\b|\bintervene|\brehearing\b|\bcomplaint\b",
+    r"|\bapplication\b|\bintervene|\brehearing\b|\bcomplaint\b"
+    r"|^\s*motions?\s+(?:of|by|from)\s+(?:the\s+)?(?:\S+\s+){0,3}?(?:[\w-]+-)?appellants?\b",
     re.IGNORECASE,
 )
 _APPEAL_REPLY_RE = re.compile(
-    r"^\s*(?:(?:brief|memorandum)\s+(?:in\s+opposition|opposing)\b"
+    r"^\s*(?:(?:brief|memorandum)\b(?=.*\b(?:in\s+opposition|opposing)\b)"
     r"|opposition\b|response\b|reply\b)",
     re.IGNORECASE,
 )
@@ -665,7 +672,9 @@ _APPEAL_REPLY_SUBJECT_RE = re.compile(
 )
 _APPEAL_REPLY_EXCLUDE_RE = re.compile(
     r"\bamic(?:us|i)\b|\brehearing\b|\bsupplement|\bapplication\b|\bletter\b"
-    r"|\bnot\s+accepted\b|\bexpedite|\bleave\b|\bintervene|\bstay\b|\bargument\b",
+    r"|\bnot\s+accepted\b|\bexpedite|\bleave\b|\bintervene|\bstay\b|\bargument\b"
+    r"|\border\b|\bsuggestion\b|\bmootness\b"
+    r"|^\s*(?:\S+\s+){1,3}?(?:of|by|from|for)\s+(?:the\s+)?(?:\S+\s+){0,3}?(?:[\w-]+-)?appellees?\b",
     re.IGNORECASE,
 )
 
@@ -1307,11 +1316,16 @@ def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:  # noqa: PLR09
     # A direct appeal's answer papers are read only on a docket that carries
     # the appeal's own papers, and the appellant's answer only once an
     # appellee's motion has been read above it.
-    direct_appeal = is_direct_appeal_docket(
+    texts = [
         str(entry.get("Text") or "")
         for entry in payload.get("ProceedingsandOrder") or []
         if isinstance(entry, Mapping)
-    )
+    ]
+    direct_appeal = is_direct_appeal_docket(texts)
+    # A direct appeal's summary exits (an affirmance, a dismissal for want of
+    # jurisdiction) dispose of it as a denial does a petition, and are read
+    # only where the docket-level gate opens them: all closed on a petition.
+    exit_gates = direct_appeal_exit_gates(texts)
     appeal_answered = False
     position = -1
     for entry in payload.get("ProceedingsandOrder") or []:
@@ -1321,6 +1335,15 @@ def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:  # noqa: PLR09
         text = str(entry.get("Text") or "")
         entry_date = str(entry.get("Date") or "") or None
         filed = _parse_entry_date(entry_date)
+        # Read ahead of the opposition arm, which would otherwise take an
+        # appellant's "Brief in opposition to motion to affirm" into the
+        # appellees' row. A second answer is dropped rather than left to it.
+        appeal_reply = (
+            appeal_answered
+            and not disposed
+            and not _is_post_grant(filed, granted_on)
+            and _is_appeal_reply_entry(text)
+        )
         if petition is None and _CASE_OPENING_ENTRY_RE.search(text):
             found = _entry_link(entry, prefer=_CASE_OPENING_LINK_LABELS)
             if found is not None:
@@ -1351,7 +1374,14 @@ def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:  # noqa: PLR09
                 application_reply = DocumentRef(
                     KIND_APPLICATION_REPLY, found[0], entry_date, text.strip()
                 )
+        elif appeal_reply:
+            if cert_reply is None:
+                cert_reply = _merits_filing_ref(entry, KIND_CERT_REPLY, entry_date)
         elif _is_bio_entry(text, filed=filed, granted_on=granted_on):
+            # On a direct appeal an opposition-worded brief is an answer to
+            # the jurisdictional statement too, so the appellant's reply to it
+            # is read.
+            appeal_answered = appeal_answered or direct_appeal
             found = _entry_link(entry, prefer=("main document",))
             if found is not None and found[0] not in seen_bio_urls:
                 seen_bio_urls.add(found[0])
@@ -1380,12 +1410,6 @@ def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:  # noqa: PLR09
             cert_reply is None
             and not disposed
             and _is_cert_reply_entry(text, filed=filed, granted_on=granted_on)
-        ) or (
-            cert_reply is None
-            and appeal_answered
-            and not disposed
-            and not _is_post_grant(filed, granted_on)
-            and _is_appeal_reply_entry(text)
         ):
             cert_reply = _merits_filing_ref(entry, KIND_CERT_REPLY, entry_date)
         elif position == sg_position:
@@ -1448,7 +1472,9 @@ def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:  # noqa: PLR09
                 seen_combined_urls.add(combined.url)
                 group = supplemental_briefs if kind == KIND_SUPPLEMENTAL_BRIEF else party_letters
                 group.append(combined)
-        disposed = disposed or match_disposition_signal(text) is not None
+        disposed = disposed or (
+            match_disposition_signal(text, direct_appeal_exit=exit_gates[position]) is not None
+        )
     return [
         ref
         for ref in (

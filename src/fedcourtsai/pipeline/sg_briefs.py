@@ -366,7 +366,10 @@ def paper_entries(payload: Mapping[str, Any]) -> dict[str, tuple[PaperEntry, ...
     ``brief-in-opposition``; every cert-stage reply entry before any
     disposition for ``cert-reply``. An entry whose date does not parse is
     left out, since it could not be placed against a filing date. A kind whose
-    entry the docket does not show is absent.
+    entry the docket does not show is absent. A direct appeal's motion to
+    dismiss or affirm and the appellant's answer to it are not read here: the
+    Office posts a petition-stage response and reply, and those are the
+    entries this fill dates.
     """
     granted_on = cert_grant_date(payload)
     found: dict[str, list[PaperEntry]] = {}

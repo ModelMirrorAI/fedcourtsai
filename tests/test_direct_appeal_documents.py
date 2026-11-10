@@ -95,6 +95,7 @@ def test_an_appellees_motion_to_dismiss_or_affirm_joins_the_opposition_row(
     "entry_text",
     [
         # An appellant's own motion to dismiss its appeal is not the answer to it.
+        "Motion of appellants to dismiss appellee John Doe filed.",
         "Motion to dismiss the appeal filed by appellants Wes Allen, et al.",
         # A ruling on the motion, with and without its filer.
         "Motion to affirm GRANTED.",
@@ -156,6 +157,12 @@ def test_the_appellants_answer_to_the_motion_is_the_reply(entry_text: str) -> No
         # An amicus, and the request for a response.
         "Brief amicus curiae of Philip P. Kalodner in opposition to motion to affirm filed.",
         "Response to the motion to dismiss or affirm requested.",
+        # A response to the Court rather than to the motion.
+        "Response of appellants Wes Allen, et al. to order of the Court filed.",
+        "Response of appellants to suggestion of mootness filed.",
+        # The appellees' own reply in support of their motion.
+        "Reply of appellees Evan Milligan, et al. to opposition of appellants to motion to "
+        + "affirm filed.",
     ],
 )
 def test_collateral_papers_are_not_the_appellants_reply(entry_text: str) -> None:
@@ -183,6 +190,49 @@ def test_every_appellees_motion_is_taken_and_the_first_answer() -> None:
     motion = select_documents(payload)[1]
     assert motion.description == "Motion to dismiss filed by State Appellees."
     assert motion.entry_date == "Sep 18 2026"
+
+
+def test_an_appellants_brief_in_opposition_is_the_reply_not_the_opposition() -> None:
+    # "Brief in opposition" is the opposition arm's own wording; on a direct
+    # appeal, after the appellees' motion, it is the appellants' answer.
+    for text in (
+        "Brief in opposition to motion to dismiss or affirm filed by appellants Wes Allen.",
+        "Brief of appellants Wes Allen, et al. in opposition to motion to affirm filed.",
+    ):
+        assert _kind_of(text, after_motion=True) == KIND_CERT_REPLY
+
+
+def test_the_reply_to_an_opposition_worded_answer_is_read() -> None:
+    payload = _appeal(
+        _entry("Sep 18 2026", "Brief of appellees John Doe in opposition filed.", f"{_HOST}/a.pdf"),
+        _entry("Sep 29 2026", "Reply of appellants Wes Allen, et al. filed.", f"{_HOST}/r.pdf"),
+    )
+    assert _selected(payload)[1:] == [
+        (KIND_BRIEF_IN_OPPOSITION, f"{_HOST}/a.pdf"),
+        (KIND_CERT_REPLY, f"{_HOST}/r.pdf"),
+    ]
+
+
+def test_nothing_is_read_after_a_summary_exit() -> None:
+    # A summary affirmance or a dismissal for want of jurisdiction disposes of
+    # the appeal as a denial does a petition: a later paper is not the reply.
+    for exit_text in ("Judgment AFFIRMED.", "The appeal is dismissed for want of jurisdiction."):
+        payload = _appeal(
+            _entry("Sep 18 2026", _MOTION, f"{_HOST}/motion.pdf"),
+            {"Date": "Oct 20 2026", "Text": exit_text, "Links": []},
+            _entry(
+                "Nov 02 2026", "Reply of appellants Wes Allen, et al. filed.", f"{_HOST}/late.pdf"
+            ),
+        )
+        assert KIND_CERT_REPLY not in {kind for kind, _url in _selected(payload)}, exit_text
+
+
+def test_the_reply_is_read_where_the_motion_posts_no_link() -> None:
+    payload = _appeal(
+        _entry("Sep 18 2026", _MOTION, f"{_HOST}/motion.pdf", label="Other"),
+        _entry("Sep 29 2026", "Reply of appellants Wes Allen, et al. filed.", f"{_HOST}/r.pdf"),
+    )
+    assert _selected(payload)[1:] == [(KIND_CERT_REPLY, f"{_HOST}/r.pdf")]
 
 
 def test_a_motion_with_no_main_document_link_stores_nothing() -> None:
@@ -236,8 +286,7 @@ def test_a_motion_to_dismiss_on_a_cert_docket_is_not_read() -> None:
 
 
 def test_the_appeal_arms_leave_a_cert_dockets_selection_alone() -> None:
-    # The opposition and the reply on a petition are read as before, and on a
-    # direct appeal a respondent-worded opposition still joins the same row.
+    # The opposition and the reply on a petition are read as before.
     cert = {
         "ProceedingsandOrder": [
             _PETITION,

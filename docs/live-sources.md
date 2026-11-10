@@ -503,12 +503,17 @@ the docket form, so one function serves both lanes:
   **motion to dismiss or affirm** joins this row from its `Main Document` link
   ("Motion to dismiss or affirm filed by appellees … .", "Motion to affirm
   filed by appellees … .", "Motion to dismiss filed by State Appellees."). It
-  is read only on a docket that carries the appeal's own papers (a
-  jurisdictional statement, a motion to affirm), so a motion to dismiss on a
-  petition's docket is never taken, only where an appellee is the filer, and
-  only before the Court notes jurisdiction and before any disposition entry.
-  A ruling on the motion and a motion to dismiss a side question (an
-  application, an intervention, a rehearing petition) are out.
+  is read only on a docket whose entries name the appeal's own papers (a
+  jurisdictional statement, a motion to affirm), which keeps a motion to
+  dismiss on an ordinary petition's docket out, only where an appellee is the
+  filer, and only before the Court notes jurisdiction or postpones it to the
+  merits and before any disposition entry. A motion to dismiss the appeal as
+  moot filed in that window is the appellee's answer and is read. A ruling on
+  the motion, a withdrawn motion, one the Clerk did not accept, and a motion
+  to dismiss a side question (an application, an intervention, a rehearing
+  petition, a complaint) are out. The docket test reads entry text, so a
+  petition whose entries mention a jurisdictional statement is open to the
+  same reading.
 - **`cert-reply`** — the petitioner's **cert-stage** reply, the Rule 15.6 answer
   to the opposition and often the only filing that meets its vehicle and
   preservation objections. The first "Reply [brief] of/for … petitioner(s) …"
@@ -527,9 +532,13 @@ the docket form, so one function serves both lanes:
   "Response to motion to dismiss from appellants … filed.", "Brief opposing
   motion to affirm from appellants … filed.", "Reply of appellant … filed."
   The first such entry after an appellee's motion, filed by an appellant,
-  before jurisdiction is noted and before any disposition entry, from its
-  `Main Document` link alone. A paper naming any other motion (to expedite,
-  for leave, to intervene) is collateral practice and is out.
+  before jurisdiction is noted or postponed to the merits and before any
+  disposition entry, from its `Main Document` link alone. A paper naming any
+  other motion (to expedite, for leave, to intervene) is collateral practice
+  and is out, as is a response to an order or to a suggestion of mootness. On
+  such a docket the disposition entry that closes the pending-appeal kinds is
+  read with the direct appeal's exits, a summary affirmance and a dismissal
+  for want of jurisdiction among them.
 - **`sg-invited-brief`** — the **Solicitor General's invited brief**: the first
   brief for the United States as amicus curiae ("Brief amicus curiae of United
   States filed.", "Brief for the United States as amicus curiae filed.") entered

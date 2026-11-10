@@ -18265,7 +18265,8 @@ freeze commit is recorded here.
   **What moved.** On a docket that carries a direct appeal's own papers
   (`cert_signals.is_direct_appeal_docket`, the mark the direct-appeal exit
   table is gated on), `pipeline.documents` reads two more entries, both
-  before the Court notes jurisdiction and before the first disposition entry,
+  before the Court notes jurisdiction or postpones it to the merits and
+  before the first disposition entry,
   each from its `Main Document` link alone:
   - an **appellee's motion to dismiss or affirm**
     (`_is_appeal_answer_entry`) joins the combined `brief-in-opposition` row
@@ -18274,11 +18275,22 @@ freeze commit is recorded here.
     a motion to dismiss a side question are refused;
   - the **appellant's answer to it** (`_is_appeal_reply_entry`) is stored as
     `cert-reply`: the first entry after an appellee's motion that opens on
-    "opposition", "response", "reply" or a brief "opposing", is filed by an
-    appellant, and names no motion other than the one to dismiss or affirm.
+    "opposition", "response", "reply", or a brief or memorandum "in
+    opposition" or "opposing", is filed by an appellant, and names either no
+    motion, the motion to dismiss or affirm, or a motion without saying which
+    ("Opposition to motion of appellants … filed.").
 
-  Neither arm opens on a docket without the mark, so no petition's selection
-  moves, and both sit behind the arms that already read an opposition and a
+  The appellant's answer is read ahead of the opposition arm, so an
+  appellant's "Brief in opposition to motion to affirm" is the reply and not
+  part of the appellees' row. On a marked docket the first disposition entry
+  is also read with the direct appeal's exit table, so a summary affirmance
+  or a dismissal for want of jurisdiction closes the pending-appeal arms (the
+  reply, the supplemental briefs and the party letters) as a denial closes a
+  petition's.
+
+  Neither arm opens on a docket without the mark, and over the population
+  below no marked petition gains a link, so no petition's stored selection
+  moves. Both sit behind the arms that already read an opposition and a
   petitioner's reply, so no entry those arms take changes kind. The
   `kind_description` of both kinds, which a cell reads in `documents.json`,
   says what the file holds on a direct appeal.
