@@ -238,6 +238,110 @@ def test_read_rehearing_says_no_only_after_a_complete_read() -> None:
     assert read_rehearing(denied, complete=True).dissent_noted is False
 
 
+def _dated(number: int, filed: str, description: str, *docs: str) -> tuple[int, Mapping[str, Any]]:
+    return (
+        11,
+        {
+            "entry_number": number,
+            "date_filed": filed,
+            "description": description,
+            "recap_documents": [{"description": d} for d in docs],
+        },
+    )
+
+
+def test_a_dissent_docketed_beside_the_denial_is_read() -> None:
+    # A circuit that files each writing on its own entry: the order names no
+    # dissent, and the dissent sits on the next entry of the same day.
+    entries = [
+        _dated(168, "2025-04-09", "OPINION, Concurring & Dissenting, by judge RJS, FILED."),
+        _dated(188, "2025-04-23", "PETITION FOR REHEARING/REHEARING EN BANC, FILED."),
+        _dated(195, "2025-06-02", "ORDER, petition for rehearing en banc denied, FILED."),
+        _dated(196, "2025-06-02", "OPINION, Concurring, by judge WJN, FILED."),
+        _dated(
+            198,
+            "2025-06-02",
+            "OPINION, Dissenting, by judge SJM, FILED.",
+            "Concurring or Dissenting Opinion FILED",
+        ),
+    ]
+    reading = read_rehearing(entries, judgment_date=_JUDGMENT)
+    assert reading.disposition == "denied"
+    assert reading.dissent_noted is True
+    assert [c.entry_number for c in reading.cites] == [188, 195, 198]
+    assert reading.through == date(2025, 6, 2)
+    # The panel's own partial dissent, on the judgment date, is not one from
+    # the rehearing order even where that order came the same day.
+    same_day = [
+        _dated(168, "2025-04-09", "OPINION, Concurring & Dissenting, by judge RJS, FILED."),
+        _dated(169, "2025-04-09", "ORDER, rehearing en banc denied, FILED."),
+    ]
+    assert read_rehearing(same_day, judgment_date=_JUDGMENT).dissent_noted is False
+
+
+def test_an_either_kind_label_leaves_the_dissent_unknown() -> None:
+    entries = [
+        _dated(165, "2025-06-02", "", "ORDER denying petition for rehearing en banc"),
+        _dated(166, "2025-06-02", "", "Concurring or Dissenting Opinion FILED"),
+    ]
+    reading = read_rehearing(entries, judgment_date=_JUDGMENT)
+    assert reading.disposition == "denied"
+    assert reading.dissent_noted is None
+    assert [c.entry_number for c in reading.cites] == [165]
+    assert decision_below.read_separate_writing("Letter filed.") is False
+    # An amended opinion filed with the order recites the panel's dissent.
+    amended = [
+        _dated(70, "2025-06-02", "ORDER: opinion amended; rehearing en banc denied."),
+        _dated(71, "2025-06-02", "FILED AMENDED OPINION. Dissent by Judge Doe."),
+    ]
+    assert read_rehearing(amended, judgment_date=_JUDGMENT).dissent_noted is None
+    # A writing on another docket the same day is not this order's.
+    other = [
+        _dated(70, "2025-06-02", "ORDER denying petition for rehearing en banc."),
+        (12, {"entry_number": 9, "date_filed": "2025-06-02", "description": "Dissenting opinion."}),
+    ]
+    assert read_rehearing(other, judgment_date=_JUDGMENT).dissent_noted is False
+
+
+def test_entries_that_stop_before_the_stated_denial_report_no_absence() -> None:
+    # Upstream holds the docket up to the opinion; the SCOTUS docket says
+    # rehearing was denied two months later.
+    held = [_dated(52, "2025-04-09", "", "Opinion Issued")]
+    denied_on = date(2025, 6, 2)
+    short = read_rehearing(held, judgment_date=_JUDGMENT, rehearing_denied=denied_on)
+    assert short.short_of_denial is True
+    assert short.petition_filed is None and short.disposition is None
+    # Entries that reach the denial date stand: a panel rehearing was denied
+    # and no en banc petition was among them.
+    reaching = [*held, _dated(60, "2025-06-02", "ORDER denying petition for panel rehearing.")]
+    covered = read_rehearing(reaching, judgment_date=_JUDGMENT, rehearing_denied=denied_on)
+    assert covered.short_of_denial is False
+    assert covered.petition_filed is False
+    # With no denial stated there is nothing to fall short of.
+    assert read_rehearing(held, judgment_date=_JUDGMENT).petition_filed is False
+
+
+def test_the_docket_row_says_when_its_entries_stop_short() -> None:
+    upstream = _matched_upstream(
+        entries={11: [{"entry_number": 52, "date_filed": "2025-04-09", "description": "Opinion."}]}
+    )
+    with _client(upstream) as client:
+        found = match_case(
+            client, _facts(LowerCourtRehearingDenied="June 2, 2025"), case_id="scotus/1"
+        )
+    document = docket_document(found, today=_TODAY)
+    assert document is not None
+    text = document.text
+    assert document.entry_date == "2025-04-09"
+    assert "(all of them), the latest filed 2025-04-09:" in text
+    assert "petition filed: not found" in text
+    assert "no entry as late as the rehearing denial the SCOTUS docket states (2025-06-02)" in text
+    # A complete read that reaches no stated denial words its absence as one.
+    with _client(upstream) as client:
+        quiet = docket_document(match_case(client, _facts(), case_id="scotus/1"), today=_TODAY)
+    assert quiet is not None and "petition filed: none in the entries read" in quiet.text
+
+
 def test_read_rehearing_with_no_entries_answers_unknown_not_no() -> None:
     reading = read_rehearing([], complete=True)
     assert reading.entries_read == 0
@@ -814,10 +918,124 @@ def test_the_opinion_row_carries_the_text_on_the_judgment_date() -> None:
     assert document.truncated is False
     cut = opinion_document(found, texts, today=_TODAY, char_cap=20)
     assert cut is not None and cut.truncated and len(cut.text) == 20
-    # No text upstream, or no match: no row.
+    # No text upstream, or no cluster on or after the judgment date: no row.
     assert opinion_document(found, {}, today=_TODAY, char_cap=10_000) is None
-    unmatched = found.model_copy(update={"status": "no_cluster_on_date"})
-    assert opinion_document(unmatched, texts, today=_TODAY, char_cap=10_000) is None
+    earlier = found.model_copy(
+        update={"clusters": [c for c in found.clusters if not c.on_judgment_date]}
+    )
+    assert opinion_document(earlier, texts, today=_TODAY, char_cap=10_000) is None
+
+
+_AMENDED = {**_OPINION, "id": 901, "plain_text": "AMENDED OPINION. Rehearing en banc is denied."}
+
+
+def _amended_upstream(**overrides: Any) -> _Upstream:
+    """The judgment-date opinion, then an amended one filed with the rehearing denial."""
+    kwargs: dict[str, Any] = {
+        "cluster_pages": {
+            ("ca5", "24-50496"): [
+                _cluster(500, "2025-04-09", opinions=[900]),
+                _cluster(502, "2025-06-02", opinions=[901]),
+                # After the SCOTUS docketing: an opinion on remand, never read.
+                _cluster(503, "2025-09-15", opinions=[902]),
+            ]
+        },
+        "opinions": {900: _OPINION, 901: _AMENDED},
+    }
+    kwargs.update(overrides)
+    return _matched_upstream(**kwargs)
+
+
+def test_an_amended_opinion_filed_before_the_docketing_is_read_first() -> None:
+    upstream = _amended_upstream(ignore_date_filter=True)
+    with _client(upstream) as client:
+        walk = decision_below._Walk(client)
+        found = decision_below._match(walk, _facts(), case_id="scotus/1")
+    assert found.status == "matched"
+    assert [(c.cluster_id, c.on_judgment_date, c.after_judgment) for c in found.clusters] == [
+        (500, True, False),
+        (502, False, True),
+    ]
+    document = opinion_document(found, walk.texts, today=_TODAY, char_cap=10_000)
+    assert document is not None
+    # The newest cluster leads, names its date, and dates the row.
+    assert document.url == "https://www.courtlistener.com/opinion/502/"
+    assert document.entry_date == "2025-06-02"
+    first, second = document.text.split("\n\n")
+    assert first.startswith(
+        "=== 010combined (Ho), filed 2025-06-02, after the 2025-04-09 judgment the SCOTUS "
+        + "docket names ===\nAMENDED OPINION."
+    )
+    assert second.startswith("=== 010combined (Ho), filed 2025-04-09 ===\nUnited States")
+    record = docket_document(found, today=_TODAY)
+    assert record is not None
+    assert "Opinion cluster 500 (2025-04-09): Published" in record.text
+    assert "opinion id(s): 900" in record.text
+    assert "Later opinion cluster 502 (2025-06-02, after the judgment date)" in record.text
+
+
+def test_a_later_cluster_alone_is_stored_and_says_what_it_is() -> None:
+    upstream = _amended_upstream(
+        cluster_pages={("ca5", "24-50496"): [_cluster(502, "2025-06-02", opinions=[901])]}
+    )
+    with _client(upstream) as client:
+        walk = decision_below._Walk(client)
+        found = decision_below._match(walk, _facts(), case_id="scotus/1")
+    assert found.status == "no_cluster_on_date"
+    document = opinion_document(found, walk.texts, today=_TODAY, char_cap=10_000)
+    assert document is not None
+    assert document.text.startswith("=== 010combined (Ho), filed 2025-06-02, after the")
+    record = docket_document(found, today=_TODAY)
+    assert record is not None
+    assert "Opinion on the judgment date: none on CourtListener" in record.text
+    # The later cluster dates the docket record too, past the entries it cites.
+    quiet = found.model_copy(update={"rehearing": None})
+    dated = docket_document(quiet, today=_TODAY)
+    assert dated is not None and dated.entry_date == "2025-06-02"
+
+
+def test_a_later_cluster_is_not_read_without_a_docketing_date() -> None:
+    upstream = _amended_upstream()
+    with _client(upstream) as client:
+        found = match_case(client, _facts(DocketedDate=None), case_id="scotus/1")
+    assert [(c.cluster_id, c.after_judgment, len(c.opinions)) for c in found.clusters] == [
+        (500, False, 1),
+        (502, False, 0),
+        (503, False, 0),
+    ]
+
+
+def test_the_opinion_cap_falls_on_the_superseded_cluster() -> None:
+    upstream = _amended_upstream(
+        cluster_pages={
+            ("ca5", "24-50496"): [
+                _cluster(500, "2025-04-09", opinions=[900, 903]),
+                _cluster(502, "2025-06-02", opinions=[901, 904]),
+            ]
+        },
+        opinions={n: {**_OPINION, "id": n} for n in (900, 901, 903, 904)},
+    )
+    with _client(upstream) as client:
+        found = match_case(client, _facts(), case_id="scotus/1")
+    read = {c.cluster_id: [o.opinion_id for o in c.opinions] for c in found.clusters}
+    assert read == {500: [900], 502: [901, 904]}
+    assert sum(len(ids) for ids in read.values()) == MAX_OPINIONS
+
+
+def test_an_order_with_three_writings_leaves_the_panel_opinion_its_read() -> None:
+    upstream = _amended_upstream(
+        cluster_pages={
+            ("ca5", "24-50496"): [
+                _cluster(500, "2025-04-09", opinions=[900]),
+                _cluster(502, "2025-06-02", opinions=[901, 903, 904]),
+            ]
+        },
+        opinions={n: {**_OPINION, "id": n} for n in (900, 901, 903, 904)},
+    )
+    with _client(upstream) as client:
+        found = match_case(client, _facts(), case_id="scotus/1")
+    read = {c.cluster_id: [o.opinion_id for o in c.opinions] for c in found.clusters}
+    assert read == {500: [900], 502: [901, 903]}
 
 
 def test_the_docket_row_records_the_en_banc_reading_and_its_entries() -> None:
@@ -933,27 +1151,55 @@ def test_fill_candidates_order_and_exclusions(tmp_path: Path) -> None:
         )
         capped = fill_candidates(conn, today=_TODAY, max_cases=2)
     # Priority and salience first (newest first within), then never-attempted
-    # newest first, then the stale re-attempt; a recent stamp, a denial, a merits
-    # decision and a state court are not walked, and a stored opinion is settled.
-    assert [r.case_id for r in picked.rows] == ["scotus/1", "scotus/3", "scotus/2", "scotus/4"]
-    assert picked.settled == ["scotus/8"]
-    assert [r.case_id for r in capped.rows] == ["scotus/3", "scotus/2"]
-    assert capped.settled == []
+    # newest first, then the stale re-attempts, a stored opinion among them; a
+    # recent stamp, a denial, a merits decision and a state court are not walked.
+    assert [r.case_id for r in picked] == [
+        "scotus/1",
+        "scotus/3",
+        "scotus/2",
+        "scotus/8",
+        "scotus/4",
+    ]
+    assert [r.case_id for r in capped] == ["scotus/3", "scotus/2"]
 
 
-def test_a_settled_case_is_re_stamped_with_no_request(tmp_path: Path) -> None:
+def test_a_stored_case_is_read_again_and_its_rows_replaced(tmp_path: Path) -> None:
     db = tmp_path / "corpus.db"
+    _seeded(db)
     with corpus.connect(db) as conn:
-        corpus.upsert_rows(conn, [_row("scotus/8", "25-70", originating_court="ca2")])
-        corpus.stamp_decision_below_attempt(conn, "scotus/8", date(2026, 9, 1))
-        upstream = _Upstream()
-        with _client(upstream) as client:
-            report = fill_decision_below(
-                conn, client, [], apply=True, today=_TODAY, char_cap=10, settled=["scotus/8"]
+        row = corpus.get_row(conn, "scotus/1")
+        assert row is not None
+        with _client(_matched_upstream()) as client:
+            fill_decision_below(conn, client, [row], apply=True, today=_TODAY, char_cap=10_000)
+        # The amended opinion reached upstream after the first walk.
+        with _client(_amended_upstream()) as client:
+            fill_decision_below(conn, client, [row], apply=True, today=_TODAY, char_cap=10_000)
+        stored = {d.kind: d for d in corpus.documents_for_case(conn, "scotus/1")}
+    assert stored["decision-below"].text.startswith("=== 010combined (Ho), filed 2025-06-02")
+    assert "Later opinion cluster 502" in stored["lower-court-docket"].text
+
+
+def test_a_faulted_entries_read_keeps_the_stored_docket_row(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    _seeded(db)
+    with corpus.connect(db) as conn:
+        row = corpus.get_row(conn, "scotus/1")
+        assert row is not None
+        with _client(_matched_upstream(entries_status=403)) as client:
+            first = fill_decision_below(
+                conn, client, [row], apply=True, today=_TODAY, char_cap=10_000
             )
-        row = corpus.get_row(conn, "scotus/8")
-    assert report.requests == 0 and upstream.requests == []
-    assert row is not None and row.decision_below_attempted_at == _TODAY
+        # Nothing stored yet: the row that says the entries were refused is written.
+        assert first.stored == {"decision-below": 1, "lower-court-docket": 1}
+        with _client(_matched_upstream()) as client:
+            fill_decision_below(conn, client, [row], apply=True, today=_TODAY, char_cap=10_000)
+        with _client(_matched_upstream(entries_status=403)) as client:
+            again = fill_decision_below(
+                conn, client, [row], apply=True, today=_TODAY, char_cap=10_000
+            )
+        stored = {d.kind: d for d in corpus.documents_for_case(conn, "scotus/1")}
+    assert again.stored == {"decision-below": 1}
+    assert "disposition: denied" in stored["lower-court-docket"].text
 
 
 def _fill_documents() -> list[corpus.CaseDocument]:

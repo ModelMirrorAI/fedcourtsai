@@ -18498,3 +18498,133 @@ freeze commit is recorded here.
   - on `main` once the promotion has merged, `uv run python -c "from
     fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
     print('ocr-thin-text-rows' in {b.name for b in H})"` prints `True`.
+
+- **The decision-below rows read the later opinion, the separately docketed
+  dissent and the end of the entries held; recorded 2026-11-10.** A
+  **provisioning** change with a harness boundary, recorded ahead of the
+  promotion that carries it.
+
+  **Why.** Five predict-cell flags in runs `20261109T171058Z` and
+  `20261109T212928Z` said `lower-court-docket.txt` or `decision-below.txt`
+  disagreed with the petition's own appendix on four dockets. Each was read
+  against CourtListener on 2026-11-10:
+  - 26-294 (ca2). CourtListener holds both consolidated dockets and no
+    opinion cluster on either, so no opinion could be stored. The rehearing
+    order is entry 195 and names no dissent; the dissent is its own entry of
+    the same day (198), which the reading did not look at, so the record
+    said "dissent noted: no".
+  - 25-1342 (ca11). CourtListener's copy of the docket ends on the judgment
+    date, 2025-12-31; the SCOTUS docket states rehearing was denied on
+    2026-02-24. The read was complete over one entry, so the record said
+    "petition filed: no".
+  - 25-1355 (ca9). The docket carries a second cluster dated 2026-03-06, the
+    rehearing-denial date the SCOTUS docket states, after the 2025-09-08
+    judgment. Only a cluster on the judgment date was read, so the stored
+    opinion was the earlier one and the later cluster was not read.
+    CourtListener's entries end 2025-11-18.
+  - 26-341 (ca11). No field is misfilled: the stored link is CourtListener's
+    public page for the opinion, which is addressed by cluster id, and a
+    predictor passed that id to a tool that takes an opinion id.
+    CourtListener's entries end 2026-04-01, before the denial stated for
+    2026-04-30.
+
+  **What moved.** In `pipeline.decision_below`:
+  - A cluster on a checked docket dated after the judgment date and on or
+    before the SCOTUS docketing is read as well as one on the judgment date,
+    newest first under the unchanged `MAX_OPINIONS` cap with one read held
+    for the judgment-date cluster, and is stored in the
+    `decision-below` row ahead of the judgment-date opinion under a header
+    that states its filing date. The row is dated on the newest cluster it
+    holds. Without a served docketing date no later cluster is read.
+  - The docket record lists each such cluster with its opinion ids.
+  - A dissent is read off a separate entry filed on the day of the en banc
+    disposition on the same docket, where that day is after the judgment
+    date. A clerk's either-kind label ("Concurring or Dissenting Opinion")
+    names no dissent, and a dissent recited on an amended opinion may be the
+    panel's own; either leaves the answer unknown rather than absent.
+  - Where the SCOTUS docket states a rehearing denial and the entries read
+    show no disposition and none filed that late, the reading reports no
+    absence, and the record says CourtListener's entries stop before the
+    denial. The record names the date its entries run through, and words a
+    negative as "none in the entries read".
+  - A case whose opinion is stored is walked again once its 30-day stamp is
+    stale, behind the never-attempted rows of its tier, in place of being
+    re-stamped unread. A walk whose entries request faulted does not replace
+    a stored docket record. The window's case cap is unchanged, so the
+    request ceiling is too.
+
+  No prompt byte and no registry field other than the boundary row moves, so
+  no digest moves. `uv run fedcourts process-digest --all` prints `proc-v20`
+  and the six digests `69076c7e…` (claude-baseline), `56f5da33…`
+  (codex-baseline), `154ba5e6…` (gemini-baseline), `b9a5d840…`
+  (claude-judge), `ce1c037e…` (codex-judge) and `b29afb1d…` (gemini-judge),
+  with and without the change. The predict prompt describes
+  `decision-below.txt` as the court's opinion on its judgment date; a row
+  that also holds a later opinion says so in its own headers (the amendment
+  debt below).
+
+  **A harness boundary under the 2026-10-11 pooled rule.** The change alters
+  what a cert or merits predict cell reads under unchanged digests. It is
+  composition, not a cut. The pooled default and the paired figure keep both
+  sides and list each engine's `n` before and after. It cuts only a figure
+  that reads its own effect.
+  - **The registry row** is `decision-below-later-opinions`. It applies to
+    every predictor, and its reach is `all`, because no narrower registered
+    reach names petitions from the federal courts of appeals. It is
+    **gradual**: a stored row changes only when the fill walks its case, on
+    arrival or once its stamp is 30 days stale. It is registered **pending**
+    in this change's own PR (`fedcourts register-boundary`), under the
+    2026-10-14 merge-stamping declaration, and its `merge` and `at` stay null
+    until the promotion merge that carries it to `main` stamps them
+    (`promotion-record`).
+  - **The side test** is the registered one, against the carrying merge.
+    Because the boundary is gradual, an after-side cell provisioned before
+    its case was walked again still reads the earlier rows, so the after-side
+    `n` is an upper bound on exposure.
+
+  **The population.** Read from blob
+  `43b3080d4abf6c2bc321fea3dad9bd3b8c6282c14546506cd1550b7a69c779eb` (newest
+  pull 2026-11-10, newest stored snapshot row 2026-07-13) and the case store
+  on 2026-11-10: 228 cases carry a fill stamp, 219 hold a `lower-court-docket`
+  row and 190 a `decision-below` row. Of the 219 records, 137 quote a
+  rehearing denial from the SCOTUS docket; 62 of those show no en banc
+  disposition (34 read entries and found none, 28 held no entries), and 26
+  say "petition filed: no". 61 of the 219 show a denial without a dissent.
+  CourtListener was then read for the first 115 of the 219 in corpus order
+  before its rate limit ended the read; they are not a random sample. Among
+  them: 26 of the 114 with a judgment date carry a later cluster dated on or
+  before the SCOTUS docketing that was not stored, 22 of them dated on the
+  stated rehearing-denial date; of the 32 that quote a denial and show no
+  disposition, CourtListener's docket still ends before the denial on 14 and
+  now reaches it on 10 (8 gave no last-filing date); and 1 of the 34 of the
+  115 that show a denial without a dissent has a dissent on a separate entry
+  of the same day. Of the 115, the fourteen that hold no `decision-below` row
+  include none explained by a consolidated lead docket the join had not
+  asked.
+
+  **What does not move.** No base rate re-prices, no membership rule moves
+  and no scored figure moves. No skill movement is predicted, and a movement
+  in **either** direction across this boundary may not be read as a model
+  effect.
+
+  **The amendment debt.** One is added. The predict prompt describes
+  `decision-below.txt` as the court's opinion on its judgment date, which a
+  row that also holds a later opinion outgrows. Correcting the sentence moves
+  the three predictor digests, so it is owed to the next re-bless.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_decision_below.py` is green;
+  - where the corpus is pulled and a CourtListener token is set, `uv run
+    fedcourts decision-below --case scotus/73500257 --case scotus/9026000294
+    --case scotus/73500244` prints, for the first, a cluster with
+    `after_judgment` true dated 2026-03-06; for the second, a rehearing
+    reading with `dissent_noted` true; and for the third, `short_of_denial`
+    true with `petition_filed` null, while CourtListener's copy of that
+    docket still ends on 2025-12-31;
+  - on `main` once the promotion has merged, `uv run python -c "from
+    fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
+    print('decision-below-later-opinions' in {b.name for b in H})"` prints
+    `True`.
