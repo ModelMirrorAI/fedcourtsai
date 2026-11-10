@@ -10569,6 +10569,14 @@ class AiCaseActivityEntry(_Strict):
             "rule; none for other kinds, or where the entry names none."
         ),
     )
+    supersedes: int | None = Field(
+        default=None,
+        gt=0,
+        description=(
+            "CourtListener's id for the unnumbered placeholder of the same docket event "
+            "that an earlier refresh may have recorded; a reader shows the event once."
+        ),
+    )
     url: str = Field(
         pattern=r"^https://www\.courtlistener\.com/[A-Za-z0-9/_.~%#-]*$",
         description="The entry on CourtListener: its main document's page, else the docket.",

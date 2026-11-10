@@ -18,7 +18,9 @@ from fedcourtsai.ai_activity import (
     classify,
     classify_available,
     entry_url,
+    is_placeholder,
     new_significant,
+    numbered_twin,
     principal_motion,
     record_activity,
 )
@@ -672,3 +674,168 @@ def test_one_entry_recorded_twice_keeps_the_weightier_kind(tmp_path: Path) -> No
     [kept] = read_model(path, AiCaseActivity).available
     assert (kept.kind, kept.documents) == ("ruling", 1)
     assert [e.entry_id for e in owed_rulings(tmp_path, TODAY)] == [9]
+
+
+# One docket event upstream lists twice (Concord Music Group v. Anthropic,
+# N.D. Cal. 5:26-cv-00880): the feed's unnumbered placeholder, and the court's
+# numbered minute entry that arrived an hour later.
+CONCORD: dict[str, Any] = {
+    "id": 72199828,
+    "court_id": "cand",
+    "docket_number": "5:26-cv-00880",
+    "absolute_url": "/docket/72199828/concord-music-group-inc-v-anthropic-pbc/",
+}
+PLACEHOLDER: dict[str, Any] = {
+    "id": 484417254,
+    "entry_number": None,
+    "date_filed": "2026-11-04",
+    "description": "",
+    "recap_documents": [
+        {
+            "description": "Motion Hearing AND Order on Motion to Dismiss AND "
+            + "~Util - Set Deadlines AND ~Util - Terminate Motions",
+            "attachment_number": None,
+            "is_available": False,
+            "absolute_url": "",
+        }
+    ],
+}
+MINUTE_ENTRY: dict[str, Any] = {
+    "id": 484431736,
+    "entry_number": 137,
+    "date_filed": "2026-11-04",
+    "description": "Minute Entry for proceedings held before Judge X: Motion Hearing held on "
+    + "11/4/2026 re 103 Motion to Dismiss (Partial) and 104 Motion to Dismiss (Partial). "
+    + "The Court granted 104 motion to dismiss with leave to amend.",
+    "recap_documents": [
+        {
+            "description": "Motion Hearing",
+            "attachment_number": None,
+            "is_available": False,
+            "absolute_url": "/docket/72199828/137/concord-music-group-inc-v-anthropic-pbc/",
+        }
+    ],
+}
+TRANSCRIPT_ORDER: dict[str, Any] = {
+    "id": 484431739,
+    "entry_number": 138,
+    "date_filed": "2026-11-04",
+    "description": "TRANSCRIPT ORDER for proceedings held on 11/04/2026.",
+    "recap_documents": [{"description": "Transcript Order", "attachment_number": None}],
+}
+CONCORD_DAY = date(2026, 11, 5)
+
+
+def _concord(
+    added: list[dict[str, Any]], listed: list[dict[str, Any]] | None = None
+) -> list[AiCaseActivityEntry]:
+    return activity_entries(
+        "Concord Music Group v. Anthropic",
+        "copyright",
+        CONCORD,
+        added,
+        today=CONCORD_DAY,
+        docket_entries=listed or added,
+    )
+
+
+def test_a_placeholder_is_paired_with_the_one_numbered_entry_of_its_day() -> None:
+    day = [PLACEHOLDER, MINUTE_ENTRY, TRANSCRIPT_ORDER]
+    assert is_placeholder(PLACEHOLDER) and not is_placeholder(MINUTE_ENTRY)
+    assert numbered_twin(PLACEHOLDER, day) is MINUTE_ENTRY
+    assert numbered_twin(MINUTE_ENTRY, day) is None
+    # Another day's entry, or two candidates, pairs nothing.
+    assert numbered_twin(PLACEHOLDER, [{**MINUTE_ENTRY, "date_filed": "2026-11-05"}]) is None
+    assert numbered_twin(PLACEHOLDER, [MINUTE_ENTRY, {**MINUTE_ENTRY, "id": 1}]) is None
+    assert numbered_twin(PLACEHOLDER, [TRANSCRIPT_ORDER]) is None
+    # The court system's utility labels pair nothing.
+    deadlines = {
+        **TRANSCRIPT_ORDER,
+        "recap_documents": [{"description": "~Util - Set Deadlines", "attachment_number": None}],
+    }
+    assert numbered_twin(PLACEHOLDER, [deadlines]) is None
+
+
+def test_of_several_candidates_the_one_the_rule_keeps_is_the_twin() -> None:
+    order = {
+        "id": 484440000,
+        "entry_number": 139,
+        "date_filed": "2026-11-04",
+        "description": "ORDER granting 104 Motion to Dismiss.",
+        "recap_documents": [
+            {"description": "Order on Motion to Dismiss", "attachment_number": None}
+        ],
+    }
+    assert numbered_twin(PLACEHOLDER, [MINUTE_ENTRY, order]) is order
+    assert [e.entry_number for e in _concord([PLACEHOLDER, MINUTE_ENTRY, order])] == [139]
+
+
+def test_a_malformed_held_entry_does_not_cost_the_new_entries() -> None:
+    for broken in (
+        {"id": {}, "entry_number": 1, "date_filed": "2026-11-04", "recap_documents": 7},
+        {"id": 5, "entry_number": 1, "date_filed": "2026-11-04", "recap_documents": [7]},
+        "not an entry",
+    ):
+        (item,) = _concord([PLACEHOLDER, MINUTE_ENTRY], [broken, MINUTE_ENTRY, PLACEHOLDER])  # type: ignore[list-item]
+        assert item.entry_number == 137
+
+
+def test_a_placeholder_and_its_numbered_entry_are_one_item_with_number_motion_and_link() -> None:
+    # On its own text the minute entry is routine, and the placeholder a
+    # ruling with no number and a docket-level link.
+    assert classify(MINUTE_ENTRY) is None
+    assert classify(PLACEHOLDER) is EntryKind.ruling
+    for added in ([PLACEHOLDER, MINUTE_ENTRY, TRANSCRIPT_ORDER], [MINUTE_ENTRY, PLACEHOLDER]):
+        (item,) = _concord(added)
+        assert (item.entry_id, item.entry_number, item.kind, item.motion) == (
+            484431736,
+            137,
+            "ruling",
+            "dismiss",
+        )
+        assert item.supersedes is None
+        assert item.url == (
+            "https://www.courtlistener.com/docket/72199828/137/concord-music-group-inc-v-anthropic-pbc/"
+        )
+
+
+def test_an_unpaired_placeholder_is_recorded_and_its_later_twin_supersedes_it(
+    tmp_path: Path,
+) -> None:
+    (first,) = _concord([PLACEHOLDER])
+    assert (first.entry_id, first.entry_number, first.kind) == (484417254, None, "ruling")
+    record_activity(tmp_path, CONCORD_DAY, [first])
+    (second,) = _concord([MINUTE_ENTRY], [PLACEHOLDER, MINUTE_ENTRY])
+    assert (second.entry_number, second.motion, second.supersedes) == (137, "dismiss", 484417254)
+    record_activity(tmp_path, date(2026, 11, 6), [second])
+    assert validate_ledger(tmp_path).ok
+    assert [e.entry_id for e in owed_rulings(tmp_path, date(2026, 11, 6))] == [484431736]
+
+    # One span holding both shows the numbered entry alone, counted once.
+    week = build_ai_cases_update(tmp_path, date(2026, 11, 2), date(2026, 11, 8))
+    assert [e.entry_id for _, _, entries in week.cases for e in entries] == [484431736]
+    body = render_ai_cases_update(week)
+    assert "**This update:** 1 ruling\n" in body
+    assert "Ruling on a motion to dismiss (N.D. Cal. 5:26-cv-00880, entry 137)" in body
+
+    # A span after the one that carried the placeholder does not repeat the event.
+    assert build_ai_cases_update(tmp_path, date(2026, 11, 6), date(2026, 11, 6)).empty
+    only = build_ai_cases_update(tmp_path, CONCORD_DAY, CONCORD_DAY)
+    assert [e.entry_id for _, _, entries in only.cases for e in entries] == [484417254]
+
+
+def test_a_placeholder_arriving_after_its_twin_records_the_twin_once() -> None:
+    # The twin was routine on its own, so nothing recorded it when it arrived.
+    (item,) = _concord([PLACEHOLDER], [MINUTE_ENTRY, PLACEHOLDER])
+    assert (item.entry_id, item.kind, item.motion, item.supersedes) == (
+        484431736,
+        "ruling",
+        "dismiss",
+        None,
+    )
+    # A twin the rule keeps on its own was recorded when it arrived.
+    order = {**MINUTE_ENTRY, "description": "ORDER granting 104 Motion to Dismiss."}
+    assert _concord([PLACEHOLDER], [order, PLACEHOLDER]) == []
+    # So was a twin an earlier placeholder already paired with.
+    again = {**PLACEHOLDER, "id": 484417999}
+    assert _concord([again], [PLACEHOLDER, MINUTE_ENTRY, again]) == []
