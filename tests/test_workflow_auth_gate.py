@@ -145,8 +145,8 @@ def _claude_only(form: str) -> str:
 
 # The Claude-only environments, `claude-prod` (branch policy: `main`) and
 # `claude-staging` (`staging` and `promote/*`), hold one lane's sign-in and
-# nothing else: the Claude federation rule's identifiers and, for the rollback,
-# the engine key. They exist for the jobs that call Claude with no cloud
+# nothing else: the Claude federation rule's identifiers, and no secret. They
+# exist for the jobs that call Claude with no cloud
 # credential by design, which need `id-token: write` for the federated
 # exchange: no AWS role trusts a `claude-*` subject, so the token they can mint
 # reaches no corpus. Pinned per job, each to its workflow's computed form with
@@ -922,7 +922,7 @@ def test_a_job_that_names_a_secret_binds_a_branch_policied_environment() -> None
 def test_a_claude_only_environment_holds_one_sign_in_and_its_jobs_check_it() -> None:
     """A job bound to a Claude-only environment holds the Claude sign-in alone.
 
-    Its only secret is the engine key, it assumes no role, and before any
+    It names no secret, it assumes no role, and before any
     other privileged step it runs the `claude-federation` composite's
     assert-claude-only mode, which mints a probe token and fails unless its
     environment claim is a `claude-` one: the runtime half of the pin above,
@@ -939,8 +939,8 @@ def test_a_claude_only_environment_holds_one_sign_in_and_its_jobs_check_it() -> 
     for name, job_name in sorted(CLAUDE_ONLY_ENVIRONMENTS):
         job = _jobs(_load(name))[job_name]
         dumped = yaml.safe_dump(job)
-        assert set(re.findall(r"secrets\.([A-Za-z0-9_]+)", dumped)) == {"ANTHROPIC_API_KEY"}, (
-            f"{name}:{job_name} names a secret beyond the engine key"
+        assert not re.findall(r"secrets\.([A-Za-z0-9_]+)", dumped), (
+            f"{name}:{job_name} names a secret beside its federated sign-in"
         )
         assert "configure-aws-credentials" not in dumped, f"{name}:{job_name} assumes a role"
         assert "corpus-" not in "".join(str(step.get("uses") or "") for step in _steps(job)), (
@@ -959,7 +959,7 @@ def test_a_claude_only_environment_holds_one_sign_in_and_its_jobs_check_it() -> 
             index
             for index, step in enumerate(steps)
             if any(marker in str(step.get("uses") or "") for marker in PRIVILEGED_USES)
-            or "secrets." in yaml.safe_dump(step)
+            or "vars.ANTHROPIC_FEDERATION_RULE_ID" in yaml.safe_dump(step)
         )
         assert checks[0] < first_privileged, (
             f"{name}:{job_name} runs privileged work before its Claude-only tripwire"

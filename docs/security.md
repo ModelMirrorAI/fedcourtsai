@@ -868,11 +868,7 @@ the few names the writer jobs read: *`corpus-write` holds the production
 read-write role* below) — the dev and data Apps'
 credentials (the engine keys have per-environment twins on `staging`,
 recorded where those holders are described, and `staging` also still holds the
-unused `fedcourtsai-staging` App pair until an admin deletes it), the Anthropic API key (which the case-summary
-lane and the labeler once spent on, and now reach through the Claude-only
-`claude-prod` and `claude-staging` environments, each holding its own copy of
-the four federation variables and of the key for the rollback: *The
-Claude-only environments* below), the
+unused `fedcourtsai-staging` App pair until an admin deletes it), the
 Codex/OpenAI key, the Gemini API key, the four Anthropic federation
 variables (rule, organization, service account and workspace, on `staging`
 too: *Claude cells sign in by workload identity federation* below),
@@ -1458,13 +1454,14 @@ agent's own workspace Python with the key in its environment. The key is the
 credential worth a check there: the job's own `github.token` is capped at
 `contents: read` and dies with the job.
 A `gate` dispatch fans one engine-smoke and one engine-actions-smoke leg per
-engine, so a single run reads all three keys — each confined to its own job —
-and spends three cells plus three boot probes; `offline-gate`, the same suite
-without either family, reads no engine key and spends nothing. An `all`
-dispatch reads no further key — the labeler smoke holds the Anthropic key and
-the repro leg the OpenAI key, each confined to its own job — and it spends the
-repro's evaluate cell and the labeler's cents on top; `all-offline` reads no
-engine key. The keys live on
+engine, so a single run reads the Codex and Gemini keys and mints the Claude
+legs' federated sign-in — each confined to its own job — and spends three
+cells plus three boot probes; `offline-gate`, the same suite without either
+family, reads no engine key and spends nothing. An `all` dispatch reads no
+further key — the labeler smoke federates under its Claude-only environment
+and the repro leg holds the OpenAI key, each confined to its own job — and it
+spends the repro's evaluate cell and the labeler's cents on top;
+`all-offline` reads no engine key. The keys live on
 the `prod`
 environment and, as **separate per-environment secrets**, on `staging` — a
 smoke dispatched at the staging head spends against staging's own keys
@@ -1547,8 +1544,9 @@ cells, which run codex as a separate account rather than dropping the runner's
 sudo) — accepted for the same reason as in the back-test residual below:
 same-user co-residency is already conceded as a non-boundary, the userns knob
 is a runner-wide relaxation on a throwaway runner, and this job holds only the
-read-only role, one engine key, and the read-only CourtListener token. Within a run, the engine key rides the
-single cascade step's env,
+read-only role, one engine credential (the Codex or Gemini key, or the
+Claude leg's federated sign-in), and the read-only CourtListener token. Within
+a run, the engine credential rides the single cascade step's env,
 alongside the corpus sidecar's step-scoped read-only AWS credentials for the
 cascade's own provisioning reads; the spawned agent sees neither, because the
 runner seam's scrubbed base environment strips every AWS variable and every
@@ -1562,8 +1560,8 @@ step), `integration-test`'s engine-actions-smoke Claude leg, which invokes
 the cells' action the way they do, and the Claude cells the repository drives
 through the bare CLI (the back-test's replays and the engine-smoke cascade,
 below) sign in to the Claude API by Anthropic
-workload identity federation whenever the bound environment names a
-federation rule and organization. The action fetches the job's GitHub OIDC
+workload identity federation, and by nothing else: no workflow names an
+Anthropic key. The action fetches the job's GitHub OIDC
 token (audience `https://api.anthropic.com`), writes it to a file under the
 runner's temp directory, rewrites it every four minutes, and points the pinned
 Claude Code CLI at it; the CLI exchanges it for a short-lived Anthropic access
@@ -1575,17 +1573,14 @@ token is accepted once.
 Four environment **variables** carry the federation: the rule, the
 organization, the service account and the workspace. They are identifiers,
 not credentials, and they are set on an environment, never at repository or
-organization level, where a rule would reach every environment at once. The
-engine key stays an environment secret: the step is handed it only while the
-environment names no rule or no organization, because the action prefers a
-key to federation (a rule that is only whitespace withholds the key and
-federates nothing, so the step fails closed). So the switch, and the
-rollback, is the environment's variables, set or removed, with no code
-change; `staging` and `prod` switch independently. Federation changes how a
-cell obtains its credential and nothing in the request: the endpoint, model,
-prompt, settings, engine pin and process digest are the same, and usage
-meters to the rule's workspace, which is the workspace the environment's key
-belongs to.
+organization level, where a rule would reach every environment at once. An
+environment that names no rule or no organization leaves its Claude steps
+with no credential, so they fail rather than fall back; going back to a key
+is a code change, a revert of the workflows that stopped naming it.
+Federation changes how a cell obtains its credential and nothing in the
+request: the endpoint, model, prompt, settings, engine pin and process digest
+are the same, and usage meters to the rule's workspace, the workspace pipeline
+inference has always billed to.
 
 **Console setup** (an organization admin, Claude Console → *Settings →
 Workload identity*; the *Connect workload → GitHub Actions* wizard creates all
@@ -1594,8 +1589,8 @@ three):
 1. An **issuer** for `https://token.actions.githubusercontent.com`, JWKS by
    discovery. One issuer serves every rule below and the state-ags scan.
 2. A **service account** per environment, a member of the workspace that
-   environment's key belongs to (every service account is already a member of
-   the Default Workspace).
+   environment's inference bills to (every service account is already a
+   member of the Default Workspace).
 3. A **federation rule** per environment, targeting that service account and
    that workspace, with scope `workspace:developer` (the access a workspace
    API key has) and a token lifetime of 600 seconds. Its match:
@@ -1617,16 +1612,11 @@ a PR-branch job can match neither rule. A denied exchange answers
 `401 Authentication failed` with no reason; the reason is in the Console's
 authentication history.
 
-**What it changes, and what it does not yet.** The agent's shell can read the
-OIDC token file and the cached access token, as it can read the key in the
-CLI's environment while the cell signs in with a key; what it can carry away
-from those is a token that expires within minutes. But the cell jobs still
-name the key secret, for the rollback, and every secret a job names reaches
-its runner at job start, so while the environment holds the key an injected
-cell can still recover it from the runner. The key leaves the cells' reach
-only when their jobs stop naming it, which is the last step of the move, once
-a federated round has run clean in production. Meanwhile the job's OIDC
-request pair, the residual SECURITY.md states for every cell job, also
+**What it changes, and what it does not.** The agent's shell can read the
+OIDC token file and the cached access token; what it can carry away from
+those is a token that expires within minutes. No job names an Anthropic key,
+so none reaches a runner, and an environment that still holds one holds it
+unread until an admin deletes it. The job's OIDC request pair, the residual SECURITY.md states for every cell job, also
 reaches this rule: any job of the admitted workflows that binds the
 environment and holds `id-token: write` (the plan jobs and every
 `integration-test` scenario leg among them, whatever its engine) can mint a
@@ -1648,30 +1638,28 @@ resolution. Those environments hold the four federation variables, a rule of
 their own (subject `repo:ModelMirrorAI/fedcourtsai:environment:claude-<env>`,
 the same service account and workspace as the environment they shadow, and a
 condition admitting `run-analytics.yml`, `summarize.yml` and
-`integration-test.yml`), and, for the rollback, the engine key. No AWS role's trust names a `claude-*`
+`integration-test.yml`), and no secret. No AWS role's trust names a `claude-*`
 subject, so a token those jobs mint reaches no corpus. Each job's first
 privileged step is preceded by the `claude-federation` composite's
 `assert-claude-only` mode, which mints a token for a probe audience and fails
 the job unless its `environment` claim is a `claude-` one: an edit that binds
 one of these jobs back to `prod` while it keeps `id-token: write` stops before
 the agent runs. `tests/test_workflow_auth_gate.py` pins which jobs bind them,
-that their only secret is the engine key, and that the tripwire comes first.
+that they name no secret, and that the tripwire comes first.
 The promotion gate's `contexts` stage checks both environments whenever it
 runs (`fedcourts assert-claude-only-environment`): each exists, its branch
 policy admits its own branches alone (`main` for `claude-prod`; `staging` and
-at most `promote/*` for `claude-staging`), it holds no secret but the engine
-key and no variable but the four federation identifiers, and no repository or
-organization secret shares the key's name. The Console rules are outside its
+at most `promote/*` for `claude-staging`), it holds no secret, it holds the
+rule and organization identifiers and no variable but the four federation
+identifiers, and no repository or organization secret shares the Anthropic
+key's name. The Console rules are outside its
 read and the maintainer's to keep.
 The summaries call the Messages API directly, so their exchange is the
 harness's own (`fedcourtsai.claude_auth`): a fresh OIDC token per exchange, an
 access token replaced three minutes before it expires, and each response
-scanned for every access token the run held, as a key-signed run scans for
-the key. While a rule is named, the key is withheld from these jobs, and the
-scans that looked for it look for the exchanged tokens' shapes instead.
-
-The key is retired from an environment only once every lane spending it there
-is federated.
+scanned for every access token the run held. The scans over what these jobs
+write look for the exchanged tokens' shapes, since there is no key to look
+for.
 
 **The bare-CLI callers.** `run-backtest`'s cert and merits replays and
 `integration-test`'s engine-smoke cascade run `claude` through the runner seam
@@ -1685,17 +1673,16 @@ cached access token once a profile directory is named. The cache is what lets co
 share one exchanged access token rather than spend one OIDC token twice, and
 it is safe only while they run one at a time: a back-test runs one lane per
 engine and each lane's cells in sequence, and the cascade runs one cell. The
-engine step is handed the federated sign-in, with the key withheld, exactly
-when the composite produced a token file, so the cell never runs with both or
-neither. The runner seam passes the federation variables to the Claude agent
+composite's start mode refuses to run without the rule and organization
+identifiers, so a Claude cell never starts without a credential, and the
+engine step is handed the federated sign-in and no key. The runner seam passes the federation variables to the Claude agent
 alone, as it does each engine's key, and drops an empty key rather than hand
 the CLI a credential it would try first. Both jobs already hold `id-token:
 write` for the read-only AWS role; the token minted here names the Claude API
 as its audience, which that role does not accept. The residual, stated: the
 back-test runs the Codex and Gemini lanes in the same job, as the same user,
 so a cell of another engine that looks for the token file or the cache can
-read them, as it can read the Claude process's key from its environment while
-the lane signs in with a key; what it carries away expires within minutes.
+read them; what it carries away expires within minutes.
 
 ### Run-time installs are refused in a cell
 
@@ -1871,7 +1858,7 @@ Access mirrors each workflow's role in the pipeline:
 | `summarize` — plan, stage                 | read-only     | the case-summary plan (full `corpus-pull`, then each predicted case's newest snapshot and document texts from the content store) and the staging of each planned case's record with `provision-snapshot`, handed to the generate job as a one-day artifact |
 | `summarize` — generate, publish           | none          | generate holds the Claude sign-in under the Claude-only environment (federated, or the key while no rule is named), assumes no role, and asserts first that the AWS variables are absent and that a token it mints names a `claude-` environment; publish holds the dev App token on `main` only |
 | `integration-test`                        | read-only     | infrastructure preflight scenarios (role assumed directly or via the sidecar composite; no pull) |
-| `integration-test` — qp-labeler-smoke     | none          | the labeler-smoke job replicates the labeling job's credential shape: no role, the Claude-only environment for its `id-token: write`, and the same pre-agent assertions. What leaves it is one artifact of invented question texts — the labels the smoke produced — published only past a containment check against the engine key |
+| `integration-test` — qp-labeler-smoke     | none          | the labeler-smoke job replicates the labeling job's credential shape: no role, the Claude-only environment for its `id-token: write`, and the same pre-agent assertions. What leaves it is one artifact of invented question texts — the labels the smoke produced — published only past a containment check for the exchanged tokens' shapes |
 | `staging-corpus-refresh`                  | **staging read-write** (read-only on production) | seeds the staging pair from a production slice; the only write-capable role outside `corpus-write`, and it can write nothing production owns |
 | `corpus-check` — run                      | read-only     | the approved check of one PR head: a full index `corpus-pull` at `main`'s committed pointer, then the head's install and command as an unprivileged account holding only the session and the corpus address, which may read the content store too. The one job that runs PR-head code with a role — the approval, the account separation and this environment's trust (read-only role alone) are what bound it |
 | `corpus-check` — run-auto                 | read-only     | an allowlisted read-only `fedcourts` subcommand a PR asked to run at `main`, unapproved: the same pull and the same unprivileged account as `run`, but the tree is the run's own commit of `main` — no PR code is checked out — and the summary is the command's stdout. Its `corpus-check-auto` environment has no reviewer; its `main`-only branch policy and the read-only trust bound it |

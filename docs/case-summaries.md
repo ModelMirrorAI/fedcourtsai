@@ -295,7 +295,7 @@ jobs:
 | `plan` | read-only corpus role | stands down (a notice, no work) while a `run-predict` or `run-evaluate` run is executing — a round parked on its own hold or queued does not count, and the check is at plan time only, so a round can still start while this run's generate job works; counts an open `summaries/refresh` PR's summaries as written; `fedcourts summarize-plan` → the plan and the report the hold is judged on |
 | `approval` | nothing (`review`, or `review-auto` when auto-released) | the spend hold |
 | `stage` | read-only corpus role | `provision-snapshot` for each planned case, into a data root under `$RUNNER_TEMP`, and `ai-ruling-stage` for each planned AI watchlist ruling |
-| `generate` | the Claude sign-in under the Claude-only environment (federated, or its key), and asserts it holds no cloud credential | `fedcourts summarize`; jails, validates and secret-scans the written files; uploads them as the `case-summaries` artifact |
+| `generate` | the Claude sign-in under the Claude-only environment (federated), and asserts it holds no cloud credential | `fedcourts summarize`; jails, validates and secret-scans the written files; uploads them as the `case-summaries` artifact |
 | `publish` | dev App token (`main` only) | opens or updates one PR from `summaries/refresh`, and merges it once its required checks pass |
 | `rejected` | nothing (no environment, `permissions: {}`) | records on the run page that the hold did not release |
 
@@ -314,7 +314,7 @@ the budget reads includes each committed summary's recorded usage, the open
 refresh PR's carried summaries among them; a case whose responses the harness
 rejected writes no file, so those tokens are not counted.
 
-**Credential separation.** The corpus credentials and the API key never share a
+**Credential separation.** The corpus credentials and the Claude sign-in never share a
 job, so no step holds both: the plan and stage jobs assume the read-only role,
 the generate job holds the Claude sign-in and assumes nothing (its first
 steps fail the job if any AWS credential is reachable, or if a token it mints
@@ -325,9 +325,8 @@ crosses between them as a one-day run artifact.
 
 **The environment's sign-in.** The lane spends on the Anthropic workspace of
 the environment it shadows — prod's on main, staging's on a staging
-rehearsal — the one the other Claude lanes use, signed in by federation once
-its Claude-only environment names a rule and by that environment's key
-otherwise. It does not compete with the cells for throughput:
+rehearsal — the one the other Claude lanes use, signed in by federation under
+its Claude-only environment's rule. It does not compete with the cells for throughput:
 provider rate limits are per model and the lane's model is outside the
 prediction panel, and its plan stands down while a predict or evaluate round
 is running (checked at plan time, so a hold released later can overlap a
@@ -345,9 +344,8 @@ cut, since a summary describes the newest record.
 
 **Publication.** Before anything leaves the runner, the change set must hold
 summary files and nothing else (`fedcourts summary-paths --strict`), `data/`
-must validate, and `scan-diff-for-secrets` must pass, with the API key as a
-known secret on a run that held one (a federated run's access tokens were
-scanned for in each response, and are caught here by shape); a failure withholds both the artifact and the PR. On `main` the
+must validate, and `scan-diff-for-secrets` must pass (the run's access tokens
+were scanned for in each response, and are caught here by shape); a failure withholds both the artifact and the PR. On `main` the
 `publish` job cuts `summaries/refresh` from `main`, carries the open PR's
 summaries forward, adds the run's, deletes the plan's withdrawn summaries
 (*Withdrawal*, above), re-runs the jail — which admits those deletions and no

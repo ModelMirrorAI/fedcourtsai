@@ -1286,16 +1286,14 @@ jobs:
           # environment names a federation rule: the action exchanges the job's
           # GitHub OIDC token for a short-lived Anthropic token, so no static key
           # reaches the step. The four identifiers are the environment's
-          # variables, not secrets. While a rule and organization are named the
-          # key is withheld from the step, since the action prefers a key to
-          # federation; with either missing, the key is the sign-in, which is
-          # the rollback (*Claude cells sign in by workload identity
-          # federation* in docs/security.md).
+          # variables, not secrets. No key reaches the step: the rule is the
+          # cell's only sign-in, so an environment that names none fails the
+          # cell rather than falling back (*Claude cells sign in by workload
+          # identity federation* in docs/security.md).
           anthropic_federation_rule_id: ${{ vars.ANTHROPIC_FEDERATION_RULE_ID }}
           anthropic_organization_id: ${{ vars.ANTHROPIC_ORGANIZATION_ID }}
           anthropic_service_account_id: ${{ vars.ANTHROPIC_SERVICE_ACCOUNT_ID }}
           anthropic_workspace_id: ${{ vars.ANTHROPIC_WORKSPACE_ID }}
-          anthropic_api_key: ${{ (vars.ANTHROPIC_FEDERATION_RULE_ID == '' || vars.ANTHROPIC_ORGANIZATION_ID == '') && secrets.ANTHROPIC_API_KEY || '' }}
           # The pinned CLI from the engine-cli step, never the one the action
           # bundles: the engine a cell runs moves only when the pin does.
           path_to_claude_code_executable: ${{ steps.engine-cli.outputs.path }}

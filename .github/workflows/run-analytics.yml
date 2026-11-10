@@ -1936,15 +1936,13 @@ jobs:
           QP_TEXTS: ${{ runner.temp }}/qp-io/qp-texts.json
           LABELS_OUT: ${{ runner.temp }}/qp-io/qp-labels.jsonl
         with:
-          # Workload identity federation once the environment names a rule,
-          # the environment's key otherwise, exactly as the cells sign in
-          # (docs/security.md); billed pay-per-token to the same workspace
-          # either way (docs/budget.md).
+          # Workload identity federation, exactly as the cells sign in, and
+          # no key (docs/security.md); billed pay-per-token to the cells'
+          # workspace (docs/budget.md).
           anthropic_federation_rule_id: ${{ vars.ANTHROPIC_FEDERATION_RULE_ID }}
           anthropic_organization_id: ${{ vars.ANTHROPIC_ORGANIZATION_ID }}
           anthropic_service_account_id: ${{ vars.ANTHROPIC_SERVICE_ACCOUNT_ID }}
           anthropic_workspace_id: ${{ vars.ANTHROPIC_WORKSPACE_ID }}
-          anthropic_api_key: ${{ (vars.ANTHROPIC_FEDERATION_RULE_ID == '' || vars.ANTHROPIC_ORGANIZATION_ID == '') && secrets.ANTHROPIC_API_KEY || '' }}
           # The pinned, pre-installed CLI (see the install step above) — the
           # action skips its own installer, whose skipped postinstall left the
           # native binary missing.
@@ -2353,18 +2351,13 @@ jobs:
         working-directory: ${{ github.workspace }}/.transcript-scanner
         env:
           TRANSCRIPT: ${{ steps.label.outputs.execution_file }}
-          # The key the labeler held, when it held one; a federated labeler
-          # held none, and its exchanged token is caught by shape.
-          ANTHROPIC_API_KEY: ${{ (vars.ANTHROPIC_FEDERATION_RULE_ID == '' || vars.ANTHROPIC_ORGANIZATION_ID == '') && secrets.ANTHROPIC_API_KEY || '' }}
-          FEDERATED: ${{ vars.ANTHROPIC_FEDERATION_RULE_ID != '' && vars.ANTHROPIC_ORGANIZATION_ID != '' }}
           # The isolated install above, by absolute path: a bare `uv run` would
           # resolve the project out of the workspace the labeler just wrote to.
           SCANNER: ${{ github.workspace }}/.transcript-scanner/.venv/bin/python
         run: |
           set -euo pipefail
-          # This is the one step that holds the key (while the labeler signs in
-          # with one), so it is the one an injected environment variable is
-          # worth aiming at: the runner
+          # This step runs Python over what the labeler wrote, so it is the one
+          # an injected environment variable is worth aiming at: the runner
           # applies every earlier step's `$GITHUB_ENV` writes here, and the
           # labeling step's subprocesses can append to that file. A planted
           # `PYTHONPATH` or `LD_PRELOAD` would put agent code inside this
@@ -2387,14 +2380,10 @@ jobs:
           # The transcript surface flag, not the generic extra-file suite: the
           # transcript's own tool and request ids are high-entropy by format,
           # so the generic heuristic convicts every real file and the artifact
-          # would only ever publish empty — the surface is gated by containment
-          # of the one reachable credential and the credential shapes instead.
-          # The key's containment detector runs whenever the labeler could
-          # have held the key; unset then, the scan fails closed.
-          key_args=(--known-secret-env ANTHROPIC_API_KEY)
-          if [ "$FEDERATED" = true ]; then key_args=(); fi
+          # would only ever publish empty — the surface is gated by the
+          # credential shapes instead, which cover the labeler's exchanged
+          # access token and the OIDC token it was exchanged from.
           "$SCANNER" -E -s -P -m fedcourtsai.cli scan-diff-for-secrets --name-status-file /dev/null \
-            "${key_args[@]}" \
             --transcript-file "$TRANSCRIPT" \
             --run-url "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
             || status=$?
@@ -2464,14 +2453,11 @@ jobs:
         working-directory: ${{ github.workspace }}/.transcript-scanner
         env:
           LABELS_OUT: ${{ runner.temp }}/qp-io/qp-labels.jsonl
-          ANTHROPIC_API_KEY: ${{ (vars.ANTHROPIC_FEDERATION_RULE_ID == '' || vars.ANTHROPIC_ORGANIZATION_ID == '') && secrets.ANTHROPIC_API_KEY || '' }}
-          FEDERATED: ${{ vars.ANTHROPIC_FEDERATION_RULE_ID != '' && vars.ANTHROPIC_ORGANIZATION_ID != '' }}
           SCANNER: ${{ github.workspace }}/.transcript-scanner/.venv/bin/python
         run: |
           set -euo pipefail
-          # This step holds the key (while the labeler signs in with one), so
-          # it strips the levers that would put agent code inside it — the
-          # transcript scan's reasoning, verbatim.
+          # This step strips the levers that would put agent code inside it,
+          # for the transcript scan's reason.
           unset PYTHONPATH PYTHONHOME PYTHONSTARTUP PYTHONUSERBASE
           unset LD_PRELOAD LD_AUDIT LD_LIBRARY_PATH
           # Named here rather than left to the scanner's exit 2, for the
@@ -2484,10 +2470,7 @@ jobs:
             exit 1
           fi
           status=0
-          key_args=(--known-secret-env ANTHROPIC_API_KEY)
-          if [ "$FEDERATED" = true ]; then key_args=(); fi
           "$SCANNER" -E -s -P -m fedcourtsai.cli scan-diff-for-secrets --name-status-file /dev/null \
-            "${key_args[@]}" \
             --extra-file "$LABELS_OUT" \
             --run-url "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
             || status=$?

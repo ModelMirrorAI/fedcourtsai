@@ -31,20 +31,17 @@ runbook, [docs/security.md](docs/security.md).
 - **No static key in the runner's process env where untrusted code runs.** The
   Codex engine action keeps its model API key behind a localhost proxy so the
   CLI never holds it; the Claude engine action hands its key to the CLI's
-  environment. So the Claude cells, and the engine-actions-smoke leg that
-  invokes them, sign in by workload identity federation once their
-  environment names a federation rule: the step and the CLI are handed no
-  Anthropic key, only a token, exchanged from the job's OIDC token, that
-  expires within minutes. Their jobs still name the key for the rollback, so
-  it reaches their runners until that reference is removed (*Claude cells
-  sign in by workload identity federation* in
-  [docs/security.md](docs/security.md)). The Claude cells this repo drives
-  through the bare CLI — the back-test's replays and the integration suite's
-  engine-smoke cascade — federate on the same switch, from a token file the
-  `claude-federation` composite keeps fresh. The engines this repo drives directly — Gemini
-  everywhere, and Codex and Gemini in the back-test and the integration suite's
-  engine smoke, with Claude there while its environment names no rule — are
-  the exception: their key is a scoped step env on the agent
+  environment. So no workflow names an Anthropic key: the Claude cells, and
+  the engine-actions-smoke leg that invokes them, sign in by workload identity
+  federation, and the step and the CLI are handed only a token, exchanged from
+  the job's OIDC token, that expires within minutes (*Claude cells sign in by
+  workload identity federation* in [docs/security.md](docs/security.md)). The
+  Claude cells this repo drives through the bare CLI — the back-test's
+  replays and the integration suite's engine-smoke cascade — federate the same
+  way, from a token file the `claude-federation` composite keeps fresh. The
+  engines this repo drives directly — Gemini everywhere, and Codex and Gemini
+  in the back-test and the integration suite's engine smoke — are the
+  exception: their key is a scoped step env on the agent
   step, so the control there is the Gemini
   CLI's own sanitizer, which strips every env var it has not been asked to
   allowlist and **refuses to allowlist** any name matching
@@ -153,8 +150,8 @@ runbook, [docs/security.md](docs/security.md).
   unpaid `qp-labeler-smoke` leg's own labels file, which takes the containment
   half alone, by a literal `grep` off a PATH pinned to root-owned directories,
   because building the paid lane's fresh-checkout scanner there would mean
-  running the agent's own workspace Python with the engine key in its
-  environment — the arrangement that scanner exists to avoid
+  running the agent's own workspace Python after the agent held a Write grant
+  over it — the arrangement that scanner exists to avoid
   ([docs/security.md](docs/security.md)). The label-line count on that summary is arithmetic over the file
   rather than anything read out of it, which is why it is stated whether or
   not the file itself travels. A fourth is a merits back-test replay's

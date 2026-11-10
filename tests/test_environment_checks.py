@@ -689,7 +689,11 @@ STAGING_POLICIES: dict[str, Any] = {
         {"name": "promote/*", "type": "branch"},
     ],
 }
-CLAUDE_SECRETS: dict[str, Any] = {"total_count": 1, "secrets": [{"name": "ANTHROPIC_API_KEY"}]}
+CLAUDE_SECRETS: dict[str, Any] = {"total_count": 0, "secrets": []}
+ANTHROPIC_KEY_SECRETS: dict[str, Any] = {
+    "total_count": 1,
+    "secrets": [{"name": "ANTHROPIC_API_KEY"}],
+}
 CLAUDE_VARIABLES: dict[str, Any] = {
     "total_count": 4,
     "variables": [{"name": name} for name in sorted(ec.CLAUDE_ONLY_VARIABLES)],
@@ -722,11 +726,16 @@ def test_the_configured_claude_only_environments_pass() -> None:
     assert _claude(ec.CLAUDE_STAGING_ENVIRONMENT, branch_policies=staging_only) == []
 
 
-def test_the_claude_only_contents_are_optional() -> None:
-    """The key is the rollback copy and deleting the rule id is the rollback,
-    so an environment without either still passes."""
+def test_the_claude_only_sign_in_is_required_and_the_optional_ids_are_not() -> None:
+    """The rule and organization are the jobs' only sign-in, so an environment
+    without them fails; the service account and workspace may be omitted."""
     empty_variables = {"total_count": 0, "variables": []}
-    assert _claude(secrets=NO_SECRETS, variables=empty_variables) == []
+    assert _claude(variables=empty_variables) == [
+        "the environment lacks its variables: "
+        "ANTHROPIC_FEDERATION_RULE_ID, ANTHROPIC_ORGANIZATION_ID"
+    ]
+    required = {"variables": [{"name": name} for name in sorted(ec.CLAUDE_ONLY_REQUIRED_VARIABLES)]}
+    assert _claude(variables=required) == []
 
 
 @pytest.mark.parametrize(
@@ -782,6 +791,13 @@ def test_the_claude_only_contents_are_optional() -> None:
             {"secrets": {"secrets": [{"name": "DEV_APP_PRIVATE_KEY"}]}},
             "secrets outside",
         ),
+        # The jobs read no key, so one left in the environment is refused.
+        (ec.CLAUDE_STAGING_ENVIRONMENT, {"secrets": ANTHROPIC_KEY_SECRETS}, "secrets outside"),
+        (
+            ec.CLAUDE_PROD_ENVIRONMENT,
+            {"variables": {"variables": [{"name": "ANTHROPIC_FEDERATION_RULE_ID"}]}},
+            "lacks its variables: ANTHROPIC_ORGANIZATION_ID",
+        ),
         (ec.CLAUDE_STAGING_ENVIRONMENT, {"variables": None}, "variables were unread"),
         (
             ec.CLAUDE_STAGING_ENVIRONMENT,
@@ -824,7 +840,7 @@ def test_the_claude_only_gate_cli_reads_the_six_listings(tmp_path: Path) -> None
     passed = runner.invoke(app, args)
     assert passed.exit_code == 0, passed.output
     # A repository-level copy of the key reaches a workflow run off any branch.
-    (tmp_path / "repository-secrets.json").write_text(json.dumps(CLAUDE_SECRETS))
+    (tmp_path / "repository-secrets.json").write_text(json.dumps(ANTHROPIC_KEY_SECRETS))
     assert runner.invoke(app, args).exit_code == 1
     # An absent listing is an unread one, and fails.
     (tmp_path / "repository-secrets.json").write_text(json.dumps(NO_SECRETS))

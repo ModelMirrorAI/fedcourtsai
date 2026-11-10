@@ -523,13 +523,12 @@ jobs:
       # tested harness validates before writing, so the model has no tool, no
       # shell and no file access, and the checkout it writes into is written by
       # this command alone.
-      # Federated once the environment names a rule, the key otherwise
-      # (`fedcourtsai.claude_auth`); the key is withheld whenever a rule is
-      # named, so the run never holds both.
+      # Federated by the environment's rule (`fedcourtsai.claude_auth`), the
+      # run's only sign-in: no key reaches it, so an environment that names no
+      # rule stops the run before its first request.
       - name: Write the summaries
         timeout-minutes: 165
         env:
-          ANTHROPIC_API_KEY: ${{ (vars.ANTHROPIC_FEDERATION_RULE_ID == '' || vars.ANTHROPIC_ORGANIZATION_ID == '') && secrets.ANTHROPIC_API_KEY || '' }}
           ANTHROPIC_FEDERATION_RULE_ID: ${{ vars.ANTHROPIC_FEDERATION_RULE_ID }}
           ANTHROPIC_ORGANIZATION_ID: ${{ vars.ANTHROPIC_ORGANIZATION_ID }}
           ANTHROPIC_SERVICE_ACCOUNT_ID: ${{ vars.ANTHROPIC_SERVICE_ACCOUNT_ID }}
@@ -556,15 +555,12 @@ jobs:
 
       # Publish-gating, before anything leaves the runner: the change set holds
       # summary files and nothing else, every artifact under data/ validates,
-      # and no written file carries a credential — the API key literally, when
-      # the run held one, or any credential shape, which covers a federated
-      # run's access tokens (the write step also scanned each response for the
-      # tokens it held). A failure here withholds both the artifact and the PR.
+      # and no written file carries a credential shape, which covers the run's
+      # exchanged access tokens (the write step also scanned each response for
+      # the tokens it held). A failure here withholds both the artifact and the
+      # PR.
       - name: Jail, validate and scan the written summaries
         id: collect
-        env:
-          ANTHROPIC_API_KEY: ${{ (vars.ANTHROPIC_FEDERATION_RULE_ID == '' || vars.ANTHROPIC_ORGANIZATION_ID == '') && secrets.ANTHROPIC_API_KEY || '' }}
-          FEDERATED: ${{ vars.ANTHROPIC_FEDERATION_RULE_ID != '' && vars.ANTHROPIC_ORGANIZATION_ID != '' }}
         run: |
           set -euo pipefail
           {
@@ -574,11 +570,8 @@ jobs:
           uv run fedcourts summary-paths --strict \
             --name-status-file "$RUNNER_TEMP/changes.txt" > "$RUNNER_TEMP/written.txt"
           uv run fedcourts validate data
-          key_args=(--known-secret-env ANTHROPIC_API_KEY)
-          if [ "$FEDERATED" = true ]; then key_args=(); fi
           uv run fedcourts scan-diff-for-secrets \
             --name-status-file "$RUNNER_TEMP/changes.txt" \
-            "${key_args[@]}" \
             --run-url "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           mkdir -p "$RUNNER_TEMP/out"
           while IFS= read -r path; do
