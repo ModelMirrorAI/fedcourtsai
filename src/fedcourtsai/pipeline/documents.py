@@ -602,6 +602,7 @@ def _is_cert_reply_entry(text: str, *, filed: date | None, granted_on: date | No
 #   "Motion to affirm filed by appellees Common Cause, et al."
 #   "Motion to affirm or dismiss filed by appellees Ted Cruz For Senate, et al."
 #   "Motion to dismiss filed by State Appellees."
+#   "Motion to affirm filed by intervenors-appellees Alliance for Retired Americans, et al."
 #
 #   "Opposition to motion to dismiss or affirm of appellants … filed."
 #   "Opposition to appellees' motions to dismiss or affirm from appellants … filed."
@@ -621,11 +622,12 @@ def _is_cert_reply_entry(text: str, *, filed: date | None, granted_on: date | No
 #
 # The **motion** opens the entry, asks to dismiss or to affirm, and is filed by
 # an appellee: the filer clause ("of", "by" or "from", the party word within
-# three words) is required, so an appellant's own motion to dismiss its appeal
-# is not the answer to it. A ruling on the motion ("Motion to affirm GRANTED.")
-# carries no filer clause and is refused by word as well, and so is a motion to
-# dismiss that names a side question (an application, an intervention, a
-# rehearing petition).
+# three words, "intervenors-appellees" read as one) is required, so an
+# appellant's own motion to dismiss its appeal is not the answer to it. A
+# ruling on the motion ("Motion to affirm GRANTED.") carries no filer clause
+# and is refused by word as well, and so are a motion the Clerk did not accept
+# and a motion to dismiss that names a side question (an application, an
+# intervention, a rehearing petition).
 #
 # The **appellant's answer** opens on "opposition", "response", "reply", or a
 # brief or memorandum "in opposition" or "opposing", and is filed by an
@@ -640,7 +642,7 @@ _APPEAL_ANSWER_RE = re.compile(
     re.IGNORECASE,
 )
 _APPEAL_ANSWER_FILER_RE = re.compile(
-    r"\b(?:of|by|from)\s+(?:the\s+)?(?:\S+\s+){0,3}?appellees?\b", re.IGNORECASE
+    r"\b(?:of|by|from)\s+(?:the\s+)?(?:\S+\s+){0,3}?(?:[\w-]+-)?appellees?\b", re.IGNORECASE
 )
 _APPEAL_ANSWER_EXCLUDE_RE = re.compile(
     r"\bgranted\b|\bdenied\b|\bwithdrawn\b|\bnot\s+accepted\b|\bamic(?:us|i)\b"
@@ -653,7 +655,7 @@ _APPEAL_REPLY_RE = re.compile(
     re.IGNORECASE,
 )
 _APPEAL_REPLY_FILER_RE = re.compile(
-    r"\b(?:of|by|from|for)\s+(?:the\s+)?(?:\S+\s+){0,3}?appellants?\b", re.IGNORECASE
+    r"\b(?:of|by|from|for)\s+(?:the\s+)?(?:\S+\s+){0,3}?(?:[\w-]+-)?appellants?\b", re.IGNORECASE
 )
 _APPEAL_REPLY_MOTION_RE = re.compile(r"\bmotions?\b", re.IGNORECASE)
 _APPEAL_REPLY_SUBJECT_RE = re.compile(

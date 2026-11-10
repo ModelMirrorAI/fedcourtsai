@@ -76,6 +76,11 @@ def _kind_of(text: str, *, after_motion: bool = False) -> str | None:
         "Motion to affirm filed by appellees Common Cause, et al.",  # 18-422
         "Motion to affirm or dismiss filed by appellees Ted Cruz For Senate, et al.",  # 21-12
         "Motion to dismiss filed by  State Appellees'.",  # 18-281
+        "Motion to affirm filed by intervenors-appellees Alliance for Retired Americans, "
+        + "et al.",  # 26-205
+        "Motion to affirm filed by appellees Federal Respondents.",  # 26-205
+        "Motion to dismiss or affirm and supplemental appendix filed by appellees Eddie "
+        + "Rodriguez, et al.",  # 17-586
         "Motion to affirm filed by appellees New York et al. (Government Appellees)."
         + "  (Distributed)",  # 20-366
     ],
@@ -101,6 +106,9 @@ def test_an_appellees_motion_to_dismiss_or_affirm_joins_the_opposition_row(
         "Motion of appellees for leave to intervene and to dismiss filed.",
         # No filer named: nothing says whose motion it is.
         "Motion to dismiss filed.",
+        # Not accepted for filing (25-274).
+        "Motion of Evan Milligan, et al. to affirm not accepted for filing. (To be corrected "
+        + "- October 20, 2025)",
     ],
 )
 def test_other_motions_on_a_direct_appeal_are_not_the_opposition(entry_text: str) -> None:
@@ -121,6 +129,10 @@ def test_other_motions_on_a_direct_appeal_are_not_the_opposition(entry_text: str
         "Opposition to motion of appellants Linda Lamone, et al. filed.  (Distributed)",  # 18-726
         "Opposition to motion to affirm or dismiss filed by appellant Federal Election "
         + "Commission.",  # 21-12
+        "Opposition to motions to affirm from appellants University of South Florida College "
+        + "Republicans, et al. filed.  (Distributed)",  # 26-205
+        "Response to the motions to dismiss and affirm from appellants Louis Agre, et al. "
+        + "filed.",  # 17-1339
         "Reply of appellant Donald J. Trump, President of the United States, et al. filed.",
     ],
 )
