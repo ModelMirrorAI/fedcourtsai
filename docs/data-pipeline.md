@@ -606,7 +606,8 @@ case timeline, joined onto the big-case board as `schedule` (every upcoming
 date, earliest first) and `scheduled` (its conference entry): it is not a
 prediction-ledger record, since a schedule moves on every relist, reschedule and
 extension, and no cell is provisioned with it. The board row carries the dates alone, not the
-schedule's `as_of`, so the daily board moves only when a case's date does. A
+schedule's `as_of`, so the daily board moves only when a case's date or the Court's next
+conference day does. A
 failed build warns and leaves the committed file as it was (the new file is
 written beside it and renamed over it); it never fails the poll. `fedcourts schedule` rebuilds it by hand from
 a pulled corpus.
@@ -622,7 +623,7 @@ every distribution row behind them, with each document's URL and SHA-256. The
 schedule reads it for one field, `court_next_conference`, the Court's first
 conference on or after `as_of`, set even when no public docket is distributed
 for that day. The big-case board copies that field above its rows, with the
-count of its cases distributed for that day, which is where the public site
+count of its rows distributed for that day so far, which is where the public site
 reads it. It fails closed: a served schedule that
 does not parse whole (for instance an unrecognised line, a title naming another
 Term, a conference outside the Term's window, a row distributed on or after its

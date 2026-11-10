@@ -13287,7 +13287,9 @@ class BigCaseBoard(_Strict):
         ge=0,
         description="How many rows carry a `scheduled` conference on "
         "`court_next_conference`: the board's cases distributed for the Court's next "
-        "conference. None exactly when `court_next_conference` is. Display-only",
+        "conference so far, not the Court's conference list: a case off the board is not "
+        "counted, and a relisted case joins only once its redistribution is docketed. None "
+        "exactly when `court_next_conference` is. Display-only",
     )
     process_scope: Literal["frozen", "all"] = Field(
         default="all",
@@ -13405,7 +13407,7 @@ class BigCaseBoard(_Strict):
     @model_validator(mode="after")
     def _the_next_conference_travels_with_its_count(self) -> BigCaseBoard:
         """The court-wide conference needs `1.5`, and its row count is set exactly with it."""
-        if self.schema_version in ("1.3", "1.4") and self.court_next_conference is not None:
+        if self.schema_version != "1.5" and self.court_next_conference is not None:
             raise ValueError("court_next_conference needs 1.5")
         if (self.court_next_conference is None) != (self.cases_at_court_next_conference is None):
             raise ValueError(

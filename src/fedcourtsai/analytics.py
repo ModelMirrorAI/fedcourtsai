@@ -4224,8 +4224,10 @@ _BIG_CASE_SCHEDULE_RULE = (
     "published case distribution schedule, set whether or not any case on the board is "
     "distributed for it, and null where the schedule carries none; "
     "`cases_at_court_next_conference` counts the rows whose `scheduled` conference is that "
-    "day. Both follow the same reader rule: a day that has since passed is dropped, not shown "
-    "as upcoming."
+    "day: the board's rows distributed for it so far, not the Court's conference list, since "
+    "a case off the board is not counted and a relisted case joins only once its "
+    "redistribution is docketed. Both follow the same reader rule: a day that has since "
+    "passed is dropped, not shown as upcoming."
 )
 
 

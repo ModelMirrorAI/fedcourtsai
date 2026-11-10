@@ -892,7 +892,7 @@
         }
       ],
       "default": null,
-      "description": "How many rows carry a `scheduled` conference on `court_next_conference`: the board's cases distributed for the Court's next conference. None exactly when `court_next_conference` is. Display-only",
+      "description": "How many rows carry a `scheduled` conference on `court_next_conference`: the board's cases distributed for the Court's next conference so far, not the Court's conference list: a case off the board is not counted, and a relisted case joins only once its redistribution is docketed. None exactly when `court_next_conference` is. Display-only",
       "title": "Cases At Court Next Conference"
     },
     "cases_out_of_scope": {

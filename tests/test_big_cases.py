@@ -1631,6 +1631,7 @@ def test_no_schedule_and_an_unreadable_one_both_leave_every_row_unscheduled(
     path.write_text("{not json")
     board = _board(tmp_path)
     assert board.rows[0].scheduled is None
+    assert (board.court_next_conference, board.cases_at_court_next_conference) == (None, None)
     assert board.provenance is not None
     assert board.provenance.schedule_rule is not None
     assert "never a ledger record" in board.provenance.schedule_rule
