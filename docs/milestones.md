@@ -43,9 +43,11 @@ release between them measures the Court's record itself:
 None of the releases depends on the funding below. Funding changes how much of
 the docket, how many moments, and how many models each release covers.
 
-Between releases, the site's email list carries two optional updates a
-subscriber chooses: a **weekly SCOTUS update** (what resolved against what each
-model forecast, and the forecasts newly committed) and a weekly **AI-cases
+Between releases, the site's email list carries three optional updates a
+subscriber chooses: a **weekly Court update** (what the Court decided and did
+on the cases the ledger follows, with no forecast in it), the **weekly
+forecasts** (what resolved against what each model forecast, and the forecasts
+newly committed) and a weekly **AI-cases
 feed** (new rulings and major filings on the AI-case watchlist below, each
 linked to the public docket). Each update's body is rendered from committed
 data, and each send is a draft a person approves; neither update is scored.

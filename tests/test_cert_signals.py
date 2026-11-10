@@ -1677,6 +1677,28 @@ def test_a_direct_appeals_non_plenary_exit_reads_on_the_not_granted_side(
     assert matched[0] not in GRANTED_DISPOSITIONS
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        # No. 25-274, vacated for reconsideration under an intervening decision.
+        "Judgment VACATED and case REMANDED for further consideration in light of "
+        + "<i>Louisiana</i>  v. <i>Callais</i>, 608 U. S. ___ (2026). The judgment will be "
+        + "issued forthwith pursuant to Rule 45.3.",
+        # A Munsingwear vacatur: the judgment below is vacated because the case is moot.
+        "The judgment is vacated, and the case is remanded to the United States District "
+        + "Court for the Northern District of Alabama with instructions to dismiss the case "
+        + "as moot. See United States v. Munsingwear, Inc., 340 U. S. 36 (1950).",
+    ],
+)
+def test_a_vacatur_on_a_direct_appeal_takes_the_ordinary_gvr_reading(text: str) -> None:
+    # Only "The appeal is DISMISSED AS MOOT" is the exit table's mootness row;
+    # an order that vacates the judgment and remands reads as it does on a
+    # petition, whatever the reason for the vacatur.
+    matched = match_disposition_signal(text, direct_appeal_exit=True)
+    assert matched is not None
+    assert matched[0] == Disposition.gvr
+
+
 def test_an_appeal_dismissed_as_moot_carries_the_mootness_basis() -> None:
     text = "The appeal is dismissed as moot."
     assert mootness_disposition(text, direct_appeal_exit=True)

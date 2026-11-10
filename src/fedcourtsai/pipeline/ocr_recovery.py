@@ -1,8 +1,10 @@
 """The bounded local-OCR recovery pass for scanned filings.
 
-A SCOTUS filing that reached the corpus as a paper scan has no text layer, so
-`pypdf` extracted nothing from it and every cell minted over that case reads it
-empty — a degradation that persists for as long as the docket keeps serving the
+A SCOTUS filing that reached the corpus as a paper scan has no text layer, or a
+layer that holds only what was typed over the scan (a letterhead, a page
+stamp), so `pypdf` extracted nothing or next to nothing from it and every cell
+minted over that case reads it empty or as a few stray lines — a degradation
+that persists for as long as the docket keeps serving the
 same URL, since both the poller and the Term walker re-fetch a kind only when
 its link changes. Nothing in the fetching lanes repairs it. This is the pass
 that does, on the terms recorded in *Contract for the recovery pass*
@@ -10,7 +12,10 @@ that does, on the terms recorded in *Contract for the recovery pass*
 
 - **Population.** Stored rows of a :data:`RECOVERABLE_KINDS` kind — every kind
   a cell reads that was fetched as a PDF — whose text is empty or
-  whitespace-only, whose `pages` is above zero, and whose stored URL is one
+  whitespace-only, or thin (:func:`is_thin_text`: under
+  :data:`~fedcourtsai.pipeline.documents.THIN_PAGE_CHARS` characters a page on
+  average, on a row that is whole and that OCR has not read), whose `pages` is
+  above zero, and whose stored URL is one
   link. A zero-page row is a PDF the extractor could not open or a derived
   section, and neither is OCR's to repair; a case holding no row of a kind at
   all is a fetch gap, repaired in the fetch path or not at all; a row whose URL
@@ -21,13 +26,16 @@ that does, on the terms recorded in *Contract for the recovery pass*
   so the pass spends none of the CourtListener budget.
 - **OCR.** Page by page through :func:`~fedcourtsai.pipeline.documents.extract_pdf_text`'s
   injected ``ocr_page`` seam, which reads a page off its rendered image *only*
-  where that page's own extraction yielded nothing. The extractor applies the
+  where that page's own extraction is blank or thin, and keeps a thin page's
+  text layer unless the image reads at least twice as long. The extractor applies the
   same character cap and sets the same truncation flag it applies to a fetched
   document — the plain head cut: a recovered petition, application or appendix
   is not cut the appendix-aware way (:func:`~fedcourtsai.pipeline.documents.extract_filing_text`
   says why).
-- **Additive.** Text is written only where the stored row held none, so the
-  pass cannot overwrite an extraction, and a write carries the ``ocr_derived``
+- **Additive.** A reading is written only where it is longer than the text
+  the row stores and leaves the row out of the class (:func:`gains_on`; a
+  reading that does not is ``no-gain``, and nothing is written), so the
+  pass cannot shorten an extraction, and a write carries the ``ocr_derived``
   marker wherever OCR contributed any of its text: OCR output is derived text,
   lossy in a way a text layer is not, and must never read as a clean
   extraction. (A candidate whose re-fetch now serves a PDF with a text layer is
@@ -79,10 +87,12 @@ from pydantic import BaseModel, ConfigDict, Field
 from .. import corpus, supremecourt
 from ..supremecourt import SupremeCourtClient
 from .documents import (
+    _BIO_BLOCK_HEADER_RE,
     BIO_URL_JOIN,
     FETCHED_DOCUMENT_KINDS,
     KIND_PETITION,
     KIND_QUESTIONS_PRESENTED,
+    THIN_PAGE_CHARS,
     ExtractedText,
     OcrPage,
     _derived_questions_document,
@@ -201,6 +211,11 @@ DEFAULT_PROBE_SAMPLE = 3
 # both report them and a reader matches on the words.
 BUDGET_EXHAUSTED = "budget-exhausted"
 EMPTY_AFTER_OCR = "empty-after-ocr"
+# The third: a re-reading that is no longer than the text the row already
+# stores, or that would leave the row in the class (:func:`gains_on`). The filing
+# is sparse rather than scanned, or OCR read no more off its images than the
+# layer holds; either way the stored text stands.
+NO_GAIN = "no-gain"
 
 
 class OcrToolsMissing(RuntimeError):
@@ -409,9 +424,16 @@ class OcrRecoveryResult(BaseModel):
     )
     candidates: int = Field(
         ge=0,
-        description="Stored rows of a recoverable kind whose text is empty or "
-        "whitespace-only, whose page count is above zero and whose stored URL is one "
-        "link — the whole recoverable class on this corpus",
+        description="Stored rows of a recoverable kind whose text is empty, "
+        "whitespace-only or thin, whose page count is above zero and whose stored URL "
+        "is one link — the whole recoverable class on this corpus",
+    )
+    thin_text: int = Field(
+        default=0,
+        ge=0,
+        description="Of `candidates`, the rows that hold some text but average under "
+        "the thin-page floor of characters a page: a text layer carrying a letterhead "
+        "or page stamps over scanned pages",
     )
     candidates_by_kind: dict[str, int] = Field(
         default_factory=dict,
@@ -455,7 +477,8 @@ class OcrRecoveryResult(BaseModel):
     )
     unfetched: dict[str, int] = Field(
         default_factory=dict,
-        description="Candidates the re-fetch did not return, reason class -> count",
+        description="Candidates the re-fetch did not return, or whose reading was "
+        "cut short or gained nothing, reason class -> count",
     )
     remaining: int = Field(
         ge=0,
@@ -502,20 +525,55 @@ def is_set_keyed_url(url: str) -> bool:
 SET_KEYED_EXCLUSION = "set-keyed"
 
 
+def is_thin_text(document: corpus.CaseDocument) -> bool:
+    """Whether a stored row holds some text, but too little to be its filing.
+
+    A scan can carry a small text layer: a letterhead typed above a scanned
+    letter body, a page stamp on every scanned page. Such a row is not empty,
+    so provisioning does not stamp it ``empty_text`` and a cell reads a few
+    stray lines as the whole filing. The test is the average over the row's
+    pages against :data:`~fedcourtsai.pipeline.documents.THIN_PAGE_CHARS`, where
+    that constant's comment gives the count it was sized on.
+
+    Four rows are never thin whatever they average. A **truncated** row stores
+    a cap's worth of a longer filing while ``pages`` counts all of it, so its
+    average says nothing about its pages. An **``ocr_derived``** row is one the
+    recovery already read whole, so a thin reading of it is what the images
+    hold, and keeping it in the class would spend a slot on it every rotation.
+    A row carrying a **per-filing header** is a combined row: its text includes
+    the headings the pipeline wrote, so a header over a scanned filing is not a
+    thin text layer, and a recovery would store the reading without the header
+    provisioning cuts the row on. That covers a set-keyed row, which this pass
+    does not re-fetch either, and a group of which one filing was fetched, which
+    is stored under its header at that one link.
+    """
+    chars = len(document.text.strip())
+    return (
+        chars > 0
+        and document.pages > 0
+        and not document.truncated
+        and not document.ocr_derived
+        and not is_set_keyed_url(document.url)
+        and _BIO_BLOCK_HEADER_RE.search(document.text) is None
+        and chars < THIN_PAGE_CHARS * document.pages
+    )
+
+
 def exclusion_reason(document: corpus.CaseDocument) -> str | None:
     """Why this row is out of the recovery class, or ``None`` if it is in it.
 
     The population predicate, in one place and stated as reasons rather than a
     conjunction, so the count of what was excluded cannot drift from the test
     that excluded it. Whitespace-only counts as empty (it is what the coverage
-    report counts, and what provisioning stamps as ``empty_text``); ``pages > 0``
+    report counts, and what provisioning stamps as ``empty_text``), and a row
+    with thin text is in the class beside it (:func:`is_thin_text`); ``pages > 0``
     is what separates a scan from a PDF the extractor could not open, which is
     not OCR's to repair; and the row has to be one this pass can re-fetch by its
     stored URL.
     """
     if document.kind not in RECOVERABLE_KINDS:
         return "not-a-fetched-kind"
-    if document.text.strip():
+    if document.text.strip() and not is_thin_text(document):
         return "has-text"
     if document.pages <= 0:
         return "no-pages"
@@ -527,6 +585,25 @@ def exclusion_reason(document: corpus.CaseDocument) -> str | None:
 def is_recoverable_scan(document: corpus.CaseDocument) -> bool:
     """Whether this stored row is in the recovery class (:func:`exclusion_reason`)."""
     return exclusion_reason(document) is None
+
+
+def gains_on(stored: corpus.CaseDocument, recovered: corpus.CaseDocument) -> bool:
+    """Whether writing ``recovered`` over ``stored`` is a recovery.
+
+    Two conditions, and both writers hold a row to them. The reading is longer
+    than the text the row stores, so a write never shortens a row. And the row
+    it leaves is out of the class: every ledger counts what is left as the
+    class less what was written, and the dispatched writer's witness re-reads
+    the class to that number. The second bites on one shape only, a reading OCR
+    contributed nothing to that is itself thin: the same sparse text layer,
+    served again. It is a ledger invariant and no bound on a forged plan, whose
+    row is marked ``ocr_derived`` and so always leaves the class: against one,
+    the first condition is the whole test.
+    """
+    return (
+        len(recovered.text.strip()) > len(stored.text.strip())
+        and exclusion_reason(recovered) is not None
+    )
 
 
 def fetchable_document_url(url: str) -> bool:
@@ -576,6 +653,14 @@ class ScannedDocument:
         would collapse two recoveries into one entry and undercount the slice.
         """
         return f"{self.document.case_id} {self.document.kind}"
+
+    @property
+    def stored_chars(self) -> int:
+        """How much text the stored row holds: zero, or a thin row's few lines.
+
+        What a re-reading has to exceed to be worth writing (:data:`NO_GAIN`).
+        """
+        return len(self.document.text.strip())
 
 
 def estimated_candidate_seconds(candidate: ScannedDocument) -> float:
@@ -708,6 +793,11 @@ def _count_by_kind(candidates: Sequence[ScannedDocument]) -> dict[str, int]:
         kind = candidate.document.kind
         counts[kind] = counts.get(kind, 0) + 1
     return _in_kind_order(counts)
+
+
+def thin_text_count(candidates: Sequence[ScannedDocument]) -> int:
+    """How many of the class hold thin text rather than none (:func:`is_thin_text`)."""
+    return sum(1 for candidate in candidates if is_thin_text(candidate.document))
 
 
 def spread_sample(candidates: Sequence[ScannedDocument], size: int) -> list[ScannedDocument]:
@@ -908,6 +998,7 @@ def read_scanned_document(
     *,
     char_cap: int,
     ocr_page_factory: OcrPageFactory,
+    stored_chars: int = 0,
 ) -> tuple[ExtractedText | None, str | None]:
     """Re-fetch one candidate and read its pages; the text, or ``None`` and why not.
 
@@ -917,7 +1008,11 @@ def read_scanned_document(
     are the ledger's: a refused or failed re-fetch (:func:`_refetch_document`),
     ``budget-exhausted`` for a recognition the document budget cut short — a
     partial reading, which nothing downstream would mark as one, so it is never
-    returned — and ``empty-after-ocr`` for a scan whose images read as nothing.
+    returned — ``empty-after-ocr`` for a scan whose images read as nothing, and
+    ``no-gain`` for a reading no longer than the ``stored_chars`` the row
+    already holds (a thin row's; zero for an empty one), or a thin row's
+    reading that OCR contributed nothing to. The writers hold a
+    reading to :func:`gains_on` as well, against the stored row.
     """
     data, refused = _refetch_document(client, document)
     if data is None:
@@ -928,6 +1023,15 @@ def read_scanned_document(
         return None, BUDGET_EXHAUSTED
     if not extracted.text.strip():
         return None, EMPTY_AFTER_OCR
+    if len(extracted.text.strip()) <= stored_chars:
+        return None, NO_GAIN
+    if stored_chars and not extracted.ocr_derived:
+        # A thin row is recovered by OCR or not at all. A longer reading OCR
+        # contributed nothing to is the link serving a different text layer
+        # than the one stored, which is the fetching lane's to re-read; and the
+        # standing sweep's writer refuses a whole plan over a row not marked
+        # `ocr_derived`, so handing it one would cost the window.
+        return None, NO_GAIN
     return extracted, None
 
 
@@ -967,6 +1071,7 @@ def class_reading(
         applied=False,
         documents_seen=scan.documents_seen,
         candidates=len(scan.candidates),
+        thin_text=thin_text_count(scan.candidates),
         candidates_by_kind=_count_by_kind(scan.candidates),
         set_keyed=scan.set_keyed,
         # A dry run is unbounded whatever it was handed: it writes nothing,
@@ -1056,9 +1161,10 @@ def recover_scanned_documents(  # noqa: PLR0913 - keyword-only; slice deadline +
     backstop for, and keeping that cap a backstop rather than the routine end of
     a heavy slice is the whole arrangement.
 
-    Additive on the stored row. A candidate whose re-fetch fails, or whose pages
-    OCR to nothing, is *counted and named* and nothing is written for it: the
-    stored row keeps the empty text it had, stays in the class, and re-enters the
+    Additive on the stored row. A candidate whose re-fetch fails, whose pages
+    OCR to nothing, or whose reading is no longer than the thin text it already
+    stores, is *counted and named* and nothing is written for it: the
+    stored row keeps the text it had, stays in the class, and re-enters the
     next slice — which is also the pass's one non-advancing case, and why the
     ledger reports ``empty_after_ocr`` apart from the candidates the slice never
     reached — as does every candidate the re-fetch did not return, and every one
@@ -1134,7 +1240,11 @@ def recover_scanned_documents(  # noqa: PLR0913 - keyword-only; slice deadline +
                 break
         document = candidate.document
         extracted, reason = read_scanned_document(
-            client, document, char_cap=char_cap, ocr_page_factory=ocr_page_factory
+            client,
+            document,
+            char_cap=char_cap,
+            ocr_page_factory=ocr_page_factory,
+            stored_chars=candidate.stored_chars,
         )
         if reason == EMPTY_AFTER_OCR:
             # Re-fetched and read, and the images yielded nothing: an unreadable
@@ -1144,10 +1254,11 @@ def recover_scanned_documents(  # noqa: PLR0913 - keyword-only; slice deadline +
             failures[candidate.key] = EMPTY_AFTER_OCR
             continue
         if extracted is None:
-            # A failed re-fetch, or a partial reading the document budget cut
+            # A failed re-fetch, a partial reading the document budget cut
             # short — `truncated` is the character cap's flag, not this one's,
-            # so a filing cut off at page 90 would read as the whole filing.
-            # The candidate keeps its empty text and stays in the class.
+            # so a filing cut off at page 90 would read as the whole filing —
+            # or a thin row's reading that gained nothing.
+            # The candidate keeps the text it had and stays in the class.
             lose(candidate.key, reason or "not-served")
             continue
         recovered = document.model_copy(
@@ -1159,6 +1270,9 @@ def recover_scanned_documents(  # noqa: PLR0913 - keyword-only; slice deadline +
                 "fetched_at": today,
             }
         )
+        if not gains_on(document, recovered):
+            lose(candidate.key, NO_GAIN)
+            continue
         updates = [
             recovered,
             *_rederived_questions(recovered, candidate.stored_questions, today=today),
@@ -1170,11 +1284,13 @@ def recover_scanned_documents(  # noqa: PLR0913 - keyword-only; slice deadline +
             f"pages={extracted.pages} chars={len(extracted.text)} "
             f"truncated={str(extracted.truncated).lower()} "
             f"ocr_derived={str(extracted.ocr_derived).lower()}"
+            + (f" replaced={candidate.stored_chars}" if candidate.stored_chars else "")
         )
     return OcrRecoveryResult(
         applied=True,
         documents_seen=scan.documents_seen,
         candidates=len(candidates),
+        thin_text=thin_text_count(candidates),
         candidates_by_kind=by_kind,
         set_keyed=scan.set_keyed,
         bound=max_cases,

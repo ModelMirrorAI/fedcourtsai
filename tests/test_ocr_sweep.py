@@ -30,11 +30,13 @@ from fedcourtsai.pipeline.documents import (
     BIO_URL_JOIN,
     KIND_APPLICATION,
     KIND_CERT_REPLY,
+    KIND_PARTY_LETTER,
     KIND_PETITION,
     KIND_QUESTIONS_PRESENTED,
 )
 from fedcourtsai.pipeline.ocr_recovery import (
     EMPTY_AFTER_OCR,
+    NO_GAIN,
     OcrPageFactory,
     OcrRun,
     ScannedDocument,
@@ -75,6 +77,14 @@ _OCR_TEXT = (
     "conduct wholly outside the United States.\n"
     "PARTIES TO THE PROCEEDING\nAcme Corp."
 )
+
+
+# A text layer that is the filing: well past the thin floor on `_document`'s
+# twelve pages, so the row is out of the class as a filing that extracted.
+_EXTRACTED = "The petition argues X. " * 200
+
+# A text layer that is not: a letterhead above a scanned letter body.
+_LETTERHEAD = "Smith and Jones LLP\nOne Main Street, Springfield\nCounsel of Record"
 
 
 def _document(
@@ -352,14 +362,14 @@ def test_the_selection_reads_the_class_and_slices_it(tmp_path: Path) -> None:
         [
             _document("scotus/1"),
             _document("scotus/2", KIND_APPLICATION, fetched_at=_FRESH),
-            _document("scotus/3", text="extracted"),
+            _document("scotus/3", text=_EXTRACTED),
             _document("scotus/4", pages=0),
         ],
         events=[_open_event("scotus/2")],
     )
     with corpus.connect(db) as conn:
         selection = sweep_selection(conn, cap=1, now=_NOW)
-    assert selection.class_size == 2
+    assert selection.class_size == 2 and selection.thin_size == 0
     assert selection.forward_size == 1
     assert selection.class_by_kind == {KIND_PETITION: 1, KIND_APPLICATION: 1}
     assert _keys(selection.slice) == ["scotus/2 application"]
@@ -415,6 +425,51 @@ def test_the_parse_discards_a_partial_or_empty_reading() -> None:
         )
     assert cut.rows == [] and cut.failures == {"scotus/1 petition": "budget-exhausted"}
     assert blank.rows == [] and blank.failures == {"scotus/1 petition": "empty-after-ocr"}
+
+
+def test_a_letterhead_only_row_crosses_with_its_character_count(tmp_path: Path) -> None:
+    """The worklist carries how much text the row stores, as a count and no text.
+
+    The parse holds no corpus, so the count is what lets it tell a reading that
+    gained from one that did not.
+    """
+    letter = _document("scotus/1", KIND_PARTY_LETTER, text=_LETTERHEAD, pages=1)
+    db = _seed(tmp_path / "corpus", [letter, _document("scotus/2")])
+    with corpus.connect(db) as conn:
+        selection = sweep_selection(conn, cap=5, now=_NOW)
+        dispatched = dispatched_worklist(
+            conn, scanned_documents(conn).candidates, max_cases=5, probe=0
+        )
+    assert selection.class_size == 2 and selection.thin_size == 1
+    for worklist in (sweep_worklist(selection, cap=5), dispatched):
+        assert {item.key: item.chars for item in worklist.items} == {
+            "scotus/1 party-letter": len(_LETTERHEAD),
+            "scotus/2 petition": 0,
+        }
+        assert _LETTERHEAD not in worklist.model_dump_json()
+
+
+def test_the_parse_names_a_thin_rows_reading_that_gained_nothing() -> None:
+    """No longer than the stored count is `no-gain`; longer is a plan row."""
+    letter = _document("scotus/1", KIND_PARTY_LETTER, text=_LETTERHEAD, pages=1)
+    item = OcrWorkItem(
+        case_id=letter.case_id,
+        kind=letter.kind,
+        url=letter.url,
+        pages=1,
+        forward=True,
+        chars=len(_LETTERHEAD),
+    )
+    body = _LETTERHEAD + "\nDear Clerk: " + "the petitioner advises the Court. " * 6
+    with _client({item.url: _blank_pdf()}) as client:
+        same = plan_worklist(
+            client, _worklist(item), char_cap=150_000, ocr_page_factory=_stub_ocr(_LETTERHEAD)
+        )
+        gained = plan_worklist(
+            client, _worklist(item), char_cap=150_000, ocr_page_factory=_stub_ocr(body)
+        )
+    assert same.rows == [] and same.failures == {"scotus/1 party-letter": NO_GAIN}
+    assert [row.text for row in gained.rows] == [body] and gained.failures == {}
 
 
 def test_the_parse_deadline_declines_the_rest_in_order() -> None:
@@ -548,7 +603,7 @@ _SET_KEY = (
 @pytest.mark.parametrize(
     ("stored", "outcome"),
     [
-        ({"text": "now extracted"}, "has-text"),
+        ({"text": _EXTRACTED}, "has-text"),
         ({"pages": 0}, "no-pages"),
         ({"url": _SET_KEY}, "set-keyed"),
         ({"text": "  \n\t "}, "written"),
@@ -573,6 +628,45 @@ def test_the_writer_holds_each_row_to_the_recovery_class(
         assert result.written == {}
         assert result.skipped == {"scotus/1 petition": outcome}
         assert _documents(db, "scotus/1")[KIND_PETITION].text != _OCR_TEXT
+
+
+def test_the_writer_replaces_thin_text_only_with_a_longer_reading(tmp_path: Path) -> None:
+    """The same test the parse made, against the row as it is stored at the write.
+
+    A forged or stale plan cannot shorten a row: a reading no longer than the
+    stored text is skipped as `no-gain` and the letterhead stands.
+    """
+    letter = _document("scotus/1", KIND_PARTY_LETTER, text=_LETTERHEAD, pages=1)
+    db = _seed(tmp_path / "corpus", [letter])
+    shorter = _apply(db, OcrPlan(rows=[_row(letter, "Smith and Jones")]))
+    assert shorter.written == {} and shorter.skipped == {"scotus/1 party-letter": NO_GAIN}
+    assert _documents(db, "scotus/1")[KIND_PARTY_LETTER].text == _LETTERHEAD
+
+    body = _LETTERHEAD + "\nDear Clerk: " + "the petitioner advises the Court. " * 6
+    longer = _apply(db, OcrPlan(rows=[_row(letter, body)]))
+    assert longer.skipped == {}
+    # The ledger marks a write that replaced text, with how much it replaced.
+    assert longer.written["scotus/1 party-letter"].endswith(f" replaced={len(_LETTERHEAD)}")
+    stored = _documents(db, "scotus/1")[KIND_PARTY_LETTER]
+    assert stored.text == body and stored.ocr_derived is True
+
+
+def test_the_dispatched_writer_skips_a_reading_that_would_leave_the_row_thin(
+    tmp_path: Path,
+) -> None:
+    """A write takes its row out of the class, or the witness count is wrong.
+
+    The dispatched pass stores a re-served text layer without the OCR marker.
+    Where that layer is itself thin the row would stay in the class after the
+    write, and the ledger's `remaining` would be one short of the re-read.
+    """
+    scan = _document("scotus/1", KIND_PARTY_LETTER, pages=1)
+    db = _seed(tmp_path / "corpus", [scan])
+    row = _row(scan, _LETTERHEAD).model_copy(update={"ocr_derived": False})
+    plan = OcrPlan(rows=[row])
+    result = _dispatched_apply(db, plan, _bound(plan))
+    assert result.written == {} and result.skipped == {"scotus/1 party-letter": NO_GAIN}
+    assert _documents(db, "scotus/1")[KIND_PARTY_LETTER].text == ""
 
 
 def test_the_writer_skips_a_row_whose_link_moved_or_vanished(tmp_path: Path) -> None:
@@ -1110,7 +1204,7 @@ def test_the_dispatched_writer_stores_what_the_dispatched_pass_stored(tmp_path: 
     db = _seed(tmp_path / "corpus", [first, second])
     plan = OcrPlan(
         rows=[
-            _row(first).model_copy(update={"ocr_derived": False}),
+            _row(first, _EXTRACTED).model_copy(update={"ocr_derived": False}),
             _row(second).model_copy(update={"pages": 30}),
         ]
     )
@@ -1175,9 +1269,7 @@ def test_the_cli_dispatched_writer_ledgers_each_way_an_item_ends(
         unreached=["scotus/4 petition"],
     )
     with corpus.connect(db) as conn:
-        corpus.upsert_documents(
-            conn, [documents[4].model_copy(update={"text": "Gained a text layer."})]
-        )
+        corpus.upsert_documents(conn, [documents[4].model_copy(update={"text": _EXTRACTED})])
     plan_path, bound_path = tmp_path / "plan.json", tmp_path / "worklist.json"
     write_handoff(plan_path, plan)
     write_handoff(bound_path, bound)

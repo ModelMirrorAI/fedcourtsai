@@ -14,6 +14,7 @@ from tenacity import wait_none
 from typer.testing import CliRunner
 
 from fedcourtsai import ai_rulings, corpus, summaries
+from fedcourtsai.ai_activity import ACTIVITY_RULE
 from fedcourtsai.ai_cases_update import build_ai_cases_update, model_name, render_ai_cases_update
 from fedcourtsai.claude_auth import ApiKey
 from fedcourtsai.cli import app
@@ -105,7 +106,7 @@ def _activity(
 def _record_day(data_root: Path, day: date, entries: list[AiCaseActivityEntry]) -> None:
     write_json(
         data_root / "ai-cases/activity" / f"{day.isoformat()}.json",
-        AiCaseActivity(day=day, rule="ai-activity-v1", entries=entries),
+        AiCaseActivity(day=day, rule=ACTIVITY_RULE, entries=entries),
     )
 
 

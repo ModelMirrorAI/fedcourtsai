@@ -105,6 +105,8 @@ from .caption import _scored_segment
 # same entry.
 from .cert_signals import (
     cert_grant_date,
+    direct_appeal_exit_gates,
+    is_direct_appeal_docket,
     is_sg_invited_brief_entry,
     match_disposition_signal,
     sg_invited_brief_position,
@@ -592,6 +594,124 @@ def _is_cert_reply_entry(text: str, *, filed: date | None, granted_on: date | No
     return bool(_CERT_REPLY_RE.search(text)) and not _CERT_REPLY_EXCLUDE_RE.search(text)
 
 
+# A **direct appeal's answer papers**. On a mandatory-jurisdiction appeal there
+# is no brief in opposition and no cert reply: the appellee answers the
+# jurisdictional statement with a motion (Rule 18.6), and the appellant
+# answers the motion (Rule 18.8):
+#
+#   "Motion to dismiss or affirm filed by appellees Golden Bethune-Hill, et al."
+#   "Motion to affirm filed by appellees Common Cause, et al."
+#   "Motion to affirm or dismiss filed by appellees Ted Cruz For Senate, et al."
+#   "Motion to dismiss filed by State Appellees."
+#   "Motion to affirm filed by intervenors-appellees Alliance for Retired Americans, et al."
+#
+#   "Opposition to motion to dismiss or affirm of appellants … filed."
+#   "Opposition to appellees' motions to dismiss or affirm from appellants … filed."
+#   "Brief opposing motion to affirm from appellants … filed."
+#   "Response to motion to dismiss from appellants … filed."
+#   "Opposition to motion of appellants Linda Lamone, et al. filed."
+#   "Reply of appellant Donald J. Trump, President of the United States, et al. filed."
+#
+# They are the same two papers a cert cell reads, the other side's whole answer
+# and the last word on it, so the motion joins the combined opposition row and
+# the appellant's answer is stored as the cert-stage reply. The caller opens
+# both readings only where the docket's entries name the direct appeal's own
+# papers (:func:`cert_signals.is_direct_appeal_docket`), which is what keeps a
+# Rule 46 motion to dismiss, or a respondent's motion to dismiss the writ as
+# improvidently granted, out of an ordinary petition's opposition row. That
+# test reads entry text, so a petition whose entries mention a jurisdictional
+# statement is open to both, and the appellee filer clause is what such a
+# docket would still have to carry.
+#
+# The **motion** opens the entry, asks to dismiss or to affirm, and is filed by
+# an appellee: the filer clause ("of", "by" or "from", the party word within
+# three words, "intervenors-appellees" read as one) is required, so an
+# appellant's own motion to dismiss its appeal is not the answer to it. A
+# ruling on the motion ("Motion to affirm GRANTED.") carries no filer clause
+# and is refused by word as well, and so are a motion the Clerk did not accept
+# and a motion to dismiss that names a side question (an application, an
+# intervention, a rehearing petition).
+#
+# The **appellant's answer** opens on "opposition", "response", "reply", or a
+# brief or memorandum "in opposition" or "opposing", and is filed by an
+# appellant. Where it names a motion, the motion is the one to dismiss or
+# affirm, or is named bare ("Opposition to motion of appellants …"): a paper
+# naming any other motion (to expedite, for leave, to intervene, for divided
+# argument) is collateral practice, and so is a response to an order or to a
+# suggestion of mootness. A paper whose own opening names an appellee as its
+# filer ("Reply of appellees to opposition of appellants …") is the other
+# side's, as a motion opening on an appellant is. The caller adds the order: it is read only
+# after an appellee's motion on the same docket, before the Court notes
+# jurisdiction, and before the first disposition entry.
+_APPEAL_ANSWER_RE = re.compile(
+    r"^\s*motions?\s+(?:(?:of|by|from)\s+[^.;]{1,120}?\s+)?to\s+(?:dismiss|affirm)\b",
+    re.IGNORECASE,
+)
+_APPEAL_ANSWER_FILER_RE = re.compile(
+    r"\b(?:of|by|from)\s+(?:the\s+)?(?:\S+\s+){0,3}?(?:[\w-]+-)?appellees?\b", re.IGNORECASE
+)
+_APPEAL_ANSWER_EXCLUDE_RE = re.compile(
+    r"\bgranted\b|\bdenied\b|\bwithdrawn\b|\bnot\s+accepted\b|\bamic(?:us|i)\b"
+    r"|\bapplication\b|\bintervene|\brehearing\b|\bcomplaint\b"
+    r"|^\s*motions?\s+(?:of|by|from)\s+(?:the\s+)?(?:\S+\s+){0,3}?(?:[\w-]+-)?appellants?\b",
+    re.IGNORECASE,
+)
+_APPEAL_REPLY_RE = re.compile(
+    r"^\s*(?:(?:brief|memorandum)\b(?=.*\b(?:in\s+opposition|opposing)\b)"
+    r"|opposition\b|response\b|reply\b)",
+    re.IGNORECASE,
+)
+_APPEAL_REPLY_FILER_RE = re.compile(
+    r"\b(?:of|by|from|for)\s+(?:the\s+)?(?:\S+\s+){0,3}?(?:[\w-]+-)?appellants?\b", re.IGNORECASE
+)
+_APPEAL_REPLY_MOTION_RE = re.compile(r"\bmotions?\b", re.IGNORECASE)
+_APPEAL_REPLY_SUBJECT_RE = re.compile(
+    r"\bmotions?\s+(?:(?:of|by|from)\s+[^.;]{1,120}?\s+)?to\s+(?:dismiss|affirm)\b"
+    r"|\bmotions?\s+(?:of|from|filed\b)",
+    re.IGNORECASE,
+)
+_APPEAL_REPLY_EXCLUDE_RE = re.compile(
+    r"\bamic(?:us|i)\b|\brehearing\b|\bsupplement|\bapplication\b|\bletter\b"
+    r"|\bnot\s+accepted\b|\bexpedite|\bleave\b|\bintervene|\bstay\b|\bargument\b"
+    r"|\border\b|\bsuggestion\b|\bmootness\b"
+    r"|^\s*(?:\S+\s+){1,3}?(?:of|by|from|for)\s+(?:the\s+)?(?:\S+\s+){0,3}?(?:[\w-]+-)?appellees?\b",
+    re.IGNORECASE,
+)
+
+
+def _is_appeal_answer_entry(text: str) -> bool:
+    """Whether an entry is an appellee's motion to dismiss or affirm, docket and stage aside.
+
+    The caller reads it only on a direct-appeal docket and bounds it to the
+    stage the way the opposition is bounded (:func:`_is_post_grant`, with the
+    noting of probable jurisdiction standing where the grant does).
+    """
+    return bool(
+        _APPEAL_ANSWER_RE.search(text)
+        and _APPEAL_ANSWER_FILER_RE.search(text)
+        and _BIO_VERB_RE.search(text)
+        and not _APPEAL_ANSWER_EXCLUDE_RE.search(text)
+    )
+
+
+def _is_appeal_reply_entry(text: str) -> bool:
+    """Whether an entry is the appellant's answer to a motion to dismiss or affirm.
+
+    Docket, stage and order aside: the caller reads it only on a direct-appeal
+    docket, after an appellee's motion, before jurisdiction is noted and before
+    the first disposition entry.
+    """
+    if not (
+        _APPEAL_REPLY_RE.search(text)
+        and _APPEAL_REPLY_FILER_RE.search(text)
+        and _BIO_VERB_RE.search(text)
+    ):
+        return False
+    if _APPEAL_REPLY_EXCLUDE_RE.search(text):
+        return False
+    return not _APPEAL_REPLY_MOTION_RE.search(text) or bool(_APPEAL_REPLY_SUBJECT_RE.search(text))
+
+
 # The party word the two combined cert-stage arms below read a filer by: either
 # side of a cert-form docket, a direct appeal's appellant and appellee included.
 # An applicant is not one — those arms are cert-stage and an application has no
@@ -903,6 +1023,30 @@ class ExtractedText:
 # a raising renderer must cost its own page, never the digital pages beside it.
 OcrPage = Callable[[int], str]
 
+# The text-layer floor, in characters on one page, under which a page counts as
+# an image the layer does not carry. A filing set as a scan often still has a
+# little text on each page: a letterhead above a scanned letter body, a page
+# stamp, a filing banner. Such a page is not blank, so "no text at all" misses
+# it. The floor does two jobs with one number. Per page, it is where the
+# extractor asks a supplied OCR seam for a second reading (`_read_pages`). Per
+# document, as an average over its pages, it is where a stored row joins the
+# OCR recovery class (`ocr_recovery.is_thin_text`).
+#
+# Sized on the stored documents of the index blob of 2026-11-10 (sha a5137ed9),
+# live slice, fetched kinds, rows with pages and one link and not cut at the
+# cap (37,707 rows): 1,015 have no text; 232 have some and average under 200
+# characters a page; 137 average 200 to 300; 267 average 300 to 400; and
+# typeset pages run past 1,000. A sample of the Court's own PDFs under 200 was
+# blank or image pages throughout, with at most a few pages of real text each;
+# from 200 to 300 it was mixed; and from 300 up it was mostly short petitions
+# with a little text on every page, a real layer OCR adds nothing to. The floor
+# sits at the low end of that, where a row in the class is a scan.
+THIN_PAGE_CHARS = 200
+
+# How many times longer than a thin page's own text layer an OCR reading must
+# be before it replaces that layer.
+THIN_PAGE_GAIN = 2
+
 
 def _entry_link(
     entry: Mapping[str, Any], *, prefer: tuple[str, ...], fallback: bool = True
@@ -1056,12 +1200,20 @@ def select_documents(
       ``brief-in-opposition`` document. A respondent's brief is read in the
       Court's "Brief for the respondent(s)", "Response of respondent(s)" and
       Solicitor General's "Memorandum of respondent United States" spellings
-      as well (:func:`_is_bio_entry`).
+      as well (:func:`_is_bio_entry`). On a **direct appeal**
+      (:func:`cert_signals.is_direct_appeal_docket`) every appellee's **motion
+      to dismiss or affirm** (:func:`_is_appeal_answer_entry`) joins the same
+      row, from its ``Main Document`` link alone: it is the answer to the
+      jurisdictional statement, read before jurisdiction is noted and before
+      any disposition entry.
     - The **petitioner's cert-stage reply** (:func:`_is_cert_reply_entry`),
       stored as ``cert-reply``: the first reply of the petitioner filed before
       the grant and before any disposition entry, from its ``Main Document``
       link alone. The merits reply arm below reads the same words after the
-      grant; the date is the only thing between them.
+      grant; the date is the only thing between them. On a direct appeal the
+      **appellant's answer to the motion to dismiss or affirm**
+      (:func:`_is_appeal_reply_entry`) is stored under the same kind: the
+      first one after an appellee's motion, on the same bounds.
     - The **Solicitor General's invited brief**
       (:func:`cert_signals.sg_invited_brief_position`), stored as
       ``sg-invited-brief``: the first brief for the United States as amicus
@@ -1185,6 +1337,20 @@ def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:  # noqa: PLR09
     # Positions count the mapping entries alone, as `proceedings_entries` does.
     sg_position = sg_invited_brief_position(payload)
     term = _application_term(payload)
+    # A direct appeal's answer papers are read only on a docket that carries
+    # the appeal's own papers, and the appellant's answer only once an
+    # appellee's motion has been read above it.
+    texts = [
+        str(entry.get("Text") or "")
+        for entry in payload.get("ProceedingsandOrder") or []
+        if isinstance(entry, Mapping)
+    ]
+    direct_appeal = is_direct_appeal_docket(texts)
+    # A direct appeal's summary exits (an affirmance, a dismissal for want of
+    # jurisdiction) dispose of it as a denial does a petition, and are read
+    # only where the docket-level gate opens them: all closed on a petition.
+    exit_gates = direct_appeal_exit_gates(texts)
+    appeal_answered = False
     position = -1
     for entry in payload.get("ProceedingsandOrder") or []:
         if not isinstance(entry, Mapping):
@@ -1193,6 +1359,15 @@ def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:  # noqa: PLR09
         text = str(entry.get("Text") or "")
         entry_date = str(entry.get("Date") or "") or None
         filed = _parse_entry_date(entry_date)
+        # Read ahead of the opposition arm, which would otherwise take an
+        # appellant's "Brief in opposition to motion to affirm" into the
+        # appellees' row. A second answer is dropped rather than left to it.
+        appeal_reply = (
+            appeal_answered
+            and not disposed
+            and not _is_post_grant(filed, granted_on)
+            and _is_appeal_reply_entry(text)
+        )
         if petition is None and _CASE_OPENING_ENTRY_RE.search(text):
             found = _entry_link(entry, prefer=_CASE_OPENING_LINK_LABELS)
             if found is not None:
@@ -1223,7 +1398,14 @@ def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:  # noqa: PLR09
                 application_reply = DocumentRef(
                     KIND_APPLICATION_REPLY, found[0], entry_date, text.strip()
                 )
+        elif appeal_reply:
+            if cert_reply is None:
+                cert_reply = _merits_filing_ref(entry, KIND_CERT_REPLY, entry_date)
         elif _is_bio_entry(text, filed=filed, granted_on=granted_on):
+            # On a direct appeal an opposition-worded brief is an answer to
+            # the jurisdictional statement too, so the appellant's reply to it
+            # is read.
+            appeal_answered = appeal_answered or direct_appeal
             found = _entry_link(entry, prefer=("main document",))
             if found is not None and found[0] not in seen_bio_urls:
                 seen_bio_urls.add(found[0])
@@ -1233,6 +1415,21 @@ def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:  # noqa: PLR09
                 bios.append(
                     DocumentRef(KIND_BRIEF_IN_OPPOSITION, found[0], entry_date, text.strip())
                 )
+        elif (
+            direct_appeal
+            and not disposed
+            and not _is_post_grant(filed, granted_on)
+            and _is_appeal_answer_entry(text)
+        ):
+            # The appellee's motion to dismiss or affirm is the appeal's
+            # opposition: it joins the combined row on the opposition's own
+            # terms, from its `Main Document` link alone, since a motion entry
+            # posts its certificates beside the filing.
+            appeal_answered = True
+            answer = _merits_filing_ref(entry, KIND_BRIEF_IN_OPPOSITION, entry_date)
+            if answer is not None and answer.url not in seen_bio_urls:
+                seen_bio_urls.add(answer.url)
+                bios.append(answer)
         elif (
             cert_reply is None
             and not disposed
@@ -1299,7 +1496,9 @@ def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:  # noqa: PLR09
                 seen_combined_urls.add(combined.url)
                 group = supplemental_briefs if kind == KIND_SUPPLEMENTAL_BRIEF else party_letters
                 group.append(combined)
-        disposed = disposed or match_disposition_signal(text) is not None
+        disposed = disposed or (
+            match_disposition_signal(text, direct_appeal_exit=exit_gates[position]) is not None
+        )
     return [
         ref
         for ref in (
@@ -1990,7 +2189,8 @@ def _read_pages(
             if not page_tolerant:
                 raise
             text = ""
-        if ocr_page is not None and not text.strip():
+        layer_chars = len(text.strip())
+        if ocr_page is not None and layer_chars < THIN_PAGE_CHARS:
             try:
                 recovered = ocr_page(index)
             except Exception:  # broad by design: see below
@@ -2001,7 +2201,11 @@ def _read_pages(
                 # recovery population reads as "a PDF that would not open",
                 # ejecting the row from the class permanently.
                 recovered = ""
-            if recovered.strip():
+            # A blank page takes any reading. A thin one keeps its text layer
+            # unless the image reads at least `THIN_PAGE_GAIN` times as long: a
+            # divider or a signature page reads off its image as the same few
+            # words, and the layer is the cleaner copy of them.
+            if recovered.strip() and len(recovered.strip()) >= THIN_PAGE_GAIN * layer_chars:
                 text = recovered
                 ocr_derived = True
         parts.append(text)
@@ -2023,11 +2227,14 @@ def extract_pdf_text(
     provisioning can say so to the reading agent.
 
     With an ``ocr_page`` supplied — the recovery pass's lane, never a fetching
-    one — a page whose own extraction yields nothing is read off its image
-    instead. A guard rather than a filter: the recovery population is documents
-    that extracted to nothing at all, but running it per page is what keeps a
-    mostly-digital filing with a few scanned exhibit pages honest, since a page
-    that *did* extract is never overwritten by a lossier reading of it. The cap
+    one — a page whose own extraction is blank or thin (under
+    :data:`THIN_PAGE_CHARS`) is read off its image as well. A blank page takes
+    whatever the image reads. A thin page keeps its text layer unless the image
+    reads at least :data:`THIN_PAGE_GAIN` times as long, which is the page whose
+    layer holds a letterhead or a page stamp over a scanned body. Running it per
+    page is what keeps a mostly-digital filing with a few scanned exhibit pages
+    honest, since a page that *did* extract in full is never overwritten by a
+    lossier reading of it. The cap
     and the truncation flag bound the result identically either way, so a
     recovered document is bounded like a plain-cut fetched one, and
     ``ocr_derived`` is set only where OCR actually contributed text. A raising
@@ -5386,12 +5593,14 @@ KIND_DESCRIPTIONS: Mapping[str, str] = {
     KIND_APPLICATION_REPLY: "The applicant's reply to the response to the application.",
     KIND_BRIEF_IN_OPPOSITION: (
         "Every non-amicus cert-stage brief in opposition, response or memorandum "
-        "answering the petition, "
+        "answering the petition, or on a direct appeal every appellee's motion to "
+        "dismiss or affirm answering the jurisdictional statement, "
         "combined in docket order, each under a '=== <docket entry> ===' header where "
         "there is more than one. " + _COMBINED_CUT_DESCRIPTION
     ),
     KIND_CERT_REPLY: (
-        "The petitioner's reply at the cert stage: its answer to the brief in opposition."
+        "The petitioner's reply at the cert stage: its answer to the brief in opposition. "
+        "On a direct appeal, the appellant's answer to the motion to dismiss or affirm."
     ),
     KIND_SG_INVITED_BRIEF: (
         "The brief of the United States as amicus curiae, filed by the Solicitor General "

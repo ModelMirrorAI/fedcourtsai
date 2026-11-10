@@ -22,10 +22,12 @@ description: >-
   re-reads the token file whenever its access token is due to refresh, so a
   cell that runs for most of an hour needs a fresh token each time.
 
-  The job needs `id-token: write`. The token minted here names the Claude API
-  as its audience, so no AWS role accepts it. The caller passes the outputs and
-  the federation identifiers to the engine step's env; nothing is exported job
-  wide.
+  The job needs `id-token: write`, and the start step needs the federation
+  rule and organization identifiers in its env: they are the CLI's only
+  sign-in, since no key reaches it, so the step refuses to start without them.
+  The token minted here names the Claude API as its audience, so no AWS role
+  accepts it. The caller passes the outputs and the federation identifiers to
+  the engine step's env; nothing is exported job wide.
 
   The assert-claude-only mode is the tripwire for the jobs that hold this
   sign-in and nothing else (the labeler and the case summaries): they bind a
@@ -70,6 +72,10 @@ runs:
         set -euo pipefail
         if [ -z "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ] || [ -z "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
           echo "::error::Claude federation needs a GitHub OIDC token, and this job cannot request one: grant it id-token: write"
+          exit 1
+        fi
+        if [ -z "${ANTHROPIC_FEDERATION_RULE_ID:-}" ] || [ -z "${ANTHROPIC_ORGANIZATION_ID:-}" ]; then
+          echo "::error::Claude federation needs the bound environment's federation rule and organization identifiers in this step's env"
           exit 1
         fi
         dir="$RUNNER_TEMP/claude-federation"

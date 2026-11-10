@@ -11,15 +11,15 @@ credential is one of two kinds, read from the environment:
   Anthropic accepts each one once and GitHub's expire in minutes, and the
   access token is exchanged again shortly before it expires, so a run of hours
   never holds a credential older than one token lifetime.
-- **The API key**, otherwise: a local run, or a workflow whose environment
-  names no rule.
+- **The API key**, otherwise: a local run. No workflow passes a key; each
+  names a rule.
 
 A throttle, a server error or a dropped connection at either endpoint is raised
 as the ``httpx`` error it is, so the caller's bounded retry covers the sign-in
 as it covers the call; any other refusal is a :class:`ClaudeAuthError`.
 
-The federation identifiers are identifiers, not credentials. The key wins only
-where no rule is named: a workflow that names one withholds the key.
+The federation identifiers are identifiers, not credentials. A named rule wins
+over a key in the same environment.
 """
 
 from __future__ import annotations

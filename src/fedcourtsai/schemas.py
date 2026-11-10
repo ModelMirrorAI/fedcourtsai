@@ -10569,6 +10569,14 @@ class AiCaseActivityEntry(_Strict):
             "rule; none for other kinds, or where the entry names none."
         ),
     )
+    supersedes: int | None = Field(
+        default=None,
+        gt=0,
+        description=(
+            "CourtListener's id for the unnumbered placeholder of the same docket event "
+            "that an earlier refresh may have recorded; a reader shows the event once."
+        ),
+    )
     url: str = Field(
         pattern=r"^https://www\.courtlistener\.com/[A-Za-z0-9/_.~%#-]*$",
         description="The entry on CourtListener: its main document's page, else the docket.",
@@ -13220,7 +13228,8 @@ class BigCaseProvenance(_Strict):
     )
     schedule_rule: str | None = Field(
         default=None,
-        description="Where `schedule` and `scheduled` come from and when each is empty or null",
+        description="Where `schedule`, `scheduled` and the court-wide "
+        "`court_next_conference` come from and when each is empty or null",
     )
     process_label: str = Field(
         description="The process label in force when the board was built — what a "
@@ -13262,13 +13271,33 @@ class BigCaseBoard(_Strict):
     artifact's vintage is the commit that wrote it.
     """
 
-    schema_version: Literal["1.3", "1.4"] = Field(
-        default="1.4",
+    schema_version: Literal["1.3", "1.4", "1.5"] = Field(
+        default="1.5",
         description="The artifact's schema version. A reader keys on it: a `1.1` row "
         "carries the display fields `short_caption`, `docket_number`, "
         "`docket_number_source` and `docket_url`, a `1.2` row adds `asking_party`, "
         "`other_party`, `outcome_lines` and `asking_declined`, a `1.3` row adds "
-        "`scheduled`, and a `1.4` row adds `schedule`",
+        "`scheduled`, a `1.4` row adds `schedule`, and a `1.5` board adds the court-wide "
+        "`court_next_conference` and `cases_at_court_next_conference`",
+    )
+    court_next_conference: date | None = Field(
+        default=None,
+        description="The Court's next conference day, copied from the committed "
+        "`data/schedule/schedule.json` (its `court_next_conference`): the first conference "
+        "on or after the day that schedule was built in the Court's published case "
+        "distribution schedule, whether or not any case on the board is distributed for it. "
+        "None where no schedule is committed or it carries none. Carries no build day, so "
+        "the board moves only when the day does; a reader rendering later drops a day that "
+        "has since passed. Display-only: nothing predicts, evaluates or scores on it",
+    )
+    cases_at_court_next_conference: int | None = Field(
+        default=None,
+        ge=0,
+        description="How many rows carry a `scheduled` conference on "
+        "`court_next_conference`: the board's cases distributed for the Court's next "
+        "conference so far, not the Court's conference list: a case off the board is not "
+        "counted, and a relisted case joins only once its redistribution is docketed. None "
+        "exactly when `court_next_conference` is. Display-only",
     )
     process_scope: Literal["frozen", "all"] = Field(
         default="all",
@@ -13382,6 +13411,17 @@ class BigCaseBoard(_Strict):
     provenance: BigCaseProvenance | None = Field(
         default=None, description="The reading rules that travel with the figures"
     )
+
+    @model_validator(mode="after")
+    def _the_next_conference_travels_with_its_count(self) -> BigCaseBoard:
+        """The court-wide conference needs `1.5`, and its row count is set exactly with it."""
+        if self.schema_version != "1.5" and self.court_next_conference is not None:
+            raise ValueError("court_next_conference needs 1.5")
+        if (self.court_next_conference is None) != (self.cases_at_court_next_conference is None):
+            raise ValueError(
+                "cases_at_court_next_conference is set exactly when court_next_conference is"
+            )
+        return self
 
 
 class ScopeReconcileResult(_Strict):

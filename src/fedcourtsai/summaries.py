@@ -127,8 +127,8 @@ WORD_BAND: tuple[int, int] = (150, 550)
 API_URL = "https://api.anthropic.com/v1/messages"
 ANTHROPIC_VERSION = "2023-06-01"
 
-#: The environment variable the summarize command reads its API key from: the
-#: environment's Anthropic key, the one the other Claude lanes spend on. The
+#: The environment variable a local summarize run reads its API key from; a
+#: workflow run federates into the workspace the other Claude lanes spend on. The
 #: lane's calls are on a model outside the prediction panel, whose provider rate
 #: limits are separate from the cells'; the spend limit is shared, which the
 #: workflow's `review` hold bounds.

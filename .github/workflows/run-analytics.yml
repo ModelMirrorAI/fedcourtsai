@@ -1881,7 +1881,7 @@ jobs:
           rm -rf .claude
 
       # The labeler runs with CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1 (its tool
-      # subprocesses must not inherit the engine API key), and the scrub's
+      # subprocesses must not inherit the CLI's sign-in), and the scrub's
       # isolation backend is bubblewrap, which the runner image does not
       # carry — without it the CLI refuses to start rather than degrade.
       # socat is the CLI's other sandbox dependency: absent, the sandbox
@@ -1936,15 +1936,13 @@ jobs:
           QP_TEXTS: ${{ runner.temp }}/qp-io/qp-texts.json
           LABELS_OUT: ${{ runner.temp }}/qp-io/qp-labels.jsonl
         with:
-          # Workload identity federation once the environment names a rule,
-          # the environment's key otherwise, exactly as the cells sign in
-          # (docs/security.md); billed pay-per-token to the same workspace
-          # either way (docs/budget.md).
+          # Workload identity federation, exactly as the cells sign in, and
+          # no key (docs/security.md); billed pay-per-token to the cells'
+          # workspace (docs/budget.md).
           anthropic_federation_rule_id: ${{ vars.ANTHROPIC_FEDERATION_RULE_ID }}
           anthropic_organization_id: ${{ vars.ANTHROPIC_ORGANIZATION_ID }}
           anthropic_service_account_id: ${{ vars.ANTHROPIC_SERVICE_ACCOUNT_ID }}
           anthropic_workspace_id: ${{ vars.ANTHROPIC_WORKSPACE_ID }}
-          anthropic_api_key: ${{ (vars.ANTHROPIC_FEDERATION_RULE_ID == '' || vars.ANTHROPIC_ORGANIZATION_ID == '') && secrets.ANTHROPIC_API_KEY || '' }}
           # The pinned, pre-installed CLI (see the install step above) — the
           # action skips its own installer, whose skipped postinstall left the
           # native binary missing.
@@ -2154,9 +2152,8 @@ jobs:
           fi
           echo "work tree pristine"
 
-      # The scan below runs Python with the engine API key in its environment,
-      # so every byte it imports has to be a byte the labeler could not have
-      # written. `setup-python-env` installs this project *editable*, which
+      # The scan below decides what agent-written bytes may publish, so every
+      # byte it imports has to be a byte the labeler could not have written. `setup-python-env` installs this project *editable*, which
       # puts the workspace tree and its gitignored `.venv` on the import path
       # — and the labeler holds an unscoped Write grant in that workspace. The
       # assertion above does not close this: it compares *tracked* files, so an
@@ -2325,15 +2322,13 @@ jobs:
       # scan sees — and withhold on a hit rather than fail the job, mirroring
       # the collect job's withhold-and-continue posture (minus its
       # trigger-issue report: a dispatch mode has none, so the warning and the
-      # step summary are the record). The one credential reachable from the
-      # labeler's env is the engine's own API key, so the scan searches for
-      # that value literally, exactly as the collect job's scan holds its
-      # reachable credential: the agent process is gone by this step, which
-      # parses bytes with tested Python and executes none of them. On this
-      # surface the generic entropy rule is off (see the run block below), so
-      # the literal containment plus the structured credential shapes are the
-      # whole gate — which is exactly why the scan failing closed on an unset
-      # variable is load-bearing here.
+      # step summary are the record). The credentials reachable from the
+      # labeler are its exchanged access token and the OIDC token it was
+      # exchanged from, both short-lived and both caught by shape: the agent
+      # process is gone by this step, which parses bytes with tested Python
+      # and executes none of them. On this surface the generic entropy rule is
+      # off (see the run block below), so the structured credential shapes are
+      # the whole gate.
       - name: Scan the transcript before publishing it
         id: transcript_scan
         # Gated on the scanner having been built, not merely on a transcript
@@ -2353,18 +2348,13 @@ jobs:
         working-directory: ${{ github.workspace }}/.transcript-scanner
         env:
           TRANSCRIPT: ${{ steps.label.outputs.execution_file }}
-          # The key the labeler held, when it held one; a federated labeler
-          # held none, and its exchanged token is caught by shape.
-          ANTHROPIC_API_KEY: ${{ (vars.ANTHROPIC_FEDERATION_RULE_ID == '' || vars.ANTHROPIC_ORGANIZATION_ID == '') && secrets.ANTHROPIC_API_KEY || '' }}
-          FEDERATED: ${{ vars.ANTHROPIC_FEDERATION_RULE_ID != '' && vars.ANTHROPIC_ORGANIZATION_ID != '' }}
           # The isolated install above, by absolute path: a bare `uv run` would
           # resolve the project out of the workspace the labeler just wrote to.
           SCANNER: ${{ github.workspace }}/.transcript-scanner/.venv/bin/python
         run: |
           set -euo pipefail
-          # This is the one step that holds the key (while the labeler signs in
-          # with one), so it is the one an injected environment variable is
-          # worth aiming at: the runner
+          # This step runs Python over what the labeler wrote, so it is the one
+          # an injected environment variable is worth aiming at: the runner
           # applies every earlier step's `$GITHUB_ENV` writes here, and the
           # labeling step's subprocesses can append to that file. A planted
           # `PYTHONPATH` or `LD_PRELOAD` would put agent code inside this
@@ -2387,14 +2377,10 @@ jobs:
           # The transcript surface flag, not the generic extra-file suite: the
           # transcript's own tool and request ids are high-entropy by format,
           # so the generic heuristic convicts every real file and the artifact
-          # would only ever publish empty — the surface is gated by containment
-          # of the one reachable credential and the credential shapes instead.
-          # The key's containment detector runs whenever the labeler could
-          # have held the key; unset then, the scan fails closed.
-          key_args=(--known-secret-env ANTHROPIC_API_KEY)
-          if [ "$FEDERATED" = true ]; then key_args=(); fi
+          # would only ever publish empty — the surface is gated by the
+          # credential shapes instead, which cover the labeler's exchanged
+          # access token and the OIDC token it was exchanged from.
           "$SCANNER" -E -s -P -m fedcourtsai.cli scan-diff-for-secrets --name-status-file /dev/null \
-            "${key_args[@]}" \
             --transcript-file "$TRANSCRIPT" \
             --run-url "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
             || status=$?
@@ -2464,14 +2450,11 @@ jobs:
         working-directory: ${{ github.workspace }}/.transcript-scanner
         env:
           LABELS_OUT: ${{ runner.temp }}/qp-io/qp-labels.jsonl
-          ANTHROPIC_API_KEY: ${{ (vars.ANTHROPIC_FEDERATION_RULE_ID == '' || vars.ANTHROPIC_ORGANIZATION_ID == '') && secrets.ANTHROPIC_API_KEY || '' }}
-          FEDERATED: ${{ vars.ANTHROPIC_FEDERATION_RULE_ID != '' && vars.ANTHROPIC_ORGANIZATION_ID != '' }}
           SCANNER: ${{ github.workspace }}/.transcript-scanner/.venv/bin/python
         run: |
           set -euo pipefail
-          # This step holds the key (while the labeler signs in with one), so
-          # it strips the levers that would put agent code inside it — the
-          # transcript scan's reasoning, verbatim.
+          # This step strips the levers that would put agent code inside it,
+          # for the transcript scan's reason.
           unset PYTHONPATH PYTHONHOME PYTHONSTARTUP PYTHONUSERBASE
           unset LD_PRELOAD LD_AUDIT LD_LIBRARY_PATH
           # Named here rather than left to the scanner's exit 2, for the
@@ -2484,10 +2467,7 @@ jobs:
             exit 1
           fi
           status=0
-          key_args=(--known-secret-env ANTHROPIC_API_KEY)
-          if [ "$FEDERATED" = true ]; then key_args=(); fi
           "$SCANNER" -E -s -P -m fedcourtsai.cli scan-diff-for-secrets --name-status-file /dev/null \
-            "${key_args[@]}" \
             --extra-file "$LABELS_OUT" \
             --run-url "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
             || status=$?

@@ -184,6 +184,12 @@ from .config import (
     load_summaries_config,
     load_watchlist_refresh_config,
 )
+from .court_update import (
+    LISTED_TOP,
+    build_court_update,
+    court_update_subject,
+    render_court_update,
+)
 from .courtlistener import (
     CourtListenerClient,
     EntryPageCapExceeded,
@@ -3285,6 +3291,8 @@ def _ocr_sweep(  # noqa: PLR0912, PLR0913, PLR0915 - keyword-only; one flag per 
     _echo_sweep_ledger(command, written=False, planned=found, deferred=0, cap=caps.ocr)
     typer.echo(f"  {selection.forward_size} of the class a forward cell reads")
     _echo_by_kind("class", selection.class_by_kind)
+    if selection.thin_size:
+        typer.echo(f"  {selection.thin_size} of the class hold thin text rather than none")
     if backlog_held:
         typer.echo(
             f"::warning::{command} --sweep: backlog held — the class holds {found} rows, "
@@ -3524,6 +3532,7 @@ def _ocr_dispatched_write(
         applied=apply,
         documents_seen=scan.documents_seen,
         candidates=len(scan.candidates),
+        thin_text=class_reading(scan).thin_text,
         candidates_by_kind=class_reading(scan).candidates_by_kind,
         set_keyed=scan.set_keyed,
         bound=max_cases,
@@ -3637,6 +3646,8 @@ def _echo_ocr_recovery(result: OcrRecoveryResult, db_path: Path, *, apply: bool)
     # 10 over a class that is nine oppositions and one petition touches a very
     # different set from one over the reverse, and the total alone hides it.
     _echo_by_kind("class", result.candidates_by_kind)
+    if result.thin_text:
+        typer.echo(f"  {result.thin_text} of the class hold thin text rather than none")
     if result.set_keyed:
         _echo_by_kind("left out (stored URL is a set key, not one link)", result.set_keyed)
     if apply:
@@ -3771,16 +3782,19 @@ def ocr_recover_petitions_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; opt
 ) -> None:
     """Read the scanned filings off their page images and store what comes back.
 
-    A filing submitted on paper reaches the corpus with no text layer, so the
-    extractor stored nothing for it and every cell minted over that case reads it
-    empty — for as long as the docket keeps serving the same URL, since the
+    A filing submitted on paper reaches the corpus with no text layer, or with
+    one that holds only a letterhead or page stamps, so the extractor stored
+    nothing or a few stray lines for it and every cell minted over that case
+    reads it that way — for as long as the docket keeps serving the same URL, since the
     poller and the Term walker re-fetch a kind only when its link changes.
     This is the pass that repairs it, on the terms in *Contract for the recovery
     pass* (`docs/live-sources.md`): the population is every stored row a cell
     reads that was fetched as a PDF — the petition, the application and the
     filings answering it, the appendix, the brief in opposition, the cert-stage
-    reply, the invited brief, the four merits filings — whose text is empty or
-    whitespace-only, whose page count is above zero (a zero-page row is a PDF
+    reply, the invited brief, the four merits filings — whose text is empty,
+    whitespace-only or thin (under 200 characters a page on average, on a row
+    that is not truncated, not under a per-filing header and that OCR has not
+    read), whose page count is above zero (a zero-page row is a PDF
     the extractor could not open, which is not OCR's to repair, and a case with
     no row of a kind at all is a fetch gap), and whose stored URL is one link.
     That last condition excludes one shape: a multi-respondent opposition is
@@ -3794,12 +3808,14 @@ def ocr_recover_petitions_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; opt
     re-fetched by its own stored URL on supremecourt.gov, free and
     politeness-capped, so the pass spends none of the CourtListener budget; and
     its pages go through the extractor with the OCR seam supplied, which reads a
-    page off its rendered image only where that page's own extraction yielded
-    nothing. The same per-document character cap and truncation flag bound the
+    page off its rendered image only where that page's own extraction is blank
+    or thin, and keeps a thin page's text layer unless the image reads at least
+    twice as long. The same per-document character cap and truncation flag bound the
     result — the plain head cut, never the appendix-aware one — and
     every recovered row carries `ocr_derived`: OCR output is derived text, and
     must never read as a clean extraction. Additive — text is written only where
-    the stored row held none — and a recovered **petition** re-derives its
+    the stored row held none, or held thin text shorter than the reading — and a
+    recovered **petition** re-derives its
     `questions-presented` row through the ingest path's own deriver, which
     carries the marker with it; no other kind has a follow-on write.
 
@@ -16467,7 +16483,7 @@ def public_update_cmd(
         ),
     ] = 0,
 ) -> None:
-    """Render the weekly public update for the email list from the committed ledger.
+    """Render the weekly forecasts update for the email list from the committed ledger.
 
     Read-only and deterministic: the same tree and week render the same bytes.
     Exits 3, writing nothing, when the week has nothing resolved and no new
@@ -16576,7 +16592,7 @@ def post_public_update_cmd(
         ),
     ] = False,
 ) -> None:
-    """Create the week's public update as a Buttondown draft for one tag's subscribers.
+    """Create the week's forecasts update as a Buttondown draft for one tag's subscribers.
 
     Draft only: a person reads it and presses send in Buttondown. Idempotent per
     week, since an email already carrying the week's subject is returned rather
@@ -16624,6 +16640,145 @@ def post_public_update_cmd(
     verb = "created draft" if draft.created else f"already present ({draft.status})"
     where = f" {draft.url}" if draft.url else ""
     typer.echo(f"post-public-update: {chosen}: {verb} {draft.email_id}{where}")
+
+
+@app.command("court-update")
+def court_update_cmd(
+    *,
+    week: Annotated[
+        str,
+        typer.Option(
+            help="ISO week to render, as YYYY-Www; defaults to the last complete week (UTC)."
+        ),
+    ] = "",
+    out: Annotated[
+        Path | None,
+        typer.Option(help="Write the Markdown here; omit to print it."),
+    ] = None,
+    top: Annotated[
+        int,
+        typer.Option(
+            min=0,
+            help="Cases a cut list keeps: a group's denials and each group of new filings; "
+            "0 lists every case.",
+        ),
+    ] = LISTED_TOP,
+) -> None:
+    """Render the weekly Court update for the email list from the committed ledger.
+
+    What the Court did in an ISO week on the cases the ledger follows, with no
+    forecast in it. Read-only and deterministic: the same tree and week render
+    the same bytes. Exits 3, writing nothing, when the week has no decision,
+    action or filing, so a poster skips the week rather than sending an empty
+    update.
+    """
+    settings = get_settings()
+    chosen = week or last_complete_week(datetime.now(UTC))
+    try:
+        week_bounds(chosen)
+    except ValueError as exc:
+        typer.echo(f"court-update: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    update = build_court_update(settings.data_root, chosen)
+    if update.empty:
+        typer.echo(f"court-update: nothing to send for {chosen}.", err=True)
+        raise typer.Exit(code=3)
+    text = render_court_update(update, top=top or None)
+    if out is None:
+        typer.echo(text, nl=False)
+    else:
+        write_text(out, text)
+        typer.echo(
+            f"court-update: {chosen}: {len(update.decisions)} decided, "
+            f"{len(update.actions)} other action(s), {len(update.filings)} filed -> {out}",
+            err=True,
+        )
+
+
+@app.command("post-court-update")
+def post_court_update_cmd(
+    *,
+    tag: Annotated[
+        str,
+        typer.Option(
+            help="Buttondown tag name whose subscribers the draft is addressed to; "
+            "resolving a name lists the account's tags. Or give --tag-id."
+        ),
+    ] = "",
+    tag_id: Annotated[
+        str,
+        typer.Option(
+            "--tag-id",
+            help="Buttondown tag id the draft is addressed to; needs no read beyond emails.",
+        ),
+    ] = "",
+    week: Annotated[
+        str,
+        typer.Option(
+            help="ISO week to post, as YYYY-Www; defaults to the last complete week (UTC)."
+        ),
+    ] = "",
+    top: Annotated[
+        int,
+        typer.Option(
+            min=0,
+            help="Cases a cut list keeps: a group's denials and each group of new filings; "
+            "0 lists every case.",
+        ),
+    ] = LISTED_TOP,
+    dry_run: Annotated[
+        bool,
+        typer.Option(
+            "--dry-run", help="Render the subject and body and print them; contact nothing."
+        ),
+    ] = False,
+) -> None:
+    """Create the week's Court update as a Buttondown draft for one tag's subscribers.
+
+    Draft only: a person reads it and presses send in Buttondown. Idempotent per
+    week, since an email already carrying the week's subject is returned rather
+    than duplicated. Exits 3 on a week with nothing to send, 2 on a bad week or a
+    missing key, 1 when Buttondown refuses. The key is read from the environment
+    and never printed.
+    """
+    settings = get_settings()
+    chosen = week or last_complete_week(datetime.now(UTC))
+    if bool(tag.strip()) == bool(tag_id.strip()):
+        typer.echo("post-court-update: give exactly one of --tag or --tag-id.", err=True)
+        raise typer.Exit(code=2)
+    try:
+        week_bounds(chosen)
+    except ValueError as exc:
+        typer.echo(f"post-court-update: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    update = build_court_update(settings.data_root, chosen)
+    if update.empty:
+        typer.echo(f"post-court-update: nothing to send for {chosen}.", err=True)
+        raise typer.Exit(code=3)
+    subject = court_update_subject(update)
+    body = render_court_update(update, title=False, top=top or None)
+    if dry_run:
+        typer.echo(f"Subject: {subject}\nTag: {tag.strip() or tag_id.strip()}\n\n{body}", nl=False)
+        return
+    api_key = os.environ.get(API_KEY_ENV, "")
+    if not api_key.strip():
+        typer.echo(f"post-court-update: the {API_KEY_ENV} environment variable is unset.", err=True)
+        raise typer.Exit(code=2)
+    try:
+        with make_client(api_key) as client:
+            draft = post_draft(
+                client,
+                subject=subject,
+                body=body,
+                tag_name=tag.strip() or None,
+                tag_id_value=tag_id.strip() or None,
+            )
+    except ButtondownError as exc:
+        typer.echo(f"post-court-update: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    verb = "created draft" if draft.created else f"already present ({draft.status})"
+    where = f" {draft.url}" if draft.url else ""
+    typer.echo(f"post-court-update: {chosen}: {verb} {draft.email_id}{where}")
 
 
 def _ai_cases_watchlist(config_root: Path) -> AiWatchlist | None:
@@ -17456,7 +17611,11 @@ def watchlist_refresh_cmd(
         # has stored is never "new" again, so a run killed part-way must
         # already have recorded what it stored.
         found = ai_activity.activity_entries(
-            *named[done.case_id], done.docket, done.added, today=today
+            *named[done.case_id],
+            done.docket,
+            done.added,
+            today=today,
+            docket_entries=done.listed,
         )
         readable = ai_activity.available_entries(
             *named[done.case_id], done.docket, done.gained, today=today
@@ -21594,7 +21753,8 @@ def summarize_cmd(
     the same run, told why; anything else, a rejected retry, and any call that
     still fails after bounded retries, is reported as skipped. The credential
     comes from the environment (``fedcourtsai.claude_auth``): the federated
-    sign-in when a federation rule is named, the API key otherwise. Exits 1
+    sign-in when a federation rule is named, as every workflow names one, and
+    an API key otherwise, for a local run. Exits 1
     when the plan held cases and none was written, so a dead credential or a
     broken prompt fails the run rather than reading as an empty success.
     """
@@ -28200,7 +28360,7 @@ def assert_website_environment_cmd(
 
     Requires the environment to exist, its deployment branches to be a custom
     policy of exactly `main`, and it to hold exactly the Buttondown API key and
-    the weekly tag id — no other secret or variable — and no repository or
+    the tag ids — no other secret or variable — and no repository or
     organization secret to share the key's name, since a workflow on any
     branch reads one. Names each problem and exits non-zero if there is any; an
     unread listing is a problem.
@@ -28218,7 +28378,7 @@ def assert_website_environment_cmd(
         typer.echo(f"::error::website environment: {problem}", err=True)
     if problems:
         raise typer.Exit(code=1)
-    typer.echo("the website environment admits main alone and holds only its key and tag id")
+    typer.echo("the website environment admits main alone and holds only its key and tag ids")
 
 
 @app.command("assert-corpus-write-environment")
@@ -28290,9 +28450,10 @@ def assert_claude_only_environment_cmd(
 
     Requires the environment to exist, its deployment branches to be a custom
     policy admitting `main` alone (`claude-prod`) or `staging` and at most
-    `promote/*` (`claude-staging`), it to hold no secret but the engine key
-    and no variable but the four federation identifiers, and no repository or
-    organization secret to share the key's name, since a workflow on any
+    `promote/*` (`claude-staging`), it to hold no secret, it to hold the rule
+    and organization identifiers and no variable but the four federation
+    identifiers, and no repository or organization secret to share the
+    Anthropic key's name, since a workflow on any
     branch reads one. Names each problem and exits non-zero if there is any;
     an unread or truncated listing is a problem.
     """
@@ -28305,7 +28466,7 @@ def assert_claude_only_environment_cmd(
     ) + environment_checks.shadow_secret_problems(
         _read_document(repository_secrets_file),
         _read_document(organization_secrets_file),
-        environment_checks.CLAUDE_ONLY_SECRETS,
+        environment_checks.CLAUDE_SHADOWED_SECRETS,
     )
     for problem in problems:
         typer.echo(f"::error::{name} environment: {problem}", err=True)

@@ -487,12 +487,12 @@ capture, which is the half the transcript cannot cover: the label-line count
 reaches the job summary and the labels file itself is uploaded as `qp-labels`
 on any surviving outcome the containment check below passes, so a cap-killed
 labeling step — which writes no execution file — still says how far it got.
-The smoke publishes that file behind a containment grep against the engine
-key its runner holds, run
-off a PATH pinned to root-owned directories, rather than the paid lane's
-fresh-checkout scanner: building that scanner is precisely how the paid lane
-avoids running the agent's own workspace Python with the engine key in its
-environment, so replicating it here would invert the control it exists to be.
+The smoke publishes that file behind a containment grep for the shapes of the
+federated labeler's exchanged tokens, run off a PATH pinned to root-owned
+directories, rather than the paid lane's fresh-checkout scanner: building that
+scanner is precisely how the paid lane avoids running the agent's own
+workspace Python, so replicating it here would invert the control it exists
+to be.
 Of the whole-suite selections only `all` fans it out.
 
 **The repro family** is the fourth token-spending class, and it exists

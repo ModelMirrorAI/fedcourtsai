@@ -136,7 +136,10 @@ that finds entries the stored docket lacked records the significant ones
 (`fedcourtsai.ai_activity`: opinions, judgments, rulings on principal motions,
 those motions, complaints, appeals, settlements and dismissals; routine business
 dropped) in the committed `data/ai-cases/activity/<YYYY-MM-DD>.json`, which the
-weekly AI-cases email renders. An entry filed more than 14 days before it was
+weekly AI-cases email renders. An unnumbered placeholder upstream lists beside
+the court's numbered entry for the same event is paired with it, and the
+numbered entry is the one recorded; a placeholder with no such entry yet is
+recorded as it stands, and the numbered entry that follows names it. An entry filed more than 14 days before it was
 first seen is old history and is not recorded, and a docket's first refresh
 records nothing. The same refresh records, under a second rule
 (`ai-availability-v1`), entries the stored docket already held whose documents
@@ -606,7 +609,8 @@ case timeline, joined onto the big-case board as `schedule` (every upcoming
 date, earliest first) and `scheduled` (its conference entry): it is not a
 prediction-ledger record, since a schedule moves on every relist, reschedule and
 extension, and no cell is provisioned with it. The board row carries the dates alone, not the
-schedule's `as_of`, so the daily board moves only when a case's date does. A
+schedule's `as_of`, so the daily board moves only when a case's date or the Court's next
+conference day does. A
 failed build warns and leaves the committed file as it was (the new file is
 written beside it and renamed over it); it never fails the poll. `fedcourts schedule` rebuilds it by hand from
 a pulled corpus.
@@ -621,8 +625,9 @@ day, the one the summer lists go to marked as the Term's long conference, and
 every distribution row behind them, with each document's URL and SHA-256. The
 schedule reads it for one field, `court_next_conference`, the Court's first
 conference on or after `as_of`, set even when no public docket is distributed
-for that day. The big-case board does not join it, so the public site does not
-show it yet. It fails closed: a served schedule that
+for that day. The big-case board copies that field above its rows, with the
+count of its rows distributed for that day so far, which is where the public site
+reads it. It fails closed: a served schedule that
 does not parse whole (for instance an unrecognised line, a title naming another
 Term, a conference outside the Term's window, a row distributed on or after its
 conference, a document over the size cap, or anything but exactly one
@@ -1485,7 +1490,8 @@ or network.
   than a backlog. The job is continue-on-error, so the run's `guard` keeps an
   *OCR sweep failing* pipeline-health issue for any window whose projection
   did not succeed. Its worklist carries each candidate's
-  case id, kind, Court URL and page count, and nothing else. `ocr-sweep-parse`
+  case id, kind, Court URL, page count and stored character count (how much
+  text the row holds, never the text), and nothing else. `ocr-sweep-parse`
   holds no credential, installs the two OCR binaries, re-fetches and reads each
   item under a slice deadline, and writes the plan: the text it read. That
   text crosses under the OCR sweep's carve-out in
@@ -2125,9 +2131,10 @@ read whole in the parse.
   holds whole, of each signed decision it holds without a bench row and of
   each document it holds without a text row; for the OCR recovery, the class
   ledger the dry run is read off and the worklist (each item's case id, kind,
-  Court URL and page count — on an apply the first `repair_bound` candidates in
+  Court URL, page count and stored character count — on an apply the first `repair_bound` candidates in
   class order, on a dry run a spread sample to probe); for the re-cut, the
-  class ledger and a worklist of the same four facts — the first
+  class ledger and a worklist of each item's case id, kind, Court URL and page
+  count — the first
   `repair_bound` candidates in class order in either mode, or on an unbounded
   dry run the whole class — with the scope it was cut over; for the document
   back-fill, after applying the dedupe to its own copy, the class ledger and a
@@ -2170,8 +2177,8 @@ read whole in the parse.
   recovery's writer (`documents`) does the same, binding the plan to the
   projection's own worklist, downloaded by artifact id: every planned row,
   failure and unreached item must be one of its items, each exactly once, and
-  each row is written only into a stored document still empty at the item's
-  URL. It walks the class before it writes and re-reads it after, and requires
+  each row is written only into a stored document still empty or thin at the
+  item's URL, and only where the reading is longer than the text stored there. It walks the class before it writes and re-reads it after, and requires
   the re-read to find exactly what its ledger left. It lands the re-cut's plan
   the same way, judging each row against the stored text as the pass in one
   job does (another filing of the same page count, an unchanged text, a petition's

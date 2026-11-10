@@ -98,6 +98,20 @@
           "description": "The principal motion a motion, ruling or opinion names, under the record's rule; none for other kinds, or where the entry names none.",
           "title": "Motion"
         },
+        "supersedes": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "CourtListener's id for the unnumbered placeholder of the same docket event that an earlier refresh may have recorded; a reader shows the event once.",
+          "title": "Supersedes"
+        },
         "url": {
           "description": "The entry on CourtListener: its main document's page, else the docket.",
           "pattern": "^https://www\\.courtlistener\\.com/[A-Za-z0-9/_.~%#-]*$",
