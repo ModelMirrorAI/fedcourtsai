@@ -106,6 +106,7 @@ INERT_SOURCE = frozenset(
         "claim_metrics",
         "contexts_due",
         "corpus_check",
+        "court_update",
         "dataset_export",
         "dispatch_chain",
         "environment_checks",

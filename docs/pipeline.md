@@ -45,7 +45,7 @@ token or role, so privilege and outside reachability stay disjoint — see
 | `run-evaluate`   | daily schedule (15:39 UTC), manual dispatch whose one input picks the derivation: the backlog, the `reasoning-pilot` round of the `predicted_reasoning_quality` grade (a re-grade of a fixed sample under the registered prompt), or its `reasoning-pilot-merits` round over the replay merits calibration cells (the newest merits back-test's kept forecasts), each always held for review and committing nothing | Claude Code + Codex + Gemini |
 | `run-backtest`   | biweekly schedule (even ISO weeks, Sat 06:23 UTC — pinned cert parameters over the paid population, spends only on the manual `review` release), manual dispatch (replay/engine/limit/terms params; `replay: merits` replays the predictors over decided argued cases at the merits grant and briefed moments instead, dispatch only; `replay: salience-gate` runs the token-free gate replay instead of the predictors) | Claude Code + Codex + Gemini (replay) |
 | `run-ops`        | daily schedule (ops report, weekly performance digest on the run summary, public status snapshot, prediction-reading digest), manual | script (no agent)    |
-| `post-public-update` | weekly schedule (Mon 12:57 UTC), manual dispatch (`week`; re-dispatching a missed week is safe, since the post is idempotent per week) | script (no agent); creates up to two Buttondown drafts (the public update and the AI-cases update), never sends |
+| `post-public-update` | weekly schedule (Mon 12:57 UTC), manual dispatch (`week`; re-dispatching a missed week is safe, since the post is idempotent per week) | script (no agent); creates up to three Buttondown drafts (the Court update, the forecasts update and the AI-cases update), never sends |
 | `run-analytics`  | manual dispatch + weekly schedule (metrics refresh, Mon 05:41 UTC) + daily schedule (big-case board, 04:36 UTC) + weekly schedule (update history, Mon 12:59 UTC) + weekly schedules (topic labeling: petitions Tue 09:08 UTC, applications Wed 09:04 UTC, merits side coding Thu 09:14 UTC, behind the `review` hold) + weekly schedule (AI-case candidates, Fri 21:11 UTC) | script; the `qp-topic-label`, `qp-topic-label-applications`, `qp-topic-replicate`, `qp-topic-replicate-applications` and `alignment-side-code` modes each run one Claude Code labeler |
 | `summarize`      | daily schedule (03:43 UTC), manual dispatch (`limit`); every run spends only on the `review` release, or on auto-release within the trailing spend budget (*Auto-release*) | script; one Messages API call per case (two when a rejected response is retried), no tools and no agent |
 | `integration-test` | manual dispatch + daily canary  | script; engine-smoke runs one real agent cell, engine-actions-smoke one boot probe per engine (the canary), each repro-family scenario one real cell against its pinned record, and qp-labeler-smoke one labeling agent over a synthetic extract |
@@ -589,11 +589,11 @@ queues behind the production run of the same mode. The modes:
   unverified until its first production run; its summary says which.) The job arms it anyway, so where its own merge gives
   up the PR stays open and lands on the maintainer's approval.
 - **`public-updates`** (weekly schedule Mon 12:59 UTC, or dispatch) adds each
-  missing week's public update to the site's running history,
+  missing week's forecasts update to the site's running history,
   `metrics/updates/<YYYY-Www>.md`, with `fedcourts archive-public-updates`, and
   lands it as a PR to `main` on the fixed, force-pushed `metrics/public-updates`
   branch. Each file is the full `public-update` render, with its title as a
-  heading; the email draft carries the same render trimmed to the ten biggest
+  heading; the forecasts email draft carries the same render trimmed to the ten biggest
   cases per section, linking this page for the rest. `post-public-update`
   drafts at 12:57, so the page and the draft read the same `main` unless a
   commit lands between the two runs, and the draft's link resolves once this

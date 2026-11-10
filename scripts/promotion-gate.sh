@@ -607,7 +607,7 @@ contexts() {
   # from a workflow run off any other ref — so long as the key lives nowhere
   # else, since a workflow's secret falls back to a repository or organization
   # secret of the same name. Required: the environment exists, admits `main`
-  # alone, holds exactly the key and the weekly tag id, and no repository or
+  # alone, holds exactly the key and the tag ids, and no repository or
   # organization secret shares the key's name. The decision is tested Python
   # (tests/test_environment_checks.py).
   local web_dir="${workdir}/website-environment" web_base
@@ -633,7 +633,7 @@ contexts() {
     --variables-file "${web_dir}/variables.json" \
     --repository-secrets-file "${web_dir}/repository-secrets.json" \
     --organization-secrets-file "${web_dir}/organization-secrets.json"; then
-    echo "contexts: the website environment admits main alone and holds only the Buttondown key and the tag id"
+    echo "contexts: the website environment admits main alone and holds only the Buttondown key and the tag ids"
   else
     echo "::error::contexts: fix the website environment before promoting — its branch policy is what keeps the Buttondown key on main (docs/security.md)"
     fail=1

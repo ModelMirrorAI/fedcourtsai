@@ -231,8 +231,12 @@ def test_a_second_reviewer_rule_counts_toward_the_set() -> None:
 
 WEBSITE_SECRETS: dict[str, Any] = {"total_count": 1, "secrets": [{"name": "BUTTONDOWN_API_KEY"}]}
 WEBSITE_VARIABLES: dict[str, Any] = {
-    "total_count": 2,
-    "variables": [{"name": "WEEKLY_SCOTUS_TAG_ID"}, {"name": "AI_CASES_TAG_ID"}],
+    "total_count": 3,
+    "variables": [
+        {"name": "WEEKLY_SCOTUS_TAG_ID"},
+        {"name": "SCOTUS_PREDICTIONS_TAG_ID"},
+        {"name": "AI_CASES_TAG_ID"},
+    ],
 }
 
 
@@ -290,16 +294,17 @@ def test_the_configured_website_environment_passes() -> None:
                 "variables": {
                     "variables": [
                         {"name": "WEEKLY_SCOTUS_TAG_ID"},
+                        {"name": "SCOTUS_PREDICTIONS_TAG_ID"},
                         {"name": "AI_CASES_TAG_ID"},
                         {"name": "X"},
                     ]
                 }
             },
-            "outside ['AI_CASES_TAG_ID', 'WEEKLY_SCOTUS_TAG_ID']: X",
+            "outside ['AI_CASES_TAG_ID', 'SCOTUS_PREDICTIONS_TAG_ID', 'WEEKLY_SCOTUS_TAG_ID']: X",
         ),
         (
             {"variables": {"variables": [{"name": "WEEKLY_SCOTUS_TAG_ID"}]}},
-            "lacks its variables: AI_CASES_TAG_ID",
+            "lacks its variables: AI_CASES_TAG_ID, SCOTUS_PREDICTIONS_TAG_ID",
         ),
     ],
 )
