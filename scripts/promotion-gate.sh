@@ -672,15 +672,15 @@ contexts() {
   fi
 
   # The Claude-only environments, unconditionally, on the website check's
-  # reasoning: each holds the federation rule's identifiers and, for the
-  # rollback, the engine key, so its branch policy is what keeps the Claude
+  # reasoning: each holds the federation rule's identifiers, the jobs' only
+  # sign-in, so its branch policy is what keeps the Claude
   # spend of the labeler, its smoke and the case-summary `generate` job on the
   # refs they run from — `claude-prod` on `main` alone, `claude-staging` on
   # `staging` and the `promote/*` candidates. GitHub auto-creates a referenced
-  # environment with no policy, and the key's name must live nowhere a
-  # workflow on another branch could read it. Required: each exists, admits
-  # its own branches alone, and holds no secret but the key and no variable
-  # but the four federation identifiers. The decision is tested Python
+  # environment with no policy, and the Anthropic key's name must live nowhere
+  # a workflow on another branch could read it. Required: each exists, admits
+  # its own branches alone, holds no secret, and holds the rule and
+  # organization identifiers and no variable but the four federation ones. The decision is tested Python
   # (tests/test_environment_checks.py). The repository and organization
   # listings are the website check's reads above, taken once for both.
   local claude_env claude_dir claude_base

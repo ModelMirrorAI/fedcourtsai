@@ -1137,15 +1137,17 @@ jobs:
       # dispatch naming an environment without the keys gets an empty key and
       # the cell fails closed regardless of step ordering. Output lands only in the
       # runner's throwaway checkout.
-      # The Claude cell signs in the way the back-test's do: federated when
-      # the bound environment names a rule, the key otherwise (the
-      # `claude-federation` action holds the reasons). Gated on the same two
-      # identifiers that withhold the key below, so the cell never runs with
-      # neither credential.
+      # The Claude cell signs in the way the back-test's do, by federation
+      # alone (the `claude-federation` action holds the reasons); the action
+      # refuses to start when the bound environment names no rule, so the
+      # cell never runs without a credential.
       - name: Start the Claude federated sign-in for the cascade cell
         id: claude-federation
-        if: ${{ matrix.scenario == 'engine-smoke' && matrix.engine == 'claude-code' && vars.ANTHROPIC_FEDERATION_RULE_ID != '' && vars.ANTHROPIC_ORGANIZATION_ID != '' }}
+        if: ${{ matrix.scenario == 'engine-smoke' && matrix.engine == 'claude-code' }}
         uses: ./.github/actions/claude-federation
+        env:
+          ANTHROPIC_FEDERATION_RULE_ID: ${{ vars.ANTHROPIC_FEDERATION_RULE_ID }}
+          ANTHROPIC_ORGANIZATION_ID: ${{ vars.ANTHROPIC_ORGANIZATION_ID }}
 
       - name: Run one real-engine cascade cell over the service sidecar
         if: ${{ matrix.scenario == 'engine-smoke' }}
@@ -1165,7 +1167,6 @@ jobs:
           # pointer — harmlessly: its reads go via the sidecar, the content
           # store is unreachable without the scrubbed creds, and a pointer
           # names a blob rather than granting any reach to one.
-          ANTHROPIC_API_KEY: ${{ matrix.engine == 'claude-code' && steps.claude-federation.outputs.token-file == '' && secrets.ANTHROPIC_API_KEY || '' }}
           ANTHROPIC_FEDERATION_RULE_ID: ${{ steps.claude-federation.outputs.token-file != '' && vars.ANTHROPIC_FEDERATION_RULE_ID || '' }}
           ANTHROPIC_ORGANIZATION_ID: ${{ steps.claude-federation.outputs.token-file != '' && vars.ANTHROPIC_ORGANIZATION_ID || '' }}
           ANTHROPIC_SERVICE_ACCOUNT_ID: ${{ steps.claude-federation.outputs.token-file != '' && vars.ANTHROPIC_SERVICE_ACCOUNT_ID || '' }}
@@ -2085,15 +2086,14 @@ jobs:
         uses: anthropics/claude-code-action@d535f5172dec02b204866b393d6b20b9b2aaf98d # v1.0.266
         with:
           allowed_bots: "fedcourtsai-data[bot],fedcourtsai-dispatch[bot]"
-          # The cells' sign-in, input for input: federation when the bound
-          # environment names a rule, else its key — so this leg checks an
-          # environment's rule and exchange before the cells depend on it. A
-          # one-word probe never reaches the token refresh a long cell does.
+          # The cells' sign-in, input for input: federation, with no key — so
+          # this leg checks an environment's rule and exchange before the
+          # cells depend on it. A one-word probe never reaches the token
+          # refresh a long cell does.
           anthropic_federation_rule_id: ${{ vars.ANTHROPIC_FEDERATION_RULE_ID }}
           anthropic_organization_id: ${{ vars.ANTHROPIC_ORGANIZATION_ID }}
           anthropic_service_account_id: ${{ vars.ANTHROPIC_SERVICE_ACCOUNT_ID }}
           anthropic_workspace_id: ${{ vars.ANTHROPIC_WORKSPACE_ID }}
-          anthropic_api_key: ${{ (vars.ANTHROPIC_FEDERATION_RULE_ID == '' || vars.ANTHROPIC_ORGANIZATION_ID == '') && secrets.ANTHROPIC_API_KEY || '' }}
           # The pinned CLI, as the live cells run it.
           path_to_claude_code_executable: ${{ steps.engine-cli.outputs.path }}
           # The cells' own posture: the job's own token, capped at
@@ -2998,8 +2998,8 @@ jobs:
     # see the deploy-environment input for what resolves, which this job
     # binds the Claude-only counterpart of (`claude-<env>`), as the paid
     # labeler does. What that environment supplies here is the labeler's
-    # sign-in and nothing else: its federation rule, or its engine key —
-    # staging's own on a staging-bound rehearsal.
+    # sign-in and nothing else: its federation rule — staging's own on a
+    # staging-bound rehearsal.
     environment: ${{ format('claude-{0}', inputs.deploy-environment != 'auto' && inputs.deploy-environment || (github.ref_name == 'main' && 'prod' || (startsWith(github.ref_name, 'promote/') && 'staging' || github.ref_name))) }}
     permissions:
       contents: read
@@ -3123,7 +3123,6 @@ jobs:
           anthropic_organization_id: ${{ vars.ANTHROPIC_ORGANIZATION_ID }}
           anthropic_service_account_id: ${{ vars.ANTHROPIC_SERVICE_ACCOUNT_ID }}
           anthropic_workspace_id: ${{ vars.ANTHROPIC_WORKSPACE_ID }}
-          anthropic_api_key: ${{ (vars.ANTHROPIC_FEDERATION_RULE_ID == '' || vars.ANTHROPIC_ORGANIZATION_ID == '') && secrets.ANTHROPIC_API_KEY || '' }}
           path_to_claude_code_executable: ${{ steps.claude-cli.outputs.path }}
           github_token: ${{ github.token }}
           settings: |
@@ -3257,9 +3256,9 @@ jobs:
       # diagnosable from one staging dispatch — on any surviving outcome, a
       # clean run's zero line included. Digested into the job log rather
       # than the step summary, and the replayed strings are agent-adjacent
-      # bytes, so three controls apply: the extract is synthetic (no stored
-      # petition text exists on this runner), GitHub masks the environment's
-      # engine key in the log, and every `::` is split before printing —
+      # bytes, so two controls apply: the extract is synthetic (no stored
+      # petition text exists on this runner), and every `::` is split before
+      # printing —
       # the runner trims leading whitespace before matching workflow
       # commands, so the indent below is readability, not the control.
       # Bounded both ways: a line cap on the output and a step cap on the
@@ -3287,50 +3286,37 @@ jobs:
       # The labels file is agent-written bytes, and a run artifact on a public
       # repository is downloadable by any logged-in user — so it faces the
       # containment half of the paid lane's scan before it travels. Only the
-      # containment half, and by a different instrument: the engine key is the
-      # credential worth checking for here (the job's own `github.token` is
-      # capped at `contents: read` and dies with the job), `grep` comes off a
-      # PATH pinned to root-owned directories (the pristine step's own
+      # containment half, and by a different instrument: the engine credential
+      # is the one worth checking for here (the job's own `github.token` is
+      # capped at `contents: read` and dies with the job). The labeler held no
+      # key: what it held is an exchanged access token and the OIDC token it
+      # was exchanged from, so the needle is their two shapes. `grep` comes off
+      # a PATH pinned to root-owned directories (the pristine step's own
       # reasoning — an agent subprocess can prepend to `$GITHUB_PATH` for every
-      # later step), and the value never reaches the log: it lives in argv, the
-      # runner echoes the unexpanded script, and `-q` suppresses the match.
-      # What this leg deliberately does not build is the paid lane's
-      # fresh-checkout scanner: running the workspace's Python with the key in
-      # its environment, after an agent held a Write grant over that workspace,
-      # is the exact arrangement that apparatus exists to avoid. Fail closed
-      # twice over, as the scanner does — on an empty needle and on a `grep`
-      # that could not read the file (its exit 2, which an `if` would otherwise
-      # read as "no match"): a gate that cannot see its needle must not pass
-      # silently. A federated labeler held no key: what it held is an
-      # exchanged access token and the OIDC token it was exchanged from, so
-      # the needle is their two shapes instead.
-      - name: Refuse to publish labels containing the engine key
+      # later step), and `-q` keeps any match out of the log. What this leg
+      # deliberately does not build is the paid lane's fresh-checkout scanner:
+      # running the workspace's Python after an agent held a Write grant over
+      # that workspace is the exact arrangement that apparatus exists to
+      # avoid. Fail closed on a `grep` that could not read the file (its exit
+      # 2, which an `if` would otherwise read as "no match"), as the scanner
+      # does: a gate that cannot see its input must not pass silently.
+      - name: Refuse to publish labels containing an engine credential
         id: labels_guard
         if: ${{ !cancelled() && steps.label_lines.outputs.present == 'true' }}
         continue-on-error: true
         env:
           LABELS_OUT: ${{ runner.temp }}/qp-io/qp-labels.jsonl
-          ANTHROPIC_API_KEY: ${{ (vars.ANTHROPIC_FEDERATION_RULE_ID == '' || vars.ANTHROPIC_ORGANIZATION_ID == '') && secrets.ANTHROPIC_API_KEY || '' }}
-          FEDERATED: ${{ vars.ANTHROPIC_FEDERATION_RULE_ID != '' && vars.ANTHROPIC_ORGANIZATION_ID != '' }}
           PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
         run: |
           set -euo pipefail
-          if [ "$FEDERATED" != true ] && [ -z "${ANTHROPIC_API_KEY:-}" ]; then
-            echo "::warning::no engine key to check containment against; withholding the labels"
-            exit 1
-          fi
           if [ ! -r "$LABELS_OUT" ]; then
             echo "::warning::no readable labels file at ${LABELS_OUT}; withholding the artifact"
             exit 1
           fi
           status=0
-          if [ "$FEDERATED" = true ]; then
-            grep -qE -e 'sk-ant-[A-Za-z0-9_-]{20,}|eyJ[A-Za-z0-9_-]{8,}[.][A-Za-z0-9_-]{8,}[.]' "$LABELS_OUT" || status=$?
-          else
-            grep -qF -e "$ANTHROPIC_API_KEY" "$LABELS_OUT" || status=$?
-          fi
+          grep -qE -e 'sk-ant-[A-Za-z0-9_-]{20,}|eyJ[A-Za-z0-9_-]{8,}[.][A-Za-z0-9_-]{8,}[.]' "$LABELS_OUT" || status=$?
           if [ "$status" -eq 0 ]; then
-            echo "::warning::the labels file contains the engine key; withholding the artifact"
+            echo "::warning::the labels file contains an engine credential; withholding the artifact"
             exit 1
           elif [ "$status" -ne 1 ]; then
             echo "::warning::the containment check could not run (exit ${status}); withholding the artifact"

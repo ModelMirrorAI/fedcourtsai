@@ -706,7 +706,7 @@ runner:
 # markdown file per predicted case per snapshot record, written by the
 # summarize workflow for the site. Display material only — nothing scores
 # them and no metric or board reads them — produced by a model outside the
-# prediction panel, on the environment's Anthropic key. Changing the model is a
+# prediction panel, on the environment's Anthropic workspace. Changing the model is a
 # reviewed edit here, and
 # every summary written after it names the new model in its front matter.
 summaries:

@@ -21595,7 +21595,8 @@ def summarize_cmd(
     the same run, told why; anything else, a rejected retry, and any call that
     still fails after bounded retries, is reported as skipped. The credential
     comes from the environment (``fedcourtsai.claude_auth``): the federated
-    sign-in when a federation rule is named, the API key otherwise. Exits 1
+    sign-in when a federation rule is named, as every workflow names one, and
+    an API key otherwise, for a local run. Exits 1
     when the plan held cases and none was written, so a dead credential or a
     broken prompt fails the run rather than reading as an empty success.
     """
@@ -28291,9 +28292,10 @@ def assert_claude_only_environment_cmd(
 
     Requires the environment to exist, its deployment branches to be a custom
     policy admitting `main` alone (`claude-prod`) or `staging` and at most
-    `promote/*` (`claude-staging`), it to hold no secret but the engine key
-    and no variable but the four federation identifiers, and no repository or
-    organization secret to share the key's name, since a workflow on any
+    `promote/*` (`claude-staging`), it to hold no secret, it to hold the rule
+    and organization identifiers and no variable but the four federation
+    identifiers, and no repository or organization secret to share the
+    Anthropic key's name, since a workflow on any
     branch reads one. Names each problem and exits non-zero if there is any;
     an unread or truncated listing is a problem.
     """
@@ -28306,7 +28308,7 @@ def assert_claude_only_environment_cmd(
     ) + environment_checks.shadow_secret_problems(
         _read_document(repository_secrets_file),
         _read_document(organization_secrets_file),
-        environment_checks.CLAUDE_ONLY_SECRETS,
+        environment_checks.CLAUDE_SHADOWED_SECRETS,
     )
     for problem in problems:
         typer.echo(f"::error::{name} environment: {problem}", err=True)

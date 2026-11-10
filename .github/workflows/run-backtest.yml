@@ -704,19 +704,22 @@ jobs:
             sudo sysctl -w kernel.unprivileged_userns_clone=1
           fi
 
-      # The claude lane signs in by workload identity federation when the
-      # bound environment names a rule, and with the key otherwise; the
+      # The claude lane signs in by workload identity federation alone; the
       # `claude-federation` action holds why a bare-CLI caller needs its token
       # file, profile and refresh loop. The lane's cells run one at a time,
       # which is what lets them share the cached access token. The token
       # minted here names the Claude API as its audience, so the read-only
       # AWS role this job also assumes does not accept it. The cell env the
       # runner seam builds keeps the token file's path for the claude lane
-      # alone, as it keeps each engine's key (pipeline/runner.py).
+      # alone, as it keeps each engine's key (pipeline/runner.py). A replay
+      # that leaves the claude lane out starts no sign-in.
       - name: Start the Claude federated sign-in for the replay cells
         id: claude-federation
-        if: env.BT_ENGINE == 'auto' && (env.BT_REPLAY == 'cert' || env.BT_REPLAY == 'merits') && vars.ANTHROPIC_FEDERATION_RULE_ID != '' && vars.ANTHROPIC_ORGANIZATION_ID != ''
+        if: env.BT_ENGINE == 'auto' && (env.BT_REPLAY == 'cert' || env.BT_REPLAY == 'merits') && !contains(env.BT_SKIP_ENGINES, 'claude')
         uses: ./.github/actions/claude-federation
+        env:
+          ANTHROPIC_FEDERATION_RULE_ID: ${{ vars.ANTHROPIC_FEDERATION_RULE_ID }}
+          ANTHROPIC_ORGANIZATION_ID: ${{ vars.ANTHROPIC_ORGANIZATION_ID }}
 
       - name: Run the cert back-test
         if: env.BT_REPLAY == 'cert'
@@ -725,9 +728,7 @@ jobs:
           # One per routable engine — claude, codex, gemini — so `auto` runs the
           # full three-engine comparison (GEMINI_CLI_TRUST_WORKSPACE is set by the
           # GeminiRunner seam in pipeline/runner.py, not here). Claude's is
-          # either the key or the federated sign-in, never both: a key in the
-          # environment would take precedence over the token file.
-          ANTHROPIC_API_KEY: ${{ steps.claude-federation.outputs.token-file == '' && secrets.ANTHROPIC_API_KEY || '' }}
+          # the federated sign-in, and no key reaches the cells.
           ANTHROPIC_FEDERATION_RULE_ID: ${{ steps.claude-federation.outputs.token-file != '' && vars.ANTHROPIC_FEDERATION_RULE_ID || '' }}
           ANTHROPIC_ORGANIZATION_ID: ${{ steps.claude-federation.outputs.token-file != '' && vars.ANTHROPIC_ORGANIZATION_ID || '' }}
           ANTHROPIC_SERVICE_ACCOUNT_ID: ${{ steps.claude-federation.outputs.token-file != '' && vars.ANTHROPIC_SERVICE_ACCOUNT_ID || '' }}
@@ -816,7 +817,6 @@ jobs:
       - name: Run the merits back-test
         if: env.BT_REPLAY == 'merits'
         env:
-          ANTHROPIC_API_KEY: ${{ steps.claude-federation.outputs.token-file == '' && secrets.ANTHROPIC_API_KEY || '' }}
           ANTHROPIC_FEDERATION_RULE_ID: ${{ steps.claude-federation.outputs.token-file != '' && vars.ANTHROPIC_FEDERATION_RULE_ID || '' }}
           ANTHROPIC_ORGANIZATION_ID: ${{ steps.claude-federation.outputs.token-file != '' && vars.ANTHROPIC_ORGANIZATION_ID || '' }}
           ANTHROPIC_SERVICE_ACCOUNT_ID: ${{ steps.claude-federation.outputs.token-file != '' && vars.ANTHROPIC_SERVICE_ACCOUNT_ID || '' }}
@@ -873,11 +873,8 @@ jobs:
         id: forecasts
         continue-on-error: true
         env:
-          # The key the claude lane held, when it held one; a federated lane
-          # held a token file instead, and an exchanged token is caught by
-          # shape.
-          ANTHROPIC_API_KEY: ${{ steps.claude-federation.outputs.token-file == '' && secrets.ANTHROPIC_API_KEY || '' }}
-          FEDERATED: ${{ steps.claude-federation.outputs.token-file != '' }}
+          # The keys the codex and gemini lanes held; the claude lane held a
+          # token file, and an exchanged token is caught by shape.
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
@@ -927,11 +924,8 @@ jobs:
           fi
           cp -- "$kept/run-id" "$out/run-id"
           : > "$RUNNER_TEMP/no-changes.txt"
-          key_args=(--known-secret-env ANTHROPIC_API_KEY)
-          if [ "$FEDERATED" = true ]; then key_args=(); fi
           if ! uv run fedcourts scan-diff-for-secrets \
               --name-status-file "$RUNNER_TEMP/no-changes.txt" \
-              "${key_args[@]}" \
               --known-secret-env OPENAI_API_KEY \
               --known-secret-env GEMINI_API_KEY \
               --run-id "$run_id" \
