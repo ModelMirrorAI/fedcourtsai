@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000459",
+  "run_id": "20261110T141746Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_read_document",
+    "mcp_courtlistener_search_document"
+  ],
+  "helpful": [
+    "Provisioned appendix.txt containing full E.D. La. Batson voir dire transcript and Fifth Circuit opinion",
+    "metrics/statpack.md and context.json cert_anchor for salience-band and relist/amicus base-rate calibration",
+    "CourtListener MCP read_document and search_document for verifying Pitchford v. Cain (608 U.S. 391 (2026)) and Salters v. N.Y.C. Transit Authority (2d Cir. 2026)"
+  ],
+  "gaps": [],
+  "notes": "All provisioned filings were clean and complete; CourtListener MCP resolved the recent May 2026 SCOTUS precedent (Pitchford v. Cain) and August 2026 Second Circuit precedent (Salters) cited in the petition."
+}

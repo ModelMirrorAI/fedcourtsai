@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000117",
+  "run_id": "20261110T141746Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_read_document"
+  ],
+  "helpful": [
+    "fedcourts query by docket number to retrieve prior appeal No. 25-274 (Allen v. Milligan) and companion dockets Nos. 26-116 and 26-118",
+    "CourtListener MCP opinion and RECAP document retrieval for the June 2, 2026 stay opinion (146 S. Ct. 1377) and the full text of the May 26, 2026 Preliminary Injunction order"
+  ],
+  "gaps": [
+    "Motion to Dismiss or Affirm (filed Sept. 18, 2026) and Appellants' Opposition (filed Sept. 29, 2026) were not staged in record/documents/"
+  ],
+  "notes": "Combining the provisioned Jurisdictional Statement and docket snapshot with the June 2, 2026 Supreme Court stay opinion and the District Court's May 26, 2026 order text via CourtListener MCP provided complete visibility into both the merits and post-election mootness posture."
+}
