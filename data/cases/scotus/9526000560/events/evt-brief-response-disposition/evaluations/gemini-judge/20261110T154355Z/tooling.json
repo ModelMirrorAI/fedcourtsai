@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000560",
+  "run_id": "20261110T154355Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts statpack-at"
+  ],
+  "helpful": [
+    "Provisioned per curiam opinion in record/opinion/writings/OT2026-2/01-per-curiam.txt allowed direct comparison of each candidate's reasoning.md and predicted_reasoning.md against the Court's actual holdings.",
+    "Provisioned application.txt and application-response.txt in record/documents/ made verifying party descriptions, statistics, and Federal Register citations straightforward.",
+    "fedcourts statpack-at confirmed the exact statpack build in force when the candidates ran."
+  ],
+  "gaps": [],
+  "notes": null
+}

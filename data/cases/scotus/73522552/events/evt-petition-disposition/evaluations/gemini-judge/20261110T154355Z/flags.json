@@ -1,0 +1,18 @@
+{
+  "actor_id": "gemini-judge",
+  "case_id": "scotus/73522552",
+  "flags": [
+    {
+      "category": "other",
+      "event_id": "evt-petition-disposition",
+      "issue": null,
+      "message": "Harness check: the judge-level retrieval.md is missing: this cell wrote no retrieval.md in evaluations/gemini-judge/20261110T154355Z/ or under any candidate, and the contract asks for one every run.",
+      "normalised": false,
+      "severity": "warning",
+      "source": "harness"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0"
+}

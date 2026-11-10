@@ -1,0 +1,57 @@
+{
+  "big_case_agreement": "agree",
+  "big_case_comment": "A 0.55 score is well-calibrated: whether Greenough and Pettus categorically bar Rule 23 class-representative service awards affects settlement practice nationwide and drew a U.S. Chamber of Commerce amicus brief, while the technical procedural framing and modest $5,000 objector vehicle keep public salience moderate.",
+  "brier_score": 0.0784,
+  "case_id": "scotus/73522552",
+  "claim_scores": [
+    {
+      "brier_score": 0.0784,
+      "claim_id": "disposition",
+      "correct": true,
+      "log_loss": 0.328504,
+      "rationale": "Predicted P(grant)=0.28 (<0.5) and predicted_disposition='denied'; certiorari was denied on November 9, 2026."
+    },
+    {
+      "brier_score": 0.0064,
+      "claim_id": "relist-increment",
+      "correct": true,
+      "log_loss": 0.083382,
+      "rationale": "Predicted P=0.92 that distribution_count would exceed 1, correctly recognizing that completed post-CFR briefing would be redistributed for conference; the petition was distributed a second time on October 7, 2026 (distribution_count=2)."
+    },
+    {
+      "brier_score": 0.000625,
+      "claim_id": "cvsg-increment",
+      "correct": true,
+      "log_loss": 0.025318,
+      "rationale": "Predicted P=0.025; no CVSG issued prior to denial (cvsg_date=null)."
+    },
+    {
+      "brier_score": 0.01,
+      "claim_id": "dissent-from-denial",
+      "correct": true,
+      "log_loss": 0.105361,
+      "rationale": "Predicted P=0.10; the November 9, 2026 denial carried no noted dissent or separate statement (noted_dissent_from_denial=false)."
+    }
+  ],
+  "correct": true,
+  "created_at": "2026-11-10T15:48:00Z",
+  "disposition_exact": true,
+  "engine": "gemini",
+  "evaluation_doc": "evaluation.md",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-disposition",
+  "leakage": {
+    "confirmed": false,
+    "detected": false,
+    "evidence": "Forward-mode prediction run on 2026-10-06 (over a month before the 2026-11-09 denial). retrieval_log.json (result_capture_coverage=0.93) shows only local workspace reads and two general Supreme Court Rules web queries that returned no case-specific information."
+  },
+  "log_loss": 0.328504,
+  "model": "gemini-4-argon",
+  "prediction_run_id": "20261006T142731Z",
+  "predictor_id": "codex-baseline",
+  "reasoning_score": 0.78,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "semantic_claim_scores": null,
+  "vote_accuracy": null
+}

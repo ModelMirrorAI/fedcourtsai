@@ -1,0 +1,130 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.72,
+    "notes": "Significant Solicitor General emergency application resulting in a 6-page published per curiam opinion (26A560) staying a district court injunction against over 300 miles of border-barrier construction in the Big Bend Sector and clarifying that major-questions-doctrine challenges are statutory rather than constitutional claims under Dalton v. Specter and IIRIRA \u00a7 102(c)(2)(A)."
+  },
+  "brier_score": 0.022500000000000006,
+  "brier_skill_score": 0.9711338209450261,
+  "case_id": "scotus/9526000560",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.1171303074670571,
+        "claim_id": "interim-disposition",
+        "outcome": 1,
+        "probability": 0.85,
+        "score": 0.7569588939932131
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": null,
+        "probability": 0.0,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.97,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.35,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v2",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.05,
+          "Barrett": 0.03,
+          "Gorsuch": 0.06,
+          "Jackson": 0.22,
+          "Kagan": 0.08,
+          "Kavanaugh": 0.08,
+          "Roberts": 0.02,
+          "Sotomayor": 0.22,
+          "Thomas": 0.05
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.7569588939932131,
+    "total": 0.7569588939932131
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T17:58:48.689749Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-brief-response-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction run on 2026-10-29T21:28:53Z, eleven days before the 2026-11-09 disposition. Retrieval log records 35 CourtListener MCP calls on 2026-10-29 looking up prior opinions and the W.D. Tex. district court docket (3:26-cv-01099) up through late October 2026. No outcome material existed or was retrieved.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-argon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.86,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The per curiam opinion (01-per-curiam.txt, pp. 5-6) grants the stay pending the timely filing and disposition of a petition for a writ of certiorari and declines summary reversal, noting that the district court had not yet addressed Respondents' alternative constitutional claims.",
+        "claim": "The Court will grant the application for a stay of the October 2, 2026 preliminary injunction pending the timely filing and disposition of a petition for a writ of certiorari, while denying the alternative request for certiorari before judgment and summary reversal.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The per curiam opinion (01-per-curiam.txt, pp. 2-4) holds that \u00a7 102(c)(2)(A) bars non-constitutional claims and relies directly on Dalton v. Specter, 511 U.S. 462, 472-474 (1994), and West Virginia v. EPA, 597 U.S. 697, 723-724 (2022), to hold that the district court lacked jurisdiction over Respondents' major-questions claim.",
+        "claim": "Under IIRIRA \u00a7 102(c)(2)(A) and Dalton v. Specter, 511 U.S. 462, 472-474 (1994), a major-questions-doctrine challenge is a statutory construction claim that the Secretary exceeded delegated authority rather than a claim 'alleging a violation of the Constitution,' so the district court lacked jurisdiction.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The per curiam opinion (01-per-curiam.txt, pp. 4-5) holds that even assuming jurisdiction, the major-questions claim fails on the merits under \u00a7 102(a) and \u00a7 102(c)(1), and rejects reading 'comparatively' into the statute, citing both In re Border Infrastructure Environmental Litigation, 915 F.3d 1213, 1224 (9th Cir. 2019), and Lomax v. Ortiz-Marquez, 590 U.S. 595, 600 (2020).",
+        "claim": "Even assuming the district court had jurisdiction, IIRIRA \u00a7 102(a) and \u00a7 102(c)(1) expressly authorize the Secretary to waive all legal requirements for border barrier construction, and the district court erred by reading 'comparatively' into 'areas of high illegal entry' (citing In re Border Infrastructure, 915 F.3d at 1224, and Lomax v. Ortiz-Marquez).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The per curiam opinion (01-per-curiam.txt, pp. 5-6) cites Trump v. CASA, Inc., 606 U.S. 831, 861 (2025), Trump v. Sierra Club, 588 U.S. 930 (2019), and TVA v. Hill, 437 U.S. 153, 194 (1978), for these exact propositions.",
+        "claim": "The government suffers irreparable harm from being enjoined from executing an Act of Congress (citing Trump v. CASA, Inc. and Trump v. Sierra Club), and Congress in \u00a7 102(c)(1) subordinated the waived environmental and aesthetic interests to expeditious barrier construction (citing TVA v. Hill).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The Court issued a 6-page per curiam opinion (01-per-curiam.txt) rather than a brief unsigned order, and no Justice noted a dissent.",
+        "claim": "The Court will likely dispose of the application in a brief unsigned order (with a lower probability of a short per curiam opinion), and Justices Sotomayor, Kagan, and Jackson are the primary candidates to note dissents.",
+        "status": "not-borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261029T212853Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T17:58:48.689749Z"
+  },
+  "reasoning_quality": 0.83,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.1171303074670571,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,57 @@
+{
+  "big_case_agreement": "agree",
+  "big_case_comment": "A 0.35 score is well-reasoned: claude-baseline explicitly weighed the nationwide impact on class-action settlement practice and Chamber of Commerce participation against the technical nature of the equitable common-fund question, the $5,000 stake, and modest public attention.",
+  "brier_score": 0.01,
+  "case_id": "scotus/73522552",
+  "claim_scores": [
+    {
+      "brier_score": 0.01,
+      "claim_id": "disposition",
+      "correct": true,
+      "log_loss": 0.105361,
+      "rationale": "Predicted P(grant)=0.10 (<0.5) and predicted_disposition='denied'; certiorari was denied on November 9, 2026. Best-calibrated disposition forecast in the cell."
+    },
+    {
+      "brier_score": 0.0009,
+      "claim_id": "relist-increment",
+      "correct": true,
+      "log_loss": 0.030459,
+      "rationale": "Predicted P=0.97 that distribution_count would exceed 1 because the August 5 distribution was superseded by the August 19 call for a response; the petition was redistributed on October 7, 2026 (distribution_count=2). Best-calibrated relist-increment forecast in the cell."
+    },
+    {
+      "brier_score": 0.0016,
+      "claim_id": "cvsg-increment",
+      "correct": true,
+      "log_loss": 0.040822,
+      "rationale": "Predicted P=0.04; no CVSG issued prior to denial (cvsg_date=null)."
+    },
+    {
+      "brier_score": 0.0144,
+      "claim_id": "dissent-from-denial",
+      "correct": true,
+      "log_loss": 0.127833,
+      "rationale": "Predicted P=0.12; the November 9, 2026 denial carried no noted dissent or statement (noted_dissent_from_denial=false)."
+    }
+  ],
+  "correct": true,
+  "created_at": "2026-11-10T15:48:00Z",
+  "disposition_exact": true,
+  "engine": "gemini",
+  "evaluation_doc": "evaluation.md",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-disposition",
+  "leakage": {
+    "confirmed": false,
+    "detected": false,
+    "evidence": "Forward-mode prediction run on 2026-10-06 (over a month before the 2026-11-09 denial). retrieval_log.json (result_capture_coverage=1.0) captures all corpus queries, web searches, and supremecourt.gov/uscourts.gov fetches on 2026-10-06; live docket 25-1411 ended at the October 2, 2026 reply brief."
+  },
+  "log_loss": 0.105361,
+  "model": "gemini-4-argon",
+  "prediction_run_id": "20261006T142731Z",
+  "predictor_id": "claude-baseline",
+  "reasoning_score": 0.95,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "semantic_claim_scores": null,
+  "vote_accuracy": null
+}
