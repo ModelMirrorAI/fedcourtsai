@@ -491,7 +491,7 @@ queues behind the production run of the same mode. The modes:
 - **`decision-below`** (dispatch) runs `fedcourts enrich-decision-below
   --max-cases 25`, the decision-below fill's dry run: for the next 25 cases of
   its rotation, whether CourtListener holds the lower court's docket and the
-  opinion on the judgment date, what its entries say about rehearing en banc,
+  opinion on the judgment date or a later one, what its entries say about rehearing en banc,
   and which `decision-below` and `lower-court-docket` rows an applied window
   would store. It is the bounded reading a maintainer takes before a writer
   step applies the fill, and its match count is the rate on the petitions the

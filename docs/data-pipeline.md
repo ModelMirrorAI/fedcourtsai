@@ -1035,14 +1035,18 @@ keep that honest, and they bind wherever the bit is filled.
 The **decision below** is filled by a sibling pass on the same budget,
 `enrich-decision-below` (`pipeline/decision_below.py`). For a cert petition from
 a federal court of appeals, not denied, it joins the lower court's docket on
-CourtListener and stores the opinion on the judgment date as a `decision-below`
+CourtListener and stores the opinion on the judgment date, with any amended
+opinion or opinion on rehearing filed after it and before the SCOTUS docketing,
+as a `decision-below`
 document and the docket record as a `lower-court-docket` document, both through
 `upsert_documents`. Its rotation key is `decision_below_attempted_at`, stamped
 with a direct column write (`stamp_decision_below_attempt`) on every case
 upstream answered about, so a docket CourtListener has not ingested is asked
 again after 30 days rather than every run. A case whose opinion is stored is
-re-stamped with no request when its turn comes, so it costs one manifest read
-a cycle. The ledger's predicted cases and the salience selection
+walked again on the same 30-day stamp, behind the never-attempted rows of its
+tier, because upstream can receive a circuit docket's later entries, an amended
+opinion or an order on rehearing after the first walk;
+the window's case cap bounds the spend either way. The ledger's predicted cases and the salience selection
 go first, because those are the cells the input is for. The `run-pull` live job
 runs it as `enrich-decision-below --apply --max-cases 6` on the same four full
 windows as the awaiting-grading opinion step, step-scoped and

@@ -54,8 +54,8 @@ transcript, which only a post-argument cell is given.
 | `merits-amicus-united-states` | The United States' amicus brief on the merits, filed after the grant | Granted |
 | `merits-brief-appointed-amicus` | The merits brief of a Court-appointed amicus defending the judgment, filed after the grant; stored, staged for no cell yet | Granted |
 | `argument-transcript` | The oral argument transcript, from the Court's per-Term list rather than the docket | Argued |
-| `decision-below` | The federal court of appeals' opinion under review, read from CourtListener and dated by the judgment below | Cert, Granted |
-| `lower-court-docket` | A short record of that court's docket: panel, and whether rehearing en banc was sought, how it was disposed of and any dissent | Cert, Granted |
+| `decision-below` | The federal court of appeals' opinion under review, read from CourtListener: the opinion on the judgment date and any amended opinion or opinion on rehearing filed after it and before the SCOTUS docketing, the newest first, dated by the newest it holds | Cert, Granted |
+| `lower-court-docket` | A short record of that court's docket: panel, the opinion clusters and their opinion ids, and whether rehearing en banc was sought, how it was disposed of and any dissent, with the date the entries read run through | Cert, Granted |
 | `application` | The application to a Justice or the Court | Application |
 | `application-response` | The first response to the application | Application |
 | `application-reply` | The applicant's reply to it | Application |
@@ -166,10 +166,17 @@ Each of these is stated, with its reason, where the code makes the choice:
   well as through the petition's appendix.**
   `fedcourts enrich-decision-below` joins a petition from a federal court of
   appeals to the lower court's docket on CourtListener and stores what upstream
-  holds: the opinion on the judgment date as `decision-below`, and the docket
-  record (panel, a petition for rehearing en banc, its disposition and any
-  dissent noted) as `lower-court-docket` (`pipeline/decision_below.py`,
-  [cli.md](cli.md)); `run-pull`'s live job runs it on six petitions each full
+  holds: the opinion on the judgment date as `decision-below`, ahead of it any
+  amended opinion or opinion on rehearing the court filed before the SCOTUS
+  docketing, and the docket record (panel, a petition for rehearing en banc,
+  its disposition and any dissent noted) as `lower-court-docket`
+  (`pipeline/decision_below.py`, [cli.md](cli.md)). The record words an
+  absence as one among the entries read, names the date those entries run
+  through, and says so where they stop before a rehearing denial the SCOTUS
+  docket states, since CourtListener holds a circuit docket only as far as it
+  was last uploaded. A stored case is walked again once its stamp is 30 days
+  old and the rotation reaches it, until cert is denied or the merits are
+  decided; `run-pull`'s live job runs it on six petitions each full
   window, four windows a day, and the predict backlog holds a cert arrival
   cell until the fill has attempted its petition (`held_decision_below`,
   `pipeline/pull.py`). The en banc reading is matched from entry text filed

@@ -16,9 +16,11 @@ how it was disposed of, and whether a dissent from the disposition was noted.
 it prints one :class:`DecisionBelowMatch` per case so a maintainer can measure
 the match rate. The ``enrich-decision-below`` command walks the same join over
 a rotation (:func:`fill_candidates`) and stores what upstream holds
-(:func:`fill_decision_below`): the opinion on the judgment date as a
-``decision-below`` document, the docket record as a ``lower-court-docket``
-document, and the case's ``decision_below_attempted_at`` stamp. Both kinds
+(:func:`fill_decision_below`): the opinion on the judgment date, with any
+amended opinion or opinion on rehearing filed after it and before the SCOTUS
+docketing, as a ``decision-below`` document, the docket record as a
+``lower-court-docket`` document, and the case's
+``decision_below_attempted_at`` stamp. Both kinds
 reach cert and merits cells only (``provision.LOWER_COURT_STAGES``), under the
 ``decision-below-documents`` harness boundary. No request buys anything: the
 client reads CourtListener's REST API only, and RECAP Fetch is never called.
@@ -42,7 +44,12 @@ and a returned cluster must hang on a checked row. A cluster counts as the
 decision below only when its ``date_filed`` is the judgment date. Several
 clusters on the judgment date are all reported, since a court can issue an
 opinion and an amended one the same day; a list that says more exist than one
-page holds is reported ``clusters_truncated``.
+page holds is reported ``clusters_truncated``. A cluster dated after the
+judgment date, still on or before the docketing, is reported ``after_judgment``
+and read too: a court that amends its opinion, or publishes its order on
+rehearing with the writings attached, files it as a later cluster on the same
+docket, and that is the text the petition then quotes. It does not make a
+match — the status still says whether the judgment date itself has a cluster.
 
 **The rehearing reading is text, and says so.** CourtListener serves docket
 entries as filed text with no structured rehearing field, so the en banc
@@ -51,7 +58,13 @@ after the judgment date and before the SCOTUS docketing, with every entry that
 drove it cited by number and date. A motion about the *time* to petition is
 not a petition, and its grant is not a grant of rehearing. A positive reading
 is a fact about the entries read; a negative one is reported only when the
-read was complete — every row, every page — and is ``None`` otherwise. Without
+read was complete — every row, every page — and is ``None`` otherwise. Upstream
+holds a circuit docket only as far as someone last uploaded it, so a complete
+read can still end before the court ruled: where the SCOTUS docket states a
+rehearing denial and the entries show no disposition and none filed that late,
+the reading is ``short_of_denial`` and reports no absence either. A dissent is
+read off the order's own entry and off a separate writing docketed the same
+day, which is how some circuits file one. Without
 a judgment date there is no bound to read from, so the entries are not read.
 The SCOTUS docket's own ``LowerCourtRehearingDenied`` date is reported beside
 it unchanged; it does not say whether the denial was of panel or en banc
@@ -96,7 +109,8 @@ from .opinion_enrichment import cluster_docket_id, docket_court, resource_id
 #: the first few carry the decision, and the cap bounds what one case spends.
 MAX_LOWER_NUMBERS: Final = 3
 
-#: Sub-opinions read per case, across its matched clusters, for the availability report.
+#: Sub-opinions read per case, across its clusters on and after the judgment
+#: date; it bounds the availability report and the stored text alike.
 MAX_OPINIONS: Final = 3
 
 #: Docket rows whose entries are read per case, and pages read per row.
@@ -173,6 +187,12 @@ _TIME_MOTION_RE: Final = re.compile(
     re.I,
 )
 _DISSENT_RE: Final = re.compile(r"\bdissent(?:s|ed|ing)?\b", re.I)
+# A clerk's label for a separate writing of either kind ("Concurring or
+# Dissenting Opinion FILED"): it names no dissent, and does not rule one out.
+_EITHER_WRITING_RE: Final = re.compile(r"\bconcurring\s+or\s+dissenting\b", re.I)
+# An amended opinion filed with the rehearing order recites the panel's own
+# dissent, which is not a dissent from that order.
+_AMENDED_RE: Final = re.compile(r"\bamend(?:ed|ing|s)?\b", re.I)
 
 
 class LowerCourtFacts(BaseModel):
@@ -233,13 +253,19 @@ class ClusterMatch(BaseModel):
     docket_id: int | None = Field(default=None, description="The row the cluster hangs on")
     date_filed: date | None = None
     on_judgment_date: bool = Field(description="Whether `date_filed` is the judgment date")
+    after_judgment: bool = Field(
+        default=False,
+        description="Whether `date_filed` falls after the judgment date and on or before the "
+        "SCOTUS docketing: an amended opinion, or one issued on rehearing",
+    )
     precedential_status: str | None = None
     judges: str | None = Field(default=None, description="Upstream's `judges` string")
     panel_links: int = Field(
         default=0, ge=0, description="How many `panel` person links the cluster carries"
     )
     opinions: list[OpinionAvailability] = Field(
-        default_factory=list, description="Read only for a cluster on the judgment date"
+        default_factory=list,
+        description="Read only for a cluster on the judgment date or after it, newest first",
     )
 
 
@@ -270,8 +296,9 @@ class RehearingReading(BaseModel):
 
     Text-derived: each flag is a pattern match over the entries' filed text,
     and ``cites`` names every entry that set one. ``True`` is a fact about the
-    entries read; ``False`` is reported only when ``complete``, and ``None``
-    otherwise — an unread page is not evidence of absence.
+    entries read; ``False`` is reported only when ``complete`` and not
+    ``short_of_denial``, and ``None`` otherwise — an unread page is not
+    evidence of absence, and neither is a docket upstream stopped receiving.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -286,6 +313,14 @@ class RehearingReading(BaseModel):
         description="Whether every post-judgment entry of every checked row was read — "
         "no row past the row cap, no page past the page cap",
     )
+    through: date | None = Field(
+        default=None, description="The latest filing date among the entries read"
+    )
+    short_of_denial: bool = Field(
+        default=False,
+        description="Whether the SCOTUS docket states a rehearing denial the entries read "
+        "neither show nor reach: upstream holds no entry that late, so no absence is reported",
+    )
     petition_filed: bool | None = None
     disposition: Literal["denied", "granted"] | None = None
     dissent_noted: bool | None = Field(
@@ -296,6 +331,11 @@ class RehearingReading(BaseModel):
         default=None,
         description="Why the entries were not read: no judgment date to bound the read, "
         "or upstream refused or failed the request",
+    )
+    faulted: bool = Field(
+        default=False,
+        description="Whether `unavailable` is a refused or failed request, which another "
+        "walk may not meet, rather than a fact about the case",
     )
 
 
@@ -486,53 +526,115 @@ def _entry_text(entry: Mapping[str, Any]) -> str:
     return " ".join(part for part in parts if isinstance(part, str))
 
 
+def read_separate_writing(text: str) -> bool | None:
+    """Whether an entry that is not the rehearing order records a dissent.
+
+    A circuit that dockets each writing on its own entry files a dissent from
+    the denial of rehearing en banc beside the order, not inside it. ``True``
+    where the text names a dissent; ``None`` where it carries only the clerk's
+    either-kind label (``Concurring or Dissenting Opinion``), which neither
+    names one nor rules one out, or names a dissent on an amended opinion,
+    which may be the panel's own; ``False`` otherwise.
+    """
+    named = _EITHER_WRITING_RE.sub(" ", text)
+    if _DISSENT_RE.search(named):
+        return None if _AMENDED_RE.search(named) else True
+    return None if named != text else False
+
+
+def _cite(docket_id: int, entry: Mapping[str, Any]) -> EntryCite:
+    number = entry.get("entry_number")
+    return EntryCite(
+        docket_id=docket_id,
+        entry_number=number if isinstance(number, int) and not isinstance(number, bool) else None,
+        date_filed=_iso_date(entry.get("date_filed")),
+    )
+
+
 def read_rehearing(
-    entries: Iterable[tuple[int, Mapping[str, Any]]], *, complete: bool = True
+    entries: Iterable[tuple[int, Mapping[str, Any]]],
+    *,
+    complete: bool = True,
+    judgment_date: date | None = None,
+    rehearing_denied: date | None = None,
 ) -> RehearingReading:
     """The en banc reading over ``(docket_id, entry)`` pairs.
 
-    ``complete`` says whether the pairs are every post-judgment entry there is;
-    without it a negative answer is ``None`` rather than ``False``.
+    ``complete`` says whether the pairs are every post-judgment entry upstream
+    holds; without it a negative answer is ``None`` rather than ``False``.
+
+    A dissent is read off the disposition's own entry, and off any other entry
+    of the same docket filed the same day (:func:`read_separate_writing`) once
+    that day is after
+    ``judgment_date`` — on the judgment date itself a separate writing belongs
+    to the panel's decision, not to the rehearing order. An either-kind label
+    on the disposition's day leaves the dissent unknown rather than absent.
+
+    ``rehearing_denied`` is the denial date the SCOTUS docket states. Where
+    the entries show no disposition and none is filed that late, upstream
+    stopped receiving the docket before the denial, so the reading is
+    ``short_of_denial`` and reports no absence.
     """
     read = 0
     petition = denied = granted = dissent = False
     cites: list[EntryCite] = []
+    through: date | None = None
+    disposed: set[tuple[int, date]] = set()
+    others: list[tuple[int, Mapping[str, Any], date]] = []
     for docket_id, entry in entries:
         read += 1
+        filed = _iso_date(entry.get("date_filed"))
+        if filed is not None and (through is None or filed > through):
+            through = filed
         found = read_entry(_entry_text(entry))
         if not (found.petition or found.denied or found.granted):
+            if filed is not None:
+                others.append((docket_id, entry, filed))
             continue
         petition = petition or found.petition
         denied = denied or found.denied
         granted = granted or found.granted
         dissent = dissent or found.dissent
-        number = entry.get("entry_number")
-        cites.append(
-            EntryCite(
-                docket_id=docket_id,
-                entry_number=number
-                if isinstance(number, int) and not isinstance(number, bool)
-                else None,
-                date_filed=_iso_date(entry.get("date_filed")),
-            )
-        )
+        if filed is not None and (found.denied or found.granted):
+            disposed.add((docket_id, filed))
+        cites.append(_cite(docket_id, entry))
     if read == 0:
         # Upstream holds entries only where someone uploaded them, so an empty
         # read is not evidence that nothing was filed, however complete.
         return RehearingReading(entries_read=0, complete=complete)
+    writing_unread = False
+    for docket_id, entry, filed in others:
+        if (docket_id, filed) not in disposed or (
+            judgment_date is not None and filed <= judgment_date
+        ):
+            continue
+        writing = read_separate_writing(_entry_text(entry))
+        if writing:
+            dissent = True
+            cites.append(_cite(docket_id, entry))
+        elif writing is None:
+            writing_unread = True
     disposition: Literal["denied", "granted"] | None = (
         "denied" if denied else "granted" if granted else None
     )
-    negative = False if complete else None
+    short = (
+        disposition is None
+        and rehearing_denied is not None
+        and (through is None or through < rehearing_denied)
+    )
+    negative = False if complete and not short else None
     # A disposition implies a petition was before the court, whether or not its
     # filing entry was among those read.
-    filed = petition or disposition is not None
+    filed_any = petition or disposition is not None
+    no_dissent = None if writing_unread else negative
     return RehearingReading(
         entries_read=read,
         complete=complete,
-        petition_filed=True if filed else negative,
+        through=through,
+        short_of_denial=short,
+        petition_filed=True if filed_any else negative,
         disposition=disposition,
-        dissent_noted=None if disposition is None else (True if dissent else negative),
+        dissent_noted=None if disposition is None else (True if dissent else no_dissent),
         cites=cites,
     )
 
@@ -719,9 +821,14 @@ def _clusters(
     about. Each result is a full cluster serialization, so no per-cluster fetch
     follows, and each must name one of the checked rows
     (:func:`~fedcourtsai.pipeline.opinion_enrichment.cluster_docket_id`), or it
-    is another case's and is dropped. Sub-opinions are read only for a cluster
-    on the judgment date — the candidate for the decision below — and at most
-    :data:`MAX_OPINIONS` a case.
+    is another case's and is dropped. Sub-opinions are read for a cluster on
+    the judgment date — the candidate for the decision below — and for one
+    dated after it, which is an amended opinion or one issued on rehearing and
+    is what the petition asks the Court to review where it replaced the first.
+    The newest cluster is read first, at most :data:`MAX_OPINIONS` a case, with
+    one read held for the judgment-date cluster: the cap falls on the earlier
+    opinion, and never takes all of it. Without a served docketing
+    date nothing bounds a later cluster, and none is read.
     """
     base_url = walk.client.base_url
     row_ids = {ident for ident in (_int(row.get("id")) for row in rows) if ident is not None}
@@ -731,11 +838,12 @@ def _clusters(
         if served is not None and served not in numbers:
             numbers.append(served)
     found: list[ClusterMatch] = []
+    links: dict[int, list[int]] = {}
     seen: set[int] = set()
     truncated = False
-    opinions_left = MAX_OPINIONS
+    judgment, docketed = facts.judgment_date, facts.scotus_docketed
     for number in numbers[:MAX_LOWER_NUMBERS]:
-        page = walk.clusters(court, number, facts.scotus_docketed)
+        page = walk.clusters(court, number, docketed)
         results = page.get("results")
         if page.get("next"):
             truncated = True
@@ -748,16 +856,19 @@ def _clusters(
                 continue
             seen.add(cluster_id)
             filed = _iso_date(cluster.get("date_filed"))
-            docketed = facts.scotus_docketed
             if filed is not None and docketed is not None and filed > docketed:
                 continue
-            on_date = filed is not None and filed == facts.judgment_date
-            opinion_ids = (
-                _linked_ids(cluster.get("sub_opinions"), base_url=base_url, resource="opinions")
-                if on_date
-                else []
-            )[: max(opinions_left, 0)]
-            opinions_left -= len(opinion_ids)
+            on_date = filed is not None and filed == judgment
+            later = (
+                filed is not None
+                and judgment is not None
+                and docketed is not None
+                and filed > judgment
+            )
+            if on_date or later:
+                links[cluster_id] = _linked_ids(
+                    cluster.get("sub_opinions"), base_url=base_url, resource="opinions"
+                )
             panel = cluster.get("panel")
             found.append(
                 ClusterMatch(
@@ -765,15 +876,28 @@ def _clusters(
                     docket_id=docket_id,
                     date_filed=filed,
                     on_judgment_date=on_date,
+                    after_judgment=later,
                     precedential_status=_text(cluster.get("precedential_status")),
                     judges=_text(cluster.get("judges")),
                     panel_links=len(panel) if isinstance(panel, list) else 0,
-                    opinions=[
-                        _availability(opinion_id, walk.opinion(opinion_id))
-                        for opinion_id in opinion_ids
-                    ],
                 )
             )
+    newest_first = sorted(
+        (c for c in found if c.cluster_id in links),
+        key=lambda c: c.date_filed or date.min,
+        reverse=True,
+    )
+    # One read is held for the judgment-date cluster, so an order on rehearing
+    # published with several writings cannot leave the panel's opinion unread.
+    held = next((c for c in newest_first if c.on_judgment_date and links[c.cluster_id]), None)
+    opinions_left = MAX_OPINIONS - (1 if held is not None else 0)
+    for cluster in newest_first:
+        take = max(opinions_left, 0) + (1 if cluster is held else 0)
+        opinion_ids = links[cluster.cluster_id][:take]
+        opinions_left -= len(opinion_ids) - (1 if cluster is held else 0)
+        cluster.opinions = [
+            _availability(opinion_id, walk.opinion(opinion_id)) for opinion_id in opinion_ids
+        ]
     return _Clusters(found=found, truncated=truncated)
 
 
@@ -869,14 +993,16 @@ def _rehearing(
                 why = f"CourtListener answered the docket entries HTTP {exc.response.status_code}"
             else:
                 why = f"the docket entries could not be read ({type(exc).__name__})"
-            return RehearingReading(entries_read=0, unavailable=why)
+            return RehearingReading(entries_read=0, unavailable=why, faulted=True)
         complete = complete and whole
         pairs.extend(
             (row.docket_id, entry)
             for entry in entries
             if _before_docketing(entry, facts.scotus_docketed)
         )
-    return read_rehearing(pairs, complete=complete)
+    return read_rehearing(
+        pairs, complete=complete, judgment_date=since, rehearing_denied=facts.rehearing_denied
+    )
 
 
 def _before_docketing(entry: Mapping[str, Any], docketed: date | None) -> bool:
@@ -1038,44 +1164,71 @@ def _cap(text: str, char_cap: int) -> tuple[str, bool]:
     return text[:char_cap], True
 
 
+def _decided(match: DecisionBelowMatch) -> list[ClusterMatch]:
+    """The clusters that carry the decision below, newest first.
+
+    Those on the judgment date and those after it (an amended opinion, or one
+    issued on rehearing); a cluster before the judgment date is an earlier
+    stage of the appeal and is left out.
+    """
+    return sorted(
+        (c for c in match.clusters if c.on_judgment_date or c.after_judgment),
+        key=lambda c: c.date_filed or date.min,
+        reverse=True,
+    )
+
+
 def opinion_document(
     match: DecisionBelowMatch, texts: Mapping[int, str], *, today: date, char_cap: int
 ) -> corpus.CaseDocument | None:
     """The decision below as a stored ``decision-below`` row, where upstream holds its text.
 
-    Every sub-opinion of the clusters on the judgment date that carries text,
-    the court's own opinion first and each under a ``=== <type> (<author>) ===``
-    header where there is more than one, cut at ``char_cap``. Dated on the
-    judgment date, which is what places it against a moment cutoff. ``None``
-    for a case that did not match, or whose opinions carry no text.
+    Every sub-opinion with text of the clusters on the judgment date and of
+    those after it, the newest cluster first — a later opinion ahead of the
+    judgment-date one — and, within a cluster, the court's own opinion first.
+    Each sits under a ``=== <type> (<author>) ===`` header where there is more
+    than one; where a cluster is dated after the judgment date, every header
+    carries its cluster's filing date and that cluster's says it follows the
+    judgment. Cut at ``char_cap``. Dated on the newest cluster it holds, which
+    is what places it against a moment cutoff and never follows the SCOTUS
+    docketing. ``None`` for a case with no such cluster, or whose opinions
+    carry no text.
     """
-    if match.case_id is None or match.status != "matched" or match.facts.judgment_date is None:
+    judgment = match.facts.judgment_date
+    if match.case_id is None or judgment is None:
         return None
-    on_date = [cluster for cluster in match.clusters if cluster.on_judgment_date]
+    clusters = _decided(match)
     opinions = [
         (cluster, opinion)
-        for cluster in on_date
-        for opinion in cluster.opinions
+        for cluster in clusters
+        for opinion in sorted(
+            cluster.opinions, key=lambda o: 0 if _LEAD_TYPE_RE.match(o.type or "") else 1
+        )
         if opinion.opinion_id in texts
     ]
     if not opinions:
         return None
-    opinions.sort(key=lambda pair: 0 if _LEAD_TYPE_RE.match(pair[1].type or "") else 1)
+    dated = any(cluster.after_judgment for cluster, _ in opinions)
     parts: list[str] = []
-    for _, opinion in opinions:
+    for cluster, opinion in opinions:
         body = texts[opinion.opinion_id].strip()
-        if len(opinions) > 1:
+        if len(opinions) > 1 or dated:
             label = opinion.type or "opinion"
             if opinion.author:
                 label += f" ({opinion.author})"
+            if dated:
+                label += f", filed {cluster.date_filed}"
+            if cluster.after_judgment:
+                label += f", after the {judgment} judgment the SCOTUS docket names"
             body = f"=== {label} ===\n{body}"
         parts.append(body)
     text, truncated = _cap("\n\n".join(parts), char_cap)
+    newest = max((c.date_filed for c, _ in opinions if c.date_filed), default=judgment)
     return corpus.CaseDocument(
         case_id=match.case_id,
         kind=KIND_DECISION_BELOW,
         url=f"{COURTLISTENER_SITE}/opinion/{opinions[0][0].cluster_id}/",
-        entry_date=match.facts.judgment_date.isoformat(),
+        entry_date=newest.isoformat(),
         fetched_at=today,
         pages=0,
         truncated=truncated,
@@ -1084,7 +1237,13 @@ def opinion_document(
 
 
 def _yes_no(value: bool | None, unknown: str) -> str:
-    return unknown if value is None else ("yes" if value else "no")
+    """A reading's flag as the docket record words it.
+
+    A negative is worded as what it is, an absence among the entries read: it
+    is reported only for a complete read, and even then says nothing of an
+    entry upstream never received.
+    """
+    return unknown if value is None else ("yes" if value else "none in the entries read")
 
 
 def docket_document(match: DecisionBelowMatch, *, today: date) -> corpus.CaseDocument | None:
@@ -1092,10 +1251,12 @@ def docket_document(match: DecisionBelowMatch, *, today: date) -> corpus.CaseDoc
 
     A short text record, one fact a line: the court and numbers the SCOTUS
     docket names, the judgment and rehearing dates it serves, the CourtListener
-    rows found, the panel where upstream records one, and the en banc reading
-    with the entries it rests on. Stored wherever a docket row was found,
-    matched opinion or not. Dated on the latest entry the reading cites, else
-    on the judgment date: every fact in it precedes the SCOTUS docketing.
+    rows found, the panel where upstream records one, each opinion cluster on
+    or after the judgment date with its opinion ids, and the en banc reading
+    with the date its entries run through and the entries it rests on. Stored
+    wherever a docket row was found, matched opinion or not. Dated on the
+    latest entry the reading read or later opinion cluster it lists, else on
+    the judgment date: no fact in it follows the SCOTUS docketing.
     """
     if match.case_id is None or not match.dockets:
         return None
@@ -1116,14 +1277,18 @@ def docket_document(match: DecisionBelowMatch, *, today: date) -> corpus.CaseDoc
             f"CourtListener docket {row.docket_id}: {row.case_name or 'no caption'}, "
             + f"No. {row.docket_number or 'not served'}; panel: {row.panel or 'not recorded'}"
         )
-    on_date = [cluster for cluster in match.clusters if cluster.on_judgment_date]
-    for cluster in on_date:
+    decided = _decided(match)
+    for cluster in reversed(decided):
+        ids = ", ".join(str(opinion.opinion_id) for opinion in cluster.opinions)
         lines.append(
-            f"Opinion cluster {cluster.cluster_id} ({cluster.date_filed}): "
-            + f"{cluster.precedential_status or 'status not served'}; "
-            + f"judges: {cluster.judges or 'not recorded'}"
+            ("Later opinion cluster" if cluster.after_judgment else "Opinion cluster")
+            + f" {cluster.cluster_id} ({cluster.date_filed}"
+            + (", after the judgment date" if cluster.after_judgment else "")
+            + f"): {cluster.precedential_status or 'status not served'}; "
+            + f"judges: {cluster.judges or 'not recorded'}; "
+            + f"opinion id(s): {ids or 'not read'}"
         )
-    if not on_date:
+    if not any(cluster.on_judgment_date for cluster in decided):
         lines.append("Opinion on the judgment date: none on CourtListener")
     reading = match.rehearing
     if reading is None or reading.unavailable is not None or reading.entries_read == 0:
@@ -1136,6 +1301,7 @@ def docket_document(match: DecisionBelowMatch, *, today: date) -> corpus.CaseDoc
                 + f"{reading.entries_read} docket entr{'y' if reading.entries_read == 1 else 'ies'}"
                 + " filed after the judgment and before the SCOTUS docketing"
                 + (" (all of them)" if reading.complete else " (not all of them)")
+                + (f", the latest filed {reading.through}" if reading.through else "")
                 + ":",
                 f"  petition filed: {_yes_no(reading.petition_filed, 'not found')}",
                 f"  disposition: {reading.disposition or 'not found'}",
@@ -1147,7 +1313,16 @@ def docket_document(match: DecisionBelowMatch, *, today: date) -> corpus.CaseDoc
                 f"  entry {cite.entry_number if cite.entry_number is not None else '(unnumbered)'}"
                 + f" on docket {cite.docket_id}, filed {cite.date_filed or 'undated'}"
             )
+        if reading.short_of_denial:
+            lines.append(
+                "  CourtListener holds no entry as late as the rehearing denial the SCOTUS "
+                + f"docket states ({facts.rehearing_denied}), so its entries stop before the "
+                + "court ruled on rehearing: what is not found above was not there to read."
+            )
     cited = [cite.date_filed for cite in (reading.cites if reading else []) if cite.date_filed]
+    cited.extend(c.date_filed for c in decided if c.after_judgment and c.date_filed)
+    if reading is not None and reading.through is not None:
+        cited.append(reading.through)
     dated = max(cited) if cited else facts.judgment_date
     return corpus.CaseDocument(
         case_id=match.case_id,
@@ -1161,14 +1336,6 @@ def docket_document(match: DecisionBelowMatch, *, today: date) -> corpus.CaseDoc
     )
 
 
-@dataclass(frozen=True)
-class FillCandidates:
-    """The rows a fill walks, and the re-attempts it settles without a request."""
-
-    rows: list[corpus.CorpusRow]
-    settled: list[str]
-
-
 def fill_candidates(
     conn: corpus.ReadConnection,
     *,
@@ -1176,7 +1343,7 @@ def fill_candidates(
     max_cases: int,
     priority: frozenset[str] = frozenset(),
     retry_days: int = RETRY_DAYS,
-) -> FillCandidates:
+) -> list[corpus.CorpusRow]:
     """The cert-form rows the next fill walks, at most ``max_cases``.
 
     A SCOTUS row whose lower court is a joined circuit, whose petition was not
@@ -1184,11 +1351,13 @@ def fill_candidates(
     grant still before the Court, the cells this input reaches. Not attempted
     in the last ``retry_days``. Ordered: cases the ledger forecasts
     (``priority``) and the salience selection first, then never-attempted
-    before a stale stamp, then newest by Term and serial. A re-attempt whose
-    opinion is already stored is ``settled`` rather than walked: one manifest
-    read tells, and the fill re-stamps it so the next run does not read it
-    again for ``retry_days``. A dismissed petition is not told apart from a
-    pending one, and costs its walk once a cycle.
+    before a stale stamp, then newest by Term and serial. A case whose opinion
+    is already stored is walked again once its stamp is stale, behind every
+    never-attempted row of its tier: upstream can receive a circuit docket's
+    later entries, an amended opinion or an order on rehearing after the first
+    walk, so a stored row is a reading as of its stamp, not a settled one. A
+    dismissed petition is not told apart from a pending one, and costs its
+    walk once a cycle.
     """
     picked: list[tuple[tuple[int, int, date, int, int], corpus.CorpusRow]] = []
     for row in corpus.iter_rows(conn, court="scotus"):
@@ -1210,18 +1379,7 @@ def fill_candidates(
         )
         picked.append((key, row))
     picked.sort(key=lambda pair: pair[0])
-    chosen: list[corpus.CorpusRow] = []
-    settled: list[str] = []
-    for _, row in picked:
-        if len(chosen) >= max_cases:
-            break
-        if row.decision_below_attempted_at is not None and KIND_DECISION_BELOW in (
-            corpus.document_urls_for_case(conn, row.case_id)
-        ):
-            settled.append(row.case_id)
-            continue
-        chosen.append(row)
-    return FillCandidates(rows=chosen, settled=settled)
+    return [row for _, row in picked[: max(max_cases, 0)]]
 
 
 def fill_decision_below(
@@ -1232,30 +1390,38 @@ def fill_decision_below(
     apply: bool,
     today: date,
     char_cap: int,
-    settled: Sequence[str] = (),
 ) -> DecisionBelowReport:
     """Match each row and store what upstream holds of its decision below.
 
     Each case CourtListener answered about gets its ``decision-below`` row
-    where an opinion on the judgment date carries text, its
+    where an opinion on or after the judgment date carries text, its
     ``lower-court-docket`` row where a docket was found, and its
     ``decision_below_attempted_at`` stamp, all only under ``apply``; a dry run
     counts what it would store. A failed case is stamped neither way, and a
-    batch wall defers the rest unstamped. Each ``settled`` case is re-stamped
-    under ``apply`` with no request. A case is stamped even where its rehearing
-    entries could not be read: its docket row says so, and once its opinion is
-    stored the reading is not asked again. Under the corpus split a store write
-    that fails is logged rather than raised, so such a case is stamped too and
-    waits out its retry window.
+    batch wall defers the rest unstamped. A case is stamped even where its
+    rehearing entries could not be read: its docket row says so, and the next
+    walk reads them again. A walk whose entries request faulted does not
+    replace a docket row the case already holds, which may carry a reading
+    where this one carries none. Under the corpus split a store write that
+    fails is logged rather than raised, so such a case is stamped too and waits
+    out its retry window.
     """
     report_stored: dict[str, int] = {}
 
     def store(item: CaseInput, match: DecisionBelowMatch, walk: _Walk) -> None:
+        docket = docket_document(match, today=today)
+        if (
+            docket is not None
+            and match.rehearing is not None
+            and match.rehearing.faulted
+            and KIND_LOWER_COURT_DOCKET in corpus.document_urls_for_case(conn, docket.case_id)
+        ):
+            docket = None
         documents = [
             document
             for document in (
                 opinion_document(match, walk.texts, today=today, char_cap=char_cap),
-                docket_document(match, today=today),
+                docket,
             )
             if document is not None
         ]
@@ -1273,7 +1439,4 @@ def fill_decision_below(
     ]
     report = _walk_cases(client, cases, store)
     report.stored = dict(sorted(report_stored.items()))
-    if apply:
-        for case_id in settled:
-            corpus.stamp_decision_below_attempt(conn, case_id, today)
     return report

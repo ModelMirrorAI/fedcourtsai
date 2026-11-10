@@ -17716,10 +17716,12 @@ def decision_below_command(
     For each case, reads the lower court, its case number(s) and the judgment
     date the SCOTUS docket JSON carries, maps the court to a CourtListener id
     (the federal courts of appeals only), finds the lower court's docket rows by
-    number, the opinion cluster dated on the judgment date and its sub-opinions'
-    file and text availability, and — where upstream holds the docket's entries —
-    reads whether a petition for rehearing en banc was filed, how it was
-    disposed of, and whether a dissent was noted. Prints the report as JSON on
+    number, the opinion cluster dated on the judgment date, any dated after it
+    and on or before the SCOTUS docketing, and their sub-opinions' file and text
+    availability, and — where upstream holds the docket's entries — reads
+    whether a petition for rehearing en banc was filed, how it was disposed of,
+    and whether a dissent was noted, reporting no absence where the entries
+    stop before a rehearing denial the SCOTUS docket states. Prints the report as JSON on
     stdout and the match rate on stderr.
 
     Strictly **read-only**: writes no corpus, content store or ledger, and
@@ -17806,9 +17808,11 @@ def enrich_decision_below_command(
     Walks the rotation `fill_candidates` orders — the petitions the ledger
     forecasts and the salience selection first, then never-attempted, then
     newest — joins each to CourtListener as `decision-below` measures, and
-    stores what upstream holds: the opinion on the judgment date as a
-    `decision-below` document and the docket record as a `lower-court-docket`
-    document, then stamps `decision_below_attempted_at`. A dry run walks and
+    stores what upstream holds: the opinion on the judgment date, with any
+    amended opinion or opinion on rehearing that followed it before the
+    docketing, as a `decision-below` document and the docket record as a
+    `lower-court-docket` document, then stamps `decision_below_attempted_at`.
+    A stored case is walked again once its stamp is stale. A dry run walks and
     counts without writing. Both kinds reach cert and merits cells only
     (`provision.LOWER_COURT_STAGES`).
     Spends CourtListener REST requests through the shared client and this
@@ -17846,7 +17850,6 @@ def enrich_decision_below_command(
         corpus.connect_maintenance(db_path, apply=apply) as conn,
         _client("decision-below-fill" if apply else "decision-below") as client,
     ):
-        settled: list[str] = []
         if case_ids:
             rows: list[corpus.CorpusRow] = []
             for case_id in case_ids:
@@ -17858,15 +17861,14 @@ def enrich_decision_below_command(
                     raise typer.Exit(code=1)
                 rows.append(row)
         else:
-            candidates = decision_below.fill_candidates(
+            rows = decision_below.fill_candidates(
                 conn,
                 today=today,
                 max_cases=max_cases,
                 priority=predicted_case_ids(settings.data_root),
             )
-            rows, settled = candidates.rows, candidates.settled
         report = decision_below.fill_decision_below(
-            conn, client, rows, apply=apply, today=today, char_cap=char_cap, settled=settled
+            conn, client, rows, apply=apply, today=today, char_cap=char_cap
         )
     if apply:
         _ensure_corpus_layout(db_path)
@@ -17880,9 +17882,6 @@ def enrich_decision_below_command(
         f"{report.requests} REST request(s)",
         err=True,
     )
-    if settled:
-        restamp = "re-stamped" if apply else "would re-stamp"
-        typer.echo(f"  {len(settled)} case(s) already hold their opinion; {restamp}", err=True)
     if report.stopped:
         typer.echo(
             f"  stopped: {report.stopped} ({len(report.deferred)} case(s) deferred)", err=True
