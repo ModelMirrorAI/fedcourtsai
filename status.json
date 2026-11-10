@@ -5,7 +5,7 @@
       "key": "historical-replay",
       "name": "Historical replay",
       "reading": "Retrospective: every outcome was public before the run, so this measures recall of known history, never foresight. It is an iteration instrument, and nothing here is a claimable performance figure. Read each lift only against its own row's floor. The pooled row mixes in courts this pipeline does not predict.",
-      "summary": "2 simple baseline predictor(s) replayed over 54,423 resolved events in the corpus. No model runs here.",
+      "summary": "2 simple baseline predictor(s) replayed over 58,039 resolved events in the corpus. No model runs here.",
       "table": {
         "columns": [
           "Predictor",
@@ -20,11 +20,11 @@
           [
             "constant-denied",
             "SCOTUS cert petitions",
-            "34,308",
-            "93.6%",
-            "93.6%",
+            "37,924",
+            "94.2%",
+            "94.2%",
             "+0.00%",
-            "0.0372"
+            "0.0336"
           ],
           [
             "constant-denied",
@@ -47,20 +47,20 @@
           [
             "constant-denied",
             "All courts pooled",
-            "54,423",
-            "64.3%",
-            "64.3%",
+            "58,039",
+            "66.5%",
+            "66.5%",
             "+0.00%",
-            "0.2242"
+            "0.2102"
           ],
           [
             "prior-vote",
             "SCOTUS cert petitions",
-            "34,308",
-            "76.4%",
-            "93.6%",
-            "-17.18%",
-            "0.1834"
+            "37,924",
+            "78.7%",
+            "94.2%",
+            "-15.54%",
+            "0.1679"
           ],
           [
             "prior-vote",
@@ -69,7 +69,7 @@
             "30.5%",
             "18.6%",
             "+11.96%",
-            "0.4128"
+            "0.4275"
           ],
           [
             "prior-vote",
@@ -83,15 +83,15 @@
           [
             "prior-vote",
             "All courts pooled",
-            "54,423",
-            "56.4%",
-            "64.3%",
-            "-7.90%",
-            "0.2200"
+            "58,039",
+            "59.1%",
+            "66.5%",
+            "-7.41%",
+            "0.2110"
           ]
         ]
       },
-      "vintage": "2026-11-07"
+      "vintage": "2026-11-09"
     },
     {
       "artifact": "metrics/cert-backtest.json",
@@ -232,30 +232,30 @@
     }
   ],
   "coverage": {
-    "corpus_dockets": 2154026,
-    "documents_provisioned": 168,
-    "evaluations_forward": 1413,
-    "events_predicted": 555,
-    "frontier_as_of": "2026-11-09",
+    "corpus_dockets": 2154061,
+    "documents_provisioned": 166,
+    "evaluations_forward": 1422,
+    "events_predicted": 602,
+    "frontier_as_of": "2026-11-10",
     "next_conference": "2026-11-13",
-    "next_conference_petitions": 125,
-    "predicted_resolved": 206,
-    "predictions": 2108,
-    "public_cases": 14315,
-    "watchlist": 733
+    "next_conference_petitions": 153,
+    "predicted_resolved": 241,
+    "predictions": 2246,
+    "public_cases": 14389,
+    "watchlist": 529
   },
   "data_ok": true,
-  "generated_at": "2026-11-09T08:10:55.713887Z",
+  "generated_at": "2026-11-10T08:09:34.926648Z",
   "lanes": [
     {
       "delivered_24h": 16,
-      "expected_since": "2026-11-09T04:47:00Z",
+      "expected_since": "2026-11-10T04:47:00Z",
       "label": "Docket refresh",
       "lane": "run-pull",
-      "last_concluded_at": "2026-11-09T07:21:25Z",
+      "last_concluded_at": "2026-11-10T07:19:05Z",
       "last_conclusion": "success",
-      "last_started_at": "2026-11-09T07:21:25Z",
-      "lateness_p50_min": 3,
+      "last_started_at": "2026-11-10T07:19:05Z",
+      "lateness_p50_min": 4,
       "runs_7d": 62,
       "schedule": "16 times a day",
       "slots_24h": 16,
@@ -265,45 +265,45 @@
     },
     {
       "delivered_24h": 4,
-      "expected_since": "2026-11-09T02:31:00Z",
+      "expected_since": "2026-11-10T02:31:00Z",
       "label": "Historical walker",
       "lane": "run-seed",
-      "last_concluded_at": "2026-11-09T02:34:41Z",
+      "last_concluded_at": "2026-11-10T02:34:16Z",
       "last_conclusion": "success",
-      "last_started_at": "2026-11-09T02:34:41Z",
-      "lateness_p50_min": 3,
-      "runs_7d": 17,
+      "last_started_at": "2026-11-10T02:34:16Z",
+      "lateness_p50_min": 4,
+      "runs_7d": 16,
       "schedule": "daily at 02:31, 08:31, 14:31 and 20:31 UTC",
       "slots_24h": 4,
       "state": "up",
-      "successes_7d": 17,
+      "successes_7d": 16,
       "what": "Adds decided petitions from past Terms to the corpus the base rates are read from."
     },
     {
       "delivered_24h": 2,
-      "expected_since": "2026-11-08T17:32:00Z",
+      "expected_since": "2026-11-09T17:32:00Z",
       "label": "Predict",
       "lane": "run-predict",
-      "last_concluded_at": "2026-11-09T03:24:51Z",
+      "last_concluded_at": "2026-11-10T03:21:18Z",
       "last_conclusion": "success",
-      "last_started_at": "2026-11-09T03:24:51Z",
-      "lateness_p50_min": 2,
+      "last_started_at": "2026-11-10T03:21:18Z",
+      "lateness_p50_min": 4,
       "runs_7d": 20,
       "schedule": "daily at 14:12 and 17:32 UTC",
       "slots_24h": 2,
       "state": "up",
-      "successes_7d": 19,
+      "successes_7d": 18,
       "what": "Runs each model on the events that are owed a forecast."
     },
     {
       "delivered_24h": 1,
-      "expected_since": "2026-11-08T15:39:00Z",
+      "expected_since": "2026-11-09T15:39:00Z",
       "label": "Evaluate",
       "lane": "run-evaluate",
-      "last_concluded_at": "2026-11-08T15:42:54Z",
+      "last_concluded_at": "2026-11-09T15:43:08Z",
       "last_conclusion": "success",
-      "last_started_at": "2026-11-08T15:42:54Z",
-      "lateness_p50_min": 3,
+      "last_started_at": "2026-11-09T15:43:08Z",
+      "lateness_p50_min": 4,
       "runs_7d": 4,
       "schedule": "daily at 15:39 UTC",
       "slots_24h": 1,
@@ -313,12 +313,12 @@
     },
     {
       "delivered_24h": 1,
-      "expected_since": "2026-11-09T03:43:00Z",
+      "expected_since": "2026-11-10T03:43:00Z",
       "label": "Case summaries",
       "lane": "summarize",
-      "last_concluded_at": "2026-11-09T03:44:27Z",
+      "last_concluded_at": "2026-11-10T03:44:09Z",
       "last_conclusion": "success",
-      "last_started_at": "2026-11-09T03:44:27Z",
+      "last_started_at": "2026-11-10T03:44:09Z",
       "lateness_p50_min": 1,
       "runs_7d": 5,
       "schedule": "daily at 03:43 UTC",
@@ -328,35 +328,35 @@
       "what": "Writes the plain-language summaries of the predicted cases."
     },
     {
-      "delivered_24h": 1,
-      "expected_since": "2026-11-09T05:41:00Z",
+      "delivered_24h": 2,
+      "expected_since": "2026-11-10T04:36:00Z",
       "label": "Boards",
       "lane": "run-analytics",
-      "last_concluded_at": "2026-11-09T04:37:41Z",
+      "last_concluded_at": "2026-11-10T04:36:58Z",
       "last_conclusion": "success",
-      "last_started_at": "2026-11-09T04:37:41Z",
-      "lateness_p50_min": 1,
-      "runs_7d": 12,
+      "last_started_at": "2026-11-10T04:36:58Z",
+      "lateness_p50_min": 40,
+      "runs_7d": 11,
       "schedule": "daily at 04:36 UTC, plus Mondays at 05:41 and 12:59 UTC, plus Tuesdays at 09:08 UTC, plus Wednesdays at 09:04 UTC, plus Thursdays at 09:14 UTC, plus Fridays at 21:11 UTC",
       "slots_24h": 2,
-      "state": "late",
-      "successes_7d": 12,
+      "state": "up",
+      "successes_7d": 11,
       "what": "Rebuilds the big-case board daily and the metrics roll-ups weekly."
     },
     {
       "delivered_24h": 1,
-      "expected_since": "2026-11-08T08:00:00Z",
+      "expected_since": "2026-11-09T08:00:00Z",
       "label": "Status report",
       "lane": "run-ops",
-      "last_concluded_at": "2026-11-08T08:07:09Z",
+      "last_concluded_at": "2026-11-09T08:09:37Z",
       "last_conclusion": "success",
-      "last_started_at": "2026-11-09T08:09:37Z",
-      "lateness_p50_min": 7,
-      "runs_7d": 6,
+      "last_started_at": "2026-11-10T08:08:10Z",
+      "lateness_p50_min": 9,
+      "runs_7d": 5,
       "schedule": "daily at 08:00 UTC",
       "slots_24h": 1,
       "state": "up",
-      "successes_7d": 4,
+      "successes_7d": 5,
       "what": "Checks the committed data and writes this page's snapshot."
     }
   ],
@@ -364,17 +364,22 @@
     {
       "by_stage": [
         {
+          "cells": 3,
+          "role": "evaluator",
+          "stage": "cert"
+        },
+        {
           "cells": 21,
           "role": "evaluator",
           "stage": "interim"
         },
         {
-          "cells": 120,
+          "cells": 246,
           "role": "predictor",
           "stage": "cert"
         },
         {
-          "cells": 27,
+          "cells": 30,
           "role": "predictor",
           "stage": "interim"
         },
@@ -384,18 +389,18 @@
           "stage": "merits"
         }
       ],
-      "cells": 190,
+      "cells": 322,
       "days": 7,
-      "end": "2026-11-09",
-      "events": 47,
-      "start": "2026-11-02",
+      "end": "2026-11-10",
+      "events": 92,
+      "start": "2026-11-03",
       "term": null,
       "window": "7d"
     },
     {
       "by_stage": [
         {
-          "cells": 129,
+          "cells": 132,
           "role": "evaluator",
           "stage": "cert"
         },
@@ -405,12 +410,12 @@
           "stage": "interim"
         },
         {
-          "cells": 527,
+          "cells": 659,
           "role": "predictor",
           "stage": "cert"
         },
         {
-          "cells": 75,
+          "cells": 78,
           "role": "predictor",
           "stage": "interim"
         },
@@ -420,18 +425,18 @@
           "stage": "merits"
         }
       ],
-      "cells": 887,
+      "cells": 1025,
       "days": 30,
-      "end": "2026-11-09",
-      "events": 263,
-      "start": "2026-10-10",
+      "end": "2026-11-10",
+      "events": 310,
+      "start": "2026-10-11",
       "term": null,
       "window": "30d"
     },
     {
       "by_stage": [
         {
-          "cells": 441,
+          "cells": 444,
           "role": "evaluator",
           "stage": "cert"
         },
@@ -441,12 +446,12 @@
           "stage": "interim"
         },
         {
-          "cells": 749,
+          "cells": 884,
           "role": "predictor",
           "stage": "cert"
         },
         {
-          "cells": 104,
+          "cells": 107,
           "role": "predictor",
           "stage": "interim"
         },
@@ -456,15 +461,15 @@
           "stage": "merits"
         }
       ],
-      "cells": 1504,
-      "days": 39,
-      "end": "2026-11-09",
-      "events": 440,
+      "cells": 1645,
+      "days": 40,
+      "end": "2026-11-10",
+      "events": 487,
       "start": "2026-10-01",
       "term": 2026,
       "window": "term"
     }
   ],
   "schema_version": "1.0",
-  "source_sha": "c6a2e64d0abf51871d887c505fc01897a2e7913b"
+  "source_sha": "053839937e956f245aa9c6389aae1e118a1058fa"
 }
