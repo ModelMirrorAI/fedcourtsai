@@ -9,15 +9,15 @@
       "problems": []
     },
     {
-      "checked": 2154061,
-      "detail": "2154061 rows vs baseline 2154061",
+      "checked": 2154066,
+      "detail": "2154066 rows vs baseline 2154061",
       "failures": 0,
       "name": "row_count_monotonic",
       "passed": true,
       "problems": []
     },
     {
-      "checked": 4311557,
+      "checked": 4311567,
       "detail": "",
       "failures": 0,
       "name": "required_columns_non_empty",
@@ -25,7 +25,7 @@
       "problems": []
     },
     {
-      "checked": 2154061,
+      "checked": 2154066,
       "detail": "no marked docket numbers stored (1 ***-shaped string(s) are legitimate separators)",
       "failures": 0,
       "name": "docket_numbers_carry_no_capital_marking",
@@ -41,15 +41,17 @@
       "problems": []
     },
     {
-      "checked": 639,
+      "checked": 640,
       "detail": "granted before 2024-11-10 (730 days); 13 resolved by termination (1 abated, 1 grant-vacated, 2 judgment-issued, 9 voluntary-dismissal)",
-      "failures": 0,
+      "failures": 1,
       "name": "no_stale_unparsed_grants",
-      "passed": true,
-      "problems": []
+      "passed": false,
+      "problems": [
+        "granted 2021-01-25: scotus/72464744 still carries no merits judgment or termination"
+      ]
     },
     {
-      "checked": 2154061,
+      "checked": 2154066,
       "detail": "0 future-dated, 75 decided-before-filed (21 docket rows vs accepted baseline 30, 54 SCOTUS application rows vs accepted baseline 70; as of 2026-11-10); faithful upstream data \u2014 investigate the climb upstream before raising a baseline",
       "failures": 75,
       "name": "case_dates_ordered",
@@ -78,7 +80,7 @@
       ]
     },
     {
-      "checked": 4308484,
+      "checked": 4308494,
       "detail": "",
       "failures": 0,
       "name": "domain_values_valid",
@@ -86,7 +88,7 @@
       "problems": []
     },
     {
-      "checked": 4311557,
+      "checked": 4311567,
       "detail": "",
       "failures": 0,
       "name": "no_duplicate_cases_or_events",
@@ -94,7 +96,7 @@
       "problems": []
     },
     {
-      "checked": 18405,
+      "checked": 18702,
       "detail": "",
       "failures": 0,
       "name": "ledger_references_exist",
@@ -110,7 +112,7 @@
       "problems": []
     },
     {
-      "checked": 29766,
+      "checked": 29801,
       "detail": "",
       "failures": 0,
       "name": "event_dirs_hold_only_ledger_entries",
@@ -118,7 +120,7 @@
       "problems": []
     },
     {
-      "checked": 1899,
+      "checked": 2193,
       "detail": "",
       "failures": 0,
       "name": "evaluation_targets_prediction",
@@ -126,7 +128,7 @@
       "problems": []
     },
     {
-      "checked": 1293,
+      "checked": 1563,
       "detail": "",
       "failures": 0,
       "name": "base_rate_basis_carries_version",
@@ -134,7 +136,7 @@
       "problems": []
     },
     {
-      "checked": 4082,
+      "checked": 4088,
       "detail": "",
       "failures": 0,
       "name": "prediction_docs_exist",
@@ -142,7 +144,7 @@
       "problems": []
     },
     {
-      "checked": 1836,
+      "checked": 1839,
       "detail": "",
       "failures": 0,
       "name": "prediction_claims_scoreable",
@@ -166,7 +168,7 @@
       "problems": []
     },
     {
-      "checked": 1899,
+      "checked": 2193,
       "detail": "",
       "failures": 0,
       "name": "predicted_reasoning_grade_only_under_a_prompt_that_asks",
@@ -182,7 +184,7 @@
       "problems": []
     },
     {
-      "checked": 1899,
+      "checked": 2193,
       "detail": "",
       "failures": 0,
       "name": "vote_accuracy_only_on_merits_events",
@@ -198,7 +200,7 @@
       "problems": []
     },
     {
-      "checked": 612,
+      "checked": 717,
       "detail": "",
       "failures": 0,
       "name": "evaluation_correct_agrees",
@@ -214,9 +216,9 @@
       "problems": []
     }
   ],
-  "corpus_events": 2154423,
-  "corpus_rows": 2154061,
-  "ok": true,
+  "corpus_events": 2154428,
+  "corpus_rows": 2154066,
+  "ok": false,
   "schema_version": "1.0",
   "skipped": false
 }
