@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.4,
+    "notes": "The questions could affect access to federal takings remedies for owners and local governments nationally, but arise from a parcel-specific permitting/finality dispute. The unexplained denial establishes no new substantive rule. Moderate specialist significance, not a broad public-policy judgment."
+  },
+  "brier_score": 0.0484,
+  "brier_skill_score": -17.634310881274196,
+  "case_id": "scotus/9026000107",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05096429401285725,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.22,
+        "score": -0.04580264073577104
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.94,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.25,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.2,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": -0.04580264073577104,
+    "total": -0.04580264073577104
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T16:41:32.750653Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The forward log contains 46 calls: 44 captured and two unobserved. The unobserved web queries concern Pakdel, including its 2021 opinion PDF, not this petition's outcome; they are assessed by query, not treated as empty results. Other substantive retrieval concerns that prior authority. The reasoning uses the October 5 snapshot and does not presuppose the November 9 denial. No evidence of this case's outcome surfacing before prediction.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.85,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records denied; the disposing docket entry is Petition DENIED on November 9, 2026.",
+        "claim": "The Court will deny certiorari.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The briefs document that dispute, but the Court's bare denial supplies no explanation establishing its reason for declining review.",
+        "claim": "The principal obstacle to review is disputed finality in this particular permitting process.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "The October 21 entry redistributes the petition for November 6; denial follows on November 9. The final count of two is one more than the frozen prediction's count of one.",
+        "claim": "Expect one further distribution after opposition processing, followed by disposition in late October or November 2026.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The outcome records signals.cvsg_date=null, consistent with the docket's progression to denial without an invitation.",
+        "claim": "No invitation for the Solicitor General's views is expected.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The docket records only Petition DENIED and the outcome records noted_dissent_from_denial=false. No separate writing is staged; no unobserved private votes are inferred.",
+        "claim": "The modal denial is unexplained and without a separate writing.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261005T231540Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T16:41:32.750653Z"
+  },
+  "reasoning_quality": 0.91,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05096429401285725,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

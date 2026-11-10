@@ -1,0 +1,112 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.5,
+    "notes": "The categorical common-fund and Rule 23 question has nationwide class-action significance and an acknowledged circuit conflict, but this vehicle concerns a $5,000 award and an unpublished settlement decision; the denial settles no substantive rule."
+  },
+  "brier_score": 0.04000000000000001,
+  "brier_skill_score": -13.74356563308627,
+  "case_id": "scotus/73522552",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05208692652638841,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.2,
+        "score": -0.03728695208503462
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.4,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": 0.345367027677497,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.15,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": -0.03728695208503462,
+    "total": -0.03728695208503462
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T16:10:22.772331Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "All 23 calls have unobserved results, so null result dates are not evidence of empty returns. Their queries concern provisioned October 6 inputs, the statpack, output writes, and validation; none seeks the eventual November 9 disposition. The reasoning contains no already-decided outcome.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.4,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "There was one additional distribution, October 7 for November 6, followed by November 9 denial; the final count of 2 leaves no subsequent distribution for the expected one or two further relists.",
+        "claim": "After another distribution, the petition will be relisted once or twice while the Court considers the circuit split.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "The outcome's cvsg_date is null and no CVSG appears in the staged docket before denial.",
+        "claim": "The Court will not call for the Solicitor General's views.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Certiorari was denied, so no question was accepted for review.",
+        "claim": "If certiorari is granted, the Court will take the single question presented to resolve the service-award split.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "The outcome was denial, not a grant; the conditional route was never tested.",
+        "claim": "If granted, the petition will receive plenary review rather than summary disposition.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261006T142731Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T16:10:22.772331Z"
+  },
+  "reasoning_quality": 0.6,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05208692652638841,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

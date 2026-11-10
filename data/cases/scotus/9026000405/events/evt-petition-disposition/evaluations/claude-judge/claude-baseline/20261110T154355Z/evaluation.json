@@ -1,0 +1,137 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v6",
+  "base_rate_statpack_digest": "sha256:a059cb872f890b63515d8e2ac6ef798347ae7231a62d08543a5b7431bd941faa",
+  "big_case": {
+    "evaluator_score": 0.12,
+    "notes": "Narrow FECA/FTCA channeling question about whether courts must defer initial coverage determinations to Labor; recurring for federal employees but technical, with an old shallow Ninth Circuit split, an unpublished summary affirmance on the issue below, and an SG waiver. Denied without response or noted dissent, drawing no visible attention."
+  },
+  "brier_score": 0.000144,
+  "brier_skill_score": 0.9464891140718501,
+  "case_id": "scotus/9026000405",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.0519501026369809,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.012,
+        "score": 0.0025548131639928496
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.06,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.002,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.15,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.015,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.002,
+          "Barrett": 0.001,
+          "Gorsuch": 0.006,
+          "Jackson": 0.004,
+          "Kagan": 0.001,
+          "Kavanaugh": 0.001,
+          "Roberts": 0.001,
+          "Sotomayor": 0.004,
+          "Thomas": 0.004
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.0025548131639928496,
+    "total": 0.0025548131639928496
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T17:38:06.656546Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell predicted 2026-10-31, before the 2026-11-09 denial. Log (14 calls, fully captured) shows local file reads, one generic corpus query, and statpack reads; no retrieved_doc_date, no query for this case's disposition, no data/qp-topics access.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-opus-5-5",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.65,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Docket: single distribution Oct 21 for the 11/6/2026 conference; \"Petition DENIED.\" Nov 9, 2026; outcome distribution_count 1.",
+        "claim": "The petition will be denied at its first conference (November 6, 2026) with no further distribution.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "No response request on the docket; denied after the waiver with no further entries.",
+        "claim": "No call for a response; the only route to another distribution (~5%) would be a Justice requesting a response.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.signals.cvsg_date null; no CVSG entry on the docket.",
+        "claim": "No CVSG, because the United States is already a party.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome noted_dissent_from_denial false; docket entry is a bare denial.",
+        "claim": "No dissent from or statement respecting denial.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Conditional on a grant that did not occur.",
+        "claim": "If granted, the Court would take the single QP, restated neutrally around the substantial-question doctrine.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261031T173439Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T17:38:06.656546Z"
+  },
+  "reasoning_quality": 0.8,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.0518752467429925,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

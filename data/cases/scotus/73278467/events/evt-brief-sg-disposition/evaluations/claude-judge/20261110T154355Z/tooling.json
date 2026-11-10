@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73278467",
+  "run_id": "20261110T154355Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell", "file-read", "fedcourts statpack-at"],
+  "helpful": ["statpack-at rebuild of the candidates' build", "snapshot ProceedingsandOrder carrying the GVR order text and post-brief distribution"],
+  "gaps": [],
+  "notes": "This was a simple cert cell. All three candidates predicted GVR, and the docket order text settled every central forecast claim."
+}

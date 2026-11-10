@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.25,
+    "notes": "A state petition on how the capable-of-repetition-yet-evading-review exception applies to 90-day PLRA preliminary injunctions in the Fifth Circuit. The question recurs in prison-conditions litigation, and the Court called for a response. But the issue is procedural, the petitioner had already won final judgment below, and the Court denied it at its first conference after briefing closed, with no noted dissent or statement. The stakes are modest and regional."
+  },
+  "brier_score": 0.0144,
+  "brier_skill_score": 0.7395908172635446,
+  "case_id": "scotus/9026000018",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.23515439429928742,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.12,
+        "score": 0.04089758915826473
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.96,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.65,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.12,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.04089758915826473,
+    "total": 0.04089758915826473
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T16:15:12.708869Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell, run 2026-10-05/06, before the 2026-11-09 denial. Its external retrieval was limited to Turner v. Rogers (2011) via web search and CourtListener, which the candidate disclosed in its reasoning. The two web-search rows are unobserved, but their queries target only Turner. There were no case-own docket queries past the snapshot and no data/qp-topics reads.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-opus-5-5",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.85,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json: denied.",
+        "claim": "The Court will deny the petition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Redistributed Oct 21 for the 11/6 conference; denied Nov 9; distribution_count 2.",
+        "claim": "Modal path: one additional distribution after briefing completes, then denial.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "noted_dissent_from_denial false; bare denial order.",
+        "claim": "Denial without a separate writing (P(writing | denial) 0.12).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "No CVSG on the docket; cvsg_date null.",
+        "claim": "No CVSG (0.02).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Conditional on a grant that did not occur.",
+        "claim": "If granted, a narrowed QP1 by summary vacatur and remand.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261005T231540Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T16:15:12.708869Z"
+  },
+  "reasoning_quality": 0.8,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.23515439429928742,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

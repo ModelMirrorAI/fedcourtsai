@@ -1,0 +1,137 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.4,
+    "notes": "Legislative-remedy finality and prudential ripeness could affect federal takings litigation nationally. The immediate controversy is a single-lot local water-and-sewer dispute with an unpublished decision and substantial vehicle limitations; denial creates no new merits holding."
+  },
+  "brier_score": 0.0576,
+  "brier_skill_score": -21.17636997440896,
+  "case_id": "scotus/9026000107",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05096429401285725,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.24,
+        "score": -0.05500264073577104
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": null,
+        "probability": 0.98,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.2,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.16,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.02,
+          "Barrett": 0.004,
+          "Gorsuch": 0.045,
+          "Jackson": 0.003,
+          "Kagan": 0.002,
+          "Kavanaugh": 0.006,
+          "Roberts": 0.002,
+          "Sotomayor": 0.004,
+          "Thomas": 0.08
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": -0.05500264073577104,
+    "total": -0.05500264073577104
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T16:35:33.644899Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-order-call-for-response-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The October 29 run preceded the November 9 denial. Queries sought historical grants and Pakdel precedent, not this petition's later docket or disposition. Capture coverage is 0.95; both precedent-only web searches are unobserved, so their returned content cannot be verified. The dated March 20, 2026 corpus material predates resolution and concerns other cases. No own-case disposing material is shown in the log or reasoning.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.85,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The docket records an October 1 opposition and October 9 reply before the November 9 denial; outcome.actual_disposition is denied.",
+        "claim": "The Court will most likely deny certiorari after considering the requested response.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "A single additional distribution on October 21 set the November 6 conference, followed by November 9 denial; the outcome records two distributions total.",
+        "claim": "The modal path is one additional distribution and denial within the first few post-response conferences, not prolonged substantive relisting.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "There is no CVSG in the staged docket or outcome signals, and the petition was denied after its first post-response distribution.",
+        "claim": "The Court is unlikely to seek the Solicitor General's views or hold the petition for months for federal advice.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Denial meant that no question was selected for review and no conditional grant route or merits ground was tested.",
+        "claim": "If granted, review will focus on the first finality question rather than the broader prudential-ripeness question, most likely through plenary proceedings.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "Outcome.noted_dissent_from_denial is false. The document's additional expectation of no separate statement is unresolved: the absent writings slot cannot independently establish that no statement existed.",
+        "claim": "A denial will most likely have no noted dissent.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261029T160941Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T16:35:33.644899Z"
+  },
+  "reasoning_quality": 0.91,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05096429401285725,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

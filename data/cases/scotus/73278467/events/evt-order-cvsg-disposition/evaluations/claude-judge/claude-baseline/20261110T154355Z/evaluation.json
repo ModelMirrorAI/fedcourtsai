@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.5,
+    "notes": "A recurring question (Turner deference vs. heightened scrutiny for sex-based jail housing, commissary and search policies) with 23 state amici and federal BOP interest, but the Court disposed of it by a GVR in light of B.P.J. and Skrmetti, deciding nothing itself; the pleading-stage, preservation-clouded vehicle further limits the case's own reach. Significant mainly as a downstream application of B.P.J."
+  },
+  "brier_score": 0.2304,
+  "brier_skill_score": 0.4471399243396009,
+  "case_id": "scotus/73278467",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.35444444444444445,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.52,
+        "score": 0.186341975308642
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.97,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.02,
+        "score": null
+      },
+      {
+        "baseline": 0.345367027677497,
+        "claim_id": "summary-disposition-route",
+        "outcome": 1,
+        "probability": 0.12,
+        "score": -0.3458556715482049
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.35,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": -0.1595136962395629,
+    "total": -0.1595136962395629
+  },
+  "correct": 0,
+  "created_at": "2026-11-10T15:49:16.290280Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-order-cvsg-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell run 2026-09-18. Captured log (coverage 1.0) shows CourtListener and web retrieval of B.P.J. (decided 2026-06-30) and of this docket's public page; the fetched docket showed nine entries ending at the 6/30/2026 CVSG, matching the provisioned snapshot. B.P.J. predates the event's resolution and is legitimate forward signal; the SG brief (9/25) and GVR (11/9) did not yet exist. Disclosed fully in retrieval.md. No data/qp-topics read.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-opus-5-5",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.25,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The grant came as a GVR, not plenary review; only the binary 'some grant' held.",
+        "claim": "The petition will be granted, most likely as a plenary grant limited to or reformulated around QP1.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "11/09/2026 order GVR'd expressly 'in light of West Virginia v. B. P. J. ... and United States v. Skrmetti.'",
+        "claim": "Route: plenary review, not a summary disposition (P\u22480.12 conditional); a GVR in light of B.P.J. was available and the Court declined it because B.P.J. does not undercut the Tenth Circuit.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "SG invited brief (filed 9/25/2026) supports petitioners and asks the Court to grant, vacate and remand in light of B.P.J. and Skrmetti \u2014 a grant-family recommendation, though GVR rather than plenary.",
+        "claim": "The SG will support petitioners and more likely than not recommend that certiorari be granted.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Distributed 10/14/2026 for the 11/6/2026 conference.",
+        "claim": "Further distribution near-certain (P\u22480.97).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "SG brief filed 9/25/2026; petition disposed 11/09/2026 at its first post-SG conference with no relist.",
+        "claim": "SG brief arrives around December 2026; disposition most likely January\u2013March 2027 after a first conference and one relist.",
+        "status": "not-borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20260918T174135Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T15:49:16.290280Z"
+  },
+  "reasoning_quality": 0.5,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.35444444444444445,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

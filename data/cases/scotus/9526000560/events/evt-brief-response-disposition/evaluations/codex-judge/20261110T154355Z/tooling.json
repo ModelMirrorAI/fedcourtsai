@@ -1,0 +1,26 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9526000560",
+  "gaps": [
+    "gemini-baseline's log records call outcomes but not result contents; its stated retrieval results cannot be independently reconstructed from the log"
+  ],
+  "helpful": [
+    "Staged per-curiam text and writings manifest",
+    "Docket snapshot and finer interim outcome",
+    "Explicit per-call result-capture markers",
+    "Local JSON Schema validation"
+  ],
+  "notes": "All three candidates evaluated blind from staged aliases. No external retrieval or package installation; no whole-tree validation during harness blinding. Capture limitations did not prevent completing these forward-cell assessments.",
+  "role": "evaluator",
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local shell",
+    "staged blinded retrieval logs",
+    "committed interim statpack",
+    "apply_patch",
+    "jsonschema"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

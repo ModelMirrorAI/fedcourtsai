@@ -1,0 +1,23 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9026000351",
+  "gaps": [],
+  "helpful": [
+    "Blinded aliases with separate rationale and forecast documents",
+    "Dated docket entries for testing the procedural forecasts",
+    "Historical statpack reconstruction avoided cross-vintage rate comparisons",
+    "Capture markers distinguished unobserved results from empty responses"
+  ],
+  "notes": "No package installation or external case retrieval was needed. gemini-baseline's results are entirely unobserved; leakage assessment therefore uses its call queries and prose without treating absent results as negative evidence. Baselines and quantitative claim scores are left to the harness.",
+  "role": "evaluator",
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell provisioned-file reads",
+    "fedcourts statpack-at",
+    "Python JSON inspection and local schema validation",
+    "apply_patch"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

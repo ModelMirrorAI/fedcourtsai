@@ -1,0 +1,112 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.2,
+    "notes": "While the underlying subject\u2014federal appellate bar discipline for AI-hallucinated citations and procedural due process notice under In re Ruffalo and FRAP 46/47(b)\u2014has salience for the legal profession given the Ninth Circuit's published opinion, this petition was a fact-bound challenge to one attorney's six-month suspension with no genuine circuit split, and the Court denied certiorari without dissent after a single conference following the Solicitor General's waiver."
+  },
+  "brier_score": 0.0004,
+  "brier_skill_score": 0.8459974307332712,
+  "case_id": "scotus/9026000296",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05096429401285725,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": 0.002197359264228957
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.04,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.0,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.05,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.002197359264228957,
+    "total": 0.002197359264228957
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T17:17:13.143129Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-arrival-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction made on 2026-09-27, more than six weeks before the 2026-11-09 cert denial. All tool calls in retrieval_log.json have result_capture='unobserved' (result_capture_coverage 0.0, the engine's standing telemetry shape); the logged queries inspect only the provisioned arrival inputs, metrics/statpack.md, failed CLI syntax attempts at fedcourts query, and generic CourtListener opinion searches for Rule 46 attorney discipline suspension.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-argon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.75,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The petition was distributed once on October 14, 2026 for the November 6, 2026 conference and denied on November 9, 2026 without any relist (outcome.json: actual_disposition='denied', signals.distribution_count=1).",
+        "claim": "The petition will be denied outright with zero relists before a decision.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "No CVSG occurred (outcome.json: signals.cvsg_date=null), and the Solicitor General filed a waiver of response on September 18, 2026 (snapshot 2026-11-09.json).",
+        "claim": "No CVSG will occur because the Solicitor General already represents the respondents and will either file a brief in opposition or waive response.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The petition was denied on November 9, 2026, so the conditional grant claims were not tested.",
+        "claim": "Conditional on a grant, the Court might take the second question regarding unwritten technology-disclosure rules, with plenary review rather than a summary GVR.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "The November 9, 2026 denial carried no noted dissent or separate writing (outcome.json: noted_dissent_from_denial=false).",
+        "claim": "Conditional on denial, there will be no separate writing.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20260927T182226Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T17:17:13.143129Z"
+  },
+  "reasoning_quality": 0.58,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05096429401285725,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,112 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.62,
+    "notes": "The competing scrutiny standards for sex-based jail policies and detainee search rights have national constitutional and correctional significance. The realized GVR leaves those questions for reconsideration rather than resolving them in a new plenary Supreme Court holding, limiting this event's immediate precedential reach."
+  },
+  "brier_score": 0.0144,
+  "brier_skill_score": 0.965446245271225,
+  "case_id": "scotus/73278467",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.35444444444444445,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.88,
+        "score": 0.40234197530864196
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.97,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.0,
+        "score": null
+      },
+      {
+        "baseline": 0.345367027677497,
+        "claim_id": "summary-disposition-route",
+        "outcome": 1,
+        "probability": 0.96,
+        "score": 0.4269443284517951
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.2,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.829286303760437,
+    "total": 0.829286303760437
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T15:53:06.676335Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-brief-sg-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The October 23 prediction preceded the November 9 resolution. All 38 calls were reviewed; 35 results are captured, while three general-law web rows are unobserved. Those queries concern Lawrence v. Chater and its official reporter PDF, not Roybal's later docket or outcome. Unobserved rows cannot verify the self-reported empty returns, but their query content and the reasoning show no outcome revelation. The other reads target provisioned inputs, schemas, and statpack material.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.95,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The November 9 disposing entry expressly records vacatur and remand for reconsideration in light of those two decisions, matching outcome.json's gvr label.",
+        "claim": "The Court will grant, vacate, and remand in light of B.P.J. and Skrmetti, rather than grant plenary review or summarily reverse outright.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "One distribution was added on October 14 for the November 6 conference; the GVR issued November 9. The final count is 3 against the frozen count of 2.",
+        "claim": "One additional distribution is the modal path, followed by a fall 2026 disposition rather than another merits-Term hold.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The resolved docket records no invitation after the June 30 CVSG and September 25 SG filing.",
+        "claim": "There will be no new CVSG after the invited brief has arrived.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The disposing entry remands for further consideration and announces no plenary question or substantive resolution of the detainee's surviving claims.",
+        "claim": "The Court will leave the underlying scrutiny and search questions for reconsideration rather than adopt either question for plenary resolution or conclusively decide the remanded litigation.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261023T104223Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T15:53:06.676335Z"
+  },
+  "reasoning_quality": 0.94,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.35444444444444445,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

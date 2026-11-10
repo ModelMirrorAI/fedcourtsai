@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000087",
+  "run_id": "20261110T154355Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell", "jq", "fedcourts statpack-at", "apply_patch", "local Pydantic schema validation"],
+  "helpful": ["Blinded candidate staging", "Outcome signals and decided docket", "Historical statpack reconstruction", "Result-capture markers"],
+  "gaps": [],
+  "notes": "Used the fixed local environment without installs. Historical packs were inspected only to assess candidate methodology; the harness retains ownership of baseline and claim scoring. Missing order/writing bodies leave broader no-separate-writing forecasts unresolved, without treating ordinary absent staging or unobserved tool results as faults."
+}

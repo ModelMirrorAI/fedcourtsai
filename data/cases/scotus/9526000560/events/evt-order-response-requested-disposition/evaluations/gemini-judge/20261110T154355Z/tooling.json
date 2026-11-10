@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000560",
+  "run_id": "20261110T154355Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts statpack-at",
+    "mcp:courtlistener:analyze_citations",
+    "mcp:courtlistener:read_document"
+  ],
+  "helpful": [
+    "Provisioned per curiam opinion in record/opinion/writings/OT2026-2/01-per-curiam.txt",
+    "Provisioned application, opposition, and reply briefs in record/documents/",
+    "fedcourts statpack-at for reconstructing the exact statpack build in force at prediction time"
+  ],
+  "gaps": [
+    "CourtListener MCP upstream API hit the 300/hour rate limit (HTTP 429) on analyze_citations and read_document"
+  ],
+  "notes": "All case citations and lower-court docket references were verified directly against the provisioned Supreme Court per curiam opinion and full briefing in record/."
+}

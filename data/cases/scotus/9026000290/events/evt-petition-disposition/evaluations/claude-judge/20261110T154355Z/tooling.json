@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000290",
+  "run_id": "20261110T154355Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": ["shell", "file-read"],
+  "helpful": ["Staged snapshot ProceedingsandOrder made relist/denial timing directly checkable", "Blinded retrieval_log.json call classes for leakage review"],
+  "gaps": ["jsonschema not available in the uv environment; validated via the pydantic Evaluation model instead"],
+  "notes": "Straightforward forward cert cell; all three candidates predicted denial at the first conference."
+}

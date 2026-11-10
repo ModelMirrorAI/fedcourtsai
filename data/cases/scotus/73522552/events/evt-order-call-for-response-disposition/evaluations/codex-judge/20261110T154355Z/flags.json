@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73522552",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-order-call-for-response-disposition",
+      "message": "gemini-baseline's rationale misdescribes its historical calibration pack: the contract-authorized statpack-at reconstruction identifies build 7bcde3b105cb212283905eda17b827efc188e80c with no alternative, whose displayed Terms and OT 2024 baseline counts differ from its assertions. It also dates the final appellate decision to December 17, 2025 rather than the staged petition and docket's February 10, 2026. These checkable discrepancies reduce reasoning_quality, not correct or Brier; the rationale's claimed petition support for a catalogue of prior cert denials is also unsubstantiated by the staged passages. Details are in gemini-baseline's evaluation.md.",
+      "severity": "warning"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0"
+}

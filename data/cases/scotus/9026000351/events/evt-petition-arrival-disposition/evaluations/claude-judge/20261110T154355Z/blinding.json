@@ -1,0 +1,50 @@
+{
+  "case_id": "scotus/9026000351",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-arrival-disposition",
+  "names_present": [],
+  "replaced": [
+    {
+      "count": 1,
+      "file": "codex-baseline/20261110T154355Z/evaluation.json",
+      "term": "codex-baseline"
+    },
+    {
+      "count": 1,
+      "file": "codex-baseline/20261110T154355Z/evaluation.md",
+      "term": "codex-baseline"
+    },
+    {
+      "count": 1,
+      "file": "claude-baseline/20261110T154355Z/evaluation.json",
+      "term": "claude-baseline"
+    },
+    {
+      "count": 1,
+      "file": "claude-baseline/20261110T154355Z/evaluation.md",
+      "term": "claude-baseline"
+    },
+    {
+      "count": 1,
+      "file": "gemini-baseline/20261110T154355Z/evaluation.json",
+      "term": "gemini-baseline"
+    },
+    {
+      "count": 1,
+      "file": "gemini-baseline/20261110T154355Z/evaluation.md",
+      "term": "gemini-baseline"
+    }
+  ],
+  "run_id": "20261110T154355Z",
+  "scanned_files": [
+    "codex-baseline/20261110T154355Z/evaluation.json",
+    "codex-baseline/20261110T154355Z/evaluation.md",
+    "claude-baseline/20261110T154355Z/evaluation.json",
+    "claude-baseline/20261110T154355Z/evaluation.md",
+    "gemini-baseline/20261110T154355Z/evaluation.json",
+    "gemini-baseline/20261110T154355Z/evaluation.md",
+    "20261110T154355Z/retrieval.md",
+    "20261110T154355Z/tooling.json"
+  ],
+  "schema_version": "1.0"
+}

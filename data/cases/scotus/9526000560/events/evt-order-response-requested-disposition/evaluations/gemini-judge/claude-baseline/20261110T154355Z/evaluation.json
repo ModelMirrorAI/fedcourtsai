@@ -1,0 +1,105 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.78,
+    "notes": "Significant Solicitor General emergency application resulting in a 6-page published per curiam opinion clarifying that major-questions challenges to agency action remain statutory rather than constitutional claims under Dalton v. Specter for purposes of IIRIRA \u00a7 102(c)(2)(A)'s jurisdiction strip, and unblocking over 300 miles of southern-border barrier construction."
+  },
+  "brier_score": 0.06760000000000001,
+  "brier_skill_score": 0.9132731687059451,
+  "case_id": "scotus/9526000560",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.1171303074670571,
+        "claim_id": "interim-disposition",
+        "outcome": 1,
+        "probability": 0.74,
+        "score": 0.7118588939932131
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": null,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.85,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 1,
+        "probability": 0.55,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": 0.7118588939932131,
+    "total": 0.7118588939932131
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T18:11:44.571201Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-order-response-requested-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction run on 2026-10-23 with no external retrieval beyond reading the provisioned event files, application.txt, and metrics/statpack.md.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-argon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.78,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "On November 9, 2026 (within the predicted 'first half of November 2026' window), the Court referred the application to the full Court and granted a stay pending the filing and disposition of a certiorari petition without summarily reversing (pp. 1, 5-6).",
+        "claim": "The Court will refer the application to the full Court and grant a stay pending the timely filing and disposition of a petition for a writ of certiorari, while declining to grant certiorari and summarily reverse.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The per curiam opinion rested primarily on IIRIRA \u00a7 102(c)(2)(A) and Dalton v. Specter, 511 U.S. 462, 472-473 (1994), holding that the district court likely lacked jurisdiction because respondents' major-questions claim was statutory rather than constitutional (pp. 3-5).",
+        "claim": "The primary ground is IIRIRA \u00a7 102(c)(2)(A)'s bar on non-constitutional claims: under Dalton v. Specter, a major-questions argument is a claim that the Secretary exceeded statutory authority, not a constitutional claim, so the district court likely lacked jurisdiction.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The per curiam opinion cited \u00a7 102(c)(2)(C)'s direct-certiorari review mechanism and Trump v. Sierra Club, 588 U.S. 930 (2019), in holding that the Government satisfied the stay factors and balance of equities (pp. 2, 5).",
+        "claim": "Review lies only by direct certiorari to the Supreme Court under IIRIRA \u00a7 102(c)(2)(C), satisfying the cert-worthiness prong, and the balance of equities on border-barrier construction follows Trump v. Sierra Club (2019).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Instead of a short unreasoned order with two or three noted dissents, the Court issued a 6-page reasoned per curiam opinion and only Justice Jackson noted that she would deny the application (pp. 1-6).",
+        "claim": "The disposition will likely be a short unsigned order without a full per curiam opinion, accompanied by two or three noted dissents from Justices Sotomayor, Kagan, and Jackson.",
+        "status": "not-borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261023T210522Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T18:11:44.571201Z"
+  },
+  "reasoning_quality": 0.78,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.1171303074670571,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

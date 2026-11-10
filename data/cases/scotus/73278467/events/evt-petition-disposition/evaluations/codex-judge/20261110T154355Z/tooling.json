@@ -1,0 +1,23 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73278467",
+  "gaps": [],
+  "helpful": [
+    "Blinded candidate files preserve separate rationale and forecast documents.",
+    "The final docket entry states both authorities supporting the GVR.",
+    "Capture markers distinguish unobserved results from observed empty results."
+  ],
+  "notes": "Provisioned records sufficed; no corpus, CourtListener, web, or statpack retrieval was needed. Used system jsonschema for exact JSON Schema checks and the existing environment for model validation; installed nothing. gemini-baseline's zero result-capture coverage was treated as a visibility limitation, not evidence of failed calls or leakage.",
+  "role": "evaluator",
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "jq",
+    "apply_patch",
+    "jsonschema",
+    "provisioned Pydantic models"
+  ],
+  "used_base_rates": false,
+  "used_corpus_query": false
+}

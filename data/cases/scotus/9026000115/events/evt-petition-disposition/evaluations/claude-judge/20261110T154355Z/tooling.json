@@ -1,0 +1,16 @@
+{
+  "case_id": "scotus/9026000115",
+  "run_id": "20261110T154355Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "shell (cat/python over provisioned inputs)"
+  ],
+  "helpful": [
+    "Blinded staging with retrieval_log.json made the forward-leakage check quick"
+  ],
+  "gaps": [],
+  "notes": "Straightforward cert cell: all three candidates predicted denial and the petition was denied. Stamped base rate left to the harness."
+}

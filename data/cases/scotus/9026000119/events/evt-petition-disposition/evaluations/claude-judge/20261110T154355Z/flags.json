@@ -1,0 +1,15 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/9026000119",
+  "flags": [
+    {
+      "category": "capture-gap",
+      "event_id": "evt-petition-disposition",
+      "message": "codex-baseline's staged retrieval_log.json carries 7 calls (all shell/statpack reads), but its retrieval.md discloses a web search, a web open attempt, and two CourtListener calls (search for 353 F.3d 870, search_document on opinion 164183) that do not appear in the captured log. The disclosed calls concern a 2003 Tenth Circuit precedent and are not outcome material, so the leakage grade is unaffected; the log appears incomplete for that engine's tool classes.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0"
+}

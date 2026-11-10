@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.65,
+    "notes": "Nationwide implications for equal-protection scrutiny of sex-based detention policies and searches, with substantial state and federal operational interests. Preservation and pleading-stage constraints narrow the vehicle; the actual GVR leaves the questions for reconsideration below rather than announcing a new nationwide merits rule."
+  },
+  "brier_score": 0.3249000000000001,
+  "brier_skill_score": 0.22038090893201512,
+  "case_id": "scotus/73278467",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.35444444444444445,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.43,
+        "score": 0.09184197530864191
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.95,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.0,
+        "score": null
+      },
+      {
+        "baseline": 0.345367027677497,
+        "claim_id": "summary-disposition-route",
+        "outcome": 1,
+        "probability": 0.55,
+        "score": 0.22604432845179512
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.18,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.31788630376043703,
+    "total": 0.31788630376043703
+  },
+  "correct": 0,
+  "created_at": "2026-11-10T15:53:34.076562Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-order-cvsg-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The September 18, 2026 forward run preceded the November 9 resolution. Of 34 calls, 32 are captured and two general-precedent web calls unobserved. External checks concern Johnson and Skrmetti, not this petition's subsequent docket or disposition. Unobserved returns are not treated as empty or failed. Neither query evidence nor staged prose indicates that this petition's outcome surfaced.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.35,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The November 9, 2026 outcome grants, vacates and remands rather than denying the petition.",
+        "claim": "The Court will most likely deny review because preservation and pleading-stage difficulties outweigh reasons for intervention.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "The October 14, 2026 distribution raised the count from two to three before disposition.",
+        "claim": "At least one additional distribution, ordinarily one or two, will follow the observed two distributions.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The staged docket records the September 25 brief, October 14 distribution and November 9, 2026 disposition. Responsive party submissions are not independently established by this docket.",
+        "claim": "The government brief will precede renewed distribution and a decision during October Term 2026.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The actual grant was a GVR for further consideration in light of B.P.J. and Skrmetti, without plenary review or summary merits reversal.",
+        "claim": "Conditional on a grant, a cert-order disposition is more likely than plenary review, principally a GVR for reconsideration rather than summary merits reversal.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The Court did not take the plenary route, so the order does not test that conditional ground forecast.",
+        "claim": "If plenary review occurs, the Court will focus on Question 1 and concrete security/privacy justifications.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20260918T174135Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T15:53:34.076562Z"
+  },
+  "reasoning_quality": 0.86,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.35444444444444445,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

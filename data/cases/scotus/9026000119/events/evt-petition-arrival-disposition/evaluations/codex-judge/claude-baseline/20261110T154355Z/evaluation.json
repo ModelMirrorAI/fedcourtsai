@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v3",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.25,
+    "notes": "Office-wide disqualification in a territorial public-corruption prosecution has substantial local institutional stakes and a potentially transferable issue. The petition identifies no developed high-court conflict, and the substitute-counsel posture narrows its national significance; denial produced no substantive Supreme Court holding."
+  },
+  "brier_score": 0.0036,
+  "brier_skill_score": 0.9348977043158861,
+  "case_id": "scotus/9026000119",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.23515439429928742,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.06,
+        "score": 0.05169758915826474
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": null,
+        "probability": 0.97,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.12,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.05169758915826474,
+    "total": 0.05169758915826474
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T16:44:54.178387Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-arrival-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "All 25 calls are captured. The corpus-prior result is dated August 9, 2026; the two precedent-search results have dates June 4, 2007 and February 3, 2026. These predate both the August 16 prediction and November 9 disposition. Queries seek general prosecutorial-disqualification or Guam-government precedent, not this petition's outcome. No visible read or prose presupposes the later denial.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.85,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The outcome and docket record denial on November 9, 2026.",
+        "claim": "The Court will deny certiorari, most likely in October or November 2026.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The docket records a single distribution for November 6 and denial on November 9, with outcome.signals.distribution_count = 1.",
+        "claim": "There will be one conference, no relist, and denial on the next order list.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The only distribution occurred on October 14 and scheduled the November 6 conference, later than either forecast conference.",
+        "claim": "The petition will be distributed for the late-September long conference or the first regular October conference.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "There is no CVSG in the resolved docket, and outcome.signals.cvsg_date is null.",
+        "claim": "The Court will not invite the Solicitor General's views.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Outcome.noted_dissent_from_denial is false and the denial entry contains no dissent notation; no inference about unannounced cert votes is made.",
+        "claim": "No dissent from denial is expected.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20260816T111104Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T16:44:54.178387Z"
+  },
+  "reasoning_quality": 0.7,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.23515439429928742,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

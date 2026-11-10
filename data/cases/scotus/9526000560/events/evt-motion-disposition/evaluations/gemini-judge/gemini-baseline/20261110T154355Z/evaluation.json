@@ -1,0 +1,111 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.8,
+    "notes": "High-profile Solicitor General emergency stay application over border-wall construction across the Big Bend Sector that produced a published Per Curiam opinion clarifying that the major-questions canon is a tool of statutory interpretation rather than a standalone constitutional claim under IIRIRA section 102(c)(2)(A)'s jurisdiction-stripping bar."
+  },
+  "brier_score": 0.03240000000000002,
+  "brier_skill_score": 0.9584327021608375,
+  "case_id": "scotus/9526000560",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.1171303074670571,
+        "claim_id": "interim-disposition",
+        "outcome": 1,
+        "probability": 0.82,
+        "score": 0.7470588939932131
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "mask_reason": "signal-before-run",
+        "outcome": null,
+        "probability": 0.99,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.96,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 1,
+        "probability": 0.85,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": 0.7470588939932131,
+    "total": 0.7470588939932131
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T18:10:24.725076Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction placed on 2026-10-23 while the application (decided 2026-11-09) was genuinely unresolved. gemini-baseline retrieved originating W.D. Tex. filings via CourtListener RECAP and polled the open corpus row on 2026-10-23 (which showed the 2026-10-22 response request with disposition still null), disclosing both transparently; under the forward-mode rules, pre-resolution docket activity after the baseline cutoff is legitimate forward signal, not outcome leakage.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-argon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.78,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The docket snapshot (2026-11-09.json) and outcome.json show a response was requested Oct. 22 (due Oct. 29), one amicus brief (FAIR) was filed Oct. 30, Justice Alito referred the application to the Court, and on Nov. 9, 2026 the Court issued a Per Curiam opinion granting a full stay pending the filing and disposition of a certiorari petition without summarily reversing.",
+        "claim": "Justice Alito will set a short response schedule, at least one amicus brief will be filed, the application will be referred to the full Court, and the Court will grant an unqualified stay pending certiorari while declining summary reversal.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The Per Curiam opinion (01-per-curiam.txt, pp. 2-3) holds that the Government is 'exceedingly likely to prevail on its argument that the District Court lacked jurisdiction to adjudicate respondents' so-called major-questions-doctrine claim' under IIRIRA section 102(c)(2)(A) because the major-questions canon operates in service of statutory claims and '[t]here is no such thing as a 'constitutional' major-questions claim.'",
+        "claim": "The Court will conclude the government is likely to succeed on the merits because IIRIRA section 102(c)(2)(A) limits district-court jurisdiction to constitutional claims and the major-questions doctrine is a statutory canon rather than an independent constitutional cause of action.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The Per Curiam opinion rested its likelihood-of-success holding exclusively on the threshold jurisdictional bar under IIRIRA section 102(c)(2)(A) and Dalton v. Specter, without reaching either the substantive interpretation of 'areas of high illegal entry' or remedial overbreadth under Trump v. CASA, Inc.",
+        "claim": "A majority would also reject the district court's comparative reading of 'areas of high illegal entry' under IIRIRA section 102(a)-(c) and fault the sector-wide injunction as overbroad under Trump v. CASA, Inc., 606 U.S. 831 (2025).",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "The Per Curiam opinion (01-per-curiam.txt, p. 3) holds that delaying construction impedes the Government's compelling interests in border security (Von Raab), that incurring nearly half a million dollars per day in unrecoupable costs constitutes irreparable harm (NIH v. APHA), and that under Oakland Cannabis and Winter courts of equity cannot reject the balance Congress struck in IIRIRA section 102(c)(1).",
+        "claim": "The Court will find that halting ongoing border-barrier construction contracts across the Big Bend Sector (including ~$460,000/day in suspension costs) inflicts irreparable sovereign and operational harm that outweighs respondents' aesthetic, recreational, and environmental harms given Congress's statutory priority in section 102(c)(1).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "In the Per Curiam opinion (01-per-curiam.txt, p. 3), only Justice Jackson noted that she would deny the application for a stay; Justices Sotomayor and Kagan did not note dissents.",
+        "claim": "The stay will be granted over the noted dissents of Justices Sotomayor, Kagan, and Jackson (a 6-3 ideological split).",
+        "status": "not-borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261023T210522Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T18:10:24.725076Z"
+  },
+  "reasoning_quality": 0.84,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.1171303074670571,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

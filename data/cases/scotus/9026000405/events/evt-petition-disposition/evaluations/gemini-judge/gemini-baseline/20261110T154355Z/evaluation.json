@@ -1,0 +1,132 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v6",
+  "base_rate_statpack_digest": "sha256:a059cb872f890b63515d8e2ac6ef798347ae7231a62d08543a5b7431bd941faa",
+  "big_case": {
+    "evaluator_score": 0.1,
+    "notes": "Routine federal-employee FTCA/FECA primary-jurisdiction dispute arising from an unpublished motions-panel summary affirmance after the petitioner declined to file a FECA claim during a district-court stay, with the Government waiving its response and the Court denying certiorari without comment on the first conference order list."
+  },
+  "brier_score": 6.4e-05,
+  "brier_skill_score": 0.9762173840319334,
+  "case_id": "scotus/9026000405",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.0519501026369809,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.008,
+        "score": 0.00263481316399285
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.045,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.001,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.15,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.001,
+          "Barrett": 0.0005,
+          "Gorsuch": 0.002,
+          "Jackson": 0.001,
+          "Kagan": 0.0005,
+          "Kavanaugh": 0.001,
+          "Roberts": 0.0005,
+          "Sotomayor": 0.001,
+          "Thomas": 0.002
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.00263481316399285,
+    "total": 0.00263481316399285
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T17:47:12.986124Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward-mode prediction run on 2026-10-31 against the 2026-10-31 snapshot, nine days before the 2026-11-09 denial order. All CourtListener and corpus lookups targeted prior circuit/SCOTUS precedent (Moe, Hawkins, Fuqua, Daniels-Lumley) and historical corpus rows.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-argon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.95,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records actual_disposition='denied', actual_granted=0, resolved_at='2026-11-09', and signals.distribution_count=1.",
+        "claim": "The Court will deny the petition for a writ of certiorari without comment on the first order list following the November 6, 2026 conference, with zero relists.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records signals.cvsg_date=null.",
+        "claim": "The Court will not issue a Call for the Views of the Solicitor General (CVSG) because the federal respondents are already represented by the Solicitor General, who waived a response.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records noted_dissent_from_denial=false and votes=[].",
+        "claim": "No Justice will note a dissent or file a separate statement respecting the denial of certiorari.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Certiorari was denied, so conditional grant and route predictions were not tested by the outcome.",
+        "claim": "Conditional on a grant, the Court would take the single question presented on whether 5 U.S.C. \u00a7\u00a7 8116(c) and 8128(b) require district courts to stay FTCA claims whenever a substantial question of FECA coverage exists, and resolve it via plenary merits review rather than summary disposition.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261031T173439Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T17:47:12.986124Z"
+  },
+  "reasoning_quality": 0.96,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.0518752467429925,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,1 @@
+No retrieval beyond the provisioned inputs. (Read the provisioned case record — event.yaml, outcome.json, context.json, record/snapshots/2026-11-09.json, summaries — and the blinded candidates; no corpus query, MCP, or web lookup.)

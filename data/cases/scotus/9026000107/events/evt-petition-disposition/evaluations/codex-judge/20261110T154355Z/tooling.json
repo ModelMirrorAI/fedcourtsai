@@ -1,0 +1,24 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9026000107",
+  "gaps": [],
+  "helpful": [
+    "Blinded candidates preserve separate rationale and forecast documents.",
+    "Capture markers permit query-based leakage review without mistaking unseen results for empty results.",
+    "statpack-at recovers the placement-era calibration population without inspecting prediction history."
+  ],
+  "notes": "All three candidates were gradeable. The unexplained cert denial cannot verify a proposed legal reason or untriggered grant-only forecast. gemini-baseline's zero result capture was treated as a visibility limit, not a defect. Baselines, skill, and quantitative claim scores remain harness-owned.",
+  "role": "evaluator",
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "jq",
+    "rg",
+    "fedcourts statpack-at",
+    "apply_patch",
+    "local schema validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

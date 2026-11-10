@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000296",
+  "run_id": "20261110T154355Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell", "statpack-at", "apply_patch", "jsonschema"],
+  "helpful": [
+    "Blinded candidate staging preserves quantitative predictions and separate rationale/forecast documents.",
+    "Captured-result markers distinguish unavailable telemetry from empty retrieval results.",
+    "statpack-at reconstructs historical statistical references without exposing predictor identities."
+  ],
+  "gaps": [
+    "The terminal docket and outcome do not establish every possible statement respecting denial without complete order text."
+  ],
+  "notes": "Completed all three candidates from the staged record. No external case-fact retrieval or package installation was needed. Unstated Court reasons, untested grant branches and the absence of non-dissenting separate statements remain unresolved rather than counted as forecast misses."
+}

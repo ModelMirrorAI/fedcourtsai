@@ -1,0 +1,110 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.7,
+    "notes": "Solicitor General stay of an injunction halting border-barrier construction in the Big Bend Sector. The per curiam announced a categorical proposition ('There is no such thing as a \"constitutional\" major-questions claim') that reaches beyond IIRIRA's review scheme, but it came on the interim docket, over one noted dissent, in a narrow statutory-review setting. Nationally salient and doctrinally notable, not a landmark."
+  },
+  "brier_score": 0.06760000000000001,
+  "brier_skill_score": 0.9132731687059451,
+  "case_id": "scotus/9526000560",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.1171303074670571,
+        "claim_id": "interim-disposition",
+        "outcome": 1,
+        "probability": 0.74,
+        "score": 0.7118588939932131
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": null,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.85,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 1,
+        "probability": 0.55,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": 0.7118588939932131,
+    "total": 0.7118588939932131
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T17:58:53.389795Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-order-response-requested-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell. Prediction made 2026-10-23; the stay was granted 2026-11-09. No retrieved_doc_date on or after resolution and no query for this application's disposition. The log shows provisioned-file reads and statpack reads only; there was no external retrieval.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-opus-5-5",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.85,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The Nov 9 order is an unqualified stay pending cert.",
+        "claim": "The full Court grants a stay of the injunction pending timely cert; a partial carve-out is the main alternative.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "This is essentially the per curiam's holding: 'There is no such thing as a \"constitutional\" major-questions claim.'",
+        "claim": "If explained, the ground is that a major-questions argument is a claim of excess statutory authority (Dalton), not a constitutional claim, so the district court likely lacked jurisdiction.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The Court granted only the requested stay.",
+        "claim": "The Court declines to treat the application as a cert petition and summarily reverse.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Only Justice Jackson noted dissent, and the Court issued a reasoned per curiam rather than a bare order.",
+        "claim": "Short order with a noted dissent from two or three Justices (Sotomayor, Kagan, Jackson).",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "Referred and decided Nov 9.",
+        "claim": "Referral to the full Court, and disposition in the first half of November.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261023T210522Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T17:58:53.389795Z"
+  },
+  "reasoning_quality": 0.78,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.1171303074670571,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

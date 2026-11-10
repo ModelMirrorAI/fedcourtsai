@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.18,
+    "notes": "Access to restricted personal records raises meaningful privacy concerns, but the actual petition seeks correction of a fact-specific state-law privilege ruling in an unpublished memorandum, with important ancillary rulings excluded. Its national precedential stakes are modest."
+  },
+  "brier_score": 2.5e-05,
+  "brier_skill_score": 0.9903748394208295,
+  "case_id": "scotus/9026000249",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05096429401285725,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": 0.0025723592642289575
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.0025723592642289575,
+    "total": 0.0025723592642289575
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T17:10:49.788015Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The log dates the forecast to October 15, 2026, before the November 9 denial. Queries concern provisioned files, the statpack and a caption-based CourtListener search described as lower-court docket research. All 22 results are unobserved: their contents and dates cannot be verified, and null dates are not evidence of empty results. No query or prose seeks or reveals this petition's later disposition.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.9,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The staged docket contains only the October 14 distribution before November 9 denial; outcome.signals.distribution_count is 1.",
+        "claim": "There will be no further relists before disposition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Outcome.json records actual_disposition denied and actual_granted 0; the November 9 docket entry records Petition DENIED.",
+        "claim": "The Court will almost certainly deny the petition rather than grant plenary review.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "No invitation appears in the staged docket, and outcome.signals.cvsg_date is null.",
+        "claim": "No CVSG will be requested.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The outcome establishes no noted dissent, but the bare docket entry and absence of staged order text do not establish that there was no other separate writing.",
+        "claim": "No separate writing or dissent from denial will accompany the denial.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "The Court denied review; neither conditional question selection nor the conditional route was tested.",
+        "claim": "If granted, review will focus on applying state litigation privileges in federal court, with a GVR improbable absent an intervening decision.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261015T142602Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T17:10:49.788015Z"
+  },
+  "reasoning_quality": 0.6,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05096429401285725,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

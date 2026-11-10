@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000290",
+  "run_id": "20261110T154355Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell", "file-read", "fedcourts statpack-at"],
+  "helpful": ["statpack-at reproduced the build each candidate read, so checking the anchor took one command"],
+  "gaps": [],
+  "notes": "Straightforward cert-arrival cell. All three forward predictions called the denial; the grades separate on the depth of the reasoning and the specificity of the forecast."
+}

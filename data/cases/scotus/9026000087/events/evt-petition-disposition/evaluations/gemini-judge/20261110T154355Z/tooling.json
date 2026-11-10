@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000087",
+  "run_id": "20261110T154355Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "read_file",
+    "list_directory",
+    "run_shell_command",
+    "write_file",
+    "fedcourts statpack-at"
+  ],
+  "helpful": [
+    "provisioned record documents and snapshots",
+    "fedcourts statpack-at for verifying candidates' base-rate tables",
+    "harness-captured retrieval_log.json for each candidate"
+  ],
+  "gaps": [],
+  "notes": "All three candidates were forward predictions placed in October 2026 prior to the November 9, 2026 denial."
+}

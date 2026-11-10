@@ -1,0 +1,112 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.25,
+    "notes": "Office-wide disqualification in a territorial public-corruption prosecution has substantial local institutional stakes and an Organic Act dimension. The fact-specific conflict findings, substitute-counsel procedure, and absence of a demonstrated nationwide conflict limit broader significance."
+  },
+  "brier_score": 0.0001,
+  "brier_skill_score": 0.9981916028976635,
+  "case_id": "scotus/9026000119",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.23515439429928742,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": 0.05519758915826473
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.05,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.05519758915826473,
+    "total": 0.05519758915826473
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T16:54:23.173801Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The prediction and 37 logged calls are dated October 18, before the November 9 disposition. All result markers are unobserved (coverage 0.0); null dates/digests do not establish empty results. Queries concern the October snapshot, petition, statpack, a generic prosecutor-disqualification search, and a reportedly rejected corpus query. No query or prose shows this petition's own outcome already decided. The standing result-capture limitation is not penalized or treated as proof of leakage.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.85,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The docket records one distribution for November 6 and denial on November 9, 2026.",
+        "claim": "The Court will deny the petition outright in its first conference cycle.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Outcome signals record distribution_count 1; no further distribution or response request appears between the initial distribution and denial in the staged docket.",
+        "claim": "The Court is highly unlikely to redistribute the petition or call for a response before denying it.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Outcome signals have cvsg_date null, and the staged docket lists no invitation.",
+        "claim": "The Court will not request the Solicitor General's views.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The petition was denied, so no grant, question reformulation, merits holding, or DIG tested this conditional forecast.",
+        "claim": "If granted, the Court would take the sole question as framed and reject the asserted constitutional protection or dismiss as improvidently granted.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261018T142134Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T16:54:23.173801Z"
+  },
+  "reasoning_quality": 0.57,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.23515439429928742,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

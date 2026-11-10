@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000290",
+  "run_id": "20261110T154355Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts statpack-at"
+  ],
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "helpful": [
+    "fedcourts statpack-at",
+    "record/blinded",
+    "metrics/statpack.md"
+  ],
+  "gaps": [],
+  "notes": "fedcourts statpack-at cleanly reconstructed the historical sal-v4 statpack build (eb6830084a18) in force when the three candidates ran on 2026-10-22, confirming their baseline reached-rate anchoring."
+}

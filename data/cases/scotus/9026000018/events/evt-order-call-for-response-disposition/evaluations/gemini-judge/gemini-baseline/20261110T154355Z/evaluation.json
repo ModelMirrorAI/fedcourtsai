@@ -1,0 +1,137 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.38,
+    "notes": "Significant procedural and Article III mootness question for PLRA 90-day prison-conditions preliminary injunctions in the Fifth Circuit, given the 11-6 en banc split and facial tension with Turner v. Rogers, but cabined in national salience by its interlocutory posture after defendants won final judgment on the merits at trial."
+  },
+  "brier_score": 0.07840000000000001,
+  "brier_skill_score": -0.4177833282318133,
+  "case_id": "scotus/9026000018",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.23515439429928742,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.28,
+        "score": -0.023102410841735276
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": null,
+        "probability": 0.78,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.45,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.18,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.08,
+          "Barrett": 0.005,
+          "Gorsuch": 0.04,
+          "Jackson": 0.02,
+          "Kagan": 0.005,
+          "Kavanaugh": 0.02,
+          "Roberts": 0.005,
+          "Sotomayor": 0.02,
+          "Thomas": 0.07
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": -0.023102410841735276,
+    "total": -0.023102410841735276
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T16:21:12.172993Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-order-call-for-response-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Cell ran in forward mode on 2026-10-29 before the petition was denied on 2026-11-09, and relied strictly on the provisioned 2026-08-04 snapshot, petition.txt, questions-presented.txt, the committed statpack, and general corpus queries. No post-cutoff or outcome material was retrieved.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-argon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.8,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Certiorari was denied on Nov 9, 2026 after Respondents' BIO led with the May 26, 2026 final judgment as mooting the interlocutory appeals and defeating repetition (though the forecast misdescribed that judgment for Defendants as a 'post-trial remedial order').",
+        "claim": "Certiorari will be denied (P(grant) = 0.28) because Respondents' BIO will show that the May 26, 2026 post-trial district court ruling makes the case a poor vehicle on the capable-of-repetition prong.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "While the response deadline was extended by 30 days to Oct 2 and the petition was re-distributed on Oct 21 for the Nov 6 conference (distribution_count = 2), it was denied immediately from that first post-BIO conference without a conference relist.",
+        "claim": "After the BIO and any routine 30-day extension past September 2, the petition will be re-distributed for an autumn conference and likely relisted at least once after briefing is complete.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "No CVSG was issued (outcome.signals.cvsg_date is null).",
+        "claim": "The Court will not invite the Solicitor General to file a brief (P = 0.01).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The November 9, 2026 order denied certiorari with no noted dissent or separate writing (noted_dissent_from_denial = false, votes = []).",
+        "claim": "An unsigned order denying certiorari with no separate writing is the 82% modal outcome on denial (P(dissent) = 0.18).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Conditional on a grant of certiorari; the petition was denied.",
+        "claim": "If the Court grants review, summary reversal or vacatur under Turner v. Rogers is nearly as likely (45%) as plenary review of both Questions Presented.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261029T160941Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T16:21:12.172993Z"
+  },
+  "reasoning_quality": 0.82,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.23515439429928742,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,15 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/73522552",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-order-call-for-response-disposition",
+      "message": "gemini-baseline's reasoning.md quotes a sal-v4 baseline 'reached' rate of 2.1% (n=1,210) for OT 2024 and says the table renders only OT 2024-2025. Its placed statpack build (7bcde3b105cb) renders 2017-2026, with OT 2024 baseline reached 5.9% (n=1,274). It also attributes a catalogue of prior cert denials to the petition, which the staged petition text does not contain. Both were graded in reasoning_quality; the scored numbers are unaffected.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,112 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.05,
+    "notes": "Routine pro se petition arising from a private first-party hurricane-insurance dispute under Louisiana law and fact-bound Rule 37(c)(1) discovery exclusions affirmed in an unpublished Fifth Circuit summary-calendar opinion; no broader legal or public significance."
+  },
+  "brier_score": 6.4e-05,
+  "brier_skill_score": 0.9753595889173233,
+  "case_id": "scotus/9026000087",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05096429401285725,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.008,
+        "score": 0.0025333592642289575
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.06,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.001,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.15,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.008,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.0025333592642289575,
+    "total": 0.0025333592642289575
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T16:28:01.255322Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction placed on 2026-10-12 against the 2026-10-12 snapshot, prior to the 2026-11-09 denial. External calls in retrieval_log.json were limited to a CourtListener precedent lookup for 'R & R Sails' and general Supreme Court rules pages, all transparently disclosed in retrieval.md.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-argon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.85,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records actual_disposition: denied on 2026-11-09 with noted_dissent_from_denial: false.",
+        "claim": "The Court will deny certiorari in the orders following the November 6, 2026 conference without a separate writing.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records signals.distribution_count: 1 and signals.cvsg_date: null.",
+        "claim": "There will be zero additional distributions (relists) before disposition, and the Court will not call for the Solicitor General's views (no CVSG).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Appendix C (pp. 32-35) recites the four Geiserman factors and affirms based on missing expert reports, prejudice, and independent coverage rulings; cert was denied.",
+        "claim": "The Court will leave the Fifth Circuit's unpublished, record-specific rulings in place because the decision below explicitly applied the four-factor Geiserman exclusion standard and addressed missing reports and prejudice rather than announcing a categorical rule.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Conditional on a grant, which did not occur (actual_disposition: denied).",
+        "claim": "Conditional on a grant, the most likely question would be a narrowed version of QP 1 on Rule 37(c)(1) findings, rather than QP 2's sequencing argument or QP 3's investigative duty, with plenary review more likely than summary disposition.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261012T143556Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T16:28:01.255322Z"
+  },
+  "reasoning_quality": 0.95,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05096429401285725,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

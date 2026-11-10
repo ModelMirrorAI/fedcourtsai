@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.15,
+    "notes": "The petition raises a potentially general agency-inaction/direct-review question and a nationwide vehicle-safety standard, but the actual vehicle is an unpublished dismissal with independent identification, jurisdictional, and timeliness obstacles and no demonstrated circuit split."
+  },
+  "brier_score": 6.4e-05,
+  "brier_skill_score": 0.9753595889173233,
+  "case_id": "scotus/9026000314",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05096429401285725,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.008,
+        "score": 0.0025333592642289575
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.035,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.001,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.15,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.006,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.0025333592642289575,
+    "total": 0.0025333592642289575
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T17:30:24.189439Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The October 15 prediction preceded the November 9 resolution. The harness log shows provisioned October 15 inputs, statistical context, and generic Supreme Court rules/Norton searches, not a search for this petition's outcome. Nine web rows are unobserved, so their results cannot be characterized as empty despite the retrieval note; their queries are not outcome-directed. No reasoning presupposes this case's later denial.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.9,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The staged docket records distribution for November 6 and Petition DENIED on November 9, 2026; outcome.json records a standard denial, not a merits judgment.",
+        "claim": "The Court will deny the petition during November, shortly after the November 6 conference, without deciding the lighting standard's merits.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The prediction froze distribution_count at one; the resolved outcome and complete staged proceedings retain one distribution.",
+        "claim": "There will be zero additional distributions before disposition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The final docket contains no CVSG, and outcome.signals.cvsg_date is null.",
+        "claim": "The Court will not invite the Solicitor General's views.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Appendix pages 1a-3a establish those obstacles below, but the Supreme Court's bare denial does not disclose its reasons for declining review.",
+        "claim": "Direct-review and timeliness obstacles will be the reason this petition does not become a vehicle for a broad agency-inaction decision.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "The outcome expressly records no noted dissent from denial, and the staged disposition has no statement or separate-writing notation; undisclosed votes remain unknown.",
+        "claim": "Denial will attract no publicly noted dissent or statement respecting denial.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261015T142602Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T17:30:24.189439Z"
+  },
+  "reasoning_quality": 0.92,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05096429401285725,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

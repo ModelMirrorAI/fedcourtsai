@@ -1,0 +1,1 @@
+No retrieval beyond the provisioned inputs (`uv run fedcourts statpack-at` was used to inspect the historical statpack build `eb6830084a18` in force when the candidates ran; no `fedcourts query`, CourtListener MCP, or web lookups were performed).

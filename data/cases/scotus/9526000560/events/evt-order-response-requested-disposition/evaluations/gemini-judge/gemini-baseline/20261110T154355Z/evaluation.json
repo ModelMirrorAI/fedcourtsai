@@ -1,0 +1,110 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.78,
+    "notes": "Significant Solicitor General emergency application resulting in a 6-page published per curiam opinion clarifying that major-questions challenges to agency action remain statutory rather than constitutional claims under Dalton v. Specter for purposes of IIRIRA \u00a7 102(c)(2)(A)'s jurisdiction strip, and unblocking over 300 miles of southern-border barrier construction."
+  },
+  "brier_score": 0.0625,
+  "brier_skill_score": 0.9198161692917393,
+  "case_id": "scotus/9526000560",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.1171303074670571,
+        "claim_id": "interim-disposition",
+        "outcome": 1,
+        "probability": 0.75,
+        "score": 0.7169588939932131
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": null,
+        "probability": 0.0,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.96,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 1,
+        "probability": 0.85,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": 0.7169588939932131,
+    "total": 0.7169588939932131
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T18:11:44.571201Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-order-response-requested-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction run on 2026-10-23 while the event was open. The predictor used CourtListener RECAP tools to read the underlying W.D. Tex. docket (No. 3:26-cv-01099-KC, docket ID 72652572) filings dated between 2026-08-11 and 2026-10-21 (including the Oct. 14 preliminary-injunction opinion and Oct. 21 stay denial), all of which preceded the Supreme Court event cutoff.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-argon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.85,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The November 9, 2026 per curiam opinion granted an unqualified stay pending the filing and disposition of a petition for a writ of certiorari (pp. 5-6) without granting certiorari or summarily reversing.",
+        "claim": "The Court will grant the application in full for a stay pending the filing and disposition of a petition for a writ of certiorari and decline to grant certiorari before judgment or summarily reverse.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The per curiam opinion held that the district court likely lacked jurisdiction under \u00a7 102(c)(2)(A), citing Dalton, 511 U.S. at 472-473, and Clark, 543 U.S. at 381, to explain that invoking a canon of statutory construction grounded in constitutional separation-of-powers principles does not convert a statutory claim into a constitutional one (pp. 3-5).",
+        "claim": "The Court will hold that the district court likely lacked jurisdiction under IIRIRA \u00a7 102(c)(2)(A) because, under Dalton v. Specter, 511 U.S. 462 (1994), and Clark v. Martinez, 543 U.S. 371 (2005), a major-questions argument is a statutory-interpretation claim rather than a constitutional claim.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The per curiam opinion included an '[i]n any event' merits holding that the Secretary had clear congressional authorization under \u00a7 102(a) and (c)(1) and that nothing in IIRIRA required a comparative approach to 'high illegal entry' (p. 5).",
+        "claim": "Even if reached on the merits, the waivers fall within the Secretary's express statutory discretion under IIRIRA \u00a7 102(a) and (c)(1), and 'areas of high illegal entry' does not require a comparative sector-by-sector test (citing In re Border Infrastructure Environmental Litigation).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Because the per curiam opinion resolved likelihood of success on the threshold jurisdictional bar and statutory authorization, it did not address remedial overbreadth or cite Trump v. CASA.",
+        "claim": "The Court will also fault the preliminary injunction as overbroad under Trump v. CASA, Inc., 606 U.S. 831 (2025), for enjoining barrier construction across 300+ miles beyond the parcels tied to plaintiffs' demonstrated standing.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "Only Justice Jackson noted that she would deny the application for stay (p. 6).",
+        "claim": "Justices Sotomayor, Kagan, and Jackson will note dissents from the stay grant.",
+        "status": "not-borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261023T210522Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T18:11:44.571201Z"
+  },
+  "reasoning_quality": 0.92,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.1171303074670571,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

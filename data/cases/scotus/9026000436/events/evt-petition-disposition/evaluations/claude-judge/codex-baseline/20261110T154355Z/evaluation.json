@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.4,
+    "notes": "A genuine, acknowledged circuit split on the FMLA retaliation causation standard (motivating factor under 29 C.F.R. 825.220(c) vs. but-for), sharpened by Loper Bright, on a high-volume federal employment claim; two employer-side amici filed at the cert stage. But it arose from an unpublished Second Circuit summary order resting on invited-error/forfeiture grounds, between a mid-sized employer and one former employee, and the Court denied it at its first conference without calling for a response."
+  },
+  "brier_score": 0.004900000000000001,
+  "brier_skill_score": -0.8865314735174292,
+  "case_id": "scotus/9026000436",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05096429401285725,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.07,
+        "score": -0.0023026407357710434
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.2,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.25,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": -0.0023026407357710434,
+    "total": -0.0023026407357710434
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T17:41:58.599564Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell (prediction snapshot 2026-10-09; event resolved 2026-11-09). Log (mode forward, ~94% captured) shows reads of provisioned inputs and statpack, two unobserved web calls aimed at the Loper Bright slip opinion (general precedent), and CourtListener lookups of Loper Bright's text. No query for Radiall's disposition or later docket; retrieval.md discloses the same. No outcome material.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-opus-5-5",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.7,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Docket: distributed Oct 7, 2026 for the Nov 6 conference; petition denied Nov 9, 2026. The order gives no reason, so the stated ground is unresolved; the disposition held.",
+        "claim": "The Court will deny the petition because of its preservation obstacles.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Single distribution (Oct 7) and denial on Nov 9, 2026.",
+        "claim": "Zero additional distributions; denial on an orders list shortly after the Nov 6 conference, most likely in November 2026.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "No CVSG on the docket; outcome cvsg_date null.",
+        "claim": "No CVSG (2%).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "noted_dissent_from_denial false; bare denial entry.",
+        "claim": "An ordinary denial without separate writing.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Conditional on a grant that did not happen.",
+        "claim": "If granted, QP1 in neutral form with the preservation threshold; 25% summary route.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261009T143059Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T17:41:58.599564Z"
+  },
+  "reasoning_quality": 0.8,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05096429401285725,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

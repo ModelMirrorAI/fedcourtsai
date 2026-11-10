@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.18,
+    "notes": "Published federal attorney-discipline proceedings raise recurring notice and source-disclosure questions with professional consequences, but the petition concerns one attorney's record, identifies no square split on its QPs, and ended in an unexplained denial without a new Supreme Court rule."
+  },
+  "brier_score": 0.0006250000000000001,
+  "brier_skill_score": 0.759370985520736,
+  "case_id": "scotus/9026000296",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05096429401285725,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.025,
+        "score": 0.001972359264228957
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.12,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.001,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.45,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.035,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.001972359264228957,
+    "total": 0.001972359264228957
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T17:26:36.652169Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The forward log contains 38 calls, 36 captured and two unobserved general Rule 10 web calls (coverage 0.9473684210526315). Queries otherwise concern local provisioned inputs/statpack and historical Ruffalo authorities, not this petition's later docket or outcome. Uncaptured web calls are assessed by query, not credited as empty. Prose does not presuppose this disposition. The October 15 forecast preceded the November 9 denial.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.85,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The terminal snapshot shows the initial distribution for November 6 followed by Petition DENIED on November 9, consistent with outcome.actual_disposition. Internal deliberations are not observable.",
+        "claim": "The Court will deny the petition following its first scheduled conference on November 6, 2026.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The terminal docket has only the October 14 distribution; outcome.signals.distribution_count remains 1.",
+        "claim": "There will be zero further distributions before disposition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "No CVSG appears in the terminal docket and outcome.signals.cvsg_date is null.",
+        "claim": "The Court will not request the Solicitor General's views.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The denial establishes non-intervention, but neither a complete cert vote record nor reasons for denial are staged. The Court's actual motivation cannot be inferred from the result.",
+        "claim": "The petition will fail to attract four votes because its notice objections are entangled with already-noticed disciplinary conduct rather than a clean conflict.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "The petition was denied, so the conditional QP selection, notice holding and grant-route forecast were not tested.",
+        "claim": "If granted, review will likely concern a narrowed supplemental-notice version of QP 1, with plenary review marginally likelier than summary correction.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261015T142602Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T17:26:36.652169Z"
+  },
+  "reasoning_quality": 0.92,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05096429401285725,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

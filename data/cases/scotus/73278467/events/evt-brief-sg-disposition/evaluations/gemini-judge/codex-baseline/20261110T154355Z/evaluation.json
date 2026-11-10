@@ -1,0 +1,112 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.54,
+    "notes": "Published Tenth Circuit decision addressing whether Turner v. Safley deference or VMI intermediate scrutiny applies to sex-segregated jail housing, commissary, and strip-search policies affecting a transgender detainee, which drew a 23-State amicus brief and a CVSG. However, intervening decisions in United States v. Skrmetti and West Virginia v. B.P.J. substantially narrowed its prospective constitutional stakes, and the Court resolved the petition via a routine summary GVR order rather than plenary merits review."
+  },
+  "brier_score": 0.0144,
+  "brier_skill_score": 0.965446245271225,
+  "case_id": "scotus/73278467",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.35444444444444445,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.88,
+        "score": 0.40234197530864196
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.97,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.0,
+        "score": null
+      },
+      {
+        "baseline": 0.345367027677497,
+        "claim_id": "summary-disposition-route",
+        "outcome": 1,
+        "probability": 0.96,
+        "score": 0.4269443284517951
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.2,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.829286303760437,
+    "total": 0.829286303760437
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T16:06:01.466516Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-brief-sg-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction placed on 2026-10-23T10:50:49Z (cutoff 2026-09-26), 17 days before the event resolved on 2026-11-09. The harness-captured retrieval_log.json (38 calls, result_capture_coverage 0.921) shows local file reads of the provisioned inputs and metrics/statpack.md plus three general-law web searches for Lawrence v. Chater, 516 U.S. 163 (1996). No case-identifying or post-cutoff outcome material existed or was retrieved.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-argon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.97,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The November 9, 2026 order in 2026-11-09.json reads: 'Petition GRANTED. Judgment VACATED and case REMANDED for further consideration in light of West Virginia v. B. P. J., 609 U. S. 958 (2026) and United States v. Skrmetti, 605 U. S. 495 (2025).' (outcome.json: actual_disposition = 'gvr', actual_granted = 1).",
+        "claim": "The Court will grant the petition, vacate the Tenth Circuit's judgment, and remand (GVR) for further consideration in light of West Virginia v. B.P.J. and United States v. Skrmetti.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records actual_disposition = 'gvr' and disposition_route = 'gvr', and the November 9, 2026 docket entry is a standard summary GVR order with no merits briefing or summary reversal.",
+        "claim": "The order will be a short summary GVR rather than a plenary grant or a summary reversal deciding the underlying prison-rights questions outright.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The 2026-11-09.json snapshot records exactly one additional distribution on October 14, 2026 for the November 6, 2026 Conference (incrementing outcome.signals.distribution_count from 2 to 3), followed by the GVR order on the November 9, 2026 orders list.",
+        "claim": "The docket will record one additional distribution (or at most a second) after the two pre-CVSG distributions to consider the September 25, 2026 invited SG brief, resolving on a fall 2026 orders list rather than holding through another merits Term.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.signals.cvsg_date remains '2026-06-30' with no further invitation to the Solicitor General.",
+        "claim": "No additional CVSG will occur because the June 30, 2026 CVSG is already on the docket and the Solicitor General has filed the invited brief.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261023T104223Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T16:06:01.466516Z"
+  },
+  "reasoning_quality": 0.92,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.35444444444444445,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

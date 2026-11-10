@@ -1,0 +1,137 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.42,
+    "notes": "The questions concern reviewability of short-lived injunctions and the scope of Article III mootness, with recurring practical consequences for prison litigation. The immediate dispute concerns expired orders after Louisiana prevailed at trial; cert denial supplies no new nationwide holding."
+  },
+  "brier_score": 0.07840000000000001,
+  "brier_skill_score": -0.4177833282318133,
+  "case_id": "scotus/9026000018",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.23515439429928742,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.28,
+        "score": -0.023102410841735276
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": null,
+        "probability": 0.78,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.45,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.18,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.08,
+          "Barrett": 0.005,
+          "Gorsuch": 0.04,
+          "Jackson": 0.02,
+          "Kagan": 0.005,
+          "Kavanaugh": 0.02,
+          "Roberts": 0.005,
+          "Sotomayor": 0.02,
+          "Thomas": 0.07
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": -0.023102410841735276,
+    "total": -0.023102410841735276
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T16:21:37.412644Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-order-call-for-response-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "All 41 log rows are outcome_only, not captured empty results. Queries concern provisioned inputs, general grant/GVR priors and Smith v. Edwards; no query targets this petition's disposition. Reasoning does not presuppose the November 9 denial. Prediction was written October 29. Limited result visibility is not evidence of leakage or of empty retrieval.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.65,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The docket records an extension to October 2, opposition on that date and one further distribution on October 21 for November 6.",
+        "claim": "The response request will be followed by one or two additional distributions, potentially after an extension into autumn.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The outcome has a null CVSG date and no CVSG appears in the staged docket.",
+        "claim": "No CVSG will issue.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The October 2 opposition preceded the November 9 denial recorded in the outcome and docket.",
+        "claim": "The petition will most likely be denied after the opposition is filed.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The docket's bare denial supplies no rationale. The petition contradicts the premise of permanent relief: its p. 18 reports judgment for defendants and dismissal with prejudice, not a permanent remedial order.",
+        "claim": "The Court will decline review because intervening permanent remedial proceedings make this a poor vehicle.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "No grant occurred, so neither the conditional route nor the proposed merits ground was tested.",
+        "claim": "If relief is granted, summary reversal or GVR is nearly as likely as plenary review, with correction of the 90-day review standard.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261029T160941Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T16:21:37.412644Z"
+  },
+  "reasoning_quality": 0.55,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.23515439429928742,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

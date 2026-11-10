@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73522552",
+  "run_id": "20261110T154355Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell", "jq", "fedcourts statpack-at", "apply_patch", "Python jsonschema", "Pydantic schema models"],
+  "helpful": ["Blinded candidate staging", "Resolved docket snapshot", "Per-call result-capture markers", "Historical statpack recovery", "Committed output schemas"],
+  "gaps": [],
+  "notes": "The staged record sufficed. Capture coverage was interpreted as observability, not as retrieval success. Historical statpack recovery preserved the blind. No external case facts were fetched."
+}

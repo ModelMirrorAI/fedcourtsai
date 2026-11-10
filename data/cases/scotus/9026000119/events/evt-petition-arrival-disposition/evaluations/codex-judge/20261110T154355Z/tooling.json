@@ -1,0 +1,25 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9026000119",
+  "gaps": [
+    "codex-baseline's staged log does not include the two precedent searches reported in its prose.",
+    "gemini-baseline's result-unobserved log permits query review but not independent verification of reported failures."
+  ],
+  "helpful": [
+    "Blinded prediction, prose, and retrieval-log staging preserves alias-only grading.",
+    "Resolved docket and outcome signals allow procedural forecasts to be checked independently of legal explanations.",
+    "statpack-at reconstructs prediction-time base-rate context without accessing prediction history."
+  ],
+  "notes": "The default uv cache is read-only; UV_CACHE_DIR=/tmp/uv-cache and UV_NO_SYNC=1 permit the preinstalled tooling to run without installation. jsonschema is available in system Python, while model validation uses the existing project environment. No external case-fact retrieval or package installation was needed.",
+  "role": "evaluator",
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell: staged-file reads",
+    "fedcourts statpack-at",
+    "apply_patch",
+    "Python jsonschema and Evaluation model validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

@@ -1,0 +1,112 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.38,
+    "notes": "This case presents recurrent Fifth Amendment takings finality and prudential-ripeness questions (specifically whether a landowner must exhaust legislative map-amendment remedies) backed by Pacific Legal Foundation and six cert-stage amicus briefs. However, it arises from an unpublished per curiam decision involving a single residential parcel's well-and-septic permit dispute and was denied certiorari without dissent, giving it moderate doctrinal interest for land-use litigants but low broader public or institutional salience."
+  },
+  "brier_score": 0.12249999999999998,
+  "brier_skill_score": -46.163286837935715,
+  "case_id": "scotus/9026000107",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05096429401285725,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.35,
+        "score": -0.11990264073577103
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.99,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.35,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": -0.11990264073577103,
+    "total": -0.11990264073577103
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T16:36:44.549251Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction placed on October 6, 2026, more than a month before the November 9, 2026 denial. Although tool results in retrieval_log.json are unobserved (result_capture_coverage = 0.0, an engine telemetry characteristic), the logged tool queries show only reads of provisioned local files and metrics/statpack.md, and the event was genuinely unresolved at run time.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-argon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.58,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The petition was redistributed on October 21, 2026 for the November 6, 2026 conference, bringing distribution_count to 2.",
+        "claim": "The petition will receive at least one further distribution (relist) now that the Brief in Opposition has been filed.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "No CVSG was issued before the petition was denied (outcome.json: signals.cvsg_date = null).",
+        "claim": "No CVSG is expected because the case involves a county and a private property owner rather than a federal agency or federal statutory scheme.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Conditional on a grant that did not occur; the petition was denied on November 9, 2026.",
+        "claim": "If granted, the Court will likely take up the first question presented regarding legislative exhaustion rather than issuing a summary GVR.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "While emphasizing plausibility, the candidate kept non-dissent as the modal outcome (65%), matching the silent denial on November 9, 2026 (noted_dissent_from_denial = false).",
+        "claim": "If denied, a dissent from denial is plausible (35% in reasoning.md) given the six cert-stage amicus briefs and property rights issues.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261005T231540Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T16:36:44.549251Z"
+  },
+  "reasoning_quality": 0.42,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05096429401285725,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

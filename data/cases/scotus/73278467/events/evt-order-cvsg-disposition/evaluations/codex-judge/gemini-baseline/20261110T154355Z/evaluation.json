@@ -1,0 +1,112 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.65,
+    "notes": "Nationwide implications for equal-protection scrutiny of sex-based detention policies and searches, with substantial state and federal operational interests. Preservation and pleading-stage constraints narrow the vehicle; the actual GVR leaves the questions for reconsideration below rather than announcing a new nationwide merits rule."
+  },
+  "brier_score": 0.09000000000000002,
+  "brier_skill_score": 0.7840390329451565,
+  "case_id": "scotus/73278467",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.35444444444444445,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.7,
+        "score": 0.32674197530864196
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.99,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": 0.345367027677497,
+        "claim_id": "summary-disposition-route",
+        "outcome": 1,
+        "probability": 0.05,
+        "score": -0.4739556715482049
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.65,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": -0.14721369623956293,
+    "total": -0.14721369623956293
+  },
+  "correct": 0,
+  "created_at": "2026-11-10T15:53:34.076562Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-order-cvsg-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Prediction dated September 18, 2026 preceded the November 9 resolution. All 26 log rows are unobserved (capture coverage 0.0), including current-docket queries; null result dates do not prove empty results. Queries and staged prose do not show this petition's disposition surfacing. Outcome retrieval cannot be independently determined from the uncaptured returns; no evidence falsifies the forward-mode default.",
+    "retrieved_outcome_material": null
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.2,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The staged docket records the United States brief on September 25, 2026 and another distribution on October 14, 2026.",
+        "claim": "The petition will be distributed again after the Solicitor General files a brief.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Only one distribution was added to the frozen count of two; the November 9, 2026 GVR followed the November 6 conference without another recorded distribution.",
+        "claim": "At least one further relist after that redistribution is likely before disposition.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "The November 9 docket entry grants, vacates and remands in light of B.P.J. and Skrmetti; it does not set either question for plenary review.",
+        "claim": "If the petition is granted, the Court will likely take both questions for plenary review rather than use a GVR.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "The Court did not deny review, so the condition never occurred.",
+        "claim": "If review is denied, Thomas and/or Alito will likely dissent from denial.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20260918T174135Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T15:53:34.076562Z"
+  },
+  "reasoning_quality": 0.35,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.35444444444444445,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

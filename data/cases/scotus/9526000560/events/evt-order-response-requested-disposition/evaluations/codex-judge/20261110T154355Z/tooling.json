@@ -1,0 +1,25 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9526000560",
+  "gaps": [
+    "gemini-baseline's retrieval log records queries but no result bodies, limiting independent verification of supplemental research; this was not treated as leakage or a candidate defect."
+  ],
+  "helpful": [
+    "Blinded candidate staging kept identities out of grading.",
+    "The staged per-curiam writing and decided docket allowed direct checking of legal grounds, timing, and publicly noted dissent.",
+    "statpack-at reconstructed the candidates' historical pack without accessing prediction history."
+  ],
+  "notes": "All three candidates were scored from their staged aliases. Baselines, skill, quantitative claim scores, process stamps, usage, and the evaluator retrieval_log.json are left to the harness. No installation or external substantive retrieval was needed.",
+  "role": "evaluator",
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell and local file reads",
+    "fedcourts statpack-at",
+    "apply_patch",
+    "JSON Schema validation",
+    "Pydantic model validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

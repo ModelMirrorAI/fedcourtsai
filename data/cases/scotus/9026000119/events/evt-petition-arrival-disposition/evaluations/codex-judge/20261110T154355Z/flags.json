@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9026000119",
+  "flags": [
+    {
+      "category": "capture-gap",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "codex-baseline reports two rate-limited CourtListener precedent searches in reasoning.md and retrieval.md, but its staged retrieval_log.json contains no corresponding search calls. The logged calls are captured, so this is a limitation of the available call inventory rather than a claim that unobserved results were empty. The search failures cannot be independently verified. No outcome exposure is indicated, and the forward-mode leakage assessment remains not_applicable. Evaluation completed for all three candidates.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0"
+}

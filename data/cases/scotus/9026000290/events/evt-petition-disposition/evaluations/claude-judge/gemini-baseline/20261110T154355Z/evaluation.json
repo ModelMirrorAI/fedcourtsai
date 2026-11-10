@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.04,
+    "notes": "Pro se challenge arising from one homeowner's municipal code-enforcement dispute over a fence/arbor, reaching the Court via summary state writ denials of an interlocutory demurrer ruling. The QPs invoke broad Fourth Amendment doctrine but ask the Court to choose between its own settled lines (Ciraolo/Dow vs. Katz/Kyllo); no split, no amici, no response, denied at first conference without noted dissent. Minimal stakes beyond the litigant."
+  },
+  "brier_score": 9e-06,
+  "brier_skill_score": 0.9965349421914986,
+  "case_id": "scotus/9026000290",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05096429401285725,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.003,
+        "score": 0.0025883592642289574
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.015,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.001,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.65,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.002,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.0025883592642289574,
+    "total": 0.0025883592642289574
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T17:12:57.511914Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell (log mode forward; result capture coverage 0.0, so results are unobserved and calls are graded on their queries). CourtListener MCP calls targeted the 2022-23 N.D. Cal. removal docket (3:22-cv-05440) and its 2023 orders, plus a caption search for published opinions; one fedcourts query for generic 2020s denied priors. None sought this petition's Supreme Court disposition, and the reasoning cites nothing post-dating the 2026-10-22 snapshot. Pre-resolution related-litigation context is legitimate forward signal. No qp-topics access.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-opus-5-5",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.62,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Denied Nov 9, 2026; the denial is unexplained, so the finality rationale itself is not testable from the record.",
+        "claim": "The Court will deny certiorari, chiefly given the lack of a final judgment under 28 U.S.C. 1257(a).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "distribution_count 1; denial entered Nov 9, 2026, the date the document named.",
+        "claim": "No relist or call for response; disposed of on the first conference order list, expected November 9, 2026.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "cvsg_date null.",
+        "claim": "No CVSG.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "noted_dissent_from_denial false.",
+        "claim": "No Justice will note a dissent from or write respecting denial.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Conditional on a grant that did not occur.",
+        "claim": "If granted, review limited to a narrowed QP 1 and the route would likely be summary (GVR).",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261022T031334Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T17:12:57.511914Z"
+  },
+  "reasoning_quality": 0.72,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05096429401285725,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

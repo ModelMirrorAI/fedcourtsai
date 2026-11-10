@@ -1,0 +1,110 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.7,
+    "notes": "Solicitor General stay of an injunction halting border-barrier construction in the Big Bend Sector. The per curiam announced a categorical proposition ('There is no such thing as a \"constitutional\" major-questions claim') that reaches beyond IIRIRA's review scheme, but it came on the interim docket, over one noted dissent, in a narrow statutory-review setting. Nationally salient and doctrinally notable, not a landmark."
+  },
+  "brier_score": 0.0625,
+  "brier_skill_score": 0.9198161692917393,
+  "case_id": "scotus/9526000560",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.1171303074670571,
+        "claim_id": "interim-disposition",
+        "outcome": 1,
+        "probability": 0.75,
+        "score": 0.7169588939932131
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": null,
+        "probability": 0.0,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.96,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 1,
+        "probability": 0.85,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": 0.7169588939932131,
+    "total": 0.7169588939932131
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T17:58:53.389795Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-order-response-requested-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell. Prediction made 2026-10-23; the stay was granted 2026-11-09. No retrieved_doc_date on or after resolution and no query for this application's disposition. Its CourtListener reads were the district court's Oct 14 opinion, Oct 20 stay denial and the plaintiffs' opposition (all before the cutoff), plus earlier Supreme Court orders. Every call in the log is unobserved, so it is graded on its queries; none targets this application's disposition.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-opus-5-5",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.68,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The Nov 9 order stays the injunction pending the filing and disposition of a cert petition, with no carve-out.",
+        "claim": "The Court will enter an unqualified stay of the Oct 2 injunction in full pending cert.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The per curiam rests on \u00a7102(c)(2)(A) and Dalton. The document framed the barred claim as a \u00a7102(a)/(b) predicate challenge, not as the relabelled major-questions claim the Court addressed, so the match is in direction rather than in detail.",
+        "claim": "Primary ground: \u00a7102(c)(2)(A) forecloses nonconstitutional ultra vires challenges, citing Dalton.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The per curiam does not reach the statutory merits, Learning Resources or CASA overbreadth. Its other grounds are irreparable cost and equities that reflect Congress's balance.",
+        "claim": "Secondary grounds: Learning Resources is distinguished on the statutory merits, and the 300-mile injunction is overbroad under Trump v. CASA.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "Only Justice Jackson noted that she would deny. No dissent was written.",
+        "claim": "6\u20133 lineup, with Sotomayor, Kagan and Jackson dissenting and one of them writing.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "Referral on Nov 9, one amicus brief (FAIR) on Oct 29, disposition on Nov 9.",
+        "claim": "Referral, at least one amicus brief, and disposition between Nov 2 and Nov 9.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261023T210522Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T17:58:53.389795Z"
+  },
+  "reasoning_quality": 0.72,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.1171303074670571,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

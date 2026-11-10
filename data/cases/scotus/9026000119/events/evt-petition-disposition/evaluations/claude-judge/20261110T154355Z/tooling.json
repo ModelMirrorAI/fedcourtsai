@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000119",
+  "run_id": "20261110T154355Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "shell (cat/python over provisioned record and blinded staging)"
+  ],
+  "helpful": [
+    "Staged retrieval logs with result_capture markers made the forward leakage check quick",
+    "Outcome signals (distribution_count, cvsg_date) settled the procedural forecast claims directly"
+  ],
+  "gaps": [],
+  "notes": "Cert cell with a clean first-conference denial; no corpus or statpack consultation needed since base rate is harness-stamped."
+}

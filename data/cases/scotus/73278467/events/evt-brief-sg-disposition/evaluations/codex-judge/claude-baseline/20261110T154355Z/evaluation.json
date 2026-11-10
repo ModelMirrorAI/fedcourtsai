@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.62,
+    "notes": "The competing scrutiny standards for sex-based jail policies and detainee search rights have national constitutional and correctional significance. The realized GVR leaves those questions for reconsideration rather than resolving them in a new plenary Supreme Court holding, limiting this event's immediate precedential reach."
+  },
+  "brier_score": 0.03240000000000002,
+  "brier_skill_score": 0.9222540518602563,
+  "case_id": "scotus/73278467",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.35444444444444445,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.82,
+        "score": 0.38434197530864195
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.95,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": 0.345367027677497,
+        "claim_id": "summary-disposition-route",
+        "outcome": 1,
+        "probability": 0.85,
+        "score": 0.40604432845179506
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.45,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.7903863037604371,
+    "total": 0.7903863037604371
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T15:53:06.676335Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-brief-sg-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The October 23 forecast preceded the November 9 GVR. All nine logged calls have captured results. Queries read the provisioned September 26 snapshot, event, SG brief, questions, manifest, schemas, and committed statpack, plus directory listings and local tool-output reads. They show no current-outcome search or outcome-file read, and the rationale, forecast, and retrieval note contain no already-decided Roybal disposition. References to earlier related decisions are legitimate forward context.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.95,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The November 9 disposing entry records a GVR naming both intervening decisions; outcome.json agrees. There is no plenary grant of either question.",
+        "claim": "The Court will grant, vacate, and remand in light of B.P.J. and Skrmetti rather than take the questions for plenary review.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The docket adds an October 14 distribution for the November 6 conference, followed by the November 9 GVR and no intervening further distribution.",
+        "claim": "The petition will be distributed again for a late October or November conference, with a GVR possible at the first post-brief conference.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The resolved docket contains only the June 30 CVSG, answered September 25, and no further invitation.",
+        "claim": "There will be no further call for the Solicitor General's views.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The disposing entry vacates and remands for further consideration; it does not summarily reverse or announce a substantive rule deciding those questions.",
+        "claim": "The Court will return the judgment for reconsideration instead of issuing a summary reversal deciding the prison-policy questions itself.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The staged record carries no separate-writing text or complete writing inventory. The terse docket entry and empty outcome vote list do not establish whether any Justice wrote separately.",
+        "claim": "A short statement or dissent from the GVR by Justice Sotomayor and/or Justice Jackson is plausible.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261023T104223Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T15:53:06.676335Z"
+  },
+  "reasoning_quality": 0.8,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.35444444444444445,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

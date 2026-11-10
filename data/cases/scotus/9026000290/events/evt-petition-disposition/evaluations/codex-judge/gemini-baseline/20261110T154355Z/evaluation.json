@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.12,
+    "notes": "The petition's two Fourth Amendment questions could have broader residential-privacy implications, but the actual vehicle is an individual municipal fence/code-enforcement dispute reaching the Court through summary state writ denials, without a demonstrated appellate split."
+  },
+  "brier_score": 9e-06,
+  "brier_skill_score": 0.9965349421914986,
+  "case_id": "scotus/9026000290",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05096429401285725,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.003,
+        "score": 0.0025883592642289574
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.015,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.001,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.65,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.002,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.0025883592642289574,
+    "total": 0.0025883592642289574
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T17:21:52.580458Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "All 59 log rows are unobserved (capture coverage 0.0); null dates therefore do not establish empty results. The queries target the provisioned record, general corpus priors and antecedent N.D. Cal. litigation, including 2023 orders described in the prose. No query targets this petition's disposition, and no reasoning presupposes its November 9 outcome. The October 22 forward prediction predates resolution; no affirmative mis-provisioning signal appears.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.9,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The outcome resolves the event on November 9 with distribution_count 1; the staged docket shows the October 21 distribution for November 6 followed by the November 9 denial.",
+        "claim": "The Court would dispose of the petition on the November 9, 2026 order list after its first conference, without relisting.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "signals.cvsg_date is null in the outcome and no CVSG appears in the staged proceedings list.",
+        "claim": "The Court would not invite the Solicitor General's views.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "actual_disposition is denied, actual_granted is 0 and disposition_basis is standard.",
+        "claim": "The Court would deny the petition for certiorari.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The staged disposition gives no jurisdictional explanation; the available trial-court appendix does not supply the substantive ruling needed to independently settle the asserted categorical bar.",
+        "claim": "The denial would reflect a definitive jurisdictional finality bar under section 1257(a).",
+        "status": "unresolved"
+      },
+      {
+        "basis": "The outcome expressly records no noted dissent, but the broader no-statement assertion cannot be fully settled without staged order text or a writings inventory.",
+        "claim": "No Justice would note a dissent from, or file a statement respecting, denial.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261022T031334Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T17:21:52.580458Z"
+  },
+  "reasoning_quality": 0.62,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05096429401285725,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

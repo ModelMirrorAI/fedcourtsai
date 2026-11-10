@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000314",
+  "run_id": "20261110T154355Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": ["shell", "file-read"],
+  "helpful": ["Blinded staging with retrieval_log.json made the forward-mode leakage check fast", "The decided snapshot's docket entries settled the conference, relist and CVSG claims directly"],
+  "gaps": ["jsonschema is not installed for validating against schemas/*.json; validated via the pydantic models in fedcourtsai.schemas instead"],
+  "notes": "Simple first-conference cert denial; all three candidates were forward and correct."
+}

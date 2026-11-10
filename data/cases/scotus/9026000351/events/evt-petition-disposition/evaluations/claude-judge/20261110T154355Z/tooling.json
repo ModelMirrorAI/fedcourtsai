@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000351",
+  "run_id": "20261110T154355Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": ["shell", "file-read", "pydantic Evaluation model validation"],
+  "helpful": ["Docket snapshot ProceedingsandOrder made every forecast claim checkable directly"],
+  "gaps": ["jsonschema is not installed, so validation went through fedcourtsai.schemas.Evaluation instead"],
+  "notes": "Straightforward denial cell; no base-rate figures needed checking because the harness stamps the anchor."
+}

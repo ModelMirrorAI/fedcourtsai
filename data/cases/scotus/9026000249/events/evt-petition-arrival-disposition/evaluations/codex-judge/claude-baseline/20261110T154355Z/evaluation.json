@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v3",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.07,
+    "notes": "The staged question concerns California litigation privilege, alleged acquisition of private law-enforcement records, and amendment of privacy claims after an unpublished Ninth Circuit affirmance. The privacy and amendment issues matter to the parties, but the record shows no developed federal conflict or broad institutional change, and the petition ended in an ordinary denial."
+  },
+  "brier_score": 9e-06,
+  "brier_skill_score": 0.9965349421914986,
+  "case_id": "scotus/9026000249",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05096429401285725,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.003,
+        "score": 0.0025883592642289574
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": null,
+        "probability": 0.95,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.002,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.5,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.0025883592642289574,
+    "total": 0.0025883592642289574
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T17:07:31.245803Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-arrival-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The August 27 forecast preceded this petition's November 9, 2026 resolution. All 26 logged calls have captured results. Dated retrievals concern pre-petition lower-court records or corpus context no later than August 24. No query, dated result, disclosure, or rationale shows this petition's eventual disposition. The snapshot's August 28 label is not evidence of a resolved case.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.94,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The staged docket records consideration at the November 6, 2026 conference and denial on November 9, 2026; outcome.json records denied.",
+        "claim": "The Court will deny certiorari by roughly December 2026, within a week of a late-October or November conference.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The September 11 docket entry records waivers by Craig Granet and R. Scott and Lannette Turicchi. Other respondents filed an opposition, which does not contradict this specifically identified group.",
+        "claim": "The opposing attorney and the former home's buyers will waive their responses by September 28, 2026.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The docket has one distribution, entered October 14 for the November 6 conference; outcome.signals.distribution_count is 1.",
+        "claim": "The petition will receive exactly one conference distribution and no subsequent relist.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Outcome.signals.cvsg_date is null, the docket has no CVSG, and the recorded disposition is denied, not granted or gvr. This does not test the forecast's counterfactual grant route.",
+        "claim": "The Court will not call for the Solicitor General's views or enter a summary grant-family disposition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Outcome.noted_dissent_from_denial is false, supporting the no-noted-dissent component. The staged docket's bare denial and absence of staged writings do not independently settle the broader no-statement assertion.",
+        "claim": "No Justice will note a dissent from denial or issue a statement respecting denial.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20260827T155120Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T17:07:31.245803Z"
+  },
+  "reasoning_quality": 0.83,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05096429401285725,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

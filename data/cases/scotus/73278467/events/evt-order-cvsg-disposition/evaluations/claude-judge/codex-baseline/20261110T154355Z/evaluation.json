@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.5,
+    "notes": "A recurring question (Turner deference vs. heightened scrutiny for sex-based jail housing, commissary and search policies) with 23 state amici and federal BOP interest, but the Court disposed of it by a GVR in light of B.P.J. and Skrmetti, deciding nothing itself; the pleading-stage, preservation-clouded vehicle further limits the case's own reach. Significant mainly as a downstream application of B.P.J."
+  },
+  "brier_score": 0.3249000000000001,
+  "brier_skill_score": 0.22038090893201512,
+  "case_id": "scotus/73278467",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.35444444444444445,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.43,
+        "score": 0.09184197530864191
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.95,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.0,
+        "score": null
+      },
+      {
+        "baseline": 0.345367027677497,
+        "claim_id": "summary-disposition-route",
+        "outcome": 1,
+        "probability": 0.55,
+        "score": 0.22604432845179512
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.18,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.31788630376043703,
+    "total": 0.31788630376043703
+  },
+  "correct": 0,
+  "created_at": "2026-11-10T15:49:16.290280Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-order-cvsg-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell run 2026-09-18. Log (coverage 0.94) shows local reads of provisioned inputs and statpack, two unobserved supremecourt.gov web attempts about Johnson v. California and Skrmetti (general precedent), and CourtListener lookups of Skrmetti (2025). Nothing touched this petition's later history; no outcome existed yet. Disclosed in retrieval.md. No data/qp-topics read.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-opus-5-5",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.3,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "11/09/2026: petition granted, judgment vacated and remanded (GVR).",
+        "claim": "The Court will most likely deny the petition after receiving the SG's views (P(any grant)=0.43).",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "The order GVR'd in light of B.P.J. and Skrmetti; the SG brief likewise relies on Skrmetti and the Fowler vacatur.",
+        "claim": "Conditional on any grant, a cert-order disposition is more likely than not (0.55), with a GVR for reconsideration of the equal-protection analysis \u2014 given the Fowler vacatur in light of Skrmetti \u2014 as the principal summary route.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Distributed 10/14/2026 for the 11/6/2026 conference after the 9/25/2026 SG brief.",
+        "claim": "At least one further distribution (P\u22480.95), returning to conference after the SG's brief.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Disposed 11/09/2026 (OT2026), after the SG brief.",
+        "claim": "Decision during October Term 2026, plausibly by June 2027, not before the SG's input.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Conditional on denial, which did not occur.",
+        "claim": "Conditional on denial, a noted dissent/statement is unlikely (0.18).",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20260918T174135Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T15:49:16.290280Z"
+  },
+  "reasoning_quality": 0.55,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.35444444444444445,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

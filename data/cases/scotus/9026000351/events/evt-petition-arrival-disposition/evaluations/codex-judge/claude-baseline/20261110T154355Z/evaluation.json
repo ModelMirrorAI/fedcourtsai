@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.25,
+    "notes": "The questions implicate judicial-discipline authority and impartial adjudication, but this collateral litigant's non-money-mandating Tucker Act case presents a threshold jurisdictional obstacle. The petition concedes the broad constitutional issue was not decided below, and the actual denial creates no merits precedent."
+  },
+  "brier_score": 2.5e-05,
+  "brier_skill_score": 0.9903748394208295,
+  "case_id": "scotus/9026000351",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05096429401285725,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": 0.0025723592642289575
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.97,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.35,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.0025723592642289575,
+    "total": 0.0025723592642289575
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T17:30:18.814427Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-arrival-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "All 27 logged calls were reviewed; result_capture_coverage is 1.0. Calls occurred September 27 before the November 9 target denial. Retrieval includes general corpus priors, lower-court RECAP history and Supreme Court/companion docket searches; no target disposition or post-resolution material is shown. The RECAP document date is December 17, 2025. Companion information in the provisioned petition is not this event's outcome. Forward mode is consistent with the dated record.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.9,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The snapshot records a single distribution for November 6 and denial on November 9; outcome.actual_disposition is denied.",
+        "claim": "The petition will be denied after its first conference, rather than granted or summarily reversed.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The United States filed a waiver on October 16, and the staged proceedings show no request for a response before denial.",
+        "claim": "The Solicitor General will waive a response and the Court will not need to call for one.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The distribution entry is dated October 21, 2026. Its conference was November 6, but the document forecasts the distribution itself in November.",
+        "claim": "The Clerk will distribute the petition in early-to-mid November 2026.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "outcome.signals records distribution_count 1 and cvsg_date null; the staged docket shows one distribution and no invitation for views.",
+        "claim": "There will be exactly one distribution, no further relist and no CVSG.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.noted_dissent_from_denial is false; the staged denial entry identifies no separate writing. This establishes the recorded absence only.",
+        "claim": "There will be no noted dissent or statement respecting denial.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20260927T182226Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T17:30:18.814427Z"
+  },
+  "reasoning_quality": 0.77,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05096429401285725,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}
