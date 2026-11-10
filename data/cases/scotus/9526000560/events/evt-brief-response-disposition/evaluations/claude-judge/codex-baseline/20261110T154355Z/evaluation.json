@@ -1,0 +1,130 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.68,
+    "notes": "Interim stay, not a merits judgment, but the per curiam announces a categorical rule ('There is no such thing as a \"constitutional\" major-questions claim') that reaches every jurisdiction-stripping statute preserving only constitutional claims, and it unblocks border-barrier construction across the Big Bend Sector under IIRIRA s.102 waivers. High practical and doctrinal salience for an application; below a merits landmark."
+  },
+  "brier_score": 0.03999999999999998,
+  "brier_skill_score": 0.9486823483467131,
+  "case_id": "scotus/9526000560",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.1171303074670571,
+        "claim_id": "interim-disposition",
+        "outcome": 1,
+        "probability": 0.8,
+        "score": 0.7394588939932132
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": null,
+        "probability": 0.0,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.95,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.25,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v2",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.05,
+          "Barrett": 0.03,
+          "Gorsuch": 0.06,
+          "Jackson": 0.42,
+          "Kagan": 0.08,
+          "Kavanaugh": 0.04,
+          "Roberts": 0.02,
+          "Sotomayor": 0.3,
+          "Thomas": 0.025
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.7394588939932132,
+    "total": 0.7394588939932132
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T17:50:06.849512Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-brief-response-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell; all logged calls dated 2026-10-29, eleven days before the 2026-11-09 disposition existed. Web/MCP retrieval was general authority (Dalton v. Specter, REAL ID Act text); no query for this application's status; no data/qp-topics access. Prose explicitly disclaims knowing the outcome.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-opus-5-5",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.82,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Nov 9 order: application granted; injunction stayed pending the filing and disposition of a cert petition.",
+        "claim": "The Court will grant the government's application and stay the W.D. Tex. injunction pending a timely certiorari petition (80%).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Per curiam grants 'the requested stay'; no summary reversal entered.",
+        "claim": "A stay, not summary reversal on the alternative petition request, is the likely route.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Per curiam: the Government is 'exceedingly likely to prevail' that the District Court lacked jurisdiction; the claim 'alleges instead that the Secretary exceeded his statutory authority' (Dalton).",
+        "claim": "If explained, the ground will be the distinction between a genuinely constitutional claim and a claim that the Secretary exceeded statutory authority, via the s.102(c) jurisdictional limit rather than the full constitutional validity of the waiver scheme.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Docket Nov 9: application referred to the Court; order recites referral by Justice Alito.",
+        "claim": "The application will be referred to the full Court before disposition (95%).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Only a noted vote: 'JUSTICE JACKSON would deny'; no separate writing. The order was explained by a per curiam, not unexplained; claim was hedged.",
+        "claim": "A reasoned dissent is plausible, with Jackson and Sotomayor the most likely writers; an unexplained order with noted votes remains quite possible.",
+        "status": "not-borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261029T212853Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T17:50:06.849512Z"
+  },
+  "reasoning_quality": 0.8,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.1171303074670571,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

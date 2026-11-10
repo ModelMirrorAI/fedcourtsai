@@ -1,0 +1,112 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.15,
+    "notes": "Collateral pro se Tucker Act suit by a third-party litigant touching the Judge Newman suspension; the constitutional question was concededly not decided below and the Tucker Act theory asks to overrule settled money-mandating doctrine. Denied at first conference after an SG waiver, no noted dissent. Low stakes as a vehicle despite the newsworthy backdrop."
+  },
+  "brier_score": 6.4e-05,
+  "brier_skill_score": 0.9753595889173233,
+  "case_id": "scotus/9026000351",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05096429401285725,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.008,
+        "score": 0.0025333592642289575
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.97,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.001,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.25,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.015,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.0025333592642289575,
+    "total": 0.0025333592642289575
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T17:27:22.669554Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-arrival-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell (log mode forward; cutoff 2026-09-17, resolution 2026-11-09). No call targeted this petition's disposition; no retrieved_doc_date on or after resolution; no data/qp-topics read. Reasoning cites only the provisioned snapshot/petition and pre-cutoff related proceedings (No. 25-1217 mandamus denial, No. 26-9 pending), which the petition itself recites. Retrieval included a CourtListener check of United States v. Testan (1976), general doctrine only.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-opus-5-5",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.72,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Docket: 'Petition DENIED.' Nov 9, 2026; outcome.json actual_disposition denied.",
+        "claim": "The Court will deny certiorari without reaching the constitutionality of 28 U.S.C. 354.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Docket: distributed Oct 21 for Conference of 11/6/2026, denied Nov 9; outcome distribution_count 1.",
+        "claim": "One conference distribution after the Oct 16 response deadline, followed by denial without a further relist; timing November\u2013December 2026.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "No CVSG on docket (outcome cvsg_date null); SG filed a waiver Oct 16.",
+        "claim": "No CVSG; the United States' position arrives through the ordinary respondent process.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome noted_dissent_from_denial false; plain denial entry.",
+        "claim": "No noted dissent or statement respecting denial.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20260927T182226Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T17:27:22.669554Z"
+  },
+  "reasoning_quality": 0.85,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05096429401285725,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

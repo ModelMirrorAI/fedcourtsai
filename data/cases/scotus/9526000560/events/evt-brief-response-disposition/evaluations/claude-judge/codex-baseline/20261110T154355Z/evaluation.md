@@ -1,0 +1,15 @@
+# codex-baseline — scotus/9526000560, evt-brief-response-disposition
+
+**Cell.** Interim stage (stay application 26A560), forward mode, prediction cutoff 2026-10-30. Outcome: application referred to the Court and **granted** on 2026-11-09 (`interim_reading: granted`, `interim_granted: 1`); the injunction is stayed pending cert, by a per curiam resting on the s.102(c)(2)(A) jurisdictional bar (a major-questions claim is a statutory-authority claim, not a constitutional one; *Dalton v. Specter*), unrecoupable costs, and Congress's balance of the equities. Justice Jackson noted she would deny; no separate writings.
+
+**Scoring.** Interim cell scored on `interim_granted` = 1; `correct` = 1 (predicted `granted`). The baseline and Brier skill are the harness's to stamp from the interim pool (application-Terms strictly before 2026); I write neither and quote no rate of my own. Every candidate cited the pooled substantive figure, and I confirmed it against the committed `metrics/statpack.md` interim table. Votes are not scored on an interim cell. No semantic set is declared, so there is no `semantic_grades` block. Claims are scored by the harness.
+
+**Leakage.** Forward. The retrieval log is dated 2026-10-29, before the disposition existed. I found no retrieval of this application's outcome and no `data/qp-topics/` access, so the grade is `not_applicable`.
+
+**Result.** P = 0.80, granted, so correct, Brier 0.04.
+
+**Reasoning quality (0.80).** The rationale identifies the right pressure point. The government's s.102(c) argument is that respondents' major-questions theory contests statutory authority, and the candidate checked *Dalton* directly, which is the ground the per curiam used. It treats the direct route to the Supreme Court (no court of appeals) correctly as removing the usual exhaustion objection. It weighs the opposition's equities seriously and in specifics. It is careful about what the base rate can and cannot support. The discount to 0.80 was reasonable, if a little cautious: the equities argument that worried it most is the one the Court disposed of by deferring to Congress's statutory balance. It also left the government's harm evidence (unrecoupable costs) unweighted as merely alleged, and the Court credited that evidence.
+
+## Predicted reasoning
+
+**Grade: 0.82.** The central claims were grant of a stay pending cert, stay rather than summary reversal, the constitutional-vs-statutory jurisdictional ground, referral, and the writer forecast. The first four are specific and borne out. The ground forecast in particular says the jurisdictional objection is "a narrower route than resolving the full constitutional validity," and that matches the per curiam closely. The forecast that the explanation could credit border-security and construction-disruption interests also held. The writings forecast was hedged and leaned the wrong way: it expected a reasoned dissent from Jackson or Sotomayor as plausible, or else an unexplained order. In fact the Court wrote an explanatory per curiam with a noted vote only. That is a secondary miss. Timing ("several days to roughly two weeks") held.

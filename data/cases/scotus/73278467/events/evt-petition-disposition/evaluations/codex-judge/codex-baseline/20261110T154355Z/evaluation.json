@@ -1,0 +1,112 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.72,
+    "notes": "The questions concern nationally consequential constitutional limits on prison housing and searches affecting transgender detainees, privacy, and institutional administration. The actual GVR leaves those questions for reconsideration and creates much less independent precedent than plenary review would."
+  },
+  "brier_score": 0.009999999999999995,
+  "brier_skill_score": 0.9760043369939063,
+  "case_id": "scotus/73278467",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.35444444444444445,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.9,
+        "score": 0.406741975308642
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.35,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.0,
+        "score": null
+      },
+      {
+        "baseline": 0.345367027677497,
+        "claim_id": "summary-disposition-route",
+        "outcome": 1,
+        "probability": 0.96,
+        "score": 0.4269443284517951
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.3,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.8336863037604371,
+    "total": 0.8336863037604371
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T16:00:35.211735Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The October 18 prediction precedes this petition's November 9 resolution. The captured log shows local provisioned-input and statpack reads plus general Lawrence v. Chater research, not this petition's disposition. Two web rows are unobserved, so their null dates do not establish empty results; their queries concern only the general precedent. B.P.J. and related cases were disclosed in the pre-prediction SG brief and are legitimate forward signals. No evidence of an already-decided petition being provisioned forward.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.95,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The November 9, 2026 docket entry expressly grants the petition, vacates the judgment, and remands for further consideration in light of both named decisions; outcome.json records gvr.",
+        "claim": "The Court will grant, vacate, and remand for reconsideration in light of West Virginia v. B.P.J. and United States v. Skrmetti, rather than summarily reverse.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The snapshot's October 14 distribution sets the November 6 conference, followed directly by the November 9 disposition. The outcome's distribution_count remains three.",
+        "claim": "The modal path is disposition after the already scheduled November 6 conference without another distribution, in November or December 2026.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The docket shows only the June 30 invitation, the September 25 United States brief, and then distribution and disposition; no new invitation appears.",
+        "claim": "No fresh CVSG will be issued because the existing invitation has already been answered.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The disposing docket text directs further consideration under the two intervening precedents and announces no substantive rule resolving either question presented.",
+        "claim": "The remand will leave the scrutiny and search questions for reconsideration rather than announce categorical substantive rules.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261018T142134Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T16:00:35.211735Z"
+  },
+  "reasoning_quality": 0.94,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.35444444444444445,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

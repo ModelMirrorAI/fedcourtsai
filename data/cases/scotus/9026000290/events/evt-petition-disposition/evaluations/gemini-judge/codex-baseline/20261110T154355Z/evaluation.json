@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.03,
+    "notes": "Pro se cert petition from summary California appellate denials of an interlocutory writ challenging a trial-court demurrer in a localized residential fence and municipal code-enforcement dispute; no lower-court split, no amicus participation, and minimal broader doctrinal or institutional stakes."
+  },
+  "brier_score": 1.6e-05,
+  "brier_skill_score": 0.9938398972293309,
+  "case_id": "scotus/9026000290",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05096429401285725,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.004,
+        "score": 0.0025813592642289574
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.035,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.001,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.35,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.008,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.0025813592642289574,
+    "total": 0.0025813592642289574
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T17:19:10.831214Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction created on 2026-10-22T10:30:40Z, 18 days before the November 9, 2026 denial of certiorari. Retrieval log (5 local file reads and 3 shell commands) and reasoning confirm the case was genuinely open when predicted.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-argon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.85,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records actual_disposition = 'denied' and disposition_basis = 'standard' on resolved_at = '2026-11-09', matching the November 9, 2026 docket entry with no opinion staged.",
+        "claim": "The Court will deny the petition for a writ of certiorari in an unexplained standard order on the order list following the November 6, 2026 conference.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records signals.distribution_count = 1 (unchanged from the pre-conference count of 1), and snapshot 2026-11-09.json shows no relist or CFR entry.",
+        "claim": "The petition will resolve on its first conference distribution without any relist or call for a response.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records signals.cvsg_date = null.",
+        "claim": "The Court will not issue a call for the views of the Solicitor General (CVSG).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records noted_dissent_from_denial = false and votes = [], and the November 9, 2026 denial entry carries no separate writing.",
+        "claim": "No Justice will record a noted dissent from or separate statement respecting the denial of certiorari.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Certiorari was denied (actual_granted = 0, disposition_route = null), so the conditional grant scope and route were not tested.",
+        "claim": "Conditional on a grant of certiorari, the Court would narrow review to the Fourth Amendment residential exterior-inspection issue with roughly a 35% chance of summary GVR versus plenary review.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261022T031334Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T17:19:10.831214Z"
+  },
+  "reasoning_quality": 0.91,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05096429401285725,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.06,
+    "notes": "Pro se petition seeking review of an unpublished Ninth Circuit memorandum affirming dismissal of California state-law privacy claims under California's litigation privilege (Cal. Civ. Code section 47(b)) in a local property dispute, with severe vehicle defects (separate unchallenged dismissals of the county and sheriff's employee defendants and a vexatious-litigant order) and no federal circuit split."
+  },
+  "brier_score": 2.5e-05,
+  "brier_skill_score": 0.9903748394208295,
+  "case_id": "scotus/9026000249",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05096429401285725,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": 0.0025723592642289575
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.0025723592642289575,
+    "total": 0.0025723592642289575
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T17:09:01.210847Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction placed on 2026-10-15, twenty-five days before the 2026-11-09 denial. All 22 logged tool calls are unobserved (result_capture_coverage 0.0, the engine's standing telemetry shape); graded on the queries, the cell read only provisioned inputs, metrics/statpack.md, and one CourtListener search for 'Randy Quaid' 'Craig Granet' (locating the C.D. Cal. docket) while the Supreme Court petition was still unresolved.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-argon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.7,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records actual_disposition 'denied' and actual_granted 0 on 2026-11-09.",
+        "claim": "The Court will deny the petition for a writ of certiorari.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records signals.distribution_count as 1.",
+        "claim": "There will be no further relists or distributions before a decision on the petition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records signals.cvsg_date as null.",
+        "claim": "No CVSG will be requested because no federal interests or statutes are meaningfully implicated.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records noted_dissent_from_denial as false, votes as empty, and writing_roles as null.",
+        "claim": "No separate writing or dissent from denial will be issued.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The petition was denied (actual_granted 0), so the conditional grant ground and disposition route were never tested.",
+        "claim": "Conditional on a grant, the Court would focus on the limits of applying state litigation privileges in federal court via plenary review rather than a summary disposition (such as a GVR).",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261015T142602Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T17:09:01.210847Z"
+  },
+  "reasoning_quality": 0.62,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05096429401285725,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

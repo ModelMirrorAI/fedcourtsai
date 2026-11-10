@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9026000314",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "gemini-baseline's retrieval.md says no retrieval beyond provisioned inputs, but its harness log records an attempted fedcourts query for denied caDC comparators decided before October 15, 2026. That row is unobserved, so execution success and returned content cannot be determined. The discrepancy is in the retrieval account, not proof of outcome retrieval; the query does not seek this petition's November 9 disposition, and no leakage exclusion is imposed.",
+      "severity": "warning"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,18 @@
+{
+  "case_id": "scotus/73278467",
+  "run_id": "20261110T154355Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "shell (cat/python over provisioned inputs)",
+    "file-read"
+  ],
+  "helpful": [
+    "record/snapshots/2026-11-09.json gave the disposing order text and the SG brief date",
+    "record/documents/sg-invited-brief.txt let the forecast documents' SG and route claims be checked directly"
+  ],
+  "gaps": [],
+  "notes": "No corpus query or statpack-at rebuild needed: all three candidates' base-rate figures agree with one another and grading did not turn on them; the anchor is harness-stamped."
+}

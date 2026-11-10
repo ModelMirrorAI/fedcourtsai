@@ -1,0 +1,24 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9026000314",
+  "gaps": [],
+  "helpful": [
+    "Blinded candidate staging and pointer-normalized forecast documents",
+    "Resolved docket snapshot and lower-court order in the appendix",
+    "Harness retrieval logs with explicit result-capture markers",
+    "Candidate-time statpack reconstruction without reading prediction history",
+    "Committed JSON schemas and installed schema validator"
+  ],
+  "notes": "All three candidates were gradeable from the staged record. Result capture was partial for codex-baseline and unobserved throughout gemini-baseline; queries were assessed without assuming missing results were empty. Historical statpacks were reconstructed rather than treating a later build as the candidates' input. No packages were installed.",
+  "role": "evaluator",
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "fedcourts statpack-at",
+    "apply_patch",
+    "Python jsonschema"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

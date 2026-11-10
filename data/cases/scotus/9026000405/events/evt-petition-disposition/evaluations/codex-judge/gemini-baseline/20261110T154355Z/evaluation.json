@@ -1,0 +1,132 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v6",
+  "base_rate_statpack_digest": "sha256:a059cb872f890b63515d8e2ac6ef798347ae7231a62d08543a5b7431bd941faa",
+  "big_case": {
+    "evaluator_score": 0.22,
+    "notes": "The FECA/FTCA initial-decision boundary can recur nationwide for federal employees, but this petition presents a specialized statutory question through an unpublished employee-specific order. The family's distinct assault claim was revived separately; the cert denial creates no substantive Supreme Court holding."
+  },
+  "brier_score": 6.4e-05,
+  "brier_skill_score": 0.9762173840319334,
+  "case_id": "scotus/9026000405",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.0519501026369809,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.008,
+        "score": 0.00263481316399285
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.045,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.001,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.15,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.001,
+          "Barrett": 0.0005,
+          "Gorsuch": 0.002,
+          "Jackson": 0.001,
+          "Kagan": 0.0005,
+          "Kavanaugh": 0.001,
+          "Roberts": 0.0005,
+          "Sotomayor": 0.001,
+          "Thomas": 0.002
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.00263481316399285,
+    "total": 0.00263481316399285
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T17:45:51.587772Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The October 31 prediction preceded the November 9 denial. All logged calls carry outcome_only markers; 0.0 captured-result coverage does not mean results were empty. Queries concern provisioned inputs, broad grants/denials and older FECA authorities, not this petition's cert disposition. The prose reports a pre-decision district opinion, not a disposing Supreme Court order. No affirmative evidence shows this case already resolved; forward default applies with limited visibility into returned content.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.9,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The docket shows one October 21 distribution for November 6, followed by denial; outcome.signals.distribution_count is 1.",
+        "claim": "The petition will not be distributed again before disposition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The staged docket has no invitation for views, and outcome.signals.cvsg_date is null.",
+        "claim": "The Court will not issue a CVSG.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The next staged docket entry after the first distribution is Petition DENIED on November 9, 2026; the committed outcome is denied.",
+        "claim": "The Court will deny certiorari on the first order list following the November 6, 2026 conference.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.noted_dissent_from_denial is false, supporting the no-dissent component. The staged record has no order body or complete writing census to establish the absence of a separate statement.",
+        "claim": "There will be no dissent or statement respecting denial.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261031T173439Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T17:45:51.587772Z"
+  },
+  "reasoning_quality": 0.86,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.0518752467429925,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.1,
+    "notes": "The questions invoke residential privacy and municipal inspection practices, potentially general subjects, but this record presents an individual fence/code-enforcement dispute, summary state writ review, and no demonstrated appellate conflict or broader institutional engagement."
+  },
+  "brier_score": 1.6e-05,
+  "brier_skill_score": 0.9938398972293309,
+  "case_id": "scotus/9026000290",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05096429401285725,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.004,
+        "score": 0.0025813592642289574
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.95,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.003,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.55,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.0025813592642289574,
+    "total": 0.0025813592642289574
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T17:11:31.008979Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-arrival-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "All 15 logged call results are captured. The September 27 forecast preceded the November 9 disposition. The log shows the provisioned September 4 snapshot and petition, statpack reads, generic corpus queries and a redacted reference-prediction lookup; it does not show this petition's disposition being retrieved. Generic current corpus context was legitimate while the event remained open. No target-case subsequent history or already-decided input is evidenced.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.9,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The outcome records a standard denial on November 9, 2026; the staged docket proceeds from conference distribution directly to denial, without a merits grant or argument.",
+        "claim": "The Court will deny the petition without argument.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The October 21 docket entry distributes the petition for the November 6 conference; it was denied November 9. The outcome distribution count is 1.",
+        "claim": "There will be exactly one distribution for a late-October or early-November conference, with denial most likely by mid-November 2026.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The staged docket records neither a waiver nor a brief in opposition. Silence does not establish an affirmative waiver.",
+        "claim": "The City and County of San Francisco will waive its right to respond rather than file a brief in opposition.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "The outcome cvsg_date is null and the staged proceedings contain no CVSG.",
+        "claim": "There will be no CVSG.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "No noted dissent is recorded in the outcome and no writing appears in the docket; no disposing order or writing text is staged to establish the stronger absence of all separate statements.",
+        "claim": "The denial will have no separate writing or noted dissent.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20260927T182226Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T17:11:31.008979Z"
+  },
+  "reasoning_quality": 0.77,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05096429401285725,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

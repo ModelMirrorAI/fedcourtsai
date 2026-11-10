@@ -1,0 +1,2 @@
+- `uv run fedcourts statpack-at data/cases/scotus/9026000119/record/blinded/codex-baseline/ --ref origin/main --out-dir /tmp/statpack-at/codex-baseline` (and identical calls for `gemini-baseline` and `claude-baseline`) — reconstructed the prediction-time statpack build (`ab6fb84c09a602f661fc4b436c922fdc8de9c7fc`, digest `sha256:f8abdb31530370551ced5a16ef3db2ecf512b450e040799d9ec5d03b7b9f48c4`) to verify the candidates' `sal-v3` base-rate citations.
+- No `fedcourts query` or `open-events` corpus lookups, CourtListener MCP calls, or web searches were performed.

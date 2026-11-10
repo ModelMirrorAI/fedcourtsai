@@ -1,0 +1,112 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.55,
+    "notes": "The questions (Turner deference vs. VMI heightened scrutiny for sex-based jail policies applied to a transgender detainee; cross-sex strip searches) matter nationally to correctional administration and drew a 23-State amicus brief and a CVSG. But the Court disposed of the case by a routine GVR in light of B.P.J. and Skrmetti, deciding nothing itself, and B.P.J. had already narrowed what was left of the questions. Moderate stakes, not landmark."
+  },
+  "brier_score": 0.0144,
+  "brier_skill_score": 0.965446245271225,
+  "case_id": "scotus/73278467",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.35444444444444445,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.88,
+        "score": 0.40234197530864196
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.97,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.0,
+        "score": null
+      },
+      {
+        "baseline": 0.345367027677497,
+        "claim_id": "summary-disposition-route",
+        "outcome": 1,
+        "probability": 0.96,
+        "score": 0.4269443284517951
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.2,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.829286303760437,
+    "total": 0.829286303760437
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T15:48:53.967727Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-brief-sg-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell (cutoff 2026-09-26, run 2026-10-23), before the 2026-11-09 GVR. Calls: reads of the provisioned record and statpack, plus two general-law web searches and one govinfo URL for Lawrence v. Chater (516 U.S. 163). These are uncaptured, so grade them on their queries: they concern a 1996 precedent and nothing about this docket. There was no CourtListener or case-outcome query and no data/qp-topics read. The candidate disclosed all of these calls in its retrieval.md.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-opus-5-5",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.9,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Nov 9 2026 order: granted, vacated and remanded in light of B.P.J. and Skrmetti, with no opinion. actual_disposition gvr.",
+        "claim": "The Court will GVR in light of B.P.J. and Skrmetti, as a short order rather than a plenary grant or summary reversal.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Oct 14 2026 distribution for the 11/6/2026 conference (count 2\u21923). The order issued Nov 9 2026.",
+        "claim": "Exactly one more distribution will follow to consider the Sept. 25 invited brief, then a prompt disposition on a fall 2026 orders list rather than a hold.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The order remands without deciding either question.",
+        "claim": "The GVR will not resolve the Turner-vs-heightened-scrutiny dispute or the search claims; neither QP is taken up for plenary resolution.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "There is no further CVSG entry.",
+        "claim": "No new CVSG.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261023T104223Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T15:48:53.967727Z"
+  },
+  "reasoning_quality": 0.85,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.35444444444444445,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

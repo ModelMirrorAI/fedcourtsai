@@ -1,0 +1,112 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.2,
+    "notes": "Municipal permitting delay and alleged retaliation implicate substantive property and speech interests, but the five questions seek correction of this local dispute without identifying a clean nationwide conflict. Potential doctrinal relevance is limited rather than absent."
+  },
+  "brier_score": 0.0001,
+  "brier_skill_score": 0.9614993576833177,
+  "case_id": "scotus/9026000359",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05096429401285725,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": 0.0024973592642289575
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.1,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.0024973592642289575,
+    "total": 0.0024973592642289575
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T17:38:21.731090Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-arrival-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The September 27 prediction predates the November 9 disposition. All logged results are unobserved (coverage 0.0), so null dates and digests establish no absence of retrieved content. Query scope includes provisioned inputs, aggregate statistics, an own-case subject query and generic denied-case priors, not the eventual Supreme Court result. The reasoning contains no already-decided disposition. This is a genuinely unresolved forward cell, not a replay; unobserved telemetry alone is not leakage evidence.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.55,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The docket shows a single distribution for November 6 followed by November 9 denial, not a repeat conference. This does not mean there was no initial distribution.",
+        "claim": "The petition will require no further relists or additional conference time.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.signals.cvsg_date is null and the resolved docket shows no CVSG.",
+        "claim": "There will be no CVSG.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The petition was denied, so neither the conditional question-selection nor the conditional grant route was tested.",
+        "claim": "If granted, the Court would select the takings question and would be unlikely to issue a summary GVR.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "Denial occurred and outcome.noted_dissent_from_denial is false. The additional claim of no separate writing is not independently settled by the staged writing record.",
+        "claim": "If denied, there will be no noted dissent from denial.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20260927T182226Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T17:38:21.731090Z"
+  },
+  "reasoning_quality": 0.4,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05096429401285725,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,111 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.8,
+    "notes": "High-profile Solicitor General emergency stay application over border-wall construction across the Big Bend Sector that produced a published Per Curiam opinion clarifying that the major-questions canon is a tool of statutory interpretation rather than a standalone constitutional claim under IIRIRA section 102(c)(2)(A)'s jurisdiction-stripping bar."
+  },
+  "brier_score": 0.0576,
+  "brier_skill_score": 0.9261025816192668,
+  "case_id": "scotus/9526000560",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.1171303074670571,
+        "claim_id": "interim-disposition",
+        "outcome": 1,
+        "probability": 0.76,
+        "score": 0.7218588939932131
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "mask_reason": "signal-before-run",
+        "outcome": null,
+        "probability": 0.96,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.8,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 1,
+        "probability": 0.6,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": 0.7218588939932131,
+    "total": 0.7218588939932131
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T18:10:24.725076Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction placed on 2026-10-23 while the application (decided 2026-11-09) was genuinely unresolved; retrieval_log.json confirms claude-baseline read only the provisioned record and committed statpack with zero external queries.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-argon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.84,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The docket snapshot (2026-11-09.json) and outcome.json show a response was requested Oct. 22 (due Oct. 29, one week later), one amicus brief (FAIR) was filed Oct. 30, the application was referred to the full Court, and the Court granted the stay on Nov. 9, 2026 (19 days / 2.7 weeks after the Oct. 21 filing).",
+        "claim": "Justice Alito will request a response within a few days (due in about a week), at least one amicus brief will likely be filed, the application will be referred to the full Court, and the Court will act roughly two to five weeks after filing.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The Per Curiam opinion (01-per-curiam.txt, p. 3) grants an unqualified stay of the preliminary injunction pending the filing and disposition of the Government's certiorari petition, without summarily reversing or carving out any project area.",
+        "claim": "The Court will grant an unqualified stay pending the filing and disposition of a certiorari petition, declining both the Solicitor General's alternative request for summary reversal and any partial carve-out for Big Bend National Park.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The Per Curiam opinion (01-per-curiam.txt, pp. 2-3) holds on the strength of IIRIRA section 102(c)(2)(A) and Dalton v. Specter, 511 U.S. 462, 472-474 (1994), that alleging the Secretary exceeded his statutory authority is not a constitutional claim and that invoking the major-questions canon does not create a 'constitutional' major-questions claim.",
+        "claim": "The Court will hold that the district court lacked jurisdiction under IIRIRA section 102(c)(2)(A) because calling the major-questions doctrine a constitutional clear-statement rule cannot convert a claim of statutory excess into a constitutional violation under Dalton v. Specter.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The Per Curiam opinion (01-per-curiam.txt, pp. 2-3) notes the direct review posture under IIRIRA section 102(c)(2)(C) and holds that border-security delays (Von Raab), nearly $500,000/day in unrecoupable costs (NIH v. APHA), and Congress's statutory balance in section 102(c)(1) (Oakland Cannabis; Winter) establish irreparable harm and tilt the equities toward a stay.",
+        "claim": "Certworthiness is established because review lies only in the Supreme Court by certiorari under IIRIRA section 102(c)(2)(C), and irreparable harm to the government and the balance of equities on border-barrier construction favor a stay.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Instead of an unreasoned order with two or three noted dissents, the Court issued a 3-page Per Curiam opinion (01-per-curiam.txt) and only one Justice (Justice Jackson) noted that she would deny the application.",
+        "claim": "The disposition will likely take the form of a brief order with a noted dissent from two or three Justices rather than a separate lengthy opinion.",
+        "status": "not-borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261023T210522Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T18:10:24.725076Z"
+  },
+  "reasoning_quality": 0.86,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.1171303074670571,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

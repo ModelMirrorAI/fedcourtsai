@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.18,
+    "notes": "Published federal attorney-discipline proceedings raise recurring notice and source-disclosure questions with professional consequences, but the petition concerns one attorney's record, identifies no square split on its QPs, and ended in an unexplained denial without a new Supreme Court rule."
+  },
+  "brier_score": 0.000144,
+  "brier_skill_score": 0.9445590750639776,
+  "case_id": "scotus/9026000296",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05096429401285725,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.012,
+        "score": 0.0024533592642289573
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.003,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.3,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.015,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.0024533592642289573,
+    "total": 0.0024533592642289573
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T17:26:36.652169Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "All seven logged calls have captured results. Queries concern the prediction contract, October 15 snapshot, provisioned petition/appendix, statpack and output writing. The October 15 prediction preceded the November 9 resolution; neither its reasoning nor its log reveals this petition's disposition. No external case-outcome lookup appears.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.85,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The snapshot shows the October 14 distribution for November 6 followed by Petition DENIED on November 9; outcome.json records denied. Internal conference deliberations are not observable.",
+        "claim": "The petition will receive a plain denial following the first scheduled conference on November 6, 2026.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The terminal snapshot contains only the original distribution, and outcome.signals.distribution_count is 1.",
+        "claim": "There will be no further distribution or relist before disposition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "No CVSG appears in the terminal proceedings; outcome.signals.cvsg_date is null.",
+        "claim": "The Court will not request the Solicitor General's views.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Review was denied. The conditional question-selection, doctrinal-ground and disposition-route forecasts were not tested.",
+        "claim": "If review occurs, the Court will focus on QP 1's Ruffalo notice issue, with summary correction a substantial minority route.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "The outcome records no noted dissent, consistent with the forecast, but the record has no complete order text or writings inventory establishing the absence of every statement respecting denial.",
+        "claim": "No Justice will write separately on denial.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261015T142602Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T17:26:36.652169Z"
+  },
+  "reasoning_quality": 0.78,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05096429401285725,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

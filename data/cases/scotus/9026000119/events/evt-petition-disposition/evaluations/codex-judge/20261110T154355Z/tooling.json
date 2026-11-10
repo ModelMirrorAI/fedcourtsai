@@ -1,0 +1,25 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9026000119",
+  "gaps": [
+    "codex-baseline's staged log does not include its reported principal record reads or external lookups"
+  ],
+  "helpful": [
+    "Blinded candidate staging",
+    "Historical statpack reconstruction",
+    "Full petition appendix and resolved docket",
+    "Structured result-capture markers"
+  ],
+  "notes": "Historical statpack reconstruction worked with UV_CACHE_DIR=/tmp/uv-cache and --no-sync, without installing packages. No external case facts were needed. Forecasts of denial grounds and all separate writings remain limited by the staged bare denial entry.",
+  "role": "evaluator",
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "statpack-at",
+    "Python schema validation",
+    "apply_patch"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

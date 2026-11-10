@@ -1,0 +1,24 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9026000107",
+  "gaps": [],
+  "helpful": [
+    "Blinded forecasts and retrieval logs",
+    "Staged docket and appendix",
+    "Historical statpack reconstruction",
+    "Per-call result-capture markers"
+  ],
+  "notes": "No new case facts or external retrieval were needed. Historical statpack reconstruction distinguished a genuine numerical mismatch from a later metrics refresh. gemini-baseline's outcome-only results limit inspection of returned content without implying leakage. System Python supplies jsonschema; the project virtualenv does not.",
+  "role": "evaluator",
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "jq",
+    "fedcourts statpack-at",
+    "apply_patch",
+    "Python jsonschema"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.4,
+    "notes": "Two real federal questions (categorical takings protection for intangible property; whether Puerto Rico has any federal-court immunity, left open in Financial Oversight v. CPI (2023)), but arising on a bounded license-plate/trademark licensing dispute with preservation complications (Penn Central disclaimed, other theories waived). The Court denied after two relists with no noted dissent or statement, so the case drew attention without becoming a vehicle. Moderate stakes."
+  },
+  "brier_score": 0.0484,
+  "brier_skill_score": -0.5985215760099956,
+  "case_id": "scotus/73548979",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.17400568181818182,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.22,
+        "score": -0.018122022694989665
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.4,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.08,
+        "score": null
+      },
+      {
+        "baseline": 0.345367027677497,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.35,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": -0.018122022694989665,
+    "total": -0.018122022694989665
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T16:09:54.529829Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell, snapshot 2026-10-14; resolved 2026-11-09. Only external call was a WebFetch of the petitioners' 9/21/2026 supplemental brief (a pre-snapshot party filing whose URL was in the provisioned docket); no query for the disposition. The rest of the log reads provisioned files and the committed statpack.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-opus-5-5",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.65,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Docket: redistributed 11/02 for the 11/6 conference, then 'Petition DENIED' 11/09.",
+        "claim": "Denial is most likely, and it will come after one or more further relists rather than a clean denial at the 10/16 conference.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "A third distribution occurred (outcome distribution_count 3). The stated mechanisms (dissent drafting, CVSG deliberation) did not show on the record, and 0.4 sits awkwardly beside the 'more often than not' prose.",
+        "claim": "About 0.4 for at least one more distribution, via a dissent being drafted or a hold between grant and CVSG.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "No CVSG entered; cvsg_date null.",
+        "claim": "A CVSG is unlikely (~0.08) despite the supplemental brief's alternative request.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Conditional on a grant that did not happen.",
+        "claim": "If granted, QP 2 (Puerto Rico immunity) is the likelier draw, given Financial Oversight left it open and QP 1's vehicle problems.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "Denied with no noted dissent or statement (noted_dissent_from_denial false). The modal no-writing outcome still held, but the document leaned on the writing path to explain the relist.",
+        "claim": "Conditional on denial, about 0.35 for a separate writing, likeliest by Justice Thomas; relist-then-deny is the classic shape.",
+        "status": "not-borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261014T142540Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T16:09:54.529829Z"
+  },
+  "reasoning_quality": 0.75,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.17400568181818182,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,24 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9026000290",
+  "gaps": [
+    "The provisioned denial record does not independently establish every possible separate statement or response request."
+  ],
+  "helpful": [
+    "Blinded candidate staging preserved identity-independent grading.",
+    "Historical statpack reconstruction prevented judging older forecasts against refreshed rates.",
+    "Explicit result_capture markers distinguished absent telemetry from empty retrieval."
+  ],
+  "notes": "No additional case facts or external texts were fetched. gemini-baseline has standing unobserved-result telemetry, which was not treated as a defect or an empty-result guarantee. The installed Evaluation model matches evaluation.schema.json exactly and is used for validation; no package installation is needed.",
+  "role": "evaluator",
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local shell/file reads",
+    "fedcourts statpack-at",
+    "apply_patch",
+    "Pydantic schema-model validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

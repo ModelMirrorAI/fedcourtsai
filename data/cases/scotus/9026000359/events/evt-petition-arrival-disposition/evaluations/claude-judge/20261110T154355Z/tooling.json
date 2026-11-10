@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000359",
+  "run_id": "20261110T154355Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": ["shell", "file-read"],
+  "helpful": ["Case-level snapshot with the full post-resolution docket (waiver, distribution, denial)", "Blinded staging with retrieval logs per candidate"],
+  "gaps": [],
+  "notes": "Cert arrival cell with an uncontested denial; provisioned inputs were sufficient."
+}

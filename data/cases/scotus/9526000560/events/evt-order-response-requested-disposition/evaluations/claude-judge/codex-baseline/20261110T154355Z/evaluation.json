@@ -1,0 +1,110 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.7,
+    "notes": "Solicitor General stay of an injunction halting border-barrier construction in the Big Bend Sector. The per curiam announced a categorical proposition ('There is no such thing as a \"constitutional\" major-questions claim') that reaches beyond IIRIRA's review scheme, but it came on the interim docket, over one noted dissent, in a narrow statutory-review setting. Nationally salient and doctrinally notable, not a landmark."
+  },
+  "brier_score": 0.016900000000000002,
+  "brier_skill_score": 0.9783182921764862,
+  "case_id": "scotus/9526000560",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.1171303074670571,
+        "claim_id": "interim-disposition",
+        "outcome": 1,
+        "probability": 0.87,
+        "score": 0.7625588939932131
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": null,
+        "probability": 0.0,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.97,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 1,
+        "probability": 0.68,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": 0.7625588939932131,
+    "total": 0.7625588939932131
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T17:58:53.389795Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-order-response-requested-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell. Prediction made 2026-10-23; the stay was granted 2026-11-09. No retrieved_doc_date on or after resolution and no query for this application's disposition. Its retrieval covered Dalton v. Specter, Trump v. Sierra Club and earlier waiver litigation only. Its one qp-topics mention is an rg exclusion glob, which is not a read.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-opus-5-5",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.9,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The Nov 9 order grants the application and stays the injunction pending the filing and disposition of a cert petition.",
+        "claim": "The full Court will grant an unqualified stay of the preliminary injunction pending a timely cert petition, not a partial or administrative stay.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The per curiam says the claim alleges the Secretary exceeded statutory authority (Dalton) and that there is no such thing as a 'constitutional' major-questions claim.",
+        "claim": "If explained, the principal ground is that the major-questions challenge attacks statutory authority and is outside \u00a7102(c)(2)(A)'s constitutional-claims-only review.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The Court granted 'the requested stay' and did not summarily reverse.",
+        "claim": "A stay is more likely than adopting the request for summary reversal.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The per curiam relies on the CBP declaration of nearly half a million dollars a day in unrecoverable costs.",
+        "claim": "The concrete costs of halted construction will support the stay.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Referral (Nov 9) and one amicus brief (Oct 29) are borne out. The disposition came Nov 9, after the forecast window, so the timing claim missed.",
+        "claim": "Referral to the full Court and at least one amicus entry; disposition between Oct 30 and Nov 6.",
+        "status": "not-borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261023T210522Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T17:58:53.389795Z"
+  },
+  "reasoning_quality": 0.85,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.1171303074670571,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,22 @@
+{
+  "actor_id": "gemini-judge",
+  "case_id": "scotus/9026000018",
+  "gaps": [],
+  "helpful": [
+    "fedcourts statpack-at reconstructed the exact sal-v4 statpack build (7bcde3b105cb) from the candidates' prediction run so base-rate pooling could be verified accurately.",
+    "Provisioned petition.txt, brief-in-opposition.txt, and cert-reply.txt under record/documents/ allowed direct verification of the May 26, 2026 post-trial judgment and vehicle arguments."
+  ],
+  "notes": null,
+  "role": "evaluator",
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts statpack-at",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

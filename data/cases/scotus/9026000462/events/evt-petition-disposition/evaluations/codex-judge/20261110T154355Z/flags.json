@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9026000462",
+  "flags": [
+    {
+      "category": "ambiguous-event",
+      "event_id": "evt-petition-disposition",
+      "message": "All candidates froze distribution_count=1 before the petition's October 7, 2026 docketing; claude-baseline and codex-baseline identify that earlier distribution as concerning linked sealing motion 26M22. The October 14 petition distribution raises outcome.signals.distribution_count to two but does not itself show substantive reconsideration. gemini-baseline's forecast of no further relists is adverse on an additional-distribution reading but consistent on a narrower no-substantive-reconsideration reading. The forecast review records this ambiguity and limits its penalty; no event, outcome, frozen context, or harness-scored quantitative claim was changed.",
+      "severity": "warning"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0"
+}

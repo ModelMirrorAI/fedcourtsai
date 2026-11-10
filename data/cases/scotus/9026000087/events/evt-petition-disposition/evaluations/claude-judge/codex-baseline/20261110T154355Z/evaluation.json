@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.05,
+    "notes": "Pro se paid petition from an unpublished Fifth Circuit summary-calendar affirmance in a first-party Louisiana hurricane-insurance dispute; QPs challenge a Rule 37(c)(1) expert exclusion on this record. Denied after one conference with no noted dissent; no reach beyond the parties."
+  },
+  "brier_score": 6.4e-05,
+  "brier_skill_score": 0.9753595889173233,
+  "case_id": "scotus/9026000087",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05096429401285725,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.008,
+        "score": 0.0025333592642289575
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.06,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.001,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.15,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.008,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.0025333592642289575,
+    "total": 0.0025333592642289575
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T16:25:23.065308Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell, snapshot 2026-10-12, before the 2026-11-09 denial. Log reads provisioned case files and statpack; one CourtListener opinion search for a cited circuit precedent (\"R & R Sails\", zero results) and general Supreme Court Rules web lookups (unobserved results, queries not about this case). No query for this docket or its outcome; no qp-topics reads.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-opus-5-5",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.7,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Docket: DISTRIBUTED for Conference of 11/6/2026 (Oct 07); \"Petition DENIED.\" (Nov 09 2026); outcome.json denied, distribution_count 1. noted_dissent_from_denial false.",
+        "claim": "Cert denied in the orders following the November 6, 2026 conference, without separate writing.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "No redistribution after Oct 07; denied Nov 09.",
+        "claim": "Zero additional distributions before disposition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "No CVSG on the docket; outcome cvsg_date null.",
+        "claim": "No CVSG.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Consistent with an unexplained denial after one conference; the record cannot confirm the Court's reasons, but the denial is the forecast consequence.",
+        "claim": "Vehicle problems (unpublished CA5 opinion reciting Geiserman factors, record-specific rulings) defeat the claimed split.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Conditional on a grant that did not occur.",
+        "claim": "If granted, a narrowed QP 1 with 85% plenary review.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261012T143556Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T16:25:23.065308Z"
+  },
+  "reasoning_quality": 0.85,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05096429401285725,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

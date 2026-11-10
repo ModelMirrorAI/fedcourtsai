@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9026000087",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "The supplied decided snapshot dates the petition entry September 6, 2025, but DocketedDate is July 21, 2026, the event opens July 21, 2026, and petition/appendix link filenames and the response schedule point to 2026. claude-baseline and codex-baseline also identified this inconsistency in their staged rationales. Provenance review is warranted; I retain authoritative Term 2026 and the recorded November 9, 2026 denial and infer no untimeliness or jurisdictional defect. Scoring was completed for every staged alias.",
+      "severity": "warning"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0"
+}

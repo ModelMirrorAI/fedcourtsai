@@ -1,0 +1,111 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.7,
+    "notes": "Substantial border-construction, conservation, and historic-resource interests, with a significant clarification of the statutory-versus-constitutional review boundary. This remains an interim stay rather than final adjudication of all challenges to the waiver program."
+  },
+  "brier_score": 0.03240000000000002,
+  "brier_skill_score": 0.9584327021608375,
+  "case_id": "scotus/9526000560",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.1171303074670571,
+        "claim_id": "interim-disposition",
+        "outcome": 1,
+        "probability": 0.82,
+        "score": 0.7470588939932131
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "mask_reason": "signal-before-run",
+        "outcome": null,
+        "probability": 0.99,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.96,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 1,
+        "probability": 0.85,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": 0.7470588939932131,
+    "total": 0.7470588939932131
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T17:55:42.806762Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The 53-call log is entirely result-unobserved (coverage 0.0), so null dates are not evidence of empty returns. Queries concern pre-resolution authorities, district-court materials, and this then-open application. The candidate discloses the October 22 response request and an unresolved live row. That is legitimate forward information, not the November 9 disposition; nothing in the queries or prose shows this application's outcome as already decided.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.74,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The November 9 docket entry and staged per curiam grant exactly that stay, with termination provisions for denial of certiorari or the Court's eventual judgment.",
+        "claim": "The full Court will grant an unqualified stay pending the timely filing and disposition of a certiorari petition, rather than immediately summarily reverse.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The per curiam says the Government is exceedingly likely to establish lack of jurisdiction and expressly rejects a constitutional major-questions claim.",
+        "claim": "The major-questions objection is statutory, not an independent constitutional claim overcoming section 102(c)(2)(A)'s jurisdictional bar.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The per curiam relies on border-security interests, nearly half a million dollars in unrecoverable daily costs, and Congress's preference for expeditious construction.",
+        "claim": "Government operational and construction-suspension harms will outweigh respondents' environmental and aesthetic injuries.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The staged docket records the October 22 response request, October 29 FAIR amicus brief, and November 9 referral; outcome.interim_signals agrees.",
+        "claim": "A response request, referral to the full Court, and at least one amicus filing will precede disposition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The complete staged per curiam and docket note only Jackson as willing to deny. The predicted three noted dissents did not materialize; silent Justices' individual votes remain unobserved.",
+        "claim": "The stay will draw a 6-3 division, with Sotomayor, Kagan, and Jackson likely noting dissents.",
+        "status": "not-borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261023T210522Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T17:55:42.806762Z"
+  },
+  "reasoning_quality": 0.78,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.1171303074670571,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

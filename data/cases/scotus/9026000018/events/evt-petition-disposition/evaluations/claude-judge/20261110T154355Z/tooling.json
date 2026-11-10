@@ -1,0 +1,17 @@
+{
+  "case_id": "scotus/9026000018",
+  "run_id": "20261110T154355Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "shell (cat/sed/python over provisioned record and blinded staging)"
+  ],
+  "helpful": [
+    "The blinded retrieval logs with result_capture markers made forward-leakage confirmation quick",
+    "The final snapshot shows the post-prediction docket path (reply, redistribution, denial) for grading the relist forecasts"
+  ],
+  "gaps": [],
+  "notes": "Cert cell: stamp-cell owns the base rate. I quoted no statpack figures, so I did not rebuild the pack."
+}

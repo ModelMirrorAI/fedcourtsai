@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.1,
+    "notes": "The questions invoke residential privacy and municipal inspection practices, potentially general subjects, but this record presents an individual fence/code-enforcement dispute, summary state writ review, and no demonstrated appellate conflict or broader institutional engagement."
+  },
+  "brier_score": 1e-06,
+  "brier_skill_score": 0.9996149935768331,
+  "case_id": "scotus/9026000290",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05096429401285725,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.001,
+        "score": 0.002596359264228957
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.02,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.001,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.1,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.002596359264228957,
+    "total": 0.002596359264228957
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T17:11:31.008979Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-arrival-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The September 27 prediction preceded the November 9 disposition. All 18 logged calls are unobserved; their query slices show local provisioned-input/statpack reads, output creation and validation, not a target-case outcome lookup. Null dates here do not prove empty results. Neither prose document discloses or presupposes this petition's later disposition. The visible record does not show a decided case mis-provisioned forward.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.65,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json and the staged November 9, 2026 docket entry record denial.",
+        "claim": "A grant is highly unlikely; denial is the expected disposition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The docket has one initial distribution for the November 6 conference and no subsequent conference distribution before denial. This reads relist in its ordinary repeat-conference sense.",
+        "claim": "There will be no relists before decision.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The outcome's cvsg_date is null and no CVSG appears in the staged proceedings.",
+        "claim": "There will be no CVSG.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The no-dissent component matches outcome.noted_dissent_from_denial=false. No order or writing text is staged to establish the broader absence of every separate statement.",
+        "claim": "Denial will produce no separate writing or dissent.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "The denial supplies no merits reasoning. The staged lower-court writ order likewise gives no substantive Fourth Amendment holding that establishes this explanation for the Court's action.",
+        "claim": "The petition's plain-view theory is contrary to established precedent.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20260927T201651Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T17:11:31.008979Z"
+  },
+  "reasoning_quality": 0.7,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05096429401285725,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

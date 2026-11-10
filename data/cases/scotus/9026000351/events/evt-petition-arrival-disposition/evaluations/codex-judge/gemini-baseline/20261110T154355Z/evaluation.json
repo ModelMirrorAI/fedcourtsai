@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.25,
+    "notes": "The questions implicate judicial-discipline authority and impartial adjudication, but this collateral litigant's non-money-mandating Tucker Act case presents a threshold jurisdictional obstacle. The petition concedes the broad constitutional issue was not decided below, and the actual denial creates no merits precedent."
+  },
+  "brier_score": 1e-06,
+  "brier_skill_score": 0.9996149935768331,
+  "case_id": "scotus/9026000351",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05096429401285725,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.001,
+        "score": 0.002596359264228957
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.99,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.001,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.002596359264228957,
+    "total": 0.002596359264228957
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T17:30:18.814427Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-arrival-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "All 21 logged calls were reviewed. They request the provisioned snapshot, context, questions presented, manifest, statpack, output writes and validation; none seeks a target result or outside case update. The September 27 prediction precedes the November 9 denial. All results are unobserved (coverage 0.0), a capture limitation rather than proof of empty retrieval or a failed call. The queries and prose show no outcome exposure or mis-provisioned decided target.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.85,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The United States waived on October 16, followed by the sole distribution on October 21 for the November 6 conference.",
+        "claim": "The petition will be distributed once following the respondent's waiver.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.signals.distribution_count is 1, and the next staged docket entry after that distribution is denial.",
+        "claim": "There will be no further relists after the initial distribution.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "There is no CVSG entry in the staged proceedings and outcome.signals.cvsg_date is null.",
+        "claim": "The Court will not call for the Solicitor General's views.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The petition was denied; the condition did not occur and there is no merits ruling to test this alternative ground.",
+        "claim": "If certiorari is granted, the Court will likely have to address QP 1 on the constitutionality of judicial discipline.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "outcome.actual_disposition is denied, not a grant or GVR; noted_dissent_from_denial is false and the staged denial entry records no separate writing.",
+        "claim": "The Court will deny the petition rather than summarily dispose of it, without a noted dissent or statement respecting denial.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20260927T182226Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T17:30:18.814427Z"
+  },
+  "reasoning_quality": 0.55,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05096429401285725,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

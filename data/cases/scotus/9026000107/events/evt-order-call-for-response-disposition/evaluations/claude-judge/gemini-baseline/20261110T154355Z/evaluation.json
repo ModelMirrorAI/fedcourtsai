@@ -1,0 +1,137 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.3,
+    "notes": "A recurring takings-ripeness question (legislative-amendment exhaustion after Pakdel; prudential vs. Article III ripeness) with six property-rights amicus filings and a called-for response, but on one residential lot's well-and-septic dispute from an unpublished per curiam with QP 2 unpreserved below. The Court denied at the first post-response conference with no noted dissent or statement."
+  },
+  "brier_score": 0.0036,
+  "brier_skill_score": -0.38602312340056,
+  "case_id": "scotus/9026000107",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05096429401285725,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.06,
+        "score": -0.0010026407357710426
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": null,
+        "probability": 0.99,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.25,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.08,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.025,
+          "Barrett": 0.003,
+          "Gorsuch": 0.035,
+          "Jackson": 0.003,
+          "Kagan": 0.002,
+          "Kavanaugh": 0.005,
+          "Roberts": 0.002,
+          "Sotomayor": 0.003,
+          "Thomas": 0.04
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": -0.0010026407357710426,
+    "total": -0.0010026407357710426
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T16:28:49.300019Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-order-call-for-response-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell (log mode forward; prediction run 2026-10-29, event resolved 2026-11-09). One corpus query without a date bound returned this petition's live row showing distribution for the 11/6/2026 conference and status unresolved; the candidate disclosed it in reasoning.md and retrieval.md. That is this docket's own pre-resolution entry, legitimate forward signal, not outcome material. CourtListener searches were rate-limited (429). No retrieved_doc_date on or after resolution; no qp-topics read.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-opus-5-5",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.7,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Response filed Oct 1, reply Oct 9, distributed Oct 21 for the 11/6/2026 conference; petition denied Nov 9, 2026 (outcome.json: denied).",
+        "claim": "The Court will deny certiorari, most likely at or shortly after the conference the petition is redistributed to once the response is filed.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "A single post-response distribution (distribution_count 2) preceded the denial; no relist.",
+        "claim": "The petition will be distributed at least once more after the response (0.99), with only a modest (~15-20%) chance of further relists.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json signals.cvsg_date is null; no CVSG on the docket.",
+        "claim": "The Court will not call for the views of the Solicitor General.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "An unexplained denial order does not say why; the record cannot confirm which vehicle problems mattered.",
+        "claim": "Denial will be driven by vehicle flaws: the disputed waiver application, the unpublished per curiam, and the district court's Burford-abstention alternative.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "outcome.json noted_dissent_from_denial false; the denial entry carries no separate writing.",
+        "claim": "A dissent from or statement respecting denial is unlikely (0.08), most plausibly from Thomas, Gorsuch, or Alito if one appears.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261029T160941Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T16:28:49.300019Z"
+  },
+  "reasoning_quality": 0.6,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05096429401285725,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.25,
+    "notes": "The questions could affect notice and disclosure practices in federal attorney discipline, particularly correction of fabricated citations. The immediate dispute is one lawyer's six-month suspension, and denial creates no Supreme Court merits precedent. Profession-wide procedural relevance warrants modest, not major-case, significance."
+  },
+  "brier_score": 0.0009,
+  "brier_skill_score": 0.6534942191498601,
+  "case_id": "scotus/9026000296",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05096429401285725,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": 0.0016973592642289574
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.97,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.002,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.35,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.025,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.0016973592642289574,
+    "total": 0.0016973592642289574
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T17:24:03.049113Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-arrival-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The September 27 prediction and logged calls precede the November 9 resolution. The 32-call log has captured coverage 0.9375; visible queries concern provisioned inputs, statpack context, general rules and historical Ruffalo authority, not this petition's result. Two web calls are unobserved, so null dates are not proof of empty results; their general-rule queries reveal no outcome-directed retrieval. No already-decided material appears in the reasoning.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.9,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The event outcome records denied, actual_granted 0, resolved November 9, 2026; the snapshot records Petition DENIED that day.",
+        "claim": "The Court will deny the petition rather than review the disciplinary dispute.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The snapshot shows a September 18 response waiver, one October 14 distribution for the November 6 conference, and November 9 denial; outcome.signals.distribution_count is 1.",
+        "claim": "The petition will receive one initial distribution after the response process and be denied without a further relist.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The outcome records cvsg_date null and the docket contains a respondent waiver, not a CVSG.",
+        "claim": "The Court will not invite the Solicitor General's views.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The outcome expressly records no noted dissent, but neither the bare denial entry nor a staged order or writing establishes the absence of every possible statement respecting denial.",
+        "claim": "Denial will carry neither a separate statement nor a noted dissent.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "Certiorari was denied, so the condition never occurred and the Court supplied no merits ground to test this forecast.",
+        "claim": "If review is granted, the likely focus is the first question's supplemental-notice issue rather than a broad rule governing lawyers' AI use.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20260927T182226Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T17:24:03.049113Z"
+  },
+  "reasoning_quality": 0.9,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05096429401285725,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

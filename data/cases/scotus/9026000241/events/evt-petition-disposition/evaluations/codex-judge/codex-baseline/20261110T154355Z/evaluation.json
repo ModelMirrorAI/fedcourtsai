@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.25,
+    "notes": "The evidentiary scope of the retaliatory-arrest exception has recurring national civil-rights importance. This particular unpublished, fact-intensive municipal damages case has a substantial preservation obstacle, limiting its significance as a vehicle for a national rule. Denial establishes no new substantive rule."
+  },
+  "brier_score": 0.000144,
+  "brier_skill_score": 0.9445590750639776,
+  "case_id": "scotus/9026000241",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05096429401285725,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.012,
+        "score": 0.0024533592642289573
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.08,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.003,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.55,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.025,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.0024533592642289573,
+    "total": 0.0024533592642289573
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T17:00:49.436637Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The October 13 forecast predates the November 9 disposition. The 39-call log has 37 captured results and two unobserved web calls; those queries concern Gonzalez, not this petition's result. Other external queries concern Gonzalez and Murphy. Local case reads target the October 13 snapshot and provisioned filings, not outcome.json. No query or reasoning shows this petition already decided. Unobserved web results are not treated as empty results.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.9,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The staged docket records distribution for November 6 and Petition DENIED on November 9, 2026; outcome.json records denied on that date.",
+        "claim": "The petition will be denied shortly after its November 6, 2026 conference, on a November orders release.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The frozen prediction context has distribution_count 1, and the outcome also records distribution_count 1; the final docket adds only the denial after that distribution.",
+        "claim": "There will be zero additional distributions before disposition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Outcome signals record cvsg_date null, and the staged docket contains no CVSG before denial.",
+        "claim": "The Court will not issue a new CVSG.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Appendix 1a and 6a establish the publication status and forfeiture obstacle, but the staged denial supplies no explanation of the Court's reason for declining review.",
+        "claim": "Review will be declined because the unpublished decision presents forfeited comparator arguments and a fact-bound application dispute rather than a clean circuit conflict.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "Outcome.json expressly records no noted dissent, supporting that part. It has no separate statement indicator, and no denial-order text or writings are staged to establish the broader absence of any statement.",
+        "claim": "No Justice will issue a noted dissent or statement respecting denial.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261013T143156Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T17:00:49.436637Z"
+  },
+  "reasoning_quality": 0.94,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05096429401285725,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,20 @@
+{
+  "case_id": "scotus/9526000560",
+  "run_id": "20261110T154355Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "Read",
+    "Bash (cat/grep/python3)"
+  ],
+  "helpful": [
+    "Staged per curiam under record/opinion/writings/ let the forecast documents be checked against the Court's own stated ground",
+    "Blinded candidate staging with retrieval_log.json result_capture markers"
+  ],
+  "gaps": [
+    "The evaluate prompt is long (~69KB); an interim-only digest would cut reading time on interim cells"
+  ],
+  "notes": "Checked the committed statpack interim-docket table to confirm the candidates' 160/1366 pooled figure; did not run statpack-at since all three matched the committed pack."
+}

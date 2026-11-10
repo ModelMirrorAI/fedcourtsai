@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000241",
+  "run_id": "20261110T154355Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell and jq for provisioned inputs",
+    "fedcourts statpack-at --ref origin/main",
+    "apply_patch",
+    "Pydantic output-model validation"
+  ],
+  "helpful": [
+    "Blinded staging preserves candidate anonymity while retaining numerical and retrieval evidence.",
+    "The resolved snapshot supports checking the actual distribution path independently of the denial label.",
+    "Statpack-at reconstructs both permissible historical builds without exposing predictor identity."
+  ],
+  "gaps": [
+    "Unobserved tool results limit retrospective verification; query content remains usable, but missing dates cannot establish empty results."
+  ],
+  "notes": "All three candidates were evaluated. No new case facts, external writings, or corpus priors were fetched. Quantitative claims, baseline, skill, and provenance stamps remain the harness's responsibility. No blocking or actionable input defect required flags.json."
+}

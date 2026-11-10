@@ -1,0 +1,137 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.3,
+    "notes": "A recurring takings-ripeness question (legislative-amendment exhaustion after Pakdel; prudential vs. Article III ripeness) with six property-rights amicus filings and a called-for response, but on one residential lot's well-and-septic dispute from an unpublished per curiam with QP 2 unpreserved below. The Court denied at the first post-response conference with no noted dissent or statement."
+  },
+  "brier_score": 0.0576,
+  "brier_skill_score": -21.17636997440896,
+  "case_id": "scotus/9026000107",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05096429401285725,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.24,
+        "score": -0.05500264073577104
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": null,
+        "probability": 0.98,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.2,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.16,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.02,
+          "Barrett": 0.004,
+          "Gorsuch": 0.045,
+          "Jackson": 0.003,
+          "Kagan": 0.002,
+          "Kavanaugh": 0.006,
+          "Roberts": 0.002,
+          "Sotomayor": 0.004,
+          "Thomas": 0.08
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": -0.05500264073577104,
+    "total": -0.05500264073577104
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T16:28:49.300019Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-order-call-for-response-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell (log mode forward; result capture 0.95; prediction run 2026-10-29, event resolved 2026-11-09). Corpus query returned three unrelated 2020s grants (one doc date 2026-03-20). One CourtListener search for Pakdel failed with a 429. Two unobserved web searches targeted the 2021 Pakdel opinion, not this case; graded on their queries, which seek no outcome material. The candidate states it did not retrieve this case's later docket. No qp-topics read.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-opus-5-5",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.66,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Petition denied Nov 9, 2026 (outcome.json: denied).",
+        "claim": "The Court will most likely deny certiorari after considering the requested response (P(grant) 24%).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "One post-response distribution, for the 11/6/2026 conference, then denial; distribution_count 2.",
+        "claim": "The modal path is one redistributing entry after the response, then denial within the first few conferences, not a long run of relists.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "No CVSG; outcome.json cvsg_date null.",
+        "claim": "The Court is unlikely to call for the Solicitor General's views (2%).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json noted_dissent_from_denial false.",
+        "claim": "Conditional on denial, no noted dissent or statement is expected (84%); Thomas, then Gorsuch, would be the likeliest writers if one appeared.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Conditional on a grant that did not happen.",
+        "claim": "If granted, review would focus on QP 1, since QP 2 is undercut by the lack of a party challenge below.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261029T160941Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T16:28:49.300019Z"
+  },
+  "reasoning_quality": 0.74,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05096429401285725,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

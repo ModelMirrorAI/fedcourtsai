@@ -1,0 +1,132 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.4,
+    "notes": "Legislative-remedy finality and prudential ripeness could affect federal takings litigation nationally. The immediate controversy is a single-lot local water-and-sewer dispute with an unpublished decision and substantial vehicle limitations; denial creates no new merits holding."
+  },
+  "brier_score": 0.0036,
+  "brier_skill_score": -0.38602312340056,
+  "case_id": "scotus/9026000107",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05096429401285725,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.06,
+        "score": -0.0010026407357710426
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": null,
+        "probability": 0.99,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.25,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.08,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.025,
+          "Barrett": 0.003,
+          "Gorsuch": 0.035,
+          "Jackson": 0.003,
+          "Kagan": 0.002,
+          "Kavanaugh": 0.005,
+          "Roberts": 0.002,
+          "Sotomayor": 0.003,
+          "Thomas": 0.04
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": -0.0010026407357710426,
+    "total": -0.0010026407357710426
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T16:35:33.644899Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-order-call-for-response-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The October 29 forecast preceded the November 9 denial. The log includes an unrestricted own-docket corpus query; reasoning discloses the second distribution and November 6 conference while the petition was unresolved. That is legitimate forward signal, not outcome leakage. All logged results are outcome_only (captured coverage 0.0), so null result dates do not establish empty results. No disposing material is shown or presupposed.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.75,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The staged docket records the October 1 opposition, October 9 reply, October 21 distribution for November 6, and November 9 denial; outcome.signals.distribution_count is 2.",
+        "claim": "The petition will be redistributed after the requested response and most likely denied at or shortly after that conference, without a prolonged relist sequence.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Outcome.signals.cvsg_date is null and the docket contains no CVSG before denial.",
+        "claim": "The Court will not call for the Solicitor General's views.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The appendix supports the existence of these vehicle concerns, but the November 9 docket entry says only Petition DENIED; the Court's reason for denying is not supplied.",
+        "claim": "The Court will deny review because the disputed waiver application, unpublished opinion, and prospective Burford abstention make the case a poor vehicle.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "The petition was denied, so the condition for question selection and a summary grant route never occurred.",
+        "claim": "If review is granted, the Court will likely restrict it to the first question and may use a Pakdel-style summary disposition.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261029T160941Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T16:35:33.644899Z"
+  },
+  "reasoning_quality": 0.65,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05096429401285725,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

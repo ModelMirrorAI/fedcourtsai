@@ -1,0 +1,25 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9026000018",
+  "gaps": [],
+  "helpful": [
+    "Blinded candidate staging and frozen prediction contexts",
+    "Resolved docket and outcome signals",
+    "Prediction-time statpack reconstruction",
+    "Explicit retrieval-result capture markers"
+  ],
+  "notes": "The staged record was sufficient to finish. The unexplained cert denial cannot establish the Court's motive. gemini-baseline's unobserved call results and codex-baseline's two unobserved web calls limit result-level inspection; they are capture characteristics, not assumed failed retrieval or provisioning defects. No packages were installed or external case facts fetched.",
+  "role": "evaluator",
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "jq",
+    "fedcourts statpack-at",
+    "apply_patch",
+    "JSON Schema validation",
+    "Evaluation model validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

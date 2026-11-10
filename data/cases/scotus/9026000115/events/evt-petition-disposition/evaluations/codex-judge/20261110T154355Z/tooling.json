@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000115",
+  "run_id": "20261110T154355Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "functions.exec_command",
+    "apply_patch",
+    "jq",
+    "fedcourts statpack-at",
+    "jsonschema",
+    "pydantic"
+  ],
+  "helpful": [
+    "Blinded prediction and prose pointers kept candidate identity out of grading.",
+    "Outcome distribution count, CVSG date and noted-dissent flag supported procedural forecast checks.",
+    "statpack-at recovered the candidates' sal-v4 build without accessing prediction history.",
+    "Per-call result_capture markers prevented treating unseen results as empty searches."
+  ],
+  "gaps": [
+    "Unobserved candidate retrieval results cannot be independently reconstructed from query text alone.",
+    "The terse cert docket and absent writing files do not independently settle every forecast about statements respecting denial."
+  ],
+  "notes": "Reviewed three forward candidates using provisioned case evidence and the recovered committed historical statpack. No corpus or external-source lookup was needed. All outputs are alias-keyed; baseline and claim scoring remain harness-owned."
+}

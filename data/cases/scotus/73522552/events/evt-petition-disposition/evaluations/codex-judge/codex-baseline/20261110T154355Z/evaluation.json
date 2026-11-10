@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.5,
+    "notes": "The categorical common-fund and Rule 23 question has nationwide class-action significance and an acknowledged circuit conflict, but this vehicle concerns a $5,000 award and an unpublished settlement decision; the denial settles no substantive rule."
+  },
+  "brier_score": 0.07840000000000001,
+  "brier_skill_score": -27.897388640849087,
+  "case_id": "scotus/73522552",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05208692652638841,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.28,
+        "score": -0.07568695208503462
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.92,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.025,
+        "score": null
+      },
+      {
+        "baseline": 0.345367027677497,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.08,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.1,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": -0.07568695208503462,
+    "total": -0.07568695208503462
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T16:10:22.772331Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The October 6 forecast preceded the November 9 resolution. Logged reads concern the provisioned record and statistics. The two web calls concern generic certiorari rules, not this petition; both are unobserved, so their null dates do not establish empty results. No query or prose reveals this petition's outcome.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.9,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records denied on November 9, 2026; the final staged docket entry says Petition DENIED and records no merits disposition.",
+        "claim": "The petition will most likely be denied, leaving the award undisturbed without a merits ruling on its legality.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The docket adds an October 7 distribution for the November 6 conference, then the November 9 denial; final distribution_count is 2 against the prediction's frozen count of 1.",
+        "claim": "There will be at least one additional distribution, most likely one or two, with a decision in late October through December 2026.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The resolved outcome has cvsg_date null and the staged docket contains no CVSG before denial.",
+        "claim": "The Court will not call for the Solicitor General's views.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The outcome records noted_dissent_from_denial false, and the staged docket records only Petition DENIED without any accompanying statement.",
+        "claim": "Denial will have no noted dissent or statement respecting denial.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Certiorari was denied; the condition for the forecast question and route never occurred.",
+        "claim": "If review is granted, the categorical service-award question will receive plenary consideration rather than an excessiveness inquiry or summary correction.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261006T142731Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T16:10:22.772331Z"
+  },
+  "reasoning_quality": 0.88,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05208692652638841,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

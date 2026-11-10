@@ -1,0 +1,14 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/9526000560",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-brief-response-disposition",
+      "message": "gemini-baseline's reasoning.md and predicted_reasoning.md say the Oct 29 amicus brief was filed by 'Keep Big Bend Wild et al.' opposing a stay; the docket shows only the Federation for American Immigration Reform's brief (supporting applicants). This was weighed in reasoning_quality; no pipeline defect implied.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261110T154355Z"
+}

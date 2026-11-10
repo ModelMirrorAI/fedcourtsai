@@ -1,0 +1,110 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.76,
+    "notes": "The record concerns extensive border infrastructure, potentially irreversible environmental and historic-preservation injuries, and an important boundary between constitutional and statutory review. National policy consequences are substantial, though this is interim relief under a specialized statutory review scheme, not a final merits judgment."
+  },
+  "brier_score": 0.0625,
+  "brier_skill_score": 0.9198161692917393,
+  "case_id": "scotus/9526000560",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.1171303074670571,
+        "claim_id": "interim-disposition",
+        "outcome": 1,
+        "probability": 0.75,
+        "score": 0.7169588939932131
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": null,
+        "probability": 0.0,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.96,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 1,
+        "probability": 0.85,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": 0.7169588939932131,
+    "total": 0.7169588939932131
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T18:02:38.634275Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-order-response-requested-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The log records forward work on October 23, before the November 9 disposition. Queries concern the originating district court, preexisting authorities, and other applications; the prose discusses underlying October orders rather than this application's result. All 105 results are unobserved, so null dates do not prove empty or pre-resolution returns. No query or reasoning affirmatively shows this application's disposing material; broad searches leave an audit limitation, not affirmative leakage evidence.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.68,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The November 9 docket and per-curiam writing grant a stay pending filing and disposition of the Government's certiorari petition, without immediately entering a merits judgment.",
+        "claim": "The Court will grant an unqualified stay of the preliminary injunction pending a timely certiorari petition rather than dispose of the case immediately through plenary review or summary reversal.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The docket records the Federation for American Immigration Reform amicus on October 29 and referral to the Court on November 9.",
+        "claim": "Justice Alito will refer the application to the full Court and at least one amicus brief will be filed before disposition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The order issued November 9 after the October 29 response and October 30 reply. The document incorrectly gives the response deadline as October 28 rather than October 29.",
+        "claim": "The Court will most likely act between November 2 and November 9, 2026, after the response and reply.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The docket and complete staged per-curiam writing note only Justice Jackson as wishing to deny. The writings manifest contains only that per-curiam writing and no written dissent. This does not establish the unnoted Justices' private votes.",
+        "claim": "The stay will draw noted dissents from Sotomayor, Kagan, and Jackson, with a written dissent from at least one of them.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "The staged per-curiam writing principally finds the major-questions claim statutory, applies the constitutional-claims-only review provision, and invokes Dalton.",
+        "claim": "If the Court explains the stay, its primary ground will be Section 102(c)(2)(A)'s preclusion of nonconstitutional statutory challenges, supported by Dalton's statutory-versus-constitutional distinction.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261023T210522Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T18:02:38.634275Z"
+  },
+  "reasoning_quality": 0.7,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.1171303074670571,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

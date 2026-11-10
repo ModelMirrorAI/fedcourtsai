@@ -1,0 +1,112 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.65,
+    "notes": "Significant constitutional dispute over whether Turner v. Safley or heightened scrutiny governs sex-segregated housing and cross-sex searches of transgender inmates in correctional facilities, drawing a 23-state amicus brief and a CVSG, though resolved via a GVR in light of West Virginia v. B.P.J. and United States v. Skrmetti rather than plenary merits review because of a party-presentation vehicle defect below."
+  },
+  "brier_score": 0.3249000000000001,
+  "brier_skill_score": 0.22038090893201512,
+  "case_id": "scotus/73278467",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.35444444444444445,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.43,
+        "score": 0.09184197530864191
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.95,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.0,
+        "score": null
+      },
+      {
+        "baseline": 0.345367027677497,
+        "claim_id": "summary-disposition-route",
+        "outcome": 1,
+        "probability": 0.55,
+        "score": 0.22604432845179512
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.18,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.31788630376043703,
+    "total": 0.31788630376043703
+  },
+  "correct": 0,
+  "created_at": "2026-11-10T16:01:52.501158Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-order-cvsg-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward-mode run executed on 2026-09-18, before the Solicitor General's invited brief (2026-09-25) and the Court's GVR order (2026-11-09). The candidate did not query the target case's live docket at all and restricted external lookups to the pre-existing opinion in United States v. Skrmetti.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-argon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.75,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Both the Solicitor General's brief (pp. 8-16) and the Court's November 9, 2026 order resolved the petition by GVR in light of West Virginia v. B.P.J. and United States v. Skrmetti, specifically citing the Tenth Circuit's reliance on Fowler v. Stitt.",
+        "claim": "Conditional on any grant, a cert-order disposition is the modal route (0.55), with a GVR for reconsideration of the equal-protection analysis in light of the vacatur of Fowler under Skrmetti as the principal summary pathway.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The Solicitor General's brief (pp. 17, 21-23) cited the Tenth Circuit's party-presentation refusal to decide Question 1 and the lack of a split on Question 2 in advising against plenary review.",
+        "claim": "Party-presentation forfeiture on Question 1 and the interlocutory Rule 12(b)(6) posture with a surviving abusive-search claim on Question 2 weigh against plenary review.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Following the September 25, 2026 SG brief, the petition was distributed once more on October 14, 2026 for the November 6, 2026 conference and resolved on November 9, 2026 (in OT2026).",
+        "claim": "After the Solicitor General files the invited amicus brief, the petition will return to conference for one or two additional distributions and be resolved during October Term 2026 without a second CVSG.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The Court granted the petition, vacated the judgment, and remanded (actual_disposition: gvr, actual_granted: 1) rather than denying certiorari.",
+        "claim": "Certiorari denial remains slightly more probable than a grant overall (57% non-grant vs. 43% grant).",
+        "status": "not-borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20260918T174135Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T16:01:52.501158Z"
+  },
+  "reasoning_quality": 0.92,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.35444444444444445,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

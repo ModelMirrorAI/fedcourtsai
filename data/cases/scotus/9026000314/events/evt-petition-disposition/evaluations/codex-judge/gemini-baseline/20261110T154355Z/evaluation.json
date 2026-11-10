@@ -1,0 +1,112 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.15,
+    "notes": "The petition raises a potentially general agency-inaction/direct-review question and a nationwide vehicle-safety standard, but the actual vehicle is an unpublished dismissal with independent identification, jurisdictional, and timeliness obstacles and no demonstrated circuit split."
+  },
+  "brier_score": 1e-06,
+  "brier_skill_score": 0.9996149935768331,
+  "case_id": "scotus/9026000314",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05096429401285725,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.001,
+        "score": 0.002596359264228957
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.001,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.001,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.002596359264228957,
+    "total": 0.002596359264228957
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T17:30:24.189439Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The October 15 forecast genuinely preceded the November 9 denial. All 29 log rows are unobserved, so absent dates/digests prove nothing about their results. Queries target provisioned predecision inputs and include an attempted fedcourts query for denied comparators decided before October 15, not this petition's outcome. No prose shows knowledge of the later disposition. The attempted corpus query contradicts retrieval.md's no-retrieval account; this documentation discrepancy is flagged, without assuming a result or leakage.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.65,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The prediction froze one distribution; the resolved outcome and final proceedings still show only one before the November 9 denial.",
+        "claim": "There will be no further relist before the petition's disposition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The final docket has no invitation, and outcome.signals.cvsg_date is null.",
+        "claim": "There will be no CVSG.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The Court denied review, and the staged record contains no confession of error; the conditional route was never tested.",
+        "claim": "If review is granted and the government confesses error, a summary GVR will be the likely route.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "The condition occurred: the November 9 denial carries no separate-writing notation, and the outcome expressly records no noted dissent from denial.",
+        "claim": "If the petition is denied, there will be no separate writing.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261015T142602Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T17:30:24.189439Z"
+  },
+  "reasoning_quality": 0.58,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05096429401285725,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

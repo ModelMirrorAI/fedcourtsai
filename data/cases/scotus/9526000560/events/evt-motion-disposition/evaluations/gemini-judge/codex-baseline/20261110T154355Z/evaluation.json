@@ -1,0 +1,111 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.8,
+    "notes": "High-profile Solicitor General emergency stay application over border-wall construction across the Big Bend Sector that produced a published Per Curiam opinion clarifying that the major-questions canon is a tool of statutory interpretation rather than a standalone constitutional claim under IIRIRA section 102(c)(2)(A)'s jurisdiction-stripping bar."
+  },
+  "brier_score": 0.019600000000000003,
+  "brier_skill_score": 0.9748543506898895,
+  "case_id": "scotus/9526000560",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.1171303074670571,
+        "claim_id": "interim-disposition",
+        "outcome": 1,
+        "probability": 0.86,
+        "score": 0.7598588939932132
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "mask_reason": "signal-before-run",
+        "outcome": null,
+        "probability": 0.97,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.96,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 1,
+        "probability": 0.68,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": 0.7598588939932132,
+    "total": 0.7598588939932132
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T18:10:24.725076Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction placed on 2026-10-23 while the application (decided 2026-11-09) was genuinely unresolved. retrieval_log.json shows only general-authority lookups (including Dalton v. Specter, 511 U.S. 462, via CourtListener MCP) and no case-specific post-baseline queries.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-argon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.88,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The docket snapshot (2026-11-09.json) and outcome.json confirm a response was requested Oct. 22 (due Oct. 29), one amicus brief (FAIR) was filed Oct. 30, the application was referred to the full Court, and the stay was granted on Nov. 9, 2026 \u2014 two days inside codex-baseline's Nov. 11 window.",
+        "claim": "The Circuit Justice will call for a response on a short schedule, at least one amicus brief is moderately likely, the application will be referred to the full Court, and the Court will dispose of the application within roughly one to three weeks (late October to November 11, 2026).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The Per Curiam opinion (01-per-curiam.txt, p. 3) stays the preliminary injunction pending the filing and disposition of the Government's certiorari petition and does not grant certiorari or summarily reverse.",
+        "claim": "The Court will grant an unqualified stay of the district court's preliminary injunction pending the timely filing and disposition of a petition for a writ of certiorari, declining the alternative request for summary reversal.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The Per Curiam opinion (01-per-curiam.txt, pp. 2-3) rests its likelihood-of-success holding strictly on the threshold jurisdictional bar in IIRIRA section 102(c)(2)(A) and Dalton v. Specter, holding that the major-questions canon adjudicates statutory claims rather than constitutional ones and declining to reach the underlying statutory merits of the Big Bend waivers.",
+        "claim": "The Court will take the narrowest path to a stay by holding that the preliminary injunction rests on a statutory-authority objection that cannot be converted into a constitutional claim under IIRIRA section 102(c)(2)(A)'s jurisdiction-stripping provision simply by invoking the major-questions doctrine, without needing to issue a broad merits ruling on the outer bounds of section 102(c).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The Per Curiam opinion (01-per-curiam.txt, p. 3) relies on the Government's compelling border-security interest (Von Raab), nearly $500,000/day in unrecoupable suspension costs (NIH v. APHA), and Congress's legislative priority in IIRIRA section 102(c)(1) (Oakland Cannabis; Winter) to hold that the equities favor a stay.",
+        "claim": "The Court will give substantial weight to the government's asserted border-security and construction-disruption injuries (ongoing contracts and daily suspension costs) over respondents' environmental, recreational, and historic-preservation harms because Congress expressly authorized waiver of those statutory regimes in section 102(c)(1).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The Court issued a concise 3-page Per Curiam stay opinion (01-per-curiam.txt, 1,094 words) staying the preliminary injunction rather than a full merits opinion summarily reversing.",
+        "claim": "The Court will resolve the application by a concise stay order rather than a full merits opinion summarily reversing the judgment below.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261023T210522Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T18:10:24.725076Z"
+  },
+  "reasoning_quality": 0.91,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.1171303074670571,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

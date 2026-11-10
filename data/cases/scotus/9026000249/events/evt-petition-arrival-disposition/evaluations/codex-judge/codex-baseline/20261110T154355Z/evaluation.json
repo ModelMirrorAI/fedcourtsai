@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v3",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.07,
+    "notes": "The staged question concerns California litigation privilege, alleged acquisition of private law-enforcement records, and amendment of privacy claims after an unpublished Ninth Circuit affirmance. The privacy and amendment issues matter to the parties, but the record shows no developed federal conflict or broad institutional change, and the petition ended in an ordinary denial."
+  },
+  "brier_score": 6.25e-06,
+  "brier_skill_score": 0.9975937098552073,
+  "case_id": "scotus/9026000249",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05096429401285725,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.0025,
+        "score": 0.002591109264228957
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": null,
+        "probability": 0.96,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.0005,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.7,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.002,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.002591109264228957,
+    "total": 0.002591109264228957
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T17:07:31.245803Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-arrival-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The August 27, 2026 forward prediction predates the November 9 denial. The 62-call log has capture coverage 0.532258064516129; uncaptured rows do not prove empty retrievals. Captured enclosing calls show lower-court records dated February 2025 through July 2, 2026, and an opinion search expressly bounded before August 27. No query or rationale targets or presupposes this petition's eventual disposition.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.9,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Outcome.json records actual_disposition denied and resolution on November 9, 2026; the staged docket records Petition DENIED.",
+        "claim": "The Court will deny the petition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The staged docket records only the October 14 distribution for the November 6 conference before denial; outcome.signals.distribution_count is 1.",
+        "claim": "The petition will receive one ordinary initial conference distribution and no second distribution as a true relist.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Outcome.signals.cvsg_date is null and the staged docket contains no CVSG.",
+        "claim": "The Court will not call for the views of the Solicitor General.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The Court denied certiorari. The condition did not occur, so the route and issue selection are untested, not misses.",
+        "claim": "If relief is granted, a summary cert-order route focused on dismissal or a prefiling issue is more likely than plenary review.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "Outcome.noted_dissent_from_denial is false, supporting no noted dissent. No staged writing inventory or order text independently resolves the additional no-statement assertion.",
+        "claim": "On denial, no Justice will note a dissent or issue a statement respecting denial.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20260827T155120Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T17:07:31.245803Z"
+  },
+  "reasoning_quality": 0.88,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05096429401285725,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

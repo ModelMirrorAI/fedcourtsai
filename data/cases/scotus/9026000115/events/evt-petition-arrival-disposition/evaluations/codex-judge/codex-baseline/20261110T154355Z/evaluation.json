@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v3",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.22,
+    "notes": "The petition raises a potentially recurring question about nonmonetary health-and-safety burdens after Groff, but this individual employment record, unpublished affirmance, discovery dispute, and absence of an articulated circuit conflict limit its general significance. Denial supplies no new Supreme Court rule."
+  },
+  "brier_score": 1.6e-05,
+  "brier_skill_score": 0.9938398972293309,
+  "case_id": "scotus/9026000115",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05096429401285725,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.004,
+        "score": 0.0025813592642289574
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": null,
+        "probability": 0.975,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.002,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.4,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.015,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.0025813592642289574,
+    "total": 0.0025813592642289574
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T16:43:06.125343Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-arrival-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Prediction dated August 16, 2026 precedes the November 9 denial. The log records provisioned-file reads and authority queries for 600 U.S. 447 and 595 U.S. 87, not this petition's disposition. Marker coverage is 1.0 for logged calls, not proof of a complete transcript. Prose discloses stalled corpus attempts and a rate-limited pre-petition authority search; no disposition-bearing material is evident. Identity and credential redactions are not leakage evidence.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.9,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The staged snapshot records one distribution, on October 14 for the November 6, 2026 conference, followed by denial on November 9; outcome.signals.distribution_count is 1.",
+        "claim": "The petition will be distributed once, denied at its first conference, and receive no further conference.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The docket contains no CVSG and outcome.signals.cvsg_date is null.",
+        "claim": "The Court will not call for the views of the Solicitor General.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.noted_dissent_from_denial is false, supporting the dissent portion; neither an order text nor a writings manifest is staged to establish the separate statement portion.",
+        "claim": "Denial will carry neither a noted dissent nor a statement respecting denial.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "The Court denied review and selected no question; the condition never occurred.",
+        "claim": "If granted, review would narrow the first question to nonmonetary health-and-safety hardship under Groff and omit the other questions.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "Denial did not test the conditional grant route; this claim earns neither credit nor penalty.",
+        "claim": "Conditional on a grant, plenary review is modestly more likely than disposition in the certiorari order.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20260816T111104Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T16:43:06.125343Z"
+  },
+  "reasoning_quality": 0.92,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05096429401285725,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

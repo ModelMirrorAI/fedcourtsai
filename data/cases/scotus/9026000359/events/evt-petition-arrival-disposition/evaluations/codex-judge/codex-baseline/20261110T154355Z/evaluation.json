@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.2,
+    "notes": "Municipal permitting delay and alleged retaliation implicate substantive property and speech interests, but the five questions seek correction of this local dispute without identifying a clean nationwide conflict. Potential doctrinal relevance is limited rather than absent."
+  },
+  "brier_score": 0.000144,
+  "brier_skill_score": 0.9445590750639776,
+  "case_id": "scotus/9026000359",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05096429401285725,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.012,
+        "score": 0.0024533592642289573
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.98,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.002,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.25,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.0024533592642289573,
+    "total": 0.0024533592642289573
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T17:38:21.731090Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-arrival-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Prediction and logged calls date to September 27, 2026, before the November 9 resolution. Queries concern provisioned inputs, historical aggregate statistics, generic Court rules and Pembaur, not this petition's disposition. Four web rows are unobserved: their query scope, not a presumed empty result, supports this assessment. Captured coverage is 0.8889. No reasoning presupposes this case's outcome.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.85,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records actual_disposition denied and actual_granted 0; the November 9 docket entry records denial.",
+        "claim": "The Court will deny certiorari rather than grant, GVR or summarily reverse.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The docket records one October 14 distribution for the November 6 conference, followed by denial; outcome.signals.distribution_count is 1.",
+        "claim": "There will be one initial conference distribution and no subsequent relist.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The petition was denied on November 9, 2026.",
+        "claim": "Disposition will occur in November or December 2026.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.signals.cvsg_date is null and the resolved docket has no CVSG entry.",
+        "claim": "The Court will not call for the Solicitor General's views.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The actual distribution was October 14, before the stated deadline, after an October 9 response waiver. The forecast's distribution count and later disposition window were nevertheless correct.",
+        "claim": "The initial conference distribution will occur after the October 16 response deadline.",
+        "status": "not-borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20260927T182226Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T17:38:21.731090Z"
+  },
+  "reasoning_quality": 0.9,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05096429401285725,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

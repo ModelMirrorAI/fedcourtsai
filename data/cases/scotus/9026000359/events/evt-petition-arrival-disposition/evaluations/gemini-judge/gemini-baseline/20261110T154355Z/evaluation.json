@@ -1,0 +1,112 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.08,
+    "notes": "Fact-bound municipal zoning and medical-marijuana facility licensing dispute from Pontiac, Michigan. The Sixth Circuit affirmed summary judgment applying settled procedural due process, substantive due process, takings, and Monell principles, and the petition framed five generic error-correction questions without a circuit split."
+  },
+  "brier_score": 0.0001,
+  "brier_skill_score": 0.9614993576833177,
+  "case_id": "scotus/9026000359",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05096429401285725,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": 0.0024973592642289575
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.1,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.0024973592642289575,
+    "total": 0.0024973592642289575
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T17:38:14.961554Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-arrival-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction placed on 2026-09-27, prior to the October 14 distribution and November 9 denial. Although result_capture_coverage is 0.0 (unobserved results), the logged tool calls consist only of local reads of the prompt, schemas, context, snapshot, questions-presented.txt, and statpack.md, plus two fedcourts query calls for prior SCOTUS cases.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-argon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.5,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The petition was distributed once on October 14, 2026 for the November 6, 2026 conference (outcome.json signals.distribution_count = 1) and denied on November 9, 2026 without a relist.",
+        "claim": "The petition will be decided without conference relists as a routine local property dispute.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "No CVSG was issued (outcome.json signals.cvsg_date is null).",
+        "claim": "The Court will not issue a CVSG because no federal interest is implicated.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The November 9, 2026 denial carried no noted dissent or separate writing (outcome.json noted_dissent_from_denial = false).",
+        "claim": "Conditional on denial, there will be no separate writing or dissent from denial.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The petition was denied at its first conference, leaving the grant-conditional question and route untested.",
+        "claim": "Conditional on a grant, the Court would likely take the takings claim (QP 4) rather than issue a summary GVR.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20260927T182226Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T17:38:14.961554Z"
+  },
+  "reasoning_quality": 0.55,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05096429401285725,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

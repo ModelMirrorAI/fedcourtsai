@@ -1,0 +1,17 @@
+{
+  "case_id": "scotus/9026000241",
+  "run_id": "20261110T154355Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "shell",
+    "file-read"
+  ],
+  "helpful": [
+    "Blinded staging with retrieval_log result_capture markers made the forward leakage check quick"
+  ],
+  "gaps": [],
+  "notes": "Straightforward cert denial; no statpack rebuild needed since no candidate's base-rate figure was marked wrong."
+}

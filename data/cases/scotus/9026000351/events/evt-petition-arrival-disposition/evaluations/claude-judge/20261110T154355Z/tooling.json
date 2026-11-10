@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000351",
+  "run_id": "20261110T154355Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": ["shell", "file-read"],
+  "helpful": ["The decided-docket snapshot let every forecast-document claim (waiver, distribution, conference date) be checked directly."],
+  "gaps": [],
+  "notes": "Simple cert-denial cell; no statpack rebuild needed since base rates are harness-stamped and no candidate's base-rate figure was disputed."
+}

@@ -1,0 +1,112 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.65,
+    "notes": "Significant constitutional dispute over whether Turner v. Safley or heightened scrutiny governs sex-segregated housing and cross-sex searches of transgender inmates in correctional facilities, drawing a 23-state amicus brief and a CVSG, though resolved via a GVR in light of West Virginia v. B.P.J. and United States v. Skrmetti rather than plenary merits review because of a party-presentation vehicle defect below."
+  },
+  "brier_score": 0.09000000000000002,
+  "brier_skill_score": 0.7840390329451565,
+  "case_id": "scotus/73278467",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.35444444444444445,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.7,
+        "score": 0.32674197530864196
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.99,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": 0.345367027677497,
+        "claim_id": "summary-disposition-route",
+        "outcome": 1,
+        "probability": 0.05,
+        "score": -0.4739556715482049
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.65,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": -0.14721369623956293,
+    "total": -0.14721369623956293
+  },
+  "correct": 0,
+  "created_at": "2026-11-10T16:01:52.501158Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-order-cvsg-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward-mode run executed on 2026-09-18, before the Solicitor General's invited brief (2026-09-25) and the Court's GVR order (2026-11-09). Retrieval log shows only local file reads of the snapshot/QPs/statpack and CourtListener lookups that returned no post-cutoff or outcome-revealing material.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-argon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.2,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "On November 9, 2026, the Court issued a GVR order in light of West Virginia v. B.P.J. and United States v. Skrmetti rather than granting plenary review, after the Solicitor General explained that the Tenth Circuit declined to reach the Turner issue on party-presentation grounds.",
+        "claim": "The Court will grant plenary certiorari review to resolve the circuit split on whether equal protection challenges to prison sex classifications are governed by intermediate scrutiny or Turner v. Safley.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "The Court disposed of the petition by GVR in light of B.P.J. and Skrmetti, following the Solicitor General's recommendation that those intervening decisions foreclosed respondent's claims without plenary review.",
+        "claim": "Plenary review is highly likely and a summary disposition (GVR) is unlikely because a GVR would not definitively resolve the circuit split.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "Neither question received plenary review; the Solicitor General advised that Question 1 was not passed on below and Question 2 involved no circuit split.",
+        "claim": "The Court is likely to take up both questions presented, including the cross-gender strip-search claim in Question 2.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "After the Solicitor General filed its invited brief on September 25, 2026, the petition was distributed a third time on October 14, 2026 for the November 6, 2026 conference (and resolved by GVR on November 9 without a further relist).",
+        "claim": "Following the filing of the Solicitor General's brief, the petition will be redistributed for conference before disposition.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20260918T174135Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T16:01:52.501158Z"
+  },
+  "reasoning_quality": 0.48,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.35444444444444445,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

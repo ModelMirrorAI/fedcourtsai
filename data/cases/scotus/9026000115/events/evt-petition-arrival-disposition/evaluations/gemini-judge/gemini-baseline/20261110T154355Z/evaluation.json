@@ -1,0 +1,112 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v3",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.12,
+    "notes": "Fact-bound private Title VII religious-accommodation and Rule 56(d) discovery dispute arising out of a skilled nursing facility's COVID-19 vaccine policy, affirmed below in a one-paragraph unpublished Fourth Circuit per curiam opinion without oral argument and denied certiorari without response or dissent."
+  },
+  "brier_score": 0.0001,
+  "brier_skill_score": 0.9614993576833177,
+  "case_id": "scotus/9026000115",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05096429401285725,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": 0.0024973592642289575
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": null,
+        "probability": 0.15,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.1,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.08,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.0024973592642289575,
+    "total": 0.0024973592642289575
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T16:44:47.079140Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-arrival-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction placed on 2026-08-16, nearly three months before the 2026-11-09 denial. All 28 calls in retrieval_log.json have result_capture: 'unobserved' (coverage 0.0, the engine's standing telemetry shape), and their query parameters show only local reads of workspace files, the 2026-08-16 snapshot, questions-presented.txt, and metrics/statpack.md.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-argon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.65,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records actual_disposition: 'denied' and signals.distribution_count: 1; the 2026-11-09 docket snapshot shows a single conference distribution on Oct 14, 2026 followed by denial on Nov 9, 2026.",
+        "claim": "The petition will be denied without any relists.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records signals.cvsg_date: null, and no CVSG entry appears on the docket snapshot.",
+        "claim": "No CVSG will be issued because the case involves a private employer and does not implicate federal government interests.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records noted_dissent_from_denial: false and votes: [], and the Nov 9, 2026 docket entry is a plain 'Petition DENIED.'",
+        "claim": "A statement or dissent from denial is unlikely given the fact-bound posture.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Certiorari was denied on Nov 9, 2026, so the conditional grant route and question selection were not tested.",
+        "claim": "If granted, a summary disposition (GVR) is very unlikely and the Court would likely take QPs 1 and 3 (the substantive Title VII claims) and ignore the Rule 56(d) procedural questions.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20260816T111104Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T16:44:47.079140Z"
+  },
+  "reasoning_quality": 0.55,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05096429401285725,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

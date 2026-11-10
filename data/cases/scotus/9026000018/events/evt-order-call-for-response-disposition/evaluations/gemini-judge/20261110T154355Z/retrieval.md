@@ -1,0 +1,4 @@
+# Evaluator Retrieval Log
+
+- `uv run fedcourts statpack-at data/cases/scotus/9026000018/record/blinded/claude-baseline/ --ref origin/main --out-dir /tmp/statpack-at/claude-baseline`: resolved the statpack build in force at the candidates' prediction run (`20261029T160941Z`) to commit `7bcde3b105cb212283905eda17b827efc188e80c` (`landed_at: 2026-10-28T13:56:30-04:00`, `digest: sha256:84feb6798b6407fea2a17fed92c36d8a8db71d12850a967d840f018295ba4641`, `sal-v4`).
+- No `fedcourts query` / `open-events` calls, CourtListener MCP calls, or web searches were needed beyond the provisioned case record (`record/snapshots/2026-11-09.json`, `record/documents/petition.txt`, `record/documents/brief-in-opposition.txt`, `record/documents/cert-reply.txt`, `record/documents/questions-presented.txt`), `outcome.json`, and `statpack-at`.

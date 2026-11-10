@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/73278467",
+  "run_id": "20261110T154355Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": ["shell", "file-read"],
+  "helpful": ["The latest snapshot's order text named the intervening decisions, which settled the forecast documents' central claims directly."],
+  "gaps": [],
+  "notes": "Straightforward cert cell; all three candidates called the GVR."
+}

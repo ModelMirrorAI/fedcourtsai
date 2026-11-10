@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000115",
+  "run_id": "20261110T154355Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "shell",
+    "file-read"
+  ],
+  "helpful": [
+    "Blinded staging with retrieval logs made the forward-leakage check quick",
+    "Provisioned docket snapshot settled every forecast-document claim"
+  ],
+  "gaps": [],
+  "notes": "Arrival-moment cert cell; all three candidates predicted denial. No corpus or statpack lookup was needed since no candidate's base-rate figure was marked wrong."
+}

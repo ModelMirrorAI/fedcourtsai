@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.4,
+    "notes": "A genuine, acknowledged circuit split on the FMLA retaliation causation standard (motivating factor under 29 C.F.R. 825.220(c) vs. but-for), sharpened by Loper Bright, on a high-volume federal employment claim; two employer-side amici filed at the cert stage. But it arose from an unpublished Second Circuit summary order resting on invited-error/forfeiture grounds, between a mid-sized employer and one former employee, and the Court denied it at its first conference without calling for a response."
+  },
+  "brier_score": 0.0036,
+  "brier_skill_score": -0.38602312340056,
+  "case_id": "scotus/9026000436",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05096429401285725,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.06,
+        "score": -0.0010026407357710426
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.4,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.12,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": -0.0010026407357710426,
+    "total": -0.0010026407357710426
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T17:41:58.599564Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell (prediction snapshot 2026-10-09; event resolved 2026-11-09). Captured CourtListener calls reached the Eleventh Circuit's Lapham opinion (2023-12-13), the Second Circuit appellate docket (filed 2025-03-13) and Haran (2025-11-25); one corpus query for recent SCOTUS priors. All retrieved document dates precede the prediction and the resolution; no query sought this petition's SCOTUS disposition. Legitimate forward retrieval, honestly disclosed.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-opus-5-5",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.6,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Docket: distributed Oct 7, 2026 for the Nov 6 conference; petition denied Nov 9, 2026.",
+        "claim": "The petition will be denied, most likely at or shortly after the November 6, 2026 conference.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "No response was requested and the petition was not redistributed; the modal no-relist path held, though the elevated CFR weight went unrealized.",
+        "claim": "A further distribution is a real minority path (0.40), almost entirely through a call for a response (~0.35); a straight relist is unlikely.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "No CVSG on the docket; outcome cvsg_date null.",
+        "claim": "No CVSG (0.05).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "noted_dissent_from_denial false; docket shows a bare denial. The order does not state its reason, so the 'vehicle denial' reading itself is unresolved.",
+        "claim": "If denied, expect a bare denial with no statement or dissent, read as a vehicle denial.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Conditional on a grant that did not happen.",
+        "claim": "If granted, the Court would take QP1 with QP2 as a threshold issue; a merits decision would likely reverse.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261009T143059Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T17:41:58.599564Z"
+  },
+  "reasoning_quality": 0.85,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05096429401285725,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

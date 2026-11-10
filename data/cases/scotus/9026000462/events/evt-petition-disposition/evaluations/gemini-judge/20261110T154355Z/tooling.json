@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000462",
+  "run_id": "20261110T154355Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts statpack-at",
+    "fedcourts paths"
+  ],
+  "helpful": [
+    "fedcourts statpack-at",
+    "record/documents/petition.txt",
+    "record/documents/questions-presented.txt"
+  ],
+  "gaps": [],
+  "notes": "fedcourts statpack-at cleanly reconstructed the sal-v4 statpack build (1c4f550b7b75) in force at the candidates' prediction run (20261008T143010Z), allowing exact verification of each candidate's base-rate pooling after the repo's committed statpack had advanced to sal-v8."
+}
