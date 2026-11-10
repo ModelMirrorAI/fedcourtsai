@@ -2877,9 +2877,9 @@
       "next_conference": null,
       "relists": 0,
       "response_due": {
-        "set_for": "2026-11-27",
+        "set_for": "2026-12-23",
         "stale_reason": null,
-        "upcoming": "2026-11-27"
+        "upcoming": "2026-12-23"
       },
       "stale_reason": "conference_passed"
     },
