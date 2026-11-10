@@ -166,11 +166,13 @@ def owed_rulings(
     ``today`` lists it under a kind a court writes, as a new entry or as one
     whose document became readable, and no summary file exists for its entry.
     So a ruling whose text reached CourtListener late is planned from the day
-    it did.
+    it did. A placeholder that a recorded entry supersedes is the same event
+    as that entry and is owed nothing.
     """
     root = data_root / ACTIVITY_DIR
     oldest = today - timedelta(days=max_age_days)
     found: dict[int, AiCaseActivityEntry] = {}
+    superseded: set[int] = set()
     for path in sorted(root.glob("*.json")) if root.is_dir() else []:
         try:
             day = date.fromisoformat(path.stem)
@@ -179,6 +181,7 @@ def owed_rulings(
         if day < oldest:
             continue
         record = read_model(path, AiCaseActivity)
+        superseded |= {e.supersedes for e in record.entries if e.supersedes is not None}
         readable = [
             AiCaseActivityEntry.model_validate(e.model_dump(exclude={"documents"}))
             for e in record.available
@@ -190,7 +193,10 @@ def owed_rulings(
                 and not summary_path(data_root, entry.entry_id).is_file()
             ):
                 found.setdefault(entry.entry_id, entry)
-    return sorted(found.values(), key=lambda e: (e.date_filed, e.entry_id))
+    return sorted(
+        (e for e in found.values() if e.entry_id not in superseded),
+        key=lambda e: (e.date_filed, e.entry_id),
+    )
 
 
 def plan_rulings(

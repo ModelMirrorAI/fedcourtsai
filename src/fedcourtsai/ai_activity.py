@@ -21,7 +21,22 @@ entries a week. It keeps:
 Everything else is routine and dropped: scheduling, appearances, pro hac vice,
 extensions, sealing, transcripts, letters, discovery and its disputes. The rule
 reads an entry's own description and the short description upstream gives its
-main document, and nothing else.
+main document, and for a paired entry its placeholder's label (below).
+
+One upstream artifact gets its own handling. CourtListener can list a docket
+event twice: once as a **placeholder** read from the court's feed, with no
+entry number, no description and only the feed's label for the event on an
+unreadable document, and once as the court's numbered entry. A placeholder is
+paired with the numbered entry filed the same day whose main document carries
+one of the labels the placeholder joins with "AND" (the court system's utility
+labels aside); where several match, the one the rule keeps on its own text is
+the pair, and a placeholder with no such entry stays unpaired. A pair is one event: the numbered
+entry is the one recorded, read under the rule with the placeholder's label
+beside its own text, so a hearing's minute entry that the feed labels as an
+order on a motion to dismiss is a ruling carrying its entry number and its
+motion. An unpaired placeholder is recorded as it stands, and a numbered entry
+that arrives in a later refresh names the placeholder it replaces
+(``supersedes``), so the update shows the event once.
 
 A second, separate rule (:data:`AVAILABILITY_RULE`) watches the entries a
 docket already held: a document often reaches CourtListener days or weeks
@@ -63,7 +78,7 @@ from .schemas import AiCaseActivity, AiCaseActivityEntry, AiCaseAvailableEntry
 from .serialize import read_model, write_json
 
 #: The label of the significance rule below. A changed rule is a new label.
-ACTIVITY_RULE: Final = "ai-activity-v1"
+ACTIVITY_RULE: Final = "ai-activity-v2"
 
 #: Where the daily activity records live, under the data root.
 ACTIVITY_DIR: Final = Path("ai-cases") / "activity"
@@ -214,19 +229,74 @@ def _texts(entry: Mapping[str, Any]) -> list[str]:
     return [text for text in cut if text.strip()]
 
 
-def classify(entry: Mapping[str, Any]) -> EntryKind | None:
+def is_placeholder(entry: Mapping[str, Any]) -> bool:
+    """Whether the entry is upstream's feed placeholder: no entry number and no description."""
+    return entry.get("entry_number") is None and not str(entry.get("description") or "").strip()
+
+
+def _main_label(entry: Mapping[str, Any]) -> str:
+    """The short description of the entry's main document, folded for comparison."""
+    documents = entry.get("recap_documents")
+    for document in documents if isinstance(documents, list) else []:
+        if isinstance(document, Mapping) and not document.get("attachment_number"):
+            return " ".join(str(document.get("description") or "").split()).casefold()
+    return ""
+
+
+def numbered_twin(
+    placeholder: Mapping[str, Any], entries: Iterable[Mapping[str, Any]]
+) -> Mapping[str, Any] | None:
+    """The numbered entry that is the same docket event as ``placeholder``, or ``None``.
+
+    The one numbered entry among ``entries`` filed the same day whose main
+    document's short description is one of the labels the placeholder's joins
+    with "AND", the court system's utility labels ("~Util - Set Deadlines")
+    aside. Where several entries match, the first the rule keeps on its own
+    text is the twin, since it already carries the event; no match, or several
+    the rule drops, pairs nothing.
+    """
+    if not is_placeholder(placeholder):
+        return None
+    labels = {
+        part.strip()
+        for part in re.split(r"\s+and\s+", _main_label(placeholder))
+        if part.strip() and not part.strip().startswith("~util")
+    }
+    filed = placeholder.get("date_filed")
+    twins = [
+        entry
+        for entry in entries
+        if isinstance(entry, Mapping)
+        and entry.get("entry_number") is not None
+        and filed is not None
+        and entry.get("date_filed") == filed
+        and _main_label(entry) in labels
+    ]
+    if len(twins) > 1:
+        twins = [entry for entry in twins if classify(entry) is not None][:1]
+    return twins[0] if twins else None
+
+
+def classify(
+    entry: Mapping[str, Any], placeholders: Iterable[Mapping[str, Any]] = ()
+) -> EntryKind | None:
     """The entry's kind under :data:`ACTIVITY_RULE`, or ``None`` for a routine entry.
 
     The first rule whose phrase appears with no routine phrase before it wins,
-    reading the entry's description and then its main document's.
+    reading the entry's description, then its main document's, then those of
+    the ``placeholders`` paired with it.
     """
-    found = _classified(entry)
+    found = _classified(entry, placeholders)
     return found[0] if found is not None else None
 
 
-def _classified(entry: Mapping[str, Any]) -> tuple[EntryKind, str] | None:
+def _classified(
+    entry: Mapping[str, Any], placeholders: Iterable[Mapping[str, Any]] = ()
+) -> tuple[EntryKind, str] | None:
     """The entry's kind and the text the winning rule matched in."""
     texts = _texts(entry)
+    for placeholder in placeholders:
+        texts += _texts(placeholder)
     for kind, pattern in _RULES:
         for text in texts:
             match = pattern.search(text)
@@ -240,7 +310,9 @@ def _classified(entry: Mapping[str, Any]) -> tuple[EntryKind, str] | None:
 _MOTION_KINDS: Final = frozenset({EntryKind.motion, EntryKind.ruling, EntryKind.opinion})
 
 
-def principal_motion(entry: Mapping[str, Any]) -> str | None:
+def principal_motion(
+    entry: Mapping[str, Any], placeholders: Iterable[Mapping[str, Any]] = ()
+) -> str | None:
     """The principal motion a motion, ruling or opinion entry names, or ``None``.
 
     The first principal motion named in the text the kind's rule matched (an
@@ -248,7 +320,7 @@ def principal_motion(entry: Mapping[str, Any]) -> str | None:
     A motion for leave to file one names none: it asks permission, and the
     motion it names is not yet made.
     """
-    found = _classified(entry)
+    found = _classified(entry, placeholders)
     if found is None or found[0] not in _MOTION_KINDS:
         return None
     match = re.search(_SENTENCE + r"{0,200}?" + _PRINCIPAL, found[1], re.I)
@@ -276,11 +348,14 @@ def new_significant(
     *,
     today: date,
     max_age_days: int = MAX_AGE_DAYS,
+    placeholders: Mapping[Any, list[Mapping[str, Any]]] | None = None,
 ) -> list[tuple[Mapping[str, Any], EntryKind]]:
     """The fresh entries the stored docket lacked that the rule keeps, oldest first.
 
     An entry filed more than ``max_age_days`` before ``today``, or with no
     filing date, is old history surfacing late and is left out.
+    ``placeholders`` gives, by entry id, the placeholders paired with an entry,
+    which the rule reads beside it.
     """
     known = {entry.get("id") for entry in stored}
     oldest = today - timedelta(days=max_age_days)
@@ -294,7 +369,7 @@ def new_significant(
             continue
         if filed < oldest:
             continue
-        kind = classify(entry)
+        kind = classify(entry, (placeholders or {}).get(entry.get("id"), ()))
         if kind is not None:
             found.append((entry, kind))
     found.sort(key=lambda pair: (str(pair[0].get("date_filed")), int(pair[0].get("id") or 0)))
@@ -552,18 +627,95 @@ def activity_entries(
     added: Iterable[Mapping[str, Any]],
     *,
     today: date,
+    docket_entries: Iterable[Mapping[str, Any]] = (),
 ) -> list[AiCaseActivityEntry]:
-    """The records for one docket's newly seen entries that the rule keeps."""
+    """The records for one docket's newly seen entries that the rule keeps.
+
+    ``docket_entries`` is every entry the docket holds after the refresh
+    (``added`` alone when not given), which is where a placeholder's numbered
+    twin, or a numbered entry's placeholder, is looked for.
+    """
     court = _court(docket)
+    added = list(added)
+    try:
+        subjects, paired, replaced = _paired(added, list(docket_entries))
+    except (AttributeError, TypeError, ValueError):
+        # A malformed entry anywhere on the docket costs the pairing, not the
+        # docket's new entries: once stored, none of them is "new" again.
+        subjects, paired, replaced = added, {}, {}
     found: list[AiCaseActivityEntry] = []
-    for entry, kind in new_significant([], added, today=today):
+    for entry, kind in new_significant([], subjects, today=today, placeholders=paired):
+        key = entry.get("id")
         try:
-            found.append(_record(case, category, court, docket, entry, kind))
+            found.append(
+                _record(
+                    case,
+                    category,
+                    court,
+                    docket,
+                    entry,
+                    kind,
+                    placeholders=paired.get(key, ()),
+                    supersedes=replaced.get(key),
+                )
+            )
         except (KeyError, TypeError, ValueError):
             # A malformed upstream entry costs only itself, not the docket's
             # other entries: once stored, none of them is "new" again.
             continue
     return found
+
+
+def _paired(
+    added: list[Mapping[str, Any]], listed: list[Mapping[str, Any]]
+) -> tuple[
+    list[Mapping[str, Any]],
+    dict[Any, list[Mapping[str, Any]]],
+    dict[Any, int],
+]:
+    """The entries to put to the rule once each placeholder is paired with its twin.
+
+    ``(subjects, placeholders, superseded)``: the entries to classify, the
+    placeholders to read beside each by entry id, and by entry id the
+    placeholder an earlier refresh may have recorded in its place.
+
+    - A new placeholder with a twin is not a subject; its twin is. A twin the
+      docket already held is a subject only if the rule dropped it on its own
+      text and no placeholder the docket already held pairs with it, since one
+      the rule kept, or an earlier pairing reached, is already recorded.
+    - A subject supersedes a placeholder the docket already held that the
+      rule keeps on its own: that placeholder was recorded unpaired.
+    """
+    entries = [e for e in (listed or added) if isinstance(e, Mapping)]
+    new = {entry.get("id") for entry in added}
+    twins: dict[Any, Mapping[str, Any]] = {}
+    paired: dict[Any, list[Mapping[str, Any]]] = {}
+    superseded: dict[Any, int] = {}
+    for candidate in entries:
+        twin = numbered_twin(candidate, entries)
+        if twin is None:
+            continue
+        key = twin.get("id")
+        twins[candidate.get("id")] = twin
+        paired.setdefault(key, []).append(candidate)
+        held = candidate.get("id")
+        if (
+            isinstance(held, int)
+            and held not in new
+            and key not in superseded
+            and classify(candidate) is not None
+        ):
+            superseded[key] = held
+    subjects: dict[Any, Mapping[str, Any]] = {}
+    for entry in added:
+        twin = twins.get(entry.get("id"))
+        if twin is None:
+            subjects.setdefault(entry.get("id"), entry)
+        elif twin.get("id") in new or (
+            classify(twin) is None and all(p.get("id") in new for p in paired[twin.get("id")])
+        ):
+            subjects.setdefault(twin.get("id"), twin)
+    return list(subjects.values()), paired, superseded
 
 
 def _record(
@@ -573,6 +725,9 @@ def _record(
     docket: Mapping[str, Any],
     entry: Mapping[str, Any],
     kind: EntryKind,
+    *,
+    placeholders: Iterable[Mapping[str, Any]] = (),
+    supersedes: int | None = None,
 ) -> AiCaseActivityEntry:
     number = entry.get("entry_number")
     return AiCaseActivityEntry(
@@ -585,7 +740,8 @@ def _record(
         entry_number=int(number) if number is not None else None,
         date_filed=date.fromisoformat(str(entry["date_filed"])),
         kind=kind.value,
-        motion=principal_motion(entry),
+        motion=principal_motion(entry, placeholders),
+        supersedes=supersedes,
         url=entry_url(entry, docket),
     )
 

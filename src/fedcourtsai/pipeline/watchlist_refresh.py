@@ -238,6 +238,9 @@ class Refreshed:
     # Entries the stored docket held whose documents became readable, each with
     # the ids of those documents; empty on an onboard.
     gained: tuple[tuple[Mapping[str, Any], frozenset[int]], ...] = field(default=(), compare=False)
+    # Every entry the docket holds after this refresh, where a new entry's
+    # placeholder or numbered twin is looked for.
+    listed: tuple[Mapping[str, Any], ...] = field(default=(), compare=False)
 
 
 def refresh_docket(
@@ -347,6 +350,7 @@ def refresh_docket(
         docket=docket,
         added=added,
         gained=gained,
+        listed=tuple(e for e in entries if isinstance(e, Mapping)),
     )
 
 

@@ -17456,7 +17456,11 @@ def watchlist_refresh_cmd(
         # has stored is never "new" again, so a run killed part-way must
         # already have recorded what it stored.
         found = ai_activity.activity_entries(
-            *named[done.case_id], done.docket, done.added, today=today
+            *named[done.case_id],
+            done.docket,
+            done.added,
+            today=today,
+            docket_entries=done.listed,
         )
         readable = ai_activity.available_entries(
             *named[done.case_id], done.docket, done.gained, today=today

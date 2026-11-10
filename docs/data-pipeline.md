@@ -136,7 +136,10 @@ that finds entries the stored docket lacked records the significant ones
 (`fedcourtsai.ai_activity`: opinions, judgments, rulings on principal motions,
 those motions, complaints, appeals, settlements and dismissals; routine business
 dropped) in the committed `data/ai-cases/activity/<YYYY-MM-DD>.json`, which the
-weekly AI-cases email renders. An entry filed more than 14 days before it was
+weekly AI-cases email renders. An unnumbered placeholder upstream lists beside
+the court's numbered entry for the same event is paired with it, and the
+numbered entry is the one recorded; a placeholder with no such entry yet is
+recorded as it stands, and the numbered entry that follows names it. An entry filed more than 14 days before it was
 first seen is old history and is not recorded, and a docket's first refresh
 records nothing. The same refresh records, under a second rule
 (`ai-availability-v1`), entries the stored docket already held whose documents

@@ -18,6 +18,11 @@ item. Each case is introduced by its category, its court and the watchlist's
 own one-line account of why it is listed, which is the project's sentence, not
 the docket's.
 
+A docket event upstream lists twice, as an unnumbered placeholder and as the
+court's numbered entry, is one item: an entry another entry of the span
+supersedes is left out, and so is an entry superseding one recorded before the
+span, which an earlier update already carried.
+
 A span with nothing recorded renders as a short quiet note, so subscribers
 hear every week that the feed is alive.
 
@@ -226,6 +231,14 @@ def build_ai_cases_update(
             for later in record.available:
                 readable[later.entry_id] = merge_available(readable.get(later.entry_id), later)
         day += timedelta(days=1)
+    replaced = {e.supersedes for e in found.values() if e.supersedes is not None}
+    if replaced:
+        earlier = _recorded_before(data_root, start, replaced)
+        found = {
+            key: entry
+            for key, entry in found.items()
+            if key not in replaced and entry.supersedes not in earlier
+        }
     by_case: dict[str, list[AiCaseAvailableEntry]] = {}
     for later in sorted(readable.values(), key=lambda e: (e.date_filed, e.case, e.entry_id)):
         by_case.setdefault(later.case, []).append(later)
@@ -248,6 +261,21 @@ def build_ai_cases_update(
         followed=len(listed),
         intros={case.name: CaseIntro(court=case.court, why=case.why) for case in listed},
     )
+
+
+def _recorded_before(data_root: Path, start: date, entry_ids: set[int]) -> set[int]:
+    """Which of ``entry_ids`` an activity record dated before ``start`` lists as an entry."""
+    seen: set[int] = set()
+    root = data_root / ACTIVITY_DIR
+    for path in sorted(root.glob("*.json")) if root.is_dir() else []:
+        try:
+            day = date.fromisoformat(path.stem)
+        except ValueError:
+            continue
+        if day < start:
+            record = read_model(path, AiCaseActivity)
+            seen |= entry_ids & {entry.entry_id for entry in record.entries}
+    return seen
 
 
 def ai_cases_subject(update: AiCasesUpdate) -> str:
