@@ -273,14 +273,16 @@ def environment_problems(
     return problems
 
 
-#: The environment `post-public-update`'s `post` and `post-ai-cases` jobs bind.
+#: The environment `post-public-update`'s three drafting jobs bind.
 WEBSITE_ENVIRONMENT = "website"
 
 #: Its one secret, the Buttondown API key the drafts are created with.
 WEBSITE_SECRETS = frozenset({"BUTTONDOWN_API_KEY"})
 
-#: Its variables, the Buttondown ids of the tags the two drafts are addressed to.
-WEBSITE_VARIABLES = frozenset({"WEEKLY_SCOTUS_TAG_ID", "AI_CASES_TAG_ID"})
+#: Its variables, the Buttondown ids of the tags the drafts are addressed to.
+WEBSITE_VARIABLES = frozenset(
+    {"WEEKLY_SCOTUS_TAG_ID", "SCOTUS_PREDICTIONS_TAG_ID", "AI_CASES_TAG_ID"}
+)
 
 
 def website_problems(

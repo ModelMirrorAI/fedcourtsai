@@ -1,7 +1,9 @@
-"""The weekly public update: one ISO week of the ledger, in plain words, for the email list.
+"""The weekly forecasts update: one ISO week of the ledger, in plain words, for the email list.
 
-A reader-facing digest rendered from **committed data only**, so the same tree
-and the same week always render the same bytes. Two sections:
+A reader-facing digest of the project's forecasts, rendered from **committed
+data only**, so the same tree and the same week always render the same bytes.
+What the Court itself did in the week, without a forecast in it, is the Court
+update's (:mod:`fedcourtsai.court_update`), a separate email. Two sections:
 
 * **Resolved this week** — every event whose committed ``outcome.json`` has a
   ``resolved_at`` inside the week, beside each predictor's counted forward
@@ -471,8 +473,8 @@ def _item(
         event_path=CasePaths(_REPO_DATA_DIR, first.court_id, first.docket_id)
         .event(first.event_id)
         .base.as_posix(),
-        outcome=_outcome_words(stage, outcome) if outcome is not None else None,
-        usual=_usual(stage, outcome) if outcome is not None else True,
+        outcome=outcome_words(stage, outcome) if outcome is not None else None,
+        usual=usual_outcome(stage, outcome) if outcome is not None else True,
         resolved_at=outcome.resolved_at if outcome is not None else None,
         stakes=tuple(scores),
     )
@@ -484,7 +486,7 @@ def _repo_cell_path(row: LedgerPrediction) -> Path:
     return paths.prediction_dir(row.predictor_id, row.run_id)
 
 
-def _usual(stage: Stage | None, outcome: Outcome) -> bool:
+def usual_outcome(stage: Stage | None, outcome: Outcome) -> bool:
     if stage == Stage.merits:
         return outcome.judgment is None or outcome.judgment in {
             Judgment.affirmed,
@@ -494,7 +496,7 @@ def _usual(stage: Stage | None, outcome: Outcome) -> bool:
     return outcome.actual_disposition == Disposition.denied
 
 
-def _outcome_words(stage: Stage | None, outcome: Outcome) -> str:
+def outcome_words(stage: Stage | None, outcome: Outcome) -> str:
     if stage == Stage.merits:
         return _MERITS_WORDS[outcome.judgment] if outcome.judgment is not None else "Decided"
     if stage == Stage.interim:
@@ -502,7 +504,7 @@ def _outcome_words(stage: Stage | None, outcome: Outcome) -> str:
     return _CERT_WORDS[outcome.actual_disposition]
 
 
-def _escape(text: str) -> str:
+def escape_text(text: str) -> str:
     """Neutralize the Markdown a case caption could otherwise trigger.
 
     Whitespace runs, line breaks among them, collapse to one space first, so a
@@ -531,7 +533,7 @@ def _item_line(item: EventItem, repo_url: str) -> str:
         for forecast in item.forecasts
     )
     return (
-        f"- **{_escape(item.caption)}**{docket}{outcome} Forecasts: {forecasts}"
+        f"- **{escape_text(item.caption)}**{docket}{outcome} Forecasts: {forecasts}"
         f" ([ledger]({repo_url}/{item.event_path}))"
     )
 
@@ -684,7 +686,7 @@ def public_update_subject(update: PublicUpdate) -> str:
     """The update's title, which is also the email's subject: one per ISO week."""
     start, end = update.start, update.end
     span = f"{start:%B} {start.day} \N{EN DASH} {end:%B} {end.day}, {end.year}"
-    return f"FedCourtsAI weekly update: {span}"
+    return f"FedCourtsAI Supreme Court forecasts: {span}"
 
 
 def render_public_update(
