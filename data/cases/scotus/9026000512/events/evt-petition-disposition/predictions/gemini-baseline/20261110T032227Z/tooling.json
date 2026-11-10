@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000512",
+  "run_id": "20261110T032227Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "mcp_courtlistener_search",
+    "metrics/statpack.md"
+  ],
+  "helpful": [
+    "Provisioned petition.txt and questions-presented.txt with Appendices A-F",
+    "Frozen cert_anchor and conditioning state in record/context.json",
+    "Base-rate cuts in metrics/statpack.md"
+  ],
+  "gaps": [],
+  "notes": "Provisioned petition text and state appellate orders in Appendices A-F clearly established the pre-sentence jurisdictional dismissal and vehicle flaws."
+}

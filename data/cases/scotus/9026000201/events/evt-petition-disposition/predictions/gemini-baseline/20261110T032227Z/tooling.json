@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000201",
+  "run_id": "20261110T032227Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts validate",
+    "courtlistener:search"
+  ],
+  "helpful": [
+    "Provisioned full-text filings (petition.txt, brief-in-opposition.txt with all three respondent responses, cert-reply.txt, decision-below.txt) and related dockets (26-199, 26-332, 26-335) provided a complete picture of the post-GVR posture and vehicle arguments.",
+    "cert_anchor in record/context.json and metrics/statpack.md provided exact federal-band base rates.",
+    "fedcourts query allowed rapid verification of the Sixth Circuit companion petition (25-1325) and the prior GVR and stay dockets (24-429, 24-433, 24A287)."
+  ],
+  "gaps": [],
+  "notes": null
+}
