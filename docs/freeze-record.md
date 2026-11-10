@@ -18375,3 +18375,126 @@ freeze commit is recorded here.
     fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
     print('direct-appeal-answer-papers' in {b.name for b in H})"` prints
     `True`.
+- **The OCR recovery class takes a stored row whose text layer is thin;
+  recorded 2026-11-10.** A **provisioning-cutoff** change with a harness
+  boundary, recorded ahead of the promotion that carries it.
+
+  **Why.** A filing set as a scan can still carry a small text layer: a
+  letterhead typed above a scanned letter body, a stamp on each scanned page.
+  The extractor stores those few lines, the row is not empty, provisioning
+  does not stamp it `empty_text`, and the OCR recovery class, which took only
+  rows with no text at all, never saw it. On 26-396 (`scotus/9026000396`) the
+  petitioner's letter of 2026-10-09 is stored as a one-page `party-letter` of
+  193 characters, the letterhead and counsel's contact lines, with the letter
+  itself an image. claude-baseline and codex-baseline flagged it on both of the
+  docket's cells in predict run `20261109T212928Z`.
+
+  **What moved.** Three things, in `pipeline.documents`,
+  `pipeline.ocr_recovery` and `pipeline.ocr_sweep`.
+  - **The class.** A stored row of a fetched kind with pages and one link is in
+    the recovery class when its text is empty, as before, or **thin**: some
+    text, averaging under `THIN_PAGE_CHARS` (200) characters a page, on a row
+    that is not truncated, not already `ocr_derived`, not set-keyed and not
+    under a per-filing `=== … ===` header (`ocr_recovery.is_thin_text`). The standing sweep, the dispatched
+    `ocr-recovery` pass and the predict backlog's `held_unread_scan` hold all
+    read that one predicate, so all three now cover a thin row.
+  - **The page reading.** With the OCR seam supplied, the extractor reads a
+    page off its image where the page's own text is blank or under the same
+    200 characters, where before it did so only on a blank page. A thin page
+    keeps its text layer unless the image reads at least twice as long.
+  - **The write.** A thin row's text is replaced only by a longer reading that
+    takes the row out of the class (`ocr_recovery.gains_on`), and only where
+    OCR contributed to it; anything else is reported `no-gain` and not
+    written. The same test now also declines one reading of an empty row that
+    was written before: a re-served text layer that is itself thin and that
+    OCR adds nothing to. The worklist carries each item's
+    stored character count, a number and never the text, so the
+    credential-free parse can make that test before the writer repeats it.
+
+  No prompt byte and no registry field other than the boundary row moves, so
+  no digest moves. `uv run fedcourts process-digest --all` prints `proc-v20`
+  and the six digests `69076c7e…` (claude-baseline), `56f5da33…`
+  (codex-baseline), `154ba5e6…` (gemini-baseline), `b9a5d840…`
+  (claude-judge), `ce1c037e…` (codex-judge) and `b29afb1d…` (gemini-judge),
+  with and without the change. The predict prompt already says how to read a
+  row marked `ocr_derived`, which is how a recovered thin row arrives.
+
+  **A harness boundary under the 2026-10-11 pooled rule.** The change adds to
+  what a predict cell reads under unchanged digests. It is composition, not a
+  cut. The pooled default and the paired figure keep both sides and list each
+  engine's `n` before and after. It cuts only a figure that reads its own
+  effect.
+  - **The registry row** is `ocr-thin-text-rows`. It applies to every
+    predictor, and its reach is `all`, because no narrower registered reach
+    names these dockets. It is **gradual**. A thin row changes only when a
+    sweep window or a dispatched pass reads it and the reading gains: a row a
+    forward cell reads within a window or two, the rest at the backlog's
+    rotation. It is registered **pending** in this change's own PR
+    (`fedcourts register-boundary`), under the 2026-10-14 merge-stamping
+    declaration, and its `merge` and `at` stay null until the promotion merge
+    that carries it to `main` stamps them (`promotion-record`).
+  - **The side test** is the registered one, against the carrying merge.
+    Because the boundary is gradual, an after-side cell provisioned before its
+    row was read still has the thin text, so the after-side `n` is an upper
+    bound on exposure.
+
+  **The population.** Measured read-only over blob
+  `a5137ed926a927a77666c9617f1c650b50ca4bec095a1a5141b7da3e43fed7ee` (newest
+  pull 2026-11-10, newest stored snapshot row 2026-07-13), over the stored
+  documents of the 54,796 live-slice SCOTUS rows: 40,542 rows of a fetched
+  kind, 40,238 of them with pages and one link. Of those, 1,015 have no text
+  (the class as it was, 35,783 pages) and **232** are thin (10,390 pages): 158
+  appendices, 69 petitions, 3 briefs in opposition, 1 cert-stage reply and 1
+  party letter, the 26-396 row. The 232 is both the class's thin share and the
+  whole under-200 band: no row in the band is OCR-derived. By average
+  characters a page, among the 37,707 rows not cut at the cap: the 1,015 with
+  none, 232 under 200, 137 from 200 to 300, 267 from 300 to 400, and 36,056 at
+  400 or more. The
+  floor was set at 200 on a reading of the Court's own PDFs for 40 sampled rows
+  (seed fixed, eight per 100-character band up to 500, by page-level text
+  counts and no stored text): the sixteen under 200 were blank or image pages
+  with at most a few pages of real text; the eight from 200 to 300 were mixed,
+  four with blank pages and four with a little text on every page over page
+  images; and the rows from 300 up were mostly
+  ten-to-twelve-page petitions with a little text on every page and no blank
+  ones, the shape of a handwritten form petition whose printed form text OCR
+  adds nothing to. So 200 is the conservative end, where a row in the class is
+  a scan, and the 200-to-300 band (137 rows) holds scans the class leaves out.
+  A fetch and OCR of five class rows through the parse's own code (tesseract
+  5.3.4, counts only) read the 26-396 letter at 1,003 characters against 193
+  stored, a 53-page appendix at 74,743 against 361 and a 16-page opposition at
+  18,445 against 2,010, and returned `no-gain` on two short appendices. One case with an open event in predict scope holds a thin
+  row, 26-396; the class's forward share goes from 2 to 3, against a ceiling of
+  50. Seven one-page rows average 200 to 300 characters and stay outside the
+  class: a letterhead longer than the floor is still read as the letter.
+
+  **What does not move.** No stored row changes at the merge; rows change as
+  the sweep reaches them. One timing does move: a fresh thin row now holds its
+  case's forward cells as an unread scan, for at most `pull.SCAN_HOLD_DAYS`
+  (2) days from when it was stored, and a sparse filing that reads `no-gain`
+  holds them for that whole bound. One case is exposed today, 26-396, whose
+  row was stored 2026-11-09. No selector moves, so no cell gains or loses a file.
+  No base rate re-prices, no membership rule moves and no scored figure moves.
+  No skill movement is predicted, and a movement in **either** direction
+  across this boundary may not be read as a model effect. Cells already
+  committed over a thin row are left as they are.
+
+  **The amendment debt.** It is unchanged. This entry adds no new token.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_ocr_recovery.py tests/test_ocr_sweep.py` is
+    green;
+  - the first run-seed window after the promotion lists
+    `scotus/9026000396 party-letter` in its `ocr-sweep-projection` slice, and
+    the `ocr-sweep` writer's summary names it written or `no-gain`;
+  - after that window, where the corpus is pulled, `uv run fedcourts
+    ocr-recover-petitions --probe=0` prints the class with its "hold thin text
+    rather than none" line, and the stored `party-letter` row of
+    `scotus/9026000396` is `ocr_derived` with more than 193 characters, or the
+    writer's summary said `no-gain` for it;
+  - on `main` once the promotion has merged, `uv run python -c "from
+    fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
+    print('ocr-thin-text-rows' in {b.name for b in H})"` prints `True`.

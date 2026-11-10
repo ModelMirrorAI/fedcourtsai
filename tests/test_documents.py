@@ -38,6 +38,8 @@ from fedcourtsai.pipeline.documents import (
     LEAD_DOCKET_UNSERVED,
     SCRUB_PASS_SHAPE,
     SCRUB_PASS_VALUE,
+    THIN_PAGE_CHARS,
+    THIN_PAGE_GAIN,
     DocumentFetchLosses,
     LeadFetch,
     _derived_questions_document,
@@ -2012,17 +2014,45 @@ def test_extract_pdf_text_ocrs_only_the_pages_that_extracted_nothing() -> None:
         ocred.append(page)
         return f"OCR of page {page}"
 
+    full = "Digital first page. " * 12
+    assert len(full.strip()) >= THIN_PAGE_CHARS
     extracted = extract_pdf_text(
-        _pdf_pages(["Digital first page", "", "Digital third page"]),
+        _pdf_pages([full, "", "Digital third page"]),
         char_cap=1000,
         ocr_page=ocr,
     )
-    assert ocred == [1]  # only the page pypdf read nothing from
+    # The full page is never read off its image. The blank one is, and takes
+    # the reading. The thin one is, and keeps its own layer: the image read no
+    # more than the layer holds.
+    assert ocred == [1, 2]
     assert "Digital first page" in extracted.text
     assert "OCR of page 1" in extracted.text
-    assert "OCR of page 0" not in extracted.text
+    assert "Digital third page" in extracted.text
+    assert "OCR of page 2" not in extracted.text
     assert extracted.pages == 3
     assert extracted.ocr_derived is True
+
+
+def test_extract_pdf_text_reads_a_thin_page_off_its_image_when_the_image_holds_more() -> None:
+    """A letterhead over a scanned body: the layer is real text and not the page.
+
+    The image's reading replaces a thin layer only at `THIN_PAGE_GAIN` times
+    its length, so a divider page OCR reads as the same few words keeps the
+    cleaner copy.
+    """
+    letterhead = "Smith and Jones LLP, One Main Street"
+    body = "Dear Clerk: " + "the petitioner writes to advise the Court. " * 4
+    gained = extract_pdf_text(
+        _pdf_pages([letterhead]), char_cap=10_000, ocr_page=lambda _page: letterhead + "\n" + body
+    )
+    assert gained.text == letterhead + "\n" + body and gained.ocr_derived is True
+
+    short_of_the_gain = letterhead + " Suite 4"
+    assert len(short_of_the_gain) < THIN_PAGE_GAIN * len(letterhead)
+    kept = extract_pdf_text(
+        _pdf_pages([letterhead]), char_cap=10_000, ocr_page=lambda _page: short_of_the_gain
+    )
+    assert kept.text == letterhead and kept.ocr_derived is False
 
 
 def test_extract_pdf_text_ocr_failure_costs_its_own_page_only() -> None:

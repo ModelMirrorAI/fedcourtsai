@@ -3291,6 +3291,8 @@ def _ocr_sweep(  # noqa: PLR0912, PLR0913, PLR0915 - keyword-only; one flag per 
     _echo_sweep_ledger(command, written=False, planned=found, deferred=0, cap=caps.ocr)
     typer.echo(f"  {selection.forward_size} of the class a forward cell reads")
     _echo_by_kind("class", selection.class_by_kind)
+    if selection.thin_size:
+        typer.echo(f"  {selection.thin_size} of the class hold thin text rather than none")
     if backlog_held:
         typer.echo(
             f"::warning::{command} --sweep: backlog held — the class holds {found} rows, "
@@ -3530,6 +3532,7 @@ def _ocr_dispatched_write(
         applied=apply,
         documents_seen=scan.documents_seen,
         candidates=len(scan.candidates),
+        thin_text=class_reading(scan).thin_text,
         candidates_by_kind=class_reading(scan).candidates_by_kind,
         set_keyed=scan.set_keyed,
         bound=max_cases,
@@ -3643,6 +3646,8 @@ def _echo_ocr_recovery(result: OcrRecoveryResult, db_path: Path, *, apply: bool)
     # 10 over a class that is nine oppositions and one petition touches a very
     # different set from one over the reverse, and the total alone hides it.
     _echo_by_kind("class", result.candidates_by_kind)
+    if result.thin_text:
+        typer.echo(f"  {result.thin_text} of the class hold thin text rather than none")
     if result.set_keyed:
         _echo_by_kind("left out (stored URL is a set key, not one link)", result.set_keyed)
     if apply:
@@ -3777,16 +3782,19 @@ def ocr_recover_petitions_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; opt
 ) -> None:
     """Read the scanned filings off their page images and store what comes back.
 
-    A filing submitted on paper reaches the corpus with no text layer, so the
-    extractor stored nothing for it and every cell minted over that case reads it
-    empty — for as long as the docket keeps serving the same URL, since the
+    A filing submitted on paper reaches the corpus with no text layer, or with
+    one that holds only a letterhead or page stamps, so the extractor stored
+    nothing or a few stray lines for it and every cell minted over that case
+    reads it that way — for as long as the docket keeps serving the same URL, since the
     poller and the Term walker re-fetch a kind only when its link changes.
     This is the pass that repairs it, on the terms in *Contract for the recovery
     pass* (`docs/live-sources.md`): the population is every stored row a cell
     reads that was fetched as a PDF — the petition, the application and the
     filings answering it, the appendix, the brief in opposition, the cert-stage
-    reply, the invited brief, the four merits filings — whose text is empty or
-    whitespace-only, whose page count is above zero (a zero-page row is a PDF
+    reply, the invited brief, the four merits filings — whose text is empty,
+    whitespace-only or thin (under 200 characters a page on average, on a row
+    that is not truncated, not under a per-filing header and that OCR has not
+    read), whose page count is above zero (a zero-page row is a PDF
     the extractor could not open, which is not OCR's to repair, and a case with
     no row of a kind at all is a fetch gap), and whose stored URL is one link.
     That last condition excludes one shape: a multi-respondent opposition is
@@ -3800,12 +3808,14 @@ def ocr_recover_petitions_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; opt
     re-fetched by its own stored URL on supremecourt.gov, free and
     politeness-capped, so the pass spends none of the CourtListener budget; and
     its pages go through the extractor with the OCR seam supplied, which reads a
-    page off its rendered image only where that page's own extraction yielded
-    nothing. The same per-document character cap and truncation flag bound the
+    page off its rendered image only where that page's own extraction is blank
+    or thin, and keeps a thin page's text layer unless the image reads at least
+    twice as long. The same per-document character cap and truncation flag bound the
     result — the plain head cut, never the appendix-aware one — and
     every recovered row carries `ocr_derived`: OCR output is derived text, and
     must never read as a clean extraction. Additive — text is written only where
-    the stored row held none — and a recovered **petition** re-derives its
+    the stored row held none, or held thin text shorter than the reading — and a
+    recovered **petition** re-derives its
     `questions-presented` row through the ingest path's own deriver, which
     carries the marker with it; no other kind has a follow-on write.
 

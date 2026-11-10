@@ -1533,8 +1533,18 @@ dependency on either side.
   the brief in opposition, the cert-stage reply, the invited brief, the four
   merits filings, the United States' merits amicus brief, and the
   supplemental briefs and party letters; which is the text-coverage set less its one derived
-  member — whose text is empty or whitespace-only, whose page
-  count is above zero, and whose stored URL is one link. A zero-page row is
+  member — whose text is empty, whitespace-only or **thin**, whose page
+  count is above zero, and whose stored URL is one link. A thin row holds some
+  text and averages under `THIN_PAGE_CHARS` (200) characters a page: the text
+  layer of a scan that carries only what was typed over it, such as a
+  letterhead above a scanned letter body or a stamp on each scanned page. Such
+  a row is not `empty_text`, so without the test a cell reads those few lines
+  as the whole filing. Four rows are never thin: a truncated one, whose text
+  is a cap's worth of a longer filing; one already marked `ocr_derived`, which
+  the pass has read whole; a set-keyed one; and one carrying a per-filing
+  `=== … ===` header, a combined row stored with one of its filings fetched,
+  whose header a recovery would drop. The floor is sized on the
+  stored documents, and the comment on the constant carries the count. A zero-page row is
   either a PDF the extractor could not open or a derived section — `pages`
   carries both — and neither is OCR's to repair; a case holding no row of a
   kind is a fetch gap, or on an application docket no gap at all; a row whose
@@ -1564,28 +1574,40 @@ dependency on either side.
   being the experiment. Every status class is reported rather than raised, or
   the question would be settled on one data point.
 - **What it does.** Walks the PDF's pages as the extractor does and OCRs a page
-  **only** where that page's own text extraction yields nothing — a guard rather
-  than a filter, since the population is documents that yielded nothing at all,
-  but it keeps a mostly-digital filing with a few scanned exhibit pages honest.
+  **only** where that page's own text extraction is blank or thin (under the
+  same 200 characters). A blank page takes whatever its image reads. A thin
+  page keeps its text layer unless the image reads at least twice as long, so a
+  divider or signature page keeps the cleaner copy and a letterhead over a
+  scanned body is replaced by the whole page. A page that extracted in full is
+  never read off its image, which keeps a mostly-digital filing with a few
+  scanned exhibit pages honest.
   It is the extractor that walks them: `extract_pdf_text` takes the OCR call as
   an injected `ocr_page` seam, defaulted to none, so this pass is the only
   caller that supplies one and no fetching lane grows the dependency —
   and the same per-document text cap the fetching lane applies and the same
   truncation flag bound the result, because they are the same code — the plain
   head cut, never the appendix-aware one a fetched petition, application or
-  appendix takes (see *The appendix-aware cut*). Additive by construction: text
-  is written only where extraction stored none, so the pass cannot overwrite an
-  extraction. Nor is a recovery overwritten later — the row keeps its URL, and
+  appendix takes (see *The appendix-aware cut*). Additive by construction: a
+  reading is written only where it is longer than the text the row stores and
+  leaves the row out of the class, so the pass cannot
+  shorten an extraction. A reading that does not is `no-gain`: counted, named,
+  and not written. So is a thin row's reading that OCR contributed nothing
+  to: a longer text layer at the same link is a different filing than the one
+  stored, and the standing sweep's writer takes only OCR-marked rows. A filing that is sparse rather than scanned, a one-line
+  letter or a page of exhibits OCR cannot read, is `no-gain` every time: it
+  stays in the class, takes its turn in the rotation, and when fresh holds its
+  case's forward cells for the hold's bound. Nor is a recovery overwritten later — the row keeps its URL, and
   both the poller and the Term walker re-fetch a kind only when its link
   changes; a genuinely superseding filing at a new URL is re-fetched and, if
   it too is a scan, re-enters the class. A lone opposition recovered here is
   re-fetched and re-extracted the day a co-respondent's brief joins its key,
   which is the same rule reaching the same row: what survives a recovery is
-  what the fetching lane has no reason to re-read. A candidate whose re-fetch fails, and
-  one whose pages OCR to nothing, are counted and named and nothing is written
-  for either: the stored row keeps its empty text, stays in the class, and
-  re-enters the next slice. Neither is the pass going backwards, but neither
-  advances it either, and both sit at the *head* of the class in `case_id`
+  what the fetching lane has no reason to re-read. A candidate whose re-fetch fails,
+  one whose pages OCR to nothing, and a thin one whose reading gains nothing are
+  counted and named and nothing is written
+  for any of them: the stored row keeps the text it had, stays in the class, and
+  re-enters the next slice. None is the pass going backwards, but none
+  advances it either, and all sit at the *head* of the class in `case_id`
   order, so the next dispatch retries them first: "self-advancing" means the
   recovered ones leave, not that a later slice starts further along. The ledger
   reports them apart from the candidates a slice never reached for exactly that

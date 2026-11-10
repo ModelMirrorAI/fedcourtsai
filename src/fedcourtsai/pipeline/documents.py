@@ -1023,6 +1023,30 @@ class ExtractedText:
 # a raising renderer must cost its own page, never the digital pages beside it.
 OcrPage = Callable[[int], str]
 
+# The text-layer floor, in characters on one page, under which a page counts as
+# an image the layer does not carry. A filing set as a scan often still has a
+# little text on each page: a letterhead above a scanned letter body, a page
+# stamp, a filing banner. Such a page is not blank, so "no text at all" misses
+# it. The floor does two jobs with one number. Per page, it is where the
+# extractor asks a supplied OCR seam for a second reading (`_read_pages`). Per
+# document, as an average over its pages, it is where a stored row joins the
+# OCR recovery class (`ocr_recovery.is_thin_text`).
+#
+# Sized on the stored documents of the index blob of 2026-11-10 (sha a5137ed9),
+# live slice, fetched kinds, rows with pages and one link and not cut at the
+# cap (37,707 rows): 1,015 have no text; 232 have some and average under 200
+# characters a page; 137 average 200 to 300; 267 average 300 to 400; and
+# typeset pages run past 1,000. A sample of the Court's own PDFs under 200 was
+# blank or image pages throughout, with at most a few pages of real text each;
+# from 200 to 300 it was mixed; and from 300 up it was mostly short petitions
+# with a little text on every page, a real layer OCR adds nothing to. The floor
+# sits at the low end of that, where a row in the class is a scan.
+THIN_PAGE_CHARS = 200
+
+# How many times longer than a thin page's own text layer an OCR reading must
+# be before it replaces that layer.
+THIN_PAGE_GAIN = 2
+
 
 def _entry_link(
     entry: Mapping[str, Any], *, prefer: tuple[str, ...], fallback: bool = True
@@ -2165,7 +2189,8 @@ def _read_pages(
             if not page_tolerant:
                 raise
             text = ""
-        if ocr_page is not None and not text.strip():
+        layer_chars = len(text.strip())
+        if ocr_page is not None and layer_chars < THIN_PAGE_CHARS:
             try:
                 recovered = ocr_page(index)
             except Exception:  # broad by design: see below
@@ -2176,7 +2201,11 @@ def _read_pages(
                 # recovery population reads as "a PDF that would not open",
                 # ejecting the row from the class permanently.
                 recovered = ""
-            if recovered.strip():
+            # A blank page takes any reading. A thin one keeps its text layer
+            # unless the image reads at least `THIN_PAGE_GAIN` times as long: a
+            # divider or a signature page reads off its image as the same few
+            # words, and the layer is the cleaner copy of them.
+            if recovered.strip() and len(recovered.strip()) >= THIN_PAGE_GAIN * layer_chars:
                 text = recovered
                 ocr_derived = True
         parts.append(text)
@@ -2198,11 +2227,14 @@ def extract_pdf_text(
     provisioning can say so to the reading agent.
 
     With an ``ocr_page`` supplied — the recovery pass's lane, never a fetching
-    one — a page whose own extraction yields nothing is read off its image
-    instead. A guard rather than a filter: the recovery population is documents
-    that extracted to nothing at all, but running it per page is what keeps a
-    mostly-digital filing with a few scanned exhibit pages honest, since a page
-    that *did* extract is never overwritten by a lossier reading of it. The cap
+    one — a page whose own extraction is blank or thin (under
+    :data:`THIN_PAGE_CHARS`) is read off its image as well. A blank page takes
+    whatever the image reads. A thin page keeps its text layer unless the image
+    reads at least :data:`THIN_PAGE_GAIN` times as long, which is the page whose
+    layer holds a letterhead or a page stamp over a scanned body. Running it per
+    page is what keeps a mostly-digital filing with a few scanned exhibit pages
+    honest, since a page that *did* extract in full is never overwritten by a
+    lossier reading of it. The cap
     and the truncation flag bound the result identically either way, so a
     recovered document is bounded like a plain-cut fetched one, and
     ``ocr_derived`` is set only where OCR actually contributed text. A raising

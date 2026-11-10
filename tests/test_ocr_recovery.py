@@ -29,15 +29,19 @@ from fedcourtsai.pipeline.documents import (
     FETCHED_DOCUMENT_KINDS,
     KIND_BRIEF_IN_OPPOSITION,
     KIND_MERITS_REPLY_RESPONDENT,
+    KIND_PARTY_LETTER,
     KIND_PETITION,
     KIND_QUESTIONS_PRESENTED,
     TEXT_COVERAGE_KINDS,
+    THIN_PAGE_CHARS,
+    cut_combined_text,
 )
 from fedcourtsai.pipeline.ocr_recovery import (
     DOCUMENT_BUDGET_SECONDS,
     ESTIMATED_CANDIDATE_OVERHEAD_SECONDS,
     ESTIMATED_SECONDS_PER_PAGE,
     MAX_DOCUMENT_BYTES,
+    NO_GAIN,
     RECOVERABLE_KINDS,
     SET_KEYED_EXCLUSION,
     OcrPageFactory,
@@ -47,11 +51,13 @@ from fedcourtsai.pipeline.ocr_recovery import (
     estimated_candidate_seconds,
     exclusion_reason,
     fetchable_document_url,
+    is_thin_text,
     missing_ocr_binaries,
     ocr_page_for_pdf,
     recover_scanned_documents,
     scanned_documents,
 )
+from fedcourtsai.pipeline.ocr_sweep import OcrWorkItem, OcrWorklist, check_plan, plan_worklist
 from fedcourtsai.supremecourt import SupremeCourtClient
 
 runner = CliRunner()
@@ -66,6 +72,14 @@ _OCR_TEXT = (
     "conduct wholly outside the United States.\n"
     "PARTIES TO THE PROCEEDING\nAcme Corp."
 )
+
+
+# A text layer that is the filing: well past the thin floor on `_document`'s
+# twelve pages, so the row is out of the class as a filing that extracted.
+_EXTRACTED = "The petition argues X. " * 200
+
+# A text layer that is not: a letterhead above a scanned letter body.
+_LETTERHEAD = "Smith and Jones LLP\nOne Main Street, Springfield\nCounsel of Record"
 
 
 def _pdf_pages(texts: list[str]) -> bytes:
@@ -224,8 +238,10 @@ def test_a_set_keyed_url_is_refused_at_the_request_too(tmp_path: Path) -> None:
 def test_every_exclusion_names_its_own_reason() -> None:
     """One predicate, stated as reasons, so the count cannot drift from the test."""
     assert exclusion_reason(_document("scotus/1")) is None
-    assert exclusion_reason(_document("scotus/1", text="argues X")) == "has-text"
+    assert exclusion_reason(_document("scotus/1", text=_EXTRACTED)) == "has-text"
+    assert exclusion_reason(_document("scotus/1", text=_LETTERHEAD)) is None
     assert exclusion_reason(_document("scotus/1", pages=0)) == "no-pages"
+    assert exclusion_reason(_document("scotus/1", text=_LETTERHEAD, pages=0)) == "has-text"
     assert (
         exclusion_reason(_document("scotus/1", kind=KIND_QUESTIONS_PRESENTED))
         == "not-a-fetched-kind"
@@ -256,7 +272,7 @@ def test_the_population_is_empty_fetched_rows_that_have_pages(tmp_path: Path) ->
         tmp_path / "corpus",
         [
             _document("scotus/1"),  # the class: empty, 12 pages
-            _document("scotus/2", text="The petition argues X."),  # extracted
+            _document("scotus/2", text=_EXTRACTED),  # extracted
             _document("scotus/3", pages=0),  # would not open
             _document("scotus/4", kind=KIND_BRIEF_IN_OPPOSITION),  # a scanned opposition
             _document("scotus/5", text="   \n\t "),  # whitespace-only is empty
@@ -467,7 +483,7 @@ def test_the_apply_carries_the_truncation_flag_from_the_cap(tmp_path: Path) -> N
 
 def test_the_apply_is_additive_and_never_overwrites_an_extraction(tmp_path: Path) -> None:
     """A petition that extracted is not in the class, so no OCR reaches it."""
-    extracted = _document("scotus/2", text="The petition argues X.")
+    extracted = _document("scotus/2", text=_EXTRACTED)
     db = _seed(tmp_path / "corpus", [_document("scotus/1"), extracted])
     with (
         _client({_document("scotus/1").url: _pdf_pages([""])}) as client,
@@ -483,7 +499,91 @@ def test_the_apply_is_additive_and_never_overwrites_an_extraction(tmp_path: Path
             ocr_page_factory=_stub_ocr(),
         )
     kept = _documents(db, "scotus/2")[KIND_PETITION]
-    assert kept.text == "The petition argues X." and kept.ocr_derived is False
+    assert kept.text == _EXTRACTED and kept.ocr_derived is False
+
+
+def test_thin_text_is_an_average_under_the_floor_on_a_whole_unread_row() -> None:
+    """Some text, under the floor a page; never a truncated, OCR-read or set-keyed row."""
+    letter = _document("scotus/1", KIND_PARTY_LETTER, text=_LETTERHEAD, pages=1)
+    assert is_thin_text(letter)
+    assert not is_thin_text(letter.model_copy(update={"text": ""}))
+    assert not is_thin_text(letter.model_copy(update={"text": " \n"}))
+    # The floor is exclusive, and it is the average over the row's pages.
+    at_floor = "x" * THIN_PAGE_CHARS
+    assert not is_thin_text(letter.model_copy(update={"text": at_floor}))
+    assert is_thin_text(letter.model_copy(update={"text": at_floor[1:]}))
+    assert is_thin_text(letter.model_copy(update={"text": at_floor, "pages": 2}))
+    # A truncated row's text is a cap's worth of a longer filing.
+    assert not is_thin_text(letter.model_copy(update={"truncated": True}))
+    # A row OCR has read is what its images hold.
+    assert not is_thin_text(letter.model_copy(update={"ocr_derived": True}))
+    # A combined row's text includes the headings the pipeline wrote.
+    set_keyed = letter.url + BIO_URL_JOIN + "https://www.supremecourt.gov/b.pdf"
+    assert not is_thin_text(letter.model_copy(update={"url": set_keyed}))
+    # So does a group of which one filing was fetched: stored at that one link,
+    # under its header, exactly as the fetch path's own cut writes it. A
+    # recovery would store the reading without the header.
+    partial, _ = cut_combined_text(
+        [("=== Letter of petitioner (Oct 09 2026) ===", [""], 1)], char_cap=10_000
+    )
+    assert partial.strip()
+    assert not is_thin_text(letter.model_copy(update={"text": partial}))
+
+
+def test_a_letterhead_only_row_is_recovered_off_its_image(tmp_path: Path) -> None:
+    """The stored text is real and is not the letter: the reading replaces it.
+
+    The row counts in the class and in its thin share, the page is read off its
+    image because its own layer is thin, and the longer reading lands marked
+    `ocr_derived`, which also takes the row out of the class.
+    """
+    letter = _document("scotus/1", KIND_PARTY_LETTER, text=_LETTERHEAD, pages=1)
+    body = _LETTERHEAD + "\nDear Clerk: " + "the petitioner advises the Court. " * 6
+    db = _seed(tmp_path / "corpus", [letter])
+    with (
+        _client({letter.url: _pdf_pages(["Smith and Jones LLP"])}) as client,
+        corpus.connect(db) as conn,
+    ):
+        result = recover_scanned_documents(
+            conn,
+            client=client,
+            apply=True,
+            char_cap=10_000,
+            today=_TODAY,
+            max_cases=5,
+            ocr_page_factory=_stub_ocr(body),
+        )
+        assert scanned_documents(conn).candidates == ()
+    assert result.candidates == 1 and result.thin_text == 1 and result.recovered == 1
+    stored = _documents(db, "scotus/1")[KIND_PARTY_LETTER]
+    assert stored.text == body and stored.ocr_derived is True
+
+
+def test_a_thin_row_keeps_its_text_when_the_reading_gains_nothing(tmp_path: Path) -> None:
+    """A sparse filing, or images OCR reads nothing more from: the stored text stands.
+
+    Named `no-gain`, apart from a scan that read empty, and left in the class.
+    """
+    letter = _document("scotus/1", KIND_PARTY_LETTER, text=_LETTERHEAD, pages=1)
+    db = _seed(tmp_path / "corpus", [letter])
+    with (
+        _client({letter.url: _pdf_pages(["Smith and Jones LLP"])}) as client,
+        corpus.connect(db) as conn,
+    ):
+        result = recover_scanned_documents(
+            conn,
+            client=client,
+            apply=True,
+            char_cap=10_000,
+            today=_TODAY,
+            max_cases=5,
+            ocr_page_factory=_stub_ocr("Smith and Jones"),
+        )
+    assert result.recovered == 0 and result.empty_after_ocr == 0
+    assert result.failures == {"scotus/1 party-letter": NO_GAIN}
+    assert result.unfetched == {NO_GAIN: 1} and result.remaining == 1
+    stored = _documents(db, "scotus/1")[KIND_PARTY_LETTER]
+    assert stored.text == _LETTERHEAD and stored.ocr_derived is False
 
 
 def test_the_apply_only_ocrs_a_page_that_extracted_nothing(tmp_path: Path) -> None:
@@ -510,6 +610,26 @@ def test_the_apply_only_ocrs_a_page_that_extracted_nothing(tmp_path: Path) -> No
         )
     text = _documents(db, "scotus/1")[KIND_PETITION].text
     assert "Digital page text" in text and "OCR read this instead" in text
+
+
+def test_a_thin_rows_longer_text_layer_never_reaches_the_plan() -> None:
+    """The link serves a longer layer than the one stored, and OCR adds nothing.
+
+    That reading is not marked `ocr_derived`, and the sweep's writer refuses a
+    plan whole over such a row, so the parse names it `no-gain` and the plan it
+    writes still passes the writer's check.
+    """
+    letter = _document("scotus/1", KIND_PARTY_LETTER, text="Smith and Jones LLP", pages=1)
+    item = OcrWorkItem(
+        case_id=letter.case_id, kind=letter.kind, url=letter.url, pages=1, forward=True, chars=19
+    )
+    worklist = OcrWorklist(class_size=1, forward_size=1, cap=10, items=[item])
+    with _client({item.url: _pdf_pages(["Smith and Jones LLP One Main Street"])}) as client:
+        plan = plan_worklist(
+            client, worklist, char_cap=150_000, ocr_page_factory=_stub_ocr("Smith and Jones")
+        )
+    assert plan.rows == [] and plan.failures == {"scotus/1 party-letter": NO_GAIN}
+    check_plan(plan, worklist, cap=10, char_cap=150_000)
 
 
 def test_the_slice_bounds_the_run_and_reports_the_backlog(tmp_path: Path) -> None:
@@ -869,7 +989,7 @@ def test_a_converged_population_needs_no_binaries(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("PATH", str(tmp_path / "empty"))
-    db = _seed(tmp_path / "corpus", [_document("scotus/1", text="extracted")])
+    db = _seed(tmp_path / "corpus", [_document("scotus/1", text=_EXTRACTED)])
     with _client({}) as client, corpus.connect(db) as conn:
         result = recover_scanned_documents(
             conn, client=client, apply=True, char_cap=10_000, today=_TODAY, max_cases=5

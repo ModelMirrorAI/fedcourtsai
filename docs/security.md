@@ -1832,7 +1832,7 @@ Access mirrors each workflow's role in the pipeline:
 | `run-pull` (pull + live + enrich jobs), `run-seed`, `run-repair` (corpus and decision-record jobs on an apply; application back-fill and opinion-record writers) | read-write | corpus writers (`corpus-push` + content-store mirror); each of these jobs binds `corpus-write`, the one environment the role's trust names. The live job fetches and parses upstream PDFs under this role from two hosts: supremecourt.gov, and the Office of the Solicitor General's section of www.justice.gov (`enrich-sg-briefs`, no token, the client held to that section, redirects included) |
 | `run-predict`, `run-evaluate` — plan jobs  | read-only     | each derives its own backlog — a scan over every open (resolved) event, so it pulls the index rather than reading it in place |
 | `run-backtest`                            | read-only     | replay: full index `corpus-pull` + redacted snapshots from the content store |
-| `run-repair` — `handoff-projection` job | read-only | the credential split's first job, for the vote, application back-fill, opinion-record, OCR recovery, re-cut and document back-fill passes: a full index `corpus-pull`, then the pass's public projection (docket numbers, stored serials, recorded listing keys; for the OCR recovery and the re-cut the class walk through the content store and a worklist of case ids, kinds, Court URLs and page counts; for the document back-fill the dedupe applied to the runner's copy alone, then the class walk and a worklist of case ids, missing kinds, upstream addresses, Terms and the Court URLs of each case's stored documents) as a one-day artifact; it fetches nothing from the Court |
+| `run-repair` — `handoff-projection` job | read-only | the credential split's first job, for the vote, application back-fill, opinion-record, OCR recovery, re-cut and document back-fill passes: a full index `corpus-pull`, then the pass's public projection (docket numbers, stored serials, recorded listing keys; for the OCR recovery and the re-cut the class walk through the content store and a worklist of case ids, kinds, Court URLs and page counts, the OCR recovery's also carrying each stored row's character count; for the document back-fill the dedupe applied to the runner's copy alone, then the class walk and a worklist of case ids, missing kinds, upstream addresses, Terms and the Court URLs of each case's stored documents) as a one-day artifact; it fetches nothing from the Court |
 | `run-repair` — `documents-dry-run` job | read-only | the re-cut's dry run only: a full index `corpus-pull`, the plan and worklist downloaded by artifact id, and the class walk through the content store that judges each re-cut against the stored text; no lock, no App token, the remote-writes switch off, no push |
 | `run-repair` — `handoff-parse` job | none | every fetch from supremecourt.gov and every parse of what it served: no environment, no `id-token: write`, no secret, and a step asserts the AWS and OIDC variables are absent first; its only output is the dry-run ledger and, on an apply, the plan artifact — for the re-cut, the plan artifact in both modes, its dry-run ledger read by `documents-dry-run`; for the document back-fill, the whole dry-run ledger, with nothing handed on |
 | `run-repair` — votes writer | none | on an apply only: re-validates the plan against the ledger and stamps `outcome.json`; no corpus, no role, no `id-token` — the data App token pushes the commit |
@@ -2257,7 +2257,8 @@ same two files under its own names, `order-votes-projection-<run_id>` and
 sweep always applies.
 run-seed's OCR sweep runs the split too, with its own two files:
 `ocr-worklist-<run_id>`, one window's slice of the recovery class as case
-ids, document kinds, the Court's URLs and page counts, and
+ids, document kinds, the Court's URLs, page counts and a count of the
+characters each stored row holds (a number, never the text), and
 `ocr-plan-<run_id>`, the text the credential-free parse read off those
 filings, which crosses under the OCR sweep's carve-out in
 [data-sources.md](data-sources.md) (*PII stance*) on the same terms as the
@@ -2315,7 +2316,9 @@ hand-off reader): an extra field's name or a dict key is the file's own
 text, so no name, message or value from a refused file is printed. It refuses the plan whole above the window's
 cap, if any row, failure or unreached key is not an item of the worklist,
 or if a row is not marked `ocr_derived`, and writes a row only into a
-stored document still empty at the same URL. Both files are downloaded by
+stored document still in the recovery class at the same URL (empty, or
+holding thin text under 200 characters a page) and only where the reading is
+longer than the text stored there. Both files are downloaded by
 artifact id, read from the producing job's outputs. Within one run, any job
 holding the runtime token can upload an artifact under another job's name —
 so either parse in a run-seed run (the vote sweep's or this one) could
@@ -2399,8 +2402,14 @@ scored — vote scoring reads only a complete merits record — and each is a
 committed, reviewable `outcome.json` change. run-seed's OCR sweep is the
 same shape with a weaker review: a compromised parse could write up to the
 window's cap (`historical.sweep_caps.ocr`, 50) of arbitrary text, each up to
-the document cap (150,000 characters), into the empty scanned rows of that
-window's worklist, marked `ocr_derived`. Those rows go to the content store,
+the document cap (150,000 characters), into the empty or thin scanned rows of
+that window's worklist, marked `ocr_derived`. On a thin row the write replaces
+text rather than filling a blank: what a forged row can destroy is bounded at
+under 200 characters a page of the row's stored text, the thin layer itself,
+and the only test it must pass is being longer than that text. No standing
+lane restores it, since the fetch lanes do not re-read an unchanged link; the
+writer's summary marks each such write `replaced=<characters>`, which is the
+trace. Those rows go to the content store,
 not git, so no diff review sees them, and forward cells, the case-summary
 lane and the questions-presented re-derivation read them. Its reach as a
 prompt-injection vector is bounded by the cells' data-not-instructions

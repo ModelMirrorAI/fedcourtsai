@@ -2200,15 +2200,16 @@ jobs:
           fi
 
       # Read the scanned filings off their page images. A filing submitted on
-      # paper reaches the corpus with no text layer, so the extractor stored
-      # nothing for it and every cell minted over that case reads it empty —
-      # for as long as the docket keeps serving the same URL, since the poller
+      # paper reaches the corpus with no text layer, or with one holding only
+      # a letterhead or page stamps, so the extractor stored nothing or a few
+      # stray lines for it and every cell minted over that case reads it that
+      # way — for as long as the docket keeps serving the same URL, since the poller
       # and the Term walker re-fetch a kind only when its link changes. Each
       # worklist item is re-fetched by its stored URL on supremecourt.gov —
       # free and politeness-capped, so the pass spends none of the
       # CourtListener budget — and re-extracted with the OCR seam supplied,
       # which reads a page off its image only where that page's own extraction
-      # yielded nothing (the class and its contract: `fedcourts
+      # is blank or thin (the class and its contract: `fedcourts
       # ocr-recover-petitions --help`, and *Contract for the recovery pass* in
       # docs/live-sources.md).
       #
@@ -3394,8 +3395,8 @@ jobs:
   # plan's, checked whole first against the projection's own worklist
   # (downloaded by artifact id, so the parse cannot stand another in for it),
   # and each row again against the stored document it would replace — for
-  # the OCR recovery, still a scan whose text is empty at the URL the
-  # projection read; for the re-cut, still in the class at that URL and page
+  # the OCR recovery, still a scan whose text is empty or thin at the URL
+  # the projection read, and shorter than the reading; for the re-cut, still in the class at that URL and page
   # count, then judged against the stored text as the pass in one job judged
   # it; for the document back-fill, still in the class. Each writes what its
   # pass in one job wrote: the OCR recovery the text, the extractor's

@@ -385,6 +385,35 @@ def test_a_fresh_unread_scan_holds_the_case_until_the_sweep_reads_it(tmp_path: P
     assert _derive(db, data) == ("scotus/1",)
 
 
+def test_a_fresh_letterhead_only_filing_holds_the_case_as_an_unread_scan(tmp_path: Path) -> None:
+    """A text layer holding a letterhead over a scanned body is not the filing.
+
+    The row is not empty, and a cell would read its few lines as the whole
+    paper, so the hold covers it as it covers a scan with no text at all.
+    """
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    _open_case(db, "scotus", 1)
+    with corpus.connect(db) as conn:
+        corpus.upsert_documents(
+            conn,
+            [
+                corpus.CaseDocument(
+                    case_id="scotus/1",
+                    kind="party-letter",
+                    url=_SCAN_URL,
+                    fetched_at=TODAY,
+                    pages=1,
+                    text="Smith and Jones LLP\nOne Main Street, Springfield",
+                )
+            ],
+        )
+
+    held = _backlog(db, data)
+    assert held.entries == ()
+    assert held.held_unread_scan == 1
+
+
 def test_the_unread_scan_hold_lapses_after_its_bound(tmp_path: Path) -> None:
     """A scan the sweep cannot read stays in its class, so the hold is bounded by
     when the scan was stored: past :data:`pull.SCAN_HOLD_DAYS` the case mints with

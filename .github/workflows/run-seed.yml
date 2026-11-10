@@ -1507,7 +1507,7 @@ jobs:
   #
   #   ocr-sweep-projection  read-only role; walks the recovery class and writes
   #                         the window's slice (case id, kind, Court URL, page
-  #                         count), fetching nothing
+  #                         count, stored character count), fetching nothing
   #   ocr-sweep-parse       no environment, no `id-token`, no secret; installs
   #                         the two OCR binaries, fetches and reads each item
   #                         and writes the plan (the text it read)

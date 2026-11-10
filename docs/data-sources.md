@@ -1052,14 +1052,16 @@ material**:
     a home address, telephone or prisoner register number in that text.
     Nothing read from the corpus, the content store or any stored snapshot:
     the job that writes the plan holds no corpus credential, and the worklist
-    it reads carries case ids, kinds, Court URLs and page counts only.
+    it reads carries case ids, kinds, Court URLs, page counts and a count of the
+    characters each stored row holds, a number and never the text.
   - *Where:* one workflow artifact, `ocr-plan-<run_id>`, kept one day and
     consumed by run-seed's OCR sweep writer in the same run. It is never
     committed to git and never printed to a log or step summary; the summary
     carries each row's identifiers, page count, character count and flags.
     The writer refuses a plan whole above the window's cap, off its shape, or
     naming anything not on the window's worklist, and writes a row only into
-    a stored document still empty at the same URL.
+    a stored document still empty or thin (under 200 characters a page) at the
+    same URL, and only where the reading is longer than the text stored there.
   - *The dispatched pass* (proposed; promoting the split of run-repair's
     `ocr-recovery` pass to `main` decides it). The same text, of the same shape, read
     the same way, crosses run-repair's credential split as
@@ -1107,7 +1109,8 @@ material**:
     telephone or prisoner register number in that text. Nothing read from the
     corpus, the content store or any stored snapshot: the job that writes the
     plan holds no corpus credential, and the worklist it reads carries case
-    ids, kinds, Court URLs and stored page counts only.
+    ids, kinds, Court URLs, stored page counts and stored character counts
+    only.
   - *Where:* one workflow artifact, `repair-plan-<run_id>`, kept one day and
     consumed in the same run — on an apply by the `documents` writer, on a dry
     run by the read-only `documents-dry-run` reader, because the rest of each

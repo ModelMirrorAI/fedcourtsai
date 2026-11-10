@@ -1189,6 +1189,14 @@
       "predictors": null,
       "reach": "all",
       "gradual": true
+    },
+    {
+      "name": "ocr-thin-text-rows",
+      "merge": null,
+      "at": null,
+      "predictors": null,
+      "reach": "all",
+      "gradual": true
     }
   ]
 }

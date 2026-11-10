@@ -1486,7 +1486,8 @@ or network.
   than a backlog. The job is continue-on-error, so the run's `guard` keeps an
   *OCR sweep failing* pipeline-health issue for any window whose projection
   did not succeed. Its worklist carries each candidate's
-  case id, kind, Court URL and page count, and nothing else. `ocr-sweep-parse`
+  case id, kind, Court URL, page count and stored character count (how much
+  text the row holds, never the text), and nothing else. `ocr-sweep-parse`
   holds no credential, installs the two OCR binaries, re-fetches and reads each
   item under a slice deadline, and writes the plan: the text it read. That
   text crosses under the OCR sweep's carve-out in
@@ -2126,9 +2127,10 @@ read whole in the parse.
   holds whole, of each signed decision it holds without a bench row and of
   each document it holds without a text row; for the OCR recovery, the class
   ledger the dry run is read off and the worklist (each item's case id, kind,
-  Court URL and page count — on an apply the first `repair_bound` candidates in
+  Court URL, page count and stored character count — on an apply the first `repair_bound` candidates in
   class order, on a dry run a spread sample to probe); for the re-cut, the
-  class ledger and a worklist of the same four facts — the first
+  class ledger and a worklist of each item's case id, kind, Court URL and page
+  count — the first
   `repair_bound` candidates in class order in either mode, or on an unbounded
   dry run the whole class — with the scope it was cut over; for the document
   back-fill, after applying the dedupe to its own copy, the class ledger and a
@@ -2171,8 +2173,8 @@ read whole in the parse.
   recovery's writer (`documents`) does the same, binding the plan to the
   projection's own worklist, downloaded by artifact id: every planned row,
   failure and unreached item must be one of its items, each exactly once, and
-  each row is written only into a stored document still empty at the item's
-  URL. It walks the class before it writes and re-reads it after, and requires
+  each row is written only into a stored document still empty or thin at the
+  item's URL, and only where the reading is longer than the text stored there. It walks the class before it writes and re-reads it after, and requires
   the re-read to find exactly what its ledger left. It lands the re-cut's plan
   the same way, judging each row against the stored text as the pass in one
   job does (another filing of the same page count, an unchanged text, a petition's

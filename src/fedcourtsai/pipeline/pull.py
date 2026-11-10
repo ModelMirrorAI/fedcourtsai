@@ -1590,7 +1590,7 @@ def _unread_scan_hold(conn: corpus.ReadConnection, case_id: str, *, day: date) -
     Step 9 of :func:`derive_predict_backlog`. A stored filing is an unread
     scan when it is in the OCR recovery class
     (:func:`~fedcourtsai.pipeline.ocr_recovery.is_recoverable_scan`: a fetched
-    kind a cell reads, empty text over a PDF with pages, one link) at a URL the
+    kind a cell reads, empty or thin text over a PDF with pages, one link) at a URL the
     sweep may re-fetch. It is fresh while ``fetched_at`` is within
     :data:`SCAN_HOLD_DAYS` of ``day``: the fetch path stores a link once and
     never re-stamps it, so ``fetched_at`` is when the scan arrived, and the
