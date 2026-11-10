@@ -3249,11 +3249,22 @@ the rendered table) and
   and `response_due`, the newest stated deadline for a response still owed.
   `scheduled` is its `conference` entry alone, kept for readers of the `1.3`
   board, and null where there is none. The row carries no build day, so the
-  board moves only when a case's date does; a site rendering later drops a
+  board moves only when a case's date or the Court's next conference day
+  does; a site rendering later drops a
   date that has since passed rather than show it as upcoming. A schedule moves
   on every relist, reschedule and extension, so it is display-only like the
   fields above and never a ledger record: nothing predicts, evaluates or
-  scores on it. The `schedule_rule`
+  scores on it. Above the rows, `court_next_conference` is the same file's
+  court-wide field: the Court's first conference on or after the day the
+  schedule was built, read from its published case distribution schedule
+  (`data/schedule/term-calendar.json`) and set whether or not any case on the
+  board is distributed for it. `cases_at_court_next_conference` counts the
+  rows whose `scheduled` conference is that day, and is null exactly when the
+  day is. It is a count of the board's rows distributed for that day so far,
+  not the Court's conference list: a predicted case off the board is not
+  counted, and a relisted case joins only once its redistribution is
+  docketed. Both are display-only under the same reader rule, and
+  `metrics/big-cases.md` does not render them. The `schedule_rule`
   provenance string states the rule in the artifact.
 
   **Process scope, and why the default is version-blind.** `process_scope` says
