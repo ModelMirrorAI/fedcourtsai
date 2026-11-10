@@ -30,21 +30,18 @@ runbook, [docs/security.md](docs/security.md).
   and grants only what each job needs.
 - **No static key in the runner's process env where untrusted code runs.** The
   Codex engine action keeps its model API key behind a localhost proxy so the
-  CLI never holds it; the Claude engine action hands its key to the CLI's
-  environment. So the Claude cells, and the engine-actions-smoke leg that
-  invokes them, sign in by workload identity federation once their
-  environment names a federation rule: the step and the CLI are handed no
-  Anthropic key, only a token, exchanged from the job's OIDC token, that
-  expires within minutes. Their jobs still name the key for the rollback, so
-  it reaches their runners until that reference is removed (*Claude cells
-  sign in by workload identity federation* in
-  [docs/security.md](docs/security.md)). The Claude cells this repo drives
-  through the bare CLI — the back-test's replays and the integration suite's
-  engine-smoke cascade — federate on the same switch, from a token file the
-  `claude-federation` composite keeps fresh. The engines this repo drives directly — Gemini
-  everywhere, and Codex and Gemini in the back-test and the integration suite's
-  engine smoke, with Claude there while its environment names no rule — are
-  the exception: their key is a scoped step env on the agent
+  CLI never holds it; the Claude engine action would hand a key to the CLI's
+  environment, so no workflow gives it one: the Claude cells, and
+  the engine-actions-smoke leg that invokes them, sign in by workload identity
+  federation, and the step and the CLI are handed only a token, exchanged from
+  the job's OIDC token, that expires within minutes (*Claude cells sign in by
+  workload identity federation* in [docs/security.md](docs/security.md)). The
+  Claude cells this repo drives through the bare CLI — the back-test's
+  replays and the integration suite's engine-smoke cascade — federate the same
+  way, from a token file the `claude-federation` composite keeps fresh. The
+  engines this repo drives directly — Gemini everywhere, and Codex and Gemini
+  in the back-test and the integration suite's engine smoke — are the
+  exception: their key is a scoped step env on the agent
   step, so the control there is the Gemini
   CLI's own sanitizer, which strips every env var it has not been asked to
   allowlist and **refuses to allowlist** any name matching
@@ -143,18 +140,16 @@ runbook, [docs/security.md](docs/security.md).
   `alignment-side-codes` re-stamping every line against the extract and the
   modes sidecar on a runner no agent held, with each note capped by the
   schema and read in the reviewed PR; this file is uploaded before either
-  command runs, so it travels whether the gate refuses or passes.) Containment of the one credential
-  the scan is given there — the engine's own API key — and the
-  credential-shape patterns are the *transcript* surface's whole gate, which
-  is why it
+  command runs, so it travels whether the gate refuses or passes.) The credential-shape patterns, which cover the labeler's
+  exchanged tokens, are the *transcript* surface's whole gate, and it
   fails closed the same way: a hit, or a scan that could not run at all,
   withholds the artifact, and the run's warning and step summary are the
   record. A third agent-written artifact publishes without this command: the
   unpaid `qp-labeler-smoke` leg's own labels file, which takes the containment
-  half alone, by a literal `grep` off a PATH pinned to root-owned directories,
+  half alone, by a `grep` for the token shapes off a PATH pinned to root-owned directories,
   because building the paid lane's fresh-checkout scanner there would mean
-  running the agent's own workspace Python with the engine key in its
-  environment — the arrangement that scanner exists to avoid
+  running the agent's own workspace Python after the agent held a Write grant
+  over it — the arrangement that scanner exists to avoid
   ([docs/security.md](docs/security.md)). The label-line count on that summary is arithmetic over the file
   rather than anything read out of it, which is why it is stated whether or
   not the file itself travels. A fourth is a merits back-test replay's
@@ -700,10 +695,10 @@ runbook, [docs/security.md](docs/security.md).
   promotion candidates and holds the read-only
   role, its own engine keys for the pre-promotion integration runs, the
   staging read-write role. A `website` environment, restricted to `main`,
-  holds one third-party key, the email list's Buttondown key, for the two
-  `post-public-update` jobs that draft the weekly public and AI-cases updates
+  holds one third-party key, the email list's Buttondown key, for the three
+  `post-public-update` jobs that draft the weekly Court, forecasts and AI-cases updates
   (`docs/security.md`); the promotion gate's admin-read stage refuses while it
-  admits anything but `main`, holds anything but that key and the two drafts'
+  admits anything but `main`, holds anything but that key and the drafts'
   tag ids, or the key's name is also a
   repository or organization secret. Another, `review`, holds no secret and no role and admits
   `main` and `staging`; beyond that its content is a required-reviewer rule,

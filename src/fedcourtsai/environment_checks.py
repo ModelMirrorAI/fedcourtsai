@@ -43,7 +43,7 @@ here reads.
 
 Last, it checks the Claude-only environments `claude-prod` and
 `claude-staging` (:func:`claude_only_problems`), which hold the federation
-rule's identifiers and the engine key for the jobs that call Claude with no
+rule's identifiers, and no secret, for the jobs that call Claude with no
 cloud credential: their branch policies are what keep that spend on `main`,
 and on `staging` and its promotion candidates.
 """
@@ -273,14 +273,16 @@ def environment_problems(
     return problems
 
 
-#: The environment `post-public-update`'s `post` and `post-ai-cases` jobs bind.
+#: The environment `post-public-update`'s three drafting jobs bind.
 WEBSITE_ENVIRONMENT = "website"
 
 #: Its one secret, the Buttondown API key the drafts are created with.
 WEBSITE_SECRETS = frozenset({"BUTTONDOWN_API_KEY"})
 
-#: Its variables, the Buttondown ids of the tags the two drafts are addressed to.
-WEBSITE_VARIABLES = frozenset({"WEEKLY_SCOTUS_TAG_ID", "AI_CASES_TAG_ID"})
+#: Its variables, the Buttondown ids of the tags the drafts are addressed to.
+WEBSITE_VARIABLES = frozenset(
+    {"WEEKLY_SCOTUS_TAG_ID", "SCOTUS_PREDICTIONS_TAG_ID", "AI_CASES_TAG_ID"}
+)
 
 
 def website_problems(
@@ -424,12 +426,15 @@ CLAUDE_ONLY_BRANCHES: dict[str, tuple[frozenset[str], frozenset[str]]] = {
     CLAUDE_STAGING_ENVIRONMENT: (frozenset({"staging"}), frozenset({"staging", "promote/*"})),
 }
 
-#: Their one secret, the engine key held for the rollback. Optional: without
-#: it the jobs still sign in by federation, and the rollback is a revert.
-CLAUDE_ONLY_SECRETS = frozenset({"ANTHROPIC_API_KEY"})
+#: Their secrets: none. The jobs sign in by federation alone, so a key held
+#: there would be a credential no job reads.
+CLAUDE_ONLY_SECRETS: frozenset[str] = frozenset()
 
-#: Their variables, the federation rule's identifiers. None is required:
-#: deleting the rule id is the rollback to the key.
+#: The Anthropic key's name, which no repository or organization secret may
+#: hold either: a secret there reaches a workflow on any branch.
+CLAUDE_SHADOWED_SECRETS = frozenset({"ANTHROPIC_API_KEY"})
+
+#: Their variables, the federation rule's identifiers.
 CLAUDE_ONLY_VARIABLES = frozenset(
     {
         "ANTHROPIC_FEDERATION_RULE_ID",
@@ -437,6 +442,11 @@ CLAUDE_ONLY_VARIABLES = frozenset(
         "ANTHROPIC_SERVICE_ACCOUNT_ID",
         "ANTHROPIC_WORKSPACE_ID",
     }
+)
+
+#: The two the jobs cannot sign in without: the rule and its organization.
+CLAUDE_ONLY_REQUIRED_VARIABLES = frozenset(
+    {"ANTHROPIC_FEDERATION_RULE_ID", "ANTHROPIC_ORGANIZATION_ID"}
 )
 
 
@@ -492,14 +502,15 @@ def claude_only_problems(
 
     ``name`` is :data:`CLAUDE_PROD_ENVIRONMENT` or
     :data:`CLAUDE_STAGING_ENVIRONMENT`. Its deployment-branch policy is what
-    keeps the engine key and the federated sign-in on the refs the jobs run
+    keeps the federated sign-in on the refs the jobs run
     from: GitHub auto-creates a referenced environment with no policy, and a
     write holder's branch whose workflow then binds it would spend Claude. So:
     it exists, its deployment branches are a custom policy admitting its own
     branches (:data:`CLAUDE_ONLY_BRANCHES`) and nothing else, and it holds no
-    secret outside :data:`CLAUDE_ONLY_SECRETS` and no variable outside
-    :data:`CLAUDE_ONLY_VARIABLES`. Nothing is required of the contents: the
-    key and the rule id are both optional by design. Required reviewers are
+    secret outside :data:`CLAUDE_ONLY_SECRETS` (none) and no variable outside
+    :data:`CLAUDE_ONLY_VARIABLES`, and it holds
+    :data:`CLAUDE_ONLY_REQUIRED_VARIABLES`, without which the jobs have no
+    sign-in. Required reviewers are
     not checked: the jobs run unattended, and a reviewer would hold every
     run, the promotion's labeler smoke among them. An unread or truncated
     listing is a problem, never a pass.
@@ -514,7 +525,9 @@ def claude_only_problems(
     )
     problems.extend(_bounded_names_problems(secrets, "secrets", CLAUDE_ONLY_SECRETS, frozenset()))
     problems.extend(
-        _bounded_names_problems(variables, "variables", CLAUDE_ONLY_VARIABLES, frozenset())
+        _bounded_names_problems(
+            variables, "variables", CLAUDE_ONLY_VARIABLES, CLAUDE_ONLY_REQUIRED_VARIABLES
+        )
     )
     return problems
 
@@ -544,6 +557,6 @@ def shadow_secret_problems(
         if shadowed:
             problems.append(
                 f"the {scope} secrets hold {', '.join(shadowed)}, which any branch's "
-                + "workflow can read; keep it in the environment alone"
+                + "workflow can read; delete it there"
             )
     return problems

@@ -873,9 +873,9 @@ Three consequences bind every use of the set:
   job's withhold-and-continue posture, minus its trigger-issue report, since a
   dispatch mode has none; the transcript surface suppresses exactly one rule,
   the generic entropy one, whose conviction of the transcript's own tool ids
-  would otherwise withhold every real file — literal containment of the one
-  reachable credential, the structured credential shapes, and the
-  keyword-assignment rule all stay on), and under the same one-day
+  would otherwise withhold every real file — the structured credential
+  shapes, which cover the labeler's exchanged tokens, and the
+  keyword-assignment rule stay on), and under the same one-day
   retention as the
   extract, for the
   reasons argued above rather than a second, looser rule for the same
@@ -904,8 +904,8 @@ Three consequences bind every use of the set:
   the same scan, on the generic surface where the entropy rule stays on, since
   nothing in a labels line is high-entropy by format.
 
-  That scan holds the engine API key, so what it *imports* is as much a part of
-  the gate as what it reads. `setup-python-env` installs this project editable,
+  That scan decides what an agent-written file may publish, so what it
+  *imports* is as much a part of the gate as what it reads. `setup-python-env` installs this project editable,
   which would put the labeler's own tree — and its gitignored venv — on the
   scanner's import path, where the tree-pristine assertion cannot follow: that
   assertion compares tracked files, and an untracked module or a `.pth`
@@ -1534,8 +1534,8 @@ carry the reference set's texts the rehearsal runs the environment wiring,
 the corpus read, and the floor's refusal — fail-closed, and itself worth
 observing — and stops before the labeler. A rehearsal that does reach the
 labeler (a staging pair seeded past the floor) runs it under the exact
-production posture, and at the same batch price on the staging environment's
-own engine key: a rehearsal is a real spend, and what it buys is the measured
+production posture, and at the same batch price on the staging
+workspace: a rehearsal is a real spend, and what it buys is the measured
 block in the step summary, the transcript and labels artifacts, and the
 label-line count instead of a wasted production batch. The labeler's
 invocation posture itself needs no seeded

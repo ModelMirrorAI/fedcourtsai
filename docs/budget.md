@@ -218,5 +218,4 @@ subscription and Codespaces, with a buffer. It is a rough estimate from current
 bills; the scaling figure allows for the items expected to grow past
 bootstrapping. GitHub Actions is $0 on the public repo. Automated runs always
 bill pay-per-token to the providers' API accounts — through an API key, or, for
-a federated Claude cell, the same Anthropic workspace that environment's key
-belongs to — and the flat development subscription is never used for CI.
+Claude, the federated sign-in to the environment's Anthropic workspace — and the flat development subscription is never used for CI.

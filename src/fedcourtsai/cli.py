@@ -184,6 +184,12 @@ from .config import (
     load_summaries_config,
     load_watchlist_refresh_config,
 )
+from .court_update import (
+    LISTED_TOP,
+    build_court_update,
+    court_update_subject,
+    render_court_update,
+)
 from .courtlistener import (
     CourtListenerClient,
     EntryPageCapExceeded,
@@ -16467,7 +16473,7 @@ def public_update_cmd(
         ),
     ] = 0,
 ) -> None:
-    """Render the weekly public update for the email list from the committed ledger.
+    """Render the weekly forecasts update for the email list from the committed ledger.
 
     Read-only and deterministic: the same tree and week render the same bytes.
     Exits 3, writing nothing, when the week has nothing resolved and no new
@@ -16576,7 +16582,7 @@ def post_public_update_cmd(
         ),
     ] = False,
 ) -> None:
-    """Create the week's public update as a Buttondown draft for one tag's subscribers.
+    """Create the week's forecasts update as a Buttondown draft for one tag's subscribers.
 
     Draft only: a person reads it and presses send in Buttondown. Idempotent per
     week, since an email already carrying the week's subject is returned rather
@@ -16624,6 +16630,145 @@ def post_public_update_cmd(
     verb = "created draft" if draft.created else f"already present ({draft.status})"
     where = f" {draft.url}" if draft.url else ""
     typer.echo(f"post-public-update: {chosen}: {verb} {draft.email_id}{where}")
+
+
+@app.command("court-update")
+def court_update_cmd(
+    *,
+    week: Annotated[
+        str,
+        typer.Option(
+            help="ISO week to render, as YYYY-Www; defaults to the last complete week (UTC)."
+        ),
+    ] = "",
+    out: Annotated[
+        Path | None,
+        typer.Option(help="Write the Markdown here; omit to print it."),
+    ] = None,
+    top: Annotated[
+        int,
+        typer.Option(
+            min=0,
+            help="Cases a cut list keeps: a group's denials and each group of new filings; "
+            "0 lists every case.",
+        ),
+    ] = LISTED_TOP,
+) -> None:
+    """Render the weekly Court update for the email list from the committed ledger.
+
+    What the Court did in an ISO week on the cases the ledger follows, with no
+    forecast in it. Read-only and deterministic: the same tree and week render
+    the same bytes. Exits 3, writing nothing, when the week has no decision,
+    action or filing, so a poster skips the week rather than sending an empty
+    update.
+    """
+    settings = get_settings()
+    chosen = week or last_complete_week(datetime.now(UTC))
+    try:
+        week_bounds(chosen)
+    except ValueError as exc:
+        typer.echo(f"court-update: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    update = build_court_update(settings.data_root, chosen)
+    if update.empty:
+        typer.echo(f"court-update: nothing to send for {chosen}.", err=True)
+        raise typer.Exit(code=3)
+    text = render_court_update(update, top=top or None)
+    if out is None:
+        typer.echo(text, nl=False)
+    else:
+        write_text(out, text)
+        typer.echo(
+            f"court-update: {chosen}: {len(update.decisions)} decided, "
+            f"{len(update.actions)} other action(s), {len(update.filings)} filed -> {out}",
+            err=True,
+        )
+
+
+@app.command("post-court-update")
+def post_court_update_cmd(
+    *,
+    tag: Annotated[
+        str,
+        typer.Option(
+            help="Buttondown tag name whose subscribers the draft is addressed to; "
+            "resolving a name lists the account's tags. Or give --tag-id."
+        ),
+    ] = "",
+    tag_id: Annotated[
+        str,
+        typer.Option(
+            "--tag-id",
+            help="Buttondown tag id the draft is addressed to; needs no read beyond emails.",
+        ),
+    ] = "",
+    week: Annotated[
+        str,
+        typer.Option(
+            help="ISO week to post, as YYYY-Www; defaults to the last complete week (UTC)."
+        ),
+    ] = "",
+    top: Annotated[
+        int,
+        typer.Option(
+            min=0,
+            help="Cases a cut list keeps: a group's denials and each group of new filings; "
+            "0 lists every case.",
+        ),
+    ] = LISTED_TOP,
+    dry_run: Annotated[
+        bool,
+        typer.Option(
+            "--dry-run", help="Render the subject and body and print them; contact nothing."
+        ),
+    ] = False,
+) -> None:
+    """Create the week's Court update as a Buttondown draft for one tag's subscribers.
+
+    Draft only: a person reads it and presses send in Buttondown. Idempotent per
+    week, since an email already carrying the week's subject is returned rather
+    than duplicated. Exits 3 on a week with nothing to send, 2 on a bad week or a
+    missing key, 1 when Buttondown refuses. The key is read from the environment
+    and never printed.
+    """
+    settings = get_settings()
+    chosen = week or last_complete_week(datetime.now(UTC))
+    if bool(tag.strip()) == bool(tag_id.strip()):
+        typer.echo("post-court-update: give exactly one of --tag or --tag-id.", err=True)
+        raise typer.Exit(code=2)
+    try:
+        week_bounds(chosen)
+    except ValueError as exc:
+        typer.echo(f"post-court-update: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    update = build_court_update(settings.data_root, chosen)
+    if update.empty:
+        typer.echo(f"post-court-update: nothing to send for {chosen}.", err=True)
+        raise typer.Exit(code=3)
+    subject = court_update_subject(update)
+    body = render_court_update(update, title=False, top=top or None)
+    if dry_run:
+        typer.echo(f"Subject: {subject}\nTag: {tag.strip() or tag_id.strip()}\n\n{body}", nl=False)
+        return
+    api_key = os.environ.get(API_KEY_ENV, "")
+    if not api_key.strip():
+        typer.echo(f"post-court-update: the {API_KEY_ENV} environment variable is unset.", err=True)
+        raise typer.Exit(code=2)
+    try:
+        with make_client(api_key) as client:
+            draft = post_draft(
+                client,
+                subject=subject,
+                body=body,
+                tag_name=tag.strip() or None,
+                tag_id_value=tag_id.strip() or None,
+            )
+    except ButtondownError as exc:
+        typer.echo(f"post-court-update: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    verb = "created draft" if draft.created else f"already present ({draft.status})"
+    where = f" {draft.url}" if draft.url else ""
+    typer.echo(f"post-court-update: {chosen}: {verb} {draft.email_id}{where}")
 
 
 def _ai_cases_watchlist(config_root: Path) -> AiWatchlist | None:
@@ -21599,7 +21744,8 @@ def summarize_cmd(
     the same run, told why; anything else, a rejected retry, and any call that
     still fails after bounded retries, is reported as skipped. The credential
     comes from the environment (``fedcourtsai.claude_auth``): the federated
-    sign-in when a federation rule is named, the API key otherwise. Exits 1
+    sign-in when a federation rule is named, as every workflow names one, and
+    an API key otherwise, for a local run. Exits 1
     when the plan held cases and none was written, so a dead credential or a
     broken prompt fails the run rather than reading as an empty success.
     """
@@ -28205,7 +28351,7 @@ def assert_website_environment_cmd(
 
     Requires the environment to exist, its deployment branches to be a custom
     policy of exactly `main`, and it to hold exactly the Buttondown API key and
-    the weekly tag id — no other secret or variable — and no repository or
+    the tag ids — no other secret or variable — and no repository or
     organization secret to share the key's name, since a workflow on any
     branch reads one. Names each problem and exits non-zero if there is any; an
     unread listing is a problem.
@@ -28223,7 +28369,7 @@ def assert_website_environment_cmd(
         typer.echo(f"::error::website environment: {problem}", err=True)
     if problems:
         raise typer.Exit(code=1)
-    typer.echo("the website environment admits main alone and holds only its key and tag id")
+    typer.echo("the website environment admits main alone and holds only its key and tag ids")
 
 
 @app.command("assert-corpus-write-environment")
@@ -28295,9 +28441,10 @@ def assert_claude_only_environment_cmd(
 
     Requires the environment to exist, its deployment branches to be a custom
     policy admitting `main` alone (`claude-prod`) or `staging` and at most
-    `promote/*` (`claude-staging`), it to hold no secret but the engine key
-    and no variable but the four federation identifiers, and no repository or
-    organization secret to share the key's name, since a workflow on any
+    `promote/*` (`claude-staging`), it to hold no secret, it to hold the rule
+    and organization identifiers and no variable but the four federation
+    identifiers, and no repository or organization secret to share the
+    Anthropic key's name, since a workflow on any
     branch reads one. Names each problem and exits non-zero if there is any;
     an unread or truncated listing is a problem.
     """
@@ -28310,7 +28457,7 @@ def assert_claude_only_environment_cmd(
     ) + environment_checks.shadow_secret_problems(
         _read_document(repository_secrets_file),
         _read_document(organization_secrets_file),
-        environment_checks.CLAUDE_ONLY_SECRETS,
+        environment_checks.CLAUDE_SHADOWED_SECRETS,
     )
     for problem in problems:
         typer.echo(f"::error::{name} environment: {problem}", err=True)

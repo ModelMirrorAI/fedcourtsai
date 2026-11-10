@@ -1490,7 +1490,8 @@ def test_the_qp_labeler_transcript_is_captured_and_short_lived() -> None:
     assert scan.get("continue-on-error") is True  # withhold, never fail the labels result
     assert "scan-diff-for-secrets" in scan["run"]
     assert scan.get("timeout-minutes") == 5  # bounded inside the job's post-agent budget
-    assert "--known-secret-env ANTHROPIC_API_KEY" in scan["run"]  # the reachable credential
+    # The labeler held no key, only exchanged tokens the shape detectors catch.
+    assert "ANTHROPIC_API_KEY" not in scan["run"] and "ANTHROPIC_API_KEY" not in str(scan["env"])
     # The transcript surface, not the generic one: an execution log's own tool
     # ids are high-entropy by format, so the --extra-file detector suite
     # convicts every real transcript and the artifact only ever publishes
@@ -1580,7 +1581,7 @@ def test_the_qp_labeler_partial_output_survives_the_step_cap() -> None:
     assert "steps.label_lines.outputs.present == 'true'" in scan["if"]
     assert '"$SCANNER" -E -s -P -m fedcourtsai.cli scan-diff-for-secrets' in scan["run"]
     assert scan["working-directory"].endswith("/.transcript-scanner")
-    assert "--known-secret-env ANTHROPIC_API_KEY" in scan["run"]
+    assert "ANTHROPIC_API_KEY" not in scan["run"] and "ANTHROPIC_API_KEY" not in str(scan["env"])
     # The generic surface, entropy heuristic included: a labels line is case
     # ids, docket numbers and vocabulary words, none high-entropy by format.
     assert "--extra-file" in scan["run"] and "--transcript-file" not in scan["run"]
@@ -1597,15 +1598,15 @@ def test_the_qp_labeler_partial_output_survives_the_step_cap() -> None:
         gate = next(s for s in lane if s.get("id") == step_id)["if"]
         assert "steps.label_lines.outputs.present == 'true'" in gate
 
-    # The smoke builds no scanner — running the workspace's Python with the key
-    # in its environment, after an agent held a Write grant over that
-    # workspace, is what the paid lane's fresh checkout exists to avoid — so it
-    # runs the containment half with the image's own grep, off a pinned PATH.
+    # The smoke builds no scanner — running the workspace's Python after an
+    # agent held a Write grant over that workspace is what the paid lane's
+    # fresh checkout exists to avoid — so it runs the containment half with the
+    # image's own grep, off a pinned PATH, for the exchanged tokens' shapes.
     smoke = _load("integration-test.yml")["jobs"]["qp-labeler-smoke"]["steps"]
     guard = next(s for s in smoke if s.get("id") == "labels_guard")
     assert guard["env"]["PATH"].startswith("/usr/local/sbin:")
-    assert 'grep -qF -e "$ANTHROPIC_API_KEY"' in guard["run"]
-    assert '-z "${ANTHROPIC_API_KEY:-}"' in guard["run"], "an unset needle must fail closed"
+    assert "grep -qE -e 'sk-ant-[A-Za-z0-9_-]{20,}|eyJ" in guard["run"]
+    assert "ANTHROPIC_API_KEY" not in str(guard["env"]), "the smoke's labeler holds no key"
     # `grep` exits 2 when it cannot read the file, which a bare `if` reads as
     # "no match" and publishes on — the one class the paid lane withholds for.
     assert "|| status=$?" in guard["run"] and '"$status" -ne 1' in guard["run"], (
@@ -3639,29 +3640,35 @@ def test_a_cells_three_engines_are_handed_the_same_kickoff() -> None:
         )
 
 
-# The claude-code-action inputs that decide how a Claude cell signs in. The
-# federation identifiers are the bound environment's variables; the key is
-# withheld whenever a rule and organization are named (the action federates
-# only with both), because it prefers a key to federation and would otherwise
-# never federate.
+# The claude-code-action inputs that decide how a Claude cell signs in: the
+# bound environment's federation variables, and no key, which the action would
+# prefer to federation.
 CLAUDE_AUTH_INPUTS = {
     "anthropic_federation_rule_id": "${{ vars.ANTHROPIC_FEDERATION_RULE_ID }}",
     "anthropic_organization_id": "${{ vars.ANTHROPIC_ORGANIZATION_ID }}",
     "anthropic_service_account_id": "${{ vars.ANTHROPIC_SERVICE_ACCOUNT_ID }}",
     "anthropic_workspace_id": "${{ vars.ANTHROPIC_WORKSPACE_ID }}",
-    "anthropic_api_key": (
-        "${{ (vars.ANTHROPIC_FEDERATION_RULE_ID == '' || vars.ANTHROPIC_ORGANIZATION_ID == '')"
-        " && secrets.ANTHROPIC_API_KEY || '' }}"
-    ),
 }
 
 
-def test_the_claude_cells_sign_in_by_federation_when_a_rule_is_named() -> None:
+def test_no_workflow_names_the_anthropic_key() -> None:
+    """Every Claude caller federates, so no job reads the key secret: a secret a
+    job names reaches its runner at job start, where an injected cell could
+    recover it."""
+    workflows = Path(__file__).resolve().parent.parent / ".github"
+    for path in sorted(
+        [*workflows.glob("workflows/*.yml"), *workflows.glob("actions/*/action.yml")]
+    ):
+        text = path.read_text()
+        assert "anthropic_api_key" not in text.lower(), path.name
+
+
+def test_the_claude_cells_sign_in_by_federation() -> None:
     """Both cell lanes carry the same sign-in, in a job that can mint its token.
 
     The action fetches the job's GitHub OIDC token for the exchange, so the job
-    must hold `id-token: write`; and no step-level or job-level env may put a
-    key back in front of federation.
+    must hold `id-token: write`; and no input, step-level or job-level env may
+    put a key in front of federation.
     """
     for name, job_name in (("run-predict.yml", "predict"), ("run-evaluate.yml", "evaluate")):
         job = _load(name)["jobs"][job_name]
@@ -3677,14 +3684,12 @@ def test_the_claude_cells_sign_in_by_federation_when_a_rule_is_named() -> None:
         (step,) = steps
         auth = {k: v for k, v in step["with"].items() if k in CLAUDE_AUTH_INPUTS}
         assert auth == CLAUDE_AUTH_INPUTS, f"{name}: the Claude cell's sign-in drifted"
+        assert "anthropic_api_key" not in step["with"], name
         assert "claude_code_oauth_token" not in step["with"], name
         assert "ANTHROPIC_API_KEY" not in (step.get("env") or {}), name
 
 
 RUNNER_FEDERATION_ENV = {
-    "ANTHROPIC_API_KEY": (
-        "${{ steps.claude-federation.outputs.token-file == '' && secrets.ANTHROPIC_API_KEY || '' }}"
-    ),
     "ANTHROPIC_FEDERATION_RULE_ID": (
         "${{ steps.claude-federation.outputs.token-file != '' "
         "&& vars.ANTHROPIC_FEDERATION_RULE_ID || '' }}"
@@ -3709,16 +3714,18 @@ RUNNER_FEDERATION_ENV = {
 }
 
 
-def test_the_runner_driven_claude_cells_sign_in_by_federation_when_a_rule_is_named() -> None:
+def test_the_runner_driven_claude_cells_sign_in_by_federation() -> None:
     """The back-test's replays and the engine-smoke cascade federate like the cells.
 
-    Each starts the `claude-federation` action before its engine step, gated on
-    both identifiers that name a rule, in a job that can mint the OIDC token;
-    hands the engine step the federated sign-in, with the key withheld exactly
-    when the token file exists; and stops the refresh after the engine step
-    whatever its outcome.
+    Each starts the `claude-federation` action before its engine step, handing
+    it the two identifiers it refuses to start without, in a job that can mint
+    the OIDC token; hands the engine step the federated sign-in and no key; and
+    stops the refresh after the engine step whatever its outcome.
     """
-    rule_named = "vars.ANTHROPIC_FEDERATION_RULE_ID != '' && vars.ANTHROPIC_ORGANIZATION_ID != ''"
+    rule_env = {
+        "ANTHROPIC_FEDERATION_RULE_ID": "${{ vars.ANTHROPIC_FEDERATION_RULE_ID }}",
+        "ANTHROPIC_ORGANIZATION_ID": "${{ vars.ANTHROPIC_ORGANIZATION_ID }}",
+    }
     cases = (
         (
             "run-backtest.yml",
@@ -3744,7 +3751,8 @@ def test_the_runner_driven_claude_cells_sign_in_by_federation_when_a_rule_is_nam
         start, stop = (steps[index] for index in uses)
         assert start.get("id") == "claude-federation", name
         assert "with" not in start, f"{name}: the start step runs the action's default mode"
-        assert rule_named in str(start["if"]), name
+        assert start.get("env") == rule_env, f"{name}: the start step needs the rule's ids"
+        assert "vars." not in str(start["if"]), f"{name}: a missing rule must fail, not skip"
         assert stop["with"] == {"mode": "stop"}, name
         assert str(stop["if"]).replace("${{ ", "").startswith("always()"), name
         by_name = {str(step.get("name")): index for index, step in enumerate(steps)}
@@ -3753,14 +3761,8 @@ def test_the_runner_driven_claude_cells_sign_in_by_federation_when_a_rule_is_nam
             assert uses[0] < index < uses[1], f"{name}: {step_name} runs outside the sign-in"
             env = steps[index]["env"]
             auth = {key: value for key, value in env.items() if key in RUNNER_FEDERATION_ENV}
-            expected = dict(RUNNER_FEDERATION_ENV)
-            if name == "integration-test.yml":
-                expected["ANTHROPIC_API_KEY"] = (
-                    "${{ matrix.engine == 'claude-code' && "
-                    "steps.claude-federation.outputs.token-file == '' && "
-                    "secrets.ANTHROPIC_API_KEY || '' }}"
-                )
-            assert auth == expected, f"{name}: {step_name}'s Claude sign-in drifted"
+            assert auth == RUNNER_FEDERATION_ENV, f"{name}: {step_name}'s Claude sign-in drifted"
+            assert "ANTHROPIC_API_KEY" not in env, f"{name}: {step_name} names the key"
 
 
 def test_the_action_path_smoke_invokes_each_engine_the_way_the_cells_do() -> None:
@@ -5538,8 +5540,9 @@ def test_the_merits_forecasts_leave_without_their_record_and_only_after_a_scan()
     assert run.index("! -type f ! -type d") < run.index("scan-diff-for-secrets")
     assert "uv run fedcourts scan-diff-for-secrets" in run
     assert '--run-id "$run_id"' in run
-    for key in ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY"):
+    for key in ("OPENAI_API_KEY", "GEMINI_API_KEY"):
         assert f"--known-secret-env {key}" in run
+    assert "ANTHROPIC_API_KEY" not in run, "the claude lane held a token file, not a key"
     assert run.index("scan-diff-for-secrets") < run.index('echo "present=true"')
     assert steps[collect].get("continue-on-error") is True
     [upload] = [
