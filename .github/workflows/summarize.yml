@@ -11,7 +11,7 @@ run-name: "summarize @ ${{ github.ref_name == 'main' && 'prod' || github.ref_nam
 #
 # Its own workflow, not a mode on run-analytics, for two reasons that are each a
 # different class: it spends model tokens (a spend lane behind the `review`
-# hold, on the bound environment's Anthropic key), and it runs daily on its
+# hold, on the bound environment's Anthropic workspace), and it runs daily on its
 # own schedule. The jobs keep the two credentials it touches apart — no job,
 # and so no step, holds both:
 #
@@ -28,7 +28,7 @@ run-name: "summarize @ ${{ github.ref_name == 'main' && 'prod' || github.ref_nam
 #   stage     read-only corpus role. `provision-snapshot` stages each planned
 #             case's record — the same staged record, and the same
 #             contact-detail scrub, a predict cell reads — under $RUNNER_TEMP.
-#   generate  the environment's Anthropic key and no cloud credential
+#   generate  the federated Claude sign-in and no cloud credential
 #             (asserted). One Messages API call per case with no tools,
 #             plus at most one retry in the same conversation when the
 #             harness rejects the body on a mechanical rule; the harness

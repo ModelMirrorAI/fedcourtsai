@@ -28292,8 +28292,8 @@ def assert_claude_only_environment_cmd(
 
     Requires the environment to exist, its deployment branches to be a custom
     policy admitting `main` alone (`claude-prod`) or `staging` and at most
-    `promote/*` (`claude-staging`), it to hold no secret, the rule and
-    organization identifiers and no variable but the four federation
+    `promote/*` (`claude-staging`), it to hold no secret, it to hold the rule
+    and organization identifiers and no variable but the four federation
     identifiers, and no repository or organization secret to share the
     Anthropic key's name, since a workflow on any
     branch reads one. Names each problem and exits non-zero if there is any;

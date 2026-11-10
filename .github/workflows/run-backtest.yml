@@ -711,10 +711,11 @@ jobs:
       # minted here names the Claude API as its audience, so the read-only
       # AWS role this job also assumes does not accept it. The cell env the
       # runner seam builds keeps the token file's path for the claude lane
-      # alone, as it keeps each engine's key (pipeline/runner.py).
+      # alone, as it keeps each engine's key (pipeline/runner.py). A replay
+      # that leaves the claude lane out starts no sign-in.
       - name: Start the Claude federated sign-in for the replay cells
         id: claude-federation
-        if: env.BT_ENGINE == 'auto' && (env.BT_REPLAY == 'cert' || env.BT_REPLAY == 'merits')
+        if: env.BT_ENGINE == 'auto' && (env.BT_REPLAY == 'cert' || env.BT_REPLAY == 'merits') && !contains(env.BT_SKIP_ENGINES, 'claude')
         uses: ./.github/actions/claude-federation
         env:
           ANTHROPIC_FEDERATION_RULE_ID: ${{ vars.ANTHROPIC_FEDERATION_RULE_ID }}

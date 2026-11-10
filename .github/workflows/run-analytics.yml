@@ -1881,7 +1881,7 @@ jobs:
           rm -rf .claude
 
       # The labeler runs with CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1 (its tool
-      # subprocesses must not inherit the engine API key), and the scrub's
+      # subprocesses must not inherit the CLI's sign-in), and the scrub's
       # isolation backend is bubblewrap, which the runner image does not
       # carry — without it the CLI refuses to start rather than degrade.
       # socat is the CLI's other sandbox dependency: absent, the sandbox
@@ -2152,9 +2152,8 @@ jobs:
           fi
           echo "work tree pristine"
 
-      # The scan below runs Python with the engine API key in its environment,
-      # so every byte it imports has to be a byte the labeler could not have
-      # written. `setup-python-env` installs this project *editable*, which
+      # The scan below decides what agent-written bytes may publish, so every
+      # byte it imports has to be a byte the labeler could not have written. `setup-python-env` installs this project *editable*, which
       # puts the workspace tree and its gitignored `.venv` on the import path
       # — and the labeler holds an unscoped Write grant in that workspace. The
       # assertion above does not close this: it compares *tracked* files, so an
@@ -2323,15 +2322,13 @@ jobs:
       # scan sees — and withhold on a hit rather than fail the job, mirroring
       # the collect job's withhold-and-continue posture (minus its
       # trigger-issue report: a dispatch mode has none, so the warning and the
-      # step summary are the record). The one credential reachable from the
-      # labeler's env is the engine's own API key, so the scan searches for
-      # that value literally, exactly as the collect job's scan holds its
-      # reachable credential: the agent process is gone by this step, which
-      # parses bytes with tested Python and executes none of them. On this
-      # surface the generic entropy rule is off (see the run block below), so
-      # the literal containment plus the structured credential shapes are the
-      # whole gate — which is exactly why the scan failing closed on an unset
-      # variable is load-bearing here.
+      # step summary are the record). The credentials reachable from the
+      # labeler are its exchanged access token and the OIDC token it was
+      # exchanged from, both short-lived and both caught by shape: the agent
+      # process is gone by this step, which parses bytes with tested Python
+      # and executes none of them. On this surface the generic entropy rule is
+      # off (see the run block below), so the structured credential shapes are
+      # the whole gate.
       - name: Scan the transcript before publishing it
         id: transcript_scan
         # Gated on the scanner having been built, not merely on a transcript

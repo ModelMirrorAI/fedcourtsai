@@ -807,7 +807,7 @@ committed prediction whose newest corpus record differs, by content digest,
 from the one its newest summary was written from — so a run that was declined
 or never fired is simply re-derived by the next. Every run holds on `review`
 before it spends, unless a `main` run's plan is within the auto-release caps
-and budget (*Auto-release*, below). The corpus role and the Anthropic API key never share
+and budget (*Auto-release*, below). The corpus role and the Claude sign-in never share
 a job; on `main` the result lands as one PR from the fixed branch
 `summaries/refresh`, which the publish job merges once its required checks pass,
 the `paths` jail among them; a PR left open is updated in place by later runs
@@ -841,7 +841,7 @@ CLIs or engine actions, the collect contract, or the corpus-consuming
 workflows and before
 releases — from main, or via the `staging` deployment environment (collect
 binds none; qp-topic binds one it never reads; the labeler smoke binds one
-and reads exactly its engine key) from the `staging` branch or a promotion
+and reads exactly its federation rule) from the `staging` branch or a promotion
 train candidate (`promote/<date>`), the only branches that environment accepts
 (those runs are the promotion gate's freshness evidence; see *Promotion:
 staging → main* below). The deployment environment resolves from

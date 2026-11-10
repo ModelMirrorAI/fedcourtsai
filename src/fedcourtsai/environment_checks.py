@@ -555,6 +555,6 @@ def shadow_secret_problems(
         if shadowed:
             problems.append(
                 f"the {scope} secrets hold {', '.join(shadowed)}, which any branch's "
-                + "workflow can read; keep it in the environment alone"
+                + "workflow can read; delete it there"
             )
     return problems

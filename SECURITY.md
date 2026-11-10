@@ -30,8 +30,8 @@ runbook, [docs/security.md](docs/security.md).
   and grants only what each job needs.
 - **No static key in the runner's process env where untrusted code runs.** The
   Codex engine action keeps its model API key behind a localhost proxy so the
-  CLI never holds it; the Claude engine action hands its key to the CLI's
-  environment. So no workflow names an Anthropic key: the Claude cells, and
+  CLI never holds it; the Claude engine action would hand a key to the CLI's
+  environment, so no workflow gives it one: the Claude cells, and
   the engine-actions-smoke leg that invokes them, sign in by workload identity
   federation, and the step and the CLI are handed only a token, exchanged from
   the job's OIDC token, that expires within minutes (*Claude cells sign in by
@@ -140,15 +140,13 @@ runbook, [docs/security.md](docs/security.md).
   `alignment-side-codes` re-stamping every line against the extract and the
   modes sidecar on a runner no agent held, with each note capped by the
   schema and read in the reviewed PR; this file is uploaded before either
-  command runs, so it travels whether the gate refuses or passes.) Containment of the one credential
-  the scan is given there — the engine's own API key — and the
-  credential-shape patterns are the *transcript* surface's whole gate, which
-  is why it
+  command runs, so it travels whether the gate refuses or passes.) The credential-shape patterns, which cover the labeler's
+  exchanged tokens, are the *transcript* surface's whole gate, and it
   fails closed the same way: a hit, or a scan that could not run at all,
   withholds the artifact, and the run's warning and step summary are the
   record. A third agent-written artifact publishes without this command: the
   unpaid `qp-labeler-smoke` leg's own labels file, which takes the containment
-  half alone, by a literal `grep` off a PATH pinned to root-owned directories,
+  half alone, by a `grep` for the token shapes off a PATH pinned to root-owned directories,
   because building the paid lane's fresh-checkout scanner there would mean
   running the agent's own workspace Python after the agent held a Write grant
   over it — the arrangement that scanner exists to avoid

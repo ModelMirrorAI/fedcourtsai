@@ -873,9 +873,9 @@ Three consequences bind every use of the set:
   job's withhold-and-continue posture, minus its trigger-issue report, since a
   dispatch mode has none; the transcript surface suppresses exactly one rule,
   the generic entropy one, whose conviction of the transcript's own tool ids
-  would otherwise withhold every real file — literal containment of the one
-  reachable credential, the structured credential shapes, and the
-  keyword-assignment rule all stay on), and under the same one-day
+  would otherwise withhold every real file — the structured credential
+  shapes, which cover the labeler's exchanged tokens, and the
+  keyword-assignment rule stay on), and under the same one-day
   retention as the
   extract, for the
   reasons argued above rather than a second, looser rule for the same

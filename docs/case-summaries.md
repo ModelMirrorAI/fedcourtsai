@@ -330,7 +330,7 @@ its Claude-only environment's rule. It does not compete with the cells for throu
 provider rate limits are per model and the lane's model is outside the
 prediction panel, and its plan stands down while a predict or evaluate round
 is running (checked at plan time, so a hold released later can overlap a
-round, harmlessly). It does share the key's provider spend limit with the
+round, harmlessly). It does share the workspace's spend limit with the
 cells, so what bounds a runaway plan is the `review` hold in front of every
 run that does not auto-release, the auto-release's per-round cap and trailing
 budget, and the per-document cap; [budget.md](budget.md) carries the expected

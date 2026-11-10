@@ -2088,8 +2088,8 @@ jobs:
           allowed_bots: "fedcourtsai-data[bot],fedcourtsai-dispatch[bot]"
           # The cells' sign-in, input for input: federation, with no key — so
           # this leg checks an environment's rule and exchange before the
-          # cells depend on it. A
-          # one-word probe never reaches the token refresh a long cell does.
+          # cells depend on it. A one-word probe never reaches the token
+          # refresh a long cell does.
           anthropic_federation_rule_id: ${{ vars.ANTHROPIC_FEDERATION_RULE_ID }}
           anthropic_organization_id: ${{ vars.ANTHROPIC_ORGANIZATION_ID }}
           anthropic_service_account_id: ${{ vars.ANTHROPIC_SERVICE_ACCOUNT_ID }}
@@ -2998,8 +2998,8 @@ jobs:
     # see the deploy-environment input for what resolves, which this job
     # binds the Claude-only counterpart of (`claude-<env>`), as the paid
     # labeler does. What that environment supplies here is the labeler's
-    # sign-in and nothing else: its federation rule, or its engine key —
-    # staging's own on a staging-bound rehearsal.
+    # sign-in and nothing else: its federation rule — staging's own on a
+    # staging-bound rehearsal.
     environment: ${{ format('claude-{0}', inputs.deploy-environment != 'auto' && inputs.deploy-environment || (github.ref_name == 'main' && 'prod' || (startsWith(github.ref_name, 'promote/') && 'staging' || github.ref_name))) }}
     permissions:
       contents: read
@@ -3256,9 +3256,9 @@ jobs:
       # diagnosable from one staging dispatch — on any surviving outcome, a
       # clean run's zero line included. Digested into the job log rather
       # than the step summary, and the replayed strings are agent-adjacent
-      # bytes, so three controls apply: the extract is synthetic (no stored
-      # petition text exists on this runner), GitHub masks the environment's
-      # engine key in the log, and every `::` is split before printing —
+      # bytes, so two controls apply: the extract is synthetic (no stored
+      # petition text exists on this runner), and every `::` is split before
+      # printing —
       # the runner trims leading whitespace before matching workflow
       # commands, so the indent below is readability, not the control.
       # Bounded both ways: a line cap on the output and a step cap on the

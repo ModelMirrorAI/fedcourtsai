@@ -1282,8 +1282,8 @@ jobs:
           # workspace: automated pipeline inference is API-metered by design
           # (see docs/budget.md), and per Anthropic policy the Max subscription
           # OAuth token is for interactive Claude Code / claude.ai, not CI. The
-          # cell signs in by workload identity federation when the bound
-          # environment names a federation rule: the action exchanges the job's
+          # cell signs in by workload identity federation under the bound
+          # environment's federation rule: the action exchanges the job's
           # GitHub OIDC token for a short-lived Anthropic token, so no static key
           # reaches the step. The four identifiers are the environment's
           # variables, not secrets. No key reaches the step: the rule is the

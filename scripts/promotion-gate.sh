@@ -679,8 +679,8 @@ contexts() {
   # `staging` and the `promote/*` candidates. GitHub auto-creates a referenced
   # environment with no policy, and the Anthropic key's name must live nowhere
   # a workflow on another branch could read it. Required: each exists, admits
-  # its own branches alone, and holds no secret, the rule and organization
-  # identifiers, and no variable but the four federation identifiers. The decision is tested Python
+  # its own branches alone, holds no secret, and holds the rule and
+  # organization identifiers and no variable but the four federation ones. The decision is tested Python
   # (tests/test_environment_checks.py). The repository and organization
   # listings are the website check's reads above, taken once for both.
   local claude_env claude_dir claude_base

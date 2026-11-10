@@ -3660,8 +3660,7 @@ def test_no_workflow_names_the_anthropic_key() -> None:
         [*workflows.glob("workflows/*.yml"), *workflows.glob("actions/*/action.yml")]
     ):
         text = path.read_text()
-        assert "secrets.ANTHROPIC_API_KEY" not in text, path.name
-        assert "anthropic_api_key:" not in text, path.name
+        assert "anthropic_api_key" not in text.lower(), path.name
 
 
 def test_the_claude_cells_sign_in_by_federation() -> None:
