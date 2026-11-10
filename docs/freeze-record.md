@@ -18246,3 +18246,132 @@ freeze commit is recorded here.
     fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
     print('supplemental-response-captions' in {b.name for b in H})"` prints
     `True`.
+
+- **A direct appeal's answer papers reach the opposition and reply rows;
+  recorded 2026-11-10.** A **provisioning-cutoff** change with a harness
+  boundary, recorded ahead of the promotion that carries it.
+
+  **Why.** On a mandatory-jurisdiction appeal there is no brief in opposition
+  and no cert reply. The appellee answers the jurisdictional statement with a
+  motion to dismiss, to affirm, or to dismiss or affirm (Rule 18.6), and the
+  appellant answers the motion (Rule 18.8). No selector arm read either
+  paper: the opposition arm needs a respondent's brief, response or
+  memorandum and refuses anything naming a motion, and the reply arm reads a
+  petitioner. A cert-stage cell on a direct appeal was therefore given the
+  jurisdictional statement and its appendix and nothing from the other side.
+  All three predictors flagged the gap on 26-117 and 26-118 in predict run
+  `20261109T171058Z`.
+
+  **What moved.** On a docket that carries a direct appeal's own papers
+  (`cert_signals.is_direct_appeal_docket`, the mark the direct-appeal exit
+  table is gated on), `pipeline.documents` reads two more entries, both
+  before the Court notes jurisdiction or postpones it to the merits and
+  before the first disposition entry,
+  each from its `Main Document` link alone:
+  - an **appellee's motion to dismiss or affirm**
+    (`_is_appeal_answer_entry`) joins the combined `brief-in-opposition` row
+    under its own header. The entry opens on the motion, an appellee is its
+    filer, and a ruling on the motion, a motion the Clerk did not accept and
+    a motion to dismiss a side question are refused;
+  - the **appellant's answer to it** (`_is_appeal_reply_entry`) is stored as
+    `cert-reply`: the first entry after an appellee's motion that opens on
+    "opposition", "response", "reply", or a brief or memorandum "in
+    opposition" or "opposing", is filed by an appellant, and names either no
+    motion, the motion to dismiss or affirm, or a motion without saying which
+    ("Opposition to motion of appellants … filed.").
+
+  The appellant's answer is read ahead of the opposition arm, so an
+  appellant's "Brief in opposition to motion to affirm" is the reply and not
+  part of the appellees' row. On a marked docket the first disposition entry
+  is also read with the direct appeal's exit table, so a summary affirmance
+  or a dismissal for want of jurisdiction closes the pending-appeal arms (the
+  reply, the supplemental briefs and the party letters) as a denial closes a
+  petition's.
+
+  Neither arm opens on a docket without the mark, and over the population
+  below no marked petition gains a link, so no petition's stored selection
+  moves. Both sit behind the arms that already read an opposition and a
+  petitioner's reply, so no entry those arms take changes kind. The
+  `kind_description` of both kinds, which a cell reads in `documents.json`,
+  says what the file holds on a direct appeal.
+
+  No prompt byte and no registry field other than the boundary row moves, so
+  no digest moves. `uv run fedcourts process-digest --all` prints `proc-v20`
+  and the six digests `69076c7e…` (claude-baseline), `56f5da33…`
+  (codex-baseline), `154ba5e6…` (gemini-baseline), `b9a5d840…`
+  (claude-judge), `ce1c037e…` (codex-judge) and `b29afb1d…` (gemini-judge),
+  with and without the change. The predict prompt names
+  `brief-in-opposition.txt` and `cert-reply.txt` by the petition's
+  vocabulary; on a direct appeal the files' own `kind_description` and the
+  entry-text header carry what they are.
+
+  **A harness boundary under the 2026-10-11 pooled rule.** The change adds to
+  what a predict cell reads under unchanged digests. It is composition, not a
+  cut. The pooled default and the paired figure keep both sides and list each
+  engine's `n` before and after. It cuts only a figure that reads its own
+  effect.
+  - **The registry row** is `direct-appeal-answer-papers`. It applies to
+    every predictor, and its reach is `all`, because no narrower registered
+    reach names direct appeals. It is **gradual**. A stored row changes only
+    when its docket's documents are fetched again: a live poll's
+    provisioning, or the freshness pass over predict-relevant cases, which
+    fetches any case whose stored set differs from the selected one. A
+    decided docket is not re-fetched unless a back-fill pass reaches it. It
+    is registered **pending** in this change's own PR (`fedcourts
+    register-boundary`), under the 2026-10-14 merge-stamping declaration,
+    and its `merge` and `at` stay null until the promotion merge that
+    carries it to `main` stamps them (`promotion-record`).
+  - **The side test** is the registered one, against the carrying merge.
+    Because the boundary is gradual, an after-side cell provisioned before
+    its docket was re-fetched still lacks the papers, so the after-side `n`
+    is an upper bound on exposure.
+
+  **The population.** Measured read-only over blob
+  `a5137ed926a927a77666c9617f1c650b50ca4bec095a1a5141b7da3e43fed7ee` (newest
+  pull 2026-11-10, newest stored snapshot row 2026-07-13), comparing the
+  previous and the changed selection at the latest stored snapshot of each
+  SCOTUS docket numbered in OT2016 through OT2026, applications aside (53,118
+  dockets, 43,036 with a snapshot). Thirty-nine carry the direct-appeal mark.
+  Seventeen gain links: seventeen gain a `brief-in-opposition` link (nineteen
+  links, two dockets with two appellees' motions each) and sixteen of them a
+  `cert-reply` link. Three are undecided: 26-117 and 26-118 (both distributed
+  for the conference of 2026-11-13, with committed cells) and 26-205
+  (distributed for the same conference, no committed cell). Fourteen are
+  decided, thirteen with committed cells. No docket loses a link and no other
+  kind gains one. The other twenty-two marked dockets gain nothing:
+  on seventeen the motion's entry posts no `Main Document` link (Terms
+  2017 through 2020, before the docket linked these filings), and five
+  carry no motion to dismiss or affirm, two of them petitions whose entries
+  only mention a jurisdictional statement.
+
+  **Residuals, accepted.** The mark is read off entry text, so a petition
+  whose docket mentions a jurisdictional statement is open to both arms; an
+  appellee-worded motion to dismiss on such a docket would be read, and none
+  is stored. A motion the Clerk enters with no appellee named as its filer is
+  not read. A motion for leave to file a supplemental brief, with the brief
+  lodged beside it, stays out of the `supplemental-brief` row as before:
+  thirteen such entries on nine dockets over the same population, one of them
+  undecided (26-292).
+
+  **What does not move.** No base rate re-prices, no membership rule moves
+  and no scored figure moves. No skill movement is predicted, and a movement
+  in **either** direction across this boundary may not be read as a model
+  effect.
+
+  **The amendment debt.** It is unchanged. This entry adds no new token.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_direct_appeal_documents.py` is green;
+  - after the first live cycles following the promotion, where the corpus is
+    pulled, `uv run fedcourts provision-snapshot --court scotus --docket
+    9026000117 --event evt-petition-disposition` stages a
+    `brief-in-opposition.txt` holding the appellees' motion to dismiss or
+    affirm and a `cert-reply.txt` holding the appellants' opposition, and the
+    same command with `--docket 9026000118` stages both for 26-118;
+  - on `main` once the promotion has merged, `uv run python -c "from
+    fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
+    print('direct-appeal-answer-papers' in {b.name for b in H})"` prints
+    `True`.
