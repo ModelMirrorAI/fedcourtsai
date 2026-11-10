@@ -1240,8 +1240,9 @@ it also runs as a standing sweep on the walker's daily window, sliced at its
 per-window cap.
 
 `ocr-recovery` reads the scanned filings off their page images. A filing
-submitted on paper reaches the corpus with no text layer, so nothing was
-extracted for it and every cell minted over that case reads it empty — for as
+submitted on paper reaches the corpus with no text layer, or with one holding
+only a letterhead or page stamps, so nothing or next to nothing was
+extracted for it and every cell minted over that case reads it that way — for as
 long as the docket serves the same URL, since the poller and the Term walker
 re-fetch a kind only when its link changes. Its population is every stored kind
 a cell reads that was fetched as a PDF, not the petition alone: a scanned brief
