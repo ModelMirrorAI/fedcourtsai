@@ -54,7 +54,7 @@ reader keeps the cert table alone (``docs/freeze-record.md``, the 2026-10-19 and
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from datetime import date, datetime, timedelta
 from types import MappingProxyType
 from typing import Any, Literal
@@ -545,6 +545,17 @@ def _signal_tables(
     return _ENTRY_SIGNALS
 
 
+def is_direct_appeal_docket(texts: Iterable[str]) -> bool:
+    """Whether a docket's entries mark it as a mandatory-jurisdiction direct appeal.
+
+    Some entry carries a paper only an appeal carries
+    (:data:`_DIRECT_APPEAL_MARK_RE`): a jurisdictional statement, a motion to
+    affirm, a motion to dismiss or affirm. Read over the whole docket, wherever
+    the entry sits.
+    """
+    return any(_DIRECT_APPEAL_MARK_RE.search(text) for text in texts)
+
+
 def direct_appeal_exit_gates(texts: Sequence[str]) -> list[bool]:
     """Per entry, in docket order, whether the direct-appeal exit table may read it.
 
@@ -557,7 +568,7 @@ def direct_appeal_exit_gates(texts: Sequence[str]) -> list[bool]:
     the whole docket, which is safe because it is a paper only an appeal
     carries, wherever it sits.
     """
-    if not any(_DIRECT_APPEAL_MARK_RE.search(text) for text in texts):
+    if not is_direct_appeal_docket(texts):
         return [False] * len(texts)
     gates: list[bool] = []
     plenary = False

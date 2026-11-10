@@ -497,7 +497,18 @@ the docket form, so one function serves both lanes:
   Federal Respondents in opposition filed.", "Memorandum for the United States
   filed."). The response and memorandum forms are kept off the collateral
   papers that share their opening — about a motion, an application, a
-  rehearing petition, a letter, an order or a suggestion of mootness.
+  rehearing petition, a letter, an order or a suggestion of mootness. On a
+  **direct appeal** there is no brief in opposition: the appellee answers the
+  jurisdictional statement with a motion (Rule 18.6), and every appellee's
+  **motion to dismiss or affirm** joins this row from its `Main Document` link
+  ("Motion to dismiss or affirm filed by appellees … .", "Motion to affirm
+  filed by appellees … .", "Motion to dismiss filed by State Appellees."). It
+  is read only on a docket that carries the appeal's own papers (a
+  jurisdictional statement, a motion to affirm), so a motion to dismiss on a
+  petition's docket is never taken, only where an appellee is the filer, and
+  only before the Court notes jurisdiction and before any disposition entry.
+  A ruling on the motion and a motion to dismiss a side question (an
+  application, an intervention, a rehearing petition) are out.
 - **`cert-reply`** — the petitioner's **cert-stage** reply, the Rule 15.6 answer
   to the opposition and often the only filing that meets its vehicle and
   preservation objections. The first "Reply [brief] of/for … petitioner(s) …"
@@ -509,7 +520,16 @@ the docket form, so one function serves both lanes:
   opposition" is exactly this filing — while any reply naming a motion, an
   application, a letter or a suggestion of mootness (collateral practice,
   "in support of" it or "to the response to" it), replies supporting the other
-  side, amici's replies and rehearing and supplemental papers are.
+  side, amici's replies and rehearing and supplemental papers are. On a
+  **direct appeal** the same kind holds the **appellant's answer to the motion
+  to dismiss or affirm** (Rule 18.8), under whichever caption the Clerk gives
+  it: "Opposition to motion to dismiss or affirm of appellants … filed.",
+  "Response to motion to dismiss from appellants … filed.", "Brief opposing
+  motion to affirm from appellants … filed.", "Reply of appellant … filed."
+  The first such entry after an appellee's motion, filed by an appellant,
+  before jurisdiction is noted and before any disposition entry, from its
+  `Main Document` link alone. A paper naming any other motion (to expedite,
+  for leave, to intervene) is collateral practice and is out.
 - **`sg-invited-brief`** — the **Solicitor General's invited brief**: the first
   brief for the United States as amicus curiae ("Brief amicus curiae of United
   States filed.", "Brief for the United States as amicus curiae filed.") entered

@@ -44,8 +44,8 @@ transcript, which only a post-argument cell is given.
 | `petition` | The case-opening filing on a cert-form docket: a certiorari petition, or a mandamus, prohibition or habeas petition, or a direct appeal's jurisdictional statement | Cert |
 | `questions-presented` | The questions presented, cut from the petition text | Cert |
 | `appendix` | The opening filing's or application's separately linked appendix | Cert, Application |
-| `brief-in-opposition` | Every respondent's opposition, combined into one row | Cert |
-| `cert-reply` | The petitioner's reply to the opposition | Cert |
+| `brief-in-opposition` | Every respondent's opposition, or on a direct appeal every appellee's motion to dismiss or affirm, combined into one row | Cert |
+| `cert-reply` | The petitioner's reply to the opposition, or on a direct appeal the appellant's answer to the motion to dismiss or affirm | Cert |
 | `sg-invited-brief` | The Solicitor General's brief when the Court called for it | Cert |
 | `supplemental-brief` | Every party's Rule 15.8 supplemental brief while the petition is pending, combined into one row | Cert |
 | `party-letter` | Every party's letter to the Clerk bearing on the case while the petition is pending (mootness, settlement, withdrawal, an intervening decision), combined into one row | Cert |

@@ -105,6 +105,7 @@ from .caption import _scored_segment
 # same entry.
 from .cert_signals import (
     cert_grant_date,
+    is_direct_appeal_docket,
     is_sg_invited_brief_entry,
     match_disposition_signal,
     sg_invited_brief_position,
@@ -592,6 +593,114 @@ def _is_cert_reply_entry(text: str, *, filed: date | None, granted_on: date | No
     return bool(_CERT_REPLY_RE.search(text)) and not _CERT_REPLY_EXCLUDE_RE.search(text)
 
 
+# A **direct appeal's answer papers**. On a mandatory-jurisdiction appeal there
+# is no brief in opposition and no cert reply: the appellee answers the
+# jurisdictional statement with a motion (Rule 18.6), and the appellant
+# answers the motion (Rule 18.8):
+#
+#   "Motion to dismiss or affirm filed by appellees Golden Bethune-Hill, et al."
+#   "Motion to affirm filed by appellees Common Cause, et al."
+#   "Motion to affirm or dismiss filed by appellees Ted Cruz For Senate, et al."
+#   "Motion to dismiss filed by State Appellees."
+#
+#   "Opposition to motion to dismiss or affirm of appellants … filed."
+#   "Opposition to appellees' motions to dismiss or affirm from appellants … filed."
+#   "Brief opposing motion to affirm from appellants … filed."
+#   "Response to motion to dismiss from appellants … filed."
+#   "Opposition to motion of appellants Linda Lamone, et al. filed."
+#   "Reply of appellant Donald J. Trump, President of the United States, et al. filed."
+#
+# They are the same two papers a cert cell reads, the other side's whole answer
+# and the last word on it, so the motion joins the combined opposition row and
+# the appellant's answer is stored as the cert-stage reply. Neither reading is
+# offered on a cert docket: the caller opens both only where the docket carries
+# the direct appeal's own papers (:func:`cert_signals.is_direct_appeal_docket`),
+# which is what keeps a Rule 46 motion to dismiss, or a respondent's motion to
+# dismiss the writ as improvidently granted, out of a petition's opposition
+# row.
+#
+# The **motion** opens the entry, asks to dismiss or to affirm, and is filed by
+# an appellee: the filer clause ("of", "by" or "from", the party word within
+# three words) is required, so an appellant's own motion to dismiss its appeal
+# is not the answer to it. A ruling on the motion ("Motion to affirm GRANTED.")
+# carries no filer clause and is refused by word as well, and so is a motion to
+# dismiss that names a side question (an application, an intervention, a
+# rehearing petition).
+#
+# The **appellant's answer** opens on "opposition", "response", "reply", or a
+# brief or memorandum "in opposition" or "opposing", and is filed by an
+# appellant. Where it names a motion, the motion is the one to dismiss or
+# affirm, or is named bare ("Opposition to motion of appellants …"): a paper
+# naming any other motion (to expedite, for leave, to intervene, for divided
+# argument) is collateral practice. The caller adds the order: it is read only
+# after an appellee's motion on the same docket, before the Court notes
+# jurisdiction, and before the first disposition entry.
+_APPEAL_ANSWER_RE = re.compile(
+    r"^\s*motions?\s+(?:(?:of|by|from)\s+[^.;]{1,120}?\s+)?to\s+(?:dismiss|affirm)\b",
+    re.IGNORECASE,
+)
+_APPEAL_ANSWER_FILER_RE = re.compile(
+    r"\b(?:of|by|from)\s+(?:the\s+)?(?:\S+\s+){0,3}?appellees?\b", re.IGNORECASE
+)
+_APPEAL_ANSWER_EXCLUDE_RE = re.compile(
+    r"\bgranted\b|\bdenied\b|\bwithdrawn\b|\bnot\s+accepted\b|\bamic(?:us|i)\b"
+    r"|\bapplication\b|\bintervene|\brehearing\b|\bcomplaint\b",
+    re.IGNORECASE,
+)
+_APPEAL_REPLY_RE = re.compile(
+    r"^\s*(?:(?:brief|memorandum)\s+(?:in\s+opposition|opposing)\b"
+    r"|opposition\b|response\b|reply\b)",
+    re.IGNORECASE,
+)
+_APPEAL_REPLY_FILER_RE = re.compile(
+    r"\b(?:of|by|from|for)\s+(?:the\s+)?(?:\S+\s+){0,3}?appellants?\b", re.IGNORECASE
+)
+_APPEAL_REPLY_MOTION_RE = re.compile(r"\bmotions?\b", re.IGNORECASE)
+_APPEAL_REPLY_SUBJECT_RE = re.compile(
+    r"\bmotions?\s+(?:(?:of|by|from)\s+[^.;]{1,120}?\s+)?to\s+(?:dismiss|affirm)\b"
+    r"|\bmotions?\s+(?:of|from|filed\b)",
+    re.IGNORECASE,
+)
+_APPEAL_REPLY_EXCLUDE_RE = re.compile(
+    r"\bamic(?:us|i)\b|\brehearing\b|\bsupplement|\bapplication\b|\bletter\b"
+    r"|\bnot\s+accepted\b|\bexpedite|\bleave\b|\bintervene|\bstay\b|\bargument\b",
+    re.IGNORECASE,
+)
+
+
+def _is_appeal_answer_entry(text: str) -> bool:
+    """Whether an entry is an appellee's motion to dismiss or affirm, docket and stage aside.
+
+    The caller reads it only on a direct-appeal docket and bounds it to the
+    stage the way the opposition is bounded (:func:`_is_post_grant`, with the
+    noting of probable jurisdiction standing where the grant does).
+    """
+    return bool(
+        _APPEAL_ANSWER_RE.search(text)
+        and _APPEAL_ANSWER_FILER_RE.search(text)
+        and _BIO_VERB_RE.search(text)
+        and not _APPEAL_ANSWER_EXCLUDE_RE.search(text)
+    )
+
+
+def _is_appeal_reply_entry(text: str) -> bool:
+    """Whether an entry is the appellant's answer to a motion to dismiss or affirm.
+
+    Docket, stage and order aside: the caller reads it only on a direct-appeal
+    docket, after an appellee's motion, before jurisdiction is noted and before
+    the first disposition entry.
+    """
+    if not (
+        _APPEAL_REPLY_RE.search(text)
+        and _APPEAL_REPLY_FILER_RE.search(text)
+        and _BIO_VERB_RE.search(text)
+    ):
+        return False
+    if _APPEAL_REPLY_EXCLUDE_RE.search(text):
+        return False
+    return not _APPEAL_REPLY_MOTION_RE.search(text) or bool(_APPEAL_REPLY_SUBJECT_RE.search(text))
+
+
 # The party word the two combined cert-stage arms below read a filer by: either
 # side of a cert-form docket, a direct appeal's appellant and appellee included.
 # An applicant is not one — those arms are cert-stage and an application has no
@@ -1056,12 +1165,20 @@ def select_documents(
       ``brief-in-opposition`` document. A respondent's brief is read in the
       Court's "Brief for the respondent(s)", "Response of respondent(s)" and
       Solicitor General's "Memorandum of respondent United States" spellings
-      as well (:func:`_is_bio_entry`).
+      as well (:func:`_is_bio_entry`). On a **direct appeal**
+      (:func:`cert_signals.is_direct_appeal_docket`) every appellee's **motion
+      to dismiss or affirm** (:func:`_is_appeal_answer_entry`) joins the same
+      row, from its ``Main Document`` link alone: it is the answer to the
+      jurisdictional statement, read before jurisdiction is noted and before
+      any disposition entry.
     - The **petitioner's cert-stage reply** (:func:`_is_cert_reply_entry`),
       stored as ``cert-reply``: the first reply of the petitioner filed before
       the grant and before any disposition entry, from its ``Main Document``
       link alone. The merits reply arm below reads the same words after the
-      grant; the date is the only thing between them.
+      grant; the date is the only thing between them. On a direct appeal the
+      **appellant's answer to the motion to dismiss or affirm**
+      (:func:`_is_appeal_reply_entry`) is stored under the same kind: the
+      first one after an appellee's motion, on the same bounds.
     - The **Solicitor General's invited brief**
       (:func:`cert_signals.sg_invited_brief_position`), stored as
       ``sg-invited-brief``: the first brief for the United States as amicus
@@ -1185,6 +1302,15 @@ def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:  # noqa: PLR09
     # Positions count the mapping entries alone, as `proceedings_entries` does.
     sg_position = sg_invited_brief_position(payload)
     term = _application_term(payload)
+    # A direct appeal's answer papers are read only on a docket that carries
+    # the appeal's own papers, and the appellant's answer only once an
+    # appellee's motion has been read above it.
+    direct_appeal = is_direct_appeal_docket(
+        str(entry.get("Text") or "")
+        for entry in payload.get("ProceedingsandOrder") or []
+        if isinstance(entry, Mapping)
+    )
+    appeal_answered = False
     position = -1
     for entry in payload.get("ProceedingsandOrder") or []:
         if not isinstance(entry, Mapping):
@@ -1234,9 +1360,30 @@ def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:  # noqa: PLR09
                     DocumentRef(KIND_BRIEF_IN_OPPOSITION, found[0], entry_date, text.strip())
                 )
         elif (
+            direct_appeal
+            and not disposed
+            and not _is_post_grant(filed, granted_on)
+            and _is_appeal_answer_entry(text)
+        ):
+            # The appellee's motion to dismiss or affirm is the appeal's
+            # opposition: it joins the combined row on the opposition's own
+            # terms, from its `Main Document` link alone, since a motion entry
+            # posts its certificates beside the filing.
+            appeal_answered = True
+            answer = _merits_filing_ref(entry, KIND_BRIEF_IN_OPPOSITION, entry_date)
+            if answer is not None and answer.url not in seen_bio_urls:
+                seen_bio_urls.add(answer.url)
+                bios.append(answer)
+        elif (
             cert_reply is None
             and not disposed
             and _is_cert_reply_entry(text, filed=filed, granted_on=granted_on)
+        ) or (
+            cert_reply is None
+            and appeal_answered
+            and not disposed
+            and not _is_post_grant(filed, granted_on)
+            and _is_appeal_reply_entry(text)
         ):
             cert_reply = _merits_filing_ref(entry, KIND_CERT_REPLY, entry_date)
         elif position == sg_position:
@@ -5386,12 +5533,14 @@ KIND_DESCRIPTIONS: Mapping[str, str] = {
     KIND_APPLICATION_REPLY: "The applicant's reply to the response to the application.",
     KIND_BRIEF_IN_OPPOSITION: (
         "Every non-amicus cert-stage brief in opposition, response or memorandum "
-        "answering the petition, "
+        "answering the petition, or on a direct appeal every appellee's motion to "
+        "dismiss or affirm answering the jurisdictional statement, "
         "combined in docket order, each under a '=== <docket entry> ===' header where "
         "there is more than one. " + _COMBINED_CUT_DESCRIPTION
     ),
     KIND_CERT_REPLY: (
-        "The petitioner's reply at the cert stage: its answer to the brief in opposition."
+        "The petitioner's reply at the cert stage: its answer to the brief in opposition. "
+        "On a direct appeal, the appellant's answer to the motion to dismiss or affirm."
     ),
     KIND_SG_INVITED_BRIEF: (
         "The brief of the United States as amicus curiae, filed by the Solicitor General "
