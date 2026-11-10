@@ -4219,7 +4219,13 @@ _BIG_CASE_SCHEDULE_RULE = (
     "drops a date that has since passed rather than show it as upcoming. A schedule moves on "
     "every relist, reschedule and extension, so the fields are display-only and never a "
     "ledger record: nothing predicts, evaluates or scores on them, and no cell is provisioned "
-    "with them."
+    "with them. Above the rows, `court_next_conference` is that schedule's own court-wide "
+    "field, the first conference on or after the day the schedule was built in the Court's "
+    "published case distribution schedule, set whether or not any case on the board is "
+    "distributed for it, and null where the schedule carries none; "
+    "`cases_at_court_next_conference` counts the rows whose `scheduled` conference is that "
+    "day. Both follow the same reader rule: a day that has since passed is dropped, not shown "
+    "as upcoming."
 )
 
 
@@ -4554,18 +4560,20 @@ def _committed_docket_numbers(data_root: Path) -> dict[str, str]:
     return {entry.case_id: entry.docket_number.strip() for entry in labels.entries}
 
 
-def _committed_schedule(data_root: Path) -> dict[str, list[BigCaseScheduled]]:
-    """Case id to its upcoming dates, earliest first, from the committed schedule.
+def _committed_schedule(data_root: Path) -> tuple[dict[str, list[BigCaseScheduled]], date | None]:
+    """Case id to its upcoming dates, earliest first, and the Court's next conference.
 
     Only the dates the schedule itself still holds upcoming: a conference,
     argument day or response deadline that had passed when the schedule was
-    written carries no upcoming date, and joins as none. Absent when no live
-    poll has written it, and an unreadable file degrades the same way, loudly:
-    a display field is not worth the board.
+    written carries no upcoming date, and joins as none. The Court's next
+    conference is the schedule's own court-wide field, already judged against
+    the day it was built. Both absent when no live poll has written the file,
+    and an unreadable file degrades the same way, loudly: a display field is
+    not worth the board.
     """
     path = schedule_path(data_root)
     if not path.is_file():
-        return {}
+        return {}, None
     try:
         committed = read_model(path, Schedule)
     except (ValueError, OSError) as exc:
@@ -4574,7 +4582,7 @@ def _committed_schedule(data_root: Path) -> dict[str, list[BigCaseScheduled]]:
             "rows publish no scheduled date",
             file=sys.stderr,
         )
-        return {}
+        return {}, None
     joined: dict[str, list[BigCaseScheduled]] = {}
     for entry in committed.entries:
         days: list[BigCaseScheduled] = []
@@ -4586,7 +4594,7 @@ def _committed_schedule(data_root: Path) -> dict[str, list[BigCaseScheduled]]:
             days.append(BigCaseScheduled(kind="response_due", date=entry.response_due.upcoming))
         if days:
             joined[entry.case_id] = sorted(days, key=lambda day: (day.date, day.kind))
-    return joined
+    return joined, committed.court_next_conference
 
 
 @dataclass(frozen=True)
@@ -4859,7 +4867,8 @@ def build_big_case_board(
     Ledger-only: it reads ``data/`` and nothing else — the predictions, the
     committed qp-topic labels for the docket numbers a CourtListener id does not
     carry, every committed event definition's caption for the cross-petition
-    test, and the committed schedule for each row's upcoming dates — with no
+    test, and the committed schedule for each row's upcoming dates and the
+    Court's next conference — with no
     corpus, no network, no credentials, no clock, so it runs anywhere a
     checkout exists and reruns over
     an unchanged ledger reproduce the artifact byte for byte. That is also why it
@@ -4903,7 +4912,7 @@ def build_big_case_board(
     leakage = _leakage_index(data_root, predictions)
     docket_numbers = _committed_docket_numbers(data_root)
     captions = _committed_caption_index(data_root)
-    scheduled = _committed_schedule(data_root)
+    scheduled, court_next_conference = _committed_schedule(data_root)
     rows = [
         board_row
         for case_id in sorted(by_case)
@@ -4970,6 +4979,16 @@ def build_big_case_board(
         median_score_range=_median([row.score_range for row in rows]),
         coverage=[BigCaseCoverage(n=n, cases=coverage[n]) for n in sorted(coverage, reverse=True)],
         rows=rows,
+        court_next_conference=court_next_conference,
+        cases_at_court_next_conference=(
+            None
+            if court_next_conference is None
+            else sum(
+                1
+                for row in rows
+                if row.scheduled is not None and row.scheduled.date == court_next_conference
+            )
+        ),
         process_scope=process_scope,
         frozen_process=frozen_process_record(),
         provenance=_big_case_provenance(

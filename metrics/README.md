@@ -3253,7 +3253,14 @@ the rendered table) and
   date that has since passed rather than show it as upcoming. A schedule moves
   on every relist, reschedule and extension, so it is display-only like the
   fields above and never a ledger record: nothing predicts, evaluates or
-  scores on it. The `schedule_rule`
+  scores on it. Above the rows, `court_next_conference` is the same file's
+  court-wide field: the Court's first conference on or after the day the
+  schedule was built, read from its published case distribution schedule
+  (`data/schedule/term-calendar.json`) and set whether or not any case on the
+  board is distributed for it. `cases_at_court_next_conference` counts the
+  rows whose `scheduled` conference is that day, and is null exactly when the
+  day is. Both are display-only under the same reader rule, and
+  `metrics/big-cases.md` does not render them. The `schedule_rule`
   provenance string states the rule in the artifact.
 
   **Process scope, and why the default is version-blind.** `process_scope` says

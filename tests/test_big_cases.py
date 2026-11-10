@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Literal
 
 import pytest
+from pydantic import ValidationError
 from typer.testing import CliRunner
 
 from fedcourtsai import analytics
@@ -1293,10 +1294,10 @@ def test_without_a_labels_artifact_a_courtlistener_case_has_no_docket_number(
     assert (row.docket_number, row.docket_url) == (None, None)
 
 
-def test_the_board_is_schema_1_4_and_carries_the_display_rules(tmp_path: Path) -> None:
+def test_the_board_is_schema_1_5_and_carries_the_display_rules(tmp_path: Path) -> None:
     _write_read(tmp_path, "scotus/1", "claude-baseline", "r1", big_case_score=0.5)
     board = _board(tmp_path)
-    assert board.schema_version == "1.4"
+    assert board.schema_version == "1.5"
     assert board.provenance is not None
     assert "consequences only, never likelihood" in board.provenance.asking_rule
     assert "`cross_petition`" in board.provenance.asking_rule
@@ -1633,6 +1634,82 @@ def test_no_schedule_and_an_unreadable_one_both_leave_every_row_unscheduled(
     assert board.provenance is not None
     assert board.provenance.schedule_rule is not None
     assert "never a ledger record" in board.provenance.schedule_rule
+
+
+def test_the_board_carries_the_courts_next_conference_and_its_case_count(
+    tmp_path: Path,
+) -> None:
+    for docket in (1, 2, 3):
+        _write_read(tmp_path, f"scotus/{docket}", "claude-baseline", "r1", big_case_score=0.5)
+    write_json(
+        schedule_path(tmp_path),
+        Schedule(
+            as_of=date(2026, 11, 9),
+            court_next_conference=date(2026, 11, 13),
+            entries=[
+                ScheduleEntry(
+                    case_id="scotus/1",
+                    next_conference=date(2026, 11, 13),
+                    distributed_for_conference=date(2026, 11, 13),
+                ),
+                ScheduleEntry(
+                    case_id="scotus/2",
+                    next_conference=date(2026, 11, 20),
+                    distributed_for_conference=date(2026, 11, 20),
+                ),
+                # Off the board: a scheduled docket with no prediction is not counted.
+                ScheduleEntry(
+                    case_id="scotus/9",
+                    next_conference=date(2026, 11, 13),
+                    distributed_for_conference=date(2026, 11, 13),
+                ),
+            ],
+        ),
+    )
+    board = _board(tmp_path)
+    assert board.court_next_conference == date(2026, 11, 13)
+    assert board.cases_at_court_next_conference == 1
+    assert board.provenance is not None
+    assert board.provenance.schedule_rule is not None
+    assert "`court_next_conference`" in board.provenance.schedule_rule
+
+
+def test_a_conference_day_no_case_is_set_for_still_shows_with_a_zero_count(
+    tmp_path: Path,
+) -> None:
+    _write_read(tmp_path, "scotus/1", "claude-baseline", "r1", big_case_score=0.5)
+    write_json(
+        schedule_path(tmp_path),
+        Schedule(as_of=date(2026, 11, 9), court_next_conference=date(2026, 11, 13)),
+    )
+    board = _board(tmp_path)
+    assert (board.court_next_conference, board.cases_at_court_next_conference) == (
+        date(2026, 11, 13),
+        0,
+    )
+
+
+def test_without_a_court_wide_conference_the_board_carries_neither_field(
+    tmp_path: Path,
+) -> None:
+    _write_read(tmp_path, "scotus/1", "claude-baseline", "r1", big_case_score=0.5)
+    bare = _board(tmp_path)
+    assert (bare.court_next_conference, bare.cases_at_court_next_conference) == (None, None)
+    _write_schedule(tmp_path, date(2026, 11, 9), [])
+    board = _board(tmp_path)
+    assert (board.court_next_conference, board.cases_at_court_next_conference) == (None, None)
+    payload = board.model_dump(mode="json")
+    with pytest.raises(ValidationError, match="set exactly when"):
+        BigCaseBoard.model_validate({**payload, "court_next_conference": "2026-11-13"})
+    with pytest.raises(ValidationError, match=r"needs 1\.5"):
+        BigCaseBoard.model_validate(
+            {
+                **payload,
+                "schema_version": "1.4",
+                "court_next_conference": "2026-11-13",
+                "cases_at_court_next_conference": 0,
+            }
+        )
 
 
 def test_a_row_lists_every_upcoming_date_earliest_first(tmp_path: Path) -> None:

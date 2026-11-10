@@ -621,8 +621,9 @@ day, the one the summer lists go to marked as the Term's long conference, and
 every distribution row behind them, with each document's URL and SHA-256. The
 schedule reads it for one field, `court_next_conference`, the Court's first
 conference on or after `as_of`, set even when no public docket is distributed
-for that day. The big-case board does not join it, so the public site does not
-show it yet. It fails closed: a served schedule that
+for that day. The big-case board copies that field above its rows, with the
+count of its cases distributed for that day, which is where the public site
+reads it. It fails closed: a served schedule that
 does not parse whole (for instance an unrecognised line, a title naming another
 Term, a conference outside the Term's window, a row distributed on or after its
 conference, a document over the size cap, or anything but exactly one
