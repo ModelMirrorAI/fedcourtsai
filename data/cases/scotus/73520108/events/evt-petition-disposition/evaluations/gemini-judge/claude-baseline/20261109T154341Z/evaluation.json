@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.45,
+    "notes": "Significant commercial, consumer-finance, and bankruptcy-law case resolving a recurring circuit split over whether the Federal Arbitration Act applies to private automatic-stay damages claims under 11 U.S.C. \u00a7 362(k), affecting standard consumer credit agreements across consumer bankruptcies nationwide, though without major constitutional or political salience."
+  },
+  "brier_score": 0.48999999999999994,
+  "brier_skill_score": 0.28180568976518017,
+  "case_id": "scotus/73520108",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.17400568181818182,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.3,
+        "score": 0.19226661366864667
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.42,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.12,
+        "score": null
+      },
+      {
+        "baseline": 0.345367027677497,
+        "claim_id": "summary-disposition-route",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": 0.11767838380678897
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.22,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.30994499747543564,
+    "total": 0.30994499747543564
+  },
+  "correct": 0,
+  "created_at": "2026-11-09T16:08:08.969440Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction placed on 2026-10-06 against the 2026-10-05 snapshot, one month before the 2026-11-06 cert grant. Retrieval log (result_capture_coverage = 1.0) shows only local reads, two corpus citation queries for prior Second Circuit cases, fetches of the Sept. 9/14/15 cert-stage briefs from the snapshot URLs, and two pre-resolution web searches.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-argon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.55,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The Court granted the petition on November 6, 2026 (outcome.json: actual_disposition = granted, actual_granted = 1).",
+        "claim": "The petition will most likely be denied without separate writing after the October 9 conference or one to two further relists (assigning a 30% grant probability).",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "outcome.json records distribution_count = 4 (two additional distributions after the two recorded on the October 5 snapshot) before the November 6, 2026 grant.",
+        "claim": "The petition has a 42% probability of at least one further distribution beyond the two already recorded, likely resolving after one or two additional conferences rather than an indefinite hold.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records cvsg_date = null; the Court granted certiorari without a CVSG.",
+        "claim": "The Court is unlikely to call for the views of the Solicitor General (12% CVSG probability).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records disposition_route = plenary and disposition_basis = standard, and the November 6, 2026 order granted the petition without narrowing or adding questions.",
+        "claim": "Conditional on a grant, the Court will set the case for plenary briefing and argument on the single question presented rather than a summary disposition or GVR (4% conditional summary-disposition probability).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "This event resolves only the cert-stage disposition; merits briefing and judgment have not yet occurred.",
+        "claim": "On the merits if granted, the Court will likely reverse the Fourth Circuit under McMahon and Epic Systems, holding that the Bankruptcy Code does not clearly and manifestly displace the FAA for private 11 U.S.C. \u00a7 362(k) damages claims.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261005T231540Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+    "label": "proc-v20",
+    "pipeline_sha": "09c5756a9470878a78d684640ddeed4552d7df7b",
+    "stamped_at": "2026-11-09T16:08:08.969440Z"
+  },
+  "reasoning_quality": 0.92,
+  "run_id": "20261109T154341Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.17400568181818182,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000602",
+  "run_id": "20261109T212928Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts validate",
+    "metrics/statpack.md"
+  ],
+  "helpful": [
+    "Pre-computed cert_anchor in record/context.json for the baseline salience band",
+    "Full text extraction of petition.txt, questions-presented.txt, and appendix.txt with contact scrubbing",
+    "Corpus lookup for linked extension application 25A442 and cited precedent Taggart v. Lorenzen"
+  ],
+  "gaps": [],
+  "notes": "All provisioned record files (snapshot 2026-11-10.json, context.json, and document texts) were clear and complete."
+}

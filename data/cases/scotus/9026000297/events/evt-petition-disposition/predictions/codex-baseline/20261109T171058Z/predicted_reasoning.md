@@ -1,0 +1,11 @@
+# Forecast of the Court's handling
+
+The Court will most likely deny the petition after receiving the requested response. One distribution is already recorded, on October 7, 2026 for the November 6 conference. The October 19 response request and December 8 response deadline make a new distribution very likely: **98% for at least one additional distribution**. Expect one further distribution in the ordinary denial path; a second additional distribution is plausible if the Court considers a grant. That procedural redistribution is not necessarily a true relist after completed conference consideration.
+
+The Court will probably not request the Solicitor General's views: **8% for a new CVSG**. If an invitation issues, the natural time is after the opposition and reply are available and the petition returns to conference, likely in early 2027, rather than before the pending response deadline.
+
+There is a **42% chance of some grant**. If review is granted, the Court is more likely to take the second question, concerning appellate review of a class-certification order on conditional cross-appeal after reversal of a final judgment, than to adopt the first question's premise that judicial takeover is the only effective relief. The likely narrower grant would ask whether Rule 23(f) prevents review of the merged certification order in that posture. Taking both questions remains an alternative. Any consideration of the first question would likely distinguish whether some lawful relief is available from how far an eventual injunction may extend.
+
+Conditional on a grant, **plenary briefing and argument is the likelier route, 86%, versus 14% for disposition in the cert order**. A narrow summary reversal of the appellate-review ruling is the principal summary alternative. An intervening-decision GVR is not the expected route on the present record.
+
+Conditional on denial, **85% for no dissent or statement and 15% for at least one such writing**. An unexplained denial is the modal outcome; if a Justice writes to press the judicial-power question, Thomas or Gorsuch is more likely than another individual Justice. Denial would leave the appellate remand in place without endorsing its reasoning or establishing that the plaintiffs are entitled to the full requested remedy.

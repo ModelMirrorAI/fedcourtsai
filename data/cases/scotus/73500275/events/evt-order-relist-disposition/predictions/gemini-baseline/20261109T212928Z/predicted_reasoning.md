@@ -1,0 +1,22 @@
+# Predicted Court Trajectory and Reasoning: *ON24, Inc., et al. v. Leadersel Innotech ESG* (No. 25-1376)
+
+## 1. Procedural Trajectory After the First Relist
+
+1. **Coordinated Conference Consideration with *Robinhood Markets, Inc. v. Sodha* (No. 25-944)**:
+   - *ON24* (No. 25-1376) was relisted on November 9, 2026 for the November 13, 2026 Conference on the exact same schedule as *Robinhood Markets, Inc. v. Sodha* (No. 25-944), a published Ninth Circuit decision (*Sodha v. Golubowski*, 154 F.4th 1019 (9th Cir. 2025)) in which the Court called for the views of the Solicitor General on June 1, 2026 and recently received the United States' amicus brief.
+   - Because the unpublished Ninth Circuit memorandum disposition in *ON24* directly quotes and relies on *Sodha v. Golubowski* for both its Section 11(a) misleading-omission standard and its entire two-sentence Item 303 holding, the Court's treatment of *ON24* at the November 13, 2026 Conference (or after one additional relist) will follow its disposition of *Robinhood*.
+2. **No CVSG in *ON24***:
+   - The Court will not issue a separate Call for the Views of the Solicitor General in *ON24* (`cvsg-increment = 0.02`), as the Solicitor General has already filed an amicus brief addressing the Ninth Circuit's Section 11(a) and Item 303 standards in *Robinhood* and previously addressed risk-factor disclosures in *Facebook, Inc. v. Amalgamated Bank* (OT2024).
+3. **Hold vs. Immediate Denial**:
+   - **Primary Denial Pathway (Modal Outcome)**: The Court most likely declines plenary review of *ON24*—either denying the petition outright following the November 13, 2026 Conference (or one subsequent November conference) because *ON24* is an interlocutory, unpublished memorandum disposition complicated by a fact-bound dispute over whether ON24's risk warnings implied that customer churn had not yet begun, or holding *ON24* pending *Robinhood* and subsequently denying certiorari if *Robinhood* does not disturb the ground supporting remand in *ON24*.
+   - **Hold-and-GVR Pathway (Primary Grant-Family Route)**: If the Court grants plenary review in *Robinhood* (No. 25-944), it is likely to hold *ON24* pending the merits decision in *Robinhood* (as requested in ON24's reply brief) rather than granting plenary review in *ON24* itself. Under that hold pathway, *ON24* will be redistributed for conference (`relist-increment = 0.52`) after *Robinhood* is decided on the merits; if the Court reverses or vacates *Sodha v. Golubowski* on Item 303 or Section 11(a), the Court will grant certiorari in *ON24*, vacate the Ninth Circuit's judgment, and remand (`gvr`) for further consideration in light of *Robinhood* (`summary-disposition-route = 0.60` conditional on a grant-family outcome).
+
+## 2. Expected Disposing Order
+
+- **Order Form**: The modal disposing order is a standard, unsigned summary order on a routine Monday order list denying the petition for a writ of certiorari without comment (`"The petition for a writ of certiorari is denied."`).
+- **Alternative GVR Order (if held for and vacated in light of *Robinhood*)**: If *ON24* is held pending *Robinhood* and the Court reverses or vacates the Ninth Circuit in *Robinhood*, the disposing order will be a brief per curiam GVR order on an order list (`"The petition for a writ of certiorari is granted. The judgment is vacated, and the case is remanded to the United States Court of Appeals for the Ninth Circuit for further consideration in light of Robinhood Markets, Inc. v. Sodha, 608 U.S. ___ (2027)."`).
+- **Separate Writings**: No separate opinion or noted dissent is expected on the disposing order (`dissent-from-denial = 0.04`). In the unlikely event of a separate writing respecting denial, it would most likely be a brief dissent or statement by Justice Thomas or Justice Alito (potentially joined by Justice Gorsuch) noting the continuing circuit split over past-event risk-factor disclosures left unresolved after the dismissal of *Facebook, Inc. v. Amalgamated Bank*, 604 U.S. 4 (2024).
+
+## 3. Conditional Merits Scope (If Plenary Review Were Granted)
+
+- In the unlikely event (~12%) that the Court grants plenary review in *ON24* rather than holding or denying it, the Court would either grant on Question 1 alone (to resolve the *Facebook* circuit split on risk-factor disclosures alongside *Robinhood*'s treatment of Section 11(a) omissions and Item 303) or consolidate/coordinate argument with *Robinhood* on the Section 11(a) and Item 303 questions.

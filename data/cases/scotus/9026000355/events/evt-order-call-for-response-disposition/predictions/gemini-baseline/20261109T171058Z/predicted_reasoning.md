@@ -1,0 +1,18 @@
+# Predicted Reasoning: *Julio del Rio, et al. v. CrowdStrike, Incorporated, et al.* (No. 26-355)
+
+## Procedural Trajectory (Relists and CVSG)
+
+At the `response-requested` moment (October 19, 2026), the provisioned snapshot records 1 conference distribution (for the November 6, 2026 conference, entered October 14, 2026) followed by the Court's October 19, 2026 request for a response due November 18, 2026.
+
+- **Further distributions (`relist-increment`: 0.99):** Because the Court requested a response after the initial distribution following Respondents' waiver, the petition will be redistributed for a future conference once the Brief in Opposition is filed (or the time to file expires). However, once the petition is redistributed with the Brief in Opposition and Reply in hand, it is unlikely to undergo multiple conference relists; the Court will likely deny certiorari at the first conference following post-response distribution.
+- **Call for the Views of the Solicitor General (`cvsg-increment`: 0.05):** A CVSG is unlikely. Although the case involves federal preemption under the Airline Deregulation Act of 1978 (ADA), 49 U.S.C. § 41713(b)(1), the Fifth Circuit resolved the appeal in a two-word unpublished Rule 47.6 affirmance and the district court relied both on ADA preemption and on alternative state-law dismissal grounds (the economic loss rule and pleading deficiencies). The Court rarely expends a CVSG on a non-precedential affirmance burdened by independent state-law vehicle obstacles.
+
+## Disposition and Route
+
+- **Disposition (`denied`, `probability`: 0.08):** The Court will deny the petition for a writ of certiorari. While the underlying statutory question—whether ADA preemption extends to a third-party cybersecurity software vendor whose defective update grounded flights—arises from a high-profile event (the July 19, 2024 CrowdStrike outage), the decision below is an unpublished per curiam affirmance under 5th Cir. R. 47.6 that creates no binding precedent even within the Fifth Circuit. Moreover, the district court held in the alternative that Petitioners' negligence and gross-negligence claims were barred by the economic loss rule under Texas and other state laws and that their fraud and consumer-protection claims failed to allege reliance on any pre-outage statement (`petition.txt` App. 10a–15a). Those independent state-law holdings make this case an unsuitable vehicle for resolving the scope of ADA preemption.
+- **Question Presented if Granted:** Conditionally, if the Court were to grant certiorari, it would take the single Question Presented as framed in the petition—whether 49 U.S.C. § 41713(b)(1) preempts state-law tort claims against a third-party software vendor that does not transport passengers or have a commercial relationship with them.
+- **Summary Disposition Route (`summary-disposition-route`: 0.08):** Conditional on a grant, the Court would set the case for plenary briefing and oral argument rather than issuing a summary disposition (`gvr` or `summary-reversal`), as there is no intervening Supreme Court decision pending or recently decided on ADA preemption (`same-question.json` lists no matching petitions).
+
+## Separate Writings (`dissent-from-denial`: 0.03)
+
+Upon denial of certiorari, no Justice is expected to write a dissent or statement respecting the denial. While Justices Thomas and Gorsuch have previously expressed skepticism toward expansive atextual readings of federal preemption statutes (`order-writers` probabilities of 0.012 each), the presence of clean alternative state-law grounds for dismissal below makes a separate writing at the cert stage unlikely.

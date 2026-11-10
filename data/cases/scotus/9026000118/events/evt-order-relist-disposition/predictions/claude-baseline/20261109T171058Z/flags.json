@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/9026000118",
+  "run_id": "20261109T171058Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "capture-gap",
+      "severity": "warning",
+      "event_id": "evt-order-relist-disposition",
+      "message": "Docket 26-118 is a mandatory direct appeal (jurisdictional statement), not a cert petition. The likely outcome is a mootness disposition, and whether it is recorded as 'gvr' (Munsingwear vacatur) or 'dismissed' (appeal dismissed as moot) decides the score. The appellees' motion to dismiss, the docket's opposition analogue, was not provisioned under record/documents/."
+    }
+  ]
+}

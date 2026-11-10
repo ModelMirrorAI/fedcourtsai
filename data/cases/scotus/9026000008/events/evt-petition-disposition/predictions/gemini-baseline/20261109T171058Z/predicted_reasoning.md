@@ -1,0 +1,24 @@
+# Predicted Reasoning — *Kimberly Ann Polk v. Montgomery County Public Schools, et al.* (No. 26-8)
+
+## Procedural Trajectory and Disposition Forecast
+
+1. **Further Relists (`relist-increment`: 0.48)**:
+   The docket currently records **two distributions**: the initial distribution on October 21, 2026, for the November 6, 2026 Conference, and a first relist on November 9, 2026, for the November 13, 2026 Conference. There is roughly an even chance (48%) that the petition will be relisted at least once more (for one to three additional conferences) before final disposition—either to examine whether a grant, vacate, and remand (GVR) in light of *Mirabelli v. Bonta*, 607 U.S. 492 (2026), is warranted despite the vehicle complications, or to accommodate the circulation of a separate statement or dissent respecting the denial of certiorari. Ultimately, the Court will deny certiorari.
+
+2. **Call for the Views of the Solicitor General (`cvsg-increment`: 0.02)**:
+   The Court will not call for the views of the Solicitor General. No CVSG is on the docket, the case presents pure First Amendment constitutional questions concerning a local school board's personnel policy with no federal statute, regulation, or treaty at issue, and the petition has already entered the conference relist cycle.
+
+3. **Questions Presented Reach (Conditional on Grant)**:
+   If the Court were to grant plenary review, it would likely limit review to **Question Presented 2** (whether the Free Speech Clause and *Garcetti v. Ceballos*, 547 U.S. 410 (2006), permit public schools to compel objecting teachers to use students' preferred gender-identity pronouns in the classroom)—the sole issue on which Judge Wilkinson dissented below—or reformulate the question around public-employee compelled speech, while leaving behind **Question Presented 1** (whether *Employment Division v. Smith*, 494 U.S. 872 (1990), is inapplicable to a teacher's Free Exercise challenge), which all three panel judges below rejected.
+
+4. **Summary Disposition Route Conditional on Grant (`summary-disposition-route`: 0.36)**:
+   Conditional on the Court granting the petition in any form, there is a 36% probability that it disposes of the case summarily in the certiorari order itself via a **GVR** rather than setting the case for plenary merits briefing and oral argument. Specifically, a GVR would vacate the Fourth Circuit's January 28, 2026 judgment and remand for further consideration in light of *Mirabelli v. Bonta*, 607 U.S. 492 (Mar. 2, 2026) (per curiam), and Montgomery County Public Schools' subsequent July 2026 revisions to its Guidelines—an alternative disposition Respondents themselves floated in their Brief in Opposition. A summary reversal on the merits is very unlikely given that *Mirabelli* denied interim relief to the teacher subclasses.
+
+5. **Dissent or Statement Respecting Denial (`dissent-from-denial`: 0.30)**:
+   Conditional on a denial of certiorari, there is a 30% probability that at least one Justice writes a dissent from, or statement respecting, the denial of certiorari. The likeliest author is **Justice Alito** (who authored *Mahmoud v. Taylor*, 606 U.S. 522 (2025), involving the same school board, as well as the statement respecting denial in *Lee v. Poudre School District R-1*, 146 S. Ct. 26 (2025)), or **Justice Thomas** (who, together with Justice Alito, noted in *Mirabelli v. Bonta* that he would have granted interim relief to the teacher applicants as well as the parents), potentially joined by Justice Gorsuch. Such a writing would highlight Judge Wilkinson's warning about reading *Garcetti* to strip K–12 teachers of all protection against compelled ideological speech while noting that the post-judgment policy revisions and procedural posture make this petition an imperfect vehicle.
+
+## Conditional Merits Outlook (If Plenary Review Were Granted)
+
+If the Court were to grant plenary review and reach the merits:
+- On **Question Presented 2 (Free Speech)**, the Court would likely vacate or reverse the Fourth Circuit's categorical holding that all in-class modes of addressing students constitute unprotected government speech under *Garcetti*, holding instead that compelling a public school teacher to speak contrary to her conscience on a contested matter of public concern outside core curricular instruction triggers heightened First Amendment scrutiny under *Pickering v. Board of Education*, 391 U.S. 563 (1968), and *Janus v. AFSCME*, 585 U.S. 878 (2018).
+- On **Question Presented 1 (Free Exercise)**, were the Court to reach it, the Court would be reluctant to extend the parental-rights exception of *Wisconsin v. Yoder*, 406 U.S. 205 (1972), and *Mahmoud v. Taylor*, 606 U.S. 522 (2025), directly to government employees' workplace duties where a Title VII accommodation claim (*Groff v. DeJoy*, 600 U.S. 447 (2023)) is the standard statutory remedy.

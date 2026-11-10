@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000396",
+  "run_id": "20261109T212928Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "provisioning",
+      "severity": "warning",
+      "event_id": "evt-order-call-for-response-disposition",
+      "message": "record/documents/party-letter.txt for the October 9, 2026 filing contains only letterhead/contact information and no substantive letter body, although documents.json marks it nonempty and untruncated (one page). The forecast does not infer the letter's purpose or contents; a potentially consequential docket letter is substantively unavailable. Prediction otherwise completed from the snapshot, petition and independent lower-court conflict checks."
+    }
+  ]
+}

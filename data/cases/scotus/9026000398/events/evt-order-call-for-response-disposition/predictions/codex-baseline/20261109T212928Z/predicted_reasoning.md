@@ -1,0 +1,13 @@
+# Forecast of the Court's action
+
+**The modal outcome is denial of certiorari without a separate writing.** I assign 20% to any grant and 4% to a dissent from, or statement respecting, denial conditional on denial. I do not predict a majority opinion accompanying a denial.
+
+The snapshot shows **one distribution**, for the November 6, 2026 conference, and the subsequent October 22 request for a response due November 23. I expect at least one additional distribution once the response is filed or its deadline passes (99%). That ordinary redistribution should not be confused with a substantive relist after conference consideration. My central procedural path is one further distribution and then denial; a hold for Salazar could instead delay resolution. I do not expect a long sequence of substantive relists, although one or two additional conference distributions are plausible.
+
+I do **not** expect a call for the Solicitor General's views (1.5% chance of a new CVSG). There is none in the baseline. I expect no government-invitation detour before disposition.
+
+If the Court grants plenary review, I expect it to take the single question substantially as written, with the actual-knowledge limitation retained: whether the VPPA covers video information the provider knows the actual recipient can use to identify a viewer, despite its being unintelligible to an ordinary person. I do not expect a grant directed solely at whether recent general textualist precedents authorize a circuit panel to disregard its own precedent. Conditional on plenary review, the likely issue is the statutory PII definition and its relationship to knowing disclosure, not a free-standing constitutional privacy right.
+
+**Conditional on any grant, I put 40% on disposition in the cert order and 60% on plenary briefing and argument.** A hold followed by a grant, vacatur and remand in light of Salazar is the principal summary possibility. A summary merits reversal is less likely: the pending Salazar question concerns consumer status, whereas this petition concerns identifiable information. Neither the existence of Salazar nor a decision favorable to its petitioner automatically supplies a reason to vacate Golden's judgment.
+
+Should the Court deny, no writing is the clear expectation. If a Justice writes, Jackson or Sotomayor could address the privacy implications, while Thomas or Alito could address the statutory conflict; these are low-confidence possibilities, not predictions of a particular author. The structured order-writer block expresses each Justice's unconditional chance of writing on the disposition, including grant-side writings, and does not forecast cert votes.

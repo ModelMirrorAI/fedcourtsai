@@ -1,0 +1,3 @@
+{"schema_version":"1.0","case_id":"scotus/73520108","run_id":"20261109T154341Z","role":"evaluator","actor_id":"claude-judge","used_corpus_query":false,"used_base_rates":false,
+"tools_used":["shell","file-read"],"helpful":["Docket ProceedingsandOrder in the staged snapshot settled the relist and CVSG forecasts directly","Per-call result_capture markers made leakage grading quick"],
+"gaps":[],"notes":"A straightforward forward cert cell. All three candidates predicted denial on a petition granted after four distributions."}

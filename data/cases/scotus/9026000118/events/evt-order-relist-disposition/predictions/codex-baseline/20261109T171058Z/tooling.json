@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000118",
+  "run_id": "20261109T171058Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts paths", "fedcourts query", "fedcourts pdf-text", "CourtListener MCP search", "web search/open", "official Supreme Court PDF retrieval", "fedcourts validate"],
+  "helpful": ["Frozen cert anchor and dated snapshot", "Direct official PDF links in snapshot", "Provisioned jurisdictional statement with bound current opinion", "Installed PDF extractor"],
+  "gaps": ["Web tool responses supplied no usable content", "Opposition and appellants' response text were not provisioned", "No direct-appeal-specific base rate", "pdf-text rejects process-substitution pipes"],
+  "notes": "Read-only default uv cache required UV_CACHE_DIR=/tmp/uv-cache. Official PDFs were read through anonymous in-memory descriptors without writing extra output files. The separate appendix begins with the older opinion, so the bound appendix was needed for the appealed order. Corpus priors were illustrative only."
+}

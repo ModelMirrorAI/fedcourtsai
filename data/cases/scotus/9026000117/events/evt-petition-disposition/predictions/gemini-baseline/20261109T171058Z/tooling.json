@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000117",
+  "run_id": "20261109T171058Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_read_document"
+  ],
+  "helpful": [
+    "same-question.json immediately surfaced companion dockets 26-116 and 26-118",
+    "fedcourts query confirmed gvr coding on prior three-judge court appeals (25-273, 25-274, 25-234, 25-901) and Munsingwear vacaturs",
+    "mcp_courtlistener_read_document retrieved the June 2, 2026 Per Curiam stay opinion (25A1314) and the un-truncated remedial paragraphs of Doc. 537"
+  ],
+  "gaps": [
+    "Motion to Dismiss or Affirm (filed Sept. 24, 2026) and Appellants' Reply (filed Oct. 7, 2026) were not staged in record/documents/",
+    "The 150,000-character cap on petition.txt truncated the last 1,312 characters of Appendix A containing the operative injunction language"
+  ],
+  "notes": "CourtListener MCP retrieval of N.D. Ala. Doc. 537 and Doc. 544 resolved the 1,312-character appendix truncation in petition.txt."
+}

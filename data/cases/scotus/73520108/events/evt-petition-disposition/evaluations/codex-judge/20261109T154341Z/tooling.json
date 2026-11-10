@@ -1,0 +1,25 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73520108",
+  "gaps": [
+    "Result-unobserved telemetry limits conclusions about the contents returned to gemini-baseline; call targets remain assessable."
+  ],
+  "helpful": [
+    "Blinded forecast documents and captured call queries keep rationale, forecast, and leakage assessments separate.",
+    "statpack-at recovered the candidate-era sal-v4 build without consulting prediction history.",
+    "The staged docket and explicit plenary-route outcome resolved the observable procedural claims."
+  ],
+  "notes": "Used no external case retrieval or package installation. Historical aggregate context was used only to assess the candidates' reasoning; baseline and skill remain for the harness to stamp.",
+  "role": "evaluator",
+  "run_id": "20261109T154341Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "local-file-read",
+    "fedcourts statpack-at",
+    "apply_patch",
+    "jsonschema"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

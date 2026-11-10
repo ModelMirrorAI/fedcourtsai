@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000294",
+  "run_id": "20261109T171058Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "mcp:courtlistener:search",
+    "mcp:courtlistener:read_document"
+  ],
+  "helpful": [
+    "metrics/statpack.md and context.json cert_anchor",
+    "provisioned petition.txt, questions-presented.txt, and related vide snapshots (26-292.json, 26-293.json)",
+    "mcp:courtlistener:read_document for retrieving the Second Circuit panel and en banc opinions (152 F.4th 339 and 170 F.4th 100)",
+    "fedcourts query for inspecting companion dockets 26-292 and 26-293 and recent 2020s SCOTUS dispositions"
+  ],
+  "gaps": [
+    "An --originating-court filter on fedcourts query to filter SCOTUS corpus priors by originating circuit (e.g. ca2)",
+    "Lower-court opinion provisioning across consolidated lead dockets when the SCOTUS petition arises from a member appeal number (23-354 vs. lead docket 23-258)"
+  ],
+  "notes": "Because lower-court-docket.txt checked only Second Circuit member docket 23-354 (67110566) rather than the lead consolidated docket 23-258(L); 23-354(L), decision-below.txt was not staged locally, but CourtListener MCP search and read_document cleanly supplied both the panel opinion (opinion_id 11127439) and the en banc order (opinion_id 11277807)."
+}

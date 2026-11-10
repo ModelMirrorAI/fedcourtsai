@@ -1,0 +1,8 @@
+# Forecast — Allen v. Caster, No. 26-116
+
+- **Disposition:** The Court acts on this petition together with the Milligan and Singleton appeals (26-117, 26-118). Expect the Court to grant certiorari before judgment and dispose of Caster in the order itself. Most likely it vacates the May 2026 preliminary injunction under *Munsingwear*, because the injunction was limited to the 2026 elections, which have now been held. It then remands with instructions to dismiss the preliminary-injunction appeal as moot. A per curiam summary reversal on the merits in light of *Louisiana v. Callais* is the less likely grant-family route. Plenary review with argument is unlikely, because the injunction's whole subject has expired.
+- **Relists:** The docket shows three distributions, the latest for the 13 Nov 2026 conference. I put a further distribution after 13 Nov at a bit under even odds. A dissent from the vacatur or summary disposition being drafted is the main reason it would slip again.
+- **CVSG:** None. A State is the petitioner, and the Court is already deep into this litigation.
+- **Question taken, if granted:** None of the four QPs as such. The Court would rest on mootness and Munsingwear, or on Callais's reformulated §2 framework (QPs 1–2) if it reaches the merits. It would not reach QP 4 (the Fourteenth Amendment question).
+- **Summary route:** Highly likely conditional on a grant (about 85%).
+- **Separate writings:** On a vacatur or summary reversal, expect a dissent from Justice Jackson and/or Justice Sotomayor (possibly joined by Justice Kagan). Justice Thomas might write separately on §2. If the Court instead denies, a statement or dissent is plausible but less likely (about 30%).

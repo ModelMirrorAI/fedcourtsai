@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000118",
+  "run_id": "20261109T171058Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "flags": [
+    {
+      "category": "provisioning",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The docket snapshot (2026-11-09.json) lists a Motion to Dismiss filed by Appellees Bobby Singleton, et al. on Sept. 18, 2026 and a Response to Motion to Dismiss filed by Appellants Wes Allen, et al. on Sept. 29, 2026, with PDF links on supremecourt.gov, but neither document was staged in record/documents/ (only petition.txt, appendix.txt, and questions-presented.txt were provisioned)."
+    }
+  ]
+}

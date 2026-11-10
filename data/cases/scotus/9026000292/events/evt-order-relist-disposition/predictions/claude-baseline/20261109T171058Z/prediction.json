@@ -1,0 +1,104 @@
+{
+  "big_case_rationale": "9/11 and terrorism-victim judgments (~$17B) against roughly $3.5B of blocked Afghan central-bank assets; touches TRIA, FSIA and the Executive's recognition power; 31 States as amici.",
+  "big_case_score": 0.7,
+  "case_id": "scotus/9026000292",
+  "claim_distributions": [
+    {
+      "claim_id": "order-writers",
+      "probabilities": {
+        "Alito": 0.12,
+        "Barrett": 0.04,
+        "Gorsuch": 0.17,
+        "Jackson": 0.04,
+        "Kagan": 0.02,
+        "Kavanaugh": 0.05,
+        "Roberts": 0.02,
+        "Sotomayor": 0.03,
+        "Thomas": 0.14
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.36
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.6
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.4
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.05
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.4
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "elevated",
+    "band_refused": null,
+    "cert_anchor": {
+      "lookback_terms": 10,
+      "rate": 0.24813153961136025,
+      "statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653"
+    },
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-11-10",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 2,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v8",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_contact_scrub": {
+      "blocks": 0,
+      "fields": 0,
+      "sides": []
+    },
+    "snapshot_date": "2026-11-09",
+    "snapshot_provenance": "dated",
+    "snapshot_uptake": "read",
+    "statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+    "term": 2026,
+    "vide_links": [
+      "26-293",
+      "26-294"
+    ]
+  },
+  "created_at": "2026-11-09T18:21:27.827341Z",
+  "engine": "claude-code",
+  "event_id": "evt-order-relist-disposition",
+  "granted": 0,
+  "input_snapshot": "2026-11-09.json",
+  "judgment": null,
+  "model": "claude-opus-5-5",
+  "predicted_disposition": "denied",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.36,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:69076c7e6ef3b55358bbb298c3ab3e821f14f7ce165f7a1eed2e51a550f5ca21",
+    "label": "proc-v20",
+    "pipeline_sha": "f3108c6d8ff690e7bb71e9615393fabbe929a346",
+    "stamped_at": "2026-11-09T18:21:27.827341Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261109T171058Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

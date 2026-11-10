@@ -1,0 +1,1 @@
+No retrieval beyond the provisioned inputs (the event, outcome.json, record/context.json, record/snapshots/2026-11-09.json docket entries, and the three blinded candidates' staged files and retrieval logs). No corpus query, statpack read, CourtListener MCP call or web search.

@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500225",
+  "run_id": "20261109T212928Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "CourtListener MCP search",
+    "CourtListener MCP read_document",
+    "CourtListener MCP search_document",
+    "web search/open attempts",
+    "jq",
+    "fedcourts validate"
+  ],
+  "helpful": [
+    "Frozen cert anchor and context supplied the correct cohort and conditioning state.",
+    "Explicit reschedule entries distinguished five distributions from five considered conferences.",
+    "Provisioned reply and CourtListener opinion retrieval established the intervening Wolford holding.",
+    "Docket-number corpus lookup resolved the separate cross-petition's status."
+  ],
+  "gaps": [
+    "Web attempts returned no usable content.",
+    "Reporter-citation coverage in the corpus is sparse; the targeted Antonyuk MCP citation query also returned no result.",
+    "No published forward-increment baseline or matched sensitive-place cert cohort was available."
+  ],
+  "notes": "Recovered from the read-only default uv cache by setting UV_CACHE_DIR=/tmp/uv-cache. No installation was attempted. The generic GVR query was illustrative, not an empirical rate estimate. Truncated provisioned documents and incomplete lower-court rehearing coverage were treated as limitations rather than silence."
+}

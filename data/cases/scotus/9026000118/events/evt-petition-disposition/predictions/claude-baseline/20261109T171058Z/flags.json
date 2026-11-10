@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000118",
+  "run_id": "20261109T171058Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {"category": "provisioning", "severity": "info", "event_id": "evt-petition-disposition",
+     "message": "Docket 26-118 is a mandatory appeal (jurisdictional statement). The appellees' motion to dismiss (Rule 18.6) and the appellants' response were not staged under record/documents/, though they are the BIO/reply analogues; I fetched both from supremecourt.gov."},
+    {"category": "scope", "severity": "info", "event_id": "evt-petition-disposition",
+     "message": "Cert-stage base rates (band 'high', cert_anchor 0.348) describe discretionary petitions; on a §1253 appeal the Court must decide the merits, so the grant family (summary reversal / vacatur / noting probable jurisdiction) runs well above the anchor."}
+  ]
+}

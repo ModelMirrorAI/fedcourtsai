@@ -1,0 +1,24 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/9026000118",
+  "gaps": [
+    "Document provisioning did not stage Appellees' September 18, 2026 'Motion to dismiss' or Appellants' September 29, 2026 'Response to motion to dismiss' from the docket snapshot (likely because the matcher looks for 'Motion to dismiss or affirm' or 'Brief in opposition' rather than a bare 'Motion to dismiss' on a direct appeal)."
+  ],
+  "helpful": [
+    "Provisioned Jurisdictional Statement (petition.txt), Questions Presented (questions-presented.txt), and Appendix (appendix.txt)",
+    "fedcourts query CLI for retrieving companion dockets (26-116, 26-117, 26-118) and prior direct-appeal GVR records (25-273, 25-274)",
+    "CourtListener MCP read_document and call_endpoint for reading Allen v. Milligan (June 2, 2026 stay opinion) and Louisiana v. Callais (April 29, 2026 opinion) and checking the district court docket entries"
+  ],
+  "notes": "Both the corpus-query CLI and CourtListener MCP worked smoothly and provided complete context on the May 2026 remand, the May 26, 2026 preliminary injunction, and the June 2, 2026 stay.",
+  "role": "predictor",
+  "run_id": "20261109T171058Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts query",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_read_document",
+    "mcp_courtlistener_call_endpoint"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

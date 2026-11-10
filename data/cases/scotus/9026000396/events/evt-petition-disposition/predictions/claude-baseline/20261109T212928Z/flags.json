@@ -1,0 +1,10 @@
+{
+  "case_id": "scotus/9026000396",
+  "run_id": "20261109T212928Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {"category": "data-quality", "severity": "info", "event_id": "evt-petition-disposition",
+     "message": "party-letter.txt (Oct 9 2026 letter from petitioner's counsel, 1 page) extracted only the letterhead; empty_text is false but the letter body is missing, so its content could not be read."}
+  ]
+}

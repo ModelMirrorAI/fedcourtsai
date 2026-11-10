@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/73500225",
+  "run_id": "20261109T212928Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "WebFetch", "WebSearch"],
+  "helpful": ["cert_anchor in context.json", "staged BIO and reply"],
+  "gaps": ["The distribution count does not separate pre-conference reschedules from true relists; a separate true-relist field would help."],
+  "notes": "The relist-count cut overstates true relists for this docket because of three reschedules."
+}

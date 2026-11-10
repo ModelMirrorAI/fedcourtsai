@@ -1,0 +1,11 @@
+# Forecast of the Court's handling
+
+The Court will deny the petition after obtaining the requested response and returning the case for consideration. The November 9 snapshot shows one distribution, entered October 21 for the November 6 conference, followed by an October 22 response request with a November 23 deadline. I predict one additional distribution after briefing and no extended series of substantive relists. The probability of at least one additional distribution is 96%; that includes an administrative redistribution following the response request, not just a relist after a fully briefed conference.
+
+The Court will not invite the Solicitor General's views. There is no CVSG in the current record; the probability of a new invitation is 3%. A request that Colorado respond is not such an invitation.
+
+The grant-family probability is 14%. If review is granted, the Court will take the single question substantially as presented, focused on whether sufficiently severe employer-mandated racial training can support a hostile-environment claim without repetition or separate harassment. It will not decide whether all diversity training is unlawful. Conditional on that grant, the likely route is plenary briefing and argument: 85%, against 15% for a disposition accompanying the grant itself. A routine GVR in light of Ames is not the expected route because Ames predates the judgment below and was expressly considered there.
+
+If granted, the likely doctrinal focus would be the independent role of severity and the significance of employer authority, while leaving ultimate proof of a hostile environment for further proceedings. On the predicted denial route, the Court will issue no explanation of the merits; denial will leave the judgment intact without endorsing the panel's reasoning. The case's fact-sensitive posture and the absence of a square conflict on materially similar training are the forecast reasons for declining review, not language expected to appear in a denial order.
+
+Conditional on denial, I assign 11% to a dissent or statement respecting denial and otherwise expect no separate writing. If one appears, Thomas is my leading individual candidate, followed by Alito and Gorsuch. Those low, independent writer probabilities are recorded in prediction.json, not a forecast of a published vote tally.

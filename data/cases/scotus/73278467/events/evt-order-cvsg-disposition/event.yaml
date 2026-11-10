@@ -7,7 +7,7 @@ event_id: evt-order-cvsg-disposition
 kind: order
 moment: cvsg
 opened_at: '2026-06-30'
-resolved: false
+resolved: true
 schema_version: '1.0'
 stage: cert
 title: Joseph J. Roybal, Sheriff, El Paso County, Colorado, et al. v. Darlene Griffith

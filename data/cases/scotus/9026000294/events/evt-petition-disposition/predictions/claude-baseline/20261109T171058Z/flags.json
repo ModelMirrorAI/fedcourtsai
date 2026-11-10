@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/9026000294",
+  "run_id": "20261109T171058Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "record/documents/lower-court-docket.txt reports 'dissent noted: no' for the en banc denial. The petition appendix (App.96-131) shows five judges dissenting from the 2026-03-19 en banc denial. The en banc order sits on the lead Havlish docket (23-258), which the matched CourtListener dockets may not cover. I relied on the petition appendix."
+    }
+  ]
+}

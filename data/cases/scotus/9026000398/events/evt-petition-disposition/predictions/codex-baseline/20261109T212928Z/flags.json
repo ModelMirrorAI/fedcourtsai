@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000398",
+  "run_id": "20261109T212928Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned context has response_requested=null, but the snapshot explicitly records Response Requested on October 22, 2026 and an extension through December 23. Forecast uses those docket entries, including for the high probability of another distribution; the frozen baseline band and anchor are left unchanged. This did not block completion."
+    }
+  ]
+}

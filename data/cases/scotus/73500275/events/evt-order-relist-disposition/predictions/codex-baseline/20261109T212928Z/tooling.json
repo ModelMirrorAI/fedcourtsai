@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500275",
+  "run_id": "20261109T212928Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts paths", "fedcourts query", "committed statpack", "web open", "curl", "fedcourts pdf-text", "fedcourts validate"],
+  "helpful": ["Frozen reached-band cert anchor", "Provisioned opposition, reply and matching decision below", "Exact-docket corpus lookup for an identified candidate companion", "Official companion government brief"],
+  "gaps": ["Web opens returned no visible content", "Default uv cache path is read-only", "pdf-text does not accept /dev/stdin as a file"],
+  "notes": "Used UV_CACHE_DIR=/tmp/uv-cache and --no-sync; installed nothing. Read the public companion PDF through fedcourts pdf-text using an anonymous memory file, creating no additional output files. Candidate-companion treatment is inferred from briefs and coordinated scheduling, not a Court-designated Vide link. No substantive retrieval gap blocks completion."
+}

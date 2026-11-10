@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000310",
+  "run_id": "20261109T171058Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell local-file reads", "jq", "web search", "web PDF open", "apply_patch", "fedcourts validate"],
+  "helpful": [
+    "The frozen reached-band anchor exactly matches the independently pooled prior-Term statpack segments.",
+    "The complete matched appellate opinion permits checking the petition's asserted split against the court's actual reasoning.",
+    "The snapshot preserves the cert response request and its deadline even though the similarly named context field is application-only."
+  ],
+  "gaps": [
+    "No paid-segment conditional base rate for a cert response request was provided.",
+    "Amicus briefs are linked in the snapshot but not staged as readable text."
+  ],
+  "notes": "The respondent's brief is not yet due; its absence is expected, not a provisioning failure. The default uv cache was read-only; validation succeeded with UV_CACHE_DIR=/tmp/uv-cache and --no-sync. No installation or outcome retrieval was needed."
+}

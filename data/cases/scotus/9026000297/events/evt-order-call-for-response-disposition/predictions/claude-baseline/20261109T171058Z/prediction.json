@@ -1,0 +1,101 @@
+{
+  "big_case_rationale": "Article III limits on structural-reform injunctions over state agencies; child-welfare class actions pending in many States; 22-State amicus coalition.",
+  "big_case_score": 0.62,
+  "case_id": "scotus/9026000297",
+  "claim_distributions": [
+    {
+      "claim_id": "order-writers",
+      "probabilities": {
+        "Alito": 0.1,
+        "Barrett": 0.02,
+        "Gorsuch": 0.07,
+        "Jackson": 0.02,
+        "Kagan": 0.01,
+        "Kavanaugh": 0.03,
+        "Roberts": 0.01,
+        "Sotomayor": 0.02,
+        "Thomas": 0.1
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.3
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.97
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.03
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.05
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.2
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "state",
+    "band_refused": null,
+    "cert_anchor": {
+      "lookback_terms": 10,
+      "rate": 0.23333333333333334,
+      "statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653"
+    },
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-10-20",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 1,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v8",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_contact_scrub": {
+      "blocks": 0,
+      "fields": 0,
+      "sides": []
+    },
+    "snapshot_date": "2026-10-19",
+    "snapshot_provenance": "dated",
+    "snapshot_uptake": "read",
+    "statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+    "term": 2026,
+    "vide_links": []
+  },
+  "created_at": "2026-11-09T18:47:39.470417Z",
+  "engine": "claude-code",
+  "event_id": "evt-order-call-for-response-disposition",
+  "granted": 0,
+  "input_snapshot": "2026-10-19.json",
+  "judgment": null,
+  "model": "claude-opus-5-5",
+  "predicted_disposition": "denied",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.3,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:69076c7e6ef3b55358bbb298c3ab3e821f14f7ce165f7a1eed2e51a550f5ca21",
+    "label": "proc-v20",
+    "pipeline_sha": "f3108c6d8ff690e7bb71e9615393fabbe929a346",
+    "stamped_at": "2026-11-09T18:47:39.470417Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261109T171058Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

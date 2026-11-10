@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000355",
+  "run_id": "20261109T171058Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "record/context.json",
+    "record/same-question.json",
+    "record/snapshots/2026-11-09.json",
+    "record/documents/petition.txt",
+    "record/documents/questions-presented.txt",
+    "record/documents/decision-below.txt",
+    "record/documents/lower-court-docket.txt",
+    "mcp_courtlistener_search"
+  ],
+  "helpful": [
+    "Provisioned petition.txt included the full District Court dismissal order (App. 2a-15a) and Fifth Circuit Rule 47.6 summary affirmance (App. 1a), enabling thorough evaluation of the vehicle and circuit-split claims.",
+    "cert_anchor in record/context.json and the sal-v8 risk-set table in metrics/statpack.md provided an exact quantitative anchor for a baseline-band cert petition.",
+    "record/same-question.json confirmed zero same-question companion petitions across 15,608 indexed petitions."
+  ],
+  "gaps": [],
+  "notes": "The October 19, 2026 Call for a Response entry in the snapshot (with response due November 18, 2026) was critical for pricing relist-increment (since distribution_count in context.json is currently 1 prior to post-BIO redistribution)."
+}

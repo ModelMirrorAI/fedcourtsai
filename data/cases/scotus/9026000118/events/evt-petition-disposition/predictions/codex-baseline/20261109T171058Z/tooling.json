@@ -1,0 +1,34 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000118",
+  "run_id": "20261109T171058Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "committed statpack",
+    "CourtListener MCP search",
+    "CourtListener MCP read_document and search_document",
+    "web.run (no usable results)",
+    "direct retrieval of snapshot-linked filings",
+    "fedcourts pdf-text",
+    "fedcourts validate"
+  ],
+  "helpful": [
+    "Frozen risk-set anchor and distribution count",
+    "Provisioned jurisdictional statement and lower-court excerpts",
+    "Date-bounded retrieval of the earlier case-specific stay opinion",
+    "Existing PDF extractor for unstaged opposing and response briefs"
+  ],
+  "gaps": [
+    "The direct-appeal dismissal motion and response were linked but not provisioned as text",
+    "Browser calls returned no usable content",
+    "A summary-reversal query returned no rows after 280756224 bytes of reported ranged transfer",
+    "Default uv cache was read-only; an alternate cache path was necessary",
+    "Cert-based anchors do not separately calibrate mandatory three-judge-court appeals"
+  ],
+  "notes": "Primary-source retrieval resolved the missing-brief gap without installing packages or persisting extra files. Reporter-citation lookup missed the stay, but a narrow date-and-name search found it. Corpus GVR priors were procedural context only, not substantive voting-law analogues. No target appellate outcome was sought or encountered."
+}

@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000116",
+  "run_id": "20261109T171058Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_read_document"
+  ],
+  "helpful": [
+    "Provisioned same-question.json and fedcourts query quickly identified the companion direct appeals (26-117 and 26-118) and their identical conference distribution schedule.",
+    "CourtListener MCP read_document retrieved the full June 2, 2026 per curiam stay opinion in 25A1314/25A1315/25A1316 and the syllabus of Louisiana v. Callais."
+  ],
+  "gaps": [],
+  "notes": "All provisioned documents (petition, BIO, cert reply, QP, and appendix) were complete and high quality."
+}

@@ -1,0 +1,11 @@
+# Forecast of the Court's action
+
+The Court will most likely deny the petition without explanation. The snapshot already records **two distributions**, for November 6 and November 13, 2026, so the petition has already been relisted once. I put the probability of at least one distribution beyond those two at **38%**. The modal path is disposition without another distribution; if it remains pending beyond November 13, one or two additional conference distributions are more likely than an extended sequence, absent a request for government views.
+
+No CVSG has issued. I assign **16%** to a new request for the Solicitor General's views, most plausibly in the next several conferences, because the treatment of foreign central-bank assets implicates executive foreign-relations interests. The principal forecast is no CVSG and an order in November or December 2026; an invitation would instead move the likely resolution into 2027.
+
+If review is granted, the most likely question is the petition's own narrow request: whether the Second Circuit should reconsider its FSIA analysis in light of *Exxon Mobil v. CIMEX*. A grant alongside Havlish could also require considering the time at which DAB must qualify as a terrorist party's agency or instrumentality. The Court would be more likely to coordinate the related petitions than to hear Ashton's overlapping claims in isolation.
+
+**Conditional on a grant, summary disposition is 65% likely**, predominantly a grant, vacatur, and remand for reconsideration rather than an immediate summary reversal. The remaining 35% is a grant leading to merits briefing and argument, likely coordinated with a companion. The narrower remand route would not itself decide that the victims are entitled to the assets. The obstacle is that the Second Circuit's TRIA timing ruling can survive a change to the immunity analysis, making denial the most likely overall result.
+
+**Conditional on denial, the probability of a noted dissent or statement respecting denial is 12%.** The principal forecast is no separate writing. If one appears, Thomas is the leading individual possibility, followed by Alito and Gorsuch; this is not a forecast of an identified four-vote grant coalition. No majority opinion or merits author is predicted on the denial path.

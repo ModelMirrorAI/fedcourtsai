@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000396",
+  "run_id": "20261109T212928Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "courtlistener search",
+    "courtlistener read_document"
+  ],
+  "helpful": [
+    "fedcourts query --docket-number for inspecting prior First Step Act petitions",
+    "metrics/statpack.md and context.json cert_anchor for base-rate calibration",
+    "CourtListener MCP search and read_document for reviewing circuit split opinions"
+  ],
+  "gaps": [],
+  "notes": "Used corpus query to inspect prior First Step Act time-credit dockets Hargrove v. Healy (No. 25-818, cert denied 2026-04-20) and Maxwell v. Dinis (No. 25-5930, cert granted 2026-06-01), and used CourtListener MCP to examine the underlying circuit opinions in Hargrove, Gonzalez, and Rivera-Perez."
+}

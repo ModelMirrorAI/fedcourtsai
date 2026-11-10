@@ -449,14 +449,14 @@
   },
   "frozen_process": {
     "digests": [
-      "sha256:1789dc26189e0e14ae71d9ed1f622751dd2c849d8fba4a85542336fab0b15080",
-      "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
-      "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
-      "sha256:889d53dc033d7303ca39cf2bf3faa859dc0886a296ed2f0ad5ac00edf96705b7",
-      "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
-      "sha256:a939a164bc3cb0658e12c0c98b2300a878aecea15a93189e96579103382002d8"
+      "sha256:154ba5e6732eb9627dfa988245cba7a2f5a5682fa4b9bf6ac5d0c7e6e4e984de",
+      "sha256:56f5da33ed8eeda29c8094135a9141710b69c76fb939abe281da85d263d238a7",
+      "sha256:69076c7e6ef3b55358bbb298c3ab3e821f14f7ce165f7a1eed2e51a550f5ca21",
+      "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+      "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+      "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c"
     ],
-    "since": "2026-11-07T15:59:33Z",
+    "since": "2026-11-08T18:17:04Z",
     "windows": [
       {
         "closes": "2026-10-11T12:00:00Z",
@@ -699,7 +699,7 @@
         "revoked_at": null
       },
       {
-        "closes": null,
+        "closes": "2026-11-08T18:17:04Z",
         "digest": "sha256:1789dc26189e0e14ae71d9ed1f622751dd2c849d8fba4a85542336fab0b15080",
         "label": "proc-v19",
         "opens": "2026-11-07T15:59:33Z",
@@ -707,7 +707,7 @@
         "revoked_at": null
       },
       {
-        "closes": null,
+        "closes": "2026-11-08T18:17:04Z",
         "digest": "sha256:a939a164bc3cb0658e12c0c98b2300a878aecea15a93189e96579103382002d8",
         "label": "proc-v19",
         "opens": "2026-11-07T15:59:33Z",
@@ -715,10 +715,34 @@
         "revoked_at": null
       },
       {
-        "closes": null,
+        "closes": "2026-11-08T18:17:04Z",
         "digest": "sha256:889d53dc033d7303ca39cf2bf3faa859dc0886a296ed2f0ad5ac00edf96705b7",
         "label": "proc-v19",
         "opens": "2026-11-07T15:59:33Z",
+        "predictor_id": "gemini-baseline",
+        "revoked_at": null
+      },
+      {
+        "closes": null,
+        "digest": "sha256:69076c7e6ef3b55358bbb298c3ab3e821f14f7ce165f7a1eed2e51a550f5ca21",
+        "label": "proc-v20",
+        "opens": "2026-11-08T18:17:04Z",
+        "predictor_id": "claude-baseline",
+        "revoked_at": null
+      },
+      {
+        "closes": null,
+        "digest": "sha256:56f5da33ed8eeda29c8094135a9141710b69c76fb939abe281da85d263d238a7",
+        "label": "proc-v20",
+        "opens": "2026-11-08T18:17:04Z",
+        "predictor_id": "codex-baseline",
+        "revoked_at": null
+      },
+      {
+        "closes": null,
+        "digest": "sha256:154ba5e6732eb9627dfa988245cba7a2f5a5682fa4b9bf6ac5d0c7e6e4e984de",
+        "label": "proc-v20",
+        "opens": "2026-11-08T18:17:04Z",
         "predictor_id": "gemini-baseline",
         "revoked_at": null
       }

@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000294",
+  "run_id": "20261109T171058Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts paths", "fedcourts query", "fedcourts validate", "CourtListener search", "CourtListener search_document", "web search", "web open", "web find"],
+  "helpful": ["Frozen sal-v8 cert anchor", "Explicit Vide companion snapshots", "Statpack terminal-versus-reached distinction", "CourtListener citation lookup and targeted snippets"],
+  "gaps": ["The opposing amicus text was linked but not staged", "No original decision-below or rehearing opinion text", "Corpus reporter-citation coverage was sparse"],
+  "notes": "The initial uv call failed on the read-only default cache; setting UV_CACHE_DIR=/tmp/uv-cache restored execution without installation. Web results incidentally exposed other forecasts, disclosed and disregarded. The lower-court summary's no-dissent observation conflicts with the petition's description and should not be treated as affirmative absence."
+}
