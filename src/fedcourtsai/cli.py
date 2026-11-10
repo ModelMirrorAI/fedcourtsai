@@ -16473,7 +16473,7 @@ def public_update_cmd(
         ),
     ] = 0,
 ) -> None:
-    """Render the weekly public update for the email list from the committed ledger.
+    """Render the weekly forecasts update for the email list from the committed ledger.
 
     Read-only and deterministic: the same tree and week render the same bytes.
     Exits 3, writing nothing, when the week has nothing resolved and no new
@@ -16582,7 +16582,7 @@ def post_public_update_cmd(
         ),
     ] = False,
 ) -> None:
-    """Create the week's public update as a Buttondown draft for one tag's subscribers.
+    """Create the week's forecasts update as a Buttondown draft for one tag's subscribers.
 
     Draft only: a person reads it and presses send in Buttondown. Idempotent per
     week, since an email already carrying the week's subject is returned rather
@@ -28346,7 +28346,7 @@ def assert_website_environment_cmd(
 
     Requires the environment to exist, its deployment branches to be a custom
     policy of exactly `main`, and it to hold exactly the Buttondown API key and
-    the weekly tag id — no other secret or variable — and no repository or
+    the tag ids — no other secret or variable — and no repository or
     organization secret to share the key's name, since a workflow on any
     branch reads one. Names each problem and exits non-zero if there is any; an
     unread listing is a problem.
@@ -28364,7 +28364,7 @@ def assert_website_environment_cmd(
         typer.echo(f"::error::website environment: {problem}", err=True)
     if problems:
         raise typer.Exit(code=1)
-    typer.echo("the website environment admits main alone and holds only its key and tag id")
+    typer.echo("the website environment admits main alone and holds only its key and tag ids")
 
 
 @app.command("assert-corpus-write-environment")

@@ -227,7 +227,7 @@ def test_denials_are_counted_whole_and_cut_to_the_biggest_while_grants_all_show(
     update = build_court_update(data, WEEK)
     text = render_court_update(update)
 
-    assert f"{denied + 2} decided: {denied} denied, 2 another outcome." in text
+    assert f"{denied + 2} decided: {denied} denied, 2 granted or resolved another way." in text
     assert f"Showing {LISTED_TOP} of the {denied} cases denied" in text
     assert "Granted0 v. State" in text
     assert "Granted1 v. State" in text
@@ -390,6 +390,84 @@ def test_other_actions_and_new_filings_come_from_the_events_opened_in_the_week(
     assert text.count("Quick v. Ruling") == 1
 
 
+def test_argued_cases_are_all_listed_and_never_counted(tmp_path: Path) -> None:
+    data = tmp_path / "data"
+    for n in range(LISTED_TOP + 2):
+        _event(
+            data,
+            900 + n,
+            f"Merits{n:02d} v. State",
+            "evt-order-judgment",
+            kind=EventKind.order,
+            stage=Stage.merits,
+            moment=Moment.argued,
+        )
+        _outcome(
+            data,
+            900 + n,
+            on=MONDAY,
+            disposition=Disposition.other,
+            judgment=Judgment.affirmed if n else None,
+            event_id="evt-order-judgment",
+        )
+
+    text = render_court_update(build_court_update(data, WEEK))
+
+    assert all(f"Merits{n:02d} v. State" in text for n in range(LISTED_TOP + 2))
+    assert "decided:" not in text
+    assert "Showing" not in text
+
+
+def test_where_a_stages_events_disagree_the_unusual_decision_is_kept(tmp_path: Path) -> None:
+    data = tmp_path / "data"
+    docket = live_application_id(26, 800)
+    for event_id, moment, disposition in (
+        ("evt-a-disposition", Moment.arrival, Disposition.denied),
+        ("evt-b-disposition", Moment.response_filed, Disposition.granted),
+        ("evt-c-disposition", Moment.response_requested, Disposition.denied),
+    ):
+        _event(
+            data,
+            docket,
+            "Split v. Record",
+            event_id,
+            kind=EventKind.motion,
+            stage=Stage.interim,
+            moment=moment,
+        )
+        _outcome(data, docket, on=MONDAY, disposition=disposition, event_id=event_id)
+
+    update = build_court_update(data, WEEK)
+
+    assert [d.words for d in update.decisions] == ["Application granted"]
+
+
+def test_an_event_or_outcome_that_does_not_read_is_passed_over(tmp_path: Path) -> None:
+    data = tmp_path / "data"
+    _event(data, 801, "Alpha v. Beta")
+    _outcome(data, 801, on=MONDAY)
+    _event(data, 802, "Broken v. Outcome")
+    write_text(CasePaths(data, "scotus", 802).event(PETITION).outcome, "{not json")
+    write_text(CasePaths(data, "scotus", 803).event(PETITION).event_file, ": not an event\n")
+
+    update = build_court_update(data, WEEK)
+
+    assert [d.case.case_id for d in update.decisions] == ["scotus/801"]
+
+
+def test_a_summary_written_after_the_week_is_not_read(tmp_path: Path) -> None:
+    data = tmp_path / "data"
+    _event(data, 801, "Alpha v. Beta")
+    _outcome(data, 801, on=MONDAY)
+    _summary(data, 801, "A petitioner asks the Court for review.", day="2026-11-08")
+    _summary(data, 801, "The Court later did something else.", day="2026-11-09")
+
+    text = render_court_update(build_court_update(data, WEEK))
+
+    assert "A petitioner asks the Court for review." in text
+    assert "later did something else" not in text
+
+
 def test_a_voided_event_is_never_news(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     data = tmp_path / "data"
     _event(data, 801, "Wrong v. Petition")
@@ -455,12 +533,18 @@ def test_a_brief_cannot_open_markdown_of_its_own(tmp_path: Path) -> None:
     data = tmp_path / "data"
     _event(data, 801, "Alpha v. Beta")
     _outcome(data, 801, on=MONDAY)
-    _summary(data, 801, "A [link](https://example.com) and *stars*.")
+    _summary(data, 801, "A request about a_b and C#.")
+    assert r"A request about a\_b and C\#." in render_court_update(build_court_update(data, WEEK))
 
-    text = render_court_update(build_court_update(data, WEEK))
-
-    assert "[link](" not in text
-    assert r"\[link\]" in text
+    # Markup the summary contract forbids, or a template delimiter, drops the line whole.
+    for bad in (
+        "A [link](https://example.com).",
+        "See www.example.com for more.",
+        "A {{ subscriber.email }} request.",
+    ):
+        _summary(data, 801, bad)
+        text = render_court_update(build_court_update(data, WEEK))
+        assert "- **Alpha v. Beta** — Denied: the Court will not hear the case.\n" in text
 
 
 def test_the_same_tree_renders_the_same_bytes_and_an_empty_week_says_so(tmp_path: Path) -> None:

@@ -15,8 +15,9 @@ opened an event on, not the Court's whole docket. Four parts:
   moments the stage's question was opened at: argued cases decided, emergency
   applications ruled on, and petitions for review granted or denied. Every
   decision that is not the stage's usual one (a grant, a reversal) is listed.
-  The usual ones (denials) are counted, and where there are more than
-  :data:`LISTED_TOP` of them only that many are listed.
+  Denials of applications and petitions are counted, and where there are
+  more than :data:`LISTED_TOP` of them only that many are listed; argued
+  cases are all listed.
 * **Other actions** — the Court's steps short of a decision, read from the
   events the pipeline opens on them (``opened_at`` inside the week): an
   argument heard, a call for the Solicitor General's views, a first relist, a
@@ -28,7 +29,7 @@ opened an event on, not the Court's whole docket. Four parts:
   term calendar (:mod:`fedcourtsai.term_calendar`).
 
 Each case carries the one-sentence *In brief* line of its newest committed
-summary (``docs/case-summaries.md``) where it has one, and a link to the
+summary dated by the week's end (``docs/case-summaries.md``) where it has one, and a link to the
 Court's own docket page where its docket number is known.
 
 Where a list is cut to :data:`LISTED_TOP`, the cases kept are the ones the
@@ -51,6 +52,7 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Final
 
+import yaml
 from pydantic import ValidationError
 
 from .paths import CasePaths, EventPaths
@@ -59,7 +61,13 @@ from .schemas import Moment, Outcome, PredictableEvent, Stage
 from .serialize import read_model
 from .short_caption import short_caption
 from .store import iter_predictions, ledger_counts, normalized_moment, normalized_stage
-from .summaries import SummaryFormatError, newest_summary, parse_summary, split_sections
+from .summaries import (
+    SummaryFormatError,
+    dated_summaries,
+    markup_problems,
+    parse_summary,
+    split_sections,
+)
 from .supremecourt import docket_page_url, reserved_docket_number
 from .term_calendar import committed_calendar, next_conference
 from .voids import is_voided
@@ -77,6 +85,9 @@ LISTED_TOP: Final = 10
 #: The summary section whose one sentence introduces a case.
 _IN_BRIEF: Final = "## In brief"
 
+#: Delimiters an email service could read as a template instruction.
+_TEMPLATE_MARKS: Final = ("{{", "}}", "{%", "%}")
+
 #: The decision groups, in the order a reader looks for them.
 _STAGE_ORDER: Final = (Stage.merits, Stage.interim, Stage.cert)
 
@@ -88,9 +99,8 @@ _DECISION_HEADING: Final[dict[Stage, str]] = {
 
 #: The two halves of a group's count: the stage's usual decision, and the rest.
 _COUNT_LABEL: Final[dict[Stage, tuple[str, str]]] = {
-    Stage.merits: ("left standing", "reversed or vacated"),
-    Stage.interim: ("denied", "another outcome"),
-    Stage.cert: ("denied", "another outcome"),
+    Stage.interim: ("denied", "granted or resolved another way"),
+    Stage.cert: ("denied", "granted or resolved another way"),
 }
 
 #: The Court's steps short of a decision, by the forecast moment the pipeline
@@ -202,11 +212,25 @@ def _stakes(data_root: Path) -> dict[str, float]:
     return {case_id: sum(scores) / len(scores) for case_id, scores in reads.items()}
 
 
-def _brief(data_root: Path, docket_id: int) -> str | None:
-    """The *In brief* sentence of the case's newest committed summary, if it reads."""
-    path = newest_summary(data_root, _COURT, docket_id)
-    if path is None:
+def _brief(data_root: Path, docket_id: int, through: date) -> str | None:
+    """The *In brief* sentence of the case's newest summary dated by ``through``, if it reads.
+
+    A summary written from a later snapshot can describe what the Court did
+    after the week, so a past week never reads one. Whether a summary was
+    withdrawn against the docket's docketed date
+    (:func:`fedcourtsai.summaries.is_withdrawn`) is not asked, since no
+    committed file carries that date; the summary lane removes a withdrawn
+    file from the tree, which is what keeps one out of here.
+
+    The sentence is model-written prose bound for an email body, so one that
+    carries markup the summary contract forbids (a link, a URL, a tag:
+    :func:`fedcourtsai.summaries.markup_problems`) or a template delimiter is
+    dropped whole rather than cleaned: the case is then listed without it.
+    """
+    dated = [path for day, path in dated_summaries(data_root, _COURT, docket_id) if day <= through]
+    if not dated:
         return None
+    path = dated[-1]
     try:
         _, body = parse_summary(path.read_text(encoding="utf-8"))
     except (OSError, SummaryFormatError):
@@ -214,7 +238,10 @@ def _brief(data_root: Path, docket_id: int) -> str | None:
     headings, sections, _ = split_sections(body)
     for heading, text in zip(headings, sections, strict=True):
         if heading == _IN_BRIEF:
-            return " ".join(text.split()) or None
+            brief = " ".join(text.split())
+            if markup_problems(brief) or any(mark in brief for mark in _TEMPLATE_MARKS):
+                return None
+            return brief or None
     return None
 
 
@@ -239,6 +266,16 @@ def _event_dirs(data_root: Path) -> list[tuple[int, EventPaths]]:
     return found
 
 
+def _outcome(event_paths: EventPaths) -> Outcome | None:
+    """The event's committed outcome, or ``None`` where there is none or it does not read."""
+    if not event_paths.outcome.is_file():
+        return None
+    try:
+        return read_model(event_paths.outcome, Outcome)
+    except (OSError, ValueError, ValidationError):
+        return None
+
+
 def build_court_update(data_root: Path, week: str) -> CourtUpdate:
     """Collect one ISO week of the Court's actions from the ledger under ``data_root``."""
     start, end = week_bounds(week)
@@ -255,7 +292,7 @@ def build_court_update(data_root: Path, week: str) -> CourtUpdate:
                 case_id=case_id,
                 caption=short_caption(event.title) or event.title,
                 docket_number=reserved_docket_number(docket_id),
-                brief=_brief(data_root, docket_id),
+                brief=_brief(data_root, docket_id, end),
                 stakes=stakes.get(case_id),
             )
         return cases[docket_id]
@@ -268,26 +305,27 @@ def build_court_update(data_root: Path, week: str) -> CourtUpdate:
             continue
         try:
             event = read_model(event_paths.event_file, PredictableEvent)
-        except (OSError, ValueError, ValidationError):
+        except (OSError, ValueError, ValidationError, yaml.YAMLError):
             continue
         if is_voided(event.case_id, event.event_id):
             continue
         stage = normalized_stage(event.kind, event.stage)
         if stage is None:
             continue
-        if event_paths.outcome.is_file():
-            outcome = read_model(event_paths.outcome, Outcome)
-            if start <= outcome.resolved_at <= end:
-                decisions.setdefault(
-                    (docket_id, stage),
-                    Decision(
-                        case=case_of(docket_id, event),
-                        stage=stage,
-                        words=outcome_words(stage, outcome),
-                        usual=usual_outcome(stage, outcome),
-                        resolved_at=outcome.resolved_at,
-                    ),
-                )
+        outcome = _outcome(event_paths)
+        if outcome is not None and start <= outcome.resolved_at <= end:
+            decision = Decision(
+                case=case_of(docket_id, event),
+                stage=stage,
+                words=outcome_words(stage, outcome),
+                usual=usual_outcome(stage, outcome),
+                resolved_at=outcome.resolved_at,
+            )
+            # One line per case and stage. Where a stage's events disagree, the
+            # decision that is not the usual one is the news, so it is kept.
+            held = decisions.get((docket_id, stage))
+            if held is None or (held.usual and not decision.usual):
+                decisions[(docket_id, stage)] = decision
         if event.opened_at is None or not start <= event.opened_at <= end:
             continue
         declared = normalized_moment(stage, event.moment)
@@ -360,12 +398,17 @@ def _decision_lines(update: CourtUpdate, top: int | None) -> list[str]:
         if not members:
             continue
         usual = [d for d in members if d.usual]
+        # Argued cases are all listed, and counted on neither side: a judgment
+        # the record does not classify cannot honestly be put on one.
+        counted = stage in _COUNT_LABEL
         keep = (
-            _biggest([d.case for d in usual], top) if top is not None and len(usual) > top else None
+            _biggest([d.case for d in usual], top)
+            if counted and top is not None and len(usual) > top
+            else None
         )
         lines += [f"### {_DECISION_HEADING[stage]}", ""]
         intro: list[str] = []
-        if len(members) > 1:
+        if len(members) > 1 and counted:
             usual_label, other_label = _COUNT_LABEL[stage]
             intro.append(
                 f"{len(members)} decided: {len(usual)} {usual_label}, "
