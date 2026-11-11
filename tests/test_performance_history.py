@@ -1,5 +1,6 @@
 """The forward record over committed leaderboards, and the movement check."""
 
+import os
 import subprocess
 from pathlib import Path
 
@@ -17,6 +18,7 @@ from fedcourtsai.performance_history import (
     RESCORED,
     board_points,
     build_history,
+    landings,
     movements,
     previous_board,
 )
@@ -151,19 +153,12 @@ def test_level_flags_wait_for_ten_events() -> None:
 
 
 def _git(repo: Path, *args: str) -> None:
+    identity = ["-c", "user.name=t", "-c", "user.email=t@users.noreply.github.com"]
     subprocess.run(
-        [
-            "git",
-            "-C",
-            str(repo),
-            "-c",
-            "user.name=t",
-            "-c",
-            "user.email=t@users.noreply.github.com",
-            *args,
-        ],
+        ["git", "-C", str(repo), *identity, "-c", "commit.gpgsign=false", *args],
         check=True,
         capture_output=True,
+        env=os.environ | {"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1"},
     )
 
 
@@ -250,7 +245,8 @@ def test_the_digest_prints_only_pooled_series_that_moved_or_trip_a_flag() -> Non
     )
     assert "### Movement since the previous board" in lines
     assert "the board landed 2026-11-07" in lines
-    assert "| cert@distribution | alpha | 20 → 22 | 95.0% → 81.8% |" in lines
+    assert "| cert@distribution | alpha | 20 → 22 | 95.0% → 81.8% (90.0%) |" in lines
+    assert "not the paired figure above" in lines
     assert "`rescored`" in lines
     # The per-window row and the unmoved interim series are not printed.
     assert "interim@arrival" not in lines
@@ -262,3 +258,41 @@ def test_the_digest_says_when_nothing_moved_and_is_silent_without_a_previous_boa
     quiet = ops._movement_lines(board, ops.Vintaged(_board(), "2026-11-07"))
     assert any("No pooled forward series moved" in line for line in quiet)
     assert ops._movement_lines(board, None) == []
+
+
+def test_a_shallow_clone_reads_as_no_history(tmp_path: Path) -> None:
+    repo = _repo(tmp_path, _board(20, 0.95), _board(22, 20 / 22))
+    shallow = tmp_path / "shallow"
+    _git(tmp_path, "clone", "-q", "--depth", "1", f"file://{repo}", str(shallow))
+
+    assert landings(shallow, "HEAD") is None
+    assert build_history(shallow, "HEAD") is None
+    assert previous_board(shallow, "HEAD") is None
+
+
+def test_a_board_written_before_the_event_count_existed_has_no_events() -> None:
+    forward = LeaderboardStratum(events_scored=5, evaluations=15, accuracy=0.8)
+    board = Leaderboard(
+        predictors_ranked=1,
+        evaluations_total=15,
+        events_scored=5,
+        entries=[
+            LeaderboardEntry(predictor_id="alpha", evaluators=3, events_scored=5, forward=forward)
+        ],
+    )
+    (point,) = board_points(board)
+    assert point.events is None
+    # A null count is no prior: nothing is flagged against it.
+    (row,) = movements([point], [_point(20, 0.95)])
+    assert row.flags == []
+
+
+def test_a_flagged_series_that_did_not_move_is_one_line() -> None:
+    at_floor = _board(20, 0.9)
+    lines = "\n".join(
+        ops._movement_lines(
+            ops.Vintaged(at_floor, "2026-11-09"), ops.Vintaged(at_floor, "2026-11-07")
+        )
+    )
+    assert "Unchanged and still flagged: alpha at cert@distribution (`at-or-below-floor`)." in lines
+    assert "| Stage |" not in lines

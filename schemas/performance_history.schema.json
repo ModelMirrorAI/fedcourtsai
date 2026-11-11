@@ -29,8 +29,16 @@
           "title": "Event Accuracy Before"
         },
         "events_after": {
-          "title": "Events After",
-          "type": "integer"
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Events After"
         },
         "events_before": {
           "anyOf": [
@@ -46,12 +54,25 @@
           "title": "Events Before"
         },
         "flags": {
-          "description": "On a series of at least ten events, `at-or-below-floor`: event accuracy does not clear the always-deny floor, and `negative-skill`: the prior-Term Brier skill is below zero. On any series, `events-removed`: the series holds fewer events than before; `rescored`: accuracy moved by more than the added events can explain, so earlier cells were re-scored, re-windowed or left the population",
+          "description": "On a series of at least ten events, `at-or-below-floor`: event accuracy does not clear the always-deny floor, and `negative-skill`: the prior-Term Brier skill is below zero (ten of the accuracy column's events, which is not the skill column's own denominator). On any series, `events-removed`: the series holds fewer events than before; `rescored`: accuracy moved by more than the added events can explain, so earlier cells were re-scored, re-windowed or left the population",
           "items": {
             "type": "string"
           },
           "title": "Flags",
           "type": "array"
+        },
+        "floor_after": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The newer board's always-deny floor over the same events",
+          "title": "Floor After"
         },
         "mean_brier_after": {
           "anyOf": [
@@ -124,8 +145,7 @@
       },
       "required": [
         "predictor_id",
-        "stage",
-        "events_after"
+        "stage"
       ],
       "title": "PerformanceMovement",
       "type": "object"
@@ -159,10 +179,18 @@
           "title": "Event Always Deny Accuracy"
         },
         "events": {
-          "description": "The stratum's `accuracy_events_scored`",
-          "minimum": 0,
-          "title": "Events",
-          "type": "integer"
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The stratum's `accuracy_events_scored`; null on a board written before the field existed",
+          "title": "Events"
         },
         "gradings": {
           "description": "The stratum's `evaluations`",
@@ -181,18 +209,6 @@
           ],
           "default": null,
           "title": "Mean Brier Score"
-        },
-        "mean_reasoning_quality": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Mean Reasoning Quality"
         },
         "population_brier_skill_score": {
           "anyOf": [
@@ -244,7 +260,6 @@
       "required": [
         "predictor_id",
         "stage",
-        "events",
         "gradings"
       ],
       "title": "PerformancePoint",

@@ -1423,32 +1423,39 @@ def _movement_lines(
     """
     if previous is None or previous.value is None or current.value is None:
         return []
-    rows = [
+    every = [
         row
         for row in movements(board_points(previous.value), board_points(current.value))
-        if row.process_window is None and (row.flags or row.events_before != row.events_after)
+        if row.process_window is None
     ]
+    rows = [row for row in every if row.events_before != row.events_after]
+    standing = [row for row in every if row.flags and row.events_before == row.events_after]
     heading = ["", "### Movement since the previous board", ""]
     against = f"the board landed {previous.vintage}" if previous.vintage else "the previous board"
-    if not rows:
+    if not rows and not standing:
         return [*heading, f"_No pooled forward series moved or trips a flag against {against}._"]
     lines = [
         *heading,
-        f"Each predictor's pooled forward series against {against}. An operational check on "
-        "the artifact, not a finding: `rescored` means accuracy moved by more than the added "
-        "events can explain, `events-removed` that the series shrank, and the two level flags "
-        f"are raised only at {MIN_EVENTS_FOR_LEVEL_FLAGS} events or more.",
-        "",
-        "| Stage | Predictor | Events | Accuracy | Mean Brier | Skill | Flags |",
-        "| --- | --- | --- | --- | --- | --- | --- |",
+        f"Each predictor's own pooled forward series against {against}: its whole record at "
+        "each stage, not the paired figure above, and not comparable across predictors. An "
+        "operational check on the artifact, not a finding: `rescored` means accuracy moved by "
+        "more than the added events can explain, `events-removed` that the series shrank, and "
+        f"the two level flags are raised only at {MIN_EVENTS_FOR_LEVEL_FLAGS} events or more.",
     ]
+    if rows:
+        lines += [
+            "",
+            "| Stage | Predictor | Events | Accuracy (floor) | Mean Brier | Prior-Term skill "
+            "| Flags |",
+            "| --- | --- | --- | --- | --- | --- | --- |",
+        ]
     for row in rows:
-        events = (
-            f"{row.events_after} (new)"
-            if row.events_before is None
-            else f"{row.events_before} → {row.events_after}"
+        after = "—" if row.events_after is None else str(row.events_after)
+        events = f"{after} (new)" if row.events_before is None else f"{row.events_before} → {after}"
+        accuracy = (
+            f"{_pct(row.event_accuracy_before)} → {_pct(row.event_accuracy_after)} "
+            f"({_pct(row.floor_after)})"
         )
-        accuracy = f"{_pct(row.event_accuracy_before)} → {_pct(row.event_accuracy_after)}"
         brier = f"{_brier(row.mean_brier_before)} → {_brier(row.mean_brier_after)}"
         skill = f"{_signed(row.skill_before, 2)} → {_signed(row.skill_after, 2)}"
         flags = ", ".join(f"`{flag}`" for flag in row.flags) or "—"
@@ -1456,6 +1463,12 @@ def _movement_lines(
             f"| {_cell(row.stage)} | {_cell(row.predictor_id)} | {events} | {accuracy} "
             f"| {brier} | {skill} | {flags} |"
         )
+    if standing:
+        named = "; ".join(
+            f"{row.predictor_id} at {row.stage} ({', '.join(f'`{flag}`' for flag in row.flags)})"
+            for row in standing
+        )
+        lines += ["", f"Unchanged and still flagged: {named}."]
     return lines
 
 

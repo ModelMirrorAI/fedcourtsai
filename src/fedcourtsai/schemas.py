@@ -16481,14 +16481,18 @@ class PerformancePoint(_Strict):
     stage: str = Field(
         description="`<stage>@<moment>`; the ranked cert board is `cert@distribution`"
     )
-    events: int = Field(ge=0, description="The stratum's `accuracy_events_scored`")
+    events: int | None = Field(
+        default=None,
+        ge=0,
+        description="The stratum's `accuracy_events_scored`; null on a board written "
+        "before the field existed",
+    )
     gradings: int = Field(ge=0, description="The stratum's `evaluations`")
     event_accuracy: float | None = None
     event_always_deny_accuracy: float | None = None
     mean_brier_score: float | None = None
     population_brier_skill_score: float | None = None
     population_realized_term_skill_score: float | None = None
-    mean_reasoning_quality: float | None = None
 
 
 class PerformanceRevision(_Strict):
@@ -16512,9 +16516,12 @@ class PerformanceMovement(_Strict):
     events_before: int | None = Field(
         default=None, description="Null where the earlier board carried no such series"
     )
-    events_after: int
+    events_after: int | None = None
     event_accuracy_before: float | None = None
     event_accuracy_after: float | None = None
+    floor_after: float | None = Field(
+        default=None, description="The newer board's always-deny floor over the same events"
+    )
     mean_brier_before: float | None = None
     mean_brier_after: float | None = None
     skill_before: float | None = None
@@ -16523,7 +16530,8 @@ class PerformanceMovement(_Strict):
         default_factory=list,
         description="On a series of at least ten events, `at-or-below-floor`: event accuracy "
         "does not clear the always-deny floor, and `negative-skill`: the prior-Term Brier "
-        "skill is below zero. On any series, "
+        "skill is below zero (ten of the accuracy column's events, which is not the skill "
+        "column's own denominator). On any series, "
         "`events-removed`: the series holds fewer events than before; "
         "`rescored`: accuracy moved by more than the added events can explain, so "
         "earlier cells were re-scored, re-windowed or left the population",

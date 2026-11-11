@@ -11,12 +11,15 @@ recomputed, so a point can never disagree with the board it came from.
 First-parent, because a refresh lands through a merge: the merge is when the
 board reached the ref, and the branch commit beneath it was never in force.
 A board written under an older schema may not parse; its commit is listed as
-unreadable and its figures are absent, never zero.
+unreadable and its figures are absent. One that parses without a field the
+current schema added has that figure null, never zero.
 
 :func:`movements` compares two boards series by series and flags what an
 operator should look at: a series of at least
 :data:`MIN_EVENTS_FOR_LEVEL_FLAGS` events at or below its always-deny floor or
-under zero prior-Term skill, a series that lost events, and a series whose accuracy moved
+under zero prior-Term skill (the gate counts the accuracy column's events,
+which is not the skill column's own denominator), a series that lost events,
+and a series whose accuracy moved
 by more than its added events can explain. The last is arithmetic: ``k`` of
 ``n`` events correct, then ``a`` more events, bounds the new accuracy between
 ``k / (n + a)`` and ``(k + a) / (n + a)``; outside that, earlier cells were
@@ -26,14 +29,15 @@ artifact, not findings about a predictor (``metrics/README.md``).
 
 from __future__ import annotations
 
-import os
-import subprocess
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 
 from pydantic import ValidationError
 
+from . import statpack_history
+from .leaderboard import stage_moment_key
+from .pipeline.moments import first_moment
 from .schemas import (
     Leaderboard,
     LeaderboardEntry,
@@ -42,13 +46,14 @@ from .schemas import (
     PerformanceMovement,
     PerformancePoint,
     PerformanceRevision,
+    Stage,
 )
 
 DEFAULT_REF = "origin/main"
 LEADERBOARD_PATH = "metrics/leaderboard.json"
 
 #: The stage key of the board's top-level entries: the ranked cert board.
-RANKED_STAGE = "cert@distribution"
+RANKED_STAGE = stage_moment_key(Stage.cert, first_moment(Stage.cert))
 
 AT_OR_BELOW_FLOOR = "at-or-below-floor"
 NEGATIVE_SKILL = "negative-skill"
@@ -62,8 +67,6 @@ MIN_EVENTS_FOR_LEVEL_FLAGS = 10
 #: Slack on the re-scoring bound, for accuracies the board rounds.
 _BOUND_TOLERANCE = 1e-6
 
-_GIT_TIMEOUT_SECONDS = 30
-
 _SeriesKey = tuple[str, str | None, str]
 
 
@@ -75,14 +78,17 @@ def _point(entry: LeaderboardEntry | LeaderboardStageEntry, stage: str) -> Perfo
         predictor_id=entry.predictor_id,
         process_window=entry.process_window,
         stage=stage,
-        events=forward.accuracy_events_scored,
+        events=(
+            forward.accuracy_events_scored
+            if "accuracy_events_scored" in forward.model_fields_set
+            else None
+        ),
         gradings=forward.evaluations,
         event_accuracy=forward.event_accuracy,
         event_always_deny_accuracy=forward.event_always_deny_accuracy,
         mean_brier_score=forward.mean_brier_score,
         population_brier_skill_score=forward.population_brier_skill_score,
         population_realized_term_skill_score=forward.population_realized_term_skill_score,
-        mean_reasoning_quality=forward.mean_reasoning_quality,
     )
 
 
@@ -113,7 +119,12 @@ def board_points(board: Leaderboard) -> list[PerformancePoint]:
 
 def _rescored(before: PerformancePoint, after: PerformancePoint) -> bool:
     """Whether accuracy moved by more than the events added can explain."""
-    if before.event_accuracy is None or after.event_accuracy is None or not after.events:
+    if (
+        before.event_accuracy is None
+        or after.event_accuracy is None
+        or before.events is None
+        or not after.events
+    ):
         return False
     added = after.events - before.events
     if added < 0:
@@ -126,7 +137,7 @@ def _rescored(before: PerformancePoint, after: PerformancePoint) -> bool:
 
 def _flags(before: PerformancePoint | None, after: PerformancePoint) -> list[str]:
     flags: list[str] = []
-    readable = after.events >= MIN_EVENTS_FOR_LEVEL_FLAGS
+    readable = after.events is not None and after.events >= MIN_EVENTS_FOR_LEVEL_FLAGS
     if (
         readable
         and after.event_accuracy is not None
@@ -137,7 +148,7 @@ def _flags(before: PerformancePoint | None, after: PerformancePoint) -> list[str
     skill = after.population_brier_skill_score
     if readable and skill is not None and skill < 0:
         flags.append(NEGATIVE_SKILL)
-    if before is not None:
+    if before is not None and before.events is not None and after.events is not None:
         if after.events < before.events:
             flags.append(EVENTS_REMOVED)
         elif _rescored(before, after):
@@ -162,6 +173,7 @@ def movements(
                 events_after=point.events,
                 event_accuracy_before=prior.event_accuracy if prior is not None else None,
                 event_accuracy_after=point.event_accuracy,
+                floor_after=point.event_always_deny_accuracy,
                 mean_brier_before=prior.mean_brier_score if prior is not None else None,
                 mean_brier_after=point.mean_brier_score,
                 skill_before=prior.population_brier_skill_score if prior is not None else None,
@@ -172,23 +184,6 @@ def movements(
     return rows
 
 
-def _git(repo: Path, *args: str) -> str | None:
-    env = os.environ | {"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1"}
-    safe = f"safe.directory={repo.resolve()}"
-    try:
-        out = subprocess.run(
-            ["git", "--no-replace-objects", "-c", safe, "-C", str(repo), *args],
-            capture_output=True,
-            text=True,
-            check=True,
-            timeout=_GIT_TIMEOUT_SECONDS,
-            env=env,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return None
-    return out.stdout
-
-
 def landings(repo: Path, ref: str) -> list[tuple[str, datetime]] | None:
     """The board's first-parent landings on ``ref``, oldest first.
 
@@ -196,9 +191,20 @@ def landings(repo: Path, ref: str) -> list[tuple[str, datetime]] | None:
     ref, or a shallow clone, whose history would read as a shorter record
     rather than as an unknown one.
     """
-    if (_git(repo, "rev-parse", "--is-shallow-repository") or "").strip() != "false":
+    if (
+        statpack_history.git_read(repo, "rev-parse", "--is-shallow-repository") or ""
+    ).strip() != "false":
         return None
-    log = _git(repo, "log", "--first-parent", "--format=%H %ct", ref, "--", LEADERBOARD_PATH)
+    log = statpack_history.git_read(
+        repo,
+        "log",
+        "--first-parent",
+        "--format=%H %ct",
+        "--end-of-options",
+        ref,
+        "--",
+        LEADERBOARD_PATH,
+    )
     if log is None:
         return None
     rows = [line.split() for line in log.splitlines() if line.strip()]
@@ -207,7 +213,7 @@ def landings(repo: Path, ref: str) -> list[tuple[str, datetime]] | None:
 
 def board_at(repo: Path, sha: str) -> Leaderboard | None:
     """The board one commit carries, or ``None`` where it does not parse."""
-    text = _git(repo, "cat-file", "blob", f"{sha}:{LEADERBOARD_PATH}")
+    text = statpack_history.git_read(repo, "cat-file", "blob", f"{sha}:{LEADERBOARD_PATH}")
     if text is None:
         return None
     try:

@@ -261,8 +261,10 @@ Five blocks, in the order a reader needs them:
   it replaced, read from the checkout's own history of
   `metrics/leaderboard.json`. Only a series that gained or lost events or trips
   a flag is printed (`rescored`, `events-removed`, and from ten events
-  `at-or-below-floor` and `negative-skill`); an operational check, not a
-  finding. Omitted where the history is unreadable or holds no earlier board.
+  `at-or-below-floor` and `negative-skill`), a flagged series that did not
+  move as one line. These are each predictor's own record, not the paired
+  figure above, with the floor beside each accuracy; an operational check,
+  not a finding. Omitted where the history is unreadable or holds no earlier board.
 - **Forward misses** — under the forward block, counts off the committed
   `metrics/miss-review.json` with its vintage: the forward events holding a
   miss, how many every predictor reviewed there shares, and the same per
