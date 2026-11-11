@@ -1,0 +1,606 @@
+{
+  "$defs": {
+    "DocumentGradeAgreement": {
+      "additionalProperties": false,
+      "description": "One judge rubric's grades against the mean of the other judges' on the cells they share.\n\nOne row per (evaluator, digest): a judge read under two digests is two\nrubrics and gets two rows. The other judges' mean is taken as it stands on\neach cell, whatever digests their reads carry. It is the leave-one-out\nreading of how far the panel agrees on a document, with the cell (case,\nevent, predictor) as the unit. The within-predictor\ncoefficient is the predictor-tracking check: a pooled coefficient well above\nit says the judges agree on which predictor wrote a document more than on\nhow good it was.",
+      "properties": {
+        "cases": {
+          "description": "Distinct cases among those cells",
+          "minimum": 0,
+          "title": "Cases",
+          "type": "integer"
+        },
+        "digest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The evaluate process digest this judge's reads here were made under",
+          "title": "Digest"
+        },
+        "evaluator_id": {
+          "title": "Evaluator Id",
+          "type": "string"
+        },
+        "labels": {
+          "description": "The evaluate labels that blessed these digests, sorted, from the registry (`process_version.EVALUATE_BLESSING_LABELS`); an unstamped or never-blessed digest names none. A name only; a label never partitions a reading",
+          "items": {
+            "type": "string"
+          },
+          "title": "Labels",
+          "type": "array"
+        },
+        "tau_b": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": -1.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Kendall tau-b; null where undefined or where `units` is under `minimum_cells`, never read as agreement",
+          "title": "Tau B"
+        },
+        "units": {
+          "description": "Cells entering the coefficient",
+          "minimum": 0,
+          "title": "Units",
+          "type": "integer"
+        },
+        "within_predictor": {
+          "items": {
+            "$ref": "#/$defs/DocumentGradeWithinPredictor"
+          },
+          "title": "Within Predictor",
+          "type": "array"
+        },
+        "within_predictor_tau_b": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": -1.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The same coefficient within each predictor's cells, averaged unweighted over the predictors; null unless it prints for every predictor with a shared cell, so it is never one predictor's coefficient read against the pooled one",
+          "title": "Within Predictor Tau B"
+        }
+      },
+      "required": [
+        "evaluator_id",
+        "digest",
+        "units",
+        "cases"
+      ],
+      "title": "DocumentGradeAgreement",
+      "type": "object"
+    },
+    "DocumentGradeByCall": {
+      "additionalProperties": false,
+      "description": "A judge's mean grade where the disposition call was right and where it was wrong.\n\nThe anchors grade whether the disposition held, so a grade tracks the call\nby construction. The gap between the two means is that built-in part; what\nthe grade measures beyond the call is the spread **within** each group, and\nthis split shows only whether there is one. One row per judge rubric.",
+      "properties": {
+        "correct_mean": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Null where its count is under `minimum_cells`",
+          "title": "Correct Mean"
+        },
+        "correct_n": {
+          "description": "Cells graded by all whose stamped `correct` is 1",
+          "minimum": 0,
+          "title": "Correct N",
+          "type": "integer"
+        },
+        "correct_spread": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Population standard deviation of the grades in the group; null as the mean is",
+          "title": "Correct Spread"
+        },
+        "digest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The evaluate process digest this judge's reads here were made under",
+          "title": "Digest"
+        },
+        "evaluator_id": {
+          "title": "Evaluator Id",
+          "type": "string"
+        },
+        "incorrect_mean": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Null where its count is under `minimum_cells`",
+          "title": "Incorrect Mean"
+        },
+        "incorrect_n": {
+          "description": "The same where `correct` is 0",
+          "minimum": 0,
+          "title": "Incorrect N",
+          "type": "integer"
+        },
+        "incorrect_spread": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "As `correct_spread`, for the wrong-call group",
+          "title": "Incorrect Spread"
+        },
+        "labels": {
+          "description": "The evaluate labels that blessed these digests, sorted, from the registry (`process_version.EVALUATE_BLESSING_LABELS`); an unstamped or never-blessed digest names none. A name only; a label never partitions a reading",
+          "items": {
+            "type": "string"
+          },
+          "title": "Labels",
+          "type": "array"
+        },
+        "unscored_n": {
+          "description": "Cells graded by all whose grading stamps no `correct`; in neither group",
+          "minimum": 0,
+          "title": "Unscored N",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "evaluator_id",
+        "digest",
+        "correct_n",
+        "incorrect_n",
+        "unscored_n"
+      ],
+      "title": "DocumentGradeByCall",
+      "type": "object"
+    },
+    "DocumentGradeFamily": {
+      "additionalProperties": false,
+      "description": "A judge rubric's mean grade of its own engine family's documents and of the others'.",
+      "properties": {
+        "digest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The evaluate process digest this judge's reads here were made under",
+          "title": "Digest"
+        },
+        "engine": {
+          "$ref": "#/$defs/Engine"
+        },
+        "evaluator_id": {
+          "title": "Evaluator Id",
+          "type": "string"
+        },
+        "labels": {
+          "description": "The evaluate labels that blessed these digests, sorted, from the registry (`process_version.EVALUATE_BLESSING_LABELS`); an unstamped or never-blessed digest names none. A name only; a label never partitions a reading",
+          "items": {
+            "type": "string"
+          },
+          "title": "Labels",
+          "type": "array"
+        },
+        "other_mean": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Null where `other_n` is under `minimum_cells`",
+          "title": "Other Mean"
+        },
+        "other_n": {
+          "minimum": 0,
+          "title": "Other N",
+          "type": "integer"
+        },
+        "own_mean": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Null where `own_n` is under `minimum_cells`",
+          "title": "Own Mean"
+        },
+        "own_n": {
+          "minimum": 0,
+          "title": "Own N",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "evaluator_id",
+        "digest",
+        "engine",
+        "own_n",
+        "other_n"
+      ],
+      "title": "DocumentGradeFamily",
+      "type": "object"
+    },
+    "DocumentGradeReading": {
+      "additionalProperties": false,
+      "description": "A predictor's mean forecast-document grade under one judge rubric.\n\nThe claimable form of a judge-authored figure: one (evaluator, digest)\npair's grades alone, over the cells every judge on the cell graded.",
+      "properties": {
+        "digest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The evaluate process digest on the gradings' harness stamps",
+          "title": "Digest"
+        },
+        "evaluator_id": {
+          "title": "Evaluator Id",
+          "type": "string"
+        },
+        "labels": {
+          "description": "The evaluate labels that blessed these digests, sorted, from the registry (`process_version.EVALUATE_BLESSING_LABELS`); an unstamped or never-blessed digest names none. A name only; a label never partitions a reading",
+          "items": {
+            "type": "string"
+          },
+          "title": "Labels",
+          "type": "array"
+        },
+        "mean": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Mean `predicted_reasoning_quality` over those `n` cells; null where `n` is under the board's `minimum_cells`",
+          "title": "Mean"
+        },
+        "n": {
+          "description": "Cells this rubric graded among those every judge on the cell graded",
+          "minimum": 0,
+          "title": "N",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "evaluator_id",
+        "digest",
+        "n"
+      ],
+      "title": "DocumentGradeReading",
+      "type": "object"
+    },
+    "DocumentGradeSeries": {
+      "additionalProperties": false,
+      "description": "One predictor's forecast-document grades on a stage, pooled or in one window.",
+      "properties": {
+        "cells": {
+          "description": "Forward (case, event) cells of this predictor that at least one judge whose prompt asks for the grade read",
+          "minimum": 0,
+          "title": "Cells",
+          "type": "integer"
+        },
+        "graded_by_all": {
+          "description": "Cells every such judge on the cell graded",
+          "minimum": 0,
+          "title": "Graded By All",
+          "type": "integer"
+        },
+        "null_by_all": {
+          "description": "Cells every such judge left null: the staged record was silent on what the document's central claims turn on",
+          "minimum": 0,
+          "title": "Null By All",
+          "type": "integer"
+        },
+        "predictor_id": {
+          "title": "Predictor Id",
+          "type": "string"
+        },
+        "process_window": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The counting window's label; null for the predictor's record pooled across its windows (and for every series of an all-versions build)",
+          "title": "Process Window"
+        },
+        "readings": {
+          "description": "The mean grade per judge rubric, over the `graded_by_all` cells. Never one mean pooled across judges",
+          "items": {
+            "$ref": "#/$defs/DocumentGradeReading"
+          },
+          "title": "Readings",
+          "type": "array"
+        },
+        "reads_graded": {
+          "description": "Judge reads carrying a grade, one per judge per cell, split cells too",
+          "minimum": 0,
+          "title": "Reads Graded",
+          "type": "integer"
+        },
+        "reads_null": {
+          "description": "Judge reads left null, split cells included",
+          "minimum": 0,
+          "title": "Reads Null",
+          "type": "integer"
+        },
+        "split_on_mask": {
+          "description": "Cells some judges graded and others left null; in no mean and no coefficient",
+          "minimum": 0,
+          "title": "Split On Mask",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "predictor_id",
+        "process_window",
+        "cells",
+        "graded_by_all",
+        "null_by_all",
+        "split_on_mask",
+        "reads_graded",
+        "reads_null"
+      ],
+      "title": "DocumentGradeSeries",
+      "type": "object"
+    },
+    "DocumentGradeStage": {
+      "additionalProperties": false,
+      "description": "The forecast-document grades on one stage. Stages are never pooled.",
+      "properties": {
+        "agreement": {
+          "items": {
+            "$ref": "#/$defs/DocumentGradeAgreement"
+          },
+          "title": "Agreement",
+          "type": "array"
+        },
+        "by_call": {
+          "items": {
+            "$ref": "#/$defs/DocumentGradeByCall"
+          },
+          "title": "By Call",
+          "type": "array"
+        },
+        "cases": {
+          "description": "Distinct cases among those cells",
+          "minimum": 0,
+          "title": "Cases",
+          "type": "integer"
+        },
+        "cells": {
+          "description": "Forward (case, event, predictor) cells at least one asking judge read",
+          "minimum": 0,
+          "title": "Cells",
+          "type": "integer"
+        },
+        "family": {
+          "items": {
+            "$ref": "#/$defs/DocumentGradeFamily"
+          },
+          "title": "Family",
+          "type": "array"
+        },
+        "graded_by_all": {
+          "minimum": 0,
+          "title": "Graded By All",
+          "type": "integer"
+        },
+        "missing_judge": {
+          "description": "Cells some asking judge seen on this stage returned no read for; their figures stand on a smaller panel",
+          "minimum": 0,
+          "title": "Missing Judge",
+          "type": "integer"
+        },
+        "null_by_all": {
+          "minimum": 0,
+          "title": "Null By All",
+          "type": "integer"
+        },
+        "reads_not_asked": {
+          "description": "Gradings of forward cells on this stage whose evaluate digest does not ask for the grade; read by nothing here",
+          "minimum": 0,
+          "title": "Reads Not Asked",
+          "type": "integer"
+        },
+        "series": {
+          "items": {
+            "$ref": "#/$defs/DocumentGradeSeries"
+          },
+          "title": "Series",
+          "type": "array"
+        },
+        "split_on_mask": {
+          "minimum": 0,
+          "title": "Split On Mask",
+          "type": "integer"
+        },
+        "stage": {
+          "$ref": "#/$defs/Stage"
+        }
+      },
+      "required": [
+        "stage",
+        "cells",
+        "cases",
+        "graded_by_all",
+        "null_by_all",
+        "split_on_mask",
+        "missing_judge",
+        "reads_not_asked"
+      ],
+      "title": "DocumentGradeStage",
+      "type": "object"
+    },
+    "DocumentGradeWithinPredictor": {
+      "additionalProperties": false,
+      "description": "A judge's leave-one-out coefficient within one predictor's cells.",
+      "properties": {
+        "predictor_id": {
+          "title": "Predictor Id",
+          "type": "string"
+        },
+        "tau_b": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": -1.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Null where undefined or where `units` is under `minimum_cells`",
+          "title": "Tau B"
+        },
+        "units": {
+          "minimum": 0,
+          "title": "Units",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "predictor_id",
+        "units"
+      ],
+      "title": "DocumentGradeWithinPredictor",
+      "type": "object"
+    },
+    "Engine": {
+      "description": "Agentic coding engine that produced an artifact.",
+      "enum": [
+        "claude-code",
+        "codex",
+        "gemini"
+      ],
+      "title": "Engine",
+      "type": "string"
+    },
+    "Stage": {
+      "description": "Which decision standard governs an event \u2014 the parameter that selects an\naggregation rule (:mod:`fedcourtsai.pipeline.aggregation`) and an observation\nmask (``docs/decision-model.md``).\n\nOrthogonal to :class:`EventKind`, which names the *filing that opened* an\nevent. A merits decision is not a filing, so it is a stage rather than a\nkind. Stage is also the within-SCOTUS analogue of a caution\n``metrics/README.md`` already carries across courts: ``granted`` denotes cert\non a petition and relief on a stay application, and carrying the stage in the\nrecord says so where prose otherwise has to.\n\nWhere an event declares no stage the rule lookup yields nothing rather than\nguessing \u2014 true of a circuit motion, which has no Supreme Court decision\nstandard at all.",
+      "enum": [
+        "cert",
+        "interim",
+        "merits"
+      ],
+      "title": "Stage",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The roll-up of `predicted_reasoning_quality`, the grade of `predicted_reasoning.md`.\n\nGraded, not scored: nothing here enters a claim total, a rank key or any\nother grade. Every mean and coefficient is per judge rubric and per stage, over the cells\nevery asking judge on the cell graded, and travels with the judges'\nagreement figures. Forward cells only, under the exclusions the leaderboard\napplies.",
+  "properties": {
+    "later_run_reads": {
+      "description": "Gradings of a later prediction run of a cell than the earliest graded one; read by nothing here",
+      "minimum": 0,
+      "title": "Later Run Reads",
+      "type": "integer"
+    },
+    "minimum_cells": {
+      "description": "The registered count under which no mean and no coefficient is printed",
+      "minimum": 1,
+      "title": "Minimum Cells",
+      "type": "integer"
+    },
+    "process_scope": {
+      "enum": [
+        "frozen",
+        "all"
+      ],
+      "title": "Process Scope",
+      "type": "string"
+    },
+    "stages": {
+      "items": {
+        "$ref": "#/$defs/DocumentGradeStage"
+      },
+      "title": "Stages",
+      "type": "array"
+    }
+  },
+  "required": [
+    "process_scope",
+    "minimum_cells",
+    "later_run_reads"
+  ],
+  "title": "ForecastDocumentGrades",
+  "type": "object"
+}
