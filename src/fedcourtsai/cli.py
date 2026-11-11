@@ -310,6 +310,7 @@ from .pipeline import (
     historical,
     justice_priors,
     liveprobe,
+    merits_coverage_check,
     merits_lineups,
     moments,
     ocr_sweep,
@@ -19093,6 +19094,123 @@ def granted_noted_check_cmd(
         f"Granted & Noted entry",
         err=True,
     )
+
+
+@app.command("merits-coverage-check")
+def merits_coverage_check_cmd(
+    term: Annotated[
+        int | None,
+        typer.Option("--term", help="Four-digit October Term to check (default: the current one)."),
+    ] = None,
+    report_out: Annotated[
+        Path | None,
+        typer.Option("--report-out", help="Write the Markdown report (the alarm issue's body)."),
+    ] = None,
+    throttle: Annotated[
+        float,
+        typer.Option(help="Seconds to sleep between requests (polite-client pacing)."),
+    ] = 1.0,
+    cache_dir: Annotated[
+        Path | None,
+        typer.Option(help="Keep the fetched lists here and re-read them from here (a dev cache)."),
+    ] = None,
+) -> None:
+    """Check merits coverage against the Court's Granted & Noted list, read-only.
+
+    Runs the merits coverage census (`merits-coverage`) for the Term and the
+    one before it, then sets the corpus against the Court's own roll of the
+    cases set for argument (`pipeline/merits_coverage_check.py`): the Term's
+    Granted & Noted list, and the next Term's where the Court has opened it.
+    Every listed docket must have a corpus row whose grant opens a merits
+    proceeding and a merits event within 7 days of its grant, a forecast once
+    argument is within 14 days, a forecast at the argued moment within 7 days
+    of argument, and a forecast dated before its decision. A finding on a case
+    decided more than 28 days ago is a standing miss, reported and not alarmed.
+    Original-jurisdiction cases and applications set for argument are listed
+    apart. Monitoring only: nothing here enters a scored figure.
+
+    Reads the corpus index, the committed predictions and the two lists;
+    writes nothing but `--report-out` and the optional cache. Prints a count
+    summary to stderr and the `MeritsCoverageCheck` JSON to stdout; exits 3
+    when any docket carries an alarm, 1 when the Term's own list cannot be read
+    or the local corpus is missing, 2 on a bad option.
+    """
+    if throttle <= 0:
+        typer.echo("--throttle must be positive", err=True)
+        raise typer.Exit(code=2)
+    today = date.today()
+    year = term if term is not None else october_term_year(today)
+    if not 2000 <= year <= 2099:
+        typer.echo(
+            "merits-coverage-check: --term is a four-digit October Term, e.g. 2026.", err=True
+        )
+        raise typer.Exit(code=2)
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if settings.corpus_backend == "local" and not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the merits coverage check.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with SupremeCourtClient(throttle_seconds=throttle) as client:
+        fetcher = opinion_lineups.OpinionFetcher(client, cache_dir=cache_dir)
+        lists = {t: _granted_noted_text(fetcher, t % 100) for t in (year, year + 1)}
+    if lists[year] is None:
+        typer.echo(f"OT{year}: the Granted & Noted list could not be read", err=True)
+        raise typer.Exit(code=1)
+    with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
+        check = merits_coverage_check.merits_coverage_check(
+            conn, settings.data_root, term=year, lists=lists, today=today
+        )
+        pulled = corpus.latest_pull_date(conn)
+    for line in merits_coverage_check.summary_lines(check):
+        typer.echo(line, err=True)
+    if report_out is not None:
+        vintage = f"latest pull {pulled.isoformat()}" if pulled else "never pulled"
+        report_out.write_text(
+            merits_coverage_check.render_report(check, vintage=vintage), encoding="utf-8"
+        )
+    typer.echo(check.model_dump_json())
+    if check.alarms:
+        raise typer.Exit(code=3)
+
+
+@app.command("merits-coverage-alarm")
+def merits_coverage_alarm_cmd(
+    repo: Annotated[str, typer.Option("--repo", help="owner/name of the repository.")],
+    check: Annotated[
+        Path, typer.Option("--check", help="The `merits-coverage-check` JSON to latch.")
+    ],
+    report: Annotated[
+        Path, typer.Option("--report", help="The Markdown report `merits-coverage-check` wrote.")
+    ],
+) -> None:
+    """Open, refresh or close the one merits coverage alarm issue.
+
+    The issue side of `merits-coverage-check`, run with a token that may write
+    issues and no corpus access. A check carrying an alarm opens the issue
+    titled "Merits coverage failing" under the non-triggering `merits-coverage`
+    label, or rewrites the open one's body with `--report`; a check with none
+    comments on the open issue and closes it, and writes nothing where none is
+    open. Only an issue the workflow token opened under that title is the
+    alarm. Refuses (exit 2) a check file that does not parse or that never read
+    its own Term's list.
+    """
+    if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo):
+        typer.echo(f"merits-coverage-alarm: --repo must be owner/name, not {repo!r}", err=True)
+        raise typer.Exit(code=2)
+    try:
+        parsed = merits_coverage_check.MeritsCoverageCheck.model_validate_json(
+            check.read_text(encoding="utf-8")
+        )
+        report.read_text(encoding="utf-8")
+        done = merits_coverage_check.latch(repo, parsed, report)
+    except (OSError, ValueError) as exc:
+        typer.echo(f"merits-coverage-alarm: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    typer.echo(f"merits-coverage-alarm: {done}")
 
 
 @app.command("refresh-historical")

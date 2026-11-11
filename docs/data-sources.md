@@ -144,7 +144,12 @@ what and who joined it.
   mistyped year, a decision dated two days early), and a reargued case whose
   entry mixes the reargument order's dissent with the decision's writers. It also says which
   dockets one opinion decides, which the opinions listing does not: the
-  listing prints only the lead docket of a consolidated case.
+  listing prints only the lead docket of a consolidated case. The same list
+  is the Court's roll of the cases set for argument, with each case's grant
+  date, argument date and case code, and the weekly merits coverage check
+  (`fedcourts merits-coverage-check`, `pipeline/merits_coverage_check.py`)
+  sets the corpus's grants against it; there too it is a check and never a
+  source.
 - **What exists.** The lineup model, the syllabus grammar and the read-only
   fetcher (`pipeline/lineup.py`, `pipeline/syllabus_lineup.py`,
   `pipeline/opinion_lineups.py`), with `fedcourts opinion-lineups` printing

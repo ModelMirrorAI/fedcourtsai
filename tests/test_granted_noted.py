@@ -14,6 +14,7 @@ from fedcourtsai.pipeline.granted_noted import (
     CHIEF,
     by_docket,
     disagreements,
+    original_dockets,
     parse_granted_noted,
     summarize,
 )
@@ -147,3 +148,38 @@ def test_an_entry_with_no_decision_date_never_agrees() -> None:
     found = disagreements(entry, reading, bench=bench_on(date(2021, 3, 1)), decided=None)
     assert "the list prints no decision date that could be read" in found
     assert "the opinion prints no decision date that could be read" in found
+
+
+def test_the_grant_the_argument_and_the_case_codes_are_read() -> None:
+    text = (
+        "156, Orig. *  NEW YORK V. NEW JERSEY\n   Argument Date:  2/27/23\n"
+        + "25-238)1 CFX VIRAMONTES V. COOK COUNTY\n25-566)2 CSY GRANT V. HIGGINS\n"
+        + "   Court:  1USCA-7; 2USCA-2   Granted:  6/30/26\n   Argument Date:  12/2/26\n"
+        + "24-109)  ATX LOUISIANA V. CALLAIS\n"
+        + "   Court:  USDC-W. Dist., LA   Noted:  11/4/24\n   Argument Date:  3/24/25 (OT `24)\n"
+        + "               Reargument Date:  10/15/25   Decided:  4/29/26\n"
+        + "22-1 * CFX X V. Y\n   G r a n t e d :  1/13/23\n"
+        + "   Argument Date:  2/27/23\n   Rescheduled Argument Date:  3/1/23\n"
+        + "23-9 CFX P V. Q\n   Court:  USCA-4\n"
+    )
+    pair, appeal, moved, bare = parse_granted_noted(text)
+    assert pair.granted == date(2026, 6, 30)
+    assert pair.argument == date(2026, 12, 2)
+    assert pair.codes == (("25-238", "CFX"), ("25-566", "CSY"))
+    # An appeal's probable jurisdiction is noted, and a reargument is the argument.
+    assert (appeal.granted, appeal.argument) == (date(2024, 11, 4), date(2025, 10, 15))
+    assert appeal.codes == (("24-109", "ATX"),)
+    assert (moved.granted, moved.argument) == (date(2023, 1, 13), date(2023, 3, 1))
+    assert (bare.granted, bare.argument) == (None, None)
+    assert original_dockets(text) == ["156, Orig."]
+
+
+def test_a_merged_entry_keeps_its_dates_and_every_code() -> None:
+    text = (
+        "24-43 CFX A V. B\n   Granted:  7/3/25\n   Decided:  6/30/26\n   Author:  J. Kagan\n"
+        + "24-38 CFX C V. D\n   Granted:  7/3/25\n   Decided:  6/30/26 (with No. 24-43)\n"
+    )
+    merged = by_docket(parse_granted_noted(text))["24-38"]
+    assert merged.dockets == ("24-43", "24-38")
+    assert merged.granted == date(2025, 7, 3)
+    assert merged.codes == (("24-43", "CFX"), ("24-38", "CFX"))

@@ -46,7 +46,7 @@ token or role, so privilege and outside reachability stay disjoint — see
 | `run-backtest`   | biweekly schedule (even ISO weeks, Sat 06:23 UTC — pinned cert parameters over the paid population, spends only on the manual `review` release), manual dispatch (replay/engine/limit/terms params; `replay: merits` replays the predictors over decided argued cases at the merits grant and briefed moments instead, dispatch only; `replay: salience-gate` runs the token-free gate replay instead of the predictors) | Claude Code + Codex + Gemini (replay) |
 | `run-ops`        | daily schedule (ops report, weekly performance digest on the run summary, public status snapshot, prediction-reading digest), manual | script (no agent)    |
 | `post-public-update` | weekly schedule (Mon 12:57 UTC), manual dispatch (`week`; re-dispatching a missed week is safe, since the post is idempotent per week) | script (no agent); creates up to three Buttondown drafts (the Court update, the forecasts update and the AI-cases update), never sends |
-| `run-analytics`  | manual dispatch + weekly schedule (metrics refresh, Mon 05:41 UTC) + daily schedule (big-case board, 04:36 UTC) + weekly schedule (update history, Mon 12:59 UTC) + weekly schedules (topic labeling: petitions Tue 09:08 UTC, applications Wed 09:04 UTC, merits side coding Thu 09:14 UTC, behind the `review` hold) + weekly schedule (AI-case candidates, Fri 21:11 UTC) | script; the `qp-topic-label`, `qp-topic-label-applications`, `qp-topic-replicate`, `qp-topic-replicate-applications` and `alignment-side-code` modes each run one Claude Code labeler |
+| `run-analytics`  | manual dispatch + weekly schedule (metrics refresh, Mon 05:41 UTC) + daily schedule (big-case board, 04:36 UTC) + weekly schedule (update history, Mon 12:59 UTC) + weekly schedules (topic labeling: petitions Tue 09:08 UTC, applications Wed 09:04 UTC, merits side coding Thu 09:14 UTC, behind the `review` hold) + weekly schedule (AI-case candidates, Fri 21:11 UTC) + weekly schedule (merits coverage check, Wed 09:22 UTC) | script; the `qp-topic-label`, `qp-topic-label-applications`, `qp-topic-replicate`, `qp-topic-replicate-applications` and `alignment-side-code` modes each run one Claude Code labeler |
 | `summarize`      | daily schedule (03:43 UTC), manual dispatch (`limit`); every run spends only on the `review` release, or on auto-release within the trailing spend budget (*Auto-release*) | script; one Messages API call per case (two when a rejected response is retried), no tools and no agent |
 | `integration-test` | manual dispatch + daily canary  | script; engine-smoke runs one real agent cell, engine-actions-smoke one boot probe per engine (the canary), each repro-family scenario one real cell against its pinned record, and qp-labeler-smoke one labeling agent over a synthetic extract |
 | `corpus-check`   | schedule every 30 minutes (:19, :49), input-less manual dispatch; a check of PR code runs only on the maintainer's `corpus-check` approval, an allowlisted `at: main` query unapproved under `corpus-check-auto` | script — the PR's own declared command, or `main`'s code for an `at: main` query (no agent) |
@@ -488,6 +488,33 @@ queues behind the production run of the same mode. The modes:
   credential is refused, the run stopped before its first request, or every
   search failed; the step summary carries the per-search counts and the
   spend.
+- **`merits-coverage`** (weekly, Wednesday 09:22 UTC, or dispatch) checks that
+  every case the Court has set for argument is in the merits stream. Its
+  first job runs `fedcourts merits-coverage-check`: the coverage census for
+  the Term and the one before it, set against the Court's Granted & Noted
+  list for the Term (and the next Term's, where the Court has opened it),
+  which the pipeline did not produce. A listed docket alarms when, 7 days
+  after its grant, it has no corpus row, no grant opening a merits proceeding
+  or no merits event; when the census reads it `no_event` or
+  `not_forecastable`; when its argument is within 14 days with no forecast;
+  when it was argued 7 or more days ago with no forecast at the argued moment;
+  and when it was decided with no forecast dated before the decision. A
+  consolidated set meets the argument and decision checks through any of its
+  dockets. A finding on a case decided more than 28 days ago can no longer be
+  repaired and is carried as a standing miss, reported and not alarmed.
+  Original-jurisdiction cases and applications set for argument are listed
+  apart. That job holds the read-only role and no issue write, and leaves the
+  check and its report as a one-day artifact; the command's exit 3 (an alarm)
+  is not a failed job, and any other failure uploads nothing. A second job,
+  with the ambient token's `issues: write` and no environment, role or corpus,
+  runs `fedcourts merits-coverage-alarm` on that artifact: an alarm opens the
+  issue "Merits coverage failing" under the `merits-coverage` label or
+  rewrites its body in place, and a clean check closes it. A check that could
+  not run leaves the issue as it stood. Only a run on the `main` branch ref
+  writes the issue; a staging dispatch reads the staging corpus pair and
+  reports in the step summary. The readout is monitoring: every figure in it
+  is selected on what has already happened to a case, so none enters a board,
+  a base rate or a release figure.
 - **`decision-below`** (dispatch) runs `fedcourts enrich-decision-below
   --max-cases 25`, the decision-below fill's dry run: for the next 25 cases of
   its rotation, whether CourtListener holds the lower court's docket and the
@@ -1851,9 +1878,10 @@ run-log issue means exactly "a window broke".
 
 **An open issue is one of exactly three things, and the reader can tell which
 from its label.** An **alarm** — `pull-log`, `live-log`, `data-validation`,
-`pipeline-health` — is filed only by a failure, so an open one always means
+`pipeline-health`, `merits-coverage` — is filed only by a failure, so an open one always means
 something needs attention. A run-log alarm is closed by a human once triaged;
-the two latched alarms, `data-validation` and `pipeline-health`, also close
+the three latched alarms, `data-validation`, `pipeline-health` and
+`merits-coverage`, also close
 themselves when their check is green again, and each closes only the issue it
 filed, matched by its fixed title and the workflow bot as author. Alarm
 labels are reserved for these jobs: a hand-filed issue takes a category
@@ -1864,8 +1892,9 @@ read, so the open ones are the unread backlog and nothing more. The
 healthy run, by comment rather than by rewrite, and it stays open by design (its
 own body says so). Nothing else is an issue: a run's own record is a per-run
 artifact — the step summaries, the ops report on its run summary — never a
-long-lived body a job rewrites in place. Only the data-validation alarm edits a
-body, and only its own, so that a recurring failure latches onto one thread
+long-lived body a job rewrites in place. Only the data-validation and
+merits-coverage alarms edit a
+body, and each only its own, so that a recurring failure latches onto one thread
 instead of spamming new ones. That split is what keeps an open issue worth
 reacting to, and it is why an alarm never depends on a later window firing to
 stay honest.
@@ -1883,7 +1912,7 @@ Events created with the default `GITHUB_TOKEN` **do not trigger other workflows*
 run PRs, the metrics and back-test review PRs — is opened with a **GitHub App
 installation token** (`actions/create-github-app-token`), not `GITHUB_TOKEN`.
 The rule cuts the other way too, and that is what keeps the operational issues
-safe: the run-log alarms, the data-validation escalation, and the daily digest must
+safe: the run-log alarms, the data-validation escalation, the merits-coverage alarm, and the daily digest must
 fire nothing, so they ride
 the ambient `GITHUB_TOKEN` and never the App's. See `docs/security.md` for the
 one-time App setup.
@@ -2130,7 +2159,7 @@ pattern rather than rediscovering it:
   A call that routes through `agent_feedback.py`'s runner carries the bound
   already: that module's default `GhRunner` applies the same three attempts at
   the same 30s cap to every `gh` call it makes, so the `post-issue-comment`,
-  `post-agent-feedback`, and `daily-digest --post`
+  `post-agent-feedback`, `merits-coverage-alarm`, and `daily-digest --post`
   commands — the plan report each non-empty
   predict/evaluate round posts before the review hold, the collect job's stall
   and secret-scan reports, the flag roll-up latch itself, and the daily digest's

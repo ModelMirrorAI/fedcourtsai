@@ -4463,7 +4463,10 @@ def test_run_analytics_environments_resolve_from_the_dispatching_branch() -> Non
     the staging pair, anything else binds nothing — fail-closed; the same
     literal `test_workflow_auth_gate.py` pins as BRANCH_RESOLVED_ENVIRONMENT),
     `tool-usage`
-    must stay environment-free (it reads committed `data/` only), and every
+    must stay environment-free (it reads committed `data/` only), as must
+    `merits-coverage-alarm` (it reads one run artifact and writes an issue with
+    the ambient token, so an environment would only hand it secrets it has no
+    use for), and every
     concurrency group must carry the ref, because two refs are two
     environments reading two corpus pairs and one must never cancel — or
     queue behind — the other."""
@@ -4483,8 +4486,8 @@ def test_run_analytics_environments_resolve_from_the_dispatching_branch() -> Non
             if job_id != "qp-topic-approval":
                 assert "environment" not in job, f"{job_id} reaches nothing; no environment"
             continue
-        if job_id == "tool-usage":
-            assert "environment" not in job, "tool-usage reaches nothing; no environment"
+        if job_id in {"tool-usage", "merits-coverage-alarm"}:
+            assert "environment" not in job, f"{job_id} reaches nothing; no environment"
         elif job_id == "qp-topic-label":
             # The labeler binds the Claude-only counterpart of the same
             # resolution (test_workflow_auth_gate.py pins it).
@@ -5860,3 +5863,32 @@ def test_the_alignment_fit_is_computed_read_only_and_published_reviewed() -> Non
     assert "alignment-fit" in gate and "alignment-fit-publish" in gate
     ci = _norm(_load("ci.yml")["jobs"]["main-base"]["if"])
     assert "github.head_ref == 'merits-alignment/fits'" in ci
+
+
+def test_the_merits_coverage_check_and_its_alarm_split_their_credentials() -> None:
+    """The check job reads the corpus; the alarm job writes one issue and reads none.
+
+    One job holding both the corpus role and `issues: write` could post what
+    it read. The check job therefore holds the read-only role and no issue
+    write, and the alarm job the ambient issue write, no `id-token`, no
+    environment and no corpus step: it sees only the artifact. The alarm also
+    needs the check job to have succeeded, so a check that could not run
+    leaves the issue as it stood, and it writes only on the `main` ref.
+    """
+    jobs = _load("run-analytics.yml")["jobs"]
+    check, alarm = jobs["merits-coverage"], jobs["merits-coverage-alarm"]
+
+    assert check["permissions"] == {"contents": "read", "id-token": "write"}
+    assert any("corpus-readonly" in str(s.get("uses") or "") for s in check["steps"])
+    run = next(s["run"] for s in check["steps"] if "merits-coverage-check" in str(s.get("run")))
+    assert '[ "$status" -ne 0 ] && [ "$status" -ne 3 ]' in run, (
+        "an alarm (exit 3) must reach the alarm job; any other failure must not"
+    )
+
+    assert alarm["permissions"] == {"contents": "read", "issues": "write"}
+    assert "merits-coverage" in alarm["needs"]
+    assert "needs.merits-coverage.result == 'success'" in _norm(alarm["if"])
+    assert not any("corpus" in str(s.get("uses") or "") for s in alarm["steps"])
+    writers = [s for s in alarm["steps"] if "GH_TOKEN" in (s.get("env") or {})]
+    assert [s["if"] for s in writers] == ["${{ github.ref == 'refs/heads/main' }}"]
+    assert "merits-coverage-alarm" in writers[0]["run"]
