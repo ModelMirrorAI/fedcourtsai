@@ -447,8 +447,6 @@ plan=$(uv run fedcourts backtest-handoff-plan --replay "$BT_REPLAY" \\
   --candidate "$BT_CANDIDATE" --run-id "$GITHUB_RUN_ID")
 report=$(jq -r '.report' <<<"$plan")
 record=$(jq -r '.record // ""' <<<"$plan")
-kind=$(jq -r '.kind // ""' <<<"$plan")
-predictor=$(jq -r '.predictor // ""' <<<"$plan")
 """
 
 
@@ -665,6 +663,9 @@ def test_the_backtest_publish_job_checks_the_report_before_it_mints() -> None:
     run = str(steps[stage_at]["run"])
     assert "rm -rf metrics" not in run and "git add -A" not in run
     assert BACKTEST_HANDOFF_PATHS in run, "both jobs derive the same two paths"
+    # The publisher also reads what the check below is told to expect.
+    assert 'kind=$(jq -r \'.kind // ""\' <<<"$plan")' in run
+    assert 'predictor=$(jq -r \'.predictor // ""\' <<<"$plan")' in run
     assert 'held=$(cd "$dir" && find . -mindepth 1 ! -type d | LC_ALL=C sort)' in run
     assert 'elif [ "$held" != "./$report" ]; then' in run
     assert '[ -L "$dir/$report" ]' in run

@@ -1167,8 +1167,6 @@ jobs:
             --candidate "$BT_CANDIDATE" --run-id "$GITHUB_RUN_ID")
           report=$(jq -r '.report' <<<"$plan")
           record=$(jq -r '.record // ""' <<<"$plan")
-          kind=$(jq -r '.kind // ""' <<<"$plan")
-          predictor=$(jq -r '.predictor // ""' <<<"$plan")
           if [ -L "metrics/$report" ]; then
             echo "::error::metrics/${report} is a symlink; refusing to hand it off"
             exit 1
