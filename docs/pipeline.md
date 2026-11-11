@@ -2426,7 +2426,7 @@ The mechanics:
   or a `promote/` PR whose name the train would not have cut.
 
   **Cost.** One paid `gate` suite per candidate — three engine-smoke cells
-  plus three boot probes, about $1.60 of staging's engine keys as measured
+  plus three boot probes, about $1.90 of staging's engine keys as measured
   ([budget.md](budget.md)), with no review
   hold and outside the auto-release budget. The dispatch is refused while
   *any* dispatched integration run sits at the head, whatever its title, so a

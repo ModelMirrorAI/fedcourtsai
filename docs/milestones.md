@@ -82,8 +82,8 @@ bootstrapping to the scaling level at milestone 3, when volume starts to grow.
 The model-spend column is priced at about $17 per fully evaluated SCOTUS
 event, the pinned planning table's total rounded down (the table sums to
 $17.67, so the column reads up to about 4% low), and $30–60 per lower-court
-event. The table prices the gemini pair at `gemini-4-argon`'s measured cells
-doubled for the rate in force from 2026-12-01, about $4.30 of each event;
+event. The table prices the gemini pair at about $4.30 of each event, set
+against the rate in force from 2026-12-01 ([budget.md](budget.md));
 the scaling is rough from milestone 5, where more predictors change each
 engine's share of an event. At milestone 2 the column fills the
 bootstrapping envelope, so any further spend inside it would outgrow it.
@@ -91,12 +91,12 @@ bootstrapping envelope, so any further spend inside it would outgrow it.
 The column is the planning ceiling, and its event counts are the ones each
 step was sized at: 850–1,100 SCOTUS events a Term before milestone 1's
 moments, a few hundred more with them. Measurement moves both. The ledger's
-pace since those moments came on reads to roughly 1,500–2,000 events a Term,
+trailing-30-day pace reads to roughly 1,500–2,000 events a Term,
 an extrapolation from one month, and a fully evaluated event measures about
 $4.70, about $7.05 once gemini's rate doubles on 2026-12-01
 ([budget.md](budget.md)). At that count today's row is ≈$10.6–14K at the
 projected $7.05 and ≈$15–20K at the $10 budget.md budgets, both inside the
-envelope, and ≈$26–34K at the table's $17, which is not. So the envelope
+envelope, and ≈$26–35K at the table's $17.67, which is not. So the envelope
 holds on measured cost and not on the planning ceiling. Milestone 3's event
 count rests on the same first sizing and is owed a re-count from a full Term
 on the ledger before that step is committed to. The table stays the planning
@@ -153,7 +153,7 @@ except the late-Term one:
   conference after their trigger, so an event the poll opened for a petition
   called on long before is never filed: a conference has already sat on it.
 
-These were sized at a few hundred events a Term at most, so the cost was
+These are sized at a few hundred events a Term at most, so the cost is
 engineering rather than inference: each moment is a
 pre-registered population with its own base rate, and new inputs (argument
 transcripts) move the registered process version. On the ledger so far

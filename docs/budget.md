@@ -41,7 +41,7 @@ three predictions together run about $2.50 on a cert petition at distribution
 (75 events) and about $3.10 on an argued case (11 runs an engine). Gemini's share is at
 Argon's introductory rate ($2 / $10, $0.10 cached). The rate doubles from
 2026-12-01, which at equal tokens, and with the cached rate assumed to double
-too, adds about $2.35 to gemini's share and brings the event to about $7.05.
+too, adds about $2.33 to gemini's share and brings the event to about $7.05.
 The $10 figure stays the basis until cells at that rate are measured, since
 the doubling is a projection; the grading sample is the smaller one, and its
 cells are mostly cert-stage gradings, which read less than a merits one.
@@ -57,10 +57,9 @@ auto-release reads the table, and a round priced above
 `auto_release_usd_per_round` waits for a release. Its claude-code
 and codex rows are set from the pre-cutover measurements and anchors, well
 above the measured cells. Its gemini rows, $2.70 a prediction and $1.60 a
-grading run, were set to sit above Argon's measured cells doubled for the rate
-in force from 2026-12-01. The cells measured above double to about $2.80 and
-$1.86, so those two rows now sit about 3% and 14% below the projection and are
-owed a re-anchor before that date; the table's event total still stands well
+grading run, are sized for the rate in force from 2026-12-01. The cells
+measured above double to about $2.80 and $1.86, so those two rows sit about
+3% and 14% below the projection and are owed a re-anchor before that date; the table's event total still stands well
 above the projected $7.05. [milestones.md](milestones.md) prices its plan at the table.
 
 **The plain-language case summaries also spend outside `events × cost per
@@ -72,7 +71,7 @@ budgeted auto-release.
 Measured, from the usage each committed summary records (`main` at
 `d7840ec19`): 1,278 summaries across 402 cases since the first on
 2026-09-23 cost $199.68 in all, a mean of $0.16 and a median of $0.13 each.
-The trailing 30 days hold 733 of them at $137.26, and the trailing 14 days 229
+The trailing 30 days hold 733 of them at $137.27 with the one ruling summary, and the trailing 14 days 229
 at $41.62, so the lane runs at roughly $90–135 a month, 16 to 24 summaries a
 day. That is inside the model-spend envelope's headroom below, and
 bounded by the key's cap whatever a plan owes. The same runs summarize the AI watchlist's
@@ -95,9 +94,9 @@ $60.16. A round is priced before it runs at $0.02 and $0.06 a row
 default. Every run's spend is recorded under `data/qp-topics/spend/`, a run
 refused at the reference gate included: the record's 20 runs, from its first
 on 2026-10-30 to 2026-11-11, cost $90.67, of which $61.90 was eight label
-batches, $25.99 the ten replicate runs that measure the labeler's
-repeatability, and $2.80 the side coder below. Those batches worked through
-the two frames' backlogs. Once a backlog is labeled, a week labels only what
+batches, $25.98 the ten replicate runs that measure the labeler's
+repeatability, and $2.79 the side coder below. Those batches are backlog
+work on the two frames. Once a backlog is labeled, a week labels only what
 is new or stands down, so the steady state is an estimate, not a measurement: about
 $20–40 a month at one part batch a frame a week, and about $90 if every week
 ran a full batch on both. A `claude-fable-5` dispatch
@@ -105,7 +104,7 @@ of a full 1,200-row batch prices at $72, just under the $75 per-round cap, so
 it too can auto-release.
 The same lane runs the merits side coder
 ([merits-alignment-baseline.md](merits-alignment-baseline.md)) weekly over new
-merits grants, priced at $0.06 a row at the default model. Its first run
+merits grants, priced at a provisional $0.06 a row at the default model. Its first run
 coded the backlog of 302 grants for $2.72, about $0.009 a row, and a later
 week codes the few new grants (one so far, at $0.08) or stands down.
 
@@ -209,8 +208,9 @@ record and its own score:
 | Merits | Argued, once the transcript is out | `evt-argument-judgment` |
 
 Which cases reach those moments is the salience gate's choice
-([salience.md](salience.md)): the top 12 petitions of a regular conference's
-cohort and 24 of the long conference's, a 1-in-20 sample of paid petitions at
+([salience.md](salience.md)): up to 12 petitions of a regular conference's
+cohort and 24 of the long conference's, less the interim reserve's slots in
+use, a 1-in-20 sample of paid petitions at
 arrival, and a reserve of five interim applications at a time. Not forecast: the AI-case watchlist's
 district-court moments, which are designed and not registered
 ([trial-stage.md](trial-stage.md)), and the late-Term authorship re-forecast
@@ -246,7 +246,7 @@ auto-release budget read (`main` at `d7840ec19`, as of 2026-11-11 19:30Z):
 
 By engine the cells are $434.09 gemini, $377.33 codex and $265.14 claude-code.
 The window holds none of the long-conference campaign of early October, the
-month whose cells came to $2,283. The trailing 14 days ran faster, at $716.53,
+month whose cells came to $2,283. The trailing 14 days ran faster, at $716.53 across the same lanes,
 as the relist and call-for-response moments came on.
 
 Projected, not measured: gemini's rate doubles on 2026-12-01, which at the

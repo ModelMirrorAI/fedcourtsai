@@ -471,11 +471,9 @@ predicted cases (every one's newest snapshot was the Court's own docket JSON,
 so the supremecourt.gov-only rule excluded none), reading a median of 105k characters per case (snapshot plus
 documents, each document capped at 100k), the largest 289k. At 2.5 characters
 per token that median is ≈42k input tokens, so a summary costs ≈$0.10–0.20 on
-Sonnet 5 and the plan priced the backfill at $13–21. The budget carries the
-backfill at ≈$20–40, a margin over that estimate — the plan's range assumes
-2.5–3.5 characters per token and a typical-to-capped output — until a run's
-recorded usage replaces both. Recorded usage since puts a summary at a mean of
-$0.16 and the lane at roughly $90–135 a month, 16 to 24 summaries a day, each run
+Sonnet 5 and the plan priced the backfill at $13–21. Recorded usage puts a
+summary at a mean of $0.16 (median $0.13) and the lane at roughly $90–135 a
+month, 16 to 24 summaries a day, each run
 behind the `review` hold or auto-released within the trailing budget. See [budget.md](budget.md).
 
 A body-contract change re-plans every eligible case at once (`body-outdated`,

@@ -218,9 +218,9 @@ candidate for the maintainer to re-run or close — so a candidate costs at most
 one paid suite. That default is a spend
 decision as much as a safety
 one: a paid `scenario=gate` spends three real cells plus the boot probes,
-about $1.60 a run as `fedcourts off-ledger-spend-report` measures it (an
+about $1.90 a run as `fedcourts off-ledger-spend-report` measures it (an
 `all` run adds an evaluate cell and the labeler's cents), and at the measured
-cadence of about 1.4 paid suites a promotion batch that is roughly $70 a
+cadence of about 1.4 paid suites a promotion batch that is roughly $80 a
 month. The cadence is re-measured from `gh run list --workflow
 integration-test.yml` filtered to titles beginning `integration-test: gate @`
 or `integration-test: all @` (both paid suites), against `git tag -l
