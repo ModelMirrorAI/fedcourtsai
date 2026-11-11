@@ -2099,8 +2099,8 @@ evaluate prompt's *Grading the forecast document* section asks every judge for
 it on every stage, and `validate` takes a committed one from a judge whose
 digest is blessed at the registering label or later, refusing it under an
 earlier or unstamped one
-(`predicted_reasoning_grade_only_under_a_prompt_that_asks`). One artifact reads
-the grade, the `forecast-document-grades` board (*The board* below), with the
+(`predicted_reasoning_grade_only_under_a_prompt_that_asks`). The
+`forecast-document-grades` board (*The board* below) rolls the grade up, with the
 agreement figures *The pilot* fixes to travel beside it. The design was settled before a
 single grade existed, for the same reason the rest of this document is: a
 rubric chosen after reading the grades is a rubric fitted to them.
@@ -2329,30 +2329,6 @@ change moves **every** evaluate digest, not only this grade's: the existing
 that boundary, which is the cost of asking for the grade inside the evaluate
 cell.
 
-### The board
-
-`fedcourts forecast-document-grades` rolls the committed grades up into
-`metrics/forecast-document-grades.json`, over the forward cells the
-leaderboard scores and under its exclusions. Per stage, never pooled across
-stages, it carries:
-
-- each predictor's mean grade **per judge rubric**, pooled across its counting
-  windows and per window, beside the cells every judge on the cell graded,
-  the cells every judge left null, and the cells split on the mask;
-- each judge's leave-one-out agreement with the rest of the panel, the cell
-  as the unit, with the predictor-tracking check beside it;
-- each judge's grades of its own engine family's documents beside its grades
-  of the others';
-- each judge's mean grade, and its spread, where the disposition call was
-  right and where it was wrong.
-
-Only a judge whose evaluate digest asks for the grade is on a cell's panel,
-so a null from an earlier prompt is never read as a silent record. No mean
-and no coefficient prints under the registered minimum of 10 cells. The
-pairing with the mechanical claim total (*Relation to the other numbers*) is
-not on the board; the split by call is what it publishes of the built-in
-part. The site reads none of it. Reading rules: `metrics/README.md`.
-
 The already-resolved forward documents are graded **once**, in new evaluation
 runs stamped with the grading's process version; committed evaluations are
 never edited. The backlog does not owe those runs: its idempotency gate asks
@@ -2374,6 +2350,36 @@ per-rubric readings lose those cells. So the shape of the back-grade is open:
 a committed round, an uploaded pilot-style round, or a grade-only evaluation
 the latest-grading collapse skips for every other field. The freeze-record
 entry records the counts it would cover.
+
+### The board
+
+`fedcourts forecast-document-grades` rolls the committed grades up into
+`metrics/forecast-document-grades.json`, over the forward cells the
+leaderboard scores and under its exclusions. Per stage, never pooled across
+stages, it carries:
+
+- each predictor's mean grade **per judge rubric**, pooled across its counting
+  windows and per window, beside the cells every judge on the cell graded,
+  the cells every judge left null, and the cells split on the mask;
+- each judge rubric's leave-one-out agreement with the rest of the panel, the
+  cell as the unit, with its distinct cases and the predictor-tracking check
+  beside it;
+- each judge rubric's grades of its own engine family's documents beside its
+  grades of the others';
+- each judge rubric's mean grade, and its spread, where the disposition call
+  was right and where it was wrong.
+
+The agreement, family and call rows pool a rubric's cells across the
+predictors' counting windows; the per-window reading is the series' own.
+
+Only a judge whose evaluate digest asks for the grade is on a cell's panel,
+so a null from an earlier prompt is never read as a silent record. No mean
+and no coefficient prints under the registered minimum of 10 cells. The
+pairing with the mechanical claim total (*Relation to the other numbers*) is
+not on the board, so nothing on it says whether the grade measures more than
+the disposition; the split by call shows only the built-in part. The miss
+review also copies each listed forecast's mean grade beside it, as a detail
+of that row and not a figure. The site reads none of it. Reading rules: `metrics/README.md`.
 
 ### What is built, and what remains
 
@@ -2401,6 +2407,7 @@ What remains:
 1. **The back-grade** of the already-resolved forward documents
    (*Registration* above): its shape, a new run-evaluate derivation to run
    it, and the decision to spend on it. The backlog owes none of it.
-2. **Publication**: a board or summary that reads the grade, per stage, per
-   process version and per rubric, with the agreement figures *The pilot*
-   fixes beside every mean, and the matching site change.
+2. **The rest of publication**: the weekly metrics refresh regenerating the
+   board, the grade's pairing with the mechanical claim total within the
+   right-call and wrong-call cells, and a site page if the grade is to be
+   shown there.

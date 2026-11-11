@@ -17127,22 +17127,23 @@ class DocumentGradeWithinPredictor(_Strict):
 
 
 class DocumentGradeAgreement(_Strict):
-    """One judge's grades against the mean of the other judges' on the cells they share.
+    """One judge rubric's grades against the mean of the other judges' on the cells they share.
 
-    The leave-one-out reading of how far the panel agrees on a document, with
-    the cell (case, event, predictor) as the unit. The within-predictor
+    One row per (evaluator, digest): a judge read under two digests is two
+    rubrics and gets two rows. The other judges' mean is taken as it stands on
+    each cell, whatever digests their reads carry. It is the leave-one-out
+    reading of how far the panel agrees on a document, with the cell (case,
+    event, predictor) as the unit. The within-predictor
     coefficient is the predictor-tracking check: a pooled coefficient well above
     it says the judges agree on which predictor wrote a document more than on
     how good it was.
     """
 
     evaluator_id: str
-    labels: list[str] = Field(
-        default_factory=list,
-        description="The evaluate labels that blessed this judge's digests among the reads; "
-        "more than one digest means the coefficient spans rubrics of this judge",
+    digest: str | None = Field(
+        description="The evaluate process digest this judge's reads here were made under"
     )
-    digests: int = Field(ge=0, description="Distinct digests of this judge among the reads")
+    labels: list[str] = Field(default_factory=list, description=_RUBRIC_LABELS_DESCRIPTION)
     units: int = Field(ge=0, description="Cells entering the coefficient")
     cases: int = Field(ge=0, description="Distinct cases among those cells")
     tau_b: float | None = Field(
@@ -17157,15 +17158,20 @@ class DocumentGradeAgreement(_Strict):
         ge=-1.0,
         le=1.0,
         description="The same coefficient within each predictor's cells, averaged unweighted "
-        "over the predictors where it is printed",
+        "over the predictors; null unless it prints for every predictor with a shared cell, "
+        "so it is never one predictor's coefficient read against the pooled one",
     )
     within_predictor: list[DocumentGradeWithinPredictor] = Field(default_factory=list)
 
 
 class DocumentGradeFamily(_Strict):
-    """A judge's mean grade of its own engine family's documents and of the others'."""
+    """A judge rubric's mean grade of its own engine family's documents and of the others'."""
 
     evaluator_id: str
+    digest: str | None = Field(
+        description="The evaluate process digest this judge's reads here were made under"
+    )
+    labels: list[str] = Field(default_factory=list, description=_RUBRIC_LABELS_DESCRIPTION)
     engine: Engine
     own_n: int = Field(ge=0)
     own_mean: float | None = Field(
@@ -17183,10 +17189,14 @@ class DocumentGradeByCall(_Strict):
     The anchors grade whether the disposition held, so a grade tracks the call
     by construction. The gap between the two means is that built-in part; what
     the grade measures beyond the call is the spread **within** each group, and
-    this split shows only whether there is one.
+    this split shows only whether there is one. One row per judge rubric.
     """
 
     evaluator_id: str
+    digest: str | None = Field(
+        description="The evaluate process digest this judge's reads here were made under"
+    )
+    labels: list[str] = Field(default_factory=list, description=_RUBRIC_LABELS_DESCRIPTION)
     correct_n: int = Field(ge=0, description="Cells graded by all whose stamped `correct` is 1")
     correct_mean: float | None = Field(
         default=None, ge=0.0, le=1.0, description="Null where its count is under `minimum_cells`"
@@ -17202,6 +17212,9 @@ class DocumentGradeByCall(_Strict):
     )
     incorrect_spread: float | None = Field(
         default=None, ge=0.0, description="As `correct_spread`, for the wrong-call group"
+    )
+    unscored_n: int = Field(
+        ge=0, description="Cells graded by all whose grading stamps no `correct`; in neither group"
     )
 
 
@@ -17237,7 +17250,7 @@ class ForecastDocumentGrades(_Strict):
     """The roll-up of `predicted_reasoning_quality`, the grade of `predicted_reasoning.md`.
 
     Graded, not scored: nothing here enters a claim total, a rank key or any
-    other grade. Every mean is per judge rubric and per stage, over the cells
+    other grade. Every mean and coefficient is per judge rubric and per stage, over the cells
     every asking judge on the cell graded, and travels with the judges'
     agreement figures. Forward cells only, under the exclusions the leaderboard
     applies.

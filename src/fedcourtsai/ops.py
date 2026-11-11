@@ -1586,22 +1586,29 @@ def _document_grade_lines(vintaged: Vintaged[ForecastDocumentGrades] | None) -> 
                 f"{series.split_on_mask}) | {_grade_readings(series)} |"
             )
     for stage in board.stages:
+        judges = Counter(row.evaluator_id for row in stage.agreement)
         agreement = "; ".join(
             f"{_cell(row.evaluator_id)} "
+            + (
+                f"[{_cell('/'.join(row.labels) or 'unlabelled')}] "
+                if judges[row.evaluator_id] > 1
+                else ""
+            )
             + ("undefined" if row.tau_b is None else f"{row.tau_b:+.2f}")
             + (
                 ""
                 if row.within_predictor_tau_b is None
                 else f" (within predictor {row.within_predictor_tau_b:+.2f})"
             )
-            + f" over {row.units} cell(s)"
+            + f" over {row.units} cell(s) in {row.cases} case(s)"
             for row in stage.agreement
         )
         if agreement:
             lines += [
                 "",
-                f"Judge agreement on {stage.stage!s} (each judge against the mean of the "
-                + f"others, Kendall tau-b): {agreement}.",
+                f"Judge agreement on {stage.stage!s} (each judge rubric against the mean of "
+                + "the others, Kendall tau-b; undefined includes under the minimum): "
+                + f"{agreement}.",
             ]
     return lines
 

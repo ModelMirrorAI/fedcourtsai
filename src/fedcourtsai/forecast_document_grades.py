@@ -18,9 +18,17 @@ A cell every judge left null is counted. A cell the judges split on — some
 graded, some null — enters neither and is counted on its own, so a figure holds
 only where the panel agreed the record spoke.
 
-**Never pooled** across stages or across judges: each mean is one judge
-rubric's (evaluator, digest) on one stage. Nothing here is a rank key, a claim
-total or a headline; the reading rules are in ``metrics/README.md``.
+**Never pooled** across stages or across judges: each mean and each
+coefficient is one judge rubric's (evaluator, digest) on one stage. In the
+leave-one-out coefficient the comparator is the mean of the other judges on
+the cell as it stands, whatever digests their reads carry.
+
+The stratified pass keeps one grading per (cell, judge) before a run is chosen
+here, so on an all-versions build a judge whose kept grading names a later run
+is off that cell's panel; a frozen build holds one counted run per cell.
+
+Nothing here is a rank key, a claim total or a headline; the reading rules are
+in ``metrics/README.md``.
 """
 
 from __future__ import annotations
@@ -138,10 +146,10 @@ def _loo_points(
     return points
 
 
-def _agreement(
-    evaluator_id: str, panels: Mapping[Cell, Panel], clean: Mapping[Cell, dict[str, float]]
-) -> DocumentGradeAgreement:
-    shared = [cell for cell, grades in clean.items() if evaluator_id in grades and len(grades) > 1]
+def _agreement(rubric: Rubric, clean: Mapping[Cell, dict[str, float]]) -> DocumentGradeAgreement:
+    """``rubric``'s leave-one-out reading over ``clean``, the cells it read and all graded."""
+    evaluator_id = rubric[0]
+    shared = [cell for cell, grades in clean.items() if len(grades) > 1]
     by_predictor: dict[str, list[dict[str, float]]] = defaultdict(list)
     for (_, _, predictor_id), grades in clean.items():
         by_predictor[predictor_id].append(grades)
@@ -153,41 +161,44 @@ def _agreement(
                 predictor_id=predictor_id, units=len(points), tau_b=_tau(points)
             )
         )
-    printed = [w.tau_b for w in within if w.tau_b is not None]
-    rubrics = sorted(
-        {rubric_of(panel[evaluator_id]) for panel in panels.values() if evaluator_id in panel},
-        key=rubric_order,
-    )
+    # Read against the pooled coefficient only where every predictor with a
+    # shared cell prints: an average over the ones that happen to clear the
+    # minimum would set one predictor's coefficient against the pool.
+    printed = [w.tau_b for w in within if w.units]
+    complete = [tau for tau in printed if tau is not None]
     return DocumentGradeAgreement(
         evaluator_id=evaluator_id,
-        labels=blessing_labels(rubrics),
-        digests=len(rubrics),
+        digest=rubric[1],
+        labels=blessing_labels([rubric]),
         units=len(shared),
         cases=len({cell[0] for cell in shared}),
         tau_b=_tau(_loo_points(list(clean.values()), evaluator_id)),
-        within_predictor_tau_b=sum(printed) / len(printed) if printed else None,
+        within_predictor_tau_b=(
+            sum(complete) / len(complete) if complete and len(complete) == len(printed) else None
+        ),
         within_predictor=within,
     )
 
 
 def _family(
-    evaluator_id: str,
+    rubric: Rubric,
     panels: Mapping[Cell, Panel],
     clean: Mapping[Cell, dict[str, float]],
     engines: Mapping[Cell, Engine],
 ) -> DocumentGradeFamily | None:
+    evaluator_id = rubric[0]
     own: list[float] = []
     other: list[float] = []
     engine: Engine | None = None
     for cell, grades in clean.items():
-        if evaluator_id not in grades:
-            continue
         engine = panels[cell][evaluator_id].engine
         (own if engines[cell] == engine else other).append(grades[evaluator_id])
     if engine is None:
         return None
     return DocumentGradeFamily(
         evaluator_id=evaluator_id,
+        digest=rubric[1],
+        labels=blessing_labels([rubric]),
         engine=engine,
         own_n=len(own),
         own_mean=_mean(own),
@@ -197,23 +208,28 @@ def _family(
 
 
 def _by_call(
-    evaluator_id: str, panels: Mapping[Cell, Panel], clean: Mapping[Cell, dict[str, float]]
+    rubric: Rubric, panels: Mapping[Cell, Panel], clean: Mapping[Cell, dict[str, float]]
 ) -> DocumentGradeByCall:
+    evaluator_id = rubric[0]
     groups: dict[int, list[float]] = {0: [], 1: []}
+    unscored = 0
     for cell, grades in clean.items():
-        if evaluator_id not in grades:
-            continue
         correct = panels[cell][evaluator_id].correct
-        if correct is not None:
+        if correct is None:
+            unscored += 1
+        else:
             groups[correct].append(grades[evaluator_id])
     return DocumentGradeByCall(
         evaluator_id=evaluator_id,
+        digest=rubric[1],
+        labels=blessing_labels([rubric]),
         correct_n=len(groups[1]),
         correct_mean=_mean(groups[1]),
         correct_spread=_spread(groups[1]),
         incorrect_n=len(groups[0]),
         incorrect_mean=_mean(groups[0]),
         incorrect_spread=_spread(groups[0]),
+        unscored_n=unscored,
     )
 
 
@@ -236,7 +252,20 @@ def _stage(
         if (window := windows.get(cell)) is not None:
             by_series[(cell[2], window)].append(panel)
     evaluators = sorted({evaluator for panel in panels.values() for evaluator in panel})
-    family = [_family(evaluator, panels, clean, engines) for evaluator in evaluators]
+    # One judge rubric at a time: the cells that rubric read, among those every
+    # judge on the cell graded.
+    rubrics = sorted(
+        {rubric_of(ev) for panel in panels.values() for ev in panel.values()}, key=rubric_order
+    )
+    read_by = {
+        rubric: {
+            cell: grades
+            for cell, grades in clean.items()
+            if rubric[0] in panels[cell] and rubric_of(panels[cell][rubric[0]]) == rubric
+        }
+        for rubric in rubrics
+    }
+    family = [_family(rubric, panels, read_by[rubric], engines) for rubric in rubrics]
     return DocumentGradeStage(
         stage=stage,
         cells=len(panels),
@@ -252,9 +281,9 @@ def _stage(
                 by_series, key=lambda key: (key[0], key[1] is not None, key[1] or "")
             )
         ],
-        agreement=[_agreement(evaluator, panels, clean) for evaluator in evaluators],
+        agreement=[_agreement(rubric, read_by[rubric]) for rubric in rubrics],
         family=[row for row in family if row is not None],
-        by_call=[_by_call(evaluator, panels, clean) for evaluator in evaluators],
+        by_call=[_by_call(rubric, panels, read_by[rubric]) for rubric in rubrics],
     )
 
 
@@ -303,11 +332,9 @@ def build_forecast_document_grades(
             run_id = min(runs, key=lambda name: (cell_clock(runs[name][0]), name))
             prediction, run_gradings = runs[run_id]
             later_run_reads += len(cell_gradings) - len(run_gradings)
-            # One read per judge: its newest grading of the run that is read.
-            panel: Panel = {}
-            for grading in sorted(run_gradings, key=lambda g: g.run_id):
-                panel[grading.evaluator_id] = grading
-            later_run_reads += len(run_gradings) - len(panel)
+            # One read per judge: the stratified pass keeps one grading per
+            # (cell, judge), so the run's gradings are its panel.
+            panel: Panel = {grading.evaluator_id: grading for grading in run_gradings}
             panels[cell] = panel
             engines[cell] = prediction.engine
             window = None

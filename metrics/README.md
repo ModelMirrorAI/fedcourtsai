@@ -2116,32 +2116,40 @@ merits section rather than the cert band, with `base_rate_basis` and
     (`process_window` null) and per window, the mask counts and one
     `readings` row **per judge rubric** (evaluator and evaluate digest) with
     the cells it is over and the mean grade;
-  - `agreement`: per judge, Kendall tau-b between its grades and the mean of
-    the other judges' on the cells they share, with the count of cells and
+  - `agreement`: per judge rubric, Kendall tau-b between its grades and the
+    mean of the other judges' on the cells they share (the others as they
+    stand on the cell, whatever their digests), with the count of cells and
     distinct cases, and the same coefficient within each predictor's cells
-    averaged over the predictors where it prints (`within_predictor_tau_b`).
-    A judge's row spans its digests among the reads and says how many;
-  - `family`: per judge, its mean grade of documents written by its own
-    engine family beside its mean grade of the others';
-  - `by_call`: per judge, the mean grade and its spread over the cells whose
-    disposition call was right, and over those where it was wrong.
+    averaged over the predictors (`within_predictor_tau_b`), which is null
+    unless it prints for every predictor with a shared cell;
+  - `family`: per judge rubric, its mean grade of documents written by its
+    own engine family beside its mean grade of the others';
+  - `by_call`: per judge rubric, the mean grade and its spread over the cells
+    whose disposition call was right, and over those where it was wrong, with
+    the cells whose grading stamps no call counted apart.
+
+  A judge read under two evaluate digests is two rubrics and has two rows in
+  each list; nothing is pooled across them. These three lists pool a rubric's
+  cells across the predictors' counting windows; the per-window reading is
+  the `series` rows.
 
   No mean and no coefficient prints under `minimum_cells`, the registered 10:
   the count is printed and the value is null.
 
   **Graded, not scored, and what may be said from it.** The grade enters no
   claim total, no rank key and no other grade, and the board ranks nothing.
-  - A mean is **one judge's**. Judges differ in level (one grades every
-    predictor lower than another does), so a mean is read down a judge's
-    column, across predictors, and never across a row. No mean pooled across
-    judges exists here, and none may be computed from the rows and quoted.
+  - A mean is **one judge rubric's**. Judges can differ in level, so a mean
+    is read down a judge's column, across predictors, and never across a row.
+    No mean pooled across judges is on this board, and none may be computed
+    from its rows and quoted.
   - A difference between two predictors under one judge is that judge's
     reading of those documents. It is quoted with its cells and with the
     stage's `agreement` beside it; a low or undefined coefficient is a caveat
     the reader sees, not a figure withheld.
   - The entries' cells are each predictor's own, so two series can span
-    different events. Where their `cells` differ the comparison is not
-    like-for-like.
+    different events and different panels. Where their `cells` or a judge's
+    `n` differ the comparison is not like-for-like, and equal counts certify
+    neither the same events nor the same panel.
   - `agreement` well above `within_predictor_tau_b` says the judges agree on
     which predictor wrote a document more than on how good it was. Blinding
     hides the name, not the prose style.
@@ -2152,9 +2160,12 @@ merits section rather than the cert band, with `base_rate_basis` and
     evidence of favouritism or of its absence.
   - `by_call` shows the built-in part. The anchors grade whether the
     disposition held, so the grade is higher where the call was right by
-    construction; that gap is not a finding. Whether the grade measures more
-    than the call is the spread within each group, and on cert the wrong-call
-    group is a handful of cells for as long as nearly everything is denied.
+    construction; that gap is not a finding. A spread within a group shows
+    only that the grade varies there, which may be judge noise. Whether the
+    grade measures more than the call needs the within-group coefficient
+    against the mechanical claim total, which this board does not carry. On
+    cert the wrong-call group is a handful of cells for as long as nearly
+    everything is denied.
   - A cert or interim cell graded after the case's merits decision can read
     writings one graded before it could not, so readings can differ by grading
     date.

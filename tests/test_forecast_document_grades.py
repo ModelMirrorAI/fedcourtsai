@@ -17,6 +17,7 @@ from fedcourtsai.integrity import FORWARD, RETROSPECTIVE, StratifiedCell
 from fedcourtsai.process_version import EVALUATE_BLESSING_LABELS
 from fedcourtsai.schemas import (
     CentralClaim,
+    CountingWindow,
     Disposition,
     Engine,
     Evaluation,
@@ -29,6 +30,7 @@ from fedcourtsai.schemas import (
     Stratum,
 )
 from fedcourtsai.serialize import write_json
+from fedcourtsai.store import evaluation_key
 from fedcourtsai.validate import asks_predicted_reasoning_grade
 
 CASE = "scotus/123"
@@ -228,7 +230,13 @@ def test_each_rubric_of_one_judge_reads_on_its_own(tmp_path: Path) -> None:
     (stage,) = _build(cells, tmp_path).stages
 
     assert [(r.digest, r.n) for r in stage.series[0].readings] == [(ASKING[0], 1), (ASKING[1], 1)]
-    assert stage.agreement[0].digests == 2
+    # Agreement, family and the call split are per rubric too: two rows, one cell each.
+    assert [(row.digest, row.units) for row in stage.agreement] == [(ASKING[0], 0), (ASKING[1], 0)]
+    assert [(row.digest, row.own_n) for row in stage.family] == [(ASKING[0], 1), (ASKING[1], 1)]
+    assert [(row.digest, row.correct_n) for row in stage.by_call] == [
+        (ASKING[0], 1),
+        (ASKING[1], 1),
+    ]
 
 
 def test_agreement_is_leave_one_out_with_its_within_predictor_reading(tmp_path: Path) -> None:
@@ -255,6 +263,53 @@ def test_agreement_is_leave_one_out_with_its_within_predictor_reading(tmp_path: 
     ]
 
 
+def test_the_within_predictor_reading_needs_every_predictor_to_print(tmp_path: Path) -> None:
+    # alpha has twelve shared cells the judges order alike; beta has three,
+    # under the minimum. One predictor's coefficient is not the reading.
+    cells = []
+    for index, event_id in enumerate(_events(12)):
+        _predict(tmp_path, "alpha", event_id)
+        grade = 0.25 if index % 2 else 0.75
+        cells.append(_cell("alpha", "judge-a", event_id, grade))
+        cells.append(_cell("alpha", "judge-b", event_id, grade))
+    for event_id in _events(3):
+        _predict(tmp_path, "beta", event_id)
+        cells.append(_cell("beta", "judge-a", event_id, 0.5))
+        cells.append(_cell("beta", "judge-b", event_id, 0.5))
+
+    (stage,) = _build(cells, tmp_path).stages
+
+    first = stage.agreement[0]
+    assert [(w.predictor_id, w.tau_b) for w in first.within_predictor] == [
+        ("alpha", pytest.approx(1.0)),
+        ("beta", None),
+    ]
+    assert first.within_predictor_tau_b is None
+
+
+def test_a_series_is_listed_pooled_and_per_counting_window(tmp_path: Path) -> None:
+    opened = datetime(2026, 5, 1, tzinfo=UTC)
+    windows = {}
+    cells = []
+    for event_id, label in (("evt-a", "proc-a"), ("evt-b", "proc-a"), ("evt-c", "proc-b")):
+        _predict(tmp_path, "alpha", event_id)
+        cell = _cell("alpha", "judge-a", event_id, 0.5)
+        cells.append(cell)
+        windows[evaluation_key(cell[0])] = CountingWindow(
+            label=label, digest=f"sha256:{label}", opens=opened
+        )
+
+    board = build_forecast_document_grades(
+        cells, tmp_path, process_scope="frozen", cell_windows=windows
+    )
+
+    assert [(s.process_window, s.cells) for s in board.stages[0].series] == [
+        (None, 3),
+        ("proc-a", 2),
+        ("proc-b", 1),
+    ]
+
+
 def test_family_and_call_splits_read_each_judges_own_grades(tmp_path: Path) -> None:
     cells = []
     for index, event_id in enumerate(_events(MINIMUM_CELLS)):
@@ -273,6 +328,7 @@ def test_family_and_call_splits_read_each_judges_own_grades(tmp_path: Path) -> N
     assert by_call.correct_mean == pytest.approx((10 * 1.0 + 5 * 0.5) / 15)
     assert by_call.correct_spread is not None and by_call.correct_spread > 0
     assert (by_call.incorrect_mean, by_call.incorrect_spread) == (None, None)
+    assert by_call.unscored_n == 0
 
 
 def test_the_earliest_graded_run_of_a_cell_is_the_one_read(tmp_path: Path) -> None:
@@ -329,6 +385,7 @@ def test_the_digest_prints_one_row_per_predictor_per_stage(tmp_path: Path) -> No
     assert "Graded, not scored" in text
     assert "| cert | alpha | 10 of 10 (0, 0) | judge-a 0.50 (10); judge-b 0.75 (10) |" in text
     assert "Judge agreement on cert" in text
+    assert "over 10 cell(s) in 1 case(s)" in text
     absent = ops._document_grade_lines(ops.Vintaged(value=None, vintage=None))
     assert "has never landed" in "\n".join(absent)
     assert ops._document_grade_lines(None) == []

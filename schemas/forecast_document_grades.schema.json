@@ -2,7 +2,7 @@
   "$defs": {
     "DocumentGradeAgreement": {
       "additionalProperties": false,
-      "description": "One judge's grades against the mean of the other judges' on the cells they share.\n\nThe leave-one-out reading of how far the panel agrees on a document, with\nthe cell (case, event, predictor) as the unit. The within-predictor\ncoefficient is the predictor-tracking check: a pooled coefficient well above\nit says the judges agree on which predictor wrote a document more than on\nhow good it was.",
+      "description": "One judge rubric's grades against the mean of the other judges' on the cells they share.\n\nOne row per (evaluator, digest): a judge read under two digests is two\nrubrics and gets two rows. The other judges' mean is taken as it stands on\neach cell, whatever digests their reads carry. It is the leave-one-out\nreading of how far the panel agrees on a document, with the cell (case,\nevent, predictor) as the unit. The within-predictor\ncoefficient is the predictor-tracking check: a pooled coefficient well above\nit says the judges agree on which predictor wrote a document more than on\nhow good it was.",
       "properties": {
         "cases": {
           "description": "Distinct cases among those cells",
@@ -10,18 +10,24 @@
           "title": "Cases",
           "type": "integer"
         },
-        "digests": {
-          "description": "Distinct digests of this judge among the reads",
-          "minimum": 0,
-          "title": "Digests",
-          "type": "integer"
+        "digest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The evaluate process digest this judge's reads here were made under",
+          "title": "Digest"
         },
         "evaluator_id": {
           "title": "Evaluator Id",
           "type": "string"
         },
         "labels": {
-          "description": "The evaluate labels that blessed this judge's digests among the reads; more than one digest means the coefficient spans rubrics of this judge",
+          "description": "The evaluate labels that blessed these digests, sorted, from the registry (`process_version.EVALUATE_BLESSING_LABELS`); an unstamped or never-blessed digest names none. A name only; a label never partitions a reading",
           "items": {
             "type": "string"
           },
@@ -68,13 +74,13 @@
             }
           ],
           "default": null,
-          "description": "The same coefficient within each predictor's cells, averaged unweighted over the predictors where it is printed",
+          "description": "The same coefficient within each predictor's cells, averaged unweighted over the predictors; null unless it prints for every predictor with a shared cell, so it is never one predictor's coefficient read against the pooled one",
           "title": "Within Predictor Tau B"
         }
       },
       "required": [
         "evaluator_id",
-        "digests",
+        "digest",
         "units",
         "cases"
       ],
@@ -83,7 +89,7 @@
     },
     "DocumentGradeByCall": {
       "additionalProperties": false,
-      "description": "A judge's mean grade where the disposition call was right and where it was wrong.\n\nThe anchors grade whether the disposition held, so a grade tracks the call\nby construction. The gap between the two means is that built-in part; what\nthe grade measures beyond the call is the spread **within** each group, and\nthis split shows only whether there is one.",
+      "description": "A judge's mean grade where the disposition call was right and where it was wrong.\n\nThe anchors grade whether the disposition held, so a grade tracks the call\nby construction. The gap between the two means is that built-in part; what\nthe grade measures beyond the call is the spread **within** each group, and\nthis split shows only whether there is one. One row per judge rubric.",
       "properties": {
         "correct_mean": {
           "anyOf": [
@@ -119,6 +125,18 @@
           "default": null,
           "description": "Population standard deviation of the grades in the group; null as the mean is",
           "title": "Correct Spread"
+        },
+        "digest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The evaluate process digest this judge's reads here were made under",
+          "title": "Digest"
         },
         "evaluator_id": {
           "title": "Evaluator Id",
@@ -158,26 +176,62 @@
           "default": null,
           "description": "As `correct_spread`, for the wrong-call group",
           "title": "Incorrect Spread"
+        },
+        "labels": {
+          "description": "The evaluate labels that blessed these digests, sorted, from the registry (`process_version.EVALUATE_BLESSING_LABELS`); an unstamped or never-blessed digest names none. A name only; a label never partitions a reading",
+          "items": {
+            "type": "string"
+          },
+          "title": "Labels",
+          "type": "array"
+        },
+        "unscored_n": {
+          "description": "Cells graded by all whose grading stamps no `correct`; in neither group",
+          "minimum": 0,
+          "title": "Unscored N",
+          "type": "integer"
         }
       },
       "required": [
         "evaluator_id",
+        "digest",
         "correct_n",
-        "incorrect_n"
+        "incorrect_n",
+        "unscored_n"
       ],
       "title": "DocumentGradeByCall",
       "type": "object"
     },
     "DocumentGradeFamily": {
       "additionalProperties": false,
-      "description": "A judge's mean grade of its own engine family's documents and of the others'.",
+      "description": "A judge rubric's mean grade of its own engine family's documents and of the others'.",
       "properties": {
+        "digest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The evaluate process digest this judge's reads here were made under",
+          "title": "Digest"
+        },
         "engine": {
           "$ref": "#/$defs/Engine"
         },
         "evaluator_id": {
           "title": "Evaluator Id",
           "type": "string"
+        },
+        "labels": {
+          "description": "The evaluate labels that blessed these digests, sorted, from the registry (`process_version.EVALUATE_BLESSING_LABELS`); an unstamped or never-blessed digest names none. A name only; a label never partitions a reading",
+          "items": {
+            "type": "string"
+          },
+          "title": "Labels",
+          "type": "array"
         },
         "other_mean": {
           "anyOf": [
@@ -222,6 +276,7 @@
       },
       "required": [
         "evaluator_id",
+        "digest",
         "engine",
         "own_n",
         "other_n"
@@ -511,7 +566,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "The roll-up of `predicted_reasoning_quality`, the grade of `predicted_reasoning.md`.\n\nGraded, not scored: nothing here enters a claim total, a rank key or any\nother grade. Every mean is per judge rubric and per stage, over the cells\nevery asking judge on the cell graded, and travels with the judges'\nagreement figures. Forward cells only, under the exclusions the leaderboard\napplies.",
+  "description": "The roll-up of `predicted_reasoning_quality`, the grade of `predicted_reasoning.md`.\n\nGraded, not scored: nothing here enters a claim total, a rank key or any\nother grade. Every mean and coefficient is per judge rubric and per stage, over the cells\nevery asking judge on the cell graded, and travels with the judges'\nagreement figures. Forward cells only, under the exclusions the leaderboard\napplies.",
   "properties": {
     "later_run_reads": {
       "description": "Gradings of a later prediction run of a cell than the earliest graded one; read by nothing here",

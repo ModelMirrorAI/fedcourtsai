@@ -18871,13 +18871,16 @@ freeze commit is recorded here.
   - each predictor's mean grade per judge rubric, pooled across its counting
     windows and per window, over the cells every judge on the cell graded,
     beside the cells null by every judge and the cells split on the mask;
-  - each judge's leave-one-out Kendall tau-b against the mean of the other
-    judges, the cell as the unit, with the same coefficient within each
+  - each judge rubric's leave-one-out Kendall tau-b against the mean of the
+    other judges, the cell as the unit, with the same coefficient within each
     predictor's cells;
-  - each judge's grades of its own engine family's documents beside the
-    others';
-  - each judge's mean grade and spread where the disposition call was right
-    and where it was wrong.
+  - each judge rubric's grades of its own engine family's documents beside
+    the others';
+  - each judge rubric's mean grade and spread where the disposition call was
+    right and where it was wrong.
+
+  A judge read under two evaluate digests is two rubrics, and nothing is
+  pooled across them.
 
   **The panel.** A judge is on a cell's panel only where its evaluate digest
   is blessed at `proc-v16` or later, the rule `validate` already applies to a
@@ -18892,9 +18895,9 @@ freeze commit is recorded here.
   entry).
   - **Graded, not scored.** No claim total, no rank key and no other grade
     reads it, and the board ranks nothing.
-  - **One judge's mean, never a pooled one.** A mean is read down a judge's
-    column across predictors. No mean across judges is published, and none
-    may be computed from the rows and quoted.
+  - **One judge rubric's mean, never a pooled one.** A mean is read down a
+    judge's column across predictors. No mean across judges is on this board,
+    and none may be computed from its rows and quoted.
   - **Every mean travels with the agreement figures**, and a low or undefined
     coefficient is a caveat, not a figure withheld.
   - **The family reading is confounded with the predictor**, since a judge's
@@ -18908,14 +18911,20 @@ freeze commit is recorded here.
   `staging` checkout at `6687ce59a` under the frozen scope: 84 cert cells,
   28 per predictor, over 19 cases, all graded by every judge on the cell, 12
   of them short one judge; 24 interim cells, 8 per predictor, over 5 cases,
-  all graded by all; 1,179 cert and 189 interim gradings under digests that do
+  all graded by all, 3 of them short one judge; 1,179 cert and 189 interim gradings under digests that do
   not ask. On cert, each judge graded `gemini-baseline` below the other two
   predictors (`claude-judge` 0.54 against 0.66 and 0.66; `codex-judge` 0.74
   against 0.83 and 0.85; `gemini-judge` 0.72 against 0.84 and 0.85, on 24
   cells), and the judges' leave-one-out coefficients were 0.58, 0.51 and
-  0.57, with within-predictor readings of 0.48, 0.43 and 0.49. No interim
-  mean printed: every series was under the minimum. The minimum was set
-  before the build and not changed after it.
+  0.57, with within-predictor readings of 0.48, 0.43 and 0.49. On interim no
+  predictor's mean printed, every series being under the minimum. The
+  interim rows that did print were the `proc-v17` rubrics' pooled ones over
+  15 cells in 4 cases: leave-one-out coefficients of 0.59, 0.11 and 0.61, a
+  mean grade of the other families' documents of 0.73, 0.89 and 0.80, and a
+  mean grade on right-call cells of 0.74, 0.86 and 0.84. The minimum was set
+  before the first build. The first build pooled each judge's digests in the
+  agreement, family and call rows; that was changed to one row per rubric
+  after review, before this entry landed.
 
   **What does not move.** No digest, no base rate, no membership rule, no
   rank and no scored figure. No prompt changes, so no evaluate digest moves.
