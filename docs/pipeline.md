@@ -3204,7 +3204,12 @@ to `publish`, its removal never reaches what the PR commits. The weekly public
 update history, `metrics/updates/`, leaves and comes back with the board on the
 same terms, because each week's resolved section names decided events beside
 their outcomes. The standing `metrics/cert-backtest.json` is withheld by
-`cert-backtest` itself (see the `cert-backtest` row in [cli.md](cli.md)).
+`cert-backtest` itself (see the `cert-backtest` row in [cli.md](cli.md)), as
+are the pooled back-test record `metrics/backtest-record/` and the comparison
+reports `metrics/backtest-comparisons/`, by `cert-backtest`, `merits-backtest`
+and the two comparison commands alike. `run-backtest` has no comparison mode:
+a comparison is run with `fedcourts cert-backtest-compare` or
+`fedcourts merits-backtest-compare` where the corpus is pulled.
 
 Two residuals ride that fence, and both are the reason it is described as
 structural rather than as a wall. The checkout is full-depth, so the ledger
