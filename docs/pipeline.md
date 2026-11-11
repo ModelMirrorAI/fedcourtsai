@@ -256,6 +256,11 @@ Five blocks, in the order a reader needs them:
   stage and so not subtractable from the cert figures. It leads the scored
   blocks because it is the program's output; the back-tests after it are
   iteration instruments.
+- **Forward misses** — under the forward block, counts off the committed
+  `metrics/miss-review.json` with its vintage: the forward events holding a
+  miss, how many every predictor reviewed there shares, and the same per
+  stage. Per event, never per predictor, and never a rate. Where the artifact
+  has not landed the block says so.
 - **Backtest results** — the historical replay **per court**, with each row's
   own always-deny floor beside its accuracy and the pooled row labelled as the
   mixture it is (`granted` means cert on a SCOTUS row and a motion granted on a

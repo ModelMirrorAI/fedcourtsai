@@ -16297,6 +16297,175 @@ class ExportManifest(_Strict):
     )
 
 
+class MissTally(_Strict):
+    """How many forward cells a miss-review cut holds, and how many of them missed.
+
+    Counts, never a rate: the cuts are small and descriptive, and a rate would
+    invite a comparison the population cannot bear (``metrics/README.md``).
+    """
+
+    cells: int = Field(
+        ge=0, description="Forward cells in this cut, one per (case, event, predictor)"
+    )
+    missed: int = Field(
+        ge=0,
+        description="How many of them missed — a wrong call, or the wrong side of even odds",
+    )
+
+
+class MissEventTally(_Strict):
+    """A miss-review cut counted in events instead of cells."""
+
+    events: int = Field(
+        ge=0, description="Forward events in this cut holding at least one reviewed cell"
+    )
+    missed: int = Field(ge=0, description="Events on which at least one predictor missed")
+    shared: int = Field(
+        ge=0,
+        description="Events on which every reviewed predictor missed, two or more of them "
+        "being reviewed there",
+    )
+
+
+class MissReviewCall(_Strict):
+    """One predictor's counted forward forecast of a listed event, and what it ran on."""
+
+    predictor_id: str
+    prediction_run_id: str = Field(description="The run of the predictor the review read")
+    process_window: str | None = Field(
+        default=None,
+        description="The counting window the scored prediction sits in; null on an "
+        "all-versions build",
+    )
+    band: str = Field(
+        description="`<salience_version>/<band>` off the scored prediction's frozen context, "
+        "`(none)` where it froze no band"
+    )
+    call: str = Field(
+        description="The outcome label the prediction named, on the stage's own axis: the "
+        "judgment on a merits event, the disposition elsewhere"
+    )
+    probability: float = Field(
+        ge=0.0, le=1.0, description="The prediction's P on the stage's declared binary"
+    )
+    brier_score: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="Brier re-scored against the committed outcome on the binary the "
+        "stage's rule scores the cell on",
+    )
+    wrong_call: bool = Field(
+        description="The call re-scored against the committed outcome by the stage's rule "
+        "is not correct"
+    )
+    wrong_side: bool = Field(
+        description="The Brier is at or above the review's `wrong_side_brier`: the forecast "
+        "sat on the wrong side of even odds on the scored binary, or on them"
+    )
+    snapshot_provenance: str | None = Field(
+        default=None,
+        description="The scored prediction's frozen `context.snapshot_provenance`; null "
+        "where it froze no context",
+    )
+    snapshot_uptake: str | None = Field(
+        default=None, description="The frozen `context.snapshot_uptake`, null where unrecorded"
+    )
+    retrieval_calls: int | None = Field(
+        default=None,
+        ge=0,
+        description="Tool calls in the scored run's `retrieval_log.json`; null where the "
+        "run committed no log",
+    )
+    self_provisioned_fetches: int | None = Field(
+        default=None,
+        ge=0,
+        description="The log's own `self_provisioned_fetches`; null where the run "
+        "committed no log or the log predates the field",
+    )
+    gradings: int = Field(ge=1, description="Gradings of this forecast the review read")
+    mean_reasoning_quality: float | None = Field(
+        default=None, description="Mean `reasoning_quality` over those gradings that carry one"
+    )
+    mean_predicted_reasoning_quality: float | None = Field(
+        default=None,
+        description="Mean `predicted_reasoning_quality` over those gradings that carry one",
+    )
+
+
+class MissReviewEvent(_Strict):
+    """One forward event at least one predictor missed, with every reviewed forecast of it."""
+
+    case_id: str
+    event_id: str
+    stage: str = Field(description="The `<stage>@<moment>` block the leaderboard files it under")
+    outcome: str = Field(
+        description="The realized label on the axis the event is scored on: the judgment on "
+        "a merits event, the interim reading where the first listed forecast is scored on "
+        "it, the disposition elsewhere"
+    )
+    actual_granted: int = Field(ge=0, le=1, description="The outcome's binary target")
+    resolved_at: date
+    shared: bool = Field(
+        description="Every reviewed predictor missed, two or more of them being reviewed here"
+    )
+    calls: list[MissReviewCall] = Field(
+        description="Every reviewed predictor's forecast of the event, the ones that did not "
+        "miss included, in predictor order"
+    )
+
+
+class MissReview(_Strict):
+    """``metrics/miss-review.json`` — the forward events the predictors got wrong.
+
+    A diagnostic list beside the boards: which counted forward forecasts named
+    the wrong outcome or sat on the wrong side of even odds, whether the
+    predictors missed together, and what each cell ran on. Built by ``fedcourts
+    miss-review`` over the same stratified cells the leaderboard scores, so the
+    two apply one set of exclusions. Never a rank key and never a claimable
+    figure: every summary is a count, and the record-depth cuts are
+    observational (``metrics/README.md``). Carries no timestamp, so the same
+    ledger always serializes identically.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    process_scope: Literal["frozen", "all"] = Field(
+        default="frozen",
+        description="Which process versions the review covers, keyed on the prediction's "
+        "stamp exactly like the leaderboard",
+    )
+    wrong_side_brier: float = Field(
+        description="The Brier at or above which a forecast is on the wrong side of even odds"
+    )
+    unscored_cells: int = Field(
+        default=0,
+        ge=0,
+        description="Forward cells the stage's rule leaves unscored against the committed "
+        "outcome; reviewed no further and in no count below",
+    )
+    cells: MissTally = Field(description="Every reviewed forward cell")
+    events: MissEventTally = Field(description="Every reviewed forward event")
+    by_predictor: dict[str, MissTally] = Field(default_factory=dict)
+    by_stage: dict[str, MissEventTally] = Field(
+        default_factory=dict, description="Events per `<stage>@<moment>` block"
+    )
+    by_band: dict[str, MissTally] = Field(
+        default_factory=dict, description="Cells per frozen band key"
+    )
+    by_snapshot_provenance: dict[str, MissTally] = Field(
+        default_factory=dict,
+        description="Cells per frozen `snapshot_provenance`, `(none)` where no context was frozen",
+    )
+    by_self_provisioning: dict[str, MissTally] = Field(
+        default_factory=dict,
+        description="Cells by whether the scored run's log counts a self-provisioned fetch: "
+        "`fetched`, `none`, or `unlogged` where no count was committed",
+    )
+    missed_events: list[MissReviewEvent] = Field(
+        default_factory=list,
+        description="The events with a miss, in (case, event) order",
+    )
+
+
 # Maps on-disk filename -> the model that validates it. Used by `fedcourts validate`.
 FILENAME_MODELS: dict[str, type[_Strict]] = {
     "case.yaml": TrackedCase,
@@ -16306,6 +16475,7 @@ FILENAME_MODELS: dict[str, type[_Strict]] = {
     "evaluation.json": Evaluation,
     "leaderboard.json": Leaderboard,
     "claim-scores.json": ClaimScoreBoard,
+    "miss-review.json": MissReview,
     "backtest.json": Backtest,
     "usage.json": ModelUsage,
     "ops.json": OpsReport,
@@ -16335,6 +16505,7 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "evaluator_config": EvaluatorConfig,
     "leaderboard": Leaderboard,
     "claim_score_board": ClaimScoreBoard,
+    "miss_review": MissReview,
     "backtest": Backtest,
     "tool_usage": ToolUsage,
     "cert_backtest": CertBacktest,

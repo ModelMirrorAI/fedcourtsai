@@ -275,6 +275,7 @@ from .merits_event_migration import (
     backfill_event_moments,
     backfill_merits_events,
 )
+from .miss_review import build_miss_review, miss_review_summary
 from .ops import (
     DAILY_DIGEST_LABEL,
     DAILY_DIGEST_MARKER_LINES,
@@ -599,6 +600,7 @@ from .schemas import (
     LiveFrontier,
     MeritsBacktest,
     MeritsBacktestDispatch,
+    MissReview,
     ModelUsage,
     Moment,
     OffLedgerLane,
@@ -11107,6 +11109,44 @@ def claim_scores_command(
     )
 
 
+@app.command("miss-review")
+def miss_review_command(
+    out: Annotated[
+        Path | None,
+        typer.Option(help="Output path (default: <metrics_root>/miss-review.json)."),
+    ] = None,
+    all_versions: Annotated[
+        bool,
+        typer.Option(
+            "--all-versions",
+            help="Include every process version, not only the frozen headline.",
+        ),
+    ] = False,
+) -> None:
+    """List the forward events the predictors got wrong into ``metrics/miss-review.json``.
+
+    Deterministic and offline. Over the same stratified cells ``leaderboard``
+    scores, it re-scores each predictor's counted forward forecast against the
+    committed outcome and lists every event on which one missed — a wrong call,
+    or the wrong side of even odds — with every predictor's forecast of it,
+    whether all of them missed, and what each run committed about its record:
+    snapshot provenance and uptake, retrieval calls, self-provisioned fetches,
+    and its mean grades. The summaries are counts per predictor, stage, band,
+    snapshot provenance and self-provisioning. A diagnostic list, never a rank
+    key or a claimable figure; reading rules: ``metrics/README.md``.
+    """
+    settings = get_settings()
+    scope: Literal["frozen", "all"] = "all" if all_versions else "frozen"
+    run = stratify(settings.data_root, frozen_only=not all_versions)
+    _report_exclusions(run)
+    review = build_miss_review(
+        run.cells, settings.data_root, process_scope=scope, cell_windows=run.cell_windows
+    )
+    destination = out if out is not None else settings.metrics_root / "miss-review.json"
+    write_json(destination, review)
+    typer.echo(f"miss-review [{scope}]: {miss_review_summary(review)} -> {destination}")
+
+
 @app.command("statpack-at")
 def statpack_at_command(
     prediction: Annotated[
@@ -16185,6 +16225,7 @@ def _weekly_analytics(metrics_root: Path) -> WeeklyAnalytics:
         cert_backtest=_vintaged(metrics_root / "cert-backtest.json", CertBacktest),
         salience_version_in_force=SALIENCE_VERSION,
         leaderboard=_vintaged(metrics_root / "leaderboard.json", Leaderboard),
+        miss_review=_vintaged(metrics_root / "miss-review.json", MissReview),
     )
 
 
