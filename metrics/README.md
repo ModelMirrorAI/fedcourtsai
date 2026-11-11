@@ -1016,6 +1016,17 @@ stays outside the gate:
   they are not comparable with `always_deny_accuracy`, and no lift is measured
   against them.
 
+  The skill anchor is also the board's **no-model forecast**. A band is the
+  stronger of the petition's caption class and its docket tier as at
+  prediction: no relist, one relist, or a CVSG or two or more relists
+  ([docs/salience.md](../docs/salience.md)). Forecasting a band's rate is
+  therefore forecasting from the relist count, the CVSG and the caption alone,
+  and a cert cell's Brier skill against its anchor is its gain over that
+  forecast, not over an uninformed base rate. A band stops counting at two
+  relists and reads neither the cert-stage amicus count nor a call for
+  response beyond its relist rule, so skill over the anchor is not skill over
+  every fact on the docket.
+
   Eight of these fields are cert-only, null off the cert stage (where
   `denied` is not the null call): the two floors (`always_deny_accuracy`,
   `event_always_deny_accuracy`), the two lifts (`accuracy_lift`,
