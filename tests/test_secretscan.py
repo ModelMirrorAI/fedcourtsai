@@ -14,9 +14,11 @@ the content a retrieval log legitimately carries survives untouched.
 from __future__ import annotations
 
 import base64
+import json
 import random
 import struct
 import time
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -634,6 +636,82 @@ def test_credential_shapes_are_redacted(text: str, rule: str) -> None:
     redacted = redact_credentials(f"searched for {text} in the docket")
     assert f"[redacted:{rule}]" in redacted
     assert text not in redacted
+
+
+_SHAPED = {
+    "model-provider-key": "sk-proj-" + "aB3dE6gH9jK2mN5pQ8sT1vW4yZ7",
+    "aws-session-token": "FwoG" + "ZXIvYXdzEA0aD" * 8,
+    "jwt": _JWT,
+    "github-token": "ghs_" + "aB3dE6gH9jK2mN5pQ8sT1vW4yZ7bC0eF2hiJ5k",
+    "aws-key-id": "AKIA" + "IOSFODNN7EXAMPLE",
+    "google-key": "AIza" + "SyD3fG6hJ9kL2mN5pQ8rS1tU4vW7xY0zA",
+    "slack-token": "xoxb-" + "123456789012-aBcDeFgHiJkL",
+}
+
+
+@pytest.mark.parametrize("rule", sorted(_SHAPED))
+@pytest.mark.parametrize(
+    "place",
+    [
+        # A transcript is JSON, so a token a tool printed at the start of a
+        # line reaches the scan as an escaped control character and then the
+        # token, with no word boundary between the escape's letter and it.
+        lambda token: json.dumps({"stdout": "ok\n" + token}),
+        lambda token: json.dumps({"stdout": "ok\t" + token}),
+        lambda token: json.dumps({"stdout": "ok\r\n" + token}),
+        # A transcript nested in a tool result is escaped twice.
+        lambda token: json.dumps({"result": json.dumps({"stdout": "ok\n" + token})}),
+        # A control character JSON has no short escape for.
+        lambda token: json.dumps({"stdout": "ok\x1b" + token}),
+        lambda token: "ANTHROPIC_AUTH_" + token,
+        # A coloured terminal line, and a query string in a logged URL.
+        lambda token: json.dumps({"stdout": "\x1b[32mok\x1b[0m" + token}),
+        lambda token: "https://example.com/v1?key%3D" + token,
+    ],
+)
+def test_a_shaped_credential_is_found_after_a_json_escape_or_an_underscore(
+    rule: str, place: Callable[[str], str]
+) -> None:
+    """With the entropy rule off, as on the transcript surface, the shapes are
+    the whole gate, so they must hold wherever a transcript puts a token."""
+    token = _SHAPED[rule]
+    line = place(token)
+    assert rule in {f.rule for f in scan_lines("transcript.json", [line], [], entropy=False)}
+    redacted = redact_credentials(line)
+    assert token not in redacted
+    assert f"[redacted:{rule}]" in redacted
+
+
+@pytest.mark.parametrize(
+    ("token", "rule"),
+    [
+        ("sk-ant-oat01-" + "aB3dE6gH9jK2mN5pQ8sT1vW4yZ7", "model-provider-key"),
+        ("github_pat_" + "aB3dE6gH9jK2mN5pQ8sT1vW4yZ7bC", "github-token"),
+    ],
+)
+def test_a_distinctive_prefix_is_found_glued_to_any_text(token: str, rule: str) -> None:
+    line = "bearer" + token
+    assert rule in {f.rule for f in scan_lines("t", [line], [], entropy=False)}
+    assert token not in redact_credentials(line)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "the task-force-on-pretrial-detention-and-release-reform report",
+        "see MoneyJournalists.wordpress.example.com/2019/archive",
+        "risk-adjusted-return-on-capital-employed-in-the-period",
+        "docket entry 12: MAKIAVELLIANPRINCIPLES0 of the brief",
+        r"C:\notes\task-force-on-pretrial-detention-and-release",
+        # `\a` is no JSON escape, so it starts nothing.
+        r"C:\ask-the-expert-forum-archive-2019-and-later",
+        "weighs_" + "0123456789abcdef" * 3,
+        "highs_" + "aB3dE6gH9jK2mN5pQ8sT1vW4yZ7bC0eF2hiJ5k9",
+    ],
+)
+def test_a_prefix_inside_an_ordinary_word_starts_no_match(text: str) -> None:
+    assert scan_lines("t", [text], [], entropy=False) == []
+    assert redact_credentials(text) == text
 
 
 # A dotted `<public-id>.<secret>` credential — the shape config-service and
