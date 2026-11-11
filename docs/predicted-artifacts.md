@@ -576,7 +576,7 @@ in a hosted search or fetch the repository's name alone also counts. The
 project's own User-Agent string, which cites the repository's address, is not
 a hit. It sees what a call asked for and never what came back, so a search
 worded for something else whose results carry a forecast is shown only by the
-cell's own disclosure, under whatever category it files it; a hosted search
+cell's own `forecast-exposure` note, which the predict prompt asks for; a hosted search
 whose query the engine did not log shows nothing; and a forecast published
 anywhere else is outside it. A path named only
 to exclude it (`-not -path`, `--exclude`, a `!` glob or an `:(exclude)`
