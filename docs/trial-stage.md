@@ -9,7 +9,7 @@ current ([data-pipeline.md](data-pipeline.md)).
 
 **Status: designed, not registered.** Nothing here is forecast yet. The stage
 registers with the process version that opens the prediction scope to the
-watchlist slice. That version adds `trial` to `Stage` and the four moments
+watchlist slice. That version adds `trial` to `Stage` and the five moments
 below to `Moment` (`schemas.py`), declares their claims in
 `pipeline/moments.py`, and dates the entry in [freeze-record.md](freeze-record.md).
 Until it lands, this page is the design that entry cites, and a change to it
@@ -23,9 +23,10 @@ into nothing.
 | `trial-dismissal` | the ruling on a motion to dismiss | granted, granted in part, denied; for a grant in whole or in part, with or without leave to amend |
 | `trial-class` | the ruling on a motion for class certification | certified (granted), certified in part, denied |
 | `trial-summary-judgment` | the ruling on one party's motion for summary judgment | granted, granted in part, denied |
+| `trial-preliminary-injunction` | the ruling on a motion for a preliminary injunction | granted, granted in part, denied |
 | `trial-judgment` | the case's final disposition | judgment for plaintiff, for defendant, mixed, or no merits decision |
 
-Each of the three motion moments also resolves **withdrawn** (the movant
+Each of the four motion moments also resolves **withdrawn** (the movant
 withdrew it) or **mooted** (the court denied or terminated it as moot, or the
 action closed before any ruling on it).
 
@@ -37,6 +38,20 @@ is a fresh event: the first resolves mooted, the second opens on its own
 briefing. A motion to dismiss that asks for other relief in the alternative
 (to transfer, to stay, to compel arbitration) is not a `trial-dismissal`
 event, because a grant of it need not dismiss anything.
+
+**One docket owns a motion.** A motion belongs to the docket whose entry filed
+it. Where one motion is docketed on a multidistrict proceeding's lead docket
+and again on a member docket, the lead docket's entry names the event and the
+member's entry opens none, so one motion is never forecast twice.
+
+**A temporary restraining order is not an event.** It is decided in days, often
+before the other side is heard, which leaves no forecast window. A motion that
+asks for both a restraining order and a preliminary injunction is a
+`trial-preliminary-injunction` event for its injunction half: a ruling on the
+restraining order alone does not resolve it. An injunction the court enters on
+the parties' stipulation resolves the motion mooted, because the court decided
+nothing, and so does an order consolidating the injunction hearing with the
+trial on the merits.
 
 **Partial rulings are outcomes, not ambiguity.** Most rulings in these cases
 grant some claims and deny others, so "in part" is a registered outcome on
@@ -60,6 +75,18 @@ otherwise the district's local rule, recorded per court in the slice's config
 when the slice registers; a court whose rule the config does not carry opens on
 the reply alone. The forecast's information set is therefore the complete
 briefing, as the merits stage's `briefed` moment is for the Court.
+
+`trial-preliminary-injunction` opens earlier, when the **opposition** is on
+the docket or its deadline has passed with none, the deadline read the same
+way. These motions are heard on a compressed schedule, and a court often rules
+without waiting for a reply or allowing one, so a rule that waited for the
+reply would open many of them after their ruling or never.
+
+**A motion already open when the stage registers.** A motion that these rules
+would have opened before the registration, and that the court has not ruled
+on, opens on the day the slice is switched on: its outcome does not exist yet,
+so the forecast is a forward one like any other. A motion the court has
+already ruled on opens nothing.
 
 `trial-judgment` opens with the slice: a listed case's final disposition is
 forecast once, when the case enters the slice, and again at no later point in
@@ -85,7 +112,10 @@ be mooted puts weight on that outcome.
 The resolver is `pipeline/trial_resolver.py` (rule `trial-resolver-v1`). It is
 deterministic, runs no agent, and is built to miss rather than misread: a text
 it cannot read leaves the event open, or sends it to triage, and never records
-a guessed outcome.
+a guessed outcome. It reads the three briefed motion moments and the final
+disposition. A preliminary-injunction ruling is not among the texts it reads:
+its reading rules join the resolver, with a triage rate measured on the
+watchlist's stored dockets, before the stage registers.
 
 - **The docket text decides.** The disposing entry is the first court entry
   after the motion (an order, opinion, ruling or minute order, or an order
@@ -199,6 +229,7 @@ adopted yet.
 
 ## Out of scope
 
-Discovery motions, preliminary injunctions (a candidate later moment, with a
-horizon of its own), jury verdict detail and damages amounts. The salience gate
-does not apply: the slice is the selection.
+Discovery motions, temporary restraining orders, stays pending appeal, jury
+verdict detail and damages amounts. An appeal from a listed case is the appeal
+stage's ([appeal-stage.md](appeal-stage.md)). The salience gate does not apply:
+the slice is the selection.
