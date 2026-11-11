@@ -26,7 +26,7 @@ documents: `provision-opinion` stages a majority opinion in its own slot
 | Back-fill | A dispatched pass fetches the selection for predict-relevant cases whose stored set is missing kinds. | `pipeline/document_backfill.py`; `fedcourts backfill-documents` | live-sources.md, *Contract for the document back-fill pass* |
 | Extract | pypdf text, cut at the cap. Petitions, applications and appendices are cut around the appendix so the argument survives. A combined row of several filings is cut filing by filing, every filing's own text before any appendix, the cap shared between them. Each cut leaves a `[pipeline note: …]` line. The questions presented are cut from the petition text, from the QUESTION(S) PRESENTED heading (or a "Questions to/for Review" heading) to the next front-matter heading, at most 4,000 characters; a section cut at that cap is stored `truncated`, and `backfill-questions-presented` re-derives stored rows when the cutter changes. An argument transcript is cleaned of its line numbers, headers and word index before the plain cut. | `extract_pdf_text`, `extract_filing_text`, `extract_questions_presented`, `extract_transcript_text` | live-sources.md, *The appendix-aware cut* |
 | Re-cut | A stored petition, application or appendix still under the plain head cut (truncated, not OCR-derived, no `[pipeline note:` line) is re-fetched by its stored URL and re-cut by the appendix-aware rule. run-repair's `recut` pass applies it a slice at a time. | `pipeline/document_recut.py`; `fedcourts recut-documents` | live-sources.md, *Contract for the re-cut pass* |
-| Recover | A stored document whose text is empty though its PDF has pages is OCR'd locally (pdftoppm + tesseract) and marked `ocr_derived`. A standing sweep on run-seed's walker windows catches new scans, the predict backlog holds a case's forward cells while a fresh scan of it waits for that sweep (`held_unread_scan`), and run-repair's `ocr-recovery` pass clears a backlog. | `pipeline/ocr_recovery.py`, `pipeline/ocr_sweep.py`, `pipeline/pull.py` (`_unread_scan_hold`); `fedcourts ocr-recover-petitions` | live-sources.md, *Contract for the recovery pass*; data-pipeline.md, *Historical — the Term walker* |
+| Recover | A stored document whose text is empty or thin (under 200 characters a page, such as a letterhead over a scanned body) though its PDF has pages is OCR'd locally (pdftoppm + tesseract) and marked `ocr_derived`. A standing sweep on run-seed's walker windows catches new scans, the predict backlog holds a case's forward cells while a fresh scan of it waits for that sweep (`held_unread_scan`), and run-repair's `ocr-recovery` pass clears a backlog. | `pipeline/ocr_recovery.py`, `pipeline/ocr_sweep.py`, `pipeline/pull.py` (`_unread_scan_hold`); `fedcourts ocr-recover-petitions` | live-sources.md, *Contract for the recovery pass*; data-pipeline.md, *Historical — the Term walker* |
 | Cut at the moment | A document is kept only if its proceedings entry is dated before the cell's moment cutoff, so a grant-moment cell never reads the merits briefs. The argument transcript is kept only for a post-argument cell, and a stored-not-staged kind for no cell. | `provision.py`: `moment_cutoff`, `documents_for_moment`, `documents_before` | data-pipeline.md, *Provisioning: how a cell gets its record* |
 | Scrub | On a docket with a self-represented side, contact details are withheld from the staged text and the staged snapshot. Where the shape pass ran, a residual detector re-reads the scrubbed text's opening and closing, and any match records the document as **not** scrubbed. The document is still staged. | `pipeline/documents.py`: `scrub_contact_details`, `contact_residual_matches`, `scrub_snapshot_contacts`; `provision.py`: `staged_scrub` | live-sources.md, from the paragraph introducing the contact-detail scrub through *What the scrub does not reach*; data-sources.md, *PII stance* |
 | Stage | Each kept document is written to `record/documents/<kind>.txt`, with a manifest at `record/documents/documents.json`. | `provision.py`: `write_cell_record`, `document_manifest` | predicted-artifacts.md, *Where the files land*; cli.md, `provision-snapshot` |
@@ -44,8 +44,8 @@ transcript, which only a post-argument cell is given.
 | `petition` | The case-opening filing on a cert-form docket: a certiorari petition, or a mandamus, prohibition or habeas petition, or a direct appeal's jurisdictional statement | Cert |
 | `questions-presented` | The questions presented, cut from the petition text | Cert |
 | `appendix` | The opening filing's or application's separately linked appendix | Cert, Application |
-| `brief-in-opposition` | Every respondent's opposition, combined into one row | Cert |
-| `cert-reply` | The petitioner's reply to the opposition | Cert |
+| `brief-in-opposition` | Every respondent's opposition, or on a direct appeal every appellee's motion to dismiss or affirm, combined into one row | Cert |
+| `cert-reply` | The petitioner's reply to the opposition, or on a direct appeal the appellant's answer to the motion to dismiss or affirm | Cert |
 | `sg-invited-brief` | The Solicitor General's brief when the Court called for it | Cert |
 | `supplemental-brief` | Every party's Rule 15.8 supplemental brief while the petition is pending, combined into one row | Cert |
 | `party-letter` | Every party's letter to the Clerk bearing on the case while the petition is pending (mootness, settlement, withdrawal, an intervening decision), combined into one row | Cert |
@@ -54,8 +54,8 @@ transcript, which only a post-argument cell is given.
 | `merits-amicus-united-states` | The United States' amicus brief on the merits, filed after the grant | Granted |
 | `merits-brief-appointed-amicus` | The merits brief of a Court-appointed amicus defending the judgment, filed after the grant; stored, staged for no cell yet | Granted |
 | `argument-transcript` | The oral argument transcript, from the Court's per-Term list rather than the docket | Argued |
-| `decision-below` | The federal court of appeals' opinion under review, read from CourtListener and dated by the judgment below | Cert, Granted |
-| `lower-court-docket` | A short record of that court's docket: panel, and whether rehearing en banc was sought, how it was disposed of and any dissent | Cert, Granted |
+| `decision-below` | The federal court of appeals' opinion under review, read from CourtListener: the opinion on the judgment date and any amended opinion or opinion on rehearing filed after it and before the SCOTUS docketing, the newest first, dated by the newest it holds | Cert, Granted |
+| `lower-court-docket` | A short record of that court's docket: panel, the opinion clusters and their opinion ids, and whether rehearing en banc was sought, how it was disposed of and any dissent, with the date the entries read run through | Cert, Granted |
 | `application` | The application to a Justice or the Court | Application |
 | `application-response` | The first response to the application | Application |
 | `application-reply` | The applicant's reply to it | Application |
@@ -84,7 +84,7 @@ upstream.
 | `live.document_text_cap`, `historical.document_text_cap` | 150,000 characters | The stored text of one document |
 | `live.document_freshness_per_run` | 10 | Cases the freshness pass fetches for in one live cycle |
 | `live.argument_transcripts_per_run` | 5 | Transcripts the argument-transcript pass downloads in one live cycle |
-| `historical.sweep_caps.ocr` | 10 | Documents the OCR sweep recovers in one walker window |
+| `historical.sweep_caps.ocr` | 50 | Documents the OCR sweep recovers in one walker window |
 | `historical.document_floor_term` | 21 | The oldest Term whose historical petitions get documents fetched; the Court's document links reach back only about five Terms |
 
 The values are the ones in [config/tracking.yaml](../config/tracking.yaml),
@@ -166,10 +166,17 @@ Each of these is stated, with its reason, where the code makes the choice:
   well as through the petition's appendix.**
   `fedcourts enrich-decision-below` joins a petition from a federal court of
   appeals to the lower court's docket on CourtListener and stores what upstream
-  holds: the opinion on the judgment date as `decision-below`, and the docket
-  record (panel, a petition for rehearing en banc, its disposition and any
-  dissent noted) as `lower-court-docket` (`pipeline/decision_below.py`,
-  [cli.md](cli.md)); `run-pull`'s live job runs it on six petitions each full
+  holds: the opinion on the judgment date as `decision-below`, ahead of it any
+  amended opinion or opinion on rehearing the court filed before the SCOTUS
+  docketing, and the docket record (panel, a petition for rehearing en banc,
+  its disposition and any dissent noted) as `lower-court-docket`
+  (`pipeline/decision_below.py`, [cli.md](cli.md)). The record words an
+  absence as one among the entries read, names the date those entries run
+  through, and says so where they stop before a rehearing denial the SCOTUS
+  docket states, since CourtListener holds a circuit docket only as far as it
+  was last uploaded. A stored case is walked again once its stamp is 30 days
+  old and the rotation reaches it, until cert is denied or the merits are
+  decided; `run-pull`'s live job runs it on six petitions each full
   window, four windows a day, and the predict backlog holds a cert arrival
   cell until the fill has attempted its petition (`held_decision_below`,
   `pipeline/pull.py`). The en banc reading is matched from entry text filed

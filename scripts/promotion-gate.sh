@@ -607,7 +607,7 @@ contexts() {
   # from a workflow run off any other ref — so long as the key lives nowhere
   # else, since a workflow's secret falls back to a repository or organization
   # secret of the same name. Required: the environment exists, admits `main`
-  # alone, holds exactly the key and the weekly tag id, and no repository or
+  # alone, holds exactly the key and the tag ids, and no repository or
   # organization secret shares the key's name. The decision is tested Python
   # (tests/test_environment_checks.py).
   local web_dir="${workdir}/website-environment" web_base
@@ -633,7 +633,7 @@ contexts() {
     --variables-file "${web_dir}/variables.json" \
     --repository-secrets-file "${web_dir}/repository-secrets.json" \
     --organization-secrets-file "${web_dir}/organization-secrets.json"; then
-    echo "contexts: the website environment admits main alone and holds only the Buttondown key and the tag id"
+    echo "contexts: the website environment admits main alone and holds only the Buttondown key and the tag ids"
   else
     echo "::error::contexts: fix the website environment before promoting — its branch policy is what keeps the Buttondown key on main (docs/security.md)"
     fail=1
@@ -670,6 +670,45 @@ contexts() {
     echo "::error::contexts: fix the corpus-write environment before promoting — the production read-write role's trust is to name it (docs/security.md)"
     fail=1
   fi
+
+  # The Claude-only environments, unconditionally, on the website check's
+  # reasoning: each holds the federation rule's identifiers, the jobs' only
+  # sign-in, so its branch policy is what keeps the Claude
+  # spend of the labeler, its smoke and the case-summary `generate` job on the
+  # refs they run from — `claude-prod` on `main` alone, `claude-staging` on
+  # `staging` and the `promote/*` candidates. GitHub auto-creates a referenced
+  # environment with no policy, and the Anthropic key's name must live nowhere
+  # a workflow on another branch could read it. Required: each exists, admits
+  # its own branches alone, holds no secret, and holds the rule and
+  # organization identifiers and no variable but the four federation ones. The decision is tested Python
+  # (tests/test_environment_checks.py). The repository and organization
+  # listings are the website check's reads above, taken once for both.
+  local claude_env claude_dir claude_base
+  for claude_env in claude-prod claude-staging; do
+    claude_dir="${workdir}/${claude_env}-environment"
+    claude_base="repos/${REPO}/environments/${claude_env}"
+    mkdir -p "$claude_dir"
+    gh api "$claude_base" >"${claude_dir}/environment.json" 2>/dev/null \
+      || rm -f "${claude_dir}/environment.json"
+    gh api "${claude_base}/deployment-branch-policies?per_page=100" \
+      >"${claude_dir}/branch-policies.json" 2>/dev/null || rm -f "${claude_dir}/branch-policies.json"
+    gh api "${claude_base}/secrets?per_page=100" >"${claude_dir}/secrets.json" 2>/dev/null \
+      || rm -f "${claude_dir}/secrets.json"
+    gh api "${claude_base}/variables?per_page=30" >"${claude_dir}/variables.json" 2>/dev/null \
+      || rm -f "${claude_dir}/variables.json"
+    if uv run fedcourts assert-claude-only-environment --name "$claude_env" \
+      --environment-file "${claude_dir}/environment.json" \
+      --branch-policies-file "${claude_dir}/branch-policies.json" \
+      --secrets-file "${claude_dir}/secrets.json" \
+      --variables-file "${claude_dir}/variables.json" \
+      --repository-secrets-file "${web_dir}/repository-secrets.json" \
+      --organization-secrets-file "${web_dir}/organization-secrets.json"; then
+      echo "contexts: the ${claude_env} environment admits its own branches alone and holds only its sign-in"
+    else
+      echo "::error::contexts: fix the ${claude_env} environment before promoting — its branch policy is what keeps the Claude spend on its own branches (docs/security.md)"
+      fail=1
+    fi
+  done
 }
 
 registry() {

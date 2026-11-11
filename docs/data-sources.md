@@ -37,6 +37,18 @@ ingestion channels (**pull**, **live**, **historical**, **enrich** —
   transcript list and the transcript PDFs it links, prepared by the Court's
   contract reporter and posted by the Court on its own site, read by the live
   poll's transcript pass and stored as extracted text in the same corpus.
+  The same terms cover **the Court's conference calendar**: its *Case
+  Distribution Schedule* PDF for the current and the next October Term, which
+  the Court publishes on its own site for the bar and the public, read by the
+  live poll once a day after a read succeeds (one document per Term, same
+  client, same host guard).
+  Unlike the channels above, what it reads is republished in public git, as
+  `data/schedule/term-calendar.json`: the Court's conference days and
+  distribution dates with the list names it prints, plus the document's URL and
+  checksum. That is the Court's own published schedule of public sessions,
+  restated as dates; it carries no docket, party or filing, so it is neither
+  corpus content nor personal data, and republishing it is on the same
+  public-record footing as the Court identifiers the site already shows.
 
 A further channel is planned but not yet adopted: Free Law Project's commercial
 **database replication** offering, the intended eventual upstream for the
@@ -150,7 +162,7 @@ statistics count per opinion rather than per case. It is a historical record,
 held corpus-side and read by nothing a predict cell or a registered evaluate
 cell sees; a pilot round's evaluate cell is given each decision's writings
 (`provision-opinion --writings`). Its
-apply runs as run-repair's `opinion-record` pass over OT2020–OT2025, and as a
+apply runs as run-repair's `opinion-record` pass over OT2018–OT2025, and as a
 standing sweep on run-seed's daily window over the current and previous Term,
 each fetching in a job that holds no credential
 ([data-pipeline.md](data-pipeline.md#maintenance-passes)).
@@ -202,11 +214,12 @@ each fetching in a job that holds no credential
   either docket's reading would misstate the other's. Where only the headers
   carry the difference ("concurring as to No. 19-8709, and … dissenting … as
   to No. 20-444"), the split disagrees with the syllabus and refuses it.
-- **Coverage, and what it leaves out.** As projected on 2026-11-09 (the
-  record stored on 2026-11-08, plus what a dry run of the current reader over
-  OT2017–OT2025 would add; the stored record shows more refusals until the
-  next `opinion-record` apply, and run-repair's pass reads OT2020–OT2025
-  only), documents recorded, refused and skipped per Term: OT2025 72 / 1 / 1
+- **Coverage, and what it leaves out.** As projected on 2026-11-09 (for
+  OT2020–OT2025, the record as of that day's `opinion-record` apply, which
+  inserted the 126 rows its dry run planned; for OT2017–OT2019, what a dry run
+  of the current reader over the live listings and volumes would add, since
+  the stored record holds no row before OT2020 until the pass's next apply),
+  documents recorded, refused and skipped per Term: OT2025 72 / 1 / 1
   (the decree; 177 opinions), OT2024 66 / 1 / 0 (163), OT2023 60 / 0 / 0
   (159), OT2022 57 / 1 / 0 (135), OT2021 66 / 0 / 0 (159), OT2020 66 / 2 / 0
   (150), OT2019 62 / 1 / 0 (155), OT2018 73 / 0 / 0 (167); OT2017 0 / 56 / 0
@@ -1039,14 +1052,16 @@ material**:
     a home address, telephone or prisoner register number in that text.
     Nothing read from the corpus, the content store or any stored snapshot:
     the job that writes the plan holds no corpus credential, and the worklist
-    it reads carries case ids, kinds, Court URLs and page counts only.
+    it reads carries case ids, kinds, Court URLs, page counts and a count of the
+    characters each stored row holds, a number and never the text.
   - *Where:* one workflow artifact, `ocr-plan-<run_id>`, kept one day and
     consumed by run-seed's OCR sweep writer in the same run. It is never
     committed to git and never printed to a log or step summary; the summary
     carries each row's identifiers, page count, character count and flags.
     The writer refuses a plan whole above the window's cap, off its shape, or
     naming anything not on the window's worklist, and writes a row only into
-    a stored document still empty at the same URL.
+    a stored document still empty or thin (under 200 characters a page) at the
+    same URL, and only where the reading is longer than the text stored there.
   - *The dispatched pass* (proposed; promoting the split of run-repair's
     `ocr-recovery` pass to `main` decides it). The same text, of the same shape, read
     the same way, crosses run-repair's credential split as
@@ -1094,7 +1109,8 @@ material**:
     telephone or prisoner register number in that text. Nothing read from the
     corpus, the content store or any stored snapshot: the job that writes the
     plan holds no corpus credential, and the worklist it reads carries case
-    ids, kinds, Court URLs and stored page counts only.
+    ids, kinds, Court URLs, stored page counts and stored character counts
+    only.
   - *Where:* one workflow artifact, `repair-plan-<run_id>`, kept one day and
     consumed in the same run — on an apply by the `documents` writer, on a dry
     run by the read-only `documents-dry-run` reader, because the rest of each

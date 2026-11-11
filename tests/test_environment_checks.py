@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+import yaml
 from typer.testing import CliRunner
 
 from fedcourtsai import environment_checks as ec
@@ -230,8 +231,12 @@ def test_a_second_reviewer_rule_counts_toward_the_set() -> None:
 
 WEBSITE_SECRETS: dict[str, Any] = {"total_count": 1, "secrets": [{"name": "BUTTONDOWN_API_KEY"}]}
 WEBSITE_VARIABLES: dict[str, Any] = {
-    "total_count": 2,
-    "variables": [{"name": "WEEKLY_SCOTUS_TAG_ID"}, {"name": "AI_CASES_TAG_ID"}],
+    "total_count": 3,
+    "variables": [
+        {"name": "WEEKLY_SCOTUS_TAG_ID"},
+        {"name": "SCOTUS_PREDICTIONS_TAG_ID"},
+        {"name": "AI_CASES_TAG_ID"},
+    ],
 }
 
 
@@ -289,16 +294,17 @@ def test_the_configured_website_environment_passes() -> None:
                 "variables": {
                     "variables": [
                         {"name": "WEEKLY_SCOTUS_TAG_ID"},
+                        {"name": "SCOTUS_PREDICTIONS_TAG_ID"},
                         {"name": "AI_CASES_TAG_ID"},
                         {"name": "X"},
                     ]
                 }
             },
-            "outside ['AI_CASES_TAG_ID', 'WEEKLY_SCOTUS_TAG_ID']: X",
+            "outside ['AI_CASES_TAG_ID', 'SCOTUS_PREDICTIONS_TAG_ID', 'WEEKLY_SCOTUS_TAG_ID']: X",
         ),
         (
             {"variables": {"variables": [{"name": "WEEKLY_SCOTUS_TAG_ID"}]}},
-            "lacks its variables: AI_CASES_TAG_ID",
+            "lacks its variables: AI_CASES_TAG_ID, SCOTUS_PREDICTIONS_TAG_ID",
         ),
     ],
 )
@@ -675,3 +681,211 @@ def test_the_promotion_gate_checks_the_corpus_write_environment_unconditionally(
     assert "uv run fedcourts assert-corpus-write-environment" in tail
     assert "fail=1" in tail
     assert "grep -rq" not in tail
+
+
+# The Claude-only environments: the federation rule's identifiers and the
+# engine key, for the jobs that call Claude with no cloud credential. Their
+# branch policies are their one control.
+
+STAGING_POLICIES: dict[str, Any] = {
+    "total_count": 2,
+    "branch_policies": [
+        {"name": "staging", "type": "branch"},
+        {"name": "promote/*", "type": "branch"},
+    ],
+}
+CLAUDE_SECRETS: dict[str, Any] = {"total_count": 0, "secrets": []}
+ANTHROPIC_KEY_SECRETS: dict[str, Any] = {
+    "total_count": 1,
+    "secrets": [{"name": "ANTHROPIC_API_KEY"}],
+}
+CLAUDE_VARIABLES: dict[str, Any] = {
+    "total_count": 4,
+    "variables": [{"name": name} for name in sorted(ec.CLAUDE_ONLY_VARIABLES)],
+}
+
+
+def _claude(name: str = ec.CLAUDE_PROD_ENVIRONMENT, **overrides: Any) -> list[str]:
+    values: dict[str, Any] = {
+        # No required reviewers: the labeler and the summaries run on schedules.
+        "environment": _environment(reviewers=[]),
+        "branch_policies": MAIN_ONLY if name == ec.CLAUDE_PROD_ENVIRONMENT else STAGING_POLICIES,
+        "secrets": CLAUDE_SECRETS,
+        "variables": CLAUDE_VARIABLES,
+    }
+    values.update(overrides)
+    return ec.claude_only_problems(
+        name,
+        values["environment"],
+        values["branch_policies"],
+        values["secrets"],
+        values["variables"],
+    )
+
+
+def test_the_configured_claude_only_environments_pass() -> None:
+    assert _claude(ec.CLAUDE_PROD_ENVIRONMENT) == []
+    assert _claude(ec.CLAUDE_STAGING_ENVIRONMENT) == []
+    # `promote/*` is admitted, not required, on `claude-staging`.
+    staging_only = {"branch_policies": [{"name": "staging", "type": "branch"}]}
+    assert _claude(ec.CLAUDE_STAGING_ENVIRONMENT, branch_policies=staging_only) == []
+
+
+def test_the_claude_only_sign_in_is_required_and_the_optional_ids_are_not() -> None:
+    """The rule and organization are the jobs' only sign-in, so an environment
+    without them fails; the service account and workspace may be omitted."""
+    empty_variables = {"total_count": 0, "variables": []}
+    assert _claude(variables=empty_variables) == [
+        "the environment lacks its variables: "
+        "ANTHROPIC_FEDERATION_RULE_ID, ANTHROPIC_ORGANIZATION_ID"
+    ]
+    required = {"variables": [{"name": name} for name in sorted(ec.CLAUDE_ONLY_REQUIRED_VARIABLES)]}
+    assert _claude(variables=required) == []
+
+
+@pytest.mark.parametrize(
+    ("name", "overrides", "fragment"),
+    [
+        (ec.CLAUDE_PROD_ENVIRONMENT, {"environment": None}, "`claude-prod` environment does not"),
+        (ec.CLAUDE_STAGING_ENVIRONMENT, {"environment": None}, "`claude-staging` environment"),
+        (
+            ec.CLAUDE_PROD_ENVIRONMENT,
+            {"environment": _environment(reviewers=[], custom=False)},
+            "custom branch policy",
+        ),
+        (
+            ec.CLAUDE_STAGING_ENVIRONMENT,
+            {"environment": _environment(reviewers=[], protected_branches=True)},
+            "custom branch policy",
+        ),
+        (ec.CLAUDE_PROD_ENVIRONMENT, {"branch_policies": None}, "branch policies were unread"),
+        (
+            ec.CLAUDE_PROD_ENVIRONMENT,
+            {"branch_policies": {"branch_policies": []}},
+            "does not admit main",
+        ),
+        # `claude-prod` must not also serve staging or the candidates.
+        (ec.CLAUDE_PROD_ENVIRONMENT, {"branch_policies": STAGING_POLICIES}, "also admits"),
+        # `claude-staging` must not serve `main`, or anything else.
+        (
+            ec.CLAUDE_STAGING_ENVIRONMENT,
+            {
+                "branch_policies": {
+                    "branch_policies": [
+                        *STAGING_POLICIES["branch_policies"],
+                        {"name": "main", "type": "branch"},
+                    ]
+                }
+            },
+            "also admits: branch:main",
+        ),
+        (
+            ec.CLAUDE_STAGING_ENVIRONMENT,
+            {"branch_policies": {"branch_policies": [{"name": "promote/*", "type": "branch"}]}},
+            "does not admit staging",
+        ),
+        # A tag policy cannot pass for the branch of the same name.
+        (
+            ec.CLAUDE_PROD_ENVIRONMENT,
+            {"branch_policies": {"branch_policies": [{"name": "main", "type": "tag"}]}},
+            "also admits: tag:main",
+        ),
+        (ec.CLAUDE_PROD_ENVIRONMENT, {"secrets": None}, "secrets were unread"),
+        (
+            ec.CLAUDE_PROD_ENVIRONMENT,
+            {"secrets": {"secrets": [{"name": "DEV_APP_PRIVATE_KEY"}]}},
+            "secrets outside",
+        ),
+        # The jobs read no key, so one left in the environment is refused.
+        (ec.CLAUDE_STAGING_ENVIRONMENT, {"secrets": ANTHROPIC_KEY_SECRETS}, "secrets outside"),
+        (
+            ec.CLAUDE_PROD_ENVIRONMENT,
+            {"variables": {"variables": [{"name": "ANTHROPIC_FEDERATION_RULE_ID"}]}},
+            "lacks its variables: ANTHROPIC_ORGANIZATION_ID",
+        ),
+        (ec.CLAUDE_STAGING_ENVIRONMENT, {"variables": None}, "variables were unread"),
+        (
+            ec.CLAUDE_STAGING_ENVIRONMENT,
+            {"variables": {"variables": [{"name": "AWS_ROLE_TO_ASSUME_READONLY"}]}},
+            "variables outside",
+        ),
+        (
+            ec.CLAUDE_PROD_ENVIRONMENT,
+            {"variables": {**CLAUDE_VARIABLES, "total_count": 31}},
+            "variables were unread or truncated",
+        ),
+    ],
+)
+def test_each_claude_only_weakening_is_named(
+    name: str, overrides: dict[str, Any], fragment: str
+) -> None:
+    problems = _claude(name, **overrides)
+    assert any(fragment in problem for problem in problems), problems
+
+
+def test_an_unknown_claude_only_name_is_refused() -> None:
+    assert _claude("claude-dev") == ["`claude-dev` is not a Claude-only environment"]
+
+
+def test_the_claude_only_gate_cli_reads_the_six_listings(tmp_path: Path) -> None:
+    files = {
+        "environment": _environment(reviewers=[]),
+        "branch-policies": STAGING_POLICIES,
+        "secrets": CLAUDE_SECRETS,
+        "variables": CLAUDE_VARIABLES,
+        "repository-secrets": NO_SECRETS,
+        "organization-secrets": NO_SECRETS,
+    }
+    for name, document in files.items():
+        (tmp_path / f"{name}.json").write_text(json.dumps(document))
+    args = ["assert-claude-only-environment", "--name", ec.CLAUDE_STAGING_ENVIRONMENT]
+    for name in files:
+        args += [f"--{name}-file", str(tmp_path / f"{name}.json")]
+    runner = CliRunner()
+    passed = runner.invoke(app, args)
+    assert passed.exit_code == 0, passed.output
+    # A repository-level copy of the key reaches a workflow run off any branch.
+    (tmp_path / "repository-secrets.json").write_text(json.dumps(ANTHROPIC_KEY_SECRETS))
+    assert runner.invoke(app, args).exit_code == 1
+    # An absent listing is an unread one, and fails.
+    (tmp_path / "repository-secrets.json").write_text(json.dumps(NO_SECRETS))
+    (tmp_path / "branch-policies.json").unlink()
+    assert runner.invoke(app, args).exit_code == 1
+
+
+def test_the_promotion_gate_checks_both_claude_only_environments() -> None:
+    script = (Path(__file__).resolve().parent.parent / "scripts" / "promotion-gate.sh").read_text()
+    contexts = script[script.index("\ncontexts() {") : script.index("\nregistry() {")]
+    start = contexts.index("for claude_env in claude-prod claude-staging; do")
+    tail = contexts[start : contexts.index("\n  done\n", start)]
+    for listing in (
+        "deployment-branch-policies",
+        '"${claude_base}/secrets',
+        '"${claude_base}/variables',
+        # The website check's repository and organization reads, taken once.
+        '"${web_dir}/repository-secrets.json"',
+        '"${web_dir}/organization-secrets.json"',
+    ):
+        assert listing in tail
+    assert "uv run fedcourts assert-claude-only-environment" in tail
+    assert "fail=1" in tail
+
+
+def test_the_claude_only_names_are_the_ones_their_jobs_read() -> None:
+    """The gate's admitted names are exactly what the jobs binding a `claude-`
+    environment read, and those jobs are the ones that bind one."""
+    workflows = Path(__file__).resolve().parent.parent / ".github" / "workflows"
+    secrets: set[str] = set()
+    variables: set[str] = set()
+    bound = 0
+    for path in sorted(workflows.glob("*.yml")):
+        for job in (yaml.safe_load(path.read_text()).get("jobs") or {}).values():
+            if "format('claude-{0}'" not in str(job.get("environment", "")):
+                continue
+            bound += 1
+            text = yaml.safe_dump(job)
+            secrets |= set(re.findall(r"secrets\.([A-Z0-9_]+)", text))
+            variables |= set(re.findall(r"vars\.([A-Z0-9_]+)", text))
+    assert bound >= 3
+    assert secrets == set(ec.CLAUDE_ONLY_SECRETS)
+    assert variables == set(ec.CLAUDE_ONLY_VARIABLES)

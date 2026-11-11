@@ -136,7 +136,10 @@ that finds entries the stored docket lacked records the significant ones
 (`fedcourtsai.ai_activity`: opinions, judgments, rulings on principal motions,
 those motions, complaints, appeals, settlements and dismissals; routine business
 dropped) in the committed `data/ai-cases/activity/<YYYY-MM-DD>.json`, which the
-weekly AI-cases email renders. An entry filed more than 14 days before it was
+weekly AI-cases email renders. An unnumbered placeholder upstream lists beside
+the court's numbered entry for the same event is paired with it, and the
+numbered entry is the one recorded; a placeholder with no such entry yet is
+recorded as it stands, and the numbered entry that follows names it. An entry filed more than 14 days before it was
 first seen is old history and is not recorded, and a docket's first refresh
 records nothing. The same refresh records, under a second rule
 (`ai-availability-v1`), entries the stored docket already held whose documents
@@ -581,8 +584,8 @@ ingested row, never a row itself — so it moves whenever the corpus does, and t
 committed copy is a point-in-time snapshot that nothing schedules or gates (see
 [cli.md](cli.md)).
 
-`data/schedule/schedule.json` is the one repo-level file the **live poll**
-writes, beside the per-case outcomes and event records: after each cycle, `fedcourts live-poll` rebuilds it
+`data/schedule/schedule.json` is one of the two repo-level files the **live poll**
+writes (the other is the term calendar below), beside the per-case outcomes and event records: after each cycle, `fedcourts live-poll` rebuilds it
 from the corpus it just refreshed, and it rides that window's data commit to
 `main`. It carries three dates per public docket, each read off the docket's
 entries by the live poll: the conference the docket is distributed for while it
@@ -606,10 +609,34 @@ case timeline, joined onto the big-case board as `schedule` (every upcoming
 date, earliest first) and `scheduled` (its conference entry): it is not a
 prediction-ledger record, since a schedule moves on every relist, reschedule and
 extension, and no cell is provisioned with it. The board row carries the dates alone, not the
-schedule's `as_of`, so the daily board moves only when a case's date does. A
+schedule's `as_of`, so the daily board moves only when a case's date or the Court's next
+conference day does. A
 failed build warns and leaves the committed file as it was (the new file is
 written beside it and renamed over it); it never fails the poll. `fedcourts schedule` rebuilds it by hand from
 a pulled corpus.
+
+Beside it sits `data/schedule/term-calendar.json`, the Court's own conference
+calendar, which the same poll refreshes before it rebuilds the schedule: once
+a UTC day after a read succeeds, and again each window while the day's read is
+refused (`fedcourtsai.term_calendar`). It is read from the
+Court's *Case Distribution Schedule* PDF for the October Term the day falls in
+and, once the Court publishes it, the next one: one session row per conference
+day, the one the summer lists go to marked as the Term's long conference, and
+every distribution row behind them, with each document's URL and SHA-256. The
+schedule reads it for one field, `court_next_conference`, the Court's first
+conference on or after `as_of`, set even when no public docket is distributed
+for that day. The big-case board copies that field above its rows, with the
+count of its rows distributed for that day so far, which is where the public site
+reads it. It fails closed: a served schedule that
+does not parse whole (for instance an unrecognised line, a title naming another
+Term, a conference outside the Term's window, a row distributed on or after its
+conference, a document over the size cap, or anything but exactly one
+conference taking the summer lists) leaves the committed calendar as it
+was and emits a `::warning::`, the fetch is bounded at two minutes across both
+documents so it cannot hold the poll, and nothing writes a calendar without sessions.
+Like the schedule it is display data and never a cell input; the
+long-conference rule salience and selection key on does not read it.
+`fedcourts term-calendar` refreshes it by hand.
 
 ### Credentials and access roles
 
@@ -1013,14 +1040,18 @@ keep that honest, and they bind wherever the bit is filled.
 The **decision below** is filled by a sibling pass on the same budget,
 `enrich-decision-below` (`pipeline/decision_below.py`). For a cert petition from
 a federal court of appeals, not denied, it joins the lower court's docket on
-CourtListener and stores the opinion on the judgment date as a `decision-below`
+CourtListener and stores the opinion on the judgment date, with any amended
+opinion or opinion on rehearing filed after it and before the SCOTUS docketing,
+as a `decision-below`
 document and the docket record as a `lower-court-docket` document, both through
 `upsert_documents`. Its rotation key is `decision_below_attempted_at`, stamped
 with a direct column write (`stamp_decision_below_attempt`) on every case
 upstream answered about, so a docket CourtListener has not ingested is asked
 again after 30 days rather than every run. A case whose opinion is stored is
-re-stamped with no request when its turn comes, so it costs one manifest read
-a cycle. The ledger's predicted cases and the salience selection
+walked again on the same 30-day stamp, behind the never-attempted rows of its
+tier, because upstream can receive a circuit docket's later entries, an amended
+opinion or an order on rehearing after the first walk;
+the window's case cap bounds the spend either way. The ledger's predicted cases and the salience selection
 go first, because those are the cells the input is for. The `run-pull` live job
 runs it as `enrich-decision-below --apply --max-cases 6` on the same four full
 windows as the awaiting-grading opinion step, step-scoped and
@@ -1449,9 +1480,18 @@ or network.
   row that salience has not deferred, or an open merits event) stored within
   the last week first, newest first; then the older forward candidates and
   the backlog, each in class order rotated one cap further each window, so
-  an unreadable head cannot take every window's cap. It
-  refuses a class above `ocr_ceiling`. Its worklist carries each candidate's
-  case id, kind, Court URL and page count, and nothing else. `ocr-sweep-parse`
+  an unreadable head cannot take every window's cap. Above `ocr_ceiling`
+  it holds the backlog and takes only the forward candidates, with a warning
+  on the summary, because the walker storing older Terms' scanned filings
+  grows the backlog faster than any window's cap drains it, and that backlog
+  is the dispatched `ocr-recovery` pass's to drain under a maintainer's
+  bound. It refuses the window only when the forward share is above
+  `ocr_forward_ceiling`, which is an extractor or fetch regression rather
+  than a backlog. The job is continue-on-error, so the run's `guard` keeps an
+  *OCR sweep failing* pipeline-health issue for any window whose projection
+  did not succeed. Its worklist carries each candidate's
+  case id, kind, Court URL, page count and stored character count (how much
+  text the row holds, never the text), and nothing else. `ocr-sweep-parse`
   holds no credential, installs the two OCR binaries, re-fetches and reads each
   item under a slice deadline, and writes the plan: the text it read. That
   text crosses under the OCR sweep's carve-out in
@@ -1795,7 +1835,7 @@ Term (`backfill-opinion-record --sweep`), slicing in the parse, where the
 fetches are: at most `historical.sweep_caps.opinion_record` documents a window,
 two thirds newest decision first and the rest rotated through the older rows,
 and a class above `opinion_record_ceiling` refused
-whole by the writer. The dispatched pass stays pinned to OT2020–OT2025 under a
+whole by the writer. The dispatched pass stays pinned to OT2018–OT2025 under a
 maintainer's bound.
 
 **One pass per dispatch, dry-run first.** `repair` is a single choice, so no
@@ -1891,7 +1931,7 @@ passes, commits from the same record.
 | `order-votes` | `stamp-order-votes` (split, as above) | `--max-stamps` (outcomes stamped, new records and replacements together) | — | `replace-differing` |
 | `application-backfill` | `backfill-applications` (split, as above) | `--max-rows` (rows landed, onboarded and enriched together; the dry run's count is an upper bound) | two-digit October Term, **required in both modes** | — |
 | `decision-record` | `backfill-decision-record` | `--max-fills` (rows filled, not the `candidates` denominator) | — | — |
-| `opinion-record` | `backfill-opinion-record` (split, as above; Terms pinned in the workflow to `--first-term 2020 --last-term 2025`) | `--max-rows` (opinion, bench and text rows inserted — the dry run's "would insert N", not the listing rows or documents read) | — | — |
+| `opinion-record` | `backfill-opinion-record` (split, as above; Terms pinned in the workflow to `--first-term 2018 --last-term 2025`) | `--max-rows` (opinion, bench and text rows inserted — the dry run's "would insert N", not the listing rows or documents read) | — | — |
 
 A bound is required on `apply` wherever the pass takes one, and refused before
 the scan runs unless it is a positive integer — blank, zero, negative, decimal
@@ -2091,9 +2131,10 @@ read whole in the parse.
   holds whole, of each signed decision it holds without a bench row and of
   each document it holds without a text row; for the OCR recovery, the class
   ledger the dry run is read off and the worklist (each item's case id, kind,
-  Court URL and page count — on an apply the first `repair_bound` candidates in
+  Court URL, page count and stored character count — on an apply the first `repair_bound` candidates in
   class order, on a dry run a spread sample to probe); for the re-cut, the
-  class ledger and a worklist of the same four facts — the first
+  class ledger and a worklist of each item's case id, kind, Court URL and page
+  count — the first
   `repair_bound` candidates in class order in either mode, or on an unbounded
   dry run the whole class — with the scope it was cut over; for the document
   back-fill, after applying the dedupe to its own copy, the class ledger and a
@@ -2136,8 +2177,8 @@ read whole in the parse.
   recovery's writer (`documents`) does the same, binding the plan to the
   projection's own worklist, downloaded by artifact id: every planned row,
   failure and unreached item must be one of its items, each exactly once, and
-  each row is written only into a stored document still empty at the item's
-  URL. It walks the class before it writes and re-reads it after, and requires
+  each row is written only into a stored document still empty or thin at the
+  item's URL, and only where the reading is longer than the text stored there. It walks the class before it writes and re-reads it after, and requires
   the re-read to find exactly what its ledger left. It lands the re-cut's plan
   the same way, judging each row against the stored text as the pass in one
   job does (another filing of the same page count, an unchanged text, a petition's
@@ -2200,12 +2241,14 @@ opinion-record steps that print readings — the parse, and the writer, which
 prints the plan's copy back — suspend workflow commands while the command runs
 and copy only its own ledger lines to the run summary, since the readings and
 the PDF reader's warnings carry text from fetched PDFs. Its Term range is
-pinned in the workflow to OT2020–OT2025, not spent on a dispatch input, so
-the dry run and the apply it bounds read the same Terms. The pass reads
-OT2020's volume-linked rows, from slices of their volumes; the command also
-reads those of earlier Terms, which the pinned range does not reach. The parse
-fetches about four seconds a document over some 400 documents and one volume,
-outside the lock. It takes no dedupe
+pinned in the workflow to OT2018–OT2025, not spent on a dispatch input, so
+the dry run and the apply it bounds read the same Terms. Every listing row
+before OT2020, and some of OT2020's, is read from a slice of its volume; the
+range opens at OT2018 because OT2017's volumes are not served. The parse,
+outside the lock, fetches only the documents the record does not hold whole:
+about four seconds each for a document of its own, at most some 400 on an
+empty record, while a volume is fetched once and every page of it read, and a
+slice of it costs no request of its own. It takes no dedupe
 prerequisite: it writes only its own three tables, keyed by Term and listing
 number (and position, for an opinion row) rather than by case row, and the
 content-store objects they point at, and nothing that gates a cell reads them. All
@@ -2538,7 +2581,7 @@ gh workflow run run-repair.yml --ref main \
 gh workflow run run-repair.yml --ref main \
   -f repair=decision-record -f repair_mode=apply -f repair_bound=<would fill N>
 
-# The opinion record reads OT2020–OT2025 (pinned in the workflow). Its apply
+# The opinion record reads OT2018–OT2025 (pinned in the workflow). Its apply
 # fetches every document the record does not hold whole again — unrecorded, a
 # signed decision recorded without its bench row, or a document recorded without
 # its text row — and runs no dry run first, which would double the pass's traffic

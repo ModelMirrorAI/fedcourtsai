@@ -43,9 +43,11 @@ release between them measures the Court's record itself:
 None of the releases depends on the funding below. Funding changes how much of
 the docket, how many moments, and how many models each release covers.
 
-Between releases, the site's email list carries two optional updates a
-subscriber chooses: a **weekly SCOTUS update** (what resolved against what each
-model forecast, and the forecasts newly committed) and a weekly **AI-cases
+Between releases, the site's email list carries three optional updates a
+subscriber chooses: a **weekly Court update** (what the Court decided and did
+on the cases the ledger follows, with no forecast in it), the **weekly
+forecasts** (what resolved against what each model forecast, and the forecasts
+newly committed) and a weekly **AI-cases
 feed** (new rulings and major filings on the AI-case watchlist below, each
 linked to the public docket). Each update's body is rendered from committed
 data, and each send is a draft a person approves; neither update is scored.
@@ -116,7 +118,8 @@ with the one the public cares about most:
   written from each sitting is visible (~25). The pattern is read but not yet
   declared as a moment: the live poll stores the Court's argument sittings, and
   `fedcourts authorship-tally` reads each sitting's authors and undecided cases
-  as of a day from the per-opinion record. That record holds OT2020–OT2025,
+  as of a day from the per-opinion record. That record holds OT2020–OT2025
+  (OT2018–OT2019 join it at the pass's next apply),
   and the opinion-record standing sweep on run-seed's daily window keeps the
   current and previous Term in it; the live poll back-fills the sittings of
   every Term from OT2020 on, so the tally reads the Terms that record holds.

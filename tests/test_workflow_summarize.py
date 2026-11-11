@@ -1,7 +1,8 @@
 """The case-summary lane's workflow shape: credential separation and the spend hold.
 
 `summarize.yml` touches two credentials — the read-only corpus role and the
-environment's Anthropic API key — and the lane's security rests on no job
+Claude sign-in, federated by the Claude-only environment's rule — and the
+lane's security rests on no job
 holding both: a step that could read the corpus and call the model could send the
 corpus anywhere the model's output reaches. These tests pin that split, the
 `review` hold in front of every spend, and the publication fence, so an edit
@@ -15,7 +16,8 @@ import yaml
 
 WORKFLOWS = Path(__file__).resolve().parent.parent / ".github" / "workflows"
 NAME = "summarize.yml"
-KEY_SECRET = "secrets.ANTHROPIC_API_KEY"
+#: What marks a holder of the Claude sign-in: the federation rule it exchanges under.
+SIGN_IN = "vars.ANTHROPIC_FEDERATION_RULE_ID"
 
 
 def _load(name: str = NAME) -> dict[Any, Any]:
@@ -55,19 +57,19 @@ def _holds_cloud_credential(job: dict[str, Any]) -> bool:
     )
 
 
-def test_no_job_holds_both_the_api_key_and_a_cloud_credential() -> None:
-    holders = {name for name, job in _jobs().items() if KEY_SECRET in yaml.safe_dump(job)}
-    assert holders == {"generate"}, f"only the generate job may hold the key, found {holders}"
+def test_no_job_holds_both_the_claude_sign_in_and_a_cloud_credential() -> None:
+    holders = {name for name, job in _jobs().items() if SIGN_IN in yaml.safe_dump(job)}
+    assert holders == {"generate"}, f"only the generate job may sign in, found {holders}"
     for name, job in _jobs().items():
         if name in holders:
-            assert not _holds_cloud_credential(job), f"{name} holds the key and a cloud credential"
+            assert not _holds_cloud_credential(job), f"{name} signs in and holds a cloud credential"
 
 
 def test_the_generate_job_asserts_it_holds_no_cloud_credential_first() -> None:
     steps = _jobs()["generate"]["steps"]
     names = [str(step.get("name", "")) for step in steps]
     guard = names.index("Assert no cloud credential in this job")
-    first_key = next(i for i, step in enumerate(steps) if KEY_SECRET in yaml.safe_dump(step))
+    first_key = next(i for i, step in enumerate(steps) if SIGN_IN in yaml.safe_dump(step))
     assert guard < first_key
     run = steps[guard]["run"]
     assert "^AWS_" in run
@@ -81,24 +83,21 @@ def test_the_generate_job_asserts_it_holds_no_cloud_credential_first() -> None:
     assert _jobs()["generate"]["environment"] == CLAUDE_ONLY
 
 
-def test_the_key_reaches_only_the_two_generate_steps_that_need_it() -> None:
-    """The key is shared with the other Claude lanes, so what this lane owns is
-    how far it reaches here: the summarize call, and the scan that looks for it
-    in what that call wrote — no other step, in any job."""
+def test_the_sign_in_reaches_only_the_summarize_call_and_no_key_anywhere() -> None:
+    """The federated sign-in reaches the one step that calls the model, and no
+    job names the Anthropic key: a secret a job names reaches its runner."""
     holders = [
         (name, str(step.get("name", "")))
         for name, job in _jobs().items()
         for step in job.get("steps") or []
-        if KEY_SECRET in yaml.safe_dump(step)
+        if SIGN_IN in yaml.safe_dump(step)
     ]
-    assert holders == [
-        ("generate", "Write the summaries"),
-        ("generate", "Jail, validate and scan the written summaries"),
-    ]
+    assert holders == [("generate", "Write the summaries")]
     for name, job in _jobs().items():
-        assert KEY_SECRET not in yaml.safe_dump(job.get("env") or {}), f"{name} job-level env"
-    assert KEY_SECRET not in yaml.safe_dump(_load().get("env") or {})
+        assert SIGN_IN not in yaml.safe_dump(job.get("env") or {}), f"{name} job-level env"
+    assert SIGN_IN not in yaml.safe_dump(_load().get("env") or {})
     text = (WORKFLOWS / NAME).read_text()
+    assert "ANTHROPIC_API_KEY" not in text, "the lane names the key"
     assert "secrets[" not in text and "toJSON(secrets" not in text, "no indirect secret access"
 
 
@@ -178,7 +177,7 @@ def test_the_generate_job_gates_its_artifact_on_the_jail_and_the_scan() -> None:
     run = collect["run"]
     assert "summary-paths --strict" in run
     assert "fedcourts validate data" in run
-    assert "--known-secret-env ANTHROPIC_API_KEY" in run
+    assert "scan-diff-for-secrets" in run
     upload = next(step for step in steps if step.get("name") == "Upload the summaries")
     assert "steps.collect.outputs.written" in upload["if"]
 

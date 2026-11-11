@@ -242,6 +242,7 @@ def test_incremental_read_merges_into_the_stored_docket(tmp_path: Path) -> None:
     assert snap is not None and snap[0] == later
     assert [e["id"] for e in snap[1]["docket_entries"]] == [5, 1]
     assert [e["id"] for e in done.added] == [5]
+    assert [e["id"] for e in done.listed] == [5, 1]
 
 
 def test_an_entry_whose_document_became_readable_is_reported(tmp_path: Path) -> None:

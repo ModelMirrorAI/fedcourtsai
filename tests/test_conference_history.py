@@ -203,7 +203,7 @@ def test_the_schedule_carries_the_history_and_its_exact_relist_count(tmp_path: P
     for docket in ("2", "3"):
         (data_root / "cases" / "scotus" / docket).mkdir(parents=True)
     built = build_schedule(data_root=data_root, corpus_db_path=db, as_of=date(2026, 11, 4))
-    assert built.schema_version == "1.2"
+    assert built.schema_version == "1.3"
     by_case = {entry.case_id: entry for entry in built.entries}
     assert by_case["scotus/2"].conferences == history
     assert by_case["scotus/2"].relists == 1

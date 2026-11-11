@@ -337,6 +337,19 @@ before the columns existed carries none until its next poll. A removal from the
 argument calendar is not read: the setting stands until it passes, when the
 schedule marks it `passed`.
 
+The schedule's court-wide next conference comes from no docket: the live poll
+reads the Court's *Case Distribution Schedule*
+(`/casedistribution/casedistributionschedule<YYYY>.pdf`) into
+`data/schedule/term-calendar.json` once a UTC day after a read succeeds (a
+refused read is tried again the next window), through the same client, its
+host guard and its one retry, one document per Term for two Terms, bounded at
+two minutes in all (*the Court's conference calendar* in
+[data-sources.md](data-sources.md), the format in
+[data-pipeline.md](data-pipeline.md)). The Court's illustrated *Term Calendar*
+PDF, which also marks argument days, non-argument sessions and holidays, is not
+read: it marks a day's kind by colour alone, and the current Term's copy is a
+scanned image with no text layer.
+
 The same cert-branch parse keeps the petition's **conference history**
 (`conference_history`, `pipeline.cert_signals.conference_history`): every
 conference a petition distribution (the `dist-v2` reading) names, one step per
@@ -484,7 +497,23 @@ the docket form, so one function serves both lanes:
   Federal Respondents in opposition filed.", "Memorandum for the United States
   filed."). The response and memorandum forms are kept off the collateral
   papers that share their opening — about a motion, an application, a
-  rehearing petition, a letter, an order or a suggestion of mootness.
+  rehearing petition, a letter, an order or a suggestion of mootness. On a
+  **direct appeal** there is no brief in opposition: the appellee answers the
+  jurisdictional statement with a motion (Rule 18.6), and every appellee's
+  **motion to dismiss or affirm** joins this row from its `Main Document` link
+  ("Motion to dismiss or affirm filed by appellees … .", "Motion to affirm
+  filed by appellees … .", "Motion to dismiss filed by State Appellees."). It
+  is read only on a docket whose entries name the appeal's own papers (a
+  jurisdictional statement, a motion to affirm), which keeps a motion to
+  dismiss on an ordinary petition's docket out, only where an appellee is the
+  filer, and only before the Court notes jurisdiction or postpones it to the
+  merits and before any disposition entry. A motion to dismiss the appeal as
+  moot filed in that window is the appellee's answer and is read. A ruling on
+  the motion, a withdrawn motion, one the Clerk did not accept, and a motion
+  to dismiss a side question (an application, an intervention, a rehearing
+  petition, a complaint) are out. The docket test reads entry text, so a
+  petition whose entries mention a jurisdictional statement is open to the
+  same reading.
 - **`cert-reply`** — the petitioner's **cert-stage** reply, the Rule 15.6 answer
   to the opposition and often the only filing that meets its vehicle and
   preservation objections. The first "Reply [brief] of/for … petitioner(s) …"
@@ -496,7 +525,20 @@ the docket form, so one function serves both lanes:
   opposition" is exactly this filing — while any reply naming a motion, an
   application, a letter or a suggestion of mootness (collateral practice,
   "in support of" it or "to the response to" it), replies supporting the other
-  side, amici's replies and rehearing and supplemental papers are.
+  side, amici's replies and rehearing and supplemental papers are. On a
+  **direct appeal** the same kind holds the **appellant's answer to the motion
+  to dismiss or affirm** (Rule 18.8), under whichever caption the Clerk gives
+  it: "Opposition to motion to dismiss or affirm of appellants … filed.",
+  "Response to motion to dismiss from appellants … filed.", "Brief opposing
+  motion to affirm from appellants … filed.", "Reply of appellant … filed."
+  The first such entry after an appellee's motion, filed by an appellant,
+  before jurisdiction is noted or postponed to the merits and before any
+  disposition entry, from its `Main Document` link alone. A paper naming any
+  other motion (to expedite, for leave, to intervene) is collateral practice
+  and is out, as is a response to an order or to a suggestion of mootness. On
+  such a docket the disposition entry that closes the pending-appeal kinds is
+  read with the direct appeal's exits, a summary affirmance and a dismissal
+  for want of jurisdiction among them.
 - **`sg-invited-brief`** — the **Solicitor General's invited brief**: the first
   brief for the United States as amicus curiae ("Brief amicus curiae of United
   States filed.", "Brief for the United States as amicus curiae filed.") entered
@@ -605,8 +647,12 @@ the docket form, so one function serves both lanes:
   (`provision.WITHHELD_KINDS`) until the re-bless whose prompt names it.
 - **`supplemental-brief`** / **`party-letter`** — every party's **Rule
   15.8 supplemental brief** ("Supplemental brief of petitioner … filed.",
-  "Second supplemental brief of respondent … filed.", and a "letter brief",
-  supplemental or bare — "Letter brief of petitioner … filed."), and every party's **letter to the Clerk** that bears on the case —
+  "Second supplemental brief of respondent … filed.", a "letter brief",
+  supplemental or bare, "Letter brief of petitioner … filed.", and the other
+  side's answer under its own captions, "Supplemental response filed by
+  petitioner … .", "Supplemental reply of appellant … filed." or "Response to
+  supplemental brief filed by respondents … ."), and every party's **letter
+  to the Clerk** that bears on the case —
   a suggestion of mootness, a settlement, a withdrawal, a notice of an
   intervening decision or new law, a change of position. Each is one combined
   row, as the opposition is, of every distinct `Main Document` link in docket
@@ -1487,8 +1533,18 @@ dependency on either side.
   the brief in opposition, the cert-stage reply, the invited brief, the four
   merits filings, the United States' merits amicus brief, and the
   supplemental briefs and party letters; which is the text-coverage set less its one derived
-  member — whose text is empty or whitespace-only, whose page
-  count is above zero, and whose stored URL is one link. A zero-page row is
+  member — whose text is empty, whitespace-only or **thin**, whose page
+  count is above zero, and whose stored URL is one link. A thin row holds some
+  text and averages under `THIN_PAGE_CHARS` (200) characters a page: the text
+  layer of a scan that carries only what was typed over it, such as a
+  letterhead above a scanned letter body or a stamp on each scanned page. Such
+  a row is not `empty_text`, so without the test a cell reads those few lines
+  as the whole filing. Four rows are never thin: a truncated one, whose text
+  is a cap's worth of a longer filing; one already marked `ocr_derived`, which
+  the pass has read whole; a set-keyed one; and one carrying a per-filing
+  `=== … ===` header, a combined row stored with one of its filings fetched,
+  whose header a recovery would drop. The floor is sized on the
+  stored documents, and the comment on the constant carries the count. A zero-page row is
   either a PDF the extractor could not open or a derived section — `pages`
   carries both — and neither is OCR's to repair; a case holding no row of a
   kind is a fetch gap, or on an application docket no gap at all; a row whose
@@ -1518,28 +1574,40 @@ dependency on either side.
   being the experiment. Every status class is reported rather than raised, or
   the question would be settled on one data point.
 - **What it does.** Walks the PDF's pages as the extractor does and OCRs a page
-  **only** where that page's own text extraction yields nothing — a guard rather
-  than a filter, since the population is documents that yielded nothing at all,
-  but it keeps a mostly-digital filing with a few scanned exhibit pages honest.
+  **only** where that page's own text extraction is blank or thin (under the
+  same 200 characters). A blank page takes whatever its image reads. A thin
+  page keeps its text layer unless the image reads at least twice as long, so a
+  divider or signature page keeps the cleaner copy and a letterhead over a
+  scanned body is replaced by the whole page. A page that extracted in full is
+  never read off its image, which keeps a mostly-digital filing with a few
+  scanned exhibit pages honest.
   It is the extractor that walks them: `extract_pdf_text` takes the OCR call as
   an injected `ocr_page` seam, defaulted to none, so this pass is the only
   caller that supplies one and no fetching lane grows the dependency —
   and the same per-document text cap the fetching lane applies and the same
   truncation flag bound the result, because they are the same code — the plain
   head cut, never the appendix-aware one a fetched petition, application or
-  appendix takes (see *The appendix-aware cut*). Additive by construction: text
-  is written only where extraction stored none, so the pass cannot overwrite an
-  extraction. Nor is a recovery overwritten later — the row keeps its URL, and
+  appendix takes (see *The appendix-aware cut*). Additive by construction: a
+  reading is written only where it is longer than the text the row stores and
+  leaves the row out of the class, so the pass cannot
+  shorten an extraction. A reading that does not is `no-gain`: counted, named,
+  and not written. So is a thin row's reading that OCR contributed nothing
+  to: a longer text layer at the same link is a different filing than the one
+  stored, and the standing sweep's writer takes only OCR-marked rows. A filing that is sparse rather than scanned, a one-line
+  letter or a page of exhibits OCR cannot read, is `no-gain` every time: it
+  stays in the class, takes its turn in the rotation, and when fresh holds its
+  case's forward cells for the hold's bound. Nor is a recovery overwritten later — the row keeps its URL, and
   both the poller and the Term walker re-fetch a kind only when its link
   changes; a genuinely superseding filing at a new URL is re-fetched and, if
   it too is a scan, re-enters the class. A lone opposition recovered here is
   re-fetched and re-extracted the day a co-respondent's brief joins its key,
   which is the same rule reaching the same row: what survives a recovery is
-  what the fetching lane has no reason to re-read. A candidate whose re-fetch fails, and
-  one whose pages OCR to nothing, are counted and named and nothing is written
-  for either: the stored row keeps its empty text, stays in the class, and
-  re-enters the next slice. Neither is the pass going backwards, but neither
-  advances it either, and both sit at the *head* of the class in `case_id`
+  what the fetching lane has no reason to re-read. A candidate whose re-fetch fails,
+  one whose pages OCR to nothing, and a thin one whose reading gains nothing are
+  counted and named and nothing is written
+  for any of them: the stored row keeps the text it had, stays in the class, and
+  re-enters the next slice. None is the pass going backwards, but none
+  advances it either, and all sit at the *head* of the class in `case_id`
   order, so the next dispatch retries them first: "self-advancing" means the
   recovered ones leave, not that a later slice starts further along. The ledger
   reports them apart from the candidates a slice never reached for exactly that

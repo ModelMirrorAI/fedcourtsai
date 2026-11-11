@@ -89,6 +89,7 @@ from . import (
     site_status,
     statpack_history,
     summaries,
+    term_calendar,
     tool_usage,
     window_records,
     write_confinement,
@@ -182,6 +183,12 @@ from .config import (
     load_statpack_config,
     load_summaries_config,
     load_watchlist_refresh_config,
+)
+from .court_update import (
+    LISTED_TOP,
+    build_court_update,
+    court_update_subject,
+    render_court_update,
 )
 from .courtlistener import (
     CourtListenerClient,
@@ -663,6 +670,7 @@ from .store import (
     unpopulated_cases,
 )
 from .supremecourt import (
+    DeadlineExceeded,
     SupremeCourtClient,
     current_docket_term,
     october_term_year,
@@ -3275,9 +3283,24 @@ def _ocr_sweep(  # noqa: PLR0912, PLR0913, PLR0915 - keyword-only; one flag per 
         )
         raise typer.Exit(code=1)
     found = selection.class_size
+    # Above the ceiling the backlog is held and the forward share still swept;
+    # only a forward share above its own ceiling refuses the window whole.
+    backlog_held = found > caps.ocr_ceiling
+    if backlog_held:
+        selection = ocr_sweep.forward_slice(selection)
     _echo_sweep_ledger(command, written=False, planned=found, deferred=0, cap=caps.ocr)
     typer.echo(f"  {selection.forward_size} of the class a forward cell reads")
     _echo_by_kind("class", selection.class_by_kind)
+    if selection.thin_size:
+        typer.echo(f"  {selection.thin_size} of the class hold thin text rather than none")
+    if backlog_held:
+        typer.echo(
+            f"::warning::{command} --sweep: backlog held — the class holds {found} rows, "
+            f"above its ceiling of {caps.ocr_ceiling} (historical.sweep_caps), so this "
+            f"window reads only the {selection.forward_size} a forward cell reads. Triage "
+            "the class with run-repair's ocr-recovery dry run; the dispatched pass drains "
+            "the backlog under a maintainer's bound."
+        )
     for candidate in selection.slice:
         document = candidate.scanned.document
         tier = "forward" if candidate.forward else "backlog"
@@ -3285,15 +3308,23 @@ def _ocr_sweep(  # noqa: PLR0912, PLR0913, PLR0915 - keyword-only; one flag per 
             f"  slice {candidate.key}: {document.pages} pages, {tier}, "
             f"stored {document.fetched_at.isoformat()}"
         )
-    refused = found > caps.ocr_ceiling
+    forward = selection.forward_size
+    refused = forward > caps.ocr_forward_ceiling
     if emit_worklist is None:
         if refused:
             typer.echo(
-                f"  the class is above its ceiling of {caps.ocr_ceiling}: the projection "
-                "would refuse it"
+                f"  the forward share is above its ceiling of {caps.ocr_forward_ceiling}: "
+                "the projection would refuse it"
             )
         return
-    _refuse_sweep_above_ceiling(command, refused=refused, found=found, ceiling=caps.ocr_ceiling)
+    _refuse_sweep_above_ceiling(
+        command,
+        refused=refused,
+        found=forward,
+        ceiling=caps.ocr_forward_ceiling,
+        population="forward share",
+        reason="means an extractor or fetch regression emptied stored text",
+    )
     write_handoff(emit_worklist, ocr_sweep.sweep_worklist(selection, cap=caps.ocr))
 
 
@@ -3501,6 +3532,7 @@ def _ocr_dispatched_write(
         applied=apply,
         documents_seen=scan.documents_seen,
         candidates=len(scan.candidates),
+        thin_text=class_reading(scan).thin_text,
         candidates_by_kind=class_reading(scan).candidates_by_kind,
         set_keyed=scan.set_keyed,
         bound=max_cases,
@@ -3614,6 +3646,8 @@ def _echo_ocr_recovery(result: OcrRecoveryResult, db_path: Path, *, apply: bool)
     # 10 over a class that is nine oppositions and one petition touches a very
     # different set from one over the reverse, and the total alone hides it.
     _echo_by_kind("class", result.candidates_by_kind)
+    if result.thin_text:
+        typer.echo(f"  {result.thin_text} of the class hold thin text rather than none")
     if result.set_keyed:
         _echo_by_kind("left out (stored URL is a set key, not one link)", result.set_keyed)
     if apply:
@@ -3687,10 +3721,12 @@ def ocr_recover_petitions_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; opt
         typer.Option(
             "--sweep",
             help="Standing-sweep mode (run-seed's windows): take the window's slice at "
-            "`historical.sweep_caps.ocr`, forward-cell candidates first, and refuse a "
-            "class above `ocr_ceiling`. Alone, a dry run that lists the slice it would "
-            "OCR and fetches nothing; with --emit-worklist, the projection; with "
-            "--from-plan, the writer. Takes no --max-cases.",
+            "`historical.sweep_caps.ocr`, forward-cell candidates first; above "
+            "`ocr_ceiling` take only those, and refuse a forward share above "
+            "`ocr_forward_ceiling`. Alone, "
+            "a dry run that lists the slice it would OCR and fetches nothing; with "
+            "--emit-worklist, the projection; with --from-plan, the writer. Takes no "
+            "--max-cases.",
         ),
     ] = False,
     emit_worklist: Annotated[
@@ -3746,16 +3782,19 @@ def ocr_recover_petitions_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; opt
 ) -> None:
     """Read the scanned filings off their page images and store what comes back.
 
-    A filing submitted on paper reaches the corpus with no text layer, so the
-    extractor stored nothing for it and every cell minted over that case reads it
-    empty — for as long as the docket keeps serving the same URL, since the
+    A filing submitted on paper reaches the corpus with no text layer, or with
+    one that holds only a letterhead or page stamps, so the extractor stored
+    nothing or a few stray lines for it and every cell minted over that case
+    reads it that way — for as long as the docket keeps serving the same URL, since the
     poller and the Term walker re-fetch a kind only when its link changes.
     This is the pass that repairs it, on the terms in *Contract for the recovery
     pass* (`docs/live-sources.md`): the population is every stored row a cell
     reads that was fetched as a PDF — the petition, the application and the
     filings answering it, the appendix, the brief in opposition, the cert-stage
-    reply, the invited brief, the four merits filings — whose text is empty or
-    whitespace-only, whose page count is above zero (a zero-page row is a PDF
+    reply, the invited brief, the four merits filings — whose text is empty,
+    whitespace-only or thin (under 200 characters a page on average, on a row
+    that is not truncated, not under a per-filing header and that OCR has not
+    read), whose page count is above zero (a zero-page row is a PDF
     the extractor could not open, which is not OCR's to repair, and a case with
     no row of a kind at all is a fetch gap), and whose stored URL is one link.
     That last condition excludes one shape: a multi-respondent opposition is
@@ -3769,12 +3808,14 @@ def ocr_recover_petitions_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; opt
     re-fetched by its own stored URL on supremecourt.gov, free and
     politeness-capped, so the pass spends none of the CourtListener budget; and
     its pages go through the extractor with the OCR seam supplied, which reads a
-    page off its rendered image only where that page's own extraction yielded
-    nothing. The same per-document character cap and truncation flag bound the
+    page off its rendered image only where that page's own extraction is blank
+    or thin, and keeps a thin page's text layer unless the image reads at least
+    twice as long. The same per-document character cap and truncation flag bound the
     result — the plain head cut, never the appendix-aware one — and
     every recovered row carries `ocr_derived`: OCR output is derived text, and
     must never read as a clean extraction. Additive — text is written only where
-    the stored row held none — and a recovered **petition** re-derives its
+    the stored row held none, or held thin text shorter than the reading — and a
+    recovered **petition** re-derives its
     `questions-presented` row through the ingest path's own deriver, which
     carries the marker with it; no other kind has a follow-on write.
 
@@ -5542,12 +5583,20 @@ def _echo_sweep_ledger(
     )
 
 
-def _refuse_sweep_above_ceiling(command: str, *, refused: bool, found: int, ceiling: int) -> None:
+def _refuse_sweep_above_ceiling(
+    command: str,
+    *,
+    refused: bool,
+    found: int,
+    ceiling: int,
+    population: str = "class",
+    reason: str = "means the predicate widened",
+) -> None:
     if refused:
         typer.echo(
-            f"::error::{command} --sweep: refusing to apply — the class holds {found} rows, "
-            f"above its ceiling of {ceiling} (historical.sweep_caps). A class this size "
-            "means the predicate widened; triage the dry run before raising the ceiling.",
+            f"::error::{command} --sweep: refusing to apply — the {population} holds {found} "
+            f"rows, above its ceiling of {ceiling} (historical.sweep_caps). A {population} "
+            f"this size {reason}; triage the dry run before raising the ceiling.",
             err=True,
         )
         raise typer.Exit(code=1)
@@ -8440,6 +8489,68 @@ def _write_schedule(data_root: Path, db_path: Path, destination: Path, *, as_of:
         f"{conferences} conference(s), {arguments} argument(s), {responses} response "
         f"deadline(s), as of {built.as_of} -> {destination}"
     )
+
+
+@app.command("term-calendar")
+def term_calendar_cmd(
+    today: Annotated[
+        str | None,
+        typer.Option(help="Read the calendar as of this ISO date (default: UTC today)."),
+    ] = None,
+    force: Annotated[
+        bool, typer.Option(help="Re-read even when the committed calendar was read that day.")
+    ] = False,
+) -> None:
+    """Read the Court's conference calendar into ``data/schedule/term-calendar.json``.
+
+    Fetches the Court's case distribution schedule for the current and, once
+    published, the next October Term from supremecourt.gov (no token, no API
+    budget) and writes every conference day with the distribution rows behind
+    it. Fails closed: a schedule that does not parse whole exits non-zero and
+    leaves the committed file as it was. The live poll runs the same refresh
+    at most once a UTC day; this command is for a dev checkout.
+    """
+    settings = get_settings()
+    as_of = date.fromisoformat(today) if today else datetime.now(UTC).date()
+    live_cfg = load_live_config(settings.config_root)
+    try:
+        with SupremeCourtClient(
+            throttle_seconds=live_cfg.throttle_seconds,
+            deadline_seconds=term_calendar.FETCH_DEADLINE_SECONDS,
+        ) as client:
+            line = term_calendar.refresh_calendar(
+                client, settings.data_root, today=as_of, force=force
+            )
+    except (
+        term_calendar.CalendarRefused,
+        httpx.HTTPError,
+        DeadlineExceeded,
+    ) as exc:
+        typer.echo(f"term-calendar: refused: {exc}", err=True)
+        raise typer.Exit(1) from exc
+    typer.echo(line)
+
+
+def _refresh_term_calendar(data_root: Path, *, today: date, throttle_seconds: float) -> None:
+    """The live poll's once-a-day calendar refresh, which only ever warns.
+
+    Display data, like the schedule it feeds: a refusal or a transport error
+    keeps the committed calendar and is reported as a workflow warning, never
+    as a failed poll.
+    """
+    try:
+        with SupremeCourtClient(
+            throttle_seconds=throttle_seconds,
+            deadline_seconds=term_calendar.FETCH_DEADLINE_SECONDS,
+        ) as client:
+            line = term_calendar.refresh_calendar(client, data_root, today=today)
+    except Exception as exc:  # any failure degrades to a warning
+        # One line, whatever the message carries: a workflow command reads a
+        # newline in it as the start of another command.
+        reason = " ".join(str(exc).split())
+        typer.echo(f"::warning::term-calendar: not refreshed ({type(exc).__name__}: {reason})")
+        return
+    typer.echo(line)
 
 
 def _work_tree_root() -> Path | None:
@@ -16372,7 +16483,7 @@ def public_update_cmd(
         ),
     ] = 0,
 ) -> None:
-    """Render the weekly public update for the email list from the committed ledger.
+    """Render the weekly forecasts update for the email list from the committed ledger.
 
     Read-only and deterministic: the same tree and week render the same bytes.
     Exits 3, writing nothing, when the week has nothing resolved and no new
@@ -16481,7 +16592,7 @@ def post_public_update_cmd(
         ),
     ] = False,
 ) -> None:
-    """Create the week's public update as a Buttondown draft for one tag's subscribers.
+    """Create the week's forecasts update as a Buttondown draft for one tag's subscribers.
 
     Draft only: a person reads it and presses send in Buttondown. Idempotent per
     week, since an email already carrying the week's subject is returned rather
@@ -16529,6 +16640,145 @@ def post_public_update_cmd(
     verb = "created draft" if draft.created else f"already present ({draft.status})"
     where = f" {draft.url}" if draft.url else ""
     typer.echo(f"post-public-update: {chosen}: {verb} {draft.email_id}{where}")
+
+
+@app.command("court-update")
+def court_update_cmd(
+    *,
+    week: Annotated[
+        str,
+        typer.Option(
+            help="ISO week to render, as YYYY-Www; defaults to the last complete week (UTC)."
+        ),
+    ] = "",
+    out: Annotated[
+        Path | None,
+        typer.Option(help="Write the Markdown here; omit to print it."),
+    ] = None,
+    top: Annotated[
+        int,
+        typer.Option(
+            min=0,
+            help="Cases a cut list keeps: a group's denials and each group of new filings; "
+            "0 lists every case.",
+        ),
+    ] = LISTED_TOP,
+) -> None:
+    """Render the weekly Court update for the email list from the committed ledger.
+
+    What the Court did in an ISO week on the cases the ledger follows, with no
+    forecast in it. Read-only and deterministic: the same tree and week render
+    the same bytes. Exits 3, writing nothing, when the week has no decision,
+    action or filing, so a poster skips the week rather than sending an empty
+    update.
+    """
+    settings = get_settings()
+    chosen = week or last_complete_week(datetime.now(UTC))
+    try:
+        week_bounds(chosen)
+    except ValueError as exc:
+        typer.echo(f"court-update: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    update = build_court_update(settings.data_root, chosen)
+    if update.empty:
+        typer.echo(f"court-update: nothing to send for {chosen}.", err=True)
+        raise typer.Exit(code=3)
+    text = render_court_update(update, top=top or None)
+    if out is None:
+        typer.echo(text, nl=False)
+    else:
+        write_text(out, text)
+        typer.echo(
+            f"court-update: {chosen}: {len(update.decisions)} decided, "
+            f"{len(update.actions)} other action(s), {len(update.filings)} filed -> {out}",
+            err=True,
+        )
+
+
+@app.command("post-court-update")
+def post_court_update_cmd(
+    *,
+    tag: Annotated[
+        str,
+        typer.Option(
+            help="Buttondown tag name whose subscribers the draft is addressed to; "
+            "resolving a name lists the account's tags. Or give --tag-id."
+        ),
+    ] = "",
+    tag_id: Annotated[
+        str,
+        typer.Option(
+            "--tag-id",
+            help="Buttondown tag id the draft is addressed to; needs no read beyond emails.",
+        ),
+    ] = "",
+    week: Annotated[
+        str,
+        typer.Option(
+            help="ISO week to post, as YYYY-Www; defaults to the last complete week (UTC)."
+        ),
+    ] = "",
+    top: Annotated[
+        int,
+        typer.Option(
+            min=0,
+            help="Cases a cut list keeps: a group's denials and each group of new filings; "
+            "0 lists every case.",
+        ),
+    ] = LISTED_TOP,
+    dry_run: Annotated[
+        bool,
+        typer.Option(
+            "--dry-run", help="Render the subject and body and print them; contact nothing."
+        ),
+    ] = False,
+) -> None:
+    """Create the week's Court update as a Buttondown draft for one tag's subscribers.
+
+    Draft only: a person reads it and presses send in Buttondown. Idempotent per
+    week, since an email already carrying the week's subject is returned rather
+    than duplicated. Exits 3 on a week with nothing to send, 2 on a bad week or a
+    missing key, 1 when Buttondown refuses. The key is read from the environment
+    and never printed.
+    """
+    settings = get_settings()
+    chosen = week or last_complete_week(datetime.now(UTC))
+    if bool(tag.strip()) == bool(tag_id.strip()):
+        typer.echo("post-court-update: give exactly one of --tag or --tag-id.", err=True)
+        raise typer.Exit(code=2)
+    try:
+        week_bounds(chosen)
+    except ValueError as exc:
+        typer.echo(f"post-court-update: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    update = build_court_update(settings.data_root, chosen)
+    if update.empty:
+        typer.echo(f"post-court-update: nothing to send for {chosen}.", err=True)
+        raise typer.Exit(code=3)
+    subject = court_update_subject(update)
+    body = render_court_update(update, title=False, top=top or None)
+    if dry_run:
+        typer.echo(f"Subject: {subject}\nTag: {tag.strip() or tag_id.strip()}\n\n{body}", nl=False)
+        return
+    api_key = os.environ.get(API_KEY_ENV, "")
+    if not api_key.strip():
+        typer.echo(f"post-court-update: the {API_KEY_ENV} environment variable is unset.", err=True)
+        raise typer.Exit(code=2)
+    try:
+        with make_client(api_key) as client:
+            draft = post_draft(
+                client,
+                subject=subject,
+                body=body,
+                tag_name=tag.strip() or None,
+                tag_id_value=tag_id.strip() or None,
+            )
+    except ButtondownError as exc:
+        typer.echo(f"post-court-update: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    verb = "created draft" if draft.created else f"already present ({draft.status})"
+    where = f" {draft.url}" if draft.url else ""
+    typer.echo(f"post-court-update: {chosen}: {verb} {draft.email_id}{where}")
 
 
 def _ai_cases_watchlist(config_root: Path) -> AiWatchlist | None:
@@ -17361,7 +17611,11 @@ def watchlist_refresh_cmd(
         # has stored is never "new" again, so a run killed part-way must
         # already have recorded what it stored.
         found = ai_activity.activity_entries(
-            *named[done.case_id], done.docket, done.added, today=today
+            *named[done.case_id],
+            done.docket,
+            done.added,
+            today=today,
+            docket_entries=done.listed,
         )
         readable = ai_activity.available_entries(
             *named[done.case_id], done.docket, done.gained, today=today
@@ -17621,10 +17875,12 @@ def decision_below_command(
     For each case, reads the lower court, its case number(s) and the judgment
     date the SCOTUS docket JSON carries, maps the court to a CourtListener id
     (the federal courts of appeals only), finds the lower court's docket rows by
-    number, the opinion cluster dated on the judgment date and its sub-opinions'
-    file and text availability, and — where upstream holds the docket's entries —
-    reads whether a petition for rehearing en banc was filed, how it was
-    disposed of, and whether a dissent was noted. Prints the report as JSON on
+    number, the opinion cluster dated on the judgment date, any dated after it
+    and on or before the SCOTUS docketing, and their sub-opinions' file and text
+    availability, and — where upstream holds the docket's entries — reads
+    whether a petition for rehearing en banc was filed, how it was disposed of,
+    and whether a dissent was noted, reporting no absence where the entries
+    stop before a rehearing denial the SCOTUS docket states. Prints the report as JSON on
     stdout and the match rate on stderr.
 
     Strictly **read-only**: writes no corpus, content store or ledger, and
@@ -17711,9 +17967,11 @@ def enrich_decision_below_command(
     Walks the rotation `fill_candidates` orders — the petitions the ledger
     forecasts and the salience selection first, then never-attempted, then
     newest — joins each to CourtListener as `decision-below` measures, and
-    stores what upstream holds: the opinion on the judgment date as a
-    `decision-below` document and the docket record as a `lower-court-docket`
-    document, then stamps `decision_below_attempted_at`. A dry run walks and
+    stores what upstream holds: the opinion on the judgment date, with any
+    amended opinion or opinion on rehearing that followed it before the
+    docketing, as a `decision-below` document and the docket record as a
+    `lower-court-docket` document, then stamps `decision_below_attempted_at`.
+    A stored case is walked again once its stamp is stale. A dry run walks and
     counts without writing. Both kinds reach cert and merits cells only
     (`provision.LOWER_COURT_STAGES`).
     Spends CourtListener REST requests through the shared client and this
@@ -17751,7 +18009,6 @@ def enrich_decision_below_command(
         corpus.connect_maintenance(db_path, apply=apply) as conn,
         _client("decision-below-fill" if apply else "decision-below") as client,
     ):
-        settled: list[str] = []
         if case_ids:
             rows: list[corpus.CorpusRow] = []
             for case_id in case_ids:
@@ -17763,15 +18020,14 @@ def enrich_decision_below_command(
                     raise typer.Exit(code=1)
                 rows.append(row)
         else:
-            candidates = decision_below.fill_candidates(
+            rows = decision_below.fill_candidates(
                 conn,
                 today=today,
                 max_cases=max_cases,
                 priority=predicted_case_ids(settings.data_root),
             )
-            rows, settled = candidates.rows, candidates.settled
         report = decision_below.fill_decision_below(
-            conn, client, rows, apply=apply, today=today, char_cap=char_cap, settled=settled
+            conn, client, rows, apply=apply, today=today, char_cap=char_cap
         )
     if apply:
         _ensure_corpus_layout(db_path)
@@ -17785,9 +18041,6 @@ def enrich_decision_below_command(
         f"{report.requests} REST request(s)",
         err=True,
     )
-    if settled:
-        restamp = "re-stamped" if apply else "would re-stamp"
-        typer.echo(f"  {len(settled)} case(s) already hold their opinion; {restamp}", err=True)
     if report.stopped:
         typer.echo(
             f"  stopped: {report.stopped} ({len(report.deferred)} case(s) deferred)", err=True
@@ -21500,7 +21753,8 @@ def summarize_cmd(
     the same run, told why; anything else, a rejected retry, and any call that
     still fails after bounded retries, is reported as skipped. The credential
     comes from the environment (``fedcourtsai.claude_auth``): the federated
-    sign-in when a federation rule is named, the API key otherwise. Exits 1
+    sign-in when a federation rule is named, as every workflow names one, and
+    an API key otherwise, for a local run. Exits 1
     when the plan held cases and none was written, so a dead credential or a
     broken prompt fails the run rather than reading as an empty success.
     """
@@ -23284,8 +23538,9 @@ def live_poll(
     (daily-debounced), ground truth for the rest. Resolution is detected from
     the proceedings text, so a decided petition or application lands
     ``outcome.json`` deterministically. Writes the same three queue files
-    as ``pull-all``, then rebuilds ``data/schedule/schedule.json`` from the
-    refreshed corpus (warning, never failing, if that build breaks).
+    as ``pull-all``, refreshes ``data/schedule/term-calendar.json`` once a UTC
+    day after a good read, then rebuilds ``data/schedule/schedule.json`` from
+    the refreshed corpus (warning, never failing, if either breaks).
     """
     settings = get_settings()
     live_cfg = load_live_config(settings.config_root)
@@ -23328,6 +23583,10 @@ def live_poll(
     out.write_text(json.dumps(queues.predict) + "\n")
     evaluate_out.write_text(json.dumps(queues.evaluate) + "\n")
     unrecorded_out.write_text(json.dumps(queues.unrecorded) + "\n")
+    # The Court's calendar first, so the schedule below reads today's copy.
+    _refresh_term_calendar(
+        settings.data_root, today=today, throttle_seconds=live_cfg.throttle_seconds
+    )
     # The schedule rides the cycle that moved its dates, into the same data
     # commit. Display data, so a failure here costs the site one cycle's dates
     # and never the poll's facts or queues.
@@ -28101,7 +28360,7 @@ def assert_website_environment_cmd(
 
     Requires the environment to exist, its deployment branches to be a custom
     policy of exactly `main`, and it to hold exactly the Buttondown API key and
-    the weekly tag id — no other secret or variable — and no repository or
+    the tag ids — no other secret or variable — and no repository or
     organization secret to share the key's name, since a workflow on any
     branch reads one. Names each problem and exits non-zero if there is any; an
     unread listing is a problem.
@@ -28119,7 +28378,7 @@ def assert_website_environment_cmd(
         typer.echo(f"::error::website environment: {problem}", err=True)
     if problems:
         raise typer.Exit(code=1)
-    typer.echo("the website environment admits main alone and holds only its key and tag id")
+    typer.echo("the website environment admits main alone and holds only its key and tag ids")
 
 
 @app.command("assert-corpus-write-environment")
@@ -28157,6 +28416,63 @@ def assert_corpus_write_environment_cmd(
     if problems:
         raise typer.Exit(code=1)
     typer.echo("the corpus-write environment admits main alone and holds only the writers' names")
+
+
+@app.command("assert-claude-only-environment")
+def assert_claude_only_environment_cmd(
+    name: Annotated[str, typer.Option(help="The environment: `claude-prod` or `claude-staging`.")],
+    environment_file: Annotated[
+        Path,
+        typer.Option(help="`GET /repos/{repo}/environments/<name>`; absent means unread."),
+    ],
+    branch_policies_file: Annotated[
+        Path, typer.Option(help="Its `deployment-branch-policies`; absent means unread.")
+    ],
+    secrets_file: Annotated[
+        Path, typer.Option(help="Its `secrets` listing (admin read); absent means unread.")
+    ],
+    variables_file: Annotated[
+        Path, typer.Option(help="Its `variables` listing (admin read); absent means unread.")
+    ],
+    repository_secrets_file: Annotated[
+        Path,
+        typer.Option(help="`GET /repos/{repo}/actions/secrets` (admin read); absent means unread."),
+    ],
+    organization_secrets_file: Annotated[
+        Path,
+        typer.Option(
+            help="`GET /repos/{repo}/actions/organization-secrets` (admin read); "
+            + "absent means unread."
+        ),
+    ],
+) -> None:
+    """Check a Claude-only environment still keeps the Claude spend on its own branches.
+
+    Requires the environment to exist, its deployment branches to be a custom
+    policy admitting `main` alone (`claude-prod`) or `staging` and at most
+    `promote/*` (`claude-staging`), it to hold no secret, it to hold the rule
+    and organization identifiers and no variable but the four federation
+    identifiers, and no repository or organization secret to share the
+    Anthropic key's name, since a workflow on any
+    branch reads one. Names each problem and exits non-zero if there is any;
+    an unread or truncated listing is a problem.
+    """
+    problems = environment_checks.claude_only_problems(
+        name,
+        _read_document(environment_file),
+        _read_document(branch_policies_file),
+        _read_document(secrets_file),
+        _read_document(variables_file),
+    ) + environment_checks.shadow_secret_problems(
+        _read_document(repository_secrets_file),
+        _read_document(organization_secrets_file),
+        environment_checks.CLAUDE_SHADOWED_SECRETS,
+    )
+    for problem in problems:
+        typer.echo(f"::error::{name} environment: {problem}", err=True)
+    if problems:
+        raise typer.Exit(code=1)
+    typer.echo(f"the {name} environment admits its own branches alone and holds only its sign-in")
 
 
 @app.command("finalize-produced")

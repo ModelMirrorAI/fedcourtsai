@@ -80,6 +80,20 @@ def _kind_of(text: str) -> str | None:
         "Supplemental brief of respondent Benjamin Chui filed.  VIDED. (Distributed)",
         # A bare letter brief is the same paper under a shorter caption.
         "Letter brief of petitioner Acme Corp. filed.",
+        # The other side's answer to a supplemental brief, under its own captions,
+        # the filer written before or after the verb.
+        "Supplemental response filed by petitioner Goldman Sachs Bank USA, d/b/a Marcus "
+        + "by Goldman Sachs.  (Distributed)",
+        "Supplemental response filed by respondents LUKOIL Pan Americas LLC, et al.  "
+        + "(Distributed)",
+        "Supplemental response of respondent Acme Corp. filed.",
+        "Supplemental reply of appellant Louisiana filed. (as to 24-109) (Distributed)",
+        "Response to supplemental brief filed by respondents Bryan Collier, et al.",
+        "Response to petitioner's supplemental brief filed by respondent Acme Corp.",
+        "Supplemental brief filed by petitioner Acme Corp.",
+        # On an application docket the arm reads the same captions, as it already
+        # read "Supplemental brief of respondents in opposition to application …".
+        "Supplemental response of respondent to application for stay filed.",
     ],
 )
 def test_a_partys_supplemental_brief_is_its_own_kind(entry_text: str) -> None:
@@ -102,6 +116,17 @@ def test_a_partys_supplemental_brief_is_its_own_kind(entry_text: str) -> None:
         # Other supplemental papers that are not a brief.
         "Supplemental appendix to the petition for rehearing filed.",
         "Joint appendix and 1 supplemental volume filed.",
+        # A response about a motion, a response with no party word, an amicus's reply,
+        # or a response with no verb the Clerk took it under.
+        "Response to petitioner's motion for leave to file a supplemental reply brief "
+        + "under seal with redacted copies for the public record filed by respondent "
+        + "United States. (Distributed)",
+        "Supplemental response of the Confederated Tribes of the Chehalis Reservation, "
+        + "et al. filed in support of the Ute Indian Tribe motion for divided argument.",
+        "Supplemental reply brief of United States as amicus curiae supporting neither "
+        + "party filed.  (Distributed)",
+        "Response to supplemental brief filed.",
+        "Supplemental response of petitioner Acme Corp.",
     ],
 )
 def test_what_is_not_a_partys_supplemental_brief(entry_text: str) -> None:

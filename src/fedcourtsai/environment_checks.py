@@ -40,6 +40,12 @@ environment (:func:`corpus_write_problems`), the one the production read-write
 role's trust is to name: its `main`-only policy is what keeps that role from
 any other ref. The trust statements themselves live in IAM, which nothing
 here reads.
+
+Last, it checks the Claude-only environments `claude-prod` and
+`claude-staging` (:func:`claude_only_problems`), which hold the federation
+rule's identifiers, and no secret, for the jobs that call Claude with no
+cloud credential: their branch policies are what keep that spend on `main`,
+and on `staging` and its promotion candidates.
 """
 
 from __future__ import annotations
@@ -267,14 +273,16 @@ def environment_problems(
     return problems
 
 
-#: The environment `post-public-update`'s `post` and `post-ai-cases` jobs bind.
+#: The environment `post-public-update`'s three drafting jobs bind.
 WEBSITE_ENVIRONMENT = "website"
 
 #: Its one secret, the Buttondown API key the drafts are created with.
 WEBSITE_SECRETS = frozenset({"BUTTONDOWN_API_KEY"})
 
-#: Its variables, the Buttondown ids of the tags the two drafts are addressed to.
-WEBSITE_VARIABLES = frozenset({"WEEKLY_SCOTUS_TAG_ID", "AI_CASES_TAG_ID"})
+#: Its variables, the Buttondown ids of the tags the drafts are addressed to.
+WEBSITE_VARIABLES = frozenset(
+    {"WEEKLY_SCOTUS_TAG_ID", "SCOTUS_PREDICTIONS_TAG_ID", "AI_CASES_TAG_ID"}
+)
 
 
 def website_problems(
@@ -405,6 +413,125 @@ def corpus_write_problems(
     return problems
 
 
+#: The Claude-only environments the labeler, its smoke and the case-summary
+#: `generate` job bind, by the branch each admits: `claude-prod` serves `main`,
+#: `claude-staging` serves `staging` and the promotion train's `promote/*`
+#: candidates, whose labeler smoke resolves to it.
+CLAUDE_PROD_ENVIRONMENT = "claude-prod"
+CLAUDE_STAGING_ENVIRONMENT = "claude-staging"
+
+#: Per environment: the branch names it must admit, and those it may.
+CLAUDE_ONLY_BRANCHES: dict[str, tuple[frozenset[str], frozenset[str]]] = {
+    CLAUDE_PROD_ENVIRONMENT: (frozenset({MAIN_BRANCH}), frozenset({MAIN_BRANCH})),
+    CLAUDE_STAGING_ENVIRONMENT: (frozenset({"staging"}), frozenset({"staging", "promote/*"})),
+}
+
+#: Their secrets: none. The jobs sign in by federation alone, so a key held
+#: there would be a credential no job reads.
+CLAUDE_ONLY_SECRETS: frozenset[str] = frozenset()
+
+#: The Anthropic key's name, which no repository or organization secret may
+#: hold either: a secret there reaches a workflow on any branch.
+CLAUDE_SHADOWED_SECRETS = frozenset({"ANTHROPIC_API_KEY"})
+
+#: Their variables, the federation rule's identifiers.
+CLAUDE_ONLY_VARIABLES = frozenset(
+    {
+        "ANTHROPIC_FEDERATION_RULE_ID",
+        "ANTHROPIC_ORGANIZATION_ID",
+        "ANTHROPIC_SERVICE_ACCOUNT_ID",
+        "ANTHROPIC_WORKSPACE_ID",
+    }
+)
+
+#: The two the jobs cannot sign in without: the rule and its organization.
+CLAUDE_ONLY_REQUIRED_VARIABLES = frozenset(
+    {"ANTHROPIC_FEDERATION_RULE_ID", "ANTHROPIC_ORGANIZATION_ID"}
+)
+
+
+def _named_branches_problems(
+    environment: Mapping[str, Any],
+    branch_policies: Mapping[str, Any] | None,
+    *,
+    required: frozenset[str],
+    allowed: frozenset[str],
+) -> list[str]:
+    """What keeps the environment from a custom policy of ``required`` and at most ``allowed``.
+
+    Every policy must be a branch policy: a tag policy is listed with its type,
+    so one named `main` cannot pass for the branch.
+    """
+    problems: list[str] = []
+    policy = environment.get("deployment_branch_policy")
+    if not (
+        isinstance(policy, Mapping)
+        and policy.get("custom_branch_policies") is True
+        and policy.get("protected_branches") is False
+    ):
+        problems.append("deployment branches are not restricted to a custom branch policy")
+    policies = _items(branch_policies, "branch_policies")
+    if policies is None:
+        problems.append("the deployment branch policies were unread or truncated")
+        return problems
+    branches = {str(p.get("name")) for p in policies if p.get("type") == "branch"}
+    others = sorted(
+        f"{p.get('type')}:{p.get('name')}"
+        for p in policies
+        if p.get("type") != "branch" or str(p.get("name")) not in allowed
+    )
+    if others:
+        problems.append(
+            f"the branch policy may admit only {sorted(allowed)} (branch); "
+            + f"it also admits: {', '.join(others)}"
+        )
+    missing = sorted(required - branches)
+    if missing:
+        problems.append(f"the branch policy does not admit {', '.join(missing)} (branch)")
+    return problems
+
+
+def claude_only_problems(
+    name: str,
+    environment: Mapping[str, Any] | None,
+    branch_policies: Mapping[str, Any] | None,
+    secrets: Mapping[str, Any] | None,
+    variables: Mapping[str, Any] | None,
+) -> list[str]:
+    """Everything the promotion gate requires of a Claude-only environment.
+
+    ``name`` is :data:`CLAUDE_PROD_ENVIRONMENT` or
+    :data:`CLAUDE_STAGING_ENVIRONMENT`. Its deployment-branch policy is what
+    keeps the federated sign-in on the refs the jobs run
+    from: GitHub auto-creates a referenced environment with no policy, and a
+    write holder's branch whose workflow then binds it would spend Claude. So:
+    it exists, its deployment branches are a custom policy admitting its own
+    branches (:data:`CLAUDE_ONLY_BRANCHES`) and nothing else, and it holds no
+    secret outside :data:`CLAUDE_ONLY_SECRETS` (none) and no variable outside
+    :data:`CLAUDE_ONLY_VARIABLES`, and it holds
+    :data:`CLAUDE_ONLY_REQUIRED_VARIABLES`, without which the jobs have no
+    sign-in. Required reviewers are
+    not checked: the jobs run unattended, and a reviewer would hold every
+    run, the promotion's labeler smoke among them. An unread or truncated
+    listing is a problem, never a pass.
+    """
+    if name not in CLAUDE_ONLY_BRANCHES:
+        return [f"`{name}` is not a Claude-only environment"]
+    if environment is None:
+        return [f"the `{name}` environment does not exist or was unread"]
+    required, allowed = CLAUDE_ONLY_BRANCHES[name]
+    problems = _named_branches_problems(
+        environment, branch_policies, required=required, allowed=allowed
+    )
+    problems.extend(_bounded_names_problems(secrets, "secrets", CLAUDE_ONLY_SECRETS, frozenset()))
+    problems.extend(
+        _bounded_names_problems(
+            variables, "variables", CLAUDE_ONLY_VARIABLES, CLAUDE_ONLY_REQUIRED_VARIABLES
+        )
+    )
+    return problems
+
+
 def shadow_secret_problems(
     repository_secrets: Mapping[str, Any] | None,
     organization_secrets: Mapping[str, Any] | None,
@@ -430,6 +557,6 @@ def shadow_secret_problems(
         if shadowed:
             problems.append(
                 f"the {scope} secrets hold {', '.join(shadowed)}, which any branch's "
-                + "workflow can read; keep it in the environment alone"
+                + "workflow can read; delete it there"
             )
     return problems

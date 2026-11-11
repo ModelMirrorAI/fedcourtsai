@@ -25,7 +25,7 @@ from .test_public_update import _base, _event, _forecast, _week_of
 
 runner = CliRunner()
 
-SUBJECT = "FedCourtsAI weekly update: October 5 \N{EN DASH} October 11, 2026"
+SUBJECT = "FedCourtsAI Supreme Court forecasts: October 5 \N{EN DASH} October 11, 2026"
 TAG_ID = "sub_tag_0123456789abcdefghijklmn"
 
 
@@ -207,7 +207,7 @@ def test_cli_dry_run_prints_the_untitled_body_and_contacts_nothing(
         app, ["post-public-update", "--tag", "weekly-scotus", "--week", week, "--dry-run"], env=env
     )
     assert result.exit_code == 0, result.output
-    assert result.output.startswith("Subject: FedCourtsAI weekly update: ")
+    assert result.output.startswith("Subject: FedCourtsAI Supreme Court forecasts: ")
     assert "Tag: weekly-scotus" in result.output
     assert "\n# FedCourtsAI" not in result.output
     assert "Alpha v. Beta" in result.output

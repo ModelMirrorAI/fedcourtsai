@@ -45,7 +45,7 @@ token or role, so privilege and outside reachability stay disjoint — see
 | `run-evaluate`   | daily schedule (15:39 UTC), manual dispatch whose one input picks the derivation: the backlog, the `reasoning-pilot` round of the `predicted_reasoning_quality` grade (a re-grade of a fixed sample under the registered prompt), or its `reasoning-pilot-merits` round over the replay merits calibration cells (the newest merits back-test's kept forecasts), each always held for review and committing nothing | Claude Code + Codex + Gemini |
 | `run-backtest`   | biweekly schedule (even ISO weeks, Sat 06:23 UTC — pinned cert parameters over the paid population, spends only on the manual `review` release), manual dispatch (replay/engine/limit/terms params; `replay: merits` replays the predictors over decided argued cases at the merits grant and briefed moments instead, dispatch only; `replay: salience-gate` runs the token-free gate replay instead of the predictors) | Claude Code + Codex + Gemini (replay) |
 | `run-ops`        | daily schedule (ops report, weekly performance digest on the run summary, public status snapshot, prediction-reading digest), manual | script (no agent)    |
-| `post-public-update` | weekly schedule (Mon 12:57 UTC), manual dispatch (`week`; re-dispatching a missed week is safe, since the post is idempotent per week) | script (no agent); creates up to two Buttondown drafts (the public update and the AI-cases update), never sends |
+| `post-public-update` | weekly schedule (Mon 12:57 UTC), manual dispatch (`week`; re-dispatching a missed week is safe, since the post is idempotent per week) | script (no agent); creates up to three Buttondown drafts (the Court update, the forecasts update and the AI-cases update), never sends |
 | `run-analytics`  | manual dispatch + weekly schedule (metrics refresh, Mon 05:41 UTC) + daily schedule (big-case board, 04:36 UTC) + weekly schedule (update history, Mon 12:59 UTC) + weekly schedules (topic labeling: petitions Tue 09:08 UTC, applications Wed 09:04 UTC, merits side coding Thu 09:14 UTC, behind the `review` hold) + weekly schedule (AI-case candidates, Fri 21:11 UTC) | script; the `qp-topic-label`, `qp-topic-label-applications`, `qp-topic-replicate`, `qp-topic-replicate-applications` and `alignment-side-code` modes each run one Claude Code labeler |
 | `summarize`      | daily schedule (03:43 UTC), manual dispatch (`limit`); every run spends only on the `review` release, or on auto-release within the trailing spend budget (*Auto-release*) | script; one Messages API call per case (two when a rejected response is retried), no tools and no agent |
 | `integration-test` | manual dispatch + daily canary  | script; engine-smoke runs one real agent cell, engine-actions-smoke one boot probe per engine (the canary), each repro-family scenario one real cell against its pinned record, and qp-labeler-smoke one labeling agent over a synthetic extract |
@@ -491,7 +491,7 @@ queues behind the production run of the same mode. The modes:
 - **`decision-below`** (dispatch) runs `fedcourts enrich-decision-below
   --max-cases 25`, the decision-below fill's dry run: for the next 25 cases of
   its rotation, whether CourtListener holds the lower court's docket and the
-  opinion on the judgment date, what its entries say about rehearing en banc,
+  opinion on the judgment date or a later one, what its entries say about rehearing en banc,
   and which `decision-below` and `lower-court-docket` rows an applied window
   would store. It is the bounded reading a maintainer takes before a writer
   step applies the fill, and its match count is the rate on the petitions the
@@ -589,11 +589,11 @@ queues behind the production run of the same mode. The modes:
   unverified until its first production run; its summary says which.) The job arms it anyway, so where its own merge gives
   up the PR stays open and lands on the maintainer's approval.
 - **`public-updates`** (weekly schedule Mon 12:59 UTC, or dispatch) adds each
-  missing week's public update to the site's running history,
+  missing week's forecasts update to the site's running history,
   `metrics/updates/<YYYY-Www>.md`, with `fedcourts archive-public-updates`, and
   lands it as a PR to `main` on the fixed, force-pushed `metrics/public-updates`
   branch. Each file is the full `public-update` render, with its title as a
-  heading; the email draft carries the same render trimmed to the ten biggest
+  heading; the forecasts email draft carries the same render trimmed to the ten biggest
   cases per section, linking this page for the rest. `post-public-update`
   drafts at 12:57, so the page and the draft read the same `main` unless a
   commit lands between the two runs, and the draft's link resolves once this
@@ -807,7 +807,7 @@ committed prediction whose newest corpus record differs, by content digest,
 from the one its newest summary was written from — so a run that was declined
 or never fired is simply re-derived by the next. Every run holds on `review`
 before it spends, unless a `main` run's plan is within the auto-release caps
-and budget (*Auto-release*, below). The corpus role and the Anthropic API key never share
+and budget (*Auto-release*, below). The corpus role and the Claude sign-in never share
 a job; on `main` the result lands as one PR from the fixed branch
 `summaries/refresh`, which the publish job merges once its required checks pass,
 the `paths` jail among them; a PR left open is updated in place by later runs
@@ -841,7 +841,7 @@ CLIs or engine actions, the collect contract, or the corpus-consuming
 workflows and before
 releases — from main, or via the `staging` deployment environment (collect
 binds none; qp-topic binds one it never reads; the labeler smoke binds one
-and reads exactly its engine key) from the `staging` branch or a promotion
+and reads exactly its federation rule) from the `staging` branch or a promotion
 train candidate (`promote/<date>`), the only branches that environment accepts
 (those runs are the promotion gate's freshness evidence; see *Promotion:
 staging → main* below). The deployment environment resolves from
@@ -1240,8 +1240,9 @@ it also runs as a standing sweep on the walker's daily window, sliced at its
 per-window cap.
 
 `ocr-recovery` reads the scanned filings off their page images. A filing
-submitted on paper reaches the corpus with no text layer, so nothing was
-extracted for it and every cell minted over that case reads it empty — for as
+submitted on paper reaches the corpus with no text layer, or with one holding
+only a letterhead or page stamps, so nothing or next to nothing was
+extracted for it and every cell minted over that case reads it that way — for as
 long as the docket serves the same URL, since the poller and the Term walker
 re-fetch a kind only when its link changes. Its population is every stored kind
 a cell reads that was fetched as a PDF, not the petition alone: a scanned brief
@@ -1572,10 +1573,10 @@ withheld from the `query` rows, and no gate, mint or outcome reads them.
 joiners and word count — into the corpus `opinions` table, with who sat on each
 signed decision in `opinion_benches` and each writing's text in the content
 store, pointed at from `opinion_texts` (`fedcourts
-backfill-opinion-record`), for OT2020–OT2025, a range pinned in the workflow rather
-than taken as an input (the command reads earlier Terms' volume-linked rows
-too, from slices of their volumes, but the pass's range does not reach
-them). It fetches each document the Court's opinions listing links that the
+backfill-opinion-record`), for OT2018–OT2025, a range pinned in the workflow rather
+than taken as an input (a row linked into a whole volume, every one before
+OT2020 and some of OT2020's, is read from a slice of its volume; OT2017's
+volumes are not served). It fetches each document the Court's opinions listing links that the
 record does not yet hold whole — unrecorded, a signed decision recorded
 without its bench row, or a document recorded without its text row — from supremecourt.gov at about one request a second and
 inserts fill-only, and
@@ -1818,6 +1819,10 @@ daily ×4 → run-seed → walk Terms newest-first, ingest every decided petitio
                                  │    window's step summary
                                  ├─ route the predict queue (as above)
                                  ├─ derive the evaluate backlog (as above)
+                                 ├─ refresh data/schedule/term-calendar.json
+                                 │    (once a UTC day after a good read; display
+                                 │    only; a refusal keeps the last good file,
+                                 │    warns, and is retried next window)
                                  └─ rebuild data/schedule/schedule.json
                                       (display only; a failure warns)
    daily ×2 → run-predict → plan (derive the predict backlog from committed state,
@@ -3756,7 +3761,10 @@ pattern: a `guard`
 job raises one long-lived **pipeline-health** issue if the checkpointed walk is
 ever cancelled or fails (e.g. a chunk overran the job's hard timeout), and clears
 that issue, and only that one, when a later walk finishes clean — so a silent, PR-less writer failure still
-reaches a durable home.
+reaches a durable home. The same job keeps a second one, *OCR sweep failing*,
+for a window whose OCR sweep projection did not succeed: that job is
+continue-on-error, so its failure leaves the run green, and a sweep that reads
+nothing lets forward cells mint on empty scans once their hold lapses.
 Separately, every cell may also write a `tooling.json` self-report on its
 environment/tooling, committed with the cell's output; only its
 `used_corpus_query` line is read per run (it is the served side of the

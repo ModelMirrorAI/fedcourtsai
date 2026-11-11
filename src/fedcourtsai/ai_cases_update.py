@@ -18,6 +18,11 @@ item. Each case is introduced by its category, its court and the watchlist's
 own one-line account of why it is listed, which is the project's sentence, not
 the docket's.
 
+A docket event upstream lists twice, as an unnumbered placeholder and as the
+court's numbered entry, is one item: an entry another entry of the span
+supersedes is left out, and so is an entry superseding one recorded before the
+span, which an earlier update already carried.
+
 A span with nothing recorded renders as a short quiet note, so subscribers
 hear every week that the feed is alive.
 
@@ -226,6 +231,14 @@ def build_ai_cases_update(
             for later in record.available:
                 readable[later.entry_id] = merge_available(readable.get(later.entry_id), later)
         day += timedelta(days=1)
+    replaced = {e.supersedes for e in found.values() if e.supersedes is not None}
+    if replaced:
+        earlier = _recorded_before(data_root, start, replaced)
+        found = {
+            key: entry
+            for key, entry in found.items()
+            if key not in replaced and entry.supersedes not in earlier
+        }
     by_case: dict[str, list[AiCaseAvailableEntry]] = {}
     for later in sorted(readable.values(), key=lambda e: (e.date_filed, e.case, e.entry_id)):
         by_case.setdefault(later.case, []).append(later)
@@ -248,6 +261,21 @@ def build_ai_cases_update(
         followed=len(listed),
         intros={case.name: CaseIntro(court=case.court, why=case.why) for case in listed},
     )
+
+
+def _recorded_before(data_root: Path, start: date, entry_ids: set[int]) -> set[int]:
+    """Which of ``entry_ids`` an activity record dated before ``start`` lists as an entry."""
+    seen: set[int] = set()
+    root = data_root / ACTIVITY_DIR
+    for path in sorted(root.glob("*.json")) if root.is_dir() else []:
+        try:
+            day = date.fromisoformat(path.stem)
+        except ValueError:
+            continue
+        if day < start:
+            record = read_model(path, AiCaseActivity)
+            seen |= entry_ids & {entry.entry_id for entry in record.entries}
+    return seen
 
 
 def ai_cases_subject(update: AiCasesUpdate) -> str:
@@ -289,12 +317,29 @@ def _item(entry: AiCaseActivityEntry) -> str:
     return f"- {when}: {item_label(entry)} ({_escape(where)}). [View on CourtListener]({entry.url})"
 
 
+#: A Claude model id: family, then a major and an optional minor version.
+_CLAUDE_MODEL: Final = re.compile(r"claude-(opus|sonnet|haiku|fable)-(\d+)(?:-(\d{1,2}))?")
+
+
+def model_name(model: str) -> str:
+    """The model in the reader's words: ``claude-sonnet-5-5`` reads "Claude Sonnet 5.5".
+
+    An id of another shape is shown as recorded, since a guessed name could
+    credit the wrong model.
+    """
+    match = _CLAUDE_MODEL.fullmatch(model.strip())
+    if match is None:
+        return model
+    family, major, minor = match.groups()
+    return f"Claude {family.capitalize()} {major}" + (f".{minor}" if minor else "")
+
+
 def _summary(summary: RulingSummary) -> list[str]:
     """A ruling's summary as a quote under its list item, labeled with its model."""
     paragraphs = [_escape(summary.headline)]
     paragraphs += [_escape(p) for p in re.split(r"\n\s*\n", summary.decided) if p.strip()]
     paragraphs.append(
-        f"*Summary written by {_escape(summary.model)} from the ruling's own text. "
+        f"*Summary written by {_escape(model_name(summary.model))} from the ruling's own text. "
         + "It may contain errors; the ruling is the authority.*"
     )
     lines: list[str] = []

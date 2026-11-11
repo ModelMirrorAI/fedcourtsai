@@ -18159,3 +18159,472 @@ freeze commit is recorded here.
   before the close's day may land late, and an event void de-counts what it
   names. The split, partition and grading lines also move as cells,
   outcomes and gradings land.
+
+- **The supplemental-brief row takes the other side's answer under its own
+  captions; recorded 2026-11-09.** A **provisioning-cutoff** change with a
+  harness boundary, recorded ahead of the promotion that carries it.
+
+  **Why.** When one side files a Rule 15.8 supplemental brief, the other side's
+  answer is the same kind of paper, but the Clerk sometimes enters it under a
+  caption that is not "supplemental … brief": "Supplemental response filed by
+  petitioner Goldman Sachs Bank USA … ." (25-1408), "Supplemental response
+  filed by respondents LUKOIL Pan Americas LLC, et al." (22-1209), "Response to
+  supplemental brief filed by respondents Bryan Collier, et al." (19A1034). The
+  selector required a "supplemental … brief" or "letter brief" opening with the
+  filer clause right after it, so none of these was ever stored, and a cell on
+  25-1408 read the respondents' supplemental brief without the petitioner's
+  answer to it. A predict cell (codex-baseline, `evt-order-judgment`) flagged
+  the gap in run `20261109T032540Z`.
+
+  **What moved.** `pipeline.documents._SUPPLEMENTAL_BRIEF_RE` also opens on
+  "supplemental response", "supplemental reply" and "response to … supplemental
+  (letter) brief", and its filer clause also reads "by", with a "filed" allowed
+  in front of it ("filed by petitioner …"). The party-word requirement, the
+  exclusions (amicus, rehearing, not accepted, motion), the filing verb and the
+  pending-petition bound are unchanged. The entry joins the combined
+  `supplemental-brief` row under its own header. No other kind's selection
+  moves.
+
+  No prompt byte and no registry field other than the boundary row moves, so
+  no digest moves. `uv run fedcourts process-digest --all` prints `proc-v20`
+  and the six digests `69076c7e…` (claude-baseline), `56f5da33…`
+  (codex-baseline), `154ba5e6…` (gemini-baseline), `b9a5d840…`
+  (claude-judge), `ce1c037e…` (codex-judge) and `b29afb1d…` (gemini-judge),
+  with and without the change. The predict prompt already describes
+  `supplemental-brief.txt` as every party's supplemental brief while the
+  petition is pending, which the answer is.
+
+  **A harness boundary under the 2026-10-11 pooled rule.** The change adds to
+  what a predict cell reads under unchanged digests. It is composition, not a
+  cut. The pooled default and the paired figure keep both sides and list each
+  engine's `n` before and after. It cuts only a figure that reads its own
+  effect.
+  - **The registry row** is `supplemental-response-captions`. It applies to
+    every predictor, and its reach is `all`, because no narrower registered
+    reach names these dockets. It is **gradual**. A stored supplemental-brief
+    row changes only when its docket's documents are fetched again: a live
+    poll's provisioning, or the freshness pass over predict-relevant cases,
+    which fetches any case whose stored combined set differs from the
+    selected one. A decided docket is not re-fetched. It is registered
+    **pending** in this change's own PR (`fedcourts register-boundary`),
+    under the 2026-10-14 merge-stamping declaration, and its `merge` and `at`
+    stay null until the promotion merge that carries it to `main` stamps them
+    (`promotion-record`).
+  - **The side test** is the registered one, against the carrying merge.
+    Because the boundary is gradual, an after-side cell provisioned before its
+    docket was re-fetched still lacks the answer, so the after-side `n` is an
+    upper bound on exposure.
+
+  **The population.** Measured read-only over blob
+  `4a27e01c37736768feedadd51a3c82d72a2cbb4c5f36cb4c046248f4abe3485b` (newest
+  pull 2026-11-09, newest stored snapshot row 2026-07-13), comparing the
+  previous and the changed selection over each SCOTUS docket filed since
+  2016-01-01 at its latest stored snapshot (67,550 dockets, 51,033 with a
+  snapshot). Three dockets gain one `supplemental-brief` link each: 25-1408
+  (granted 2026-11-06, merits pending, with committed cells; the answer is
+  dated 2025-09-15, inside the pending-petition bound), 22-1209 (decided, with
+  committed cells) and 19A1034 (decided). No docket loses a link and no other kind gains one.
+
+  **What does not move.** No base rate re-prices, no membership rule moves
+  and no scored figure moves. No skill movement is predicted, and a movement
+  in **either** direction across this boundary may not be read as a model
+  effect.
+
+  **The amendment debt.** It is unchanged. This entry adds no new token.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_supplemental_documents.py` is green;
+  - after the first live cycles following the promotion, where the corpus is
+    pulled, `uv run fedcourts provision-snapshot --court scotus --docket
+    73520108 --event evt-order-judgment` stages a `supplemental-brief.txt`
+    whose block headers include the petitioner's "Supplemental response"
+    entry;
+  - on `main` once the promotion has merged, `uv run python -c "from
+    fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
+    print('supplemental-response-captions' in {b.name for b in H})"` prints
+    `True`.
+
+- **A direct appeal's answer papers reach the opposition and reply rows;
+  recorded 2026-11-10.** A **provisioning-cutoff** change with a harness
+  boundary, recorded ahead of the promotion that carries it.
+
+  **Why.** On a mandatory-jurisdiction appeal there is no brief in opposition
+  and no cert reply. The appellee answers the jurisdictional statement with a
+  motion to dismiss, to affirm, or to dismiss or affirm (Rule 18.6), and the
+  appellant answers the motion (Rule 18.8). No selector arm read either
+  paper: the opposition arm needs a respondent's brief, response or
+  memorandum and refuses anything naming a motion, and the reply arm reads a
+  petitioner. A cert-stage cell on a direct appeal was therefore given the
+  jurisdictional statement and its appendix and nothing from the other side.
+  All three predictors flagged the gap on 26-117 and 26-118 in predict run
+  `20261109T171058Z`.
+
+  **What moved.** On a docket that carries a direct appeal's own papers
+  (`cert_signals.is_direct_appeal_docket`, the mark the direct-appeal exit
+  table is gated on), `pipeline.documents` reads two more entries, both
+  before the Court notes jurisdiction or postpones it to the merits and
+  before the first disposition entry,
+  each from its `Main Document` link alone:
+  - an **appellee's motion to dismiss or affirm**
+    (`_is_appeal_answer_entry`) joins the combined `brief-in-opposition` row
+    under its own header. The entry opens on the motion, an appellee is its
+    filer, and a ruling on the motion, a motion the Clerk did not accept and
+    a motion to dismiss a side question are refused;
+  - the **appellant's answer to it** (`_is_appeal_reply_entry`) is stored as
+    `cert-reply`: the first entry after an appellee's motion that opens on
+    "opposition", "response", "reply", or a brief or memorandum "in
+    opposition" or "opposing", is filed by an appellant, and names either no
+    motion, the motion to dismiss or affirm, or a motion without saying which
+    ("Opposition to motion of appellants … filed.").
+
+  The appellant's answer is read ahead of the opposition arm, so an
+  appellant's "Brief in opposition to motion to affirm" is the reply and not
+  part of the appellees' row. On a marked docket the first disposition entry
+  is also read with the direct appeal's exit table, so a summary affirmance
+  or a dismissal for want of jurisdiction closes the pending-appeal arms (the
+  reply, the supplemental briefs and the party letters) as a denial closes a
+  petition's.
+
+  Neither arm opens on a docket without the mark, and over the population
+  below no marked petition gains a link, so no petition's stored selection
+  moves. Both sit behind the arms that already read an opposition and a
+  petitioner's reply, so no entry those arms take changes kind. The
+  `kind_description` of both kinds, which a cell reads in `documents.json`,
+  says what the file holds on a direct appeal.
+
+  No prompt byte and no registry field other than the boundary row moves, so
+  no digest moves. `uv run fedcourts process-digest --all` prints `proc-v20`
+  and the six digests `69076c7e…` (claude-baseline), `56f5da33…`
+  (codex-baseline), `154ba5e6…` (gemini-baseline), `b9a5d840…`
+  (claude-judge), `ce1c037e…` (codex-judge) and `b29afb1d…` (gemini-judge),
+  with and without the change. The predict prompt names
+  `brief-in-opposition.txt` and `cert-reply.txt` by the petition's
+  vocabulary; on a direct appeal the files' own `kind_description` and the
+  entry-text header carry what they are.
+
+  **A harness boundary under the 2026-10-11 pooled rule.** The change adds to
+  what a predict cell reads under unchanged digests. It is composition, not a
+  cut. The pooled default and the paired figure keep both sides and list each
+  engine's `n` before and after. It cuts only a figure that reads its own
+  effect.
+  - **The registry row** is `direct-appeal-answer-papers`. It applies to
+    every predictor, and its reach is `all`, because no narrower registered
+    reach names direct appeals. It is **gradual**. A stored row changes only
+    when its docket's documents are fetched again: a live poll's
+    provisioning, or the freshness pass over predict-relevant cases, which
+    fetches any case whose stored set differs from the selected one. A
+    decided docket is not re-fetched unless a back-fill pass reaches it. It
+    is registered **pending** in this change's own PR (`fedcourts
+    register-boundary`), under the 2026-10-14 merge-stamping declaration,
+    and its `merge` and `at` stay null until the promotion merge that
+    carries it to `main` stamps them (`promotion-record`).
+  - **The side test** is the registered one, against the carrying merge.
+    Because the boundary is gradual, an after-side cell provisioned before
+    its docket was re-fetched still lacks the papers, so the after-side `n`
+    is an upper bound on exposure.
+
+  **The population.** Measured read-only over blob
+  `a5137ed926a927a77666c9617f1c650b50ca4bec095a1a5141b7da3e43fed7ee` (newest
+  pull 2026-11-10, newest stored snapshot row 2026-07-13), comparing the
+  previous and the changed selection at the latest stored snapshot of each
+  SCOTUS docket numbered in OT2016 through OT2026, applications aside (53,118
+  dockets, 43,036 with a snapshot). Thirty-nine carry the direct-appeal mark.
+  Seventeen gain links: seventeen gain a `brief-in-opposition` link (nineteen
+  links, two dockets with two appellees' motions each) and sixteen of them a
+  `cert-reply` link. Three are undecided: 26-117 and 26-118 (both distributed
+  for the conference of 2026-11-13, with committed cells) and 26-205
+  (distributed for the same conference, no committed cell). Fourteen are
+  decided, thirteen with committed cells. No docket loses a link and no other
+  kind gains one. The other twenty-two marked dockets gain nothing:
+  on seventeen the motion's entry posts no `Main Document` link (Terms
+  2017 through 2020, before the docket linked these filings), and five
+  carry no motion to dismiss or affirm, two of them petitions whose entries
+  only mention a jurisdictional statement.
+
+  **Residuals, accepted.** The mark is read off entry text, so a petition
+  whose docket mentions a jurisdictional statement is open to both arms; an
+  appellee-worded motion to dismiss on such a docket would be read, and none
+  is stored. A motion the Clerk enters with no appellee named as its filer is
+  not read. A motion for leave to file a supplemental brief, with the brief
+  lodged beside it, stays out of the `supplemental-brief` row as before:
+  thirteen such entries on nine dockets over the same population, one of them
+  undecided (26-292).
+
+  **What does not move.** No base rate re-prices, no membership rule moves
+  and no scored figure moves. No skill movement is predicted, and a movement
+  in **either** direction across this boundary may not be read as a model
+  effect.
+
+  **The amendment debt.** It is unchanged. This entry adds no new token.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_direct_appeal_documents.py` is green;
+  - after the first live cycles following the promotion, where the corpus is
+    pulled, `uv run fedcourts provision-snapshot --court scotus --docket
+    9026000117 --event evt-petition-disposition` stages a
+    `brief-in-opposition.txt` holding the appellees' motion to dismiss or
+    affirm and a `cert-reply.txt` holding the appellants' opposition, and the
+    same command with `--docket 9026000118` stages both for 26-118;
+  - on `main` once the promotion has merged, `uv run python -c "from
+    fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
+    print('direct-appeal-answer-papers' in {b.name for b in H})"` prints
+    `True`.
+- **The OCR recovery class takes a stored row whose text layer is thin;
+  recorded 2026-11-10.** A **provisioning-cutoff** change with a harness
+  boundary, recorded ahead of the promotion that carries it.
+
+  **Why.** A filing set as a scan can still carry a small text layer: a
+  letterhead typed above a scanned letter body, a stamp on each scanned page.
+  The extractor stores those few lines, the row is not empty, provisioning
+  does not stamp it `empty_text`, and the OCR recovery class, which took only
+  rows with no text at all, never saw it. On 26-396 (`scotus/9026000396`) the
+  petitioner's letter of 2026-10-09 is stored as a one-page `party-letter` of
+  193 characters, the letterhead and counsel's contact lines, with the letter
+  itself an image. claude-baseline and codex-baseline flagged it on both of the
+  docket's cells in predict run `20261109T212928Z`.
+
+  **What moved.** Three things, in `pipeline.documents`,
+  `pipeline.ocr_recovery` and `pipeline.ocr_sweep`.
+  - **The class.** A stored row of a fetched kind with pages and one link is in
+    the recovery class when its text is empty, as before, or **thin**: some
+    text, averaging under `THIN_PAGE_CHARS` (200) characters a page, on a row
+    that is not truncated, not already `ocr_derived`, not set-keyed and not
+    under a per-filing `=== … ===` header (`ocr_recovery.is_thin_text`). The standing sweep, the dispatched
+    `ocr-recovery` pass and the predict backlog's `held_unread_scan` hold all
+    read that one predicate, so all three now cover a thin row.
+  - **The page reading.** With the OCR seam supplied, the extractor reads a
+    page off its image where the page's own text is blank or under the same
+    200 characters, where before it did so only on a blank page. A thin page
+    keeps its text layer unless the image reads at least twice as long.
+  - **The write.** A thin row's text is replaced only by a longer reading that
+    takes the row out of the class (`ocr_recovery.gains_on`), and only where
+    OCR contributed to it; anything else is reported `no-gain` and not
+    written. The same test now also declines one reading of an empty row that
+    was written before: a re-served text layer that is itself thin and that
+    OCR adds nothing to. The worklist carries each item's
+    stored character count, a number and never the text, so the
+    credential-free parse can make that test before the writer repeats it.
+
+  No prompt byte and no registry field other than the boundary row moves, so
+  no digest moves. `uv run fedcourts process-digest --all` prints `proc-v20`
+  and the six digests `69076c7e…` (claude-baseline), `56f5da33…`
+  (codex-baseline), `154ba5e6…` (gemini-baseline), `b9a5d840…`
+  (claude-judge), `ce1c037e…` (codex-judge) and `b29afb1d…` (gemini-judge),
+  with and without the change. The predict prompt already says how to read a
+  row marked `ocr_derived`, which is how a recovered thin row arrives.
+
+  **A harness boundary under the 2026-10-11 pooled rule.** The change adds to
+  what a predict cell reads under unchanged digests. It is composition, not a
+  cut. The pooled default and the paired figure keep both sides and list each
+  engine's `n` before and after. It cuts only a figure that reads its own
+  effect.
+  - **The registry row** is `ocr-thin-text-rows`. It applies to every
+    predictor, and its reach is `all`, because no narrower registered reach
+    names these dockets. It is **gradual**. A thin row changes only when a
+    sweep window or a dispatched pass reads it and the reading gains: a row a
+    forward cell reads within a window or two, the rest at the backlog's
+    rotation. It is registered **pending** in this change's own PR
+    (`fedcourts register-boundary`), under the 2026-10-14 merge-stamping
+    declaration, and its `merge` and `at` stay null until the promotion merge
+    that carries it to `main` stamps them (`promotion-record`).
+  - **The side test** is the registered one, against the carrying merge.
+    Because the boundary is gradual, an after-side cell provisioned before its
+    row was read still has the thin text, so the after-side `n` is an upper
+    bound on exposure.
+
+  **The population.** Measured read-only over blob
+  `a5137ed926a927a77666c9617f1c650b50ca4bec095a1a5141b7da3e43fed7ee` (newest
+  pull 2026-11-10, newest stored snapshot row 2026-07-13), over the stored
+  documents of the 54,796 live-slice SCOTUS rows: 40,542 rows of a fetched
+  kind, 40,238 of them with pages and one link. Of those, 1,015 have no text
+  (the class as it was, 35,783 pages) and **232** are thin (10,390 pages): 158
+  appendices, 69 petitions, 3 briefs in opposition, 1 cert-stage reply and 1
+  party letter, the 26-396 row. The 232 is both the class's thin share and the
+  whole under-200 band: no row in the band is OCR-derived. By average
+  characters a page, among the 37,707 rows not cut at the cap: the 1,015 with
+  none, 232 under 200, 137 from 200 to 300, 267 from 300 to 400, and 36,056 at
+  400 or more. The
+  floor was set at 200 on a reading of the Court's own PDFs for 40 sampled rows
+  (seed fixed, eight per 100-character band up to 500, by page-level text
+  counts and no stored text): the sixteen under 200 were blank or image pages
+  with at most a few pages of real text; the eight from 200 to 300 were mixed,
+  four with blank pages and four with a little text on every page over page
+  images; and the rows from 300 up were mostly
+  ten-to-twelve-page petitions with a little text on every page and no blank
+  ones, the shape of a handwritten form petition whose printed form text OCR
+  adds nothing to. So 200 is the conservative end, where a row in the class is
+  a scan, and the 200-to-300 band (137 rows) holds scans the class leaves out.
+  A fetch and OCR of five class rows through the parse's own code (tesseract
+  5.3.4, counts only) read the 26-396 letter at 1,003 characters against 193
+  stored, a 53-page appendix at 74,743 against 361 and a 16-page opposition at
+  18,445 against 2,010, and returned `no-gain` on two short appendices. One case with an open event in predict scope holds a thin
+  row, 26-396; the class's forward share goes from 2 to 3, against a ceiling of
+  50. Seven one-page rows average 200 to 300 characters and stay outside the
+  class: a letterhead longer than the floor is still read as the letter.
+
+  **What does not move.** No stored row changes at the merge; rows change as
+  the sweep reaches them. One timing does move: a fresh thin row now holds its
+  case's forward cells as an unread scan, for at most `pull.SCAN_HOLD_DAYS`
+  (2) days from when it was stored, and a sparse filing that reads `no-gain`
+  holds them for that whole bound. One case is exposed today, 26-396, whose
+  row was stored 2026-11-09. No selector moves, so no cell gains or loses a file.
+  No base rate re-prices, no membership rule moves and no scored figure moves.
+  No skill movement is predicted, and a movement in **either** direction
+  across this boundary may not be read as a model effect. Cells already
+  committed over a thin row are left as they are.
+
+  **The amendment debt.** It is unchanged. This entry adds no new token.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_ocr_recovery.py tests/test_ocr_sweep.py` is
+    green;
+  - the first run-seed window after the promotion lists
+    `scotus/9026000396 party-letter` in its `ocr-sweep-projection` slice, and
+    the `ocr-sweep` writer's summary names it written or `no-gain`;
+  - after that window, where the corpus is pulled, `uv run fedcourts
+    ocr-recover-petitions --probe=0` prints the class with its "hold thin text
+    rather than none" line, and the stored `party-letter` row of
+    `scotus/9026000396` is `ocr_derived` with more than 193 characters, or the
+    writer's summary said `no-gain` for it;
+  - on `main` once the promotion has merged, `uv run python -c "from
+    fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
+    print('ocr-thin-text-rows' in {b.name for b in H})"` prints `True`.
+
+- **The decision-below rows read the later opinion, the separately docketed
+  dissent and the end of the entries held; recorded 2026-11-10.** A
+  **provisioning** change with a harness boundary, recorded ahead of the
+  promotion that carries it.
+
+  **Why.** Five predict-cell flags in runs `20261109T171058Z` and
+  `20261109T212928Z` said `lower-court-docket.txt` or `decision-below.txt`
+  disagreed with the petition's own appendix on four dockets. Each was read
+  against CourtListener on 2026-11-10:
+  - 26-294 (ca2). CourtListener holds both consolidated dockets and no
+    opinion cluster on either, so no opinion could be stored. The rehearing
+    order is entry 195 and names no dissent; the dissent is its own entry of
+    the same day (198), which the reading did not look at, so the record
+    said "dissent noted: no".
+  - 25-1342 (ca11). CourtListener's copy of the docket ends on the judgment
+    date, 2025-12-31; the SCOTUS docket states rehearing was denied on
+    2026-02-24. The read was complete over one entry, so the record said
+    "petition filed: no".
+  - 25-1355 (ca9). The docket carries a second cluster dated 2026-03-06, the
+    rehearing-denial date the SCOTUS docket states, after the 2025-09-08
+    judgment. Only a cluster on the judgment date was read, so the stored
+    opinion was the earlier one and the later cluster was not read.
+    CourtListener's entries end 2025-11-18.
+  - 26-341 (ca11). No field is misfilled: the stored link is CourtListener's
+    public page for the opinion, which is addressed by cluster id, and a
+    predictor passed that id to a tool that takes an opinion id.
+    CourtListener's entries end 2026-04-01, before the denial stated for
+    2026-04-30.
+
+  **What moved.** In `pipeline.decision_below`:
+  - A cluster on a checked docket dated after the judgment date and on or
+    before the SCOTUS docketing is read as well as one on the judgment date,
+    newest first under the unchanged `MAX_OPINIONS` cap with one read held
+    for the judgment-date cluster, and is stored in the
+    `decision-below` row ahead of the judgment-date opinion under a header
+    that states its filing date. The row is dated on the newest cluster it
+    holds. Without a served docketing date no later cluster is read.
+  - The docket record lists each such cluster with its opinion ids.
+  - A dissent is read off a separate entry filed on the day of the en banc
+    disposition on the same docket, where that day is after the judgment
+    date. A clerk's either-kind label ("Concurring or Dissenting Opinion")
+    names no dissent, and a dissent recited on an amended opinion may be the
+    panel's own; either leaves the answer unknown rather than absent.
+  - Where the SCOTUS docket states a rehearing denial and the entries read
+    show no disposition and none filed that late, the reading reports no
+    absence, and the record says CourtListener's entries stop before the
+    denial. The record names the date its entries run through, and words a
+    negative as "none in the entries read".
+  - A case whose opinion is stored is walked again once its 30-day stamp is
+    stale, behind the never-attempted rows of its tier, in place of being
+    re-stamped unread. A walk whose entries request faulted does not replace
+    a stored docket record. The window's case cap is unchanged, so the
+    request ceiling is too.
+
+  No prompt byte and no registry field other than the boundary row moves, so
+  no digest moves. `uv run fedcourts process-digest --all` prints `proc-v20`
+  and the six digests `69076c7e…` (claude-baseline), `56f5da33…`
+  (codex-baseline), `154ba5e6…` (gemini-baseline), `b9a5d840…`
+  (claude-judge), `ce1c037e…` (codex-judge) and `b29afb1d…` (gemini-judge),
+  with and without the change. The predict prompt describes
+  `decision-below.txt` as the court's opinion on its judgment date; a row
+  that also holds a later opinion says so in its own headers (the amendment
+  debt below).
+
+  **A harness boundary under the 2026-10-11 pooled rule.** The change alters
+  what a cert or merits predict cell reads under unchanged digests. It is
+  composition, not a cut. The pooled default and the paired figure keep both
+  sides and list each engine's `n` before and after. It cuts only a figure
+  that reads its own effect.
+  - **The registry row** is `decision-below-later-opinions`. It applies to
+    every predictor, and its reach is `all`, because no narrower registered
+    reach names petitions from the federal courts of appeals. It is
+    **gradual**: a stored row changes only when the fill walks its case, on
+    arrival or once its stamp is 30 days stale. It is registered **pending**
+    in this change's own PR (`fedcourts register-boundary`), under the
+    2026-10-14 merge-stamping declaration, and its `merge` and `at` stay null
+    until the promotion merge that carries it to `main` stamps them
+    (`promotion-record`).
+  - **The side test** is the registered one, against the carrying merge.
+    Because the boundary is gradual, an after-side cell provisioned before
+    its case was walked again still reads the earlier rows, so the after-side
+    `n` is an upper bound on exposure.
+
+  **The population.** Read from blob
+  `43b3080d4abf6c2bc321fea3dad9bd3b8c6282c14546506cd1550b7a69c779eb` (newest
+  pull 2026-11-10, newest stored snapshot row 2026-07-13) and the case store
+  on 2026-11-10: 228 cases carry a fill stamp, 219 hold a `lower-court-docket`
+  row and 190 a `decision-below` row. Of the 219 records, 137 quote a
+  rehearing denial from the SCOTUS docket; 62 of those show no en banc
+  disposition (34 read entries and found none, 28 held no entries), and 26
+  say "petition filed: no". 61 of the 219 show a denial without a dissent.
+  CourtListener was then read for the first 115 of the 219 in corpus order
+  before its rate limit ended the read; they are not a random sample. Among
+  them: 26 of the 114 with a judgment date carry a later cluster dated on or
+  before the SCOTUS docketing that was not stored, 22 of them dated on the
+  stated rehearing-denial date; of the 32 that quote a denial and show no
+  disposition, CourtListener's docket still ends before the denial on 14 and
+  now reaches it on 10 (8 gave no last-filing date); and 1 of the 34 of the
+  115 that show a denial without a dissent has a dissent on a separate entry
+  of the same day. Of the 115, the fourteen that hold no `decision-below` row
+  include none explained by a consolidated lead docket the join had not
+  asked.
+
+  **What does not move.** No base rate re-prices, no membership rule moves
+  and no scored figure moves. No skill movement is predicted, and a movement
+  in **either** direction across this boundary may not be read as a model
+  effect.
+
+  **The amendment debt.** One is added. The predict prompt describes
+  `decision-below.txt` as the court's opinion on its judgment date, which a
+  row that also holds a later opinion outgrows. Correcting the sentence moves
+  the three predictor digests, so it is owed to the next re-bless.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_decision_below.py` is green;
+  - where the corpus is pulled and a CourtListener token is set, `uv run
+    fedcourts decision-below --case scotus/73500257 --case scotus/9026000294
+    --case scotus/73500244` prints, for the first, a cluster with
+    `after_judgment` true dated 2026-03-06; for the second, a rehearing
+    reading with `dissent_noted` true; and for the third, `short_of_denial`
+    true with `petition_filed` null, while CourtListener's copy of that
+    docket still ends on 2025-12-31;
+  - on `main` once the promotion has merged, `uv run python -c "from
+    fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
+    print('decision-below-later-opinions' in {b.name for b in H})"` prints
+    `True`.

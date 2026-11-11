@@ -15,8 +15,9 @@ it fetches and parses third-party PDFs:
 
 - **worklist** (:func:`sweep_worklist`) — the read-only projection job walks the
   recovery class, puts it in sweep order and writes the window's slice: each
-  candidate's case id, kind, stored Court URL and page count. All four are
-  public facts about public filings: the Court serves each at that URL.
+  candidate's case id, kind, stored Court URL, page count and stored character
+  count. All five are public: the Court serves each filing at that URL, and
+  the count is the length of what its text layer extracts to.
 - **plan** (:func:`plan_worklist`) — the parse job, holding no credential, re-fetches
   each worklist item from supremecourt.gov and reads its pages through the same
   extractor and OCR seam the dispatched pass uses. The plan carries the text it
@@ -26,7 +27,8 @@ it fetches and parses third-party PDFs:
 - **apply** (:func:`apply_ocr_plan`) — the writer re-checks every plan row against
   the corpus it is about to write: the row must be an item of this window's
   worklist (read from the projection's own artifact, not the parse's), still in
-  the recovery class at the same URL, and the plan no larger than the cap. Then
+  the recovery class at the same URL, its text longer than what the row stores
+  now, and the plan no larger than the cap. Then
   it writes exactly what the dispatched pass would: the text, the
   ``ocr_derived`` marker, and a petition's re-derived questions-presented row.
 
@@ -86,6 +88,7 @@ from ..schemas import Stage
 from ..supremecourt import SupremeCourtClient
 from .documents import KIND_QUESTIONS_PRESENTED
 from .ocr_recovery import (
+    NO_GAIN,
     RECOVERABLE_KINDS,
     OcrPageFactory,
     ScannedDocument,
@@ -93,11 +96,13 @@ from .ocr_recovery import (
     estimated_seconds_for_pages,
     exclusion_reason,
     fetchable_document_url,
+    gains_on,
     ocr_page_for_pdf,
     read_scanned_document,
     require_ocr_binaries,
     scanned_documents,
     spread_sample,
+    thin_text_count,
 )
 
 #: The largest slice a worklist or plan may carry. Above any configured cap
@@ -121,7 +126,7 @@ WINDOWS_PER_DAY: Final = 4
 #: nothing else. A closed set, so a forged plan cannot put free text in one.
 _REASON_PATTERN: Final = (
     r"^(unfetchable-url|transport-error|not-served|oversized|"
-    r"budget-exhausted|empty-after-ocr|http-[0-9]{3})$"
+    r"budget-exhausted|empty-after-ocr|no-gain|http-[0-9]{3})$"
 )
 
 
@@ -225,7 +230,8 @@ class OcrWorkItem(BaseModel):
     """One candidate the parse should re-read.
 
     Public: a ledger case id, a document kind, the Court's own URL for the filing,
-    and the page count of the PDF served there. ``forward`` says the case has an
+    the page count of the PDF served there, and how many characters its text
+    layer gave the stored row. ``forward`` says the case has an
     open event in predict scope, which the committed event files and predictions
     under ``data/`` already show for every case a forward cell has run on. No
     text, snapshot or other row content.
@@ -238,6 +244,14 @@ class OcrWorkItem(BaseModel):
     url: _Url
     pages: StrictInt = Field(ge=1, le=100_000)
     forward: bool
+    chars: StrictInt = Field(
+        default=0,
+        ge=0,
+        le=MAX_PLAN_TEXT_CHARS,
+        description="How many characters of text the stored row holds: zero for an "
+        "empty row, a thin row's few lines otherwise. A count, never the text; the "
+        "parse reports a reading no longer than this as `no-gain`",
+    )
 
     @property
     def key(self) -> str:
@@ -316,6 +330,8 @@ class SweepSelection:
     class_by_kind: dict[str, int]
     documents_seen: int
     slice: tuple[SweepCandidate, ...]
+    #: Of the class, the rows holding thin text rather than none.
+    thin_size: int = 0
 
 
 def select_sweep(
@@ -344,9 +360,34 @@ def sweep_selection(conn: corpus.ReadConnection, *, cap: int, now: datetime) -> 
         forward_size=sum(1 for c in candidates if c.forward),
         class_by_kind={k: by_kind[k] for k in RECOVERABLE_KINDS if by_kind.get(k)},
         documents_seen=scan.documents_seen,
+        thin_size=thin_text_count(scan.candidates),
         slice=select_sweep(
             candidates, cap=cap, rotation=window_rotation(now, cap), today=now.date()
         ),
+    )
+
+
+def forward_slice(selection: SweepSelection) -> SweepSelection:
+    """``selection`` with its slice cut to the candidates a forward cell reads.
+
+    What a window takes when the class is above ``ocr_ceiling`` but its forward
+    share is not. The ceiling is the guard on a widened predicate, and the
+    backlog is where a widening shows first: the walker storing older Terms'
+    scanned filings grows it by the hundred, which a slice of ten a window
+    never drains and which a dispatched pass under a maintainer's bound is for.
+    The forward share is what the sweep exists for, the few filings a cell is
+    about to read, and holding it behind the backlog is what lets a cell mint
+    on empty text once its hold lapses. Sweep order already puts every forward
+    candidate ahead of the backlog, so the cut keeps the slice's order and
+    drops only its backlog tail.
+    """
+    return SweepSelection(
+        class_size=selection.class_size,
+        forward_size=selection.forward_size,
+        class_by_kind=selection.class_by_kind,
+        documents_seen=selection.documents_seen,
+        thin_size=selection.thin_size,
+        slice=tuple(c for c in selection.slice if c.forward),
     )
 
 
@@ -363,6 +404,7 @@ def sweep_worklist(selection: SweepSelection, *, cap: int) -> OcrWorklist:
                 url=c.scanned.document.url,
                 pages=c.scanned.document.pages,
                 forward=c.forward,
+                chars=c.scanned.stored_chars,
             )
             for c in selection.slice
         ],
@@ -404,6 +446,7 @@ def dispatched_worklist(
                 url=c.document.url,
                 pages=c.document.pages,
                 forward=c.document.case_id in forward_ids,
+                chars=c.stored_chars,
             )
             for c in picked
         ],
@@ -457,7 +500,11 @@ def plan_worklist(
                 unreached = [i.key for i in worklist.items[index:]]
                 break
         extracted, reason = read_scanned_document(
-            client, item, char_cap=char_cap, ocr_page_factory=ocr_page_factory
+            client,
+            item,
+            char_cap=char_cap,
+            ocr_page_factory=ocr_page_factory,
+            stored_chars=item.chars,
         )
         if extracted is None:
             failures[item.key] = reason or "not-served"
@@ -485,7 +532,8 @@ class OcrSweepApplyResult(BaseModel):
     planned: int = Field(ge=0, description="Rows the plan carried")
     written: dict[str, str] = Field(
         default_factory=dict,
-        description="`<case_id> <kind>` -> what was stored: pages, characters, flags",
+        description="`<case_id> <kind>` -> what was stored: pages, characters, flags, "
+        "and `replaced=<n>` where the write replaced n characters of thin text",
     )
     skipped: dict[str, str] = Field(
         default_factory=dict,
@@ -505,8 +553,8 @@ def check_plan(
     unreached key that is not an item of ``worklist`` (the projection's own
     file, which the parse cannot replace), or a row at a URL other than its
     item's; a row not marked ``ocr_derived`` (every class member is a scan whose
-    stored extraction read empty, so a reading of it that OCR did not contribute
-    to is not one this sweep produces); a text longer than the configured
+    stored extraction read empty or thin, so a reading of it that OCR did not
+    contribute to is not one this sweep produces); a text longer than the configured
     document cap; or a text that is whitespace only.
 
     ``dispatched`` holds the plan to the dispatched pass's terms instead. It
@@ -568,7 +616,10 @@ def apply_ocr_plan(  # noqa: PLR0913
     row that has since gained text, or whose link moved, is skipped and named:
     the corpus moved on since the projection, which is not a forged plan.
     Additive, like the dispatched pass: text lands only where the stored row
-    held none, with the extractor's ``ocr_derived`` reading, and a recovered
+    held none, or held thin text shorter than the reading, and the write takes
+    the row out of the class (:func:`~fedcourtsai.pipeline.ocr_recovery.gains_on`;
+    anything else is skipped as ``no-gain``), with the extractor's
+    ``ocr_derived`` reading, and a recovered
     petition re-derives its questions-presented row against the question
     stored now. Without ``apply`` it reports what it would write and writes nothing.
 
@@ -617,6 +668,13 @@ def apply_ocr_plan(  # noqa: PLR0913
                 "fetched_at": today,
             }
         )
+        if not gains_on(document, recovered):
+            # A thin row keeps its text unless the reading is longer and takes
+            # the row out of the class. The parse already holds its readings to
+            # the count the worklist carried; this is the test against the row
+            # as it is stored now.
+            skipped[row.key] = NO_GAIN
+            continue
         questions = stored.get(KIND_QUESTIONS_PRESENTED)
         follow_on = _rederived_questions(
             recovered, None if questions is None else questions.text, today=today
@@ -624,10 +682,14 @@ def apply_ocr_plan(  # noqa: PLR0913
         if apply:
             corpus.upsert_documents(conn, [recovered, *follow_on])
         rederived += len(follow_on)
+        replaced = len(document.text.strip())
         written[row.key] = (
             f"pages={row.pages} chars={len(row.text)} "
             f"truncated={str(row.truncated).lower()} "
             f"ocr_derived={str(row.ocr_derived).lower()}"
+            # A write over thin text destroys that text, so the ledger says
+            # how much: the one trace that a row was replaced, not filled.
+            + (f" replaced={replaced}" if replaced else "")
         )
     return OcrSweepApplyResult(
         applied=apply,
