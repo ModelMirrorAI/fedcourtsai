@@ -48,9 +48,9 @@ def test_predict_matrix_is_predictor_by_event_product() -> None:
     # never empty, so the workflow passes it straight to the engine step and the
     # recorded model is what actually ran.
     assert {row["engine"]: row["model"] for row in inc} == {
-        "claude-code": "claude-opus-5-5",
+        "claude-code": "claude-fable-5-2",
         "codex": "gpt-6.1-sol",
-        "gemini": "gemini-4-argon",
+        "gemini": "gemini-4-carbon",
     }
     row = inc[0]
     assert row["court"] == "ca9"

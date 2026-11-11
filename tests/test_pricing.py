@@ -23,8 +23,8 @@ def test_gemini_default_model_and_rate() -> None:
     # The frontier tier is the like-for-like comparator against the other
     # engines' defaults; the rate is Google's introductory one, with its own
     # cached-input rate rather than the uniform multiplier.
-    assert DEFAULT_MODELS["gemini"] == "gemini-4-argon"
-    assert MODEL_RATES["gemini-4-argon"] == ModelRate(2.0, 10.0, cache_read_per_mtok=0.10)
+    assert DEFAULT_MODELS["gemini"] == "gemini-4-carbon"
+    assert MODEL_RATES["gemini-4-carbon"] == ModelRate(2.0, 10.0, cache_read_per_mtok=0.10)
 
 
 def test_codex_default_model_and_rate() -> None:
@@ -38,6 +38,7 @@ def test_superseded_production_models_stay_priceable() -> None:
     # models to keep their entries.
     assert MODEL_RATES["gpt-6-astra"] == ModelRate(10.0, 50.0)
     assert MODEL_RATES["gemini-3.1-pro-preview"] == ModelRate(2.0, 12.0)
+    assert MODEL_RATES["gemini-4-argon"] == ModelRate(2.0, 10.0, cache_read_per_mtok=0.10)
     assert "gpt-5.6-sol" in MODEL_RATES
     assert "gpt-5.5" in MODEL_RATES
     assert "gemini-3.5-flash" in MODEL_RATES
@@ -57,11 +58,12 @@ def test_cheaper_tiers_are_priceable_at_their_published_rates() -> None:
 
 
 def test_claude_default_model_and_rate() -> None:
-    # Predict/evaluate default to Opus 5.5. The superseded claude models stay
-    # priceable so earlier ledger records still price; both Fable rows are
-    # asserted rather than one alone, since two identical rates are also what a
-    # duplicated line looks like.
-    assert DEFAULT_MODELS["claude-code"] == "claude-opus-5-5"
+    # Predict/evaluate default to Fable 5.2. The superseded claude models stay
+    # priceable so earlier ledger records still price; both earlier Fable rows
+    # are asserted rather than one alone, since two identical rates are also
+    # what a duplicated line looks like.
+    assert DEFAULT_MODELS["claude-code"] == "claude-fable-5-2"
+    assert MODEL_RATES["claude-fable-5-2"] == ModelRate(8.0, 40.0, cache_read_per_mtok=0.20)
     assert MODEL_RATES["claude-opus-5-5"] == ModelRate(4.0, 20.0, cache_read_per_mtok=0.20)
     assert MODEL_RATES["claude-fable-5-1"] == ModelRate(10.0, 50.0)
     assert MODEL_RATES["claude-fable-5"] == ModelRate(10.0, 50.0)

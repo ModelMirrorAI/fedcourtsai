@@ -49,10 +49,10 @@ class ModelRate:
 
 
 # Keyed by the model id the engine actually ran. The production models are
-# claude-opus-5-5 (predict/evaluate), gpt-6.1-sol, and gemini-4-argon (each
-# engine's frontier tier, the like-for-like comparators). The Argon rate is
-# Google's introductory one, scheduled to double to $4 / $20 on 2026-12-01
-# (the cached rate assumed to double with it); re-price the row then, since
+# claude-fable-5-2 (predict/evaluate), gpt-6.1-sol, and gemini-4-carbon (each
+# engine's frontier tier, the like-for-like comparators). The Carbon and Argon
+# rates are Google's introductory ones, each scheduled to double to $4 / $20
+# on 2026-12-01 (the cached rate with it); re-price both rows then, since
 # record-usage prices every cell at the table's current rate. The
 # table is deliberately wider than what the registries route: the cheaper tier of each
 # engine is priced too — claude-sonnet-4-6 and claude-haiku-4-5, gpt-5.6-terra
@@ -61,20 +61,21 @@ class ModelRate:
 # task that does not need a frontier model, and record-usage refuses a model it
 # cannot price rather than recording a zero. Both Flash rates are promotional;
 # re-check them after 2026-12-31, when the promotion is scheduled to end.
-# Superseded production models (claude-fable-5-1, claude-fable-5,
-# claude-opus-4-8, gpt-6-astra, gpt-5.6-sol, gpt-5.5, gemini-3.1-pro-preview,
-# gemini-3.5-flash) keep
+# Superseded production models (claude-opus-5-5, claude-fable-5-1,
+# claude-fable-5, claude-opus-4-8, gpt-6-astra, gpt-5.6-sol, gpt-5.5,
+# gemini-4-argon, gemini-3.1-pro-preview, gemini-3.5-flash) keep
 # their rates for the same reason: a re-recorded old cell (record-usage with an
 # explicit --model) must still price, and the committed ledger holds cells that
 # ran on each of them.
 #
-# The two Fable entries price identically, which is also what a duplicated line
-# looks like: the point release did not move the published rate, and a test
-# asserts both rows rather than the newer one alone.
+# The claude-fable-5-1 and claude-fable-5 entries price identically, which is
+# also what a duplicated line looks like: the point release did not move the
+# published rate, and a test asserts both rows rather than the newer one alone.
 MODEL_RATES: Final[dict[str, ModelRate]] = {
-    # Priced with its own cache-read rate: prompt-cache reads are the largest
-    # share of a claude cell's input, and the multiplier would bill them at
-    # twice the published $0.20.
+    # Both priced with their own cache-read rate: prompt-cache reads are the
+    # largest share of a claude cell's input, and the multiplier would bill
+    # them at four times (Fable 5.2) or twice (Opus 5.5) the published $0.20.
+    "claude-fable-5-2": ModelRate(8.0, 40.0, cache_read_per_mtok=0.20),
     "claude-opus-5-5": ModelRate(4.0, 20.0, cache_read_per_mtok=0.20),
     "claude-fable-5-1": ModelRate(10.0, 50.0),
     "claude-fable-5": ModelRate(10.0, 50.0),
@@ -93,6 +94,7 @@ MODEL_RATES: Final[dict[str, ModelRate]] = {
     "gpt-5.6-terra": ModelRate(2.0, 12.0),
     "gpt-5.6-luna": ModelRate(0.20, 1.20),
     "gpt-5.5": ModelRate(5.0, 30.0),
+    "gemini-4-carbon": ModelRate(2.0, 10.0, cache_read_per_mtok=0.10),
     "gemini-4-argon": ModelRate(2.0, 10.0, cache_read_per_mtok=0.10),
     "gemini-3.1-pro-preview": ModelRate(2.0, 12.0),
     "gemini-3.7-flash": ModelRate(0.75, 3.75),
@@ -109,9 +111,9 @@ MODEL_RATES: Final[dict[str, ModelRate]] = {
 # moving a value here de-blesses that engine's actors and needs a re-bless in
 # the same commit (``docs/process-version.md``).
 DEFAULT_MODELS: Final[dict[str, str]] = {
-    "claude-code": "claude-opus-5-5",
+    "claude-code": "claude-fable-5-2",
     "codex": "gpt-6.1-sol",
-    "gemini": "gemini-4-argon",
+    "gemini": "gemini-4-carbon",
 }
 
 

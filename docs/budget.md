@@ -31,8 +31,11 @@ Model spend is `events × cost per event`, and two dials set it:
 
 At today's `P = 3` with three evaluators, one fully predicted and evaluated
 event is budgeted at roughly **$10**, the basis everything below scales from.
-It is the conservative figure, not the measured one. The current engines
-(`claude-opus-5-5`, `gpt-6.1-sol`, `gemini-4-argon`) measure, over their cells
+It is the conservative figure, not the measured one. The measured cells are
+those of `claude-opus-5-5`, `gpt-6.1-sol` and `gemini-4-argon`; the claude and
+gemini pairs run `claude-fable-5-2` and `gemini-4-carbon` from `proc-v21`,
+which have no measured cells yet (their projection follows the measurement).
+The three measured engines come to, over their cells
 on `main` (at `d7840ec19`, 2026-11-11, every cell from 2026-10-20 on): about
 $0.74, $0.52 and $1.40 a prediction (227, 226 and 230 runs) and $0.71, $0.44
 and $0.93 a grading run (73 each). Those are per run. An event costs more
@@ -46,8 +49,16 @@ is at Argon's introductory rate ($2 / $10, $0.10 cached). The rate doubles
 from 2026-12-01, which at equal tokens, and with the cached rate assumed to
 double too, adds gemini's $2.44 of each event again and brings the event to
 about $7.35.
-The $10 figure stays the basis until cells at that rate are measured, since
-the doubling is a projection; the grading sample is the smaller one, and its
+`gemini-4-carbon` is priced as Argon is, introductory rate and doubling
+included, so the gemini share moves only if Carbon spends different tokens.
+`claude-fable-5-2` is priced at $8 / $40 with cache reads at $0.20, against
+Opus 5.5's $4 / $20 and $0.20: at the measured Opus token counts a claude
+prediction run comes to about $1.26 and a grading run to about $1.19, and at
+the roughly 2.5 times the output tokens `claude-fable-5-1` spent on the same
+kind of cell, to about $2.45 and $2.11. That adds between about $1.05 and
+$3.15 to an event before retries.
+The $10 figure stays the basis until cells at those rates are measured, since
+the doubling and both model changes are projections; the grading sample is the smaller one, and its
 cells are mostly cert-stage gradings, which read less than a merits one.
 The evaluator count holds at 3 as `P` grows.
 Per-run token usage and cost are recorded on the ledger (`usage.json`, rolled

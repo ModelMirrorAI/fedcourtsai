@@ -226,7 +226,10 @@ the output directory you will write to.
 
    On a cert-stage or merits-stage cell whose case comes from a federal court
    of appeals, `record/documents/` may also hold `decision-below.txt` (that
-   court's opinion on its judgment date, as CourtListener extracted it) and
+   court's opinion on its judgment date, as CourtListener extracted it, and
+   where the court issued one, a later opinion in the same case under its own
+   dated heading: an amended opinion, or a writing on the denial of rehearing)
+   and
    `lower-court-docket.txt` (a short record of its docket: the panel where
    recorded, and whether a petition for rehearing en banc was filed, how it
    was disposed of and whether a dissent was noted, citing the entries read).
