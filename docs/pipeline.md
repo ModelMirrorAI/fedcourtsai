@@ -43,7 +43,7 @@ token or role, so privilege and outside reachability stay disjoint — see
 | `run-repair`     | manual dispatch only (one maintenance pass per dispatch, dry-run by default) | script (no agent)    |
 | `run-predict`    | daily schedules (14:12 and 17:32 UTC), input-less dispatch (manual, or the dispatch App's chain jobs) | Claude Code + Codex + Gemini |
 | `run-evaluate`   | daily schedule (15:39 UTC), manual dispatch whose one input picks the derivation: the backlog, the `reasoning-pilot` round of the `predicted_reasoning_quality` grade (a re-grade of a fixed sample under the registered prompt), or its `reasoning-pilot-merits` round over the replay merits calibration cells (the newest merits back-test's kept forecasts), each always held for review and committing nothing | Claude Code + Codex + Gemini |
-| `run-backtest`   | biweekly schedule (even ISO weeks, Sat 06:23 UTC — pinned cert parameters over the paid population, spends only on the manual `review` release), manual dispatch (replay/engine/limit/terms params; `replay: merits` replays the predictors over decided argued cases at the merits grant and briefed moments instead, dispatch only; `replay: salience-gate` runs the token-free gate replay instead of the predictors) | Claude Code + Codex + Gemini (replay) |
+| `run-backtest`   | biweekly schedule (even ISO weeks, Sat 06:23 UTC — pinned cert parameters over the paid population, spends only on the manual `review` release), manual dispatch (replay/engine/limit/terms params; `replay: merits` replays the predictors over decided argued cases at the merits grant and briefed moments instead, dispatch only; `replay: cert-compare` / `merits-compare` replay one predictor against the model `candidate` names, dispatch only; `replay: salience-gate` runs the token-free gate replay instead of the predictors) | Claude Code + Codex + Gemini (replay) |
 | `run-ops`        | daily schedule (ops report, weekly performance digest on the run summary, public status snapshot, prediction-reading digest), manual | script (no agent)    |
 | `post-public-update` | weekly schedule (Mon 12:57 UTC), manual dispatch (`week`; re-dispatching a missed week is safe, since the post is idempotent per week) | script (no agent); creates up to three Buttondown drafts (the Court update, the forecasts update and the AI-cases update), never sends |
 | `run-analytics`  | manual dispatch + weekly schedule (metrics refresh, Mon 05:41 UTC) + daily schedule (big-case board, 04:36 UTC) + weekly schedule (update history, Mon 12:59 UTC) + weekly schedules (topic labeling: petitions Tue 09:08 UTC, applications Wed 09:04 UTC, merits side coding Thu 09:14 UTC, behind the `review` hold) + weekly schedule (AI-case candidates, Fri 21:11 UTC) + weekly schedule (follow-on dockets of listed AI cases, Tue 21:21 UTC) | script; the `qp-topic-label`, `qp-topic-label-applications`, `qp-topic-replicate`, `qp-topic-replicate-applications` and `alignment-side-code` modes each run one Claude Code labeler |
@@ -3292,9 +3292,40 @@ their outcomes. The standing `metrics/cert-backtest.json` is withheld by
 `cert-backtest` itself (see the `cert-backtest` row in [cli.md](cli.md)), as
 are the pooled back-test record `metrics/backtest-record/` and the comparison
 reports `metrics/backtest-comparisons/`, by `cert-backtest`, `merits-backtest`
-and the two comparison commands alike. `run-backtest` has no comparison mode:
-a comparison is run with `fedcourts cert-backtest-compare` or
-`fedcourts merits-backtest-compare` where the corpus is pulled.
+and the two comparison commands alike.
+
+The comparison arms (`replay: cert-compare`, `replay: merits-compare`) run in
+the same checkout under the same removals and restores. `candidate` is
+`<predictor>=<model>`, checked against that shape by
+`fedcourts backtest-handoff-plan` before it reaches a command line or a path,
+and the one predictor it names is replayed twice
+(`fedcourts cert-backtest-compare` / `merits-backtest-compare`), the
+candidate's campaign first. The draw is capped at 20 petitions or 10 cases,
+40 cells of one engine either way, since a dispatch has no `review` hold. The
+report, `metrics/backtest-comparisons/<kind>-<predictor>-<run id>.json`,
+lands on its own `metrics/backtest-comparison-<run id>` branch, so one
+unmerged comparison is never overwritten by the next. A prompt candidate is
+not dispatchable, its template having to be in the commit's tree: that
+comparison runs by command where the corpus is pulled.
+
+Every arm that runs a model also passes `--record`, so the run's scored cells
+are written to `metrics/backtest-record/<kind>-<run id>.jsonl` and cross to
+`publish` beside the report. Both jobs take the two paths from
+`fedcourts backtest-handoff-plan`, which derives them from the dispatch and
+the run id and never from what is on disk. `publish` refuses a hand-off
+holding anything else or a record file the tree already has, and before it
+mints runs `fedcourts backtest-handoff-check`: a comparison report must parse
+as one, of this kind and predictor, and the record must be one run's rows of
+this kind, of the arms and predictors this mode writes, each row names and
+numbers with no field that holds prose. A fault while a standing replay
+appends its record is annotated and does not fail the command, and a record
+file that is not a regular file is left behind by the hand-off, so in both
+cases the paid-for report still lands and the run's cells are missing from
+the pool. The roll-up `metrics/backtest-pooled.json` is not committed
+by the lane, since two open PRs each carrying a copy would conflict on it:
+`fedcourts backtest-pooled` computes it from the record on `main`. A fixed
+review branch that a later run force-pushes drops an unmerged earlier run's
+record file with its report.
 
 Two residuals ride that fence, and both are the reason it is described as
 structural rather than as a wall. The checkout is full-depth, so the ledger
