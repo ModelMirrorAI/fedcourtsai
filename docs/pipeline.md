@@ -2891,8 +2891,16 @@ rather than after it. Over the pending paid docket it lists every petition
 outside the `federal` band that a reading looser than the caption rule places
 federal, so a mislabeled federal petitioner is seen while its conference is
 still ahead. It reads pending rows only and selects nothing; a confirmed miss
-is evidence for the next registered caption version. Neither command is run
-by a workflow; each is a dry run a maintainer or a session reads by hand.
+is evidence for the next registered caption version.
+
+`fedcourts coverage-verdict` folds the three into one answer: the
+missed-forecast monitor read over 35 days, and the two censuses, as a single
+`ok` with the alarms named by check, a flat block of counts to keep as a
+series, and a rendered issue body. The round's own `::warning::` lines expire
+with the run log; the verdict is the form the same findings take when they
+are to outlive it. No workflow runs `unforecast-outcomes`,
+`federal-label-check` or `coverage-verdict`: each is a dry run a maintainer or
+a session reads by hand.
 
 That is the shape both workflows invoke, on every round. The commands
 still accept an explicit case list — a ` ```json ``` ` block by `--body-file`, or

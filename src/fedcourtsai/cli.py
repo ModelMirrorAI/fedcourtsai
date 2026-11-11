@@ -376,6 +376,8 @@ from .pipeline.cert_signals import (
 )
 from .pipeline.claims import score_claims
 from .pipeline.counsel import COUNSEL_RULES
+from .pipeline.coverage_verdict import coverage_verdict
+from .pipeline.coverage_verdict import render_markdown as render_coverage_markdown
 from .pipeline.decision_dates import converge_decision_dates
 from .pipeline.decision_record import backfill_decision_record, decision_census
 from .pipeline.discover import discover_cases
@@ -6470,6 +6472,63 @@ def federal_label_check_cmd(
         typer.echo(f"alarm: {alarm}", err=True)
     typer.echo(report.model_dump_json())
     if report.alarms:
+        raise typer.Exit(code=3)
+
+
+@app.command("coverage-verdict")
+def coverage_verdict_cmd(
+    json_out: Annotated[
+        Path | None, typer.Option("--json-out", help="Also write the verdict JSON here.")
+    ] = None,
+    markdown_out: Annotated[
+        Path | None,
+        typer.Option("--markdown-out", help="Write the verdict as an alarm-issue body here."),
+    ] = None,
+) -> None:
+    """Run every forecast-coverage check and print one verdict, read-only.
+
+    The missed-forecast monitor over 35 days, the unforecast-outcomes census
+    over 14, and the federal-label cross-check over the pending docket
+    (`pipeline/coverage_verdict.py`), folded into one answer: `ok`, the alarms
+    by check, a flat block of counts to keep as a series, and each check's own
+    report. Alarms: every event the monitor classes `missed`; a decided event
+    on a selected row with no outcome record three days on; and each alarm the
+    two censuses raise. Reads the corpus index and the committed ledger; the
+    only files it writes are the two it is asked for. `--markdown-out` renders
+    the verdict as an issue body carrying identifiers and counts only. One
+    line per alarm to stderr, the `CoverageVerdict` as JSON to stdout; exits 3
+    when an alarm holds, 1 if the corpus is absent.
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if settings.corpus_backend == "local" and not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the coverage verdict.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
+        verdict = coverage_verdict(
+            conn,
+            settings.data_root,
+            settings.config_root / "predictors.yaml",
+            today=datetime.now(UTC).date(),
+        )
+    payload = verdict.model_dump_json()
+    if json_out is not None:
+        json_out.write_text(payload + "\n")
+    if markdown_out is not None:
+        markdown_out.write_text(render_coverage_markdown(verdict))
+    typer.echo(
+        f"coverage as of {verdict.as_of.isoformat()}: "
+        + ("ok" if verdict.ok else f"{len(verdict.alarms)} alarm(s)"),
+        err=True,
+    )
+    for alarm in verdict.alarms:
+        typer.echo(f"alarm [{alarm.check}] {alarm.subject}: {alarm.detail}", err=True)
+    typer.echo(payload)
+    if not verdict.ok:
         raise typer.Exit(code=3)
 
 
