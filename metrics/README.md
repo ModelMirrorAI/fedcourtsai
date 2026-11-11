@@ -937,6 +937,46 @@ stays outside the gate:
   relisted or held petitions are still pending, realized runs below expected:
   those petitions grant more often and have not resolved yet.
 
+  `grants_expected` describes the base rates and is the same for every
+  predictor on the same events. The **predictor's own** expectation is
+  `grants_forecast`: the sum of the scored prediction's P(granted) over
+  `grants_forecast_scored` events, each event once (the mean over its
+  gradings, which differ only where a block grades two runs of one event),
+  read against `grants_forecast_realized` over those same events. The events
+  are the ones `in_sample_events_scored` counts, and the realized count is on
+  the **binary target** each probability is scored against, so a
+  `granted-in-part` outcome counts here and not in the grant-family counts
+  above. A forecast count above the realized one is over-forecasting grants;
+  while relisted and held petitions are pending it is expected to run above,
+  for the reason `grants_expected` does, so the gap is a calibration reading
+  only on a cohort that has resolved.
+
+  `reliability_bins` says where a gap sits. It is the same events in six
+  registered bins on P(granted) — `[0, 0.05)`, `[0.05, 0.10)`, `[0.10, 0.25)`,
+  `[0.25, 0.50)`, `[0.50, 0.75)` and `[0.75, 1]` — each with its `events`, its
+  `grants`, the mean forecast and the observed grant rate. Every bin is
+  listed, empty ones included. A bin holding fewer than 10 events carries its
+  counts and no rate: two grants of three is not a 67% reading.
+  `forecast_reliability` and `forecast_resolution` are the Murphy terms of
+  that binning over every event of the block: the event-weighted mean squared
+  gap between a bin's mean forecast and its observed rate (lower is better
+  calibrated), and between a bin's observed rate and the block's own (higher
+  sorts grants from denials better). Both are null, and omitted from the file,
+  on a block under 10 events. They read every bin, the ones too thin to print
+  a rate included, so they cannot be recomputed from the printed rates alone.
+  They are binned estimates: they move with the edges, both are biased upward
+  on small bins, and they do not sum
+  with the block's uncertainty to its mean Brier, which is per grading and
+  unbinned. What may be said from them: which of two faults a predictor's
+  Brier is carrying, on a block that names its event and grant counts. What
+  may not: an ordering of engines, since an entry's own forward block spans
+  events no other engine shares, and on the paired figure, where the events
+  are shared, the fields are still no rank key; and no reading at all off a
+  bin without a rate. The fields are cert-only and diagnostic, on every block
+  a cert stratum is built for (among them the pooled strata, the per-window,
+  per-band and per-link cuts, and the paired figure); a non-cert block omits
+  them.
+
   None of this is the registered historical figure per band. The registered
   band rates of the cell's frozen salience version are the **skill anchor**:
   each band's risk-set rate pooled

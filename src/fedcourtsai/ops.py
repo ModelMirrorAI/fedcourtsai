@@ -1310,10 +1310,17 @@ def _forward_row(predictor_id: str, block: LeaderboardStratum) -> str:
         if block.population_brier_skill_score is None
         else f"{block.population_brier_skill_score:+.2f} ({block.skill_scored:,} gradings)"
     )
+    forecast = (
+        "—"
+        if block.grants_forecast is None
+        else f"{block.grants_forecast:.1f} ({block.grants_forecast_realized} realized of "
+        f"{block.grants_forecast_scored})"
+    )
     return (
         f"| {_cell(predictor_id)} | {_pct(block.event_accuracy)} "
         f"| {_pct(block.event_always_deny_accuracy)} "
-        f"| {_signed_pct(lift)}{lift_events} | {_brier(block.mean_brier_score)} | {skill} |"
+        f"| {_signed_pct(lift)}{lift_events} | {_brier(block.mean_brier_score)} | {skill} "
+        f"| {forecast} |"
     )
 
 
@@ -1350,7 +1357,9 @@ def _forward_lines(vintaged: Vintaged[Leaderboard]) -> list[str]:
     call moves it by whole points); the mean Brier and the Brier skill against
     the strictly-prior segment base rate — the leakage-safe baseline and the
     board's primary measure — are grading-weighted, with the skill's own grading
-    count. The exclusions the build applied ride under the table.
+    count. The last column is the engine's own forecast grant count beside the
+    grants that realized on the binary target and the events both are over. The
+    exclusions the build applied ride under the table.
     """
     board = vintaged.value
     where = _sourced("leaderboard.json", vintaged)
@@ -1386,10 +1395,17 @@ def _forward_lines(vintaged: Vintaged[Leaderboard]) -> list[str]:
         f"a scored cell on{grant_text}. Accuracy, floor and lift are per event; mean Brier "
         "and Brier skill are per grading (one per cell per judge). Brier skill is against "
         "each cell's strictly-prior segment base rate (positive beats it) and is the figure "
-        "to read. Interim and merits figures are the board's per-stage blocks.",
+        "to read. Grants forecast is the sum of the engine's own P(granted), per event, "
+        "beside the grants that realized on the binary target each probability is scored "
+        "against (so it can differ from the grant-family count above) and the events it "
+        "is over. A gap reads as over- or under-forecasting only once the cohort's "
+        "relisted and held petitions have resolved; until then realized runs low. The "
+        "reliability table on the board says where a gap sits. "
+        "Interim and merits figures are the board's per-stage blocks.",
         "",
-        "| Predictor | Accuracy | Always-deny floor | Lift | Mean Brier | Brier skill |",
-        "| --- | ---: | ---: | ---: | ---: | ---: |",
+        "| Predictor | Accuracy | Always-deny floor | Lift | Mean Brier | Brier skill "
+        + "| Grants forecast |",
+        "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",
         *[_forward_row(p, by_engine[p]) for p in order],
     ]
     unranked = [

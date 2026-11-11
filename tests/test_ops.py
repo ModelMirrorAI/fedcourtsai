@@ -3731,6 +3731,25 @@ def test_the_weekly_digest_prints_an_unscored_forward_skill_as_unknown() -> None
     assert "realized grant-family" not in md
 
 
+def test_the_weekly_digest_prints_each_engines_own_grant_forecast() -> None:
+    # The engine's own summed P(granted) beside the grants that realized on the
+    # same events; a block with no forecast count prints a dash.
+    forecast = _forward().model_copy(
+        update={
+            "grants_forecast": 9.44,
+            "grants_forecast_scored": 110,
+            "grants_forecast_realized": 6,
+        }
+    )
+    board = _board(_lb_entry("claude-baseline", forecast), _lb_entry("p", _forward()))
+
+    md = ops.render_weekly_digest(_empty_report(), analytics=_analytics(leaderboard=board))
+
+    assert "| Brier skill | Grants forecast |" in md
+    assert "| +0.65 (330 gradings) | 9.4 (6 realized of 110) |" in md
+    assert "| +0.65 (330 gradings) | — |" in md
+
+
 def test_the_weekly_digest_says_an_unsplit_scotus_row_is_still_mixed() -> None:
     board = Backtest(
         predictors_evaluated=1,
