@@ -9134,6 +9134,14 @@ class BacktestComparison(_Strict):
     pairs: list[BacktestComparisonPair] = Field(default_factory=list)
 
 
+#: A name in a record row: an id, a model, a population, a draw rule. Bounded
+#: in length and alphabet, so a row holds names and numbers and has no field
+#: that could carry prose.
+_RecordName = Annotated[
+    str, Field(min_length=1, max_length=160, pattern=r"^[A-Za-z0-9][A-Za-z0-9._:@+/=-]*$")
+]
+
+
 class BacktestRecordRow(_Strict):
     """One scored replay cell: a line of a ``metrics/backtest-record/`` file.
 
@@ -9144,32 +9152,32 @@ class BacktestRecordRow(_Strict):
 
     schema_version: Literal["1.0"] = SCHEMA_VERSION
     kind: BacktestComparisonKind
-    run_id: str
-    predictor_id: str
+    run_id: _RecordName
+    predictor_id: _RecordName
     arm: BacktestArmRole = Field(
         description="'standing': a cell of the standing back-test. 'incumbent' / "
         "'candidate': a cell of a comparison run"
     )
-    engine: str
-    model: str
-    process_digest: str = Field(
+    engine: _RecordName
+    model: _RecordName
+    process_digest: _RecordName = Field(
         description="The process digest of the configuration that ran (see "
         "`BacktestComparisonArm.process_digest`). Figures pool within one "
         "(predictor, model, digest) and never across them"
     )
-    population: str = Field(
+    population: _RecordName = Field(
         description="The population the run drew from, as a stable name (cert: "
         "`cert:<scope>`; merits: `merits:argued`). Figures never pool across populations"
     )
-    case_id: str
-    stage: str
-    moment: str
+    case_id: _RecordName
+    stage: _RecordName
+    moment: _RecordName
     probability: float = Field(ge=0.0, le=1.0)
     outcome: int = Field(ge=0, le=1)
     decided: date | None = None
-    provisioning: str | None = None
-    draw_rule: str
-    stratum: str = Field(
+    provisioning: _RecordName | None = None
+    draw_rule: _RecordName
+    stratum: _RecordName = Field(
         description="The case's outcome class in its population (cert: granted or "
         "not-granted; merits: disturbed or not-disturbed), recorded under every "
         "draw rule because the pooled figure is post-stratified on it"

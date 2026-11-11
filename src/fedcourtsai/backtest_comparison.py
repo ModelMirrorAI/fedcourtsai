@@ -27,8 +27,9 @@ from __future__ import annotations
 
 import json
 import math
+import re
 from collections import defaultdict
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import date
 from pathlib import Path
@@ -48,6 +49,7 @@ from .pipeline import moments
 from .pipeline.outcome import granted_flag
 from .schemas import (
     BacktestArmRole,
+    BacktestComparison,
     BacktestComparisonArm,
     BacktestComparisonKind,
     BacktestComparisonMoment,
@@ -601,6 +603,136 @@ def read_record(root: Path) -> tuple[int, list[BacktestRecordRow]]:
 #: whole population: room for the mix moving between vintages, none for a
 #: missing class.
 _SHARE_TOLERANCE: Final = 0.02
+
+
+#: A dispatched comparison's candidate: `<predictor>=<model>`. Tight enough to
+#: be safe as a path segment (the predictor names the report file) and as a
+#: command-line word.
+CANDIDATE_PATTERN: Final = re.compile(r"[a-z0-9][a-z0-9-]{0,63}=[A-Za-z0-9][A-Za-z0-9._-]{0,127}")
+
+#: The dispatched replay modes that run cells, and each one's kind.
+_REPLAY_KINDS: Final = {
+    "cert": "cert",
+    "merits": "merits",
+    "cert-compare": "cert",
+    "merits-compare": "merits",
+}
+
+#: A dispatched comparison's draw cap and cells per drawn case, by kind: 40
+#: cells of one engine either way, which fit the replay job's timeout.
+_COMPARISON_BOUNDS: Final = {"cert": (20, 2), "merits": (10, 4)}
+
+
+@dataclass(frozen=True)
+class HandoffPlan:
+    """Where one `run-backtest` replay writes what it hands to be committed.
+
+    Paths are relative to the metrics root. ``record`` is null for the
+    salience-gate replay, which runs no cell; the comparison fields are null
+    outside a comparison.
+    """
+
+    report: str
+    record: str | None
+    kind: str | None
+    predictor: str | None = None
+    model: str | None = None
+    limit_cap: int | None = None
+    cells_per_case: int | None = None
+
+
+def handoff_plan(replay: str, candidate: str, run_id: str) -> HandoffPlan:
+    """The files a dispatched ``replay`` mode writes under run ``run_id``.
+
+    Derived from the dispatch and the run alone, never from what is on disk,
+    so the job that ran cells and the job that publishes agree by
+    construction. Raises ``ValueError`` on an unknown mode, a run id that is
+    not alphanumeric, or a comparison whose ``candidate`` is not
+    ``<predictor>=<model>``.
+    """
+    if not run_id.isascii() or not run_id.isalnum():
+        raise ValueError("the run id must be alphanumeric")
+    if replay == "salience-gate":
+        return HandoffPlan(report="salience-replay.json", record=None, kind=None)
+    if replay not in _REPLAY_KINDS:
+        raise ValueError(f"unknown replay mode {replay!r}")
+    kind = _REPLAY_KINDS[replay]
+    record = f"{RECORD_DIRNAME}/{kind}-{run_id}.jsonl"
+    if not replay.endswith("-compare"):
+        return HandoffPlan(report=f"{kind}-backtest.json", record=record, kind=kind)
+    if CANDIDATE_PATTERN.fullmatch(candidate) is None:
+        raise ValueError("candidate must be <predictor>=<model>")
+    predictor, model = candidate.split("=", 1)
+    cap, per_case = _COMPARISON_BOUNDS[kind]
+    return HandoffPlan(
+        report=f"{COMPARISONS_DIRNAME}/{kind}-{predictor}-{run_id}.json",
+        record=record,
+        kind=kind,
+        predictor=predictor,
+        model=model,
+        limit_cap=cap,
+        cells_per_case=per_case,
+    )
+
+
+#: The most rows one run's record file may hold: far above any replay the
+#: commands cap (a few dozen cells an arm), far below a file worth hiding in.
+HANDOFF_MAX_ROWS: Final = 2000
+
+
+def handoff_problems(
+    *,
+    kind: str,
+    comparison_predictor: str | None,
+    known_predictors: Collection[str],
+    report: Path | None,
+    record: Path | None,
+) -> list[str]:
+    """What is wrong with a replay run's report and record file, as handed to be committed.
+
+    The check a publisher runs on bytes it did not write. ``report`` is a
+    comparison report (the standing reports have their own readers) and must
+    parse as one, of ``kind``, about ``comparison_predictor``. ``record`` must
+    parse row by row, hold one run's rows of ``kind`` and no more than
+    :data:`HANDOFF_MAX_ROWS`, name only known predictors, and carry the arms
+    its mode writes: ``incumbent`` and ``candidate`` rows of the compared
+    predictor under a comparison, ``standing`` rows otherwise. Empty when
+    nothing is wrong.
+    """
+    problems: list[str] = []
+    if report is not None:
+        try:
+            parsed = BacktestComparison.model_validate_json(report.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            problems.append(f"the report is not a comparison report: {type(exc).__name__}")
+        else:
+            if parsed.kind != kind:
+                problems.append(f"the report is a {parsed.kind} comparison, not {kind}")
+            if parsed.dispatch.predictor_id != comparison_predictor:
+                problems.append("the report compares a different predictor")
+    if record is not None:
+        try:
+            lines = [
+                line for line in record.read_text(encoding="utf-8").splitlines() if line.strip()
+            ]
+            rows = [BacktestRecordRow.model_validate_json(line) for line in lines]
+        except (OSError, ValueError) as exc:
+            return [*problems, f"the record does not parse: {type(exc).__name__}"]
+        if not rows or len(rows) > HANDOFF_MAX_ROWS:
+            problems.append(
+                f"the record holds {len(rows)} row(s); 1 to {HANDOFF_MAX_ROWS} expected"
+            )
+        if len({row.run_id for row in rows}) > 1:
+            problems.append("the record holds more than one run's rows")
+        if any(row.kind != kind for row in rows):
+            problems.append(f"the record holds rows that are not {kind} rows")
+        allowed_arms = {"incumbent", "candidate"} if comparison_predictor else {"standing"}
+        if any(row.arm not in allowed_arms for row in rows):
+            problems.append(f"the record holds arms other than {sorted(allowed_arms)}")
+        allowed = {comparison_predictor} if comparison_predictor else set(known_predictors)
+        if any(row.predictor_id not in allowed for row in rows):
+            problems.append("the record names a predictor this run did not replay")
+    return problems
 
 
 def _pooled_entry(

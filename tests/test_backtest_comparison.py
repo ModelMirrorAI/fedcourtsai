@@ -43,6 +43,7 @@ from fedcourtsai.merits_backtest import MeritsReplayOutcome, MeritsReplaySweep
 from fedcourtsai.pipeline.runner import ClaudeCodeRunner, EngineFailed, RunRequest, StubRunner
 from fedcourtsai.pricing import DEFAULT_MODELS
 from fedcourtsai.schemas import (
+    BacktestArmRole,
     BacktestComparison,
     BacktestComparisonArm,
     BacktestComparisonStratum,
@@ -925,6 +926,7 @@ def _rows(
     process_digest: str = "sha256:" + "a" * 64,
     population: str = "cert:paid",
     draw_rule: str = "vintage-keyed-hash-v1",
+    arm: BacktestArmRole = "standing",
 ) -> list[BacktestRecordRow]:
     return record_rows(
         cells,
@@ -932,7 +934,7 @@ def _rows(
         population=population,
         run_id=run_id,
         predictor_id="claude-baseline",
-        arm="standing",
+        arm=arm,
         engine="claude-code",
         model=model,
         process_digest=process_digest,
@@ -1046,3 +1048,166 @@ def test_a_population_is_named_by_what_defines_it() -> None:
     assert bc.cert_population_name("selected", 0.3) == "cert:selected@0.3"
     assert bc.merits_population_name([2025, 2024]) == "merits:argued:OT2024+OT2025"
     assert bc.merits_population_name([2024]) != bc.merits_population_name([2024, 2025])
+
+
+# ------------------------------------------------------------ the hand-off check
+
+
+def _handoff(tmp_path: Path, rows: list[BacktestRecordRow], **kwargs: object) -> list[str]:
+    record = tmp_path / "record.jsonl"
+    record.write_text("".join(row.model_dump_json() + "\n" for row in rows))
+    defaults: dict[str, object] = {
+        "kind": "cert",
+        "comparison_predictor": None,
+        "known_predictors": {"claude-baseline"},
+        "report": None,
+        "record": record,
+    }
+    return bc.handoff_problems(**{**defaults, **kwargs})  # type: ignore[arg-type]
+
+
+def test_a_runs_own_record_passes_the_handoff_check(tmp_path: Path) -> None:
+    cells = [_scored("scotus/1", 0.3, 1, 0.1)]
+    assert _handoff(tmp_path, _rows("run-a", cells)) == []
+    compared = _rows("run-a", cells, arm="incumbent") + _rows("run-a", cells, arm="candidate")
+    assert _handoff(tmp_path, compared, comparison_predictor="claude-baseline") == []
+
+
+def test_the_handoff_check_names_what_a_run_could_not_have_written(tmp_path: Path) -> None:
+    cells = [_scored("scotus/1", 0.3, 1, 0.1)]
+    two_runs = _handoff(tmp_path, _rows("run-a", cells) + _rows("run-b", cells))
+    assert two_runs == ["the record holds more than one run's rows"]
+    assert _handoff(tmp_path, _rows("run-a", cells), kind="merits") == [
+        "the record holds rows that are not merits rows"
+    ]
+    # A standing run writes no comparison arms, and a comparison no standing ones.
+    assert "arms other than" in _handoff(tmp_path, _rows("run-a", cells, arm="candidate"))[0]
+    assert "arms other than" in "".join(
+        _handoff(tmp_path, _rows("run-a", cells), comparison_predictor="claude-baseline")
+    )
+    assert _handoff(tmp_path, _rows("run-a", cells), known_predictors={"codex-baseline"}) == [
+        "the record names a predictor this run did not replay"
+    ]
+    assert "0 row(s)" in _handoff(tmp_path, [])[0]
+
+
+def test_a_record_row_has_no_field_that_holds_prose(tmp_path: Path) -> None:
+    [row] = _rows("run-a", [_scored("scotus/1", 0.3, 1, 0.1)])
+    for name in ("run_id", "predictor_id", "model", "population", "case_id", "stratum"):
+        with pytest.raises(ValueError, match=r"pattern|at most"):
+            BacktestRecordRow.model_validate({**row.model_dump(), name: "a sentence of text"})
+        with pytest.raises(ValueError, match=r"pattern|at most"):
+            BacktestRecordRow.model_validate({**row.model_dump(), name: "x" * 161})
+    record = tmp_path / "record.jsonl"
+    record.write_text(json.dumps({**row.model_dump(mode="json"), "model": "two words"}) + "\n")
+    assert bc.handoff_problems(
+        kind="cert",
+        comparison_predictor=None,
+        known_predictors={"claude-baseline"},
+        report=None,
+        record=record,
+    ) == ["the record does not parse: ValidationError"]
+
+
+def test_the_handoff_check_reads_a_comparison_report_as_one(
+    fixture_corpus: FixtureCorpus, tmp_path: Path, metrics_root: Path
+) -> None:
+    out = tmp_path / "comparison.json"
+    assert runner.invoke(app, _compare(tmp_path, "--out", str(out))).exit_code == 0
+
+    def check(*extra: str) -> object:
+        return runner.invoke(
+            app, ["backtest-handoff-check", "--report", str(out), *extra], catch_exceptions=False
+        )
+
+    good = check("--kind", "cert", "--comparison-predictor", "claude-baseline")
+    assert good.exit_code == 0, good.output  # type: ignore[attr-defined]
+    wrong = check("--kind", "merits", "--comparison-predictor", "codex-baseline")
+    assert wrong.exit_code == 1  # type: ignore[attr-defined]
+    assert "a cert comparison, not merits" in wrong.output  # type: ignore[attr-defined]
+    assert "a different predictor" in wrong.output  # type: ignore[attr-defined]
+    out.write_text("not a report")
+    broken = check("--kind", "cert", "--comparison-predictor", "claude-baseline")
+    assert broken.exit_code == 1  # type: ignore[attr-defined]
+    assert "is not a comparison report" in broken.output  # type: ignore[attr-defined]
+
+
+# ------------------------------------------------------------- the hand-off plan
+
+
+def test_the_handoff_plan_names_each_modes_files_from_the_dispatch_alone() -> None:
+    assert bc.handoff_plan("salience-gate", "", "77") == bc.HandoffPlan(
+        report="salience-replay.json", record=None, kind=None
+    )
+    assert bc.handoff_plan("cert", "", "77") == bc.HandoffPlan(
+        report="cert-backtest.json", record="backtest-record/cert-77.jsonl", kind="cert"
+    )
+    assert bc.handoff_plan("merits", "ignored=here", "77").report == "merits-backtest.json"
+    compared = bc.handoff_plan("merits-compare", "claude-baseline=claude-fable-5-2", "77")
+    assert compared == bc.HandoffPlan(
+        report="backtest-comparisons/merits-claude-baseline-77.json",
+        record="backtest-record/merits-77.jsonl",
+        kind="merits",
+        predictor="claude-baseline",
+        model="claude-fable-5-2",
+        limit_cap=10,
+        cells_per_case=4,
+    )
+    cert = bc.handoff_plan("cert-compare", "claude-baseline=m", "77")
+    assert (cert.limit_cap, cert.cells_per_case) == (20, 2)
+
+
+@pytest.mark.parametrize(
+    ("replay", "candidate", "run_id"),
+    [
+        ("cert-compare", "", "77"),
+        ("cert-compare", "../x=m", "77"),
+        ("cert-compare", "claude-baseline=a b", "77"),
+        ("cert-compare", "claude-baseline=m\nx", "77"),
+        ("cert-compare", "Claude=m", "77"),
+        ("cert-compare", "claude-baseline=-m", "77"),
+        ("cert-compare", "claude-baseline=m/n", "77"),
+        ("nonsense", "", "77"),
+        ("cert", "", "7/7"),
+        ("cert", "", ""),
+    ],
+)
+def test_the_handoff_plan_refuses_what_could_not_name_a_file(
+    replay: str, candidate: str, run_id: str
+) -> None:
+    with pytest.raises(ValueError, match=r"candidate|run id|unknown"):
+        bc.handoff_plan(replay, candidate, run_id)
+    result = runner.invoke(
+        app,
+        ["backtest-handoff-plan", "--replay", replay, "--candidate", candidate, "--run-id", run_id],
+    )
+    assert result.exit_code == 2
+
+
+def test_the_handoff_plan_command_prints_the_plan_as_json() -> None:
+    result = runner.invoke(
+        app,
+        [
+            "backtest-handoff-plan",
+            "--replay",
+            "cert-compare",
+            "--candidate",
+            "claude-baseline=claude-fable-5-2",
+            "--run-id",
+            "77",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.stdout)["report"] == (
+        "backtest-comparisons/cert-claude-baseline-77.json"
+    )
+
+
+def test_a_failed_record_write_is_annotated_and_does_not_fail_the_command(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with cli._record_failure_annotated("cert-backtest"):
+        raise FileExistsError("a cell made this run's file")
+    out = capsys.readouterr().out
+    assert out.startswith("::error::cert-backtest: the pooled record was not written")
+    assert "FileExistsError" in out and "a cell made" not in out

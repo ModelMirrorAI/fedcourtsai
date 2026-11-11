@@ -133,7 +133,9 @@ the topic labeler's runs are what that window counts.)
   the cert default of 20 petitions prices at about $171 and the merits
   default of 10 cases at about $171, where both arms run a model that row
   describes; a candidate model the rate table does not carry has no planning
-  rate of its own, and that row stands in for it. No workflow runs a comparison, so one is spent only by the command.
+  rate of its own, and that row stands in for it. A `run-backtest` dispatch
+  (`replay: cert-compare` or `merits-compare`) caps the draw at those
+  defaults and has no `review` hold, so the dispatch is the release.
 - **The pilot round** (`run-evaluate`, `mode: reasoning-pilot-merits`) grades
   the briefed moment's kept forecasts for up to 15 cases, one grading run per
   evaluator per event. At the table's evaluate rows ($5.92 + $1.30 + $1.90,

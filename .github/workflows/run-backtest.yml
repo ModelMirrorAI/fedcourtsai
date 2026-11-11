@@ -32,6 +32,17 @@ name: run-backtest
 # only, never on the cron, spending two cells per predictor per case under
 # `engine: auto`, and uploading each cell's prediction files (never its record)
 # as a run artifact for the forecast-document grading pilot.
+# `replay: cert-compare` and `replay: merits-compare` replay ONE predictor
+# twice over the same drawn cases, as the registry configures it and with the
+# model `candidate` names (`fedcourts cert-backtest-compare` /
+# `merits-backtest-compare` into `metrics/backtest-comparisons/`): dispatch
+# only, two cells a petition or four a merits case under `engine: auto`, and
+# evidence for a re-bless decision, never a claimable figure.
+#
+# Every replay that runs a model also appends its scored cells to the pooled
+# back-test record (`--record`, one new file per run under
+# `metrics/backtest-record/`), which lands in the same reviewed PR as the
+# report.
 on:
   schedule:
     # 06:23 UTC on Saturdays. The slot is chosen for the runway behind it, not
@@ -68,23 +79,23 @@ on:
   workflow_dispatch:
     inputs:
       replay:
-        description: "cert = predictors over decided petitions; merits = predictors over decided argued cases at two moments; salience-gate = the salience gate over past Terms (token-free). cert and merits spend per `engine`."
+        description: "cert / merits = every predictor over decided petitions / argued cases; cert-compare / merits-compare = one predictor against `candidate`; salience-gate = the gate over past Terms (token-free). All but salience-gate spend per `engine`."
         type: choice
-        options: [cert, merits, salience-gate]
+        options: [cert, merits, cert-compare, merits-compare, salience-gate]
         default: cert
       engine:
-        description: "cert and merits: stub = free offline dry run; auto = each predictor's real engine (SPENDS TOKENS)."
+        description: "stub = free offline dry run; auto = each predictor's real engine (SPENDS TOKENS). Unused by salience-gate."
         type: choice
         options: [stub, auto]
         default: stub
       # cert takes the N most recently decided petitions, or a random draw
       # under `spread`. merits caps at 20 because a larger draw outlasts the job.
       limit:
-        description: "cert: N petitions, one cell per predictor each. merits: N random cases, 1 to 20, two cells per predictor each. Spend scales with N."
+        description: "cert: N petitions, one cell per predictor each. merits: 1 to 20 cases, two cells per predictor each. cert-compare: 1 to 20 petitions, two cells each. merits-compare: 1 to 10 cases, four cells each."
         type: string
         default: "25"
       terms:
-        description: "salience-gate and merits: comma-separated October Terms (merits: the argued Terms)."
+        description: "salience-gate, merits and merits-compare: comma-separated October Terms (the argued Terms for the merits replays)."
         type: string
         default: "2022,2023,2024"
       skip_engines:
@@ -92,14 +103,18 @@ on:
         type: string
         default: ""
       scope:
-        description: "cert population: all = every modern-cert petition; paid = no IFP; selected = the salience gate's live-comparable core."
+        description: "cert and cert-compare population: all = every modern-cert petition; paid = no IFP; selected = the salience gate's live-comparable core."
         type: choice
         options: [all, paid, selected]
         default: all
       spread:
-        description: "cert: draw a random sample instead of the most recently decided N."
+        description: "cert: draw a random sample instead of the most recently decided N. cert-compare: the simple random draw instead of the outcome-stratified one."
         type: boolean
         default: false
+      candidate:
+        description: "cert-compare and merits-compare: `<predictor>=<model>`, the predictor and the candidate model its engine serves (e.g. claude-baseline=claude-fable-5-2). Set `limit` too: the default exceeds a comparison's cap."
+        type: string
+        default: ""
 
 permissions: {}
 
@@ -141,6 +156,7 @@ env:
   BT_SPREAD: ${{ github.event_name == 'schedule' && 'true' || inputs.spread }}
   BT_SKIP_ENGINES: ${{ inputs.skip_engines }}
   BT_TERMS: ${{ inputs.terms }}
+  BT_CANDIDATE: ${{ inputs.candidate }}
 
 jobs:
   # The run gate (src/fedcourtsai/run_gate.py): a dispatch, or a re-run of any
@@ -715,7 +731,7 @@ jobs:
       # that leaves the claude lane out starts no sign-in.
       - name: Start the Claude federated sign-in for the replay cells
         id: claude-federation
-        if: env.BT_ENGINE == 'auto' && (env.BT_REPLAY == 'cert' || env.BT_REPLAY == 'merits') && !contains(env.BT_SKIP_ENGINES, 'claude')
+        if: env.BT_ENGINE == 'auto' && env.BT_REPLAY != 'salience-gate' && !contains(env.BT_SKIP_ENGINES, 'claude')
         uses: ./.github/actions/claude-federation
         env:
           ANTHROPIC_FEDERATION_RULE_ID: ${{ vars.ANTHROPIC_FEDERATION_RULE_ID }}
@@ -798,9 +814,12 @@ jobs:
           # integrity rests on the first-party engine configs and the committed
           # prompts.
           work_dir="$(mktemp -d /tmp/fedcourts-backtest-cells.XXXXXXXX)"
+          # `--record` appends the scored cells a model ran to the pooled
+          # record, one new file per run; the stub backend records nothing.
           uv run fedcourts cert-backtest \
             --engine "$BT_ENGINE" --limit "$BT_LIMIT" --skip-engines "$BT_SKIP_ENGINES" \
             --scope "$BT_SCOPE" "$SPREAD_FLAG" \
+            --record "metrics/backtest-record/cert-${GITHUB_RUN_ID}.jsonl" \
             --work-dir "$work_dir"
 
       # The merits replay: the same engines, credentials, cell env and work-root
@@ -842,7 +861,74 @@ jobs:
           uv run fedcourts merits-backtest \
             --terms "$BT_TERMS" --limit "$BT_LIMIT" \
             --engine "$BT_ENGINE" --skip-engines "$BT_SKIP_ENGINES" \
+            --record "metrics/backtest-record/merits-${GITHUB_RUN_ID}.jsonl" \
             --work-dir "$work_dir" --keep-cells "$RUNNER_TEMP/merits-cells"
+
+      # The comparison: one predictor replayed twice over the same drawn cases,
+      # as the registry configures it and with the model `candidate` names,
+      # each arm an ordinary replay campaign of the step it mirrors above (the
+      # same credentials, cell env and work-root placement; that step's
+      # comments hold for every line repeated here). The candidate's campaign
+      # runs first, so a model id its engine refuses ends the run before the
+      # incumbent's cells are paid for. `candidate` is `<predictor>=<model>`
+      # and is checked against that shape before it reaches a command line or
+      # a path: the predictor names the report file. A prompt candidate is not
+      # dispatchable, since its template would have to be in this commit's
+      # tree; that comparison runs by command. The draw is capped, as the
+      # merits replay's is and for its reason: this path has no `review`
+      # hold, and 40 cells of one engine fit inside the job's timeout.
+      - name: Run the back-test comparison
+        if: env.BT_REPLAY == 'cert-compare' || env.BT_REPLAY == 'merits-compare'
+        env:
+          ANTHROPIC_FEDERATION_RULE_ID: ${{ steps.claude-federation.outputs.token-file != '' && vars.ANTHROPIC_FEDERATION_RULE_ID || '' }}
+          ANTHROPIC_ORGANIZATION_ID: ${{ steps.claude-federation.outputs.token-file != '' && vars.ANTHROPIC_ORGANIZATION_ID || '' }}
+          ANTHROPIC_SERVICE_ACCOUNT_ID: ${{ steps.claude-federation.outputs.token-file != '' && vars.ANTHROPIC_SERVICE_ACCOUNT_ID || '' }}
+          ANTHROPIC_WORKSPACE_ID: ${{ steps.claude-federation.outputs.token-file != '' && vars.ANTHROPIC_WORKSPACE_ID || '' }}
+          ANTHROPIC_IDENTITY_TOKEN_FILE: ${{ steps.claude-federation.outputs.token-file }}
+          ANTHROPIC_CONFIG_DIR: ${{ steps.claude-federation.outputs.config-dir }}
+          ANTHROPIC_PROFILE: ${{ steps.claude-federation.outputs.token-file != '' && 'default' || '' }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
+          UV_CACHE_DIR: /tmp/fedcourts-backtest-uv-cache
+        run: |
+          set -euo pipefail
+          if [ ! -f corpus/corpus.db ]; then
+            echo "::error::no corpus on disk; nothing to back-test" >&2
+            exit 1
+          fi
+          # The same derivation the hand-off and the publisher read.
+          plan=$(uv run fedcourts backtest-handoff-plan --replay "$BT_REPLAY" \
+            --candidate "$BT_CANDIDATE" --run-id "$GITHUB_RUN_ID")
+          kind=$(jq -r '.kind' <<<"$plan")
+          predictor=$(jq -r '.predictor' <<<"$plan")
+          model=$(jq -r '.model' <<<"$plan")
+          cap=$(jq -r '.limit_cap' <<<"$plan")
+          per=$(jq -r '.cells_per_case' <<<"$plan")
+          if ! [[ "$BT_LIMIT" =~ ^[0-9]{1,3}$ ]] || [ "$((10#$BT_LIMIT))" -lt 1 ] || [ "$((10#$BT_LIMIT))" -gt "$cap" ]; then
+            echo "::error::a ${kind} comparison draws 1 to ${cap} cases; got limit '$BT_LIMIT'" >&2
+            exit 1
+          fi
+          # What the dispatch buys, stated before it spends: this path has no
+          # plan job to price it.
+          printf 'Comparison: `%s` against candidate model `%s`, %s case(s), up to %s cell(s) of its engine under `engine: %s` (`docs/budget.md` has the planning rate per cell).\n' \
+            "$predictor" "$model" "$BT_LIMIT" "$((10#$BT_LIMIT * per))" "$BT_ENGINE" >> "$GITHUB_STEP_SUMMARY"
+          work_dir="$(mktemp -d /tmp/fedcourts-backtest-cells.XXXXXXXX)"
+          out="metrics/$(jq -r '.report' <<<"$plan")"
+          record="metrics/$(jq -r '.record' <<<"$plan")"
+          if [ "$kind" = "merits" ]; then
+            uv run fedcourts merits-backtest-compare \
+              --predictor "$predictor" --candidate-model "$model" \
+              --terms "$BT_TERMS" --limit "$BT_LIMIT" --engine "$BT_ENGINE" \
+              --out "$out" --record "$record" --work-dir "$work_dir"
+          else
+            draw=stratified
+            if [ "$BT_SPREAD" = "true" ]; then draw=spread; fi
+            uv run fedcourts cert-backtest-compare \
+              --predictor "$predictor" --candidate-model "$model" \
+              --limit "$BT_LIMIT" --scope "$BT_SCOPE" --draw "$draw" --engine "$BT_ENGINE" \
+              --out "$out" --record "$record" --work-dir "$work_dir"
+          fi
 
       - name: Stop the Claude federated sign-in for the replay cells
         if: always() && steps.claude-federation.outputs.token-file != ''
@@ -1028,7 +1114,8 @@ jobs:
         uses: ./.github/actions/off-ledger-spend
         with:
           workflow: run-backtest
-          lane: ${{ format('{0}-replay', env.BT_REPLAY) }}
+          # A comparison is a replay of its kind; `selection` says which mode.
+          lane: ${{ startsWith(env.BT_REPLAY, 'merits') && 'merits-replay' || 'cert-replay' }}
           leg: ${{ format('{0}-replay', env.BT_REPLAY) }}
           selection: ${{ env.BT_REPLAY }}
           conclusion: ${{ job.status }}
@@ -1057,24 +1144,31 @@ jobs:
           fi
           uv run fedcourts salience-replay --terms "$BT_TERMS"
 
-      # The report leaves this job as an artifact, and nothing else does: the
-      # review PR is opened by `publish` below, on a fresh runner. This job
-      # runs agents unattended, and a process a replay cell leaves behind lives
-      # until the job ends, long enough to read any later step's environment
-      # out of /proc. The dev App token that opens the PR also carries the
-      # App's bypass of `main`'s approval rule, so it is never minted on a
-      # runner an agent has held. Only the one report the arm writes crosses,
-      # as a regular file: a symlink planted at the path would ship whatever
-      # it points at. No report is a quiet no-op, as it always was.
+      # The report leaves this job as an artifact, with the run's record file
+      # where a model ran, and nothing else does: the review PR is opened by
+      # `publish` below, on a fresh runner. This job runs agents unattended,
+      # and a process a replay cell leaves behind lives until the job ends,
+      # long enough to read any later step's environment out of /proc. The dev
+      # App token that opens the PR also carries the App's bypass of `main`'s
+      # approval rule, so it is never minted on a runner an agent has held.
+      # Only the arm's report and its record file cross, at paths this step
+      # and `publish` each derive from the dispatch and the run id, never from
+      # what is on disk, and each as a regular file: a symlink planted at a
+      # path would ship whatever it points at. No report is a quiet no-op, as
+      # it always was; no record is the stub backend's ordinary case.
       - name: Stage the report for the publish job
         id: report
         run: |
           set -euo pipefail
-          case "$BT_REPLAY" in
-            salience-gate) report=salience-replay.json ;;
-            merits) report=merits-backtest.json ;;
-            *) report=cert-backtest.json ;;
-          esac
+          # One derivation, in tested code, for every step that names these
+          # files: the mode and the run decide the paths, and a malformed
+          # `candidate` is refused here.
+          plan=$(uv run fedcourts backtest-handoff-plan --replay "$BT_REPLAY" \
+            --candidate "$BT_CANDIDATE" --run-id "$GITHUB_RUN_ID")
+          report=$(jq -r '.report' <<<"$plan")
+          record=$(jq -r '.record // ""' <<<"$plan")
+          kind=$(jq -r '.kind // ""' <<<"$plan")
+          predictor=$(jq -r '.predictor // ""' <<<"$plan")
           if [ -L "metrics/$report" ]; then
             echo "::error::metrics/${report} is a symlink; refusing to hand it off"
             exit 1
@@ -1084,15 +1178,32 @@ jobs:
             echo "present=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          mkdir -p "$RUNNER_TEMP/backtest-report"
-          # `-P` copies a link as a link, so a path swapped for one after the
-          # check above lands as a link and is refused below.
-          cp -P "metrics/$report" "$RUNNER_TEMP/backtest-report/$report"
-          if [ -L "$RUNNER_TEMP/backtest-report/$report" ] \
-              || [ ! -f "$RUNNER_TEMP/backtest-report/$report" ]; then
-            echo "::error::metrics/${report} changed under the copy; refusing to hand it off"
-            exit 1
-          fi
+          stage="$RUNNER_TEMP/backtest-report"
+          for file in "$report" "$record"; do
+            # No record file is the stub backend's ordinary case.
+            if [ -z "$file" ] || { [ ! -e "metrics/$file" ] && [ ! -L "metrics/$file" ]; }; then
+              continue
+            fi
+            if [ -L "metrics/$file" ] || [ ! -f "metrics/$file" ] \
+                || [ -L "$(dirname "metrics/$file")" ]; then
+              # The report was checked above, so this is the record file. The
+              # report still lands: its cells were paid for.
+              if [ "$file" = "$report" ]; then
+                echo "::error::metrics/${file} is not a regular file in a real directory; refusing to hand it off"
+                exit 1
+              fi
+              echo "::error::metrics/${file} is not a regular file in a real directory; the record is left behind and the report lands alone"
+              continue
+            fi
+            mkdir -p "$(dirname "$stage/$file")"
+            # `-P` copies a link as a link, so a path swapped for one after the
+            # check above lands as a link and is refused below.
+            cp -P "metrics/$file" "$stage/$file"
+            if [ -L "$stage/$file" ] || [ ! -f "$stage/$file" ]; then
+              echo "::error::metrics/${file} changed under the copy; refusing to hand it off"
+              exit 1
+            fi
+          done
           echo "present=true" >> "$GITHUB_OUTPUT"
 
       # One day, the shortest window offered: the PR is the record, and the
@@ -1128,10 +1239,15 @@ jobs:
     runs-on: ubuntu-26.04
     timeout-minutes: 20
     # Two runs' publish jobs force-push the same fixed branch, so one at a
-    # time. A pending one that a newer run supersedes is dropped, which costs
-    # nothing: the newer run force-pushes the same branch with a newer report.
+    # time. A pending one that a newer run supersedes is dropped, and the
+    # newer run force-pushes the same branch with a newer report: what the
+    # superseded run loses is its record file, as an unmerged PR's does when
+    # the next run replaces its branch (docs/pipeline.md).
+    # A comparison pushes a branch of its own and is superseded by nothing, so
+    # it takes a group of its own: dropped from a shared queue, its report
+    # would be lost. `inputs.replay` is empty on the cron, which is not one.
     concurrency:
-      group: run-backtest-publish
+      group: run-backtest-publish${{ contains(inputs.replay, 'compare') && format('-{0}', github.run_id) || '' }}
       cancel-in-progress: false
     # The dev App's credentials live on `prod`, whose branch policy admits
     # `main` alone.
@@ -1155,43 +1271,101 @@ jobs:
           path: ${{ runner.temp }}/backtest-report
 
       # Everything that reads the replay's bytes runs here, before the mint:
-      # the artifact must hold the arm's one report and nothing else, as a
-      # regular file; it overlays the committed copy; the tree must then differ
-      # from the commit at that path alone; the PR prose is rendered by the
-      # tested `cert-backtest-plan` (null pr = no report), or composed inline
-      # for the salience-gate arm, whose report is the reviewable content; and
-      # the change and the prose are scanned for secrets, as `collect` scans a
-      # run's. The steps after the mint only commit, push and open the PR.
+      # the artifact must hold the arm's report, its record file where one was
+      # written, and nothing else, each as a regular file at the path this job
+      # derives for itself; the report overlays the committed copy and the
+      # record file must be new, since the record is append-only; a
+      # comparison report and the record are checked as data by this commit's
+      # code (`backtest-handoff-check`); the
+      # tree must then differ from the commit at those paths alone; the PR
+      # prose is rendered by the tested `cert-backtest-plan` (null pr = no
+      # report), or composed inline for the other arms, whose report is the
+      # reviewable content; and the change and the prose are scanned for
+      # secrets, as `collect` scans a run's. The steps after the mint only
+      # commit, push and open the PR.
       - name: Stage and check the report
         id: stage
         env:
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          case "$BT_REPLAY" in
-            salience-gate) report=salience-replay.json ;;
-            merits) report=merits-backtest.json ;;
-            *) report=cert-backtest.json ;;
-          esac
+          # One derivation, in tested code, for every step that names these
+          # files: the mode and the run decide the paths, and a malformed
+          # `candidate` is refused here.
+          plan=$(uv run fedcourts backtest-handoff-plan --replay "$BT_REPLAY" \
+            --candidate "$BT_CANDIDATE" --run-id "$GITHUB_RUN_ID")
+          report=$(jq -r '.report' <<<"$plan")
+          record=$(jq -r '.record // ""' <<<"$plan")
+          kind=$(jq -r '.kind // ""' <<<"$plan")
+          predictor=$(jq -r '.predictor // ""' <<<"$plan")
           dir="$RUNNER_TEMP/backtest-report"
-          extra=$(find "$dir" -mindepth 1 ! -path "$dir/$report")
-          if [ -n "$extra" ] || [ -L "$dir/$report" ] || [ ! -f "$dir/$report" ]; then
-            echo "::error::the hand-off must hold metrics/${report} alone, as a regular file"
+          # Every entry that is not a plain directory, links included, by path.
+          held=$(cd "$dir" && find . -mindepth 1 ! -type d | LC_ALL=C sort)
+          recorded=false
+          if [ -n "$record" ] && [ "$held" = "$(printf './%s\n./%s' "$record" "$report" | LC_ALL=C sort)" ]; then
+            recorded=true
+          elif [ "$held" != "./$report" ]; then
+            echo "::error::the hand-off must hold metrics/${report}, and at most this run's record file beside it"
             exit 1
           fi
+          if [ -L "$dir/$report" ] || [ ! -f "$dir/$report" ] \
+              || [ -n "$(find "$dir" -mindepth 1 -type l)" ]; then
+            echo "::error::the hand-off must hold regular files alone"
+            exit 1
+          fi
+          mkdir -p "$(dirname "metrics/$report")"
           cp "$dir/$report" "metrics/$report"
+          if [ "$recorded" = true ]; then
+            if [ -e "metrics/$record" ] || [ -L "metrics/$record" ] || [ ! -f "$dir/$record" ]; then
+              echo "::error::metrics/${record} already exists or is not a regular file; a record file is never rewritten"
+              exit 1
+            fi
+            mkdir -p "$(dirname "metrics/$record")"
+            cp "$dir/$record" "metrics/$record"
+          fi
+          # What crossed is checked as data before anything is staged: a
+          # comparison report must parse as one, of this kind and predictor,
+          # and the record must parse row by row (names and numbers alone, no
+          # field that holds prose), hold one run's rows of this kind, and
+          # carry only the arms and predictors this mode writes. A process a
+          # cell left behind could have rewritten either file after the
+          # command wrote it, and a reviewer reads a report more readily than
+          # a file of rows. The roll-up is not committed: it is a
+          # deterministic function of the record, and two open PRs each
+          # carrying a copy would conflict on it.
+          if [ -n "$kind" ]; then
+            check=(--kind "$kind")
+            if [ -n "$predictor" ]; then
+              check+=(--comparison-predictor "$predictor" --report "metrics/$report")
+            fi
+            if [ "$recorded" = true ]; then
+              check+=(--record "metrics/$record")
+            fi
+            uv run fedcourts backtest-handoff-check "${check[@]}"
+          fi
           changed=$(git status --porcelain --untracked-files=all)
           if [ -z "$changed" ]; then
             echo "Replay report unchanged; nothing to land." | tee -a "$GITHUB_STEP_SUMMARY"
             echo "land=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          # A modified report, or the first one of its kind, and nothing else.
-          if [ "$changed" != " M metrics/${report}" ] && [ "$changed" != "?? metrics/${report}" ]; then
-            echo "::error::the tree differs from the commit outside metrics/${report}"
-            git status --porcelain --untracked-files=all
-            exit 1
-          fi
+          # A modified report, or the first one of its kind; with a record,
+          # its one new file; and nothing else.
+          paths=("metrics/$report")
+          while IFS= read -r line; do
+            case "$line" in
+              " M metrics/${report}" | "?? metrics/${report}") ;;
+              "?? metrics/${record}")
+                [ "$recorded" = true ] || line=
+                paths+=("metrics/$record") ;;
+              *) line= ;;
+            esac
+            if [ -z "$line" ]; then
+              echo "::error::the tree differs from the commit outside the report and this run's record file"
+              git status --porcelain --untracked-files=all
+              exit 1
+            fi
+          done <<<"$changed"
           pr="$RUNNER_TEMP/pr"
           mkdir -p "$pr"
           if [ "$BT_REPLAY" = "salience-gate" ]; then
@@ -1205,6 +1379,19 @@ jobs:
             {
               printf 'Deterministic salience-gate replay: `fedcourts salience-replay --terms %s`.\n\n' "$BT_TERMS"
               printf 'Refreshes `metrics/salience-replay.json`. No model ran and no tokens were spent. '
+              printf 'What the numbers may and may not be read as: `metrics/README.md`.\n'
+            } > "$pr/body.md"
+          elif [ "$BT_REPLAY" = "cert-compare" ] || [ "$BT_REPLAY" = "merits-compare" ]; then
+            # Minimal for the same reason as the salience arm. A branch per
+            # run: every comparison is its own report file, and a fixed branch
+            # force-pushed by the next one would drop an unmerged one.
+            printf '%s' "metrics/backtest-comparison-${GITHUB_RUN_ID}" > "$pr/branch"
+            printf '%s' "metrics(backtest): ${kind} comparison of ${BT_CANDIDATE} (engine ${BT_ENGINE})" > "$pr/title"
+            printf '%s' "metrics(backtest): ${kind} comparison (run ${GITHUB_RUN_ID})" > "$pr/commit"
+            {
+              printf 'Back-test comparison: `fedcourts %s-backtest-compare` of `%s` (predictor=candidate model), limit %s, engine %s.\n\n' \
+                "$kind" "$BT_CANDIDATE" "$BT_LIMIT" "$BT_ENGINE"
+              printf 'Adds `metrics/%s`. Evidence for a re-bless decision and never a claimable figure: every replayed outcome was public before the run, and the report'"'"'s `exposure_note` says which pairs postdate both models'"'"' training cutoffs. ' "$report"
               printf 'What the numbers may and may not be read as: `metrics/README.md`.\n'
             } > "$pr/body.md"
           elif [ "$BT_REPLAY" = "merits" ]; then
@@ -1233,10 +1420,17 @@ jobs:
             jq -j '.pr.commit_message' <<<"$plan" > "$pr/commit"
             jq -r '.pr.body' <<<"$plan" > "$pr/body.md"
           fi
-          git add "metrics/$report"
+          if [ "$recorded" = true ]; then
+            printf '\nAlso adds this run'"'"'s scored cells to the pooled back-test record (`metrics/%s`); `fedcourts backtest-pooled` rolls the record up.\n' "$record" >> "$pr/body.md"
+          fi
+          extras=()
+          for path in "${paths[@]}"; do
+            git add "$path"
+            extras+=(--extra-file "$path")
+          done
           git diff --cached --name-status > "$pr/changes.txt"
           if ! uv run fedcourts scan-diff-for-secrets --name-status-file "$pr/changes.txt" \
-              --extra-file "metrics/$report" \
+              "${extras[@]}" \
               --extra-file "$pr/body.md" \
               --run-url "https://github.com/${REPO}/actions/runs/${GITHUB_RUN_ID}"; then
             echo "::error::secret scan did not pass; withholding the review PR"
@@ -1265,9 +1459,9 @@ jobs:
           token: ${{ steps.app-token.outputs.token }}
           app-slug: ${{ steps.app-token.outputs.app-slug }}
 
-      # Git and gh only, over what the step above staged and rendered. The
-      # fixed branch is force-pushed so an unmerged PR updates in place rather
-      # than stacking.
+      # Git and gh only, over what the step above staged and rendered. An
+      # arm's fixed branch is force-pushed so an unmerged PR updates in place
+      # rather than stacking; a comparison's branch is its run's own.
       - name: Open or update the review PR
         if: steps.stage.outputs.land == 'true'
         env:

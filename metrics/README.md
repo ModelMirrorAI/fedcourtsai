@@ -354,9 +354,11 @@ missing week, and
 `replay: salience-gate` mode, landing as a reviewed PR),
 `merits-backtest.json`, which only a `run-backtest` dispatch in `replay: merits`
 mode writes, as a reviewed PR, the back-test comparison reports under
-`backtest-comparisons/`, the pooled back-test record under `backtest-record/`
-and its roll-up `backtest-pooled.json`, which the replay commands and
-`fedcourts backtest-pooled` write, and
+`backtest-comparisons/` (a `run-backtest` dispatch in `replay: cert-compare`
+or `merits-compare` mode, each a reviewed PR), the pooled back-test record
+under `backtest-record/`, which every `run-backtest` replay that runs a model
+adds one file to in its report's PR, its roll-up `backtest-pooled.json`, which
+`fedcourts backtest-pooled` computes on demand and no lane commits, and
 `semantic-grades-<stratum>-<scope>.json`, which `fedcourts semantic-summary`
 writes **only** when the semantic census clears both preconditions below — it
 is outside the gate precisely because its absence is a state the contract
@@ -2158,7 +2160,8 @@ merits section rather than the cert band, with `base_rate_basis` and
   offline rehearsal's cells are never recorded. The roll-up exists because
   one replay's handful of cases cannot separate two predictors and a series
   of recorded replays can. A record file exists only where a run was asked
-  for one; the caller names it, by the convention above. Both record
+  for one; the caller names it, by the convention above, and `run-backtest`
+  names it by its run. Both record
   directories are held out of the tree while replay cells run, since their
   rows name cases beside outcomes; `backtest-pooled.json` names no case and
   is not. The reading rules:
