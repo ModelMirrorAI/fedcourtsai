@@ -126,6 +126,14 @@ the topic labeler's runs are what that window counts.)
   of 20 cases at about $360. The
   arm has no `review` hold, so the dispatch is the release: the 1–20 case cap,
   which the job's timeout sets, is its only bound.
+- **A back-test comparison** (`fedcourts cert-backtest-compare`,
+  `fedcourts merits-backtest-compare`) runs one predictor's cell twice on
+  each drawn case: two cells a petition at cert and four a case at merits,
+  two moments an arm. At the planning table's claude-code predict row ($4.27)
+  the cert default of 20 petitions prices at about $171 and the merits
+  default of 10 cases at about $171, where both arms run a model that row
+  describes; a candidate model the rate table does not carry has no planning
+  rate of its own, and that row stands in for it. No workflow runs a comparison, so one is spent only by the command.
 - **The pilot round** (`run-evaluate`, `mode: reasoning-pilot-merits`) grades
   the briefed moment's kept forecasts for up to 15 cases, one grading run per
   evaluator per event. At the table's evaluate rows ($5.92 + $1.30 + $1.90,

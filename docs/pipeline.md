@@ -259,6 +259,15 @@ Five blocks, in the order a reader needs them:
   stage and so not subtractable from the cert figures. It leads the scored
   blocks because it is the program's output; the back-tests after it are
   iteration instruments.
+- **Movement since the previous board** — under the forward block, each
+  predictor's pooled forward series on the committed board against the board
+  it replaced, read from the checkout's own history of
+  `metrics/leaderboard.json`. Only a series that gained or lost events or trips
+  a flag is printed (`rescored`, `events-removed`, and from ten events
+  `at-or-below-floor` and `negative-skill`), a flagged series that did not
+  move as one line. These are each predictor's own record, not the paired
+  figure above, with the floor beside each accuracy; an operational check,
+  not a finding. Omitted where the history is unreadable or holds no earlier board.
 - **Forward misses** — under the forward block, counts off the committed
   `metrics/miss-review.json` with its vintage: the forward events holding a
   miss, how many every predictor reviewed there shares, and the same per
@@ -2880,6 +2889,22 @@ the `federal` band, one a looser reading than the caption rule places federal,
 or Term-to-date recall under its floor. The figures are outcome-selected and
 describe selection, never a predictor; [cli.md](cli.md) has the rules.
 
+`fedcourts federal-label-check` asks the same question before the outcome
+rather than after it. Over the pending paid docket it lists every petition
+outside the `federal` band that a reading looser than the caption rule places
+federal, so a mislabeled federal petitioner is seen while its conference is
+still ahead. It reads pending rows only and selects nothing; a confirmed miss
+is evidence for the next registered caption version.
+
+`fedcourts coverage-verdict` folds the three into one answer: the
+missed-forecast monitor read over 35 days, and the two censuses, as a single
+`ok` with the alarms named by check, a flat block of counts to keep as a
+series, and a rendered issue body. The round's own `::warning::` lines expire
+with the run log; the verdict is the form the same findings take when they
+are to outlive it. No workflow runs `unforecast-outcomes`,
+`federal-label-check` or `coverage-verdict`: each is a dry run a maintainer or
+a session reads by hand.
+
 That is the shape both workflows invoke, on every round. The commands
 still accept an explicit case list — a ` ```json ``` ` block by `--body-file`, or
 `--court`/`--docket` — which is what a local dry run of one case uses; no
@@ -3224,7 +3249,12 @@ to `publish`, its removal never reaches what the PR commits. The weekly public
 update history, `metrics/updates/`, leaves and comes back with the board on the
 same terms, because each week's resolved section names decided events beside
 their outcomes. The standing `metrics/cert-backtest.json` is withheld by
-`cert-backtest` itself (see the `cert-backtest` row in [cli.md](cli.md)).
+`cert-backtest` itself (see the `cert-backtest` row in [cli.md](cli.md)), as
+are the pooled back-test record `metrics/backtest-record/` and the comparison
+reports `metrics/backtest-comparisons/`, by `cert-backtest`, `merits-backtest`
+and the two comparison commands alike. `run-backtest` has no comparison mode:
+a comparison is run with `fedcourts cert-backtest-compare` or
+`fedcourts merits-backtest-compare` where the corpus is pulled.
 
 Two residuals ride that fence, and both are the reason it is described as
 structural rather than as a wall. The checkout is full-depth, so the ledger

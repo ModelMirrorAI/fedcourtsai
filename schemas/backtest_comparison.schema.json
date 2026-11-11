@@ -1,0 +1,718 @@
+{
+  "$defs": {
+    "BacktestComparisonArm": {
+      "additionalProperties": false,
+      "description": "One side of a back-test comparison: the configuration that ran, and how much came back.",
+      "properties": {
+        "cells_lost": {
+          "description": "Cells of this arm that produced no score, whatever the reason",
+          "minimum": 0,
+          "title": "Cells Lost",
+          "type": "integer"
+        },
+        "cells_scored": {
+          "description": "Cells of this arm that came back scored",
+          "minimum": 0,
+          "title": "Cells Scored",
+          "type": "integer"
+        },
+        "engine": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The backend that ran this arm's cells; `stub` on an offline rehearsal",
+          "title": "Engine"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The model that backend invoked; null on an offline backend, which invokes none, whatever `requested_model` says",
+          "title": "Model"
+        },
+        "process_digest": {
+          "description": "The process digest of this arm's configuration (prompt bytes plus the registry entry with this arm's model and prompt). It names the configuration, not the harness: a replay cell runs with no MCP server, and a cert replay cell with no staged documents, so it is not a cell of the registered process",
+          "title": "Process Digest",
+          "type": "string"
+        },
+        "prompt": {
+          "description": "The prompt template this arm's cells were handed",
+          "title": "Prompt",
+          "type": "string"
+        },
+        "requested_model": {
+          "description": "The model this arm's configuration names: the registry's own for the incumbent, the dispatched one for the candidate. Equal to `model` on a real engine",
+          "title": "Requested Model",
+          "type": "string"
+        },
+        "role": {
+          "description": "'incumbent': the predictor as the registry configures it. 'candidate': the same predictor with the one change under test",
+          "enum": [
+            "incumbent",
+            "candidate"
+          ],
+          "title": "Role",
+          "type": "string"
+        },
+        "training_cutoff": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The vendor-stated training data cutoff recorded for `requested_model`, as the last day of the stated month; null where none is recorded, which leaves `after_both_cutoffs` undetermined on every pair",
+          "title": "Training Cutoff"
+        }
+      },
+      "required": [
+        "role",
+        "requested_model",
+        "prompt",
+        "process_digest",
+        "cells_scored",
+        "cells_lost"
+      ],
+      "title": "BacktestComparisonArm",
+      "type": "object"
+    },
+    "BacktestComparisonDispatch": {
+      "additionalProperties": false,
+      "description": "The parameters a comparison was run under, as dispatched.",
+      "properties": {
+        "candidate_model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The candidate's model, where the model is what changed",
+          "title": "Candidate Model"
+        },
+        "candidate_prompt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The candidate's prompt path, where the prompt is what changed",
+          "title": "Candidate Prompt"
+        },
+        "draw_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The corpus vintage the draw order is keyed by",
+          "title": "Draw Key"
+        },
+        "draw_rule": {
+          "description": "The rule that drew the set",
+          "title": "Draw Rule",
+          "type": "string"
+        },
+        "draw_salt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Draw Salt"
+        },
+        "engine": {
+          "description": "'auto' (the predictor's own engine, both arms) or a single backend such as the offline 'stub'",
+          "title": "Engine",
+          "type": "string"
+        },
+        "limit": {
+          "minimum": 0,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "predictor_id": {
+          "title": "Predictor Id",
+          "type": "string"
+        },
+        "scope": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "cert: the population scope",
+          "title": "Scope"
+        },
+        "terms": {
+          "description": "merits: the argued Terms",
+          "items": {
+            "type": "integer"
+          },
+          "title": "Terms",
+          "type": "array"
+        }
+      },
+      "required": [
+        "engine",
+        "predictor_id",
+        "limit",
+        "draw_rule"
+      ],
+      "title": "BacktestComparisonDispatch",
+      "type": "object"
+    },
+    "BacktestComparisonMoment": {
+      "additionalProperties": false,
+      "description": "The paired figures at one prediction moment.",
+      "properties": {
+        "after_both_cutoffs": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BacktestPairedFigures"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The drawn-set figure over the pairs decided after both arms' training cutoffs only, unweighted, so it describes those drawn cases and not a population: the subset where recall of the outcome is least likely, a stated cutoff being a month and approximate. Null where a cutoff is not recorded; `pairs` is 0 where the cutoffs are recorded and no such case was drawn"
+        },
+        "by_stratum": {
+          "description": "The paired difference within each stratum that holds a pair: what `population` is built from, and the reading to use where its interval is null",
+          "items": {
+            "$ref": "#/$defs/BacktestComparisonStratumFigures"
+          },
+          "title": "By Stratum",
+          "type": "array"
+        },
+        "cells": {
+          "description": "Cells provisioned at this moment, per arm",
+          "minimum": 0,
+          "title": "Cells",
+          "type": "integer"
+        },
+        "drawn_set": {
+          "$ref": "#/$defs/BacktestPairedFigures",
+          "description": "Every pair counted once: the difference on the set as drawn"
+        },
+        "moment": {
+          "title": "Moment",
+          "type": "string"
+        },
+        "population": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BacktestPairedFigures"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The strata reweighted to their population shares; null under an unstratified draw, whose drawn-set figure already estimates its population, and null where a weighted stratum holds no pair"
+        }
+      },
+      "required": [
+        "moment",
+        "cells",
+        "drawn_set"
+      ],
+      "title": "BacktestComparisonMoment",
+      "type": "object"
+    },
+    "BacktestComparisonPair": {
+      "additionalProperties": false,
+      "description": "One replayed cell under both arms: the same case, moment, record and clock.",
+      "properties": {
+        "after_both_cutoffs": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Whether `decided` falls after both arms' recorded training cutoffs, so neither model can have been trained on the outcome. Null where a cutoff or the decision day is not recorded",
+          "title": "After Both Cutoffs"
+        },
+        "brier_difference": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": -1.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Candidate Brier minus incumbent Brier on this cell; negative means the candidate was closer. Null where either arm lost the cell",
+          "title": "Brier Difference"
+        },
+        "call": {
+          "anyOf": [
+            {
+              "enum": [
+                "same",
+                "to-correct",
+                "to-wrong"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Whether the binary call moved between the arms: 'to-correct' the candidate is right where the incumbent was wrong, 'to-wrong' the reverse, 'same' both made the same call. Null where either arm lost the cell",
+          "title": "Call"
+        },
+        "candidate_probability": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Candidate Probability"
+        },
+        "case_id": {
+          "title": "Case Id",
+          "type": "string"
+        },
+        "decided": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The day the outcome was decided; null where the row has none",
+          "title": "Decided"
+        },
+        "incumbent_probability": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Incumbent Probability"
+        },
+        "moment": {
+          "description": "The prediction moment the cell was replayed at",
+          "title": "Moment",
+          "type": "string"
+        },
+        "outcome": {
+          "description": "The realized binary outcome the probability is scored against: granted (cert) or disturbed (merits)",
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Outcome",
+          "type": "integer"
+        },
+        "provisioning": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The information-set arm the cell was provisioned under (cert: dated, truncated or blind), identical for both arms; null where the replay records none",
+          "title": "Provisioning"
+        },
+        "stratum": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The draw stratum the case was sampled in; null under an unstratified draw",
+          "title": "Stratum"
+        }
+      },
+      "required": [
+        "case_id",
+        "moment",
+        "outcome"
+      ],
+      "title": "BacktestComparisonPair",
+      "type": "object"
+    },
+    "BacktestComparisonStratum": {
+      "additionalProperties": false,
+      "description": "One draw stratum: its population, its weight, and what was drawn from it.",
+      "properties": {
+        "drawn": {
+          "description": "Cases actually drawn, short of `target` where the replayable stratum ran out",
+          "minimum": 0,
+          "title": "Drawn",
+          "type": "integer"
+        },
+        "passed_over": {
+          "default": 0,
+          "description": "Cases the walk passed over as unreplayable",
+          "minimum": 0,
+          "title": "Passed Over",
+          "type": "integer"
+        },
+        "population": {
+          "description": "Eligible cases in this stratum of the drawn-from population, replayable or not",
+          "minimum": 0,
+          "title": "Population",
+          "type": "integer"
+        },
+        "stratum": {
+          "title": "Stratum",
+          "type": "string"
+        },
+        "target": {
+          "description": "Cases the draw rule set out to take here",
+          "minimum": 0,
+          "title": "Target",
+          "type": "integer"
+        },
+        "weight": {
+          "description": "`population` over the whole eligible population: the share the stratum's mean is weighted by in a 'stratified' figure",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Weight",
+          "type": "number"
+        }
+      },
+      "required": [
+        "stratum",
+        "population",
+        "weight",
+        "target",
+        "drawn"
+      ],
+      "title": "BacktestComparisonStratum",
+      "type": "object"
+    },
+    "BacktestComparisonStratumFigures": {
+      "additionalProperties": false,
+      "description": "The paired difference within one draw stratum at one moment.",
+      "properties": {
+        "largest_absolute_difference": {
+          "description": "The largest single move in the stratum. `pairs` cells with no large move cannot exclude a large-move rate up to about 3 / `pairs` in the class they were drawn from",
+          "minimum": 0.0,
+          "title": "Largest Absolute Difference",
+          "type": "number"
+        },
+        "mean_brier_difference": {
+          "description": "Mean of the stratum's per-cell differences (candidate minus incumbent)",
+          "title": "Mean Brier Difference",
+          "type": "number"
+        },
+        "pairs": {
+          "description": "Pairs in this stratum both arms scored",
+          "minimum": 1,
+          "title": "Pairs",
+          "type": "integer"
+        },
+        "stratum": {
+          "title": "Stratum",
+          "type": "string"
+        }
+      },
+      "required": [
+        "stratum",
+        "pairs",
+        "mean_brier_difference",
+        "largest_absolute_difference"
+      ],
+      "title": "BacktestComparisonStratumFigures",
+      "type": "object"
+    },
+    "BacktestPairedFigures": {
+      "additionalProperties": false,
+      "description": "The paired difference between the arms over one set of cells both arms scored.",
+      "properties": {
+        "calls_changed": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Calls Changed",
+          "type": "integer"
+        },
+        "candidate_mean_brier": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Candidate Mean Brier"
+        },
+        "changed_to_correct": {
+          "default": 0,
+          "description": "Pairs where only the candidate's binary call was right",
+          "minimum": 0,
+          "title": "Changed To Correct",
+          "type": "integer"
+        },
+        "changed_to_wrong": {
+          "default": 0,
+          "description": "Pairs where only the incumbent's binary call was right",
+          "minimum": 0,
+          "title": "Changed To Wrong",
+          "type": "integer"
+        },
+        "degrees_of_freedom": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The t interval's degrees of freedom: pairs minus one, or the Satterthwaite approximation under 'stratified'",
+          "title": "Degrees Of Freedom"
+        },
+        "estimator": {
+          "default": "unweighted",
+          "description": "'unweighted': every pair counts once, which describes the drawn set. 'stratified': each stratum's mean weighted by its population share (`strata`), which estimates the drawn-from population",
+          "enum": [
+            "unweighted",
+            "stratified"
+          ],
+          "title": "Estimator",
+          "type": "string"
+        },
+        "incumbent_mean_brier": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Incumbent Mean Brier"
+        },
+        "interval_high": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "With `interval_low`, the Student-t interval for the mean difference at `level`. A paired interval: it is computed on the per-cell differences, so the case-to-case variation both arms share cancels. Null below two pairs (or, stratified, below two in any weighted stratum), where the differences show no spread, and, stratified, where one stratum's weight exceeds 0.8: that class then supplies nearly all of the variance from a handful of near-constant differences, and the interval would cover far less often than `level` says. The differences are bounded and skewed, so at a small `pairs` the nominal coverage is approximate",
+          "title": "Interval High"
+        },
+        "interval_low": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Interval Low"
+        },
+        "level": {
+          "default": 0.95,
+          "exclusiveMaximum": 1.0,
+          "exclusiveMinimum": 0.0,
+          "title": "Level",
+          "type": "number"
+        },
+        "mean_brier_difference": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Mean of the per-cell differences (candidate minus incumbent); negative favours the candidate. Under `estimator` 'stratified' it is the strata means weighted by their population shares",
+          "title": "Mean Brier Difference"
+        },
+        "pairs": {
+          "description": "Cells both arms scored: the only set compared",
+          "minimum": 0,
+          "title": "Pairs",
+          "type": "integer"
+        },
+        "positives": {
+          "description": "Of `pairs`, those whose outcome was 1",
+          "minimum": 0,
+          "title": "Positives",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "pairs",
+        "positives"
+      ],
+      "title": "BacktestPairedFigures",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "A back-test comparison report: one predictor's candidate against its incumbent.\n\nBoth arms replay the same drawn cases at the same moments from identically\nprovisioned records under the same replay clock, so the per-cell difference\nisolates the one configuration change under test. Produced by\n``fedcourts cert-backtest-compare`` and ``fedcourts merits-backtest-compare``.",
+  "properties": {
+    "arms": {
+      "items": {
+        "$ref": "#/$defs/BacktestComparisonArm"
+      },
+      "title": "Arms",
+      "type": "array"
+    },
+    "dispatch": {
+      "$ref": "#/$defs/BacktestComparisonDispatch"
+    },
+    "exposure_note": {
+      "description": "What the recorded training cutoffs let this report say about outcome recall, in a sentence",
+      "title": "Exposure Note",
+      "type": "string"
+    },
+    "kind": {
+      "enum": [
+        "cert",
+        "merits"
+      ],
+      "title": "Kind",
+      "type": "string"
+    },
+    "moments": {
+      "items": {
+        "$ref": "#/$defs/BacktestComparisonMoment"
+      },
+      "title": "Moments",
+      "type": "array"
+    },
+    "pairs": {
+      "items": {
+        "$ref": "#/$defs/BacktestComparisonPair"
+      },
+      "title": "Pairs",
+      "type": "array"
+    },
+    "pulled_through": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The corpus vintage the set was drawn from",
+      "title": "Pulled Through"
+    },
+    "run_id": {
+      "title": "Run Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "strata": {
+      "description": "The draw strata; empty under an unstratified draw",
+      "items": {
+        "$ref": "#/$defs/BacktestComparisonStratum"
+      },
+      "title": "Strata",
+      "type": "array"
+    },
+    "stratum": {
+      "const": "retrospective",
+      "default": "retrospective",
+      "description": "Every replayed outcome was public before the run. A comparison is evidence for a re-bless decision between two configurations and is never a claimable performance figure; no cell here counts toward a forward board",
+      "title": "Stratum",
+      "type": "string"
+    }
+  },
+  "required": [
+    "kind",
+    "run_id",
+    "dispatch",
+    "arms",
+    "exposure_note"
+  ],
+  "title": "BacktestComparison",
+  "type": "object"
+}

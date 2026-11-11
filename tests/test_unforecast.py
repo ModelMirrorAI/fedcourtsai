@@ -334,3 +334,17 @@ def test_the_cli_refuses_an_unreadable_date_and_a_missing_corpus(
 
     assert CliRunner().invoke(app, ["unforecast-outcomes", "--since", "soon"]).exit_code == 2
     assert CliRunner().invoke(app, ["unforecast-outcomes"]).exit_code == 1
+
+
+def test_a_relators_caption_carries_no_party_signal(tmp_path: Path) -> None:
+    db, data = _db(tmp_path)
+    party = corpus.CounselEntry(
+        party="United States", attorney="A. Lawyer", role=corpus.CounselRole.petitioner
+    )
+    with corpus.connect(db) as conn:
+        _row(conn, 1, "26-101", case_name="United States ex rel. Doe v. Acme", counsel=[party])
+
+    report = _census(db, data)
+
+    assert report.cert_unforecast[0].federal_signals == []
+    assert report.alarms == []
