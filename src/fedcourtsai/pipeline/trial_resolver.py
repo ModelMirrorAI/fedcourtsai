@@ -1,8 +1,9 @@
 """Deterministic resolution of the trial stage's events from a district docket.
 
-The trial stage (``docs/trial-stage.md``) defines four moments a district case
+The trial stage (``docs/trial-stage.md``) defines five moments a district case
 passes: a ruling on a motion to dismiss, on class certification, on a motion
-for summary judgment, and the case's final disposition. This module reads how
+for summary judgment and on a motion for a preliminary injunction, and the
+case's final disposition. This module reads how
 each resolved from the court's own record, with no agent.
 
 The rule is built to miss rather than misread. It reads only the forms courts
@@ -23,6 +24,9 @@ maintainer's triage:
   Where the order's text is given, its decretal language must not disagree;
   it never resolves an event on its own, and an opinion whose docket text
   states no ruling is triage. Leave is read from the docket text only.
+- **A restraining order is not the injunction.** A motion that asks for both
+  is an injunction event. A ruling whose text names a restraining order is
+  passed over, and one on such a motion that names neither half is triage.
 - **A closure is read from its own leading noun and must name nothing it is
   limited to**: a stipulation or notice of dismissal, an order granting one, a
   final approval of a settlement, or a consent judgment, followed by nothing
@@ -50,7 +54,7 @@ from enum import StrEnum
 from typing import Any, Final
 
 #: The label of the reading rule below. A changed rule is a new label.
-RESOLVER_RULE: Final = "trial-resolver-v1"
+RESOLVER_RULE: Final = "trial-resolver-v2"
 
 
 class TrialMoment(StrEnum):
@@ -59,12 +63,18 @@ class TrialMoment(StrEnum):
     dismissal = "trial-dismissal"
     class_certification = "trial-class"
     summary_judgment = "trial-summary-judgment"
+    preliminary_injunction = "trial-preliminary-injunction"
     judgment = "trial-judgment"
 
 
 #: The moments that forecast a ruling on one motion.
 MOTION_MOMENTS: Final = frozenset(
-    {TrialMoment.dismissal, TrialMoment.class_certification, TrialMoment.summary_judgment}
+    {
+        TrialMoment.dismissal,
+        TrialMoment.class_certification,
+        TrialMoment.summary_judgment,
+        TrialMoment.preliminary_injunction,
+    }
 )
 
 
@@ -192,19 +202,41 @@ def _clean(text: str) -> str:
 # Summary Judgment". Only the kind the motion word governs counts, so a motion
 # for an extension of time about a motion to dismiss is not one.
 _MOTION_LEAD = (
-    r"^\s*(?:(?:joint|renewed|amended|corrected|cross|consolidated|second|"
-    r"supplemental|partial)[-\s]+)*motions?\s+"
+    r"^\s*(?:(?:joint|renewed|amended|corrected|cross|consolidated|first|second|third|"
+    r"supplemental|partial|emergency|expedited)[-\s]+)*motions?\s+"
 )
+# A temporary restraining order, by name or by its usual abbreviation. A motion
+# for one alone is no event; one that also asks for a preliminary injunction is
+# an injunction event.
+_TRO = r"(?:temporary\s+restraining\s+order|t\.?r\.?o\.?)"
+_NAMES_TRO = re.compile(r"\b" + _TRO + r"(?!\w)|\brestrain\w*", re.I)
+_NAMES_INJUNCTION = re.compile(r"\bpreliminary\s+injunction\b", re.I)
+# What makes a motion one about the covered motion rather than the motion
+# itself ("for Summary Judgment Briefing Schedule", "for Preliminary
+# Injunction Pending Appeal").
+_ABOUT = r"(?!\s+(?:pending\s+appeal|hearing|briefing|schedul\w*|deadline\w*|page\w*|bond)\b)"
 _MOTION_KIND: Final[tuple[tuple[TrialMoment, re.Pattern[str]], ...]] = (
     (
         TrialMoment.summary_judgment,
-        re.compile(_MOTION_LEAD + r"for\s+(?:partial\s+)?summary\s+judgment\b", re.I),
+        re.compile(_MOTION_LEAD + r"for\s+(?:partial\s+)?summary\s+judgment\b" + _ABOUT, re.I),
     ),
     (
         TrialMoment.class_certification,
         re.compile(
             _MOTION_LEAD + r"(?:to\s+certify\s+(?:a\s+|the\s+)?class\b|"
-            r"for\s+class\s+certification\b|for\s+certification\s+of\s+(?:a\s+|the\s+)?class\b)",
+            r"for\s+class\s+certification\b|for\s+certification\s+of\s+(?:a\s+|the\s+)?class\b)"
+            + _ABOUT,
+            re.I,
+        ),
+    ),
+    (
+        TrialMoment.preliminary_injunction,
+        re.compile(
+            _MOTION_LEAD + r"for\s+(?:an?\s+)?"
+            r"(?:"
+            + _TRO
+            + r"(?:\s+and\s+|\s*,\s*(?:and\s+)?)(?:motions?\s+)?(?:for\s+)?(?:an?\s+)?)?"
+            r"preliminary\s+injunction\b" + _ABOUT,
             re.I,
         ),
     ),
@@ -212,7 +244,9 @@ _MOTION_KIND: Final[tuple[tuple[TrialMoment, re.Pattern[str]], ...]] = (
         TrialMoment.dismissal,
         re.compile(
             _MOTION_LEAD + r"to\s+dismiss\b"
-            r"(?![^.;]{0,60}\b(?:counterclaim|or|alternative\w*|transfer|stay|compel|arbitrat))",
+            r"(?!\s+(?:part(?:y|ies)|appeal|voluntar\w*)\b)"
+            r"(?![^.;]{0,60}\b(?:counterclaim|or|alternative\w*|transfer|stay|compel|arbitrat|"
+            r"settle\w*|stipulat\w*))",
             re.I,
         ),
     ),
@@ -291,10 +325,25 @@ _DOCKET_VERB = re.compile(
 # ADOPTING 58 REPORT AND RECOMMENDATIONS and granting". A verb anywhere else
 # ("ORDER granting 70 Motion for Reconsideration of Order granting 45", "The
 # Court is inclined toward granting 45") is a reference, not a ruling.
+# A judge's name as a clerk writes it before a ruling: up to four capitalised
+# words or initials, read in the case written. A word that could be anything
+# else ("tentatively", "vacating", "Order", "not", "re") is not part of a
+# name, so "ORDER by Judge Lin vacating order granting 45" rules on nothing.
+_NAME_WORD = (
+    r"(?-i:(?![A-Za-z'\u2019.-]*(?:ing|ING|ly|LY)\b)"
+    r"(?!(?i:re|on|of|not|order|orders|before|after|to|the|in|and|as|for|upon|motion)\b)"
+    r"[A-Z][\w'\u2019-]*\.?,?)"
+)
+_JUDGE_NAME = _NAME_WORD + r"(?:\s+" + _NAME_WORD + r"){0,3}"
 _DOCKET_HEAD = re.compile(
     r"\s*(?:(?:amended|corrected|redacted|sealed|electronic|text|minute|paperless|endorsed)\s+)*"
     r"(?:(?:memorandum\s+)?(?:opinion\s+)?and\s+)?(?:memorandum\s+)?(?:order|opinion|ruling|decision)\b"
-    r"(?:\s*[:.,-])?\s*(?:adopting\s+[^;]{0,160}?\s+and\s+)?",
+    r"(?:\s*[:.,-])?\s*"
+    # The judge who signed it, where the clerk names one before the ruling
+    # ("ORDER by Judge Rita F. Lin granting 17 Motion to Dismiss").
+    r"(?:(?:signed\s+)?by\s+(?:(?:chief|senior|district|magistrate|u\.?s\.?|united\s+states|"
+    r"hon\.?|honorable)\s+)*judge\s+" + _JUDGE_NAME + r"\s+(?=" + _DOCKET_VERB.pattern + r"))?"
+    r"(?:adopting\s+[^;]{0,160}?\s+and\s+)?",
     re.I,
 )
 # Further rulings in the same text follow a semicolon, a comma or "and".
@@ -809,6 +858,7 @@ def resolve_motion(  # noqa: PLR0911 - each return is one way a motion resolves
     listed = list(entries)
     own = next((e for e in listed if _number(e) == event.entry_number), None)
     joint = own is not None and bool(_JOINT.search(_entry_text(own)))
+    combined = own is not None and bool(_NAMES_TRO.search(_entry_text(own)))
     for entry in _after(listed, event.entry_number):
         docket_text = _entry_text(entry)
         cited = cite(entry)
@@ -827,6 +877,18 @@ def resolve_motion(  # noqa: PLR0911 - each return is one way a motion resolves
         if not _is_court_entry(docket_text):
             continue
         from_docket = read_docket_ruling(docket_text, event.entry_number)
+        if event.moment is TrialMoment.preliminary_injunction and (
+            from_docket.ruling is not None or from_docket.conflict is not None
+        ):
+            if _NAMES_TRO.search(docket_text):
+                # A ruling on the restraining order is not the injunction's.
+                continue
+            if combined and not _NAMES_INJUNCTION.search(docket_text):
+                return Unresolved(
+                    event.moment,
+                    "a ruling on a restraining-order-and-injunction motion names neither half",
+                    (cited,),
+                )
         if from_docket.conflict is not None:
             return Unresolved(event.moment, from_docket.conflict, (cited,))
         if from_docket.ruling is None:
