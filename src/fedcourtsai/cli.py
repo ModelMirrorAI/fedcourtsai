@@ -275,6 +275,7 @@ from .merits_event_migration import (
     backfill_event_moments,
     backfill_merits_events,
 )
+from .miss_review import build_miss_review, miss_review_summary
 from .ops import (
     DAILY_DIGEST_LABEL,
     DAILY_DIGEST_MARKER_LINES,
@@ -503,6 +504,7 @@ from .pipeline.salience import (
 from .pipeline.salience_cert_backfill import COLUMNS as SALIENCE_CERT_COLUMNS
 from .pipeline.salience_cert_backfill import backfill_salience_cert_columns
 from .pipeline.scope_reconcile import reconcile_predict_scope
+from .pipeline.unforecast import Recall, unforecast_outcomes
 from .planning_rates import PLANNING_RATES_USD_PER_CELL as _PLANNING_RATES_USD_PER_CELL
 from .planning_rates import PLANNING_USD_PER_CELL as _PLANNING_USD_PER_CELL
 from .planning_rates import price_cells
@@ -599,6 +601,7 @@ from .schemas import (
     LiveFrontier,
     MeritsBacktest,
     MeritsBacktestDispatch,
+    MissReview,
     ModelUsage,
     Moment,
     OffLedgerLane,
@@ -736,12 +739,16 @@ def _main(
     """Predict events in US federal courts."""
 
 
-def _client(lane: str) -> CourtListenerClient:
+def _client(
+    lane: str, *, max_throttle_wait: float = 0.0, throttle_wait_budget: float = 0.0
+) -> CourtListenerClient:
     """A CourtListener client held to the tier's ceilings and to ``lane``'s run cap.
 
     The lane's share (``courtlistener_budget`` in ``tracking.yaml``) narrows the
     daily window to one run's cap: a process counts only its own requests, so the
     cap is what keeps the lanes' runs together under the account's ceiling.
+    The throttle waits are the client's own: how long it may hold for a 429's
+    stated ``Retry-After``, a refusal and a run. Zero, the default, never holds.
     """
     s = get_settings()
     share = load_courtlistener_budget(s.config_root).lane(lane)
@@ -755,6 +762,8 @@ def _client(lane: str) -> CourtListenerClient:
             min(s.courtlistener_rpd, share.per_run),
             max_wait=s.courtlistener_max_wait,
         ),
+        max_throttle_wait=max_throttle_wait,
+        throttle_wait_budget=throttle_wait_budget,
     )
 
 
@@ -6313,6 +6322,80 @@ def merits_coverage_cmd(
         raise typer.Exit(code=3)
 
 
+@app.command("unforecast-outcomes")
+def unforecast_outcomes_cmd(
+    since: Annotated[
+        str | None,
+        typer.Option("--since", help="First resolution day (YYYY-MM-DD); 14 days before --until."),
+    ] = None,
+    until: Annotated[
+        str | None, typer.Option("--until", help="Last resolution day (YYYY-MM-DD); today.")
+    ] = None,
+) -> None:
+    """List the grants and application rulings no forecast preceded, read-only.
+
+    The selection-recall readout (`pipeline/unforecast.py`). Over the window's
+    resolutions: every grant-family paid cert petition, and every application
+    the Court referred to the full bench or the substantive-application test
+    admits, with no committed prediction on the case dated on or before the
+    day it resolved. Each is listed with why (`out_of_scope`,
+    `resolved_before_a_round`, `selected_unforecast`, `not_scored`,
+    `not_selected`), its band and score, and any loose
+    federal-petitioner reading on a petition outside the `federal` band.
+    In-forma-pauperis grants are listed apart and kept out of the recall,
+    which is reported for the window and for the Term to date. Reads the corpus
+    index and the committed predictions under the data root; reads no snapshot
+    and writes nothing. A summary to stderr, an `UnforecastReport` as JSON to
+    stdout; exits 3 when an alarm condition holds (an unforecast grant in the
+    `federal` band or reading federal, or Term-to-date reachable recall under
+    the floor), so a scheduled caller can alarm on it apart from a failure; 2
+    on a reversed or unreadable window; 1 if the corpus is absent.
+    """
+    try:
+        last = date.fromisoformat(until) if until else datetime.now(UTC).date()
+        first = date.fromisoformat(since) if since else last - timedelta(days=14)
+    except ValueError:
+        typer.echo("unforecast-outcomes: --since and --until take YYYY-MM-DD.", err=True)
+        raise typer.Exit(code=2) from None
+    if first > last:
+        typer.echo("unforecast-outcomes: --since must not be after --until.", err=True)
+        raise typer.Exit(code=2)
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if settings.corpus_backend == "local" and not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the unforecast-outcomes census.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
+        report = unforecast_outcomes(conn, settings.data_root, since=first, until=last)
+
+    def _rate(recall: Recall) -> str:
+        shown = "-" if recall.recall is None else f"{recall.recall:.3f}"
+        return (
+            f"{shown} ({recall.forecast}/{recall.outcomes}, {recall.reachable_outcomes} reachable)"
+        )
+
+    typer.echo(
+        f"{first.isoformat()}..{last.isoformat()}: grant recall {_rate(report.window)}; "
+        f"Term to date {_rate(report.term_to_date)}",
+        err=True,
+    )
+    typer.echo(
+        f"unforecast: cert {len(report.cert_unforecast)}, "
+        f"IFP grants {len(report.ifp_grants_unforecast)}, "
+        f"applications {len(report.interim_unforecast)} of {report.interim_outcomes}",
+        err=True,
+    )
+    for alarm in report.alarms:
+        typer.echo(f"alarm: {alarm}", err=True)
+    typer.echo(report.model_dump_json())
+    if report.alarms:
+        raise typer.Exit(code=3)
+
+
 @app.command("authorship-tally")
 def authorship_tally_cmd(
     term: Annotated[int, typer.Option("--term", help="October Term to tally, four-digit.")],
@@ -11033,6 +11116,44 @@ def claim_scores_command(
     )
 
 
+@app.command("miss-review")
+def miss_review_command(
+    out: Annotated[
+        Path | None,
+        typer.Option(help="Output path (default: <metrics_root>/miss-review.json)."),
+    ] = None,
+    all_versions: Annotated[
+        bool,
+        typer.Option(
+            "--all-versions",
+            help="Include every process version, not only the frozen headline.",
+        ),
+    ] = False,
+) -> None:
+    """List the forward events the predictors got wrong into ``metrics/miss-review.json``.
+
+    Deterministic and offline. Over the same stratified cells ``leaderboard``
+    scores, it re-scores each predictor's counted forward forecast against the
+    committed outcome and lists every event on which one missed — a wrong call,
+    or the wrong side of even odds — with every predictor's forecast of it,
+    whether all of them missed, and what each run committed about its record:
+    snapshot provenance and uptake, retrieval calls, self-provisioned fetches,
+    and its mean grades. The summaries are counts per predictor, stage, band,
+    snapshot provenance and self-provisioning. A diagnostic list, never a rank
+    key or a claimable figure; reading rules: ``metrics/README.md``.
+    """
+    settings = get_settings()
+    scope: Literal["frozen", "all"] = "all" if all_versions else "frozen"
+    run = stratify(settings.data_root, frozen_only=not all_versions)
+    _report_exclusions(run)
+    review = build_miss_review(
+        run.cells, settings.data_root, process_scope=scope, cell_windows=run.cell_windows
+    )
+    destination = out if out is not None else settings.metrics_root / "miss-review.json"
+    write_json(destination, review)
+    typer.echo(f"miss-review [{scope}]: {miss_review_summary(review)} -> {destination}")
+
+
 @app.command("statpack-at")
 def statpack_at_command(
     prediction: Annotated[
@@ -13877,6 +13998,12 @@ _CELL_ACCESS_WHAT: dict[AccessKind, str] = {
     + "glob over them)",
     AccessKind.write: "wrote under data/ or a case record/ outside this cell's own run "
     + "directory",
+    AccessKind.published_forecast: "named the project's public site or this repository, "
+    + "where every predictor's forecasts are published",
+}
+# The kind a maintainer counts on its own category; the rest are lane notes.
+_CELL_ACCESS_CATEGORY: dict[AccessKind, FlagCategory] = {
+    AccessKind.published_forecast: FlagCategory.forecast_exposure,
 }
 
 
@@ -13891,12 +14018,12 @@ def _cell_access_note(kind: AccessKind, hits: list[AccessHit], event_id: str) ->
         else ""
     )
     return AgentFlag(
-        category=FlagCategory.other,
+        category=_CELL_ACCESS_CATEGORY.get(kind, FlagCategory.other),
         severity=FlagSeverity.warning,
         message=(
             f"{_CELL_ACCESS_PREFIX} {_CELL_ACCESS_WHAT[kind]}: {len(hits)} call(s), "
-            + f"e.g. {shown}{more}. Read from retrieval_log.json, which records that a "
-            + "call named the path, not what it returned; check the transcript before "
+            + f"e.g. {shown}{more}. Read from retrieval_log.json, which records what a "
+            + "call named, not what it returned; check the transcript before "
             + "treating it as a read."
         )[:_FLAG_MESSAGE_LIMIT],
         event_id=event_id,
@@ -13910,7 +14037,9 @@ def _flag_cell_access(event_paths: EventPaths, where: CellCoordinates, event_id:
     The audit is :func:`fedcourtsai.cell_access.audit_cell_access`, over the
     ``retrieval_log.json`` the capture step wrote from the engine's own
     transcript: a call naming the removed oracle, another cell's committed
-    output, or a write outside the cell's run directory. A ``warning``, one per
+    output, a write outside the cell's run directory, or a host that publishes
+    the project's forecasts — that last filed under ``forecast-exposure``, so
+    its occurrences count apart from the lane notes. A ``warning``, one per
     kind, because the log shows a call named a path rather than what it read —
     a maintainer reads the transcript to tell a read from a mention. A cell
     with no log, or one that does not parse, is left alone: capture reports its
@@ -16111,6 +16240,7 @@ def _weekly_analytics(metrics_root: Path) -> WeeklyAnalytics:
         cert_backtest=_vintaged(metrics_root / "cert-backtest.json", CertBacktest),
         salience_version_in_force=SALIENCE_VERSION,
         leaderboard=_vintaged(metrics_root / "leaderboard.json", Leaderboard),
+        miss_review=_vintaged(metrics_root / "miss-review.json", MissReview),
     )
 
 
@@ -17570,7 +17700,9 @@ def watchlist_refresh_cmd(
     ``cases`` row stamped ``last_pulled``, and no events, outcomes or queues.
     Incremental reads (entries changed since the last refresh) go first, then
     whole reads: onboarding a docket, which spreads the list over several runs,
-    and a weekly re-read where the share left covers it. Stops at a wall-clock
+    and a weekly re-read where the share left covers it. A 429 that states a
+    short wait is waited out and the request sent again; a failed docket's
+    reason carries what upstream said. Stops at a wall-clock
     budget or a run of transient failures, deferring the rest. Exits 1 when any
     docket failed, so a docket past the page cap is seen.
     """
@@ -17626,7 +17758,11 @@ def watchlist_refresh_cmd(
             recorded.extend(found)
             became.extend(readable)
 
-    with _client("watchlist") as client:
+    with _client(
+        "watchlist",
+        max_throttle_wait=cfg.max_throttle_wait_seconds,
+        throttle_wait_budget=cfg.throttle_wait_budget_seconds,
+    ) as client:
         result = watchlist_refresh.refresh_watchlist(
             client,
             db,
@@ -26323,7 +26459,7 @@ def _plan_spend(cells: Sequence[Mapping[str, Any]], *, seam: str, breached: bool
             "rates_usd_per_cell": dict(rates),
             "fallback_usd_per_cell": _PLANNING_USD_PER_CELL,
             "fallback_source": (
-                "fedcourtsai.planning_rates.PLANNING_USD_PER_CELL (~$17 per "
+                "fedcourtsai.planning_rates.PLANNING_USD_PER_CELL (~$18 per "
                 "fully-tournamented case over a six-cell design mix)"
             ),
             "cells_at_fallback_rate": at_fallback,

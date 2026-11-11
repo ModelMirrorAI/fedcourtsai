@@ -64,6 +64,7 @@ from .schemas import (
     LeakageDigest,
     LeakageExclusionRecord,
     LiveFrontier,
+    MissReview,
     ModelUsage,
     OpenTriggerIssue,
     OpsReport,
@@ -702,6 +703,10 @@ class WeeklyAnalytics:
     cert_backtest: Vintaged[CertBacktest]
     salience_version_in_force: str
     leaderboard: Vintaged[Leaderboard]
+    #: The forward miss review, printed under the forward block. The digest
+    #: command always supplies it, so until the artifact is first committed the
+    #: block is its absence line; unsupplied, no block is printed.
+    miss_review: Vintaged[MissReview] | None = None
 
 
 @dataclass(frozen=True)
@@ -1397,6 +1402,41 @@ def _forward_lines(vintaged: Vintaged[Leaderboard]) -> list[str]:
     return [*lines, *_left_out_line(board)]
 
 
+def _miss_review_lines(vintaged: Vintaged[MissReview] | None) -> list[str]:
+    """The forward misses, in counts: how many events hold one, by stage.
+
+    Counts only, never a rate, and per event, never per predictor: the
+    predictors' own counts span events they do not share, so a table of them
+    would read as the comparison the paired forward block exists to make. The
+    per-event rows stay in the artifact the line names.
+    """
+    if vintaged is None:
+        return []
+    review = vintaged.value
+    heading = ["", "### Forward misses", ""]
+    if review is None:
+        return [*heading, "_`metrics/miss-review.json` has never landed._"]
+    where = _sourced("miss-review.json", vintaged)
+    if not review.events.events:
+        return [*heading, f"_No forward cell is reviewed yet ({where})._"]
+    lines = [
+        *heading,
+        f"A miss is a wrong call or a forecast on the wrong side of even odds ({where}, "
+        f"`{review.process_scope}` process scope): **{review.events.missed}** of "
+        f"**{review.events.events}** forward event(s) hold one, **{review.events.shared}** of "
+        "them missed by every predictor reviewed there. Counts, not rates, and not a "
+        "comparison of predictors; the events are listed in the artifact.",
+        "",
+        "| Stage | Events | With a miss | Shared |",
+        "| --- | --- | --- | --- |",
+        *(
+            f"| {_cell(stage)} | {tally.events} | {tally.missed} | {tally.shared} |"
+            for stage, tally in review.by_stage.items()
+        ),
+    ]
+    return lines
+
+
 def _render_backtests(analytics: WeeklyAnalytics) -> list[str]:
     """The last block: what the replays say, and which replay has never been run."""
     return [
@@ -1477,6 +1517,7 @@ def render_weekly_digest(
         lines += _frozen_cells_line(report.substance)
     if analytics is not None:
         lines += _forward_lines(analytics.leaderboard)
+        lines += _miss_review_lines(analytics.miss_review)
         lines += _render_backtests(analytics)
     # The marker line stays verbatim; everything below it is defused in one pass,
     # exactly as the daily digest's body is. Almost all of this document is

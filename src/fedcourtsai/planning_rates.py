@@ -13,12 +13,12 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from typing import Any
 
-#: The **fallback** per-cell rate: the ~$17 a fully-tournamented case costs,
+#: The **fallback** per-cell rate: the ~$18 a fully-tournamented case costs,
 #: divided across its design mix of six cells. It prices a cell whose engine the
 #: table below does not name — a new engine, or a registry entry ahead of the
 #: table — so a plan never silently drops such a cell from its total. Re-anchor
 #: it when the table below moves.
-PLANNING_USD_PER_CELL = 2.95
+PLANNING_USD_PER_CELL = 3.01
 
 #: Per-cell rates in USD, keyed (seam, engine) — the source for every spend
 #: figure a plan prints; ``docs/budget.md`` sizes the program from measurements
@@ -31,15 +31,15 @@ PLANNING_USD_PER_CELL = 2.95
 #: evaluate gradings are interim-stage, graded before the current instant under
 #: superseded evaluator digests, so they re-anchor nothing here. The gemini
 #: cells price ``gemini-4-argon``: its measured cells on ``main`` at
-#: ``0d99f5b01`` (137 predictions at about $1.34, 31 grading runs at about
-#: $0.79, at the introductory $2 / $10) doubled for the $4 / $20 rate in force
+#: ``d7840ec19`` (230 predictions at about $1.40, 73 grading runs at about
+#: $0.93, at the introductory $2 / $10) doubled for the $4 / $20 rate in force
 #: from 2026-12-01 and rounded up, so the row holds across that change. See the
 #: spend-basis caveats every plan carries (``fedcourtsai.cli``). The two seams
-#: sum to $8.85 + $8.82 = $17.67 a case, which the $2.95 fallback is the
+#: sum to $8.95 + $9.12 = $18.07 a case, which the $3.01 fallback is the
 #: six-cell rounding of — so a full three-engine, both-seam fan-out prices
 #: within a few cents either way.
-#: ``docs/milestones.md``'s ~$17 per fully evaluated event is that same total:
-#: one table, described twice, not two measurements. What
+#: ``docs/milestones.md``'s ~$17 per fully evaluated event is that total as it
+#: stood when the plan was priced, about 6% below it. What
 #: conditioning buys is the *narrowed* plan: within a seam the engines differ
 #: up to ~4.6x, so an engine-narrowed backfill priced at the flat rate is wrong
 #: by up to ~2.2x.
@@ -48,8 +48,8 @@ PLANNING_USD_PER_CELL = 2.95
 #: per-actor measurements behind these rows are one actor per engine in the
 #: shipped registries.
 PLANNING_RATES_USD_PER_CELL: dict[str, dict[str, float]] = {
-    "predict": {"claude-code": 4.27, "codex": 1.88, "gemini": 2.70},
-    "evaluate": {"claude-code": 5.92, "codex": 1.30, "gemini": 1.60},
+    "predict": {"claude-code": 4.27, "codex": 1.88, "gemini": 2.80},
+    "evaluate": {"claude-code": 5.92, "codex": 1.30, "gemini": 1.90},
 }
 
 
@@ -90,12 +90,13 @@ LABEL_RATES_USD_PER_ROW: dict[str, float] = {
 
 
 #: Per-row merits side-coder rates in USD, keyed by the coder's model — what a
-#: side-coding round (the ``alignment-sides`` frame) prices its batch at. No
-#: side-coding run has been measured, so each row is three times the topic
-#: labeler's rate for the same model: a side code reads the same
-#: questions-presented text a topic label does, and writes a scored call and a
-#: one-sentence note where a topic label writes a register, so it is priced as
-#: the dearer task until the first run's spend record re-anchors it.
+#: side-coding round (the ``alignment-sides`` frame) prices its batch at. Each
+#: row is three times the topic labeler's rate for the same model: a side code
+#: reads the same questions-presented text a topic label does, and writes a
+#: scored call and a one-sentence note where a topic label writes a register,
+#: so it is priced as the dearer task. The one measured backlog run, 302 rows
+#: at ``claude-opus-5-5``, cost $2.72 (about $0.009 a row), so the rate stands
+#: well above it, as the labeler's does above its own.
 SIDE_CODE_RATES_USD_PER_ROW: dict[str, float] = {
     "claude-opus-5-5": 0.06,
     "claude-fable-5": 0.18,

@@ -256,6 +256,11 @@ Five blocks, in the order a reader needs them:
   stage and so not subtractable from the cert figures. It leads the scored
   blocks because it is the program's output; the back-tests after it are
   iteration instruments.
+- **Forward misses** — under the forward block, counts off the committed
+  `metrics/miss-review.json` with its vintage: the forward events holding a
+  miss, how many every predictor reviewed there shares, and the same per
+  stage. Per event, never per predictor, and never a rate. Where the artifact
+  has not landed the block says so.
 - **Backtest results** — the historical replay **per court**, with each row's
   own always-deny floor beside its accuracy and the pooled row labelled as the
   mixture it is (`granted` means cert on a SCOTUS row and a motion granted on a
@@ -2895,6 +2900,18 @@ its JSON (`counts.case_reconciliation`) and `evaluate-plan` the monitor
 (`counts.predictionless_resolutions`); `evaluate-plan --missed-since`
 backfills the monitor over a longer window. The blocks are described in
 [cli.md](cli.md).
+
+Both guards measure delivery against what selection funded, so neither sees a
+selection gap: a grant on a petition the salience pass left unselected is
+declined `not_funded`, by design. `fedcourts unforecast-outcomes` is the
+readout for that side. It starts from the outcome (every grant-family paid
+petition, and every application referred to the Court or read substantive,
+resolved in a window), lists the ones no committed forecast preceded with the
+reason and band, reports the share of grants a forecast preceded for the
+window and the Term to date, and exits 3 on an alarm: an unforecast grant in
+the `federal` band, one a looser reading than the caption rule places federal,
+or Term-to-date recall under its floor. The figures are outcome-selected and
+describe selection, never a predictor; [cli.md](cli.md) has the rules.
 
 That is the shape both workflows invoke, on every round. The commands
 still accept an explicit case list — a ` ```json ``` ` block by `--body-file`, or

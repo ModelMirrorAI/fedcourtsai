@@ -794,6 +794,19 @@ watchlist_refresh:
   max_run_minutes: 10
   # Stop after this many transient upstream failures in a row.
   max_consecutive_transient_failures: 3
+  # A 429 states how long to wait (Retry-After). A wait that, with the
+  # client's one-second margin, is at most this many seconds is waited out
+  # and the request sent again: the account's per-minute
+  # window clears within it, and a long onboard would otherwise lose every page
+  # it had read to one refusal. A longer stated wait (the hourly or daily
+  # window) fails the docket at once.
+  max_throttle_wait_seconds: 65
+  # The most one run may wait this way in all, at least one
+  # max_throttle_wait_seconds. It bounds the step with the lane's share: 160
+  # requests paced at the account's per-minute rate take under seven minutes,
+  # and these waits add three, inside the step's sixteen-minute timeout
+  # (max_run_minutes is checked only between dockets).
+  throttle_wait_budget_seconds: 180
 
 courts:
   # The tracked set: SCOTUS + all 13 federal courts of appeals, by CourtListener
