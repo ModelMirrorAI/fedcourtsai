@@ -735,12 +735,16 @@ def _main(
     """Predict events in US federal courts."""
 
 
-def _client(lane: str) -> CourtListenerClient:
+def _client(
+    lane: str, *, max_throttle_wait: float = 0.0, throttle_wait_budget: float = 0.0
+) -> CourtListenerClient:
     """A CourtListener client held to the tier's ceilings and to ``lane``'s run cap.
 
     The lane's share (``courtlistener_budget`` in ``tracking.yaml``) narrows the
     daily window to one run's cap: a process counts only its own requests, so the
     cap is what keeps the lanes' runs together under the account's ceiling.
+    The throttle waits are the client's own: how long it may hold for a 429's
+    stated ``Retry-After``, a refusal and a run. Zero, the default, never holds.
     """
     s = get_settings()
     share = load_courtlistener_budget(s.config_root).lane(lane)
@@ -754,6 +758,8 @@ def _client(lane: str) -> CourtListenerClient:
             min(s.courtlistener_rpd, share.per_run),
             max_wait=s.courtlistener_max_wait,
         ),
+        max_throttle_wait=max_throttle_wait,
+        throttle_wait_budget=throttle_wait_budget,
     )
 
 
@@ -17569,7 +17575,9 @@ def watchlist_refresh_cmd(
     ``cases`` row stamped ``last_pulled``, and no events, outcomes or queues.
     Incremental reads (entries changed since the last refresh) go first, then
     whole reads: onboarding a docket, which spreads the list over several runs,
-    and a weekly re-read where the share left covers it. Stops at a wall-clock
+    and a weekly re-read where the share left covers it. A 429 that states a
+    short wait is waited out and the request sent again; a failed docket's
+    reason carries what upstream said. Stops at a wall-clock
     budget or a run of transient failures, deferring the rest. Exits 1 when any
     docket failed, so a docket past the page cap is seen.
     """
@@ -17625,7 +17633,11 @@ def watchlist_refresh_cmd(
             recorded.extend(found)
             became.extend(readable)
 
-    with _client("watchlist") as client:
+    with _client(
+        "watchlist",
+        max_throttle_wait=cfg.max_throttle_wait_seconds,
+        throttle_wait_budget=cfg.throttle_wait_budget_seconds,
+    ) as client:
         result = watchlist_refresh.refresh_watchlist(
             client,
             db,

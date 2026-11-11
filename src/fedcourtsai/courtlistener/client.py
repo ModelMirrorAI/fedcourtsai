@@ -22,6 +22,7 @@ Docs: https://www.courtlistener.com/help/api/rest/
 
 from __future__ import annotations
 
+import time
 from collections.abc import Callable, Mapping
 from datetime import date
 from types import TracebackType
@@ -67,6 +68,70 @@ def is_throttled(exc: BaseException) -> bool:
     the status-code taxonomy lives in one place.
     """
     return isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code == 429
+
+
+class ThrottleOutlastsWait(httpx.HTTPStatusError):
+    """A 429 whose stated wait is longer than this client may hold for.
+
+    Still a 429 to every caller (:func:`is_throttled` and :func:`is_transient`
+    read it as one), but the client's own retry cycle does not press on: the
+    window upstream named will not have cleared by the last attempt, so the
+    retries would only spend requests against it.
+    """
+
+
+def retry_after_seconds(response: httpx.Response) -> float | None:
+    """The whole seconds a response's ``Retry-After`` header asks for, or ``None``.
+
+    Upstream's throttle states its wait in seconds. A header that is absent, an
+    HTTP date, negative or otherwise unreadable is ``None``: no wait is known.
+    """
+    raw = response.headers.get("Retry-After", "").strip()
+    if not raw.isascii() or not raw.isdigit():
+        return None
+    return float(raw)
+
+
+#: The most of upstream's own account of a refusal a failure reason quotes.
+_DETAIL_MAX_CHARS: Final = 200
+
+
+def refusal_detail(exc: BaseException) -> str:
+    """What upstream said about a refused request, for a failure reason; ``""`` if nothing.
+
+    An HTTP error's ``Retry-After`` and the ``detail`` string of its JSON body,
+    which for a 429 names the limit that refused (``Rate limit exceeded:
+    25/min``), so a log line says which window the account ran into. Only that
+    one field is quoted, on one line and cut to a bounded length: an error page
+    is never copied into a log.
+    """
+    if not isinstance(exc, httpx.HTTPStatusError):
+        return ""
+    parts: list[str] = []
+    wait = retry_after_seconds(exc.response)
+    if wait is not None:
+        parts.append(f"Retry-After {wait:.0f}s")
+    try:
+        body = exc.response.json()
+    except ValueError:
+        body = None
+    detail = body.get("detail") if isinstance(body, dict) else None
+    if isinstance(detail, str) and detail.strip():
+        said = " ".join(detail.split())
+        if len(said) > _DETAIL_MAX_CHARS:
+            said = said[:_DETAIL_MAX_CHARS] + "…"
+        parts.append(f"upstream said: {said}")
+    return "; ".join(parts)
+
+
+def _retries(exc: BaseException) -> bool:
+    """What the client's own retry cycle presses on: transient faults it can outwait."""
+    return is_transient(exc) and not isinstance(exc, ThrottleOutlastsWait)
+
+
+#: Seconds added to a stated ``Retry-After`` before the next request, so the
+#: request lands after upstream's window has moved rather than on its edge.
+_THROTTLE_MARGIN_SECONDS: Final = 1.0
 
 
 # The failure-queue error-class taxonomy — deliberately the *same* transient /
@@ -116,6 +181,9 @@ class CourtListenerClient:
         api_token: str | None = None,
         timeout: float = 30.0,
         rate_limiter: RateLimiter | None = None,
+        max_throttle_wait: float = 0.0,
+        throttle_wait_budget: float = 0.0,
+        sleep_fn: Callable[[float], None] = time.sleep,
     ) -> None:
         headers = {"Accept": "application/json"}
         if api_token:
@@ -130,6 +198,19 @@ class CourtListenerClient:
         )
         # Throttle to CourtListener's per-token budget unless a limiter is supplied.
         self._rate_limiter = rate_limiter if rate_limiter is not None else default_rate_limiter()
+        # A 429 that states its wait is held for rather than retried into: the
+        # limiter above counts only this process's requests, so another lane's
+        # run on the same account can leave upstream's minute window fuller
+        # than this client believes. `max_throttle_wait` is the longest stated
+        # wait one refusal may cost (0 = never hold: retry on the backoff
+        # alone) and `throttle_wait_budget` the most all of them may cost this
+        # client, so a run's wall clock stays bounded.
+        if max_throttle_wait < 0 or throttle_wait_budget < 0:
+            raise ValueError("throttle waits must be >= 0")
+        self._max_throttle_wait = max_throttle_wait
+        self._throttle_wait_left = throttle_wait_budget
+        self._throttle_hold = 0.0
+        self._sleep = sleep_fn
 
     @property
     def base_url(self) -> str:
@@ -159,17 +240,54 @@ class CourtListenerClient:
     @retry(
         stop=stop_after_attempt(4),
         wait=wait_exponential(min=1, max=20),
-        retry=retry_if_exception(is_transient),
+        retry=retry_if_exception(_retries),
         reraise=True,
     )
     def _get(self, path: str, params: JsonDict | None = None) -> JsonDict:
+        # A wait the last refusal stated is served before the next request,
+        # whichever request that is: the retry of the refused one, or the next
+        # read if the refused one had no attempt left.
+        hold, self._throttle_hold = self._throttle_hold, 0.0
+        if hold > 0:
+            self._sleep(hold)
         # Block here so retries (this method re-runs on retry) also count against
         # the budget — every outbound request passes through this throttle.
         self._rate_limiter.acquire()
         resp = self._client.get(path, params=params)
+        if resp.status_code == httpx.codes.TOO_MANY_REQUESTS:
+            self._hold_for_throttle(resp)
         resp.raise_for_status()
         data: JsonDict = resp.json()
         return data
+
+    def _hold_for_throttle(self, resp: httpx.Response) -> None:
+        """Schedule the wait a 429 states, or raise when this client may not serve it.
+
+        Does nothing for a client that never holds, or a refusal that states no
+        wait: the caller's ``raise_for_status`` then raises the plain 429 and
+        the retry cycle's backoff applies. A stated wait within both
+        ``max_throttle_wait`` and what is left of the budget is scheduled for
+        the next request and taken off the budget. A longer one (an hour- or
+        day-scale window) raises :class:`ThrottleOutlastsWait`, which is not
+        retried.
+        """
+        if self._max_throttle_wait <= 0:
+            return
+        stated = retry_after_seconds(resp)
+        if stated is None:
+            return
+        need = stated + _THROTTLE_MARGIN_SECONDS
+        if need > self._max_throttle_wait or need > self._throttle_wait_left:
+            raise ThrottleOutlastsWait(
+                f"Client error '429 Too Many Requests' for url '{resp.url}': its "
+                f"Retry-After of {stated:.0f}s is over what this client may wait "
+                f"({self._max_throttle_wait:.0f}s a refusal, "
+                f"{self._throttle_wait_left:.0f}s left this run)",
+                request=resp.request,
+                response=resp,
+            )
+        self._throttle_wait_left -= need
+        self._throttle_hold = need
 
     def get_docket(self, docket_id: int) -> JsonDict:
         """Fetch a single docket by CourtListener docket id."""

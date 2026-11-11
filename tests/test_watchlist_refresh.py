@@ -17,12 +17,14 @@ from fedcourtsai.courtlistener import (
     EntryPageCapExceeded,
     EntryPages,
     RateBudgetExceeded,
+    default_rate_limiter,
 )
 from fedcourtsai.pipeline.ingest import from_api_docket, upsert_to_corpus
 from fedcourtsai.pipeline.watchlist_refresh import (
     OnboardDoesNotFit,
     PlannedRefresh,
     ReadMode,
+    WatchlistRefreshReport,
     full_read_due,
     merge_entries,
     plan_refresh,
@@ -454,6 +456,111 @@ def test_a_run_of_transient_failures_stops_the_run(tmp_path: Path) -> None:
     assert report.stop_reason is not None and "transient" in report.stop_reason
 
 
+class ThrottledClient(FakeClient):
+    """A fake whose named dockets are refused with upstream's 429."""
+
+    def __init__(self, entries: dict[int, list[dict[str, Any]]], throttled: frozenset[int]) -> None:
+        super().__init__(entries)
+        self.throttled = throttled
+
+    def get_docket(self, docket_id: int) -> dict[str, Any]:
+        if docket_id in self.throttled:
+            request = httpx.Request("GET", f"{_API}dockets/{docket_id}/")
+            response = httpx.Response(
+                429,
+                json={"detail": "Request was throttled. Rate limit exceeded: 300/hour."},
+                headers={"Retry-After": "1800"},
+                request=request,
+            )
+            raise httpx.HTTPStatusError("429 Too Many Requests", request=request, response=response)
+        return super().get_docket(docket_id)
+
+
+_API = "https://www.courtlistener.com/api/rest/v4/"
+
+
+def test_a_refused_docket_s_reason_names_the_limit_that_refused(tmp_path: Path) -> None:
+    db = _db(tmp_path)
+    fake = ThrottledClient({1: [{"id": 1}], 2: [{"id": 2}]}, throttled=frozenset({1}))
+    plan = [_planned(n, ReadMode.onboard) for n in (1, 2)]
+    report = refresh_watchlist(_client(fake), db, plan, max_entry_pages=150, today=TODAY, share=160)
+    assert report.failed["cand/1"] == (
+        "HTTPStatusError: 429 Too Many Requests "
+        + "[Retry-After 1800s; upstream said: Request was throttled. "
+        + "Rate limit exceeded: 300/hour.]"
+    )
+    assert [r.case_id for r in report.refreshed] == ["cand/2"]
+
+
+def test_a_long_onboard_refused_mid_read_waits_and_lands_whole(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The real client under the refresh: a 429 partway through the pages costs a wait.
+
+    Upstream refuses the third page of a five-page docket, stating a 51-second
+    wait, until a request arrives after that wait. A client that holds for it
+    stores every entry; one that never holds retries seconds apart, is refused
+    each time, and loses the read.
+    """
+    get: Any = CourtListenerClient._get  # tenacity attaches the Retrying as `.retry`
+    monkeypatch.setattr(get.retry, "sleep", lambda _seconds: None)
+    pages = 5
+
+    def run(
+        db: Path, *, max_throttle_wait: float = 0.0, throttle_wait_budget: float = 0.0
+    ) -> tuple[WatchlistRefreshReport, list[float]]:
+        slept: list[float] = []
+
+        def handle(request: httpx.Request) -> httpx.Response:
+            params = dict(request.url.params)
+            if request.url.path.endswith("/dockets/7/"):
+                return httpx.Response(200, json=_docket(7))
+            if params.get("count") == "on":
+                return httpx.Response(200, json={"count": pages * 20})
+            page = int(params.get("cursor", "1"))
+            if page == 3 and sum(slept) < 51:
+                return httpx.Response(
+                    429,
+                    json={"detail": "Request was throttled. Rate limit exceeded: 25/min."},
+                    headers={"Retry-After": "51"},
+                )
+            entries = [{"id": page * 100 + n} for n in range(20)]
+            following = (
+                f"{_API}docket-entries/?cursor={page + 1}&docket=7" if page < pages else None
+            )
+            return httpx.Response(200, json={"results": entries, "next": following})
+
+        client = CourtListenerClient(
+            rate_limiter=default_rate_limiter(10_000, 10_000, 10_000),
+            sleep_fn=slept.append,
+            max_throttle_wait=max_throttle_wait,
+            throttle_wait_budget=throttle_wait_budget,
+        )
+        client._client = httpx.Client(base_url=_API, transport=httpx.MockTransport(handle))
+        with client:
+            report = refresh_watchlist(
+                client,
+                db,
+                [_planned(7, ReadMode.onboard)],
+                max_entry_pages=150,
+                today=TODAY,
+                share=160,
+            )
+        return report, slept
+
+    held, slept = run(_db(tmp_path / "held"), max_throttle_wait=65.0, throttle_wait_budget=180.0)
+    assert held.failed == {}
+    assert [(r.case_id, r.entries) for r in held.refreshed] == [("cand/7", pages * 20)]
+    assert slept == [52.0]
+    # The count, the docket, the five pages, and the refused page's first send.
+    assert held.refreshed[0].requests == 2 + pages
+
+    unheld, slept = run(_db(tmp_path / "unheld"))
+    assert unheld.refreshed == [] and slept == []
+    assert "Rate limit exceeded: 25/min" in unheld.failed["cand/7"]
+    assert "Retry-After 51s" in unheld.failed["cand/7"]
+
+
 def test_a_malformed_entry_fails_its_docket_only(tmp_path: Path) -> None:
     db = _db(tmp_path)
     fake = FakeClient({1: [{"description": "no id"}], 2: [{"id": 2}]})
@@ -466,7 +573,7 @@ def test_a_malformed_entry_fails_its_docket_only(tmp_path: Path) -> None:
 def test_dry_run_plans_every_listed_docket_and_reads_nothing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    def no_client(_lane: str) -> None:
+    def no_client(_lane: str, **_waits: float) -> None:
         raise AssertionError("a dry run must not build a CourtListener client")
 
     monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
@@ -491,7 +598,7 @@ def test_the_command_records_a_day_of_significant_new_entries(
     first = ListedClient(
         {71450167: [{"id": 1, "date_filed": "2025-09-24", "description": "COMPLAINT"}]}
     )
-    monkeypatch.setattr("fedcourtsai.cli._client", lambda _lane: nullcontext(first))
+    monkeypatch.setattr("fedcourtsai.cli._client", lambda _lane, **_waits: nullcontext(first))
     # An onboard starts only when the share left covers the page cap, so the
     # listed dockets onboard over several runs.
     for _ in range(len(_LISTED_COURTS)):
@@ -513,7 +620,7 @@ def test_the_command_records_a_day_of_significant_new_entries(
     second = ListedClient(
         {71450167: [judgment, *first.entries[71450167]]}, changed={71450167: [judgment]}
     )
-    monkeypatch.setattr("fedcourtsai.cli._client", lambda _lane: nullcontext(second))
+    monkeypatch.setattr("fedcourtsai.cli._client", lambda _lane, **_waits: nullcontext(second))
     refreshed = CliRunner().invoke(app, ["watchlist-refresh"])
     assert refreshed.exit_code == 0, refreshed.output
     record = read_model(activity_path(tmp_path / "data", today), AiCaseActivity)

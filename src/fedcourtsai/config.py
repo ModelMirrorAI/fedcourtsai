@@ -380,6 +380,16 @@ class WatchlistRefreshConfig(BaseModel):
     # Stop after this many transient upstream failures (timeouts, 5xx, 429) in a
     # row, deferring the rest: the upstream is degraded.
     max_consecutive_transient_failures: int = Field(default=3, ge=1)
+    # Longest wait, in seconds, a 429's own Retry-After may cost before the
+    # refused request is sent again. Above a minute, so a refusal by the
+    # account's per-minute window is waited out rather than failing the read
+    # (a failed onboard keeps none of its pages); an hour- or day-scale wait is
+    # over it and fails the docket at once. Zero never waits.
+    max_throttle_wait_seconds: float = Field(default=65.0, ge=0)
+    # Most seconds one run may spend on those waits in all. With
+    # `max_run_minutes`, which is checked between dockets, it keeps the step
+    # under its own timeout in the pull job.
+    throttle_wait_budget_seconds: float = Field(default=180.0, ge=0)
 
 
 def load_watchlist_refresh_config(config_root: Path) -> WatchlistRefreshConfig:
