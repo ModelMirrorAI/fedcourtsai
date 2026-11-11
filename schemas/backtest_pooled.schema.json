@@ -1,0 +1,188 @@
+{
+  "$defs": {
+    "BacktestPooledEntry": {
+      "additionalProperties": false,
+      "description": "The pooled record of one (predictor, model, process digest) at one moment.",
+      "properties": {
+        "cases": {
+          "description": "Distinct cases among `rows`",
+          "minimum": 0,
+          "title": "Cases",
+          "type": "integer"
+        },
+        "kind": {
+          "enum": [
+            "cert",
+            "merits"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "mean_brier_score": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The strata's mean Brier scores combined at their population shares: the pooled sample's estimate of the population mean Brier, whatever mix of simple random and outcome-stratified runs supplied the cells. Where the record holds one outcome class only, it is that class's mean and not a population figure. Null with no weighted row",
+          "title": "Mean Brier Score"
+        },
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "moment": {
+          "title": "Moment",
+          "type": "string"
+        },
+        "population": {
+          "title": "Population",
+          "type": "string"
+        },
+        "predictor_id": {
+          "title": "Predictor Id",
+          "type": "string"
+        },
+        "process_digest": {
+          "title": "Process Digest",
+          "type": "string"
+        },
+        "rows": {
+          "description": "Recorded cells, a case replayed twice counted twice",
+          "minimum": 0,
+          "title": "Rows",
+          "type": "integer"
+        },
+        "runs": {
+          "description": "Replay runs that contributed a row",
+          "minimum": 0,
+          "title": "Runs",
+          "type": "integer"
+        },
+        "stage": {
+          "title": "Stage",
+          "type": "string"
+        },
+        "strata": {
+          "items": {
+            "$ref": "#/$defs/BacktestPooledStratum"
+          },
+          "title": "Strata",
+          "type": "array"
+        },
+        "unweighted_rows": {
+          "default": 0,
+          "description": "Of `rows`, those with no recorded stratum share, left out of `strata` and `mean_brier_score`",
+          "minimum": 0,
+          "title": "Unweighted Rows",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "predictor_id",
+        "model",
+        "process_digest",
+        "kind",
+        "population",
+        "stage",
+        "moment",
+        "runs",
+        "rows",
+        "cases"
+      ],
+      "title": "BacktestPooledEntry",
+      "type": "object"
+    },
+    "BacktestPooledStratum": {
+      "additionalProperties": false,
+      "description": "One outcome class of a pooled entry.",
+      "properties": {
+        "cases": {
+          "description": "Distinct cases; a case's rows are averaged first",
+          "minimum": 0,
+          "title": "Cases",
+          "type": "integer"
+        },
+        "mean_brier_score": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Mean Brier Score",
+          "type": "number"
+        },
+        "rows": {
+          "minimum": 0,
+          "title": "Rows",
+          "type": "integer"
+        },
+        "share": {
+          "description": "The population share the class is combined at: the mean of the share its rows recorded, renormalized over the classes present",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Share",
+          "type": "number"
+        },
+        "stratum": {
+          "title": "Stratum",
+          "type": "string"
+        }
+      },
+      "required": [
+        "stratum",
+        "rows",
+        "cases",
+        "share",
+        "mean_brier_score"
+      ],
+      "title": "BacktestPooledStratum",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``metrics/backtest-pooled.json`` \u2014 the back-test record pooled across runs.",
+  "properties": {
+    "entries": {
+      "items": {
+        "$ref": "#/$defs/BacktestPooledEntry"
+      },
+      "title": "Entries",
+      "type": "array"
+    },
+    "files": {
+      "description": "Record files read",
+      "minimum": 0,
+      "title": "Files",
+      "type": "integer"
+    },
+    "rows": {
+      "description": "Rows read",
+      "minimum": 0,
+      "title": "Rows",
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "stratum": {
+      "const": "retrospective",
+      "default": "retrospective",
+      "description": "Replayed outcomes were public before every run; nothing here is a claimable forward figure",
+      "title": "Stratum",
+      "type": "string"
+    }
+  },
+  "required": [
+    "files",
+    "rows"
+  ],
+  "title": "BacktestPooled",
+  "type": "object"
+}

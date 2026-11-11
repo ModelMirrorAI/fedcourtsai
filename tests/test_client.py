@@ -8,9 +8,13 @@ from fedcourtsai.courtlistener import (
     CourtListenerClient,
     EntryPageCapExceeded,
     RateLimiter,
+    ThrottleOutlastsWait,
     classify_error,
     default_rate_limiter,
+    is_throttled,
     is_transient,
+    refusal_detail,
+    retry_after_seconds,
 )
 
 
@@ -424,3 +428,177 @@ def test_count_docket_entries_without_a_usable_count_is_none(body: dict[str, Any
 
     client = _client(httpx.MockTransport(handle))
     assert client.count_docket_entries(7) is None
+
+
+_THROTTLED_BODY = {
+    "detail": "Request was throttled. Rate limit exceeded: 25/min. "
+    + "Expected available in 51 seconds."
+}
+
+
+def _holding_client(
+    handler: httpx.MockTransport,
+    slept: list[float],
+    *,
+    max_throttle_wait: float = 65.0,
+    throttle_wait_budget: float = 180.0,
+    rate_limiter: RateLimiter | None = None,
+) -> CourtListenerClient:
+    """A mocked client that holds for a stated wait, recording each hold instead of sleeping."""
+    client = CourtListenerClient(
+        rate_limiter=rate_limiter or default_rate_limiter(10_000, 10_000, 10_000),
+        max_throttle_wait=max_throttle_wait,
+        throttle_wait_budget=throttle_wait_budget,
+        sleep_fn=slept.append,
+    )
+    client._client = httpx.Client(
+        base_url="https://www.courtlistener.com/api/rest/v4/", transport=handler
+    )
+    return client
+
+
+def _throttle_then_serve(refusals: int, retry_after: str | None) -> httpx.MockTransport:
+    """Refuse the first ``refusals`` requests with a 429, then serve the docket."""
+    seen: list[httpx.Request] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        if len(seen) <= refusals:
+            headers = {} if retry_after is None else {"Retry-After": retry_after}
+            return httpx.Response(429, json=_THROTTLED_BODY, headers=headers)
+        return httpx.Response(200, json={"id": 1})
+
+    return httpx.MockTransport(handle)
+
+
+@pytest.mark.parametrize(
+    ("header", "expected"),
+    [
+        ("51", 51.0),
+        (" 0 ", 0.0),
+        (None, None),
+        ("-3", None),
+        ("1.5", None),
+        ("Wed, 21 Oct 2026 07:28:00 GMT", None),
+        ("", None),
+    ],
+)
+def test_retry_after_reads_whole_seconds_only(header: str | None, expected: float | None) -> None:
+    headers = {} if header is None else {"Retry-After": header}
+    assert retry_after_seconds(httpx.Response(429, headers=headers)) == expected
+
+
+def test_a_stated_short_wait_is_held_for_and_the_request_sent_again() -> None:
+    slept: list[float] = []
+    limiter = _CountingLimiter()
+    client = _holding_client(_throttle_then_serve(1, "51"), slept, rate_limiter=limiter)
+    assert client.get_docket(1) == {"id": 1}
+    client.close()
+    # The stated wait and its margin, served before the retry, which still
+    # passes the limiter.
+    assert slept == [52.0]
+    assert limiter.calls == 2
+
+
+def test_a_wait_longer_than_the_bound_is_not_retried() -> None:
+    slept: list[float] = []
+    limiter = _CountingLimiter()
+    client = _holding_client(_throttle_then_serve(9, "3400"), slept, rate_limiter=limiter)
+    with pytest.raises(ThrottleOutlastsWait) as excinfo:
+        client.get_docket(1)
+    client.close()
+    assert slept == []
+    assert limiter.calls == 1  # the hour's window will not clear: no retry is spent on it
+    # Still a 429 to every caller's classification.
+    assert is_throttled(excinfo.value) and is_transient(excinfo.value)
+    assert "3400s" in str(excinfo.value) and "65s" in str(excinfo.value)
+
+
+def test_the_run_budget_bounds_the_holds_in_all() -> None:
+    slept: list[float] = []
+    client = _holding_client(_throttle_then_serve(9, "51"), slept, throttle_wait_budget=110.0)
+    with pytest.raises(httpx.HTTPStatusError) as excinfo:
+        client.get_docket(1)
+    client.close()
+    # Two holds of 52s fit the 110s budget; the third refusal finds 6s left and
+    # is retried on the backoff alone, as a plain 429.
+    assert slept == [52.0, 52.0]
+    assert not isinstance(excinfo.value, ThrottleOutlastsWait)
+
+
+def test_a_hold_left_by_a_final_refusal_is_served_before_the_next_read() -> None:
+    slept: list[float] = []
+    # Four refusals exhaust the one request's attempts; the fifth request is served.
+    client = _holding_client(_throttle_then_serve(4, "10"), slept, throttle_wait_budget=1000.0)
+    with pytest.raises(httpx.HTTPStatusError):
+        client.get_docket(1)
+    assert slept == [11.0, 11.0, 11.0]
+    assert client.get_docket(1) == {"id": 1}
+    client.close()
+    assert slept == [11.0, 11.0, 11.0, 11.0]
+
+
+def test_a_refusal_that_states_no_wait_takes_the_backoff() -> None:
+    slept: list[float] = []
+    client = _holding_client(_throttle_then_serve(1, None), slept)
+    assert client.get_docket(1) == {"id": 1}
+    client.close()
+    assert slept == []
+
+
+def test_a_client_that_never_holds_retries_a_429_on_the_backoff_alone() -> None:
+    slept: list[float] = []
+    limiter = _CountingLimiter()
+    client = _holding_client(
+        _throttle_then_serve(9, "51"),
+        slept,
+        max_throttle_wait=0.0,
+        throttle_wait_budget=0.0,
+        rate_limiter=limiter,
+    )
+    with pytest.raises(httpx.HTTPStatusError) as excinfo:
+        client.get_docket(1)
+    client.close()
+    assert not isinstance(excinfo.value, ThrottleOutlastsWait)
+    assert slept == []
+    assert limiter.calls == 4
+
+
+def test_negative_throttle_waits_are_refused() -> None:
+    with pytest.raises(ValueError, match="throttle waits"):
+        CourtListenerClient(max_throttle_wait=-1.0)
+
+
+def test_a_budget_under_one_wait_is_refused() -> None:
+    # It would hold for nothing while still refusing to retry a long wait.
+    with pytest.raises(ValueError, match="throttle_wait_budget"):
+        CourtListenerClient(max_throttle_wait=65.0, throttle_wait_budget=30.0)
+
+
+def _refused(response: httpx.Response) -> httpx.HTTPStatusError:
+    response.request = httpx.Request("GET", "https://www.courtlistener.com/api/rest/v4/x/")
+    return httpx.HTTPStatusError("refused", request=response.request, response=response)
+
+
+def test_refusal_detail_names_the_limit_and_the_wait() -> None:
+    exc = _refused(httpx.Response(429, json=_THROTTLED_BODY, headers={"Retry-After": "51"}))
+    assert refusal_detail(exc) == (
+        "Retry-After 51s; upstream said: Request was throttled. Rate limit exceeded: 25/min. "
+        + "Expected available in 51 seconds."
+    )
+
+
+def test_refusal_detail_quotes_one_bounded_line_and_never_an_error_page() -> None:
+    long = _refused(httpx.Response(429, json={"detail": "limit\n" + "x" * 500}))
+    said = refusal_detail(long)
+    assert "\n" not in said and said.endswith("…") and len(said) < 230
+    assert refusal_detail(_refused(httpx.Response(502, text="<html>Bad gateway</html>"))) == ""
+    assert refusal_detail(_refused(httpx.Response(429, json=["detail"]))) == ""
+    assert refusal_detail(httpx.ConnectError("down")) == ""
+
+
+def test_refusal_detail_cannot_carry_a_runner_command_or_control_characters() -> None:
+    hostile = "ok\x1b[31m\x00 ##[add-mask]x ::error::boom"
+    said = refusal_detail(_refused(httpx.Response(429, json={"detail": hostile})))
+    assert said == "upstream said: ok [31m ## [add-mask]x : :error: :boom"
+    assert said.isprintable() and "::" not in said and "##[" not in said

@@ -464,7 +464,10 @@ class FlagCategory(StrEnum):
     have staged; ``capture-gap`` an outcome or docket record that cannot show
     what a forecast or grading needed; ``leakage-disclosure`` a note that
     outcome material about the case reached the cell or a candidate it grades
-    (on a replay cell, material postdating its ``context.cutoff``).
+    (on a replay cell, material postdating its ``context.cutoff``);
+    ``forecast-exposure`` a note that someone else's forecast of the case — this
+    project's published predictions or any other — reached a predict cell, or
+    that the cell's logged calls named where this project publishes its own.
     ``blocked`` stays valid for every file that carries it; severity ``blocker``
     is what says a cell could not finish, under whatever category.
     """
@@ -475,6 +478,7 @@ class FlagCategory(StrEnum):
     provisioning = "provisioning"
     capture_gap = "capture-gap"
     leakage_disclosure = "leakage-disclosure"
+    forecast_exposure = "forecast-exposure"
     blocked = "blocked"
     other = "other"
 
@@ -8861,6 +8865,386 @@ class MeritsBacktest(_Strict):
     entries: list[MeritsBacktestEntry] = Field(default_factory=list)
 
 
+BacktestComparisonKind = Literal["cert", "merits"]
+BacktestArmRole = Literal["standing", "incumbent", "candidate"]
+
+
+class BacktestComparisonArm(_Strict):
+    """One side of a back-test comparison: the configuration that ran, and how much came back."""
+
+    role: Literal["incumbent", "candidate"] = Field(
+        description="'incumbent': the predictor as the registry configures it. "
+        "'candidate': the same predictor with the one change under test"
+    )
+    engine: str | None = Field(
+        default=None,
+        description="The backend that ran this arm's cells; `stub` on an offline rehearsal",
+    )
+    model: str | None = Field(
+        default=None,
+        description="The model that backend invoked; null on an offline backend, which "
+        "invokes none, whatever `requested_model` says",
+    )
+    requested_model: str = Field(
+        description="The model this arm's configuration names: the registry's own for "
+        "the incumbent, the dispatched one for the candidate. Equal to `model` on a "
+        "real engine"
+    )
+    prompt: str = Field(description="The prompt template this arm's cells were handed")
+    process_digest: str = Field(
+        description="The process digest of this arm's configuration (prompt bytes plus "
+        "the registry entry with this arm's model and prompt). It names the "
+        "configuration, not the harness: a replay cell runs with no MCP server, and "
+        "a cert replay cell with no staged documents, so it is not a cell of the "
+        "registered process"
+    )
+    training_cutoff: date | None = Field(
+        default=None,
+        description="The vendor-stated training data cutoff recorded for "
+        "`requested_model`, as the last day of the stated month; null where none is "
+        "recorded, which leaves `after_both_cutoffs` undetermined on every pair",
+    )
+    cells_scored: int = Field(ge=0, description="Cells of this arm that came back scored")
+    cells_lost: int = Field(
+        ge=0, description="Cells of this arm that produced no score, whatever the reason"
+    )
+
+
+class BacktestComparisonPair(_Strict):
+    """One replayed cell under both arms: the same case, moment, record and clock."""
+
+    case_id: str
+    moment: str = Field(description="The prediction moment the cell was replayed at")
+    outcome: int = Field(
+        ge=0,
+        le=1,
+        description="The realized binary outcome the probability is scored against: "
+        "granted (cert) or disturbed (merits)",
+    )
+    decided: date | None = Field(
+        default=None, description="The day the outcome was decided; null where the row has none"
+    )
+    stratum: str | None = Field(
+        default=None,
+        description="The draw stratum the case was sampled in; null under an unstratified draw",
+    )
+    provisioning: str | None = Field(
+        default=None,
+        description="The information-set arm the cell was provisioned under (cert: "
+        "dated, truncated or blind), identical for both arms; null where the replay "
+        "records none",
+    )
+    incumbent_probability: float | None = Field(default=None, ge=0.0, le=1.0)
+    candidate_probability: float | None = Field(default=None, ge=0.0, le=1.0)
+    brier_difference: float | None = Field(
+        default=None,
+        ge=-1.0,
+        le=1.0,
+        description="Candidate Brier minus incumbent Brier on this cell; negative means "
+        "the candidate was closer. Null where either arm lost the cell",
+    )
+    call: Literal["same", "to-correct", "to-wrong"] | None = Field(
+        default=None,
+        description="Whether the binary call moved between the arms: 'to-correct' the "
+        "candidate is right where the incumbent was wrong, 'to-wrong' the reverse, "
+        "'same' both made the same call. Null where either arm lost the cell",
+    )
+    after_both_cutoffs: bool | None = Field(
+        default=None,
+        description="Whether `decided` falls after both arms' recorded training "
+        "cutoffs, so neither model can have been trained on the outcome. Null "
+        "where a cutoff or the decision day is not recorded",
+    )
+
+
+class BacktestPairedFigures(_Strict):
+    """The paired difference between the arms over one set of cells both arms scored."""
+
+    pairs: int = Field(ge=0, description="Cells both arms scored: the only set compared")
+    positives: int = Field(ge=0, description="Of `pairs`, those whose outcome was 1")
+    incumbent_mean_brier: float | None = Field(default=None, ge=0.0, le=1.0)
+    candidate_mean_brier: float | None = Field(default=None, ge=0.0, le=1.0)
+    mean_brier_difference: float | None = Field(
+        default=None,
+        description="Mean of the per-cell differences (candidate minus incumbent); "
+        "negative favours the candidate. Under `estimator` 'stratified' it is the "
+        "strata means weighted by their population shares",
+    )
+    interval_low: float | None = Field(default=None)
+    interval_high: float | None = Field(
+        default=None,
+        description="With `interval_low`, the Student-t interval for the mean "
+        "difference at `level`. A paired interval: it is computed on the per-cell "
+        "differences, so the case-to-case variation both arms share cancels. Null "
+        "below two pairs (or, stratified, below two in any weighted stratum), "
+        "where the differences show no spread, and, stratified, where one stratum's "
+        "weight exceeds 0.8: that class then supplies nearly all of the variance from "
+        "a handful of near-constant differences, and the interval would cover far "
+        "less often than `level` says. The "
+        "differences are bounded and skewed, so at a small `pairs` the nominal "
+        "coverage is approximate",
+    )
+    degrees_of_freedom: float | None = Field(
+        default=None,
+        description="The t interval's degrees of freedom: pairs minus one, or the "
+        "Satterthwaite approximation under 'stratified'",
+    )
+    level: float = Field(default=0.95, gt=0.0, lt=1.0)
+    estimator: Literal["unweighted", "stratified"] = Field(
+        default="unweighted",
+        description="'unweighted': every pair counts once, which describes the drawn "
+        "set. 'stratified': each stratum's mean weighted by its population share "
+        "(`strata`), which estimates the drawn-from population",
+    )
+    calls_changed: int = Field(default=0, ge=0)
+    changed_to_correct: int = Field(
+        default=0, ge=0, description="Pairs where only the candidate's binary call was right"
+    )
+    changed_to_wrong: int = Field(
+        default=0, ge=0, description="Pairs where only the incumbent's binary call was right"
+    )
+
+
+class BacktestComparisonStratum(_Strict):
+    """One draw stratum: its population, its weight, and what was drawn from it."""
+
+    stratum: str
+    population: int = Field(
+        ge=0,
+        description="Eligible cases in this stratum of the drawn-from population, "
+        "replayable or not",
+    )
+    weight: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="`population` over the whole eligible population: the share the "
+        "stratum's mean is weighted by in a 'stratified' figure",
+    )
+    target: int = Field(ge=0, description="Cases the draw rule set out to take here")
+    drawn: int = Field(
+        ge=0,
+        description="Cases actually drawn, short of `target` where the replayable stratum ran out",
+    )
+    passed_over: int = Field(
+        default=0, ge=0, description="Cases the walk passed over as unreplayable"
+    )
+
+
+class BacktestComparisonStratumFigures(_Strict):
+    """The paired difference within one draw stratum at one moment."""
+
+    stratum: str
+    pairs: int = Field(ge=1, description="Pairs in this stratum both arms scored")
+    mean_brier_difference: float = Field(
+        description="Mean of the stratum's per-cell differences (candidate minus incumbent)"
+    )
+    largest_absolute_difference: float = Field(
+        ge=0.0,
+        description="The largest single move in the stratum. `pairs` cells with no "
+        "large move cannot exclude a large-move rate up to about 3 / `pairs` in the "
+        "class they were drawn from",
+    )
+
+
+class BacktestComparisonMoment(_Strict):
+    """The paired figures at one prediction moment."""
+
+    moment: str
+    cells: int = Field(ge=0, description="Cells provisioned at this moment, per arm")
+    drawn_set: BacktestPairedFigures = Field(
+        description="Every pair counted once: the difference on the set as drawn"
+    )
+    population: BacktestPairedFigures | None = Field(
+        default=None,
+        description="The strata reweighted to their population shares; null under an "
+        "unstratified draw, whose drawn-set figure already estimates its population, "
+        "and null where a weighted stratum holds no pair",
+    )
+    by_stratum: list[BacktestComparisonStratumFigures] = Field(
+        default_factory=list,
+        description="The paired difference within each stratum that holds a pair: what "
+        "`population` is built from, and the reading to use where its interval is null",
+    )
+    after_both_cutoffs: BacktestPairedFigures | None = Field(
+        default=None,
+        description="The drawn-set figure over the pairs decided after both arms' "
+        "training cutoffs only, unweighted, so it describes those drawn cases and "
+        "not a population: the subset where recall of the outcome is least likely, "
+        "a stated cutoff being a month and approximate. Null where a cutoff is not "
+        "recorded; `pairs` is 0 where the cutoffs are recorded and no such case was drawn",
+    )
+
+
+class BacktestComparisonDispatch(_Strict):
+    """The parameters a comparison was run under, as dispatched."""
+
+    engine: str = Field(
+        description="'auto' (the predictor's own engine, both arms) or a single backend "
+        "such as the offline 'stub'"
+    )
+    predictor_id: str
+    candidate_model: str | None = Field(
+        default=None, description="The candidate's model, where the model is what changed"
+    )
+    candidate_prompt: str | None = Field(
+        default=None, description="The candidate's prompt path, where the prompt is what changed"
+    )
+    limit: int = Field(ge=0)
+    scope: str | None = Field(default=None, description="cert: the population scope")
+    terms: list[int] = Field(default_factory=list, description="merits: the argued Terms")
+    draw_rule: str = Field(description="The rule that drew the set")
+    draw_salt: str | None = None
+    draw_key: str | None = Field(
+        default=None, description="The corpus vintage the draw order is keyed by"
+    )
+
+
+class BacktestComparison(_Strict):
+    """A back-test comparison report: one predictor's candidate against its incumbent.
+
+    Both arms replay the same drawn cases at the same moments from identically
+    provisioned records under the same replay clock, so the per-cell difference
+    isolates the one configuration change under test. Produced by
+    ``fedcourts cert-backtest-compare`` and ``fedcourts merits-backtest-compare``.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    stratum: Literal["retrospective"] = Field(
+        default="retrospective",
+        description="Every replayed outcome was public before the run. A comparison "
+        "is evidence for a re-bless decision between two configurations and is "
+        "never a claimable performance figure; no cell here counts toward a forward "
+        "board",
+    )
+    kind: BacktestComparisonKind
+    run_id: str
+    pulled_through: date | None = Field(
+        default=None, description="The corpus vintage the set was drawn from"
+    )
+    dispatch: BacktestComparisonDispatch
+    arms: list[BacktestComparisonArm]
+    strata: list[BacktestComparisonStratum] = Field(
+        default_factory=list, description="The draw strata; empty under an unstratified draw"
+    )
+    moments: list[BacktestComparisonMoment] = Field(default_factory=list)
+    exposure_note: str = Field(
+        description="What the recorded training cutoffs let this report say about "
+        "outcome recall, in a sentence"
+    )
+    pairs: list[BacktestComparisonPair] = Field(default_factory=list)
+
+
+class BacktestRecordRow(_Strict):
+    """One scored replay cell: a line of a ``metrics/backtest-record/`` file.
+
+    The pooled back-test record is one append-only file per replay run, never
+    rewritten once written. A row is a cell a model actually ran and that came
+    back scored; an offline rehearsal's cells are never recorded.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    kind: BacktestComparisonKind
+    run_id: str
+    predictor_id: str
+    arm: BacktestArmRole = Field(
+        description="'standing': a cell of the standing back-test. 'incumbent' / "
+        "'candidate': a cell of a comparison run"
+    )
+    engine: str
+    model: str
+    process_digest: str = Field(
+        description="The process digest of the configuration that ran (see "
+        "`BacktestComparisonArm.process_digest`). Figures pool within one "
+        "(predictor, model, digest) and never across them"
+    )
+    population: str = Field(
+        description="The population the run drew from, as a stable name (cert: "
+        "`cert:<scope>`; merits: `merits:argued`). Figures never pool across populations"
+    )
+    case_id: str
+    stage: str
+    moment: str
+    probability: float = Field(ge=0.0, le=1.0)
+    outcome: int = Field(ge=0, le=1)
+    decided: date | None = None
+    provisioning: str | None = None
+    draw_rule: str
+    stratum: str = Field(
+        description="The case's outcome class in its population (cert: granted or "
+        "not-granted; merits: disturbed or not-disturbed), recorded under every "
+        "draw rule because the pooled figure is post-stratified on it"
+    )
+    stratum_share: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="That class's share of the eligible population the run drew "
+        "from, replayable or not. Null under a rule that is not a probability "
+        "sample (`recency-head`), whose rows no pooled figure includes",
+    )
+
+
+class BacktestPooledStratum(_Strict):
+    """One outcome class of a pooled entry."""
+
+    stratum: str
+    rows: int = Field(ge=0)
+    cases: int = Field(ge=0, description="Distinct cases; a case's rows are averaged first")
+    share: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="The population share the class is combined at: the mean of the "
+        "share its rows recorded, renormalized over the classes present",
+    )
+    mean_brier_score: float = Field(ge=0.0, le=1.0)
+
+
+class BacktestPooledEntry(_Strict):
+    """The pooled record of one (predictor, model, process digest) at one moment."""
+
+    predictor_id: str
+    model: str
+    process_digest: str
+    kind: BacktestComparisonKind
+    population: str
+    stage: str
+    moment: str
+    runs: int = Field(ge=0, description="Replay runs that contributed a row")
+    rows: int = Field(ge=0, description="Recorded cells, a case replayed twice counted twice")
+    cases: int = Field(ge=0, description="Distinct cases among `rows`")
+    unweighted_rows: int = Field(
+        default=0,
+        ge=0,
+        description="Of `rows`, those with no recorded stratum share, left out of "
+        "`strata` and `mean_brier_score`",
+    )
+    strata: list[BacktestPooledStratum] = Field(default_factory=list)
+    mean_brier_score: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="The strata's mean Brier scores combined at their population "
+        "shares: the pooled sample's estimate of the population mean Brier, "
+        "whatever mix of simple random and outcome-stratified runs supplied the "
+        "cells. Where the record holds one outcome class only, it is that class's "
+        "mean and not a population figure. Null with no weighted row",
+    )
+
+
+class BacktestPooled(_Strict):
+    """``metrics/backtest-pooled.json`` — the back-test record pooled across runs."""
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    stratum: Literal["retrospective"] = Field(
+        default="retrospective",
+        description="Replayed outcomes were public before every run; nothing here is "
+        "a claimable forward figure",
+    )
+    files: int = Field(ge=0, description="Record files read")
+    rows: int = Field(ge=0, description="Rows read")
+    entries: list[BacktestPooledEntry] = Field(default_factory=list)
+
+
 class WorkflowHealth(_Strict):
     """Recent-run health for one workflow, rolled up from the Actions run history."""
 
@@ -16362,6 +16746,272 @@ class ExportManifest(_Strict):
     )
 
 
+class MissTally(_Strict):
+    """How many forward cells a miss-review cut holds, and how many of them missed.
+
+    Counts, never a rate: the cuts are small and descriptive, and a rate would
+    invite a comparison the population cannot bear (``metrics/README.md``).
+    """
+
+    cells: int = Field(
+        ge=0, description="Forward cells in this cut, one per (case, event, predictor)"
+    )
+    missed: int = Field(
+        ge=0,
+        description="How many of them missed — a wrong call, or the wrong side of even odds",
+    )
+
+
+class MissEventTally(_Strict):
+    """A miss-review cut counted in events instead of cells."""
+
+    events: int = Field(
+        ge=0, description="Forward events in this cut holding at least one reviewed cell"
+    )
+    missed: int = Field(ge=0, description="Events on which at least one predictor missed")
+    shared: int = Field(
+        ge=0,
+        description="Events on which every reviewed predictor missed, two or more of them "
+        "being reviewed there",
+    )
+
+
+class MissReviewCall(_Strict):
+    """One predictor's counted forward forecast of a listed event, and what it ran on."""
+
+    predictor_id: str
+    prediction_run_id: str = Field(description="The run of the predictor the review read")
+    process_window: str | None = Field(
+        default=None,
+        description="The counting window the scored prediction sits in; null on an "
+        "all-versions build",
+    )
+    band: str = Field(
+        description="`<salience_version>/<band>` off the scored prediction's frozen context, "
+        "`(none)` where it froze no band"
+    )
+    call: str = Field(
+        description="The outcome label the prediction named, on the stage's own axis: the "
+        "judgment on a merits event, the disposition elsewhere"
+    )
+    probability: float = Field(
+        ge=0.0, le=1.0, description="The prediction's P on the stage's declared binary"
+    )
+    brier_score: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="Brier re-scored against the committed outcome on the binary the "
+        "stage's rule scores the cell on",
+    )
+    wrong_call: bool = Field(
+        description="The call re-scored against the committed outcome by the stage's rule "
+        "is not correct"
+    )
+    wrong_side: bool = Field(
+        description="The Brier is at or above the review's `wrong_side_brier`: the forecast "
+        "sat on the wrong side of even odds on the scored binary, or on them"
+    )
+    snapshot_provenance: str | None = Field(
+        default=None,
+        description="The scored prediction's frozen `context.snapshot_provenance`; null "
+        "where it froze no context",
+    )
+    snapshot_uptake: str | None = Field(
+        default=None, description="The frozen `context.snapshot_uptake`, null where unrecorded"
+    )
+    retrieval_calls: int | None = Field(
+        default=None,
+        ge=0,
+        description="Tool calls in the scored run's `retrieval_log.json`; null where the "
+        "run committed no log",
+    )
+    self_provisioned_fetches: int | None = Field(
+        default=None,
+        ge=0,
+        description="The log's own `self_provisioned_fetches`; null where the run "
+        "committed no log or the log predates the field",
+    )
+    gradings: int = Field(ge=1, description="Gradings of this forecast the review read")
+    mean_reasoning_quality: float | None = Field(
+        default=None, description="Mean `reasoning_quality` over those gradings that carry one"
+    )
+    mean_predicted_reasoning_quality: float | None = Field(
+        default=None,
+        description="Mean `predicted_reasoning_quality` over those gradings that carry one",
+    )
+
+
+class MissReviewEvent(_Strict):
+    """One forward event at least one predictor missed, with every reviewed forecast of it."""
+
+    case_id: str
+    event_id: str
+    stage: str = Field(description="The `<stage>@<moment>` block the leaderboard files it under")
+    outcome: str = Field(
+        description="The realized label on the axis the event is scored on: the judgment on "
+        "a merits event, the interim reading where the first listed forecast is scored on "
+        "it, the disposition elsewhere"
+    )
+    actual_granted: int = Field(ge=0, le=1, description="The outcome's binary target")
+    resolved_at: date
+    shared: bool = Field(
+        description="Every reviewed predictor missed, two or more of them being reviewed here"
+    )
+    calls: list[MissReviewCall] = Field(
+        description="Every reviewed predictor's forecast of the event, the ones that did not "
+        "miss included, in predictor order"
+    )
+
+
+class MissReview(_Strict):
+    """``metrics/miss-review.json`` — the forward events the predictors got wrong.
+
+    A diagnostic list beside the boards: which counted forward forecasts named
+    the wrong outcome or sat on the wrong side of even odds, whether the
+    predictors missed together, and what each cell ran on. Built by ``fedcourts
+    miss-review`` over the same stratified cells the leaderboard scores, so the
+    two apply one set of exclusions. Never a rank key and never a claimable
+    figure: every summary is a count, and the record-depth cuts are
+    observational (``metrics/README.md``). Carries no timestamp, so the same
+    ledger always serializes identically.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    process_scope: Literal["frozen", "all"] = Field(
+        default="frozen",
+        description="Which process versions the review covers, keyed on the prediction's "
+        "stamp exactly like the leaderboard",
+    )
+    wrong_side_brier: float = Field(
+        description="The Brier at or above which a forecast is on the wrong side of even odds"
+    )
+    unscored_cells: int = Field(
+        default=0,
+        ge=0,
+        description="Forward cells the stage's rule leaves unscored against the committed "
+        "outcome; reviewed no further and in no count below",
+    )
+    cells: MissTally = Field(description="Every reviewed forward cell")
+    events: MissEventTally = Field(description="Every reviewed forward event")
+    by_predictor: dict[str, MissTally] = Field(default_factory=dict)
+    by_stage: dict[str, MissEventTally] = Field(
+        default_factory=dict, description="Events per `<stage>@<moment>` block"
+    )
+    by_band: dict[str, MissTally] = Field(
+        default_factory=dict, description="Cells per frozen band key"
+    )
+    by_snapshot_provenance: dict[str, MissTally] = Field(
+        default_factory=dict,
+        description="Cells per frozen `snapshot_provenance`, `(none)` where no context was frozen",
+    )
+    by_self_provisioning: dict[str, MissTally] = Field(
+        default_factory=dict,
+        description="Cells by whether the scored run's log counts a self-provisioned fetch: "
+        "`fetched`, `none`, or `unlogged` where no count was committed",
+    )
+    missed_events: list[MissReviewEvent] = Field(
+        default_factory=list,
+        description="The events with a miss, in (case, event) order",
+    )
+
+
+class PerformancePoint(_Strict):
+    """One forward series' figures as one committed leaderboard carried them.
+
+    A series is a (predictor, counting window, stage) triple; ``process_window``
+    null is the predictor's pooled record across its windows. Every figure is
+    copied from the board's own forward stratum, never recomputed.
+    """
+
+    predictor_id: str
+    process_window: str | None = Field(
+        default=None, description="The counting window, or null for the pooled record"
+    )
+    stage: str = Field(
+        description="`<stage>@<moment>`; the ranked cert board is `cert@distribution`"
+    )
+    events: int | None = Field(
+        default=None,
+        ge=0,
+        description="The stratum's `accuracy_events_scored`; null on a board written "
+        "before the field existed",
+    )
+    gradings: int = Field(ge=0, description="The stratum's `evaluations`")
+    event_accuracy: float | None = None
+    event_always_deny_accuracy: float | None = None
+    mean_brier_score: float | None = None
+    population_brier_skill_score: float | None = None
+    population_realized_term_skill_score: float | None = None
+
+
+class PerformanceRevision(_Strict):
+    """One landing of ``metrics/leaderboard.json`` on the history's ref."""
+
+    commit: str = Field(description="The first-parent commit that landed the board")
+    landed: date = Field(description="That commit's committer date, UTC")
+    points: list[PerformancePoint] = Field(default_factory=list)
+
+
+class PerformanceMovement(_Strict):
+    """How one series moved between two boards, and what the move trips.
+
+    An operational alarm over two refreshes of one artifact. A change between
+    two boards is not a finding about a predictor (``metrics/README.md``).
+    """
+
+    predictor_id: str
+    process_window: str | None = None
+    stage: str
+    events_before: int | None = Field(
+        default=None, description="Null where the earlier board carried no such series"
+    )
+    events_after: int | None = None
+    event_accuracy_before: float | None = None
+    event_accuracy_after: float | None = None
+    floor_after: float | None = Field(
+        default=None, description="The newer board's always-deny floor over the same events"
+    )
+    mean_brier_before: float | None = None
+    mean_brier_after: float | None = None
+    skill_before: float | None = None
+    skill_after: float | None = None
+    flags: list[str] = Field(
+        default_factory=list,
+        description="On a series of at least ten events, `at-or-below-floor`: event accuracy "
+        "does not clear the always-deny floor, and `negative-skill`: the prior-Term Brier "
+        "skill is below zero (ten of the accuracy column's events, which is not the skill "
+        "column's own denominator). On any series, "
+        "`events-removed`: the series holds fewer events than before; "
+        "`rescored`: accuracy moved by more than the added events can explain, so "
+        "earlier cells were re-scored, re-windowed or left the population",
+    )
+
+
+class PerformanceHistory(_Strict):
+    """``fedcourts performance-history`` — the forward record across committed boards.
+
+    Read from the first-parent history of ``metrics/leaderboard.json`` on a
+    ref, oldest landing first, so the committed boards are the record and
+    nothing is stored twice. Each counting window is its own series and the
+    pooled record is a separate one; a new window is never a continuation of
+    the one before it. Descriptive: a week-over-week change is not a finding.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    ref: str = Field(description="The ref whose first-parent history was read")
+    revisions: list[PerformanceRevision] = Field(default_factory=list)
+    unreadable: list[str] = Field(
+        default_factory=list,
+        description="Commits whose board does not parse under the current schema, oldest "
+        "first; their figures are absent, not zero",
+    )
+    movements: list[PerformanceMovement] = Field(
+        default_factory=list,
+        description="The newest readable board against the one before it, one row per "
+        "series the newer board carries",
+    )
+
+
 # Maps on-disk filename -> the model that validates it. Used by `fedcourts validate`.
 FILENAME_MODELS: dict[str, type[_Strict]] = {
     "case.yaml": TrackedCase,
@@ -16371,6 +17021,7 @@ FILENAME_MODELS: dict[str, type[_Strict]] = {
     "evaluation.json": Evaluation,
     "leaderboard.json": Leaderboard,
     "claim-scores.json": ClaimScoreBoard,
+    "miss-review.json": MissReview,
     "backtest.json": Backtest,
     "usage.json": ModelUsage,
     "ops.json": OpsReport,
@@ -16400,10 +17051,15 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "evaluator_config": EvaluatorConfig,
     "leaderboard": Leaderboard,
     "claim_score_board": ClaimScoreBoard,
+    "miss_review": MissReview,
+    "performance_history": PerformanceHistory,
     "backtest": Backtest,
     "tool_usage": ToolUsage,
     "cert_backtest": CertBacktest,
     "merits_backtest": MeritsBacktest,
+    "backtest_comparison": BacktestComparison,
+    "backtest_record_row": BacktestRecordRow,
+    "backtest_pooled": BacktestPooled,
     "salience_replay": SalienceReplay,
     "usage": ModelUsage,
     "ops_report": OpsReport,

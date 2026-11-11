@@ -81,8 +81,8 @@ envelope rather than the sum of the row. Other spend is assumed to step from the
 bootstrapping to the scaling level at milestone 3, when volume starts to grow.
 The model-spend column is priced at about $17 per fully evaluated SCOTUS
 event, the pinned planning table's total rounded down (the table sums to
-$17.67, so the column reads up to about 4% low), and $30–60 per lower-court
-event. The table prices the gemini pair at about $4.30 of each event, set
+$18.07, so the column reads up to about 6% low), and $30–60 per lower-court
+event. The table prices the gemini pair at about $4.70 of each event, set
 against the rate in force from 2026-12-01 ([budget.md](budget.md));
 the scaling is rough from milestone 5, where more predictors change each
 engine's share of an event. At milestone 2 the column fills the
@@ -96,7 +96,7 @@ an extrapolation from six weeks, and a fully evaluated event measures about
 $4.90, about $7.35 once gemini's rate doubles on 2026-12-01
 ([budget.md](budget.md)). At that count today's row is ≈$10–15K at the
 projected $7.35 and ≈$14–20K at the $10 budget.md budgets, both inside the
-envelope, and ≈$25–35K at the table's $17.67, which is not. So the envelope
+envelope, and ≈$25–36K at the table's $18.07, which is not. So the envelope
 holds on measured cost and not on the planning ceiling. Milestone 3's event
 count rests on the same first sizing and is owed a re-count from a full Term
 on the ledger before that step is committed to. The table stays the planning

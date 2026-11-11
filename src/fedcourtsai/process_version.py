@@ -665,6 +665,31 @@ def digest_for_actor(
     return compute_process_digest(prompt_bytes, _config_canonical(registry_path, entry, code))
 
 
+def digest_for_configuration(
+    repo_root: Path,
+    config_root: Path,
+    predictor_id: str,
+    *,
+    model: str | None = None,
+    prompt: str | None = None,
+    code: CodeInputs = RUNNING_CODE_INPUTS,
+) -> str:
+    """The digest a predictor's process would carry with ``model`` or ``prompt`` changed.
+
+    :func:`digest_for_actor` over the registry entry with the named fields
+    replaced, so a back-test comparison can name each of its two
+    configurations by the digest it would be registered under. With neither
+    given it is the predictor's own digest. It registers nothing and no cell
+    is stamped with it.
+    """
+    registry_path = config_root / "predictors.yaml"
+    entry = _find(load_predictors(registry_path), predictor_id, "predictor")
+    changed = {k: v for k, v in (("model", model), ("prompt", prompt)) if v is not None}
+    configured = entry.model_copy(update=changed)
+    prompt_bytes = (repo_root / configured.prompt).read_bytes()
+    return compute_process_digest(prompt_bytes, _config_canonical(registry_path, configured, code))
+
+
 def _find(
     entries: list[PredictorConfig] | list[EvaluatorConfig], actor_id: str, role: str
 ) -> PredictorConfig | EvaluatorConfig:

@@ -3962,6 +3962,22 @@ def test_stamp_notes_a_predict_cell_that_named_the_oracle(_data_root: Path) -> N
     assert "left the cell's lane" in result.output
 
 
+def test_stamp_files_a_published_forecast_call_under_its_own_category(_data_root: Path) -> None:
+    """The count a maintainer keeps on forecast independence reads one category."""
+    event_paths = _seed_cell_log(
+        _data_root, 14, "curl -s https://fedcourts.ai/cases/26-294", "cat data/qp-topics/a.json"
+    )
+    result = _stamp("predictor", "claude-baseline", 14, "evt-y", "RID")
+    assert result.exit_code == 0, result.output
+    flags = read_model(event_paths.prediction_flags("claude-baseline", "RID"), AgentFlags)
+    notes = [flag for flag in flags.flags if flag.message.startswith(_CELL_ACCESS_PREFIX)]
+    assert [(note.category, note.source) for note in notes] == [
+        (FlagCategory.other, FlagSource.harness),
+        (FlagCategory.forecast_exposure, FlagSource.harness),
+    ]
+    assert "fedcourts.ai/cases/26-294" in notes[1].message
+
+
 def test_stamp_leaves_a_predict_cell_in_its_lane_without_a_note(_data_root: Path) -> None:
     event_paths = _seed_cell_log(
         _data_root,
