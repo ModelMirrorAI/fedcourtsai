@@ -1320,14 +1320,14 @@ def _forward_row(predictor_id: str, block: LeaderboardStratum) -> str:
     )
 
 
-def _panel_mean_line(paired: PairedEvents) -> list[str]:
+def _engine_mean_line(paired: PairedEvents) -> list[str]:
     """The mean-of-engines reference under the forward table, read against the best engine.
 
     Per-event Briers throughout, the reference beside each engine's own over
     the same events, so the line is one comparison on one footing — not the
     grading-weighted mean Brier the table's column prints.
     """
-    mean = paired.panel_mean
+    mean = paired.engine_mean
     if mean is None:
         return []
     best = min(mean.engine_brier, key=lambda pid: (mean.engine_brier[pid], pid))
@@ -1339,16 +1339,16 @@ def _panel_mean_line(paired: PairedEvents) -> list[str]:
     engines = ", ".join(
         f"`{_cell(pid)}` {_brier(mean.engine_brier[pid])}" for pid in sorted(mean.engine_brier)
     )
-    return [
-        "",
-        f"Reference, not a predictor and never ranked: the mean of the "
+    line = (
+        "Reference, not a predictor and never ranked: the mean of the "
         f"{len(mean.engine_brier)} engines' probabilities scores a per-event Brier of "
-        f"**{_brier(mean.brier)}** over {mean.events:,} paired event(s) "
+        f"**{_brier(mean.brier)}** over {mean.events:,} of {paired.events:,} paired event(s) "
         f"({mean.grants} granted), {verdict}. Per event over the same events: {engines}. "
         "A mean always scores at least as well as its members' average, so only the "
         "comparison with the best engine is a reading; the engines can surface the same "
-        "sources, so they are not independent forecasts.",
-    ]
+        "sources, so they are not independent forecasts."
+    )
+    return ["", line]
 
 
 def _left_out_line(board: Leaderboard) -> list[str]:
@@ -1435,7 +1435,7 @@ def _forward_lines(vintaged: Vintaged[Leaderboard]) -> list[str]:
         "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",
         *[_forward_row(p, by_engine[p]) for p in order],
     ]
-    lines += _panel_mean_line(paired)
+    lines += _engine_mean_line(paired)
     unranked = [
         e.predictor_id
         for e in board.entries

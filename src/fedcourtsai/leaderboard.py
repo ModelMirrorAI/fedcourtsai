@@ -155,6 +155,7 @@ from .schemas import (
     CommonRecordReading,
     CountingWindow,
     Disposition,
+    EngineMeanReference,
     Evaluation,
     EvaluatorAgreement,
     ForwardClaimRecord,
@@ -170,7 +171,6 @@ from .schemas import (
     Outcome,
     PairedEngine,
     PairedEvents,
-    PanelMeanReference,
     Prediction,
     PredictionContext,
     ReliabilityBin,
@@ -1025,16 +1025,16 @@ def _paired(  # noqa: PLR0913 - one keyword per per-cell reading the figure list
         common_record=_common_record(
             qualifying, paired, entries, skills, facts, vote_scores, provisioning
         ),
-        panel_mean=_panel_mean(qualifying, engines, paired, facts),
+        engine_mean=_engine_mean(qualifying, engines, paired, facts),
     )
 
 
-def _panel_mean(
+def _engine_mean(
     qualifying: Mapping[str, Mapping[tuple[str, str], Sequence[Evaluation]]],
     engines: Sequence[str],
     paired: Collection[tuple[str, str]],
     facts: Mapping[EvaluationKey, CellFacts] | None,
-) -> PanelMeanReference | None:
+) -> EngineMeanReference | None:
     """The mean-of-engines reference line over the paired events, or ``None``.
 
     Each engine's forecast on an event is the mean of its qualifying gradings'
@@ -1064,7 +1064,7 @@ def _panel_mean(
     if not rows:
         return None
     means = [sum(forecasts.values()) / len(forecasts) for forecasts, _ in rows]
-    return PanelMeanReference(
+    return EngineMeanReference(
         events=len(rows),
         grants=sum(target for _, target in rows),
         grants_forecast=sum(means),
@@ -1412,17 +1412,17 @@ def big_case_agreement(
     # independent, and `cases` would count events while calling them cases.
     per_case: dict[tuple[Series, str], list[tuple[float, float]]] = defaultdict(list)
     for (series, case_id, _event_id, _run_id), (own_score, evaluator_scores) in reads.items():
-        panel_mean = sum(evaluator_scores) / len(evaluator_scores)
-        per_case[(series, case_id)].append((own_score, panel_mean))
+        engine_mean = sum(evaluator_scores) / len(evaluator_scores)
+        per_case[(series, case_id)].append((own_score, engine_mean))
 
     points: dict[Series, list[PanelPoint]] = defaultdict(list)
     for (series, case_id), moments_read in sorted(
         per_case.items(), key=lambda item: (series_sort_key(item[0][0]), item[0][1])
     ):
         predictor_mean = sum(own for own, _ in moments_read) / len(moments_read)
-        panel_mean = sum(panel for _, panel in moments_read) / len(moments_read)
+        engine_mean = sum(panel for _, panel in moments_read) / len(moments_read)
         points[series].append(
-            ((predictor_mean, panel_mean), case_id, point_reads[(series, case_id)])
+            ((predictor_mean, engine_mean), case_id, point_reads[(series, case_id)])
         )
 
     boards: dict[SeriesLabel, BigCaseLeaderboard] = {}

@@ -37,6 +37,7 @@ from fedcourtsai.schemas import (
     Disposition,
     DispositionShare,
     Engine,
+    EngineMeanReference,
     Evaluation,
     EventKind,
     FlagCategory,
@@ -54,7 +55,6 @@ from fedcourtsai.schemas import (
     Moment,
     OpsReport,
     Outcome,
-    PanelMeanReference,
     PredictableEvent,
     Prediction,
     SalienceReplay,
@@ -3732,14 +3732,14 @@ def test_the_weekly_digest_prints_an_unscored_forward_skill_as_unknown() -> None
     assert "realized grant-family" not in md
 
 
-def test_the_weekly_digest_reads_the_panel_mean_against_the_best_engine() -> None:
+def test_the_weekly_digest_reads_the_engine_mean_against_the_best_engine() -> None:
     board = _board(_lb_entry("claude-baseline", _forward()), _lb_entry("p", _forward()))
     assert board.paired is not None
 
     def with_mean(brier: float) -> str:
         paired = board.paired.model_copy(  # type: ignore[union-attr]
             update={
-                "panel_mean": PanelMeanReference(
+                "engine_mean": EngineMeanReference(
                     events=110,
                     grants=6,
                     grants_forecast=9.0,
@@ -3755,10 +3755,12 @@ def test_the_weekly_digest_reads_the_panel_mean_against_the_best_engine() -> Non
 
     worse = with_mean(0.034)
     assert "Reference, not a predictor and never ranked" in worse
-    assert "**0.0340** over 110 paired event(s) (6 granted)" in worse
+    assert "**0.0340** over 110 of 110 paired event(s) (6 granted)" in worse
     assert "not below the best engine's own (`claude-baseline`)" in worse
     assert "`claude-baseline` 0.0300, `p` 0.0500" in worse
     assert "below every engine's own" in with_mean(0.02)
+    # A tie with the best engine is not a gain.
+    assert "not below the best engine's own" in with_mean(0.03)
     plain = ops.render_weekly_digest(_empty_report(), analytics=_analytics(leaderboard=board))
     assert "Reference, not a predictor" not in plain
 

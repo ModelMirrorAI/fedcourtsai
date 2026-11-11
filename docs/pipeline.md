@@ -255,7 +255,7 @@ Five blocks, in the order a reader needs them:
   P(granted)) beside the grants that realized on the binary target and the
   events both are over, a gap that reads as over- or under-forecasting only
   once the cohort's relisted and held petitions have resolved. One line under
-  the table reads the board's `panel_mean` reference, the mean of the engines'
+  the table reads the board's `engine_mean` reference, the mean of the engines'
   probabilities, against the best engine's own per-event Brier, as a reference
   and never a ranked row. Under it, the gradings the build dropped for
   suspected leakage (by predictor) or set aside as not shown to be forward,

@@ -5174,7 +5174,7 @@ class PairedEngine(_Strict):
         )
 
 
-class PanelMeanReference(_Strict):
+class EngineMeanReference(_Strict):
     """A reference line on a paired figure: the mean of the engines' probabilities.
 
     On each paired event every engine's forecast enters once (the mean of its
@@ -5188,7 +5188,7 @@ class PanelMeanReference(_Strict):
     A mean's Brier is never worse than the average of its members' Briers, on
     any data, so that comparison says nothing. The reading is against the
     **best** single engine on the same events (``engine_brier``). The engines'
-    forecasts are not independent draws, so a gain is a lower bound on what
+    forecasts are not independent draws, so a gain likely understates what
     independent forecasters would give and the absence of one may reflect
     shared information.
     """
@@ -5211,7 +5211,7 @@ class PanelMeanReference(_Strict):
         description="Mean, over `events`, of the squared gap between the reference forecast "
         "and the binary target",
     )
-    engine_brier: dict[str, float] = Field(
+    engine_brier: dict[str, Annotated[float, Field(ge=0.0, le=1.0)]] = Field(
         description="Each paired engine's own per-event Brier over the same `events`, by "
         "`predictor_id`: the figures `brier` is read against, the lowest of them first of all",
     )
@@ -5267,22 +5267,22 @@ class PairedEvents(_Strict):
         "supplied",
     )
 
-    panel_mean: PanelMeanReference | None = Field(
+    engine_mean: EngineMeanReference | None = Field(
         default=None,
         description="The mean of the engines' probabilities on the paired events, as an "
-        "unranked reference line (see PanelMeanReference). Cert populations with two or "
+        "unranked reference line (see EngineMeanReference). Cert populations with two or "
         "more engines only; omitted otherwise, and while no paired event carries outcome "
         "facts for every engine",
     )
 
     @model_serializer(mode="wrap")
     def _omit_empty_by_band(self, handler: SerializerFunctionWrapHandler) -> Any:
-        """Drop ``by_band``, ``common_record`` and ``panel_mean`` while empty."""
+        """Drop ``by_band``, ``common_record`` and ``engine_mean`` while empty."""
         return _omit_empty(
             handler(self),
             by_band=self.by_band,
             common_record=self.common_record,
-            panel_mean=self.panel_mean,
+            engine_mean=self.engine_mean,
         )
 
 
