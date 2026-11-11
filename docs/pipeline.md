@@ -273,6 +273,14 @@ Five blocks, in the order a reader needs them:
   miss, how many every predictor reviewed there shares, and the same per
   stage. Per event, never per predictor, and never a rate. Where the artifact
   has not landed the block says so.
+- **Forecast-document grade** — after the misses, off the committed
+  `metrics/forecast-document-grades.json` with its vintage: one row per
+  predictor per stage with its cells graded by every judge (and those null by
+  every judge, and split), and each judge's mean grade of that predictor's
+  forecast documents beside the cells it is over, a dash under the minimum.
+  One line per stage gives each judge's leave-one-out agreement with the rest
+  of the panel. Graded, not scored, and never averaged across judges. Where
+  the artifact has not landed the block says so.
 - **Backtest results** — the historical replay **per court**, with each row's
   own always-deny floor beside its accuracy and the pooled row labelled as the
   mixture it is (`granted` means cert on a SCOTUS row and a motion granted on a
