@@ -89,6 +89,10 @@ _CATEGORY_SYNONYMS: dict[str, FlagCategory] = {
         ("outcome-exposure", "leakage", "leak", "outcome-leakage"),
         FlagCategory.leakage_disclosure,
     ),
+    **dict.fromkeys(
+        ("forecast-contamination", "forecast-disclosure", "forecast-leakage"),
+        FlagCategory.forecast_exposure,
+    ),
     **dict.fromkeys(("capture", "data-capture"), FlagCategory.capture_gap),
     **dict.fromkeys(
         ("provision", "mis-provisioning", "missing-document"), FlagCategory.provisioning

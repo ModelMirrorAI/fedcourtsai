@@ -14,7 +14,7 @@ in the cell's ``flags.json``, and by the judges who grade the cell.
 
 :func:`audit_cell_access` is that check. It reads the captured query slice of
 each call the cell could have touched its tree with (a shell, a file tool, or a
-call the capture could not classify) and reports three kinds of hit:
+call the capture could not classify) and reports three kinds of hit there:
 
 * **oracle** — the call names ``qp-topics``;
 * **cell record** — the call names an ``evaluations/`` tree, or a
@@ -22,6 +22,15 @@ call the capture could not classify) and reports three kinds of hit:
   predictor's, this predictor's earlier run, or a glob over them);
 * **write** — a file tool's target, or a shell redirection's, names ``data/`` or
   a case ``record/`` outside this cell's own run directory.
+
+A fourth kind is read off every call but an MCP one or a subagent prompt, the
+hosted searches and fetches included, because the same forecasts are published
+where a search can find them:
+
+* **published forecast** — the call names the project's public site, or this
+  repository on GitHub's web, raw-content or API hosts. A search or fetch
+  also counts when it names the repository alone, since a search query has no
+  URL to carry the host.
 
 A path named only to exclude it — ``find … -not -path 'data/qp-topics/*'``,
 ``--exclude``, a ``!`` glob, a ``:(exclude)`` pathspec, a ``-prune`` — is no
@@ -43,7 +52,12 @@ match; a write is seen only through a file tool or a shell redirection or
 and a write is matched to the cell's own run directory by its
 ``predictions/<id>/<run>`` segment and, where the path names one, its case and
 event, so a write into another case of the same run is caught only when its
-path is written out in full. A hit is evidence that a call *named* the path, not that it
+path is written out in full. A published-forecast hit is read from what the
+call asked for, never from what came back: a search worded for something else
+whose results carry a forecast names nothing here, and only the cell's own
+disclosure shows it; a hosted search whose query the engine did not log shows
+nothing either; and a forecast published anywhere but the project's own hosts
+is outside the patterns. A hit is evidence that a call *named* the path, not that it
 read anything — a ``git status`` that lists the deletion names it too, which
 is why the hidden paths are marked skip-worktree before the agent runs.
 """
@@ -68,6 +82,7 @@ class AccessKind(StrEnum):
     oracle = "oracle"
     cell_record = "cell-record"
     write = "write"
+    published_forecast = "published-forecast"
 
 
 @dataclass(frozen=True)
@@ -134,6 +149,20 @@ _TEE = re.compile(r"\btee\s+(?:-a\s+)?([^\s;&|<>)]+)")
 _GUARDED_WRITE = re.compile(r"(?:^|/)(?:data|record)/")
 
 
+# Where the project's forecasts are published: the public site, and this
+# repository on GitHub's web, raw-content and API hosts. A hosted search or
+# fetch has no URL to carry a host in its query, so there the repository's
+# name alone counts; a shell names the package on every `fedcourts` call, so
+# there only a URL does.
+_REPOSITORY = r"modelmirrorai/fedcourtsai(?![\w-])"
+_FORECAST_URL = re.compile(
+    rf"(?<![\w-])fedcourts\.ai(?![\w-]){_TOKEN}"
+    + rf"|{_TOKEN}github(?:usercontent)?\.com/(?:repos/)?{_REPOSITORY}{_TOKEN}",
+    re.IGNORECASE,
+)
+_FORECAST_NAME = re.compile(rf"{_TOKEN}(?<![\w-])fedcourtsai(?![\w-]){_TOKEN}", re.IGNORECASE)
+
+
 def _strip_exclusions(text: str) -> str:
     for pattern in _EXCLUSIONS:
         text = pattern.sub(" ", text)
@@ -148,6 +177,18 @@ def _touches_tree(call: RetrievalCall) -> bool:
         and tool_class not in _REMOTE_CLASSES
         and call.tool.lower() not in _PROMPT_TOOLS
     )
+
+
+def _forecast_hosts(call: RetrievalCall) -> list[str]:
+    """The project's forecast-publishing hosts a call named, as it spelled them."""
+    text = call.query or ""
+    tool_class = neutral_tool_class(call.tool)
+    if tool_class.startswith("mcp:") or call.tool.lower() in _PROMPT_TOOLS:
+        return []
+    found: list[str] = _FORECAST_URL.findall(text)
+    if tool_class in _REMOTE_CLASSES:
+        found += [name for name in _FORECAST_NAME.findall(text) if name not in found]
+    return found
 
 
 @dataclass(frozen=True)
@@ -218,25 +259,28 @@ def _guarded_write(path: str, own: _OwnRun) -> bool:
 def audit_cell_access(
     calls: Sequence[RetrievalCall], *, case_id: str, event_id: str, actor_id: str, run_id: str
 ) -> list[AccessHit]:
-    """Every call in a predict cell's log that named a hidden path or wrote outside its run.
+    """Every call in a predict cell's log that left its lane.
 
-    One hit per (call, kind, path), in call order. The four coordinates name
-    the cell's own run directory, the one place under ``predictions/`` it may
-    name and the one place under ``data/`` it may write.
+    A call that named a hidden path, wrote outside the cell's run, or named a
+    host that publishes the project's forecasts. One hit per (call, kind,
+    path), in call order. The four coordinates name the cell's own run
+    directory, the one place under ``predictions/`` it may name and the one
+    place under ``data/`` it may write.
     """
     own = _OwnRun(case_id=case_id, event_id=event_id, actor_id=actor_id, run_id=run_id)
     hits: list[AccessHit] = []
     for call in calls:
-        if not call.query or not _touches_tree(call):
+        if not call.query:
             continue
-        text = _strip_exclusions(call.query)
-        found: list[tuple[AccessKind, str]] = [
-            (AccessKind.oracle, path) for path in _ORACLE.findall(text)
-        ]
-        cut = len(call.query) >= QUERY_CAP
-        found += [(AccessKind.cell_record, path) for path in _record_reads(text, own, cut=cut)]
-        targets = [path.strip("'\"`") for path in _write_targets(call)]
-        found += [(AccessKind.write, path) for path in targets if _guarded_write(path, own)]
+        found: list[tuple[AccessKind, str]] = []
+        if _touches_tree(call):
+            text = _strip_exclusions(call.query)
+            found += [(AccessKind.oracle, path) for path in _ORACLE.findall(text)]
+            cut = len(call.query) >= QUERY_CAP
+            found += [(AccessKind.cell_record, path) for path in _record_reads(text, own, cut=cut)]
+            targets = [path.strip("'\"`") for path in _write_targets(call)]
+            found += [(AccessKind.write, path) for path in targets if _guarded_write(path, own)]
+        found += [(AccessKind.published_forecast, host) for host in _forecast_hosts(call)]
         hits += [
             AccessHit(kind=kind, tool=call.tool, path=path) for kind, path in dict.fromkeys(found)
         ]

@@ -499,14 +499,19 @@ rolls every cell's flags into the run PR body, the Actions summary, and one
 long-lived agent-feedback tracking issue, so the note survives the trigger
 issue's closure and a maintainer sees it without reading every `reasoning.md`.
 `category` is one of `data-quality` / `scope` / `ambiguous-event` /
-`provisioning` / `capture-gap` / `leakage-disclosure` / `other`, and `severity`
+`provisioning` / `capture-gap` / `leakage-disclosure` / `forecast-exposure` /
+`other`, and `severity`
 one of `info` / `warning` / `blocker`. `provisioning` is a record missing
 something the pipeline should have staged, `capture-gap` an outcome or docket
 record that cannot show what the forecast or grading needed, and
 `leakage-disclosure` a note that outcome material about the case reached the
 cell or a candidate it grades (on a replay cell, material postdating its
 `context.cutoff`); the cert back-test marks every note filed
-there as an exposure candidate, whatever its wording. `blocked` also
+there as an exposure candidate, whatever its wording. `forecast-exposure` is
+a note that someone else's forecast of the case reached a predict cell (this
+project's published predictions or any other), or the lane audit's note that
+the cell's calls named a host that publishes them; it is not outcome material,
+so it is counted apart from `leakage-disclosure`. `blocked` also
 validates; `severity: blocker` is what says a cell could not finish. An
 optional `issue` names the repository issue that already tracks the problem,
 so a cell can cite it instead of re-describing it. Written as a number it
@@ -529,7 +534,9 @@ note discard the output beside it. (This section spells the verb the way the
 - An off-vocabulary `category` becomes `other`, after the same insensitive
   match (so `"data_quality"` keeps its meaning) and a short synonym table:
   `outcome-exposure`, `leakage`, `leak` and `outcome-leakage` read as
-  `leakage-disclosure`; `capture` and `data-capture` as `capture-gap`;
+  `leakage-disclosure`; `forecast-contamination`, `forecast-disclosure` and
+  `forecast-leakage` as `forecast-exposure`; `capture` and `data-capture` as
+  `capture-gap`;
   `provision`, `mis-provisioning` and `missing-document` as `provisioning`.
 - An `issue` written as `"#123"`, `"123"` or `"gh-123"` reads as 123; one that
   is not an issue number is dropped.
@@ -559,9 +566,19 @@ the cert-outcome oracle removed from the agent's tree; a call naming a committed
 (another predictor's output, an earlier run, a glob over them, or the whole
 directory read from git history); and a file tool, shell redirection or `tee`
 writing under `data/` or a case `record/` outside that directory, which a path
-naming another case or event is, even under the same run id. A path named only
+naming another case or event is, even under the same run id. A fourth kind is
+filed under `forecast-exposure` rather than `other`, so its occurrences count
+on their own: a call naming where the project's forecasts are published, which
+is the public site (`fedcourts.ai`) or this repository on GitHub's web,
+raw-content or API hosts. It is read from a shell call's URL and from a hosted
+search's or fetch's query, where the repository's name alone also counts. It
+sees what a call asked for and never what came back, so a search worded for
+something else whose results carry a forecast is shown only by the cell's own
+`forecast-exposure` note, a hosted search whose query the engine did not log
+shows nothing, and a forecast published anywhere else is outside it. A path named only
 to exclude it (`-not -path`, `--exclude`, a `!` glob or an `:(exclude)`
-pathspec) does not count, nor does a search, a fetch, an MCP call, or a
+pathspec) does not count; nor, for the three path kinds, does a search or a
+fetch; nor, for all four, does an MCP call, or a
 subagent's prompt or a message sent to one (claude's `Agent`/`Task`, codex's
 `spawn_agent`, `send_input` and `send_message`). A `grep -v` over output a command already opened does
 count, as the evaluate prompt grades it. The log records that a call *named* a

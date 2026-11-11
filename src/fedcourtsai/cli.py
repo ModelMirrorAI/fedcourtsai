@@ -13876,6 +13876,12 @@ _CELL_ACCESS_WHAT: dict[AccessKind, str] = {
     + "glob over them)",
     AccessKind.write: "wrote under data/ or a case record/ outside this cell's own run "
     + "directory",
+    AccessKind.published_forecast: "named the project's public site or this repository's "
+    + "GitHub hosts, where every predictor's forecasts are published",
+}
+# The kind a maintainer counts on its own category; the rest are lane notes.
+_CELL_ACCESS_CATEGORY: dict[AccessKind, FlagCategory] = {
+    AccessKind.published_forecast: FlagCategory.forecast_exposure,
 }
 
 
@@ -13890,7 +13896,7 @@ def _cell_access_note(kind: AccessKind, hits: list[AccessHit], event_id: str) ->
         else ""
     )
     return AgentFlag(
-        category=FlagCategory.other,
+        category=_CELL_ACCESS_CATEGORY.get(kind, FlagCategory.other),
         severity=FlagSeverity.warning,
         message=(
             f"{_CELL_ACCESS_PREFIX} {_CELL_ACCESS_WHAT[kind]}: {len(hits)} call(s), "
@@ -13909,7 +13915,9 @@ def _flag_cell_access(event_paths: EventPaths, where: CellCoordinates, event_id:
     The audit is :func:`fedcourtsai.cell_access.audit_cell_access`, over the
     ``retrieval_log.json`` the capture step wrote from the engine's own
     transcript: a call naming the removed oracle, another cell's committed
-    output, or a write outside the cell's run directory. A ``warning``, one per
+    output, a write outside the cell's run directory, or a host that publishes
+    the project's forecasts — that last filed under ``forecast-exposure``, so
+    its occurrences count apart from the lane notes. A ``warning``, one per
     kind, because the log shows a call named a path rather than what it read —
     a maintainer reads the transcript to tell a read from a mention. A cell
     with no log, or one that does not parse, is left alone: capture reports its

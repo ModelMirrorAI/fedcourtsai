@@ -464,7 +464,10 @@ class FlagCategory(StrEnum):
     have staged; ``capture-gap`` an outcome or docket record that cannot show
     what a forecast or grading needed; ``leakage-disclosure`` a note that
     outcome material about the case reached the cell or a candidate it grades
-    (on a replay cell, material postdating its ``context.cutoff``).
+    (on a replay cell, material postdating its ``context.cutoff``);
+    ``forecast-exposure`` a note that someone else's forecast of the case — this
+    project's published predictions or any other — reached a predict cell, or
+    that the cell's logged calls named a host that publishes them.
     ``blocked`` stays valid for every file that carries it; severity ``blocker``
     is what says a cell could not finish, under whatever category.
     """
@@ -475,6 +478,7 @@ class FlagCategory(StrEnum):
     provisioning = "provisioning"
     capture_gap = "capture-gap"
     leakage_disclosure = "leakage-disclosure"
+    forecast_exposure = "forecast-exposure"
     blocked = "blocked"
     other = "other"
 
