@@ -46,7 +46,7 @@ token or role, so privilege and outside reachability stay disjoint — see
 | `run-backtest`   | biweekly schedule (even ISO weeks, Sat 06:23 UTC — pinned cert parameters over the paid population, spends only on the manual `review` release), manual dispatch (replay/engine/limit/terms params; `replay: merits` replays the predictors over decided argued cases at the merits grant and briefed moments instead, dispatch only; `replay: salience-gate` runs the token-free gate replay instead of the predictors) | Claude Code + Codex + Gemini (replay) |
 | `run-ops`        | daily schedule (ops report, weekly performance digest on the run summary, public status snapshot, prediction-reading digest), manual | script (no agent)    |
 | `post-public-update` | weekly schedule (Mon 12:57 UTC), manual dispatch (`week`; re-dispatching a missed week is safe, since the post is idempotent per week) | script (no agent); creates up to three Buttondown drafts (the Court update, the forecasts update and the AI-cases update), never sends |
-| `run-analytics`  | manual dispatch + weekly schedule (metrics refresh, Mon 05:41 UTC) + daily schedule (big-case board, 04:36 UTC) + weekly schedule (update history, Mon 12:59 UTC) + weekly schedules (topic labeling: petitions Tue 09:08 UTC, applications Wed 09:04 UTC, merits side coding Thu 09:14 UTC, behind the `review` hold) + weekly schedule (AI-case candidates, Fri 21:11 UTC) | script; the `qp-topic-label`, `qp-topic-label-applications`, `qp-topic-replicate`, `qp-topic-replicate-applications` and `alignment-side-code` modes each run one Claude Code labeler |
+| `run-analytics`  | manual dispatch + weekly schedule (metrics refresh, Mon 05:41 UTC) + daily schedule (big-case board, 04:36 UTC) + weekly schedule (update history, Mon 12:59 UTC) + weekly schedules (topic labeling: petitions Tue 09:08 UTC, applications Wed 09:04 UTC, merits side coding Thu 09:14 UTC, behind the `review` hold) + weekly schedule (AI-case candidates, Fri 21:11 UTC) + weekly schedule (follow-on dockets of listed AI cases, Tue 21:21 UTC) | script; the `qp-topic-label`, `qp-topic-label-applications`, `qp-topic-replicate`, `qp-topic-replicate-applications` and `alignment-side-code` modes each run one Claude Code labeler |
 | `summarize`      | daily schedule (03:43 UTC), manual dispatch (`limit`); every run spends only on the `review` release, or on auto-release within the trailing spend budget (*Auto-release*) | script; one Messages API call per case (two when a rejected response is retried), no tools and no agent |
 | `integration-test` | manual dispatch + daily canary  | script; engine-smoke runs one real agent cell, engine-actions-smoke one boot probe per engine (the canary), each repro-family scenario one real cell against its pinned record, and qp-labeler-smoke one labeling agent over a synthetic extract |
 | `corpus-check`   | schedule every 30 minutes (:19, :49), input-less manual dispatch; a check of PR code runs only on the maintainer's `corpus-check` approval, an allowlisted `at: main` query unapproved under `corpus-check-auto` | script — the PR's own declared command, or `main`'s code for an `at: main` query (no agent) |
@@ -205,8 +205,8 @@ stands. Four sections:
 It carries counts, dates and committed headlines only: no spend figure and no
 agent-written text, because the page is public. Only a run on `main` publishes
 it, and a snapshot that cannot be built is skipped with a warning rather than
-failing the job, so the ops snapshot and the data-validation escalation still
-land.
+failing the job, so the ops snapshot and the data-validation and AI-watchlist
+escalations still land.
 
 ### The weekly performance digest
 
@@ -251,16 +251,40 @@ Five blocks, in the order a reader needs them:
   (at a handful of realized grants one call moves it by whole points), and,
   grading-weighted, the mean Brier and the Brier skill against the
   strictly-prior segment base rate beside its grading count — the figure to
-  read. Under the table, the gradings the build dropped for suspected leakage
-  (by predictor) or set aside as not shown to be forward, counted across every
-  stage and so not subtractable from the cert figures. It leads the scored
+  read; and, per event, the engine's own forecast grant count (its summed
+  P(granted)) beside the grants that realized on the binary target and the
+  events both are over, a gap that reads as over- or under-forecasting only
+  once the cohort's relisted and held petitions have resolved. One line under
+  the table reads the board's `engine_mean` reference, the mean of the engines'
+  probabilities, against the best engine's own per-event Brier, as a reference
+  and never a ranked row. Under it, the gradings the build dropped for
+  suspected leakage (by predictor) or set aside as not shown to be forward,
+  counted across every stage and so not subtractable from the cert figures. It
+  leads the scored
   blocks because it is the program's output; the back-tests after it are
   iteration instruments.
+- **Movement since the previous board** — under the forward block, each
+  predictor's pooled forward series on the committed board against the board
+  it replaced, read from the checkout's own history of
+  `metrics/leaderboard.json`. Only a series that gained or lost events or trips
+  a flag is printed (`rescored`, `events-removed`, and from ten events
+  `at-or-below-floor` and `negative-skill`), a flagged series that did not
+  move as one line. These are each predictor's own record, not the paired
+  figure above, with the floor beside each accuracy; an operational check,
+  not a finding. Omitted where the history is unreadable or holds no earlier board.
 - **Forward misses** — under the forward block, counts off the committed
   `metrics/miss-review.json` with its vintage: the forward events holding a
   miss, how many every predictor reviewed there shares, and the same per
   stage. Per event, never per predictor, and never a rate. Where the artifact
   has not landed the block says so.
+- **Forecast-document grade** — after the misses, off the committed
+  `metrics/forecast-document-grades.json` with its vintage: one row per
+  predictor per stage with its cells graded by every judge (and those null by
+  every judge, and split), and each judge's mean grade of that predictor's
+  forecast documents beside the cells it is over, a dash under the minimum.
+  One line per stage gives each judge's leave-one-out agreement with the rest
+  of the panel. Graded, not scored, and never averaged across judges. Where
+  the artifact has not landed the block says so.
 - **Backtest results** — the historical replay **per court**, with each row's
   own always-deny floor beside its accuracy and the pooled row labelled as the
   mixture it is (`granted` means cert on a SCOTUS row and a motion granted on a
@@ -383,9 +407,8 @@ call, no branch write.
 
 `run-analytics` is the **corpus analysis & derived metrics** surface, also outside
 the cascade: every task that reads the corpus and answers a question or refreshes a
-derived artifact is a mode here (dispatch `mode` input, or one of the three
-schedules — the weekly metrics refresh, the daily big-case board and the weekly
-update history, each gated
+derived artifact is a mode here (dispatch `mode` input, or one of its
+schedules, each gated
 on which cron fired rather than on the event class),
 each as its own least-privilege job holding only the credentials its mode needs.
 
@@ -493,6 +516,23 @@ queues behind the production run of the same mode. The modes:
   credential is refused, the run stopped before its first request, or every
   search failed; the step summary carries the per-search counts and the
   spend.
+- **`ai-follow-ons`** (weekly, Tuesday 21:21 UTC, or dispatch) runs the
+  follow-on check: `fedcourts ai-candidates-issue` reads the same raised set,
+  and `fedcourts ai-follow-ons` searches the courts of appeals and the JPML
+  for dockets filed in the last 45 days that carry a listed district docket's
+  number, reads each new circuit hit once for its originating case, drops the
+  watchlist's dockets and the raised ones, and writes a comment for the rest,
+  which `post-issue-comment` posts on the `ai-candidates` issue. Each row
+  names the listed case it is related to; the maintainer adds it as a
+  `related` row by a PR, or leaves it. A quiet week posts nothing, and a
+  docket is raised once across both checks. It spends the `ai-candidates`
+  lane share (40 requests; one a listed district docket and one a new circuit
+  hit), which reserves one run a day, so its cron is three days from the
+  candidate check's and a dispatch belongs on a day that check does not run.
+  Credentials, the `main`-only posting fence and the rehearsal behaviour
+  match the candidate job's. The run fails when the credential is refused, the run
+  stopped before any search answered, or no search answered; hits the cap
+  left unread are counted in the step summary and read by the next run.
 - **`decision-below`** (dispatch) runs `fedcourts enrich-decision-below
   --max-cases 25`, the decision-below fill's dry run: for the next 25 cases of
   its rotation, whether CourtListener holds the lower court's docket and the
@@ -1856,11 +1896,23 @@ run-log issue means exactly "a window broke".
 
 **An open issue is one of exactly three things, and the reader can tell which
 from its label.** An **alarm** — `pull-log`, `live-log`, `data-validation`,
-`pipeline-health` — is filed only by a failure, so an open one always means
-something needs attention. A run-log alarm is closed by a human once triaged;
-the two latched alarms, `data-validation` and `pipeline-health`, also close
+`pipeline-health`, `ai-watchlist` — is filed only by a failure, so an open one
+always means something needs attention. A run-log alarm is closed by a human
+once triaged; the latched alarms, `data-validation`, `pipeline-health` and
+`ai-watchlist`, also close
 themselves when their check is green again, and each closes only the issue it
-filed, matched by its fixed title and the workflow bot as author. Alarm
+filed, matched by its fixed title and the workflow bot as author. The
+`ai-watchlist` alarm is `run-ops` reading the AI watchlist's corpus check
+(`fedcourts ai-watchlist-check`), which the corpus-writer path publishes to
+`ops-metrics` beside the validation verdict: it is open while a Supreme Court
+docket in the corpus arises from a listed case and is not on the check's
+linked list, a listed docket
+has gone seven days without a refresh, or the last published reading is more
+than two days old; the check's one line is on every ops run's summary.
+Nothing supplies a linked list, since no relation ties a Supreme Court docket
+to the watchlist, so every such docket alarms and stays open. A check that
+has never published does not alarm: the corpus-writer step warns when it
+produces no reading. Alarm
 labels are reserved for these jobs: a hand-filed issue takes a category
 label instead. A **digest** —
 `daily-digest` — is filed on the happy path and closed once
@@ -1869,8 +1921,8 @@ read, so the open ones are the unread backlog and nothing more. The
 healthy run, by comment rather than by rewrite, and it stays open by design (its
 own body says so). Nothing else is an issue: a run's own record is a per-run
 artifact — the step summaries, the ops report on its run summary — never a
-long-lived body a job rewrites in place. Only the data-validation alarm edits a
-body, and only its own, so that a recurring failure latches onto one thread
+long-lived body a job rewrites in place. Only the data-validation and
+ai-watchlist alarms edit a body, and each only its own, so that a recurring failure latches onto one thread
 instead of spamming new ones. That split is what keeps an open issue worth
 reacting to, and it is why an alarm never depends on a later window firing to
 stay honest.
@@ -1888,7 +1940,7 @@ Events created with the default `GITHUB_TOKEN` **do not trigger other workflows*
 run PRs, the metrics and back-test review PRs — is opened with a **GitHub App
 installation token** (`actions/create-github-app-token`), not `GITHUB_TOKEN`.
 The rule cuts the other way too, and that is what keeps the operational issues
-safe: the run-log alarms, the data-validation escalation, and the daily digest must
+safe: the run-log alarms, the data-validation and AI-watchlist escalations, and the daily digest must
 fire nothing, so they ride
 the ambient `GITHUB_TOKEN` and never the App's. See `docs/security.md` for the
 one-time App setup.
@@ -2111,7 +2163,7 @@ pattern rather than rediscovering it:
   fails on a bare `uv run fedcourts` reappearing in that composite.
 - **A GitHub API call has no retry unless you give it one.** The calls that
   route through `gh_retry` are the ones that keep the run *record* — the ops
-  report's collection calls, the data-validation escalation,
+  report's collection calls, the data-validation and AI-watchlist escalations,
   run-backtest's result comment,
   the per-day `pull-log` / `live-log` alarms, the seed guard. They are
   bookkeeping about a run rather than the work, which is what makes a lost one
@@ -2865,6 +2917,34 @@ its JSON (`counts.case_reconciliation`) and `evaluate-plan` the monitor
 backfills the monitor over a longer window. The blocks are described in
 [cli.md](cli.md).
 
+Both guards measure delivery against what selection funded, so neither sees a
+selection gap: a grant on a petition the salience pass left unselected is
+declined `not_funded`, by design. `fedcourts unforecast-outcomes` is the
+readout for that side. It starts from the outcome (every grant-family paid
+petition, and every application referred to the Court or read substantive,
+resolved in a window), lists the ones no committed forecast preceded with the
+reason and band, reports the share of grants a forecast preceded for the
+window and the Term to date, and exits 3 on an alarm: an unforecast grant in
+the `federal` band, one a looser reading than the caption rule places federal,
+or Term-to-date recall under its floor. The figures are outcome-selected and
+describe selection, never a predictor; [cli.md](cli.md) has the rules.
+
+`fedcourts federal-label-check` asks the same question before the outcome
+rather than after it. Over the pending paid docket it lists every petition
+outside the `federal` band that a reading looser than the caption rule places
+federal, so a mislabeled federal petitioner is seen while its conference is
+still ahead. It reads pending rows only and selects nothing; a confirmed miss
+is evidence for the next registered caption version.
+
+`fedcourts coverage-verdict` folds the three into one answer: the
+missed-forecast monitor read over 35 days, and the two censuses, as a single
+`ok` with the alarms named by check, a flat block of counts to keep as a
+series, and a rendered issue body. The round's own `::warning::` lines expire
+with the run log; the verdict is the form the same findings take when they
+are to outlive it. No workflow runs `unforecast-outcomes`,
+`federal-label-check` or `coverage-verdict`: each is a dry run a maintainer or
+a session reads by hand.
+
 That is the shape both workflows invoke, on every round. The commands
 still accept an explicit case list — a ` ```json ``` ` block by `--body-file`, or
 `--court`/`--docket` — which is what a local dry run of one case uses; no
@@ -3209,7 +3289,12 @@ to `publish`, its removal never reaches what the PR commits. The weekly public
 update history, `metrics/updates/`, leaves and comes back with the board on the
 same terms, because each week's resolved section names decided events beside
 their outcomes. The standing `metrics/cert-backtest.json` is withheld by
-`cert-backtest` itself (see the `cert-backtest` row in [cli.md](cli.md)).
+`cert-backtest` itself (see the `cert-backtest` row in [cli.md](cli.md)), as
+are the pooled back-test record `metrics/backtest-record/` and the comparison
+reports `metrics/backtest-comparisons/`, by `cert-backtest`, `merits-backtest`
+and the two comparison commands alike. `run-backtest` has no comparison mode:
+a comparison is run with `fedcourts cert-backtest-compare` or
+`fedcourts merits-backtest-compare` where the corpus is pulled.
 
 Two residuals ride that fence, and both are the reason it is described as
 structural rather than as a wall. The checkout is full-depth, so the ledger

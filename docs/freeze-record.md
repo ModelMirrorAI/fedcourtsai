@@ -18628,3 +18628,366 @@ freeze commit is recorded here.
     fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
     print('decision-below-later-opinions' in {b.name for b in H})"` prints
     `True`.
+- **A back-test comparison mode, its outcome-stratified draw, and the pooled
+  back-test record; recorded 2026-11-11.** A **retrospective-instrument**
+  registration. It moves no digest, no prompt, no forward cell and no published
+  figure, and it changes neither the scheduled back-test's pins nor the shape
+  of `metrics/cert-backtest.json` or `metrics/merits-backtest.json`.
+
+  **Why.** The rules below decide what a comparison's numbers mean, and they
+  are fixed here before any comparison has run.
+
+  **What is added.** `fedcourts cert-backtest-compare` and `fedcourts
+  merits-backtest-compare` replay one predictor twice over the same drawn
+  cases: as the registry configures it (the incumbent) and with one change
+  (the candidate: another model, or another prompt, and never both). Each arm is an ordinary
+  replay campaign under its own scratch sub-root, the candidate first, and the
+  two arms' replay clocks (cert) or written cells (merits) are checked equal.
+  A replay command's `--record` appends its scored cells to
+  `metrics/backtest-record/`, and `fedcourts backtest-pooled` rolls the record
+  up.
+
+  **The draw rule `outcome-stratified-hash-v1`** (cert comparisons, the
+  default). The eligible population is the one `cert-backtest` draws from
+  under the dispatched `--scope`. It is split into two outcome classes on the
+  binary axis the Brier score is taken on: `granted` (a disposition
+  `granted_flag` reads as 1) and `not-granted` (every other). The allocation
+  is fixed: `limit // 2` granted petitions and `limit - limit // 2` not
+  granted. Every eligible petition is ranked by
+  `sha256("fedcourtsai/cert-backtest/outcome-stratified|<key>|<case_id>")`,
+  where `<key>` is the corpus vintage (the blob's newest pull stamp, as the
+  spread draw keys on), and each class takes its petitions in that order,
+  passing over one that is not replayable and continuing. A class whose
+  replayable petitions run out is drawn short and reported so. The set is
+  returned with the classes alternating, so a campaign cut short keeps close
+  to the allocation. No outcome-dependent choice is made inside a class, so
+  within a class the draw is a simple random sample of its replayable
+  petitions. A different salt, allocation or class definition is a new rule
+  under a new name. The equal allocation is chosen so that a small set holds
+  enough grants to read the granted class at all. It is close to the
+  variance-minimising allocation where the classes' weights are comparable
+  (the selected scope) and far from it for the `population` figure where the
+  granted weight is a few percent (the paid and all scopes), which the
+  estimator below answers by publishing no interval there.
+
+  **The estimator.** The unit is a replayed cell both arms scored. Its
+  difference is the candidate's Brier score minus the incumbent's, so a
+  negative value favours the candidate. Three figures are reported per moment:
+  - `drawn_set`: the mean of the differences, every pair counted once, with
+    the Student-t interval at 95% on the differences (`pairs - 1` degrees of
+    freedom; null below two pairs and where every difference is the same).
+  - `population` (stratified draw only): the sum over the two classes of the
+    class's mean difference times its weight, where the weight is the class's
+    share of the **eligible** population, replayable or not. Its variance is
+    the sum of `weight^2 * s^2 / n` over the classes, with no finite-population
+    correction, and its interval is the Student-t interval at 95% with the
+    Satterthwaite degrees of freedom. It is null where a class with a positive
+    weight holds no pair. Its interval is null where such a class holds one
+    pair, where the differences show no spread, and where one class's weight
+    exceeds 0.8: the estimate and its variance then rest on a handful of
+    near-constant differences from the dominant class, rare large moves go
+    undrawn, and a t interval covers far less often than its level (in a
+    simulation through this estimator, at a granted weight of 0.04 with ten
+    or twenty pairs a class and an assumed rare large move among denials,
+    between 40% and 80%; at 0.35, 94% to 96%). The simulated differences
+    were assumed, not measured from the corpus.
+  - `by_stratum`: each class's pairs, mean difference and largest absolute
+    difference.
+  - `after_both_cutoffs`: the `drawn_set` figure over the pairs whose case was
+    decided strictly after the later of the two arms' recorded training
+    cutoffs, unweighted. It is null where either cutoff is not recorded.
+  **Which figure decides** is fixed here, before any run: where no class's
+  weight exceeds 0.8, `population` with its interval; otherwise the
+  `by_stratum` figures read beside the `drawn_set` interval, where `n` pairs
+  in a class with no large move cannot exclude a large-move rate up to about
+  `3/n` in it.
+  The binary-call counts are plain counts of pairs under every figure: at
+  cert the call is the predicted disposition read on the granted axis, and at
+  merits it is the side of one half the probability falls on.
+
+  **The training cutoffs recorded.** `claude-opus-5-5` and `claude-fable-5-2`
+  both carry 2026-06-30: the vendor states a June 2026 training data cutoff
+  for each, and the last day of the stated month is recorded, so a case
+  decided inside the month is treated as inside the training data. No cutoff
+  is recorded for any other model, and a comparison naming one reports the
+  split as undetermined rather than assuming a date. A later entry records
+  any addition or correction.
+
+  **The pooled record.** One file per recording replay run, never rewritten,
+  one row per scored cell a model ran; an offline backend's cells are never
+  recorded. The roll-up has one entry per (predictor, model, process digest,
+  kind, population, stage, moment) and never pools across them. A population
+  is named by what defines it: the cert scope, with the salience floor under
+  the selected scope, or a merits replay's argued Terms. An entry's mean
+  Brier score is post-stratified on the outcome class: a case's rows are
+  averaged, the class's cases are averaged, and the classes are combined at
+  the eligible-population share recorded for them, the mean over the runs
+  that recorded the class with each run counted once. It is null where the
+  classes present do not make up the whole population. A row from a
+  `recency-head` draw records no share and enters no pooled figure. The
+  digest on a row or an arm is the one its configuration would carry
+  (`process_version.digest_for_configuration`); it registers nothing, and a
+  replay cell, which runs with no MCP server (and, at cert, no staged
+  documents; a merits replay cell is staged the filings its moment's cut
+  keeps), is not a cell of that process.
+
+  **The reading rule.** A comparison is evidence for a re-bless decision
+  between two configurations and is never a claimable performance figure.
+  No replay cell counts toward a forward board. An interval that spans zero
+  is no finding in either direction. A `drawn_set` figure under the
+  stratified draw describes a set that is half grants by design and is not
+  a population figure. The `population` figure and the pooled mean are the
+  eligible population's only as far as replayable coverage is ignorable
+  within an outcome class, which is not established: the 2026-10-03 entry on
+  the spread draw measured coverage as not outcome-neutral across classes
+  and nothing measures it within one. Every pair decided on or before a
+  model's training cutoff may be recalled rather than forecast, which favours
+  the later-trained model. A recorded cutoff is a stated month and
+  approximate. Two models with one recorded cutoff are free of that known
+  directional bias, though not of one recalling more than the other; two with
+  different cutoffs are compared on the `after_both_cutoffs` pairs alone,
+  which are an unweighted set of recently decided cases. A pair either arm
+  lost is in no figure, and the loss is not ignorable. A stub comparison's differences are zero by
+  construction.
+
+  **What does not move.** `uv run fedcourts process-digest --all` prints the
+  label and the six digests it printed before this entry. No base rate
+  re-prices, no membership rule moves and no scored figure moves.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_backtest_comparison.py` is green;
+  - where the corpus is pulled, `uv run fedcourts cert-backtest-compare
+    --predictor claude-baseline --candidate-model claude-fable-5-2 --limit 4
+    --out /tmp/comparison.json --work-dir /tmp/comparison-work` (the work
+    directory absent or empty) exits zero with `--engine` left at its `stub`
+    default, and `jq -c '[.dispatch.draw_rule, [.strata[].target],
+    [.arms[].model], [.arms[].requested_model], ([.pairs[].brier_difference]
+    | unique)]' /tmp/comparison.json` prints
+    `["outcome-stratified-hash-v1",[2,2],[null,null],["claude-opus-5-5","claude-fable-5-2"],[0]]`
+    (a `null` beside the `0` is a cell the stub lost).
+
+- **Each cert block carries the predictor's own forecast grant count and a
+  reliability table on registered bins; recorded 2026-11-11.** A
+  **reading-rule** registration with no scored figure moved, recorded ahead
+  of the promotion that carries it.
+
+  **Why.** `grants_expected` sums the registered base rates, so it reads the
+  same for every predictor on the same events and says nothing about any of
+  them. The Brier skill columns net calibration and discrimination together.
+  The board could not say whether a predictor's probabilities mean what they
+  say, and a calibration fault and a discrimination fault have different
+  fixes.
+
+  **The fields.** On every block a cert stratum is built for (among them
+  each entry's pooled strata, its `by_protocol`, `by_band` and `by_link` cuts,
+  and each paired engine's figure), over the events of the gradings that carry a Brier
+  score and outcome facts, the set `in_sample_events_scored` counts, each
+  event entering once at the mean of its gradings' scored-prediction
+  `probability`:
+  - `grants_forecast`, the sum of those probabilities, with
+    `grants_forecast_scored` (the events) and `grants_forecast_realized` (the
+    events whose binary target `Outcome.actual_granted` is 1);
+  - `reliability_bins`, one row per registered bin with its `events`, its
+    `grants`, the mean forecast and the observed grant rate;
+  - `forecast_reliability` and `forecast_resolution`, the Murphy terms of that
+    binning over every event of the block, each bin's forecast taken at its
+    mean.
+
+  **The registered constants.** They are fixed here so no table is tuned to
+  the outcomes it reports.
+  - **Bin edges** on P(granted): 0, 0.05, 0.10, 0.25, 0.50, 0.75, 1. Bins are
+    closed below and open above, and the last is closed at 1. They are finer
+    at the low end because the registered rates of the baseline, elevated
+    and high cert bands run from about 5% to about 35%, so that is where most
+    cert forecasts sit.
+  - **Minimum count**: 10 events. A bin under it carries its counts and no
+    mean forecast or observed rate; a block under it carries no Murphy term.
+  A change to either is a new entry here, and a table built under the
+  changed constants is not compared with one built under these.
+
+  **The reading rule** (`metrics/README.md`, beside the grant counts).
+  - **Diagnostic only.** None of the fields is a rank key or a headline, and
+    no ordering of engines may be read off them: an entry's own forward block
+    spans events no other engine shares, and on the paired figure, where the
+    events are shared, the fields are still no rank key.
+  - **A forecast count above the realized one is not yet a calibration
+    reading** on a cohort with relisted or held petitions pending. Those
+    petitions grant more often and are not in the scored set until they
+    resolve, so the realized count runs low for the reason
+    `grants_realized_expected_scored` runs below `grants_expected`.
+  - **The Murphy terms are binned estimates.** They move with the edges, both
+    are biased upward on small bins, and they do not sum with the block's
+    uncertainty to `mean_brier_score`, which is per grading and unbinned.
+  - **Cert only.** A non-cert block omits the fields. The interim and merits
+    readings on their own binary targets are not registered by this entry.
+
+  **What was known when the constants were set.** The edges and the minimum
+  were written before any table was built. The first table, built on the
+  `staging` checkout at `517a1cd72` under the frozen scope, read over each
+  entry's own 148 forward events with 11 realized on the binary target:
+  `claude-baseline` forecast 16.2, `codex-baseline` 18.9, `gemini-baseline`
+  19.3, against a base-rate sum of 16.0. For every entry the two bins above
+  0.50 held fewer than 10 events and printed no rate. The constants were not
+  changed after it was read.
+
+  **What does not move.** No digest, no base rate, no membership rule and no
+  scored figure: accuracy, the floors, every skill column, `paired` and the
+  ranks are unchanged, and a committed board parses and re-serializes byte
+  for byte until the metrics refresh next rebuilds it.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_leaderboard.py -k "reliability or
+    grants_forecast or murphy or calibration"` is green (eight tests);
+  - on `main` after the first metrics refresh that follows the promotion, `jq
+    -c '.entries[] | [.predictor_id, .forward.grants_forecast,
+    .forward.grants_forecast_realized, .forward.grants_forecast_scored,
+    .forward.in_sample_events_scored, (.forward.reliability_bins | length)]'
+    metrics/leaderboard.json` prints,
+    for each predictor, a forecast count, a realized count, an event count
+    equal to that block's `in_sample_events_scored`, and `6`.
+
+- **The paired cert figure carries the mean of the engines' probabilities as
+  an unranked reference; recorded 2026-11-11.** A **reading-rule**
+  registration with no scored figure moved, recorded ahead of the promotion
+  that carries it.
+
+  **Why.** The boards compared each engine with the always-deny call and with
+  base rates, and could not say whether averaging the engines' probabilities
+  scores better than the best of them, which is the question a single
+  published probability per case turns on.
+
+  **The field.** `paired.engine_mean`, on a cert population's paired figure
+  with two or more engines. On each paired event every engine's forecast
+  enters once, at the mean of its qualifying gradings' scored-prediction
+  `probability`, and the reference forecast is the unweighted mean of those
+  across the engines. It carries `events` (the paired events on which every
+  engine's gradings carry outcome facts), their `grants` on the binary
+  target, its `grants_forecast`, its per-event `brier`, and `engine_brier`,
+  each engine's own per-event Brier over the same events. There is no weight,
+  threshold or other constant to set.
+
+  **The reading rule** (`metrics/README.md`, beside the grant counts).
+  - **A reference, never a predictor.** It takes no rank and no headline:
+    nobody forecast it, and it exists only where every engine did.
+  - **Read only against the lowest `engine_brier`.** A mean's Brier is never
+    above the average of its members' Briers on any data, so that comparison
+    is not a finding. A tie with the best engine is not a gain.
+  - **Quoted with its `events` and `grants`**, and as a description of those
+    events, not a rule for which number to publish.
+  - **Bounded by dependence.** Forward cells can surface the same sources, so
+    the engines are not independent forecasters: a gain likely understates
+    what independent ones would give, and the absence of one may reflect
+    shared information.
+
+  **What was known when this was recorded.** The first build, on the
+  `staging` checkout at `517a1cd72` under the frozen scope, read over 148
+  paired events with 11 granted: the mean at a per-event Brier of 0.0338,
+  against `codex-baseline` 0.0302, `claude-baseline` 0.0312 and
+  `gemini-baseline` 0.0543. The mean was not below the best engine.
+
+  **What does not move.** No digest, no base rate, no membership rule, no
+  rank and no scored figure.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_leaderboard.py -k engine_mean` is green;
+  - on `main` after the first metrics refresh that follows the promotion, `jq
+    -c '.paired | [.events, .engine_mean.events, .engine_mean.brier,
+    .engine_mean.engine_brier]' metrics/leaderboard.json` prints the paired
+    event count, the reference's own event count, its Brier, and one Brier
+    per paired engine.
+- **The forecast-document grade is rolled up on a board of its own, with a
+  registered minimum count; recorded 2026-11-11.** A **reading-rule**
+  registration with no scored figure moved, recorded ahead of the promotion
+  that carries it.
+
+  **Why.** `predicted_reasoning_quality` has been collected by every judge on
+  every stage since `proc-v16`, and no artifact read it. The design
+  (`outcome-decomposition.md`, *Grading the forecast document, design*) fixed
+  what must travel with a published grade before any grade existed; this
+  entry records the board that publishes it and the one constant the design
+  left open.
+
+  **The board.** `fedcourts forecast-document-grades` writes
+  `metrics/forecast-document-grades.json` over the forward cells the
+  leaderboard scores, under its exclusions, per stage and never pooled across
+  stages:
+  - each predictor's mean grade per judge rubric, pooled across its counting
+    windows and per window, over the cells every judge on the cell graded,
+    beside the cells null by every judge and the cells split on the mask;
+  - each judge rubric's leave-one-out Kendall tau-b against the mean of the
+    other judges, the cell as the unit, with the same coefficient within each
+    predictor's cells;
+  - each judge rubric's grades of its own engine family's documents beside
+    the others';
+  - each judge rubric's mean grade and spread where the disposition call was
+    right and where it was wrong.
+
+  A judge read under two evaluate digests is two rubrics, and nothing is
+  pooled across them.
+
+  **The panel.** A judge is on a cell's panel only where its evaluate digest
+  is blessed at `proc-v16` or later, the rule `validate` already applies to a
+  committed grade. A grading under an earlier digest is counted and read by
+  nothing.
+
+  **The registered constant.** No mean and no coefficient prints under **10
+  cells**. The count prints and the value is null. A change is a new entry
+  here.
+
+  **The reading rule** (`metrics/README.md`, the `forecast-document-grades.json`
+  entry).
+  - **Graded, not scored.** No claim total, no rank key and no other grade
+    reads it, and the board ranks nothing.
+  - **One judge rubric's mean, never a pooled one.** A mean is read down a
+    judge's column across predictors. No mean across judges is on this board,
+    and none may be computed from its rows and quoted.
+  - **Every mean travels with the agreement figures**, and a low or undefined
+    coefficient is a caveat, not a figure withheld.
+  - **The family reading is confounded with the predictor**, since a judge's
+    own family is one predictor, and alone it is not evidence of favouritism
+    or of its absence.
+  - **The gap by call is built in.** The anchors grade whether the
+    disposition held. The pairing with the mechanical claim total that the
+    design names is not on the board.
+
+  **What was known when this was recorded.** The first build, on the
+  `staging` checkout at `6687ce59a` under the frozen scope: 84 cert cells,
+  28 per predictor, over 19 cases, all graded by every judge on the cell, 12
+  of them short one judge; 24 interim cells, 8 per predictor, over 5 cases,
+  all graded by all, 3 of them short one judge; 1,179 cert and 189 interim gradings under digests that do
+  not ask. On cert, each judge graded `gemini-baseline` below the other two
+  predictors (`claude-judge` 0.54 against 0.66 and 0.66; `codex-judge` 0.74
+  against 0.83 and 0.85; `gemini-judge` 0.72 against 0.84 and 0.85, on 24
+  cells), and the judges' leave-one-out coefficients were 0.58, 0.51 and
+  0.57, with within-predictor readings of 0.48, 0.43 and 0.49. On interim no
+  predictor's mean printed, every series being under the minimum. The
+  interim rows that did print were the `proc-v17` rubrics' pooled ones over
+  15 cells in 4 cases: leave-one-out coefficients of 0.59, 0.11 and 0.61, a
+  mean grade of the other families' documents of 0.73, 0.89 and 0.80, and a
+  mean grade on right-call cells of 0.74, 0.86 and 0.84. The minimum was set
+  before the first build. The first build pooled each judge's digests in the
+  agreement, family and call rows; that was changed to one row per rubric
+  after review, before this entry landed.
+
+  **What does not move.** No digest, no base rate, no membership rule, no
+  rank and no scored figure. No prompt changes, so no evaluate digest moves.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_forecast_document_grades.py` is green;
+  - on `main`, `uv run fedcourts forecast-document-grades --out
+    /tmp/grades.json` exits zero and `jq -c '[.minimum_cells, (.stages[] |
+    [.stage, .cells, .graded_by_all, .null_by_all, .split_on_mask])]'
+    /tmp/grades.json` prints `10` and one row per stage whose last three
+    counts sum to its `cells`.

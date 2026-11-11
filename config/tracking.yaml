@@ -755,7 +755,10 @@ courtlistener_budget:
     watchlist: {per_run: 160, runs_per_day: 1}
     # ai-candidates: config/ai-candidates.yaml caps a run at 40, its saved
     # searches at two pages each. Sized for a weekly run but reserved as if
-    # daily, so a run never needs a day of its own.
+    # daily, so a run never needs a day of its own. `ai-follow-ons` (one
+    # search per listed district docket, one read per new circuit hit, capped
+    # at the same 40) spends this share, so it must not run on a day
+    # ai-candidates does.
     ai-candidates: {per_run: 40, runs_per_day: 1}
     # The agent cells' CourtListener MCP servers (their own client), across
     # the day's predict and evaluate rounds and the daily integration-test
@@ -794,6 +797,19 @@ watchlist_refresh:
   max_run_minutes: 10
   # Stop after this many transient upstream failures in a row.
   max_consecutive_transient_failures: 3
+  # A 429 states how long to wait (Retry-After). A wait that, with the
+  # client's one-second margin, is at most this many seconds is waited out
+  # and the request sent again: the account's per-minute
+  # window clears within it, and a long onboard would otherwise lose every page
+  # it had read to one refusal. A longer stated wait (the hourly or daily
+  # window) fails the docket at once.
+  max_throttle_wait_seconds: 65
+  # The most one run may wait this way in all, at least one
+  # max_throttle_wait_seconds. It bounds the step with the lane's share: 160
+  # requests paced at the account's per-minute rate take under seven minutes,
+  # and these waits add three, inside the step's sixteen-minute timeout
+  # (max_run_minutes is checked only between dockets).
+  throttle_wait_budget_seconds: 180
 
 courts:
   # The tracked set: SCOTUS + all 13 federal courts of appeals, by CourtListener

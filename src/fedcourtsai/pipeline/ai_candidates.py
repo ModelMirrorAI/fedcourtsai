@@ -89,12 +89,13 @@ POSTING_LOGINS: Final = frozenset({"github-actions", "github-actions[bot]", "app
 #: The non-triggering label of the one long-lived issue the comments go to.
 LABEL: Final = "ai-candidates"
 LABEL_COLOR: Final = "5319e7"
-LABEL_DESCRIPTION: Final = "Weekly AI-case watchlist candidates (fedcourts ai-candidates)"
+LABEL_DESCRIPTION: Final = "Weekly AI-case watchlist candidates and follow-on dockets"
 ISSUE_TITLE: Final = "AI watchlist candidates"
 ISSUE_BODY: Final = (
     "Long-lived issue for `fedcourts ai-candidates`: each run's newly filed "
     "federal cases that matched a saved search in `config/ai-candidates.yaml` "
-    "and are not on the watchlist. Read each against the rule in "
+    "and are not on the watchlist, and each `fedcourts ai-follow-ons` run's new "
+    "appeals and MDL dockets of listed cases. Read each against the rule in "
     "`config/ai-watchlist.yaml`; add a case by a PR that cites the rule on a "
     "dated `added` line, or leave it. A candidate is raised once. Close this "
     "issue only to retire the check: a fresh one opens on the next run, and the "

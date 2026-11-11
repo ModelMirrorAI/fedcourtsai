@@ -6,9 +6,12 @@ from .client import (
     EntryPageCapExceeded,
     EntryPages,
     ErrorClass,
+    ThrottleOutlastsWait,
     classify_error,
     is_throttled,
     is_transient,
+    refusal_detail,
+    retry_after_seconds,
 )
 from .ratelimit import RateBudgetExceeded, RateLimiter, default_rate_limiter
 
@@ -20,8 +23,11 @@ __all__ = [
     "ErrorClass",
     "RateBudgetExceeded",
     "RateLimiter",
+    "ThrottleOutlastsWait",
     "classify_error",
     "default_rate_limiter",
     "is_throttled",
     "is_transient",
+    "refusal_detail",
+    "retry_after_seconds",
 ]
