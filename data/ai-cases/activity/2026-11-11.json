@@ -1,0 +1,23 @@
+{
+  "available": [
+    {
+      "case": "Buist v. Anthropic",
+      "category": "antitrust",
+      "court": "cand",
+      "date_filed": "2026-10-13",
+      "docket_id": 74816200,
+      "docket_number": "3:26-cv-10693",
+      "documents": 5,
+      "entry_id": 481419758,
+      "entry_number": 35,
+      "kind": "exhibits",
+      "motion": "transfer",
+      "url": "https://www.courtlistener.com/docket/74816200/35/buist-v-anthropic-pbc/"
+    }
+  ],
+  "available_rule": "ai-availability-v1",
+  "day": "2026-11-11",
+  "entries": [],
+  "rule": "ai-activity-v1",
+  "schema_version": "1.0"
+}

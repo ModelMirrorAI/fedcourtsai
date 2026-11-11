@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000512",
+  "run_id": "20261110T032227Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts paths", "fedcourts query", "CourtListener MCP search", "CourtListener MCP search_document", "web search/open attempts", "local statpack", "fedcourts validate"],
+  "helpful": ["Frozen reached-band cert anchor avoids terminal-band selection bias.", "Extracted petition includes the operative state appellate order and trial ruling.", "CourtListener primary-opinion snippets distinguish Abney's actual holding from the petition's analogy."],
+  "gaps": ["Default uv cache is not writable; UV_CACHE_DIR=/tmp/uv-cache resolves it.", "General web attempts returned no usable content.", "A citation-field CourtListener search returned a nonmatching case first; adding the case name resolved it."],
+  "notes": "No substantive opposition was filed on the provisioned docket. The generic denial-filtered corpus sample was not treated as an issue-matched prior or a grant-rate estimate. No installation, own-case outcome retrieval, or modification outside the authorized prediction directory was performed."
+}

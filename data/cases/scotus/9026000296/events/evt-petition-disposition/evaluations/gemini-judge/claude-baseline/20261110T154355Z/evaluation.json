@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.18,
+    "notes": "While attorney discipline for generative-AI hallucinations in appellate briefs is topical, this petition presented a fact-bound procedural challenge to a six-month suspension of one lawyer by the Ninth Circuit, with a Solicitor General waiver and no square circuit conflict."
+  },
+  "brier_score": 0.000144,
+  "brier_skill_score": 0.9445590750639776,
+  "case_id": "scotus/9026000296",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05096429401285725,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.012,
+        "score": 0.0024533592642289573
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.003,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.3,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.015,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.0024533592642289573,
+    "total": 0.0024533592642289573
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T17:24:55.579256Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction placed on 2026-10-15 while the case was genuinely unresolved (decided 2026-11-09). retrieval_log.json shows only local file reads of the provisioned record and metrics/statpack.md.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-argon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.9,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records actual_disposition = 'denied' (actual_granted = 0) on 2026-11-09, the order list following the 11/6/2026 conference.",
+        "claim": "The Court will deny the petition for certiorari at its first scheduled conference (November 6, 2026), with a plain denial on the following order list.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json signals.distribution_count = 1 and snapshot 2026-11-09.json shows a single Oct 14, 2026 distribution before the Nov 9, 2026 denial.",
+        "claim": "There will be no further distribution (relist) after the single distribution for the 11/6/2026 conference.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json signals.cvsg_date is null.",
+        "claim": "The Court will not issue a CVSG because the United States is already a respondent represented by the Solicitor General.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json noted_dissent_from_denial is false and votes is empty.",
+        "claim": "No Justice will write separately to dissent from or comment on the denial of certiorari.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Conditional on a grant; the petition was denied.",
+        "claim": "If granted, review would likely focus on QP 1 (the In re Ruffalo supplemental-notice issue) with roughly a 30% chance of summary vacatur or reversal.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261015T142602Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T17:24:55.579256Z"
+  },
+  "reasoning_quality": 0.85,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05096429401285725,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

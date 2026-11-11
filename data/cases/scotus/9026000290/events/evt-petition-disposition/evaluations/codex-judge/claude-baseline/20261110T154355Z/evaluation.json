@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.12,
+    "notes": "The petition's two Fourth Amendment questions could have broader residential-privacy implications, but the actual vehicle is an individual municipal fence/code-enforcement dispute reaching the Court through summary state writ denials, without a demonstrated appellate split."
+  },
+  "brier_score": 1.6e-05,
+  "brier_skill_score": 0.9938398972293309,
+  "case_id": "scotus/9026000290",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05096429401285725,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.004,
+        "score": 0.0025813592642289574
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.002,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.3,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.0025813592642289574,
+    "total": 0.0025813592642289574
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T17:21:52.580458Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "All eight logged calls have captured results. The October 22 calls read the provisioned snapshot and petition, statpack, schemas and a prediction-format example; no external case-outcome search appears. Neither prose document cites this petition's November 9 disposition or presupposes an already-decided snapshot. The forward prediction predates the outcome.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.9,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The outcome records a standard denial and the staged docket's November 9, 2026 entry says Petition DENIED.",
+        "claim": "The Court would deny certiorari by a plain order-list entry.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The outcome records distribution_count 1 and November 9 resolution; the staged docket shows only the initial November 6 conference distribution before denial.",
+        "claim": "The petition would be resolved after its first November 6 conference consideration, without another distribution.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The staged docket records no response request, but response_requested is null in the provisioned context and the outcome has no affirmative response-request signal. The silence does not independently prove no request occurred.",
+        "claim": "No brief in opposition would be called for before disposition.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "The outcome's signals.cvsg_date is null, matching the prediction's initial state; there is no invitation in the staged proceedings.",
+        "claim": "The Court would not request the Solicitor General's views.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The recorded noted_dissent_from_denial is false; the absence of every separate statement cannot be independently settled from the terse docket and lack of a staged writings inventory.",
+        "claim": "There would be neither a dissent from denial nor a statement respecting it.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261022T031334Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T17:21:52.580458Z"
+  },
+  "reasoning_quality": 0.76,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05096429401285725,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

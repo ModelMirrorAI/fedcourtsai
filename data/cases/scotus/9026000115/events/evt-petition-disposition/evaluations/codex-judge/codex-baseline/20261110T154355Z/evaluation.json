@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.22,
+    "notes": "The health-and-safety component of Title VII undue hardship could affect accommodation disputes beyond these parties, but this petition presents an individual summary-judgment record, expert-disclosure obstacles, an unpublished affirmance and no developed square split. The denial supplies no new Supreme Court merits holding."
+  },
+  "brier_score": 0.0006250000000000001,
+  "brier_skill_score": 0.759370985520736,
+  "case_id": "scotus/9026000115",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05096429401285725,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.025,
+        "score": 0.001972359264228957
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.12,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.25,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.001972359264228957,
+    "total": 0.001972359264228957
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T16:48:22.527578Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Prediction dated October 18, 2026 precedes the November 9 denial. All 47 logged calls were reviewed: local evidence reads concern the provisioned petition, October 18 snapshot, schemas and aggregate statpack; external queries concern Groff and general certiorari rules, not this petition's disposition. Six external calls are unobserved, so their null dates do not prove empty results. Their queries and the reasoning show no case-specific outcome material or already-decided input. Neutral other call labels and redactions are not adverse evidence.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.95,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Outcome records actual_disposition denied and actual_granted 0; the November 9, 2026 docket entry says Petition DENIED.",
+        "claim": "The Court will deny the petition rather than grant plenary review or summarily disturb the judgment.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The outcome records one distribution total, matching the prediction's frozen count of one. The only distribution is for November 6; denial followed on November 9.",
+        "claim": "There will be zero additional distributions, with disposition shortly after the November 6 conference, most likely in November 2026.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Outcome signals.cvsg_date is null, and the staged docket contains no CVSG before its terminal denial.",
+        "claim": "The Court will not call for the Solicitor General's views.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Outcome expressly records noted_dissent_from_denial false. The broader prediction of no statement respecting denial is not independently settled by the terse docket and absent writing files.",
+        "claim": "The denial will carry no noted dissent from denial.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Review was denied, so no granted question or conditional grant route was selected.",
+        "claim": "If review is granted, the Court will focus on the health-and-safety undue-hardship question rather than the discovery dispute, with plenary review more likely than cert-order disposition.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261018T142134Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T16:48:22.527578Z"
+  },
+  "reasoning_quality": 0.92,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05096429401285725,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

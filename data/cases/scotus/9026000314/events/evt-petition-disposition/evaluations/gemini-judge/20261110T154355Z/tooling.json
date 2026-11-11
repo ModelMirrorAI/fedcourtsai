@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000314",
+  "run_id": "20261110T154355Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts statpack-at",
+    "read_file",
+    "run_shell_command"
+  ],
+  "helpful": [
+    "fedcourts statpack-at reconstructed the exact sal-v4 statpack build (886549a3ac32) the candidates read at prediction time",
+    "provisioned appendix.txt and retrieval_log.json made it easy to verify which candidates actually read the D.C. Circuit order below"
+  ],
+  "gaps": [],
+  "notes": null
+}

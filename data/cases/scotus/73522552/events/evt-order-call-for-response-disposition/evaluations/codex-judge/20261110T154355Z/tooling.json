@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73522552",
+  "run_id": "20261110T154355Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell", "blinded staged inputs", "fedcourts statpack-at", "Python jsonschema"],
+  "helpful": [
+    "Blinded rationale and forecast documents allow separate quality assessments without predictor identities.",
+    "Captured-log result_capture markers distinguish unseen responses from empty or failed results.",
+    "statpack-at reconstructed the prediction-time calibration build without accessing prediction history."
+  ],
+  "gaps": [],
+  "notes": "Completed all three candidate evaluations from staged case evidence and reconstructed historical calibration context. No corpus query, external retrieval, installation or interactive input was needed. Candidate result-capture limits are documented in each leakage assessment."
+}

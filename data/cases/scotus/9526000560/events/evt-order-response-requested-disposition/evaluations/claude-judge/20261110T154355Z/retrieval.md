@@ -1,0 +1,1 @@
+No retrieval beyond the provisioned inputs. (I read the evaluate contract, the schema, the event's event.yaml and outcome.json, record/context.json, record/snapshots/2026-11-09.json, record/opinion/writings.json and the per curiam writing, and each candidate's blinded files including retrieval_log.json. No corpus query, CourtListener MCP or web calls were made.)

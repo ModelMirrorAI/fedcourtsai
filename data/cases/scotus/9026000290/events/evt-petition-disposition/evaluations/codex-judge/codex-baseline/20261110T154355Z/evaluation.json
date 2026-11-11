@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.12,
+    "notes": "The petition's two Fourth Amendment questions could have broader residential-privacy implications, but the actual vehicle is an individual municipal fence/code-enforcement dispute reaching the Court through summary state writ denials, without a demonstrated appellate split."
+  },
+  "brier_score": 1.6e-05,
+  "brier_skill_score": 0.9938398972293309,
+  "case_id": "scotus/9026000290",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05096429401285725,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.004,
+        "score": 0.0025813592642289574
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.035,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.001,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.35,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.008,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.0025813592642289574,
+    "total": 0.0025813592642289574
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T17:21:52.580458Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The October 22, 2026 log precedes the November 9 resolution. All 31 queries were reviewed; capture coverage is 29/31. Local reads target the provisioned snapshot, petition, schemas and statpack. The two uncaptured web calls concern Rule 10, not this petition's disposition; their null dates do not establish empty results. Neither the queries nor the prose shows this case's outcome material.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.9,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records denied, actual_granted 0 and standard disposition_basis; the November 9, 2026 docket entry says only Petition DENIED.",
+        "claim": "The Court would deny certiorari by an ordinary unexplained order.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The outcome records distribution_count 1, matching the prediction's frozen count; the complete staged proceedings list shows the initial distribution followed by denial.",
+        "claim": "The petition would receive no further distribution after its initial November 6 conference placement.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The outcome's signals.cvsg_date is null, as it was in the prediction's frozen context; the staged docket contains no invitation.",
+        "claim": "The Court would not issue a new CVSG.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The outcome's resolved_at and the docket's denial entry both give November 9, 2026.",
+        "claim": "Disposition would follow the November 6 conference in early to mid-November 2026.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "noted_dissent_from_denial is false, confirming that component; no staged writings inventory or order text independently settles the broader no-statement assertion.",
+        "claim": "Denial would draw neither a noted dissent nor a separate statement respecting denial.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261022T031334Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T17:21:52.580458Z"
+  },
+  "reasoning_quality": 0.92,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05096429401285725,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

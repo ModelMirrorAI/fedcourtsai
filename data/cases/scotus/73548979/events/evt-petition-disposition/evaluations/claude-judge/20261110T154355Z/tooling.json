@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/73548979",
+  "run_id": "20261110T154355Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell", "fedcourts statpack-at", "fedcourtsai.schemas.Evaluation (validation)"],
+  "helpful": ["statpack-at rebuild of the candidates' statpack, to check anchor figures", "staged retrieval_log.json with call classes and capture markers"],
+  "gaps": ["jsonschema is not installed in the uv env; validated through the pydantic Evaluation model instead"],
+  "notes": "Clean cert cell; all three candidates forward and pre-resolution."
+}

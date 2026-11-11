@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000096",
+  "run_id": "20261110T032227Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["shell reads and jq", "fedcourts paths", "fedcourts query", "web search and open", "fedcourts validate"],
+  "helpful": ["Frozen federal-band cert anchor", "Petition, opposition and reply provisioned together", "Matched lower-court opinion and rehearing metadata", "Vide companion snapshot", "Paid-segment relist, CVSG and amicus cuts"],
+  "gaps": ["Known-precedent citation query returned no rows because citation coverage is sparse", "Default uv cache was read-only; a writable temporary cache was required", "Web calls returned no readable tool response; statutory premises were taken from the provisioned filings", "No independently verified legislative enactment or negotiations update"],
+  "notes": "The 155/212 prior-Term federal-band pool exactly reproduced the frozen cert anchor. The single corpus query used 10 ranged GETs totaling 2621440 bytes and returned no usable prior. All substantive case positions were available in the provisioned filings; no own-case outcome retrieval was needed or attempted. No package installation was performed."
+}

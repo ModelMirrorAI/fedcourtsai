@@ -1,0 +1,137 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.35,
+    "notes": "Whether Trustees v. Greenough (1882) and Central Railroad & Banking Co. v. Pettus (1885) categorically bar class-representative service awards from common-fund settlements under Rule 23 is the subject of an entrenched circuit split (the Eleventh Circuit in Johnson v. NPAS Solutions against the First, Second, Seventh, Ninth, and Federal Circuits) that affects federal class-action settlement practice nationwide and drew a cert-stage amicus brief from the U.S. Chamber of Commerce. However, this specific dispute involves a pro se objector challenging a modest $5,000 service award in a $2.375M consumer subscription settlement affirmed by an unpublished Second Circuit summary order, and the Court denied certiorari without comment or noted dissent on November 9, 2026."
+  },
+  "brier_score": 0.0036,
+  "brier_skill_score": -0.3269209069777639,
+  "case_id": "scotus/73522552",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05208692652638841,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.06,
+        "score": -0.0008869520850346151
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": null,
+        "probability": 0.95,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      },
+      {
+        "baseline": 0.345367027677497,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.05,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.015,
+          "Barrett": 0.008,
+          "Gorsuch": 0.02,
+          "Jackson": 0.008,
+          "Kagan": 0.003,
+          "Kavanaugh": 0.008,
+          "Roberts": 0.003,
+          "Sotomayor": 0.005,
+          "Thomas": 0.04
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": -0.0008869520850346151,
+    "total": -0.0008869520850346151
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T16:07:55.600134Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-order-call-for-response-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction placed on 2026-10-29, eleven days before the petition was denied on 2026-11-09. The retrieval log shows a single corpus query for 2020s SCOTUS granted priors (--limit 5) and no CourtListener or web searches. No post-cutoff material about this case was retrieved.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-argon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.78,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records actual_disposition = 'denied' and actual_granted = 0 on 2026-11-09, immediately following the Nov. 6, 2026 conference for which the BIOs and cert reply were distributed.",
+        "claim": "The Court will deny the petition once the response and reply are in, at the first conference after they have been distributed (predicted_disposition: denied, probability: 0.06).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records signals.distribution_count = 2; 2026-11-09.json shows one post-response distribution on Oct. 7, 2026 for the Nov. 6, 2026 conference and denial on Nov. 9, 2026 with no further relist.",
+        "claim": "After coming off the September 28, 2026 conference due to the August 19 response request, the petition will be distributed once more after the response is filed (relist-increment: 0.95) and decided at that first post-response conference with no further relist.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records signals.cvsg_date = null, and 2026-11-09.json shows no CVSG entry.",
+        "claim": "The Court will not issue a CVSG (cvsg-increment: 0.02).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Certiorari was denied on 2026-11-09, leaving the conditional grant question and plenary-vs.-summary route untested.",
+        "claim": "Conditional on a grant, the Court would take the single question presented on Greenough, Pettus, and Rule 23 service awards and set the case for plenary review rather than summary disposition (summary-disposition-route: 0.05).",
+        "status": "unresolved"
+      },
+      {
+        "basis": "outcome.json records noted_dissent_from_denial = false and writing_roles = null; the Nov. 9, 2026 denial order issued with no separate writing.",
+        "claim": "Upon denial, there will most likely be no separate writing (dissent-from-denial: 0.05), with Justice Thomas or Justice Gorsuch likeliest if anyone writes.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261029T142045Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T16:07:55.600134Z"
+  },
+  "reasoning_quality": 0.84,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05208692652638841,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

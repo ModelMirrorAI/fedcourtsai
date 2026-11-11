@@ -1,0 +1,20 @@
+{
+  "actor_id": "gemini-judge",
+  "case_id": "scotus/9026000107",
+  "gaps": [],
+  "helpful": [
+    "fedcourts statpack-at reconstructed the exact 7bcde3b105cb statpack build from when the predictors ran",
+    "Provisioned record/documents (appendix.txt, brief-in-opposition.txt, cert-reply.txt) and retrieval_log.json"
+  ],
+  "notes": "Evaluated gemini-baseline, codex-baseline, and claude-baseline against outcome.json and verified statpack citations against build 7bcde3b105cb via fedcourts statpack-at.",
+  "role": "evaluator",
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts statpack-at",
+    "fedcourts paths",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

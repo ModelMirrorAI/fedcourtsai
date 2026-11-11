@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.6,
+    "notes": "Potentially broad constitutional protection of intangible property and the source of Puerto Rico's immunity give substantial doctrinal stakes. The immediate dispute is a bounded trademark/license-plate controversy with contested preservation and vehicle issues. Denial creates no new merits precedent."
+  },
+  "brier_score": 0.1024,
+  "brier_skill_score": -2.3819960616409825,
+  "case_id": "scotus/73548979",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.17400568181818182,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.32,
+        "score": -0.07212202269498967
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.55,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.3,
+        "score": null
+      },
+      {
+        "baseline": 0.345367027677497,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.1,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.25,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": -0.07212202269498967,
+    "total": -0.07212202269498967
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T16:14:10.635937Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "October 14 log predates November 9 denial. Of 39 calls, 37 results are captured and 2 web calls unobserved. Unobserved queries target a known September 21 filing and a 2023 precedent; null dates do not show empty results. Other calls read provisioned inputs/statpacks, retrieve the dated supplemental PDF or consult opinion 9393811 (2023). No own-case disposition retrieval or outcome knowledge is evidenced.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.9,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The outcome and November 9 snapshot entry record denial, actual_granted 0.",
+        "claim": "The Court will most likely deny certiorari.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Exactly one further distribution is recorded on November 2 for the November 6 conference, followed by denial November 9; the total distribution count is 3.",
+        "claim": "The central procedural path is one further relist, followed by denial in late October or November 2026.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The outcome records cvsg_date null, and no invitation appears in the staged proceedings.",
+        "claim": "The modal outcome is no invitation to the Solicitor General.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "No grant occurred, so the conditional question selection and plenary-versus-summary route were not tested.",
+        "claim": "If review is granted, the likely path is plenary consideration of a narrowed takings question rather than summary disposition.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "The bare denial and noted_dissent_from_denial false support no noted dissent, but the staged record does not independently settle the broader absence of any statement respecting denial. No order text or writing is staged.",
+        "claim": "Conditional on denial, no separate writing remains the more likely result.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261014T174020Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T16:14:10.635937Z"
+  },
+  "reasoning_quality": 0.93,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.17400568181818182,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

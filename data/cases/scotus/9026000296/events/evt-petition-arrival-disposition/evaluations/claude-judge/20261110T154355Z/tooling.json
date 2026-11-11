@@ -1,0 +1,17 @@
+{
+  "case_id": "scotus/9026000296",
+  "run_id": "20261110T154355Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "shell (cat/python)",
+    "schemas/evaluation.schema.json"
+  ],
+  "helpful": [
+    "The case-level decided snapshot made the procedural path (waiver, single distribution, denial) easy to check against the forecast documents"
+  ],
+  "gaps": [],
+  "notes": "Cert arrival cell. The anchor is stamped by the harness, so the statpack was not needed for grading."
+}

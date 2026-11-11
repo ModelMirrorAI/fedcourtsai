@@ -1,0 +1,1 @@
+No retrieval beyond the provisioned inputs (used `uv run fedcourts statpack-at` on `gemini-baseline`, `claude-baseline`, and `codex-baseline` to reconstruct the statpack build `73762050f49c` in force at the candidates' run time).

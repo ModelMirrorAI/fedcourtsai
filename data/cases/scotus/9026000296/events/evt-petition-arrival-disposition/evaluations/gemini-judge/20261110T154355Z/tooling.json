@@ -1,0 +1,21 @@
+{
+  "actor_id": "gemini-judge",
+  "case_id": "scotus/9026000296",
+  "gaps": [],
+  "helpful": [
+    "Provisioned petition and appendix texts alongside structured retrieval_log.json files made comparing the candidates' depth of record inspection and forward retrieval hygiene straightforward."
+  ],
+  "notes": "Evaluated three blinded forward cert-arrival predictions for scotus/9026000296 (evt-petition-arrival-disposition) using only the provisioned case record and blinded staging area.",
+  "role": "evaluator",
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "read_file",
+    "list_directory",
+    "glob",
+    "run_shell_command",
+    "write_file"
+  ],
+  "used_base_rates": false,
+  "used_corpus_query": false
+}

@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.4,
+    "notes": "The questions concern appellate access for short-lived PLRA injunctions and thus affect both prison administration and judicial protection against prison heat. Their cross-cutting procedural importance is real, but this expired-interlocutory-order vehicle and the subsequent final judgment limit the immediate stakes; the denial establishes no merits rule."
+  },
+  "brier_score": 0.0144,
+  "brier_skill_score": 0.7395908172635446,
+  "case_id": "scotus/9026000018",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.23515439429928742,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.12,
+        "score": 0.04089758915826473
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.96,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.65,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.12,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.04089758915826473,
+    "total": 0.04089758915826473
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T16:23:45.123537Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The October 5-6 prediction predates the November 9 denial. Substantive external queries target the historical Turner v. Rogers authority, not this petition's result. Two web rows are unobserved, so their null dates are not proof of empty results; their queries concern the 2011 authority. Other calls and the reasoning contain no target-case Supreme Court outcome. Post-first-distribution briefing in a genuinely open forward cell is legitimate input, not leakage.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.9,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The November 9, 2026 entry and actual_disposition record denial; no merits judgment is recorded.",
+        "claim": "The Court will deny the petition rather than decide the underlying prison-conditions claims.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The count increased from the frozen one to two: the October 20 reply was followed by an October 21 distribution for the November 6 conference and November 9 denial.",
+        "claim": "One additional distribution after responsive briefing is the modal route to disposition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "No CVSG appears in the staged docket, and outcome.signals.cvsg_date is null.",
+        "claim": "The Court will not call for the Solicitor General's views.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The record identifies only an unqualified denial, with noted_dissent_from_denial false and no merits judgment or separate writing identified. It does not establish individual cert votes.",
+        "claim": "The modal denial will have no separate writing and leave the two questions without a Supreme Court merits opinion.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Denial left the conditional question-selection and summary-route forecast untested.",
+        "claim": "If the Court grants, a narrowed first-question treatment and summary vacatur are more likely than plenary review.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261005T231540Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T16:23:45.123537Z"
+  },
+  "reasoning_quality": 0.9,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.23515439429928742,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

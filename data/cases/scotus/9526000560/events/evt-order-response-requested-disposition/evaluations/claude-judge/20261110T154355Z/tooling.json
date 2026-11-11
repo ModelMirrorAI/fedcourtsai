@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9526000560",
+  "run_id": "20261110T154355Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": ["shell", "file-read"],
+  "helpful": ["Staged per curiam writing under record/opinion/writings let the forecast documents' stated grounds be checked directly against the Court's reasoning."],
+  "gaps": [],
+  "notes": "Interim cell; baseline and skill left to the harness stamp, so the statpack was not consulted."
+}

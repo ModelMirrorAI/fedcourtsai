@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000560",
+  "run_id": "20261110T154355Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell: read-only blinded record inspection",
+    "jq",
+    "fedcourts statpack-at",
+    "apply_patch",
+    "Python/Pydantic schema validation"
+  ],
+  "helpful": [
+    "The staged per curiam supports direct verification of doctrinal and equitable forecasts on this interim event.",
+    "statpack-at distinguishes erroneous historical counts from legitimate differences caused by refreshed coverage.",
+    "Capture markers prevent treating absent result dates as evidence that retrieval returned nothing."
+  ],
+  "gaps": [],
+  "notes": "No package installation or external case retrieval was needed. Output schemas match the installed Pydantic models exactly; validation uses those models. Baselines, skill, and claim scoring remain harness-owned."
+}

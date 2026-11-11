@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.6,
+    "notes": "Potentially broad constitutional protection of intangible property and the source of Puerto Rico's immunity give substantial doctrinal stakes. The immediate dispute is a bounded trademark/license-plate controversy with contested preservation and vehicle issues. Denial creates no new merits precedent."
+  },
+  "brier_score": 0.0484,
+  "brier_skill_score": -0.5985215760099956,
+  "case_id": "scotus/73548979",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.17400568181818182,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.22,
+        "score": -0.018122022694989665
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.35,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.12,
+        "score": null
+      },
+      {
+        "baseline": 0.345367027677497,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.1,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.3,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": -0.018122022694989665,
+    "total": -0.018122022694989665
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T16:14:10.635937Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "October 14 prediction predates the November 9 denial. All 33 logged calls have unobserved results; their queries concern provisioned October inputs, the statpack, local instructions, schemas and output operations, not this petition's disposition. No prose discloses outcome knowledge. The 0.0 capture coverage limits result visibility; null dates are not proof of empty results.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.65,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records denied, actual_granted 0, on November 9, 2026; the snapshot records Petition DENIED.",
+        "claim": "The Court will most likely deny the petition rather than grant review.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The snapshot adds a November 2 distribution for the November 6 conference; outcome.signals.distribution_count is 3. The forecast was hedged, not a firm prediction.",
+        "claim": "There is a decent chance of at least one further relist beyond the two existing distributions.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.signals.cvsg_date is null, and the staged proceedings show no invitation before denial.",
+        "claim": "A CVSG is possible but is not the likely route.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The recorded disposition is a standard denial, not a GVR, grant or summary reversal.",
+        "claim": "A summary disposition such as a GVR is unlikely.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Certiorari was denied; the conditional choice of question was never tested.",
+        "claim": "If granted, the Court would likely select the takings question and leave the immunity question aside.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261014T174020Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T16:14:10.635937Z"
+  },
+  "reasoning_quality": 0.62,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.17400568181818182,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

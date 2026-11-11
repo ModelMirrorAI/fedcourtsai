@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v3",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.12,
+    "notes": "Private-employer Title VII religious-accommodation dispute over a COVID-19 vaccine mandate, affirmed in an unpublished one-paragraph CA4 per curiam; no split alleged, Rule 56(d) side issue. Denied without noted dissent after a respondent waiver. Narrow stakes beyond the parties."
+  },
+  "brier_score": 0.000225,
+  "brier_skill_score": 0.913373554787465,
+  "case_id": "scotus/9026000115",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05096429401285725,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.015,
+        "score": 0.0023723592642289574
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": null,
+        "probability": 0.96,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.55,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.025,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.0023723592642289574,
+    "total": 0.0023723592642289574
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T16:34:30.256085Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-arrival-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction made 2026-08-16; the petition was denied 2026-11-09. The captured log shows reads of the provisioned record, the committed statpack, prompts/schemas, one corpus citation query, and CourtListener searches for the CA4 docket by caption (pre-decision lower-court material); no call returned material dated on or after the resolution and the reasoning does not presuppose the result. No qp-topics read.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-opus-5-5",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.62,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Petition DENIED Nov 9, 2026 with no noted dissent.",
+        "claim": "The Court will deny certiorari in a routine denial, most likely on an October or November 2026 order list.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Waiver filed Aug 25, 2026; one distribution; denied after it.",
+        "claim": "The respondent will likely waive a response or file a short BIO, and the petition will be distributed once without a relist.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Despite a waiver on Aug 25, 2026, the petition was DISTRIBUTED Oct 14 for the Conference of 11/6/2026.",
+        "claim": "The distribution will be for the late-September long conference if the waiver comes quickly, otherwise an early-October conference.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "No CVSG entry; outcome cvsg_date null.",
+        "claim": "No CVSG will issue.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome noted_dissent_from_denial false.",
+        "claim": "No dissent from or statement respecting denial.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20260816T111104Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T16:34:30.256085Z"
+  },
+  "reasoning_quality": 0.8,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05096429401285725,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

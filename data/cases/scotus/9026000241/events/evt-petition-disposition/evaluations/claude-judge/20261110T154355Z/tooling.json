@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000241",
+  "run_id": "20261110T154355Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": ["shell", "file-read"],
+  "helpful": ["Blinded staging with retrieval_log.json made the forward-mode leakage check direct", "Snapshot docket entries confirmed the denial date and single distribution"],
+  "gaps": [],
+  "notes": "Simple waived-response paid cert denial; the candidates' base-rate figures were not graded against a rebuilt statpack because none was quoted as a load-bearing number that changed a grade."
+}

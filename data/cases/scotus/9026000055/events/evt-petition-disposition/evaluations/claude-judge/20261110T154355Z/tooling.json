@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000055",
+  "run_id": "20261110T154355Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": ["shell", "file-read", "fedcourtsai.schemas.Evaluation (validation)"],
+  "helpful": ["Blinded staging with retrieval_log result_capture markers made the forward-leakage check quick", "Brief in opposition in record/documents clarified the actual question for the big-case read"],
+  "gaps": ["jsonschema is not installed in the env; validated via the pydantic Evaluation model instead"],
+  "notes": "Straightforward cert-denial cell; all three candidates denied correctly."
+}

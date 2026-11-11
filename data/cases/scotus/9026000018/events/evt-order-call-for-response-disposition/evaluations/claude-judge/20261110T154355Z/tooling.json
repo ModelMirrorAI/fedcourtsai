@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000018",
+  "run_id": "20261110T154355Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": ["shell", "file-read"],
+  "helpful": ["Staged petition and BIO text allowed checking a candidate's factual claim about the May 26, 2026 judgment"],
+  "gaps": [],
+  "notes": "Cert cell with all three candidates predicting denial correctly; grading turned on vehicle analysis accuracy and procedural forecasts."
+}

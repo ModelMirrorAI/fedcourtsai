@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000119",
+  "run_id": "20261110T154355Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": ["shell", "file-read"],
+  "helpful": ["The provisioned decided-docket snapshot settled every forecast-document claim (waiver, distribution date, denial)."],
+  "gaps": ["jsonschema is not installed, so validation went through fedcourtsai.schemas.Evaluation instead."],
+  "notes": "Straightforward cert arrival cell; all three candidates forward and clean."
+}

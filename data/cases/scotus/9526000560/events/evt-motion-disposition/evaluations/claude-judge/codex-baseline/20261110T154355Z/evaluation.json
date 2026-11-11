@@ -1,0 +1,111 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.7,
+    "notes": "Emergency-docket stay of a sector-wide injunction halting border-barrier construction across the Big Bend Sector, resolved by a signed-off per curiam (one noted dissent) holding there is no such thing as a constitutional major-questions claim for purposes of IIRIRA 102(c)(2)(A)'s review bar. Real national policy and environmental stakes and a doctrinal statement with reach beyond the case, but an interim order on a narrow jurisdictional question rather than a merits landmark."
+  },
+  "brier_score": 0.019600000000000003,
+  "brier_skill_score": 0.9748543506898895,
+  "case_id": "scotus/9526000560",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.1171303074670571,
+        "claim_id": "interim-disposition",
+        "outcome": 1,
+        "probability": 0.86,
+        "score": 0.7598588939932132
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "mask_reason": "signal-before-run",
+        "outcome": null,
+        "probability": 0.97,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.96,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 1,
+        "probability": 0.68,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": 0.7598588939932132,
+    "total": 0.7598588939932132
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T17:54:13.543244Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell (log mode forward; result capture 0.95). Retrieval was limited to the provisioned record, the committed statpack, a failed corpus-info call, two general-authority web searches (uncaptured, graded on query: statute text and Dalton v. Specter, neither case-specific) and a CourtListener lookup of Dalton v. Specter (1994). No query sought this application's disposition, no read of data/qp-topics.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-opus-5-5",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.9,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Nov 9 order stays the injunction pending the filing and disposition of the Government's cert petition.",
+        "claim": "The Court will grant an unqualified stay of the W.D. Tex. injunction pending timely filing and disposition of a cert petition, letting construction resume.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Per curiam: 'However it is labeled, respondents' claim ... alleges instead that the Secretary exceeded his statutory authority'; 'no such thing as a constitutional major-questions claim'.",
+        "claim": "The basis: the injunction rests on a statutory-authority objection that cannot be converted into a constitutional claim by invoking the major-questions doctrine, so the government is very likely to succeed under the review bar.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Response requested Oct 22; referred to the Court Nov 9; disposed by the full Court Nov 9.",
+        "claim": "Response request, referral and full-Court disposition approximately Oct 28 through Nov 11, rather than in-chambers resolution.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Per curiam: injunction impedes compelling border-security interests and unrecoupable costs; government's interest outweighs aesthetic, recreational and environmental harm.",
+        "claim": "The Court will weight the government's construction-disruption and border-security injuries over respondents' environmental and historic-resource harms.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The Court granted the stay and did not treat the application as a petition or summarily reverse; it did explain the stay in a short per curiam.",
+        "claim": "A concise stay order is more likely than summary reversal on the merits.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261023T210522Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T17:54:13.543244Z"
+  },
+  "reasoning_quality": 0.82,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.1171303074670571,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.08,
+    "notes": "Fact-bound municipal zoning and medical-marijuana facility licensing dispute from Pontiac, Michigan. The Sixth Circuit affirmed summary judgment applying settled procedural due process, substantive due process, takings, and Monell principles, and the petition framed five generic error-correction questions without a circuit split."
+  },
+  "brier_score": 0.0001,
+  "brier_skill_score": 0.9614993576833177,
+  "case_id": "scotus/9026000359",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05096429401285725,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": 0.0024973592642289575
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.96,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.6,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.0024973592642289575,
+    "total": 0.0024973592642289575
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T17:38:14.961554Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-arrival-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction placed on 2026-09-27, well before the October 14 distribution and November 9 denial. All 20 tool calls are captured (result_capture_coverage = 1.0), consisting of local file reads, two CourtListener MCP lookups of the June 18, 2026 Sixth Circuit decision metadata, and CLI syntax/help checks.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-argon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.92,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The Court denied the petition on November 9, 2026 (outcome.json actual_disposition = 'denied', actual_granted = 0).",
+        "claim": "The petition for a writ of certiorari will be denied.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Respondent filed a waiver of response on October 9, 2026; the petition was distributed once on October 14, 2026 for the November 6, 2026 conference (signals.distribution_count = 1) and denied on November 9, 2026.",
+        "claim": "The City of Pontiac is likely to waive its response, placing the petition on a November 2026 conference list where it will be distributed once and denied at its first conference with no relist.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "No CVSG was entered on the docket (outcome.json signals.cvsg_date is null).",
+        "claim": "The Court will not call for the views of the Solicitor General (CVSG).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The petition was denied without any noted dissent or separate writing (outcome.json noted_dissent_from_denial = false).",
+        "claim": "No Justice will write a dissent or statement respecting the denial of certiorari.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The petition was denied at its first conference, leaving the grant-conditional route and question reformulation untested.",
+        "claim": "Conditional on a grant, the likelier route would be a GVR after a hold rather than plenary review, and any plenary grant would require reformulating the procedural-due-process permit-delay issue.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20260927T182226Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T17:38:14.961554Z"
+  },
+  "reasoning_quality": 0.95,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05096429401285725,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

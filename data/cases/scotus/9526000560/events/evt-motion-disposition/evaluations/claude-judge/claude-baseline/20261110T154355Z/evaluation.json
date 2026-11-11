@@ -1,0 +1,111 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.7,
+    "notes": "Emergency-docket stay of a sector-wide injunction halting border-barrier construction across the Big Bend Sector, resolved by a signed-off per curiam (one noted dissent) holding there is no such thing as a constitutional major-questions claim for purposes of IIRIRA 102(c)(2)(A)'s review bar. Real national policy and environmental stakes and a doctrinal statement with reach beyond the case, but an interim order on a narrow jurisdictional question rather than a merits landmark."
+  },
+  "brier_score": 0.0576,
+  "brier_skill_score": 0.9261025816192668,
+  "case_id": "scotus/9526000560",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.1171303074670571,
+        "claim_id": "interim-disposition",
+        "outcome": 1,
+        "probability": 0.76,
+        "score": 0.7218588939932131
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "mask_reason": "signal-before-run",
+        "outcome": null,
+        "probability": 0.96,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.8,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 1,
+        "probability": 0.6,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": 0.7218588939932131,
+    "total": 0.7218588939932131
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T17:54:13.543244Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell (log mode forward; result capture 1.0). The candidate made no corpus queries, MCP lookups or web searches: only the provisioned snapshot, context, application text and committed statpack. Nothing outcome-revealing, no read of data/qp-topics.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-opus-5-5",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.75,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Nov 9 order granting the stay of the injunction without carve-out, the application having been referred to the Court.",
+        "claim": "The full Court will grant the SG's application and stay the injunction in full (no Big Bend National Park carve-out) by unqualified order.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Per curiam rests on Dalton v. Specter, 511 U.S. at 472-474, and holds the major-questions doctrine is a statutory canon.",
+        "claim": "The ground: the district court's theory that the major-questions doctrine is a constitutional claim cannot be squared with Dalton v. Specter and the Court's description of the doctrine; the statute's text is express.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Per curiam finds irreparable harm and equities for the Government (via 102(c)(1), Oakland Cannabis, Winter), though it does not cite Sierra Club; held in direction.",
+        "claim": "Equities favor the government, following Trump v. Sierra Club.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Only Justice Jackson noted she would deny.",
+        "claim": "A noted dissent from two or three Justices.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "Response requested Oct 22; FAIR amicus Oct 29; referred Nov 9; disposed Nov 9 (about 2.7 weeks), at the early edge of the stated window.",
+        "claim": "Response requested within days, referral to the full Court, at least one amicus, and disposition 2 to 5 weeks after filing (mid-November to early December).",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261023T210522Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T17:54:13.543244Z"
+  },
+  "reasoning_quality": 0.78,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.1171303074670571,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,112 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v3",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.25,
+    "notes": "While office-wide disqualification of an elected territorial Attorney General raises institutional friction within Guam, the case is fact-bound to a specific agency conflict and a procedural dismissal after failing to appoint substitute counsel, with no circuit or state high-court split."
+  },
+  "brier_score": 0.0036,
+  "brier_skill_score": 0.9348977043158861,
+  "case_id": "scotus/9026000119",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.23515439429928742,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.06,
+        "score": 0.05169758915826474
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": null,
+        "probability": 0.97,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.12,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.05169758915826474,
+    "total": 0.05169758915826474
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T16:54:46.402238Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-arrival-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction placed 2026-08-16, nearly three months before the 2026-11-09 denial. Captured tool log shows pre-decision corpus and CourtListener lookups with retrieved_doc_date no later than 2026-08-09.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-argon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.92,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Snapshot and outcome.json show Respondent Chargualaf filed a waiver on Aug 26, 2026, the Court did not request a response, and cert was denied on Nov 9, 2026.",
+        "claim": "The Court denies certiorari in October or November 2026, with respondents waiving a response or filing a short BIO and no Court-requested response.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json signals record distribution_count: 1 (distributed Oct 14, 2026 for the Nov 6, 2026 conference, denied Nov 9, 2026).",
+        "claim": "The petition is distributed once and denied after a single conference with no relist.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json signals record cvsg_date: null.",
+        "claim": "The Court will not invite the Solicitor General's views (no CVSG).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records noted_dissent_from_denial: false.",
+        "claim": "No Justice notes a dissent or statement respecting the denial.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20260816T111104Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T16:54:46.402238Z"
+  },
+  "reasoning_quality": 0.88,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.23515439429928742,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

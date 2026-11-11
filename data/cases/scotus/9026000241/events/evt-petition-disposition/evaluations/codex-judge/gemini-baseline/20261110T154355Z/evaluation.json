@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.25,
+    "notes": "The evidentiary scope of the retaliatory-arrest exception has recurring national civil-rights importance. This particular unpublished, fact-intensive municipal damages case has a substantial preservation obstacle, limiting its significance as a vehicle for a national rule. Denial establishes no new substantive rule."
+  },
+  "brier_score": 1e-06,
+  "brier_skill_score": 0.9996149935768331,
+  "case_id": "scotus/9026000241",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05096429401285725,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.001,
+        "score": 0.002596359264228957
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.0,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.1,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.002596359264228957,
+    "total": 0.002596359264228957
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T17:00:49.436637Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The 37-call log is forward-mode with every result unobserved; this limits result-level verification and is not itself a defect or proof that calls returned nothing. Queries identify the October 13 snapshot, context, questions presented, schemas and code, with no case-outcome query or explicit outcome-file read. One unscoped search for five-claim|claims has unknown results and does not establish that any outcome-bearing artifact was opened. The rationale contains no November 9 denial or other already-decided fact.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.9,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The final docket shows the sole November 6 conference distribution followed by the November 9 denial; the outcome distribution_count equals the frozen prediction's count of 1.",
+        "claim": "The petition will be denied after its first conference with zero further relists.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Outcome signals record cvsg_date null and the final docket contains no CVSG.",
+        "claim": "The Court will not call for the Solicitor General's views.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The recorded disposition is denied, with actual_granted 0 and no merits judgment.",
+        "claim": "The Court will decline review rather than take up the question presented.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The petition was denied, so the condition never occurred and the record cannot test the predicted grant route.",
+        "claim": "If review were granted, plenary review rather than a summary GVR would be the route.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "Outcome.json expressly records noted_dissent_from_denial false.",
+        "claim": "No Justice will note a dissent from denial.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261013T143156Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T17:00:49.436637Z"
+  },
+  "reasoning_quality": 0.48,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05096429401285725,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

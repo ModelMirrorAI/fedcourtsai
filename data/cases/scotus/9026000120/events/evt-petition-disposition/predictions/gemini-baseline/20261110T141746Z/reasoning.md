@@ -1,0 +1,63 @@
+# Certiorari Prediction Rationale: *Gays Against Groomers, et al. v. Garcia, et al.* (No. 26-120)
+
+**Prediction:** `denied` (`granted: 0`, `probability: 0.10`)
+
+---
+
+## 1. Provisioned Inputs Used
+This forecast is based on the provisioned record in `data/cases/scotus/9026000120/record/`:
+- **Snapshot and Conditioning Context:** `snapshots/2026-11-10.json` and `context.json` (`mode: "forward"`, `band: "elevated"`, `salience_version: "sal-v8"`, `distribution_count: 2`, `cvsg_date: null`, `cert_anchor.rate: 0.24813153961136025`).
+- **Staged Cert Filings (`documents/`):** `questions-presented.txt`, `petition.txt` (including the appended Tenth Circuit opinion at App. 1a–38a, the District of Colorado order at App. 39a–60a, the en banc denial order at App. 61a–62a, and the complaint at App. 63a–93a), `brief-in-opposition.txt`, and `cert-reply.txt`.
+- **Lower-Court Record (`documents/`):** `decision-below.txt` (matching the published Tenth Circuit opinion, *Gays Against Groomers v. Garcia*, 169 F.4th 981 (10th Cir. Mar. 10, 2026), with Judge Federico writing for the court and Judge Carson concurring in part and concurring in the judgment) and `lower-court-docket.txt` (confirming rehearing en banc was denied on April 23, 2026 with no poll or noted dissent).
+- **Base Rates and Corpus Context:** `metrics/statpack.md` and a corpus query via `uv run fedcourts query`.
+
+---
+
+## 2. Base-Rate Anchoring and Signal Cuts
+
+1. **Primary Salience-Band Anchor (`cert_anchor`):**
+   - `context.json` freezes this cell in the `elevated` salience band under `sal-v8`, with a pooled 10-Term risk-set base rate (`cert_anchor.rate`) of **24.8% (0.2481)** across strictly prior Terms OT2017–OT2025 (in `metrics/statpack.md`, "Segment base rate by salience band (sal-v8)", the `elevated` `[reached]` rates range from 20.9% in OT2019 to 27.8% in OT2021, over weighted resolved denominators $n = 174$ to $272$ per Term).
+   - This case entered the `elevated` band because of two observable signals on the snapshot: **four cert-stage amicus briefs** (filed by Women's Declaration International USA, LGB Courage Coalition et al., Foundation for Moral Law, and Women's Liberation Front) and a **second distribution** (`distribution_count: 2`, resulting from a November 5, 2026 reschedule prior to the November 6 conference, followed by redistribution on November 9 for the November 13, 2026 conference).
+
+2. **Cross-Checking the Paid Scored-Segment Signal Cuts (`metrics/statpack.md`):**
+   - **Relist / Distribution Count ("Cert petitions by relist count (paid scored segment)"):** With `distribution_count: 2`, this petition sits in `relist_bucket = 1` ($n = 2,532$ resolved), where the grant-family rate is **13.5%** (`granted` 8.3% + `gvr` 5.2%, `denied` 85.5%). As the statpack caption notes, `relist_bucket = 1` includes pre-conference reschedules like this one, which grant at a substantially lower rate than petitions that were genuinely relisted after a conference discussion.
+   - **CVSG Status ("Cert petitions by CVSG status (paid scored segment)"):** In the `none` bucket ($n = 13,550$ resolved), the grant-family rate is **6.4%** (`granted` 4.1% + `gvr` 2.3%, `denied` 92.4%).
+   - **Amicus Count ("Cert petitions by amicus-brief count (paid scored segment)"):** With 4 amicus briefs on the docket, the petition sits in the `2+` bucket ($n = 1,446$ resolved), where the marginal grant-family rate is **22.7%** (`granted` 18.2% + `gvr` 4.5%, `denied` 76.1%).
+   - **Originating Circuit ("Petitions by originating court"):** For the Tenth Circuit (`ca10`, $n = 1,257$ resolved), the grant-family rate is **4.2%** (`granted` 2.2% + `gvr` 2.0%, `denied` 93.3%).
+
+Starting from the 24.8% `elevated` risk-set anchor (and the 13.5% `relist_bucket = 1` cut), I adjust **downward to 10% (0.10)** based on the specific doctrinal and vehicle analysis of the Petition and Brief in Opposition below.
+
+---
+
+## 3. Case-Specific Doctrinal and Vehicle Analysis
+
+### A. Question 1: Illusory Circuit Conflict on Official-Capacity Legislative Immunity
+Petitioners argue (Pet. 10–21; Reply 2–8) that the Tenth Circuit deepened a circuit split between the First, Second, Tenth, and Eleventh Circuits on one side and the Fifth and Ninth Circuits (plus decisions from the Fourth and Eighth Circuits) on the other over whether absolute legislative immunity is a "personal defense" that is unavailable in official-capacity actions for prospective relief under *Kentucky v. Graham*, 473 U.S. 159, 166–67 (1985), *Hafer v. Melo*, 502 U.S. 21, 25 (1991), and *Board of County Commissioners v. Umbehr*, 518 U.S. 668, 677 n.* (1996).
+
+As the Tenth Circuit panel (Pet. App. 18a–25a) and Respondents' Brief in Opposition (BIO 10–19) demonstrate, this alleged split rests on a conflation of **municipal liability under *Monell*** with **suits against state officials under *Ex parte Young***:
+- In *Supreme Court of Virginia v. Consumers Union of the United States, Inc.*, 446 U.S. 719, 731–34 (1980), this Court squarely held that common-law legislative immunity under § 1983 bars suits for prospective declaratory and injunctive relief against state officials acting in a legislative capacity just as it bars suits for damages, because a private civil action—whether for damages or an injunction—"creates a distraction and forces Congressmen to divert their time, energy, and attention from their legislative tasks to defend the litigation." *Whole Woman's Health v. Jackson*, 595 U.S. 30, 39, 42 (2021), similarly reaffirmed that *Ex parte Young* is bounded by historical equitable limits protecting state judges and legislators acting in their official spheres.
+- Every circuit to address **state** officials acting in a legislative capacity holds that legislative immunity bars official-capacity claims for prospective relief: the First (*Cushing v. Packard*, 30 F.4th 27, 39–40 (1st Cir. 2022) (en banc)), Second (*State Employees Bargaining Agent Coalition v. Rowland*, 494 F.3d 71, 82–88 (2d Cir. 2007)), Third (*Larsen v. Senate of the Commonwealth*, 152 F.3d 240, 253 (3d Cir. 1998)), Fourth (*Consumers Union*, 688 F.2d 218, 220–21 (4th Cir. 1982)), Sixth (*Alia v. Michigan Supreme Court*, 906 F.2d 1100, 1102 (6th Cir. 1990); *Kent v. Ohio House of Representatives Democratic Caucus*, 33 F.4th 359, 364 (6th Cir. 2022)), Seventh (*Empress Casino Joliet Corp. v. Blagojevich*, 638 F.3d 519, 527–29 (7th Cir. 2011)), Eighth (*Church v. Missouri*, 913 F.3d 736, 751–54 & n.3 (8th Cir. 2019)), Tenth (decision below), and Eleventh (*Scott v. Taylor*, 405 F.3d 1251, 1255 n.6 (11th Cir. 2005)).
+- By contrast, the decisions Petitioners cite on the other side involved **municipal or local government entities**, which lack Eleventh Amendment sovereign immunity and are directly suable as "persons" under § 1983 (*Monell*): parish school boards (*Minton v. St. Bernard Parish School Board*, 803 F.2d 129 (5th Cir. 1986); *Sorcan v. Rock Ridge School District*, 131 F.4th 646 (8th Cir. 2025)), a community college district (*Wilson v. Houston Community College System*, 955 F.3d 490 (5th Cir. 2020)), a city council (*Berkley v. Common Council*, 63 F.3d 295 (4th Cir. 1995)), a county board (*Umbehr*), and a city mayor in an unpublished disposition (*Bols v. Newsom*, 2024 U.S. App. LEXIS 1276 (9th Cir. 2024)). In *Schmidt v. Contra Costa County*, 693 F.3d 1122, 1131 n.10, 1132 (9th Cir. 2012), the Ninth Circuit actually held that legislative immunity applied. And the fact that both the Fourth Circuit (*Consumers Union* vs. *Berkley*) and the Eighth Circuit (*Church* vs. *Sorcan*) distinguish state legislative immunity from municipal *Monell* liability confirms there is no genuine inter-circuit conflict over state legislators.
+
+### B. Question 2: Promulgation vs. Enforcement in State Legislative Committee Hearings
+Petitioners also contend (Pet. 21–26; Reply 9–11) that gaveling down witnesses and redacting committee audio under a decorum rule barring "misgendering" and "deadnaming" is an executive "enforcement" act under *Consumers Union*, *Kilbourn v. Thompson*, 103 U.S. 168 (1881), and *Powell v. McCormack*, 395 U.S. 486 (1969).
+
+Two serious vehicle and doctrinal problems weigh heavily against certiorari on this question:
+1. **Only State Legislators Were Sued:** In *Kilbourn*, *Powell*, and *Dombrowski v. Eastland*, 387 U.S. 82 (1967), the Supreme Court held that the *legislators themselves* were absolutely immune, and allowed suits to proceed only against non-legislator legislative employees (the Sergeant-at-Arms, Clerk, Doorkeeper, or committee counsel). Here, Petitioners sued *only* the five state legislators and did not name the Sergeant-at-Arms or any non-legislator employee (Pet. 21 n.7; BIO 4 n.1, 21 n.8). And in *Consumers Union*, the Virginia Supreme Court possessed independent statutory and inherent enforcement authority to initiate disciplinary prosecutions against attorneys in court—outside the legislative process. Presiding over a legislative committee hearing on a pending bill (`HB24-1071`) and moderating witness testimony is an internal legislative committee function (*Tenney v. Brandhove*, 341 U.S. 367 (1951)).
+2. **Unanimous Judgment Below and Federalism Reluctance:** Even Judge Carson, who wrote separately to argue that promulgation and enforcement of decorum rules are analytically distinct, concurred in the judgment dismissing the complaint because adjudicating Petitioners' claims would require federal courts to superintend how state legislators chair committee hearings and inquire into legislative motives (Pet. App. 37a & n.2). No Tenth Circuit judge requested a poll on rehearing en banc, and the Tenth Circuit never reached the First Amendment merits.
+
+### C. Why the Grant Probability Remains Material (10%)
+Despite these obstacles, the probability of a grant is well above the ~2.6% general docket rate:
+- The underlying First Amendment question—viewpoint discrimination and compelled pronoun/name usage in public comment forums—is a high-salience issue for the current Court (as Petitioners highlight by citing Justice Thomas's concurrence in *West Virginia v. B.P.J.*, 146 S. Ct. 2356 (2026)).
+- Judge Carson's concurrence explicitly warned that the panel's ruling "allows legislative bodies to create rules under the guise of decorum that essentially silence opposition in legislative hearings" (Pet. App. 38a), providing a hook for chambers concerned about First Amendment insulation.
+- The petition is litigated by repeat First Amendment counsel (Institute for Free Speech), supported by four amicus briefs, and was rescheduled once before its second conference distribution.
+
+---
+
+## 4. Rationale for Declared Claims, `order-writers`, and `big_case_score`
+- **`disposition` (`0.10`):** Matches top-level `probability = 0.10`.
+- **`relist-increment` (`0.25`):** The petition currently sits at `distribution_count = 2` due to its pre-conference reschedule. Because the petition has four amicus briefs, a partial concurrence below flagging First Amendment concerns, and a salient subject matter, there is roughly a 1-in-4 chance that at least one Justice requests a relist at the November 13 conference (either to examine the *Consumers Union* / *Umbehr* tension more closely or to prepare a statement/dissent from denial).
+- **`cvsg-increment` (`0.01`):** Minimal probability (1%), as no federal statute, federal officer, or federal program is involved.
+- **`summary-disposition-route` (`0.08`):** Conditional on a grant, full merits briefing and argument is overwhelmingly likely (92%), as there is no intervening precedent warranting a GVR and the immunity issue is not suitable for a summary reversal.
+- **`dissent-from-denial` (`0.12`) and `order-writers`:** Conditional on denial, there is a ~12% chance that one or more Justices note a dissent or statement respecting denial to highlight the First Amendment concern articulated in Judge Carson's concurrence. The per-Justice writing probabilities are concentrated in **Justice Thomas** (`0.07`), **Justice Alito** (`0.05`), and **Justice Gorsuch** (`0.03`), who most frequently author dissents or statements from the denial of certiorari in First Amendment and speech-restriction cases, with much lower probabilities (`0.003`–`0.008`) for the remaining Justices.
+- **`big_case_score` (`0.55`):** Decoupled from grant likelihood, if the Court were to grant and decide this case on the merits, it would be a moderately high-stakes decision (`0.55`) defining the intersection of state legislative immunity, *Ex parte Young* official-capacity suits, and First Amendment viewpoint discrimination in state legislative committee public-comment hearings nationwide.

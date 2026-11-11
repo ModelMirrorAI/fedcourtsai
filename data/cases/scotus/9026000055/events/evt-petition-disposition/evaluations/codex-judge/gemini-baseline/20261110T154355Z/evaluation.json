@@ -1,0 +1,112 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.15,
+    "notes": "The subsequently provisioned opposition frames an individual motion-to-reopen dispute about changed country conditions and argues abandonment and a factbound vehicle. A claimed inter-circuit difference gives some potential wider relevance, but the staged materials do not establish a broad doctrinal conflict; denial supplies no merits holding."
+  },
+  "brier_score": 0.000225,
+  "brier_skill_score": 0.913373554787465,
+  "case_id": "scotus/9026000055",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05096429401285725,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.015,
+        "score": 0.0023723592642289574
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.08,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.0,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.4,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.0023723592642289574,
+    "total": 0.0023723592642289574
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T16:27:49.048049Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The captured call metadata places the work on October 17, before this petition's November 9 resolution. Queries sought this docket and the lower-court decision, not a known disposition. All result markers are unobserved (coverage 0.0), so the candidate's reported empty searches are not independently confirmed. No query or prose shows this petition's eventual denial surfacing as already decided.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.85,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The staged docket records one distribution for November 6, 2026, then denial on November 9; outcome.signals.distribution_count is 1.",
+        "claim": "The petition will be denied after its first conference, without any further relist.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The staged docket contains no CVSG and outcome.signals.cvsg_date is null.",
+        "claim": "The Court will not call for the Solicitor General's views.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The petition was denied, so the grant-conditioned route and hypothetical intervening-decision rationale were never tested.",
+        "claim": "If granted, plenary review remains the default, with a summary GVR plausible after an intervening immigration decision.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "The outcome records no noted dissent and the docket entry simply says Petition DENIED, but neither staged writings nor an exhaustive writing record establishes the absence of every separate statement.",
+        "claim": "A denial will come without a separate writing.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261017T173457Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T16:27:49.048049Z"
+  },
+  "reasoning_quality": 0.6,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05096429401285725,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

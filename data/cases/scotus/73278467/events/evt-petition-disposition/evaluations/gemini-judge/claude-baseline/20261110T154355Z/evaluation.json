@@ -1,0 +1,112 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.65,
+    "notes": "The petition presented salient questions regarding the scrutiny standard for sex-based correctional policies applied to transgender detainees (Turner v. Safley vs. heightened scrutiny) and cross-sex strip searches, drawing a 23-State amicus brief and a CVSG. However, because United States v. Skrmetti (2025) and West Virginia v. B.P.J. (2026) intervened and the Tenth Circuit had avoided the Turner issue on party-presentation grounds in an interlocutory posture, the case resolved via a routine follow-on GVR without generating new Supreme Court precedent."
+  },
+  "brier_score": 0.02560000000000001,
+  "brier_skill_score": 0.9385711027044,
+  "case_id": "scotus/73278467",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.35444444444444445,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.84,
+        "score": 0.391141975308642
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.3,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": 0.345367027677497,
+        "claim_id": "summary-disposition-route",
+        "outcome": 1,
+        "probability": 0.85,
+        "score": 0.40604432845179506
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.6,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.797186303760437,
+    "total": 0.797186303760437
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T15:56:23.288846Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction placed on 2026-10-18 while the petition was unresolved (decided 2026-11-09). Retrieval log (coverage 1.0, 13/13 calls captured) shows only local reads of the provisioned case record, briefs, schemas, and metrics/statpack.md, with no external or forbidden queries.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-argon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.95,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "On November 9, 2026, the Court granted certiorari, vacated the judgment, and remanded for further consideration in light of West Virginia v. B.P.J., 609 U.S. 958 (2026) and United States v. Skrmetti, 605 U.S. 495 (2025).",
+        "claim": "The Court will grant, vacate, and remand to the Tenth Circuit for further consideration in light of West Virginia v. B.P.J. (2026) and United States v. Skrmetti (2025).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The Court disposed of the petition on the November 9, 2026 order list immediately following the November 6, 2026 conference, with distribution_count remaining at 3.",
+        "claim": "The likeliest procedural path is disposition on the order list following the November 6, 2026 conference (the third distribution) with no further distribution (P(relist-increment) = 0.30).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The petition was resolved by a summary GVR in the cert order without plenary briefing or argument (disposition_route: gvr).",
+        "claim": "Conditional on a grant, the disposition will be a summary GVR (0.85) rather than plenary review, matching the Court's analogous post-B.P.J. and post-Skrmetti GVRs in Petersen v. Doe and Fowler v. Stitt.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Outcome signals record only the June 30, 2026 CVSG (cvsg_date: 2026-06-30).",
+        "claim": "No further CVSG will occur because a CVSG was already issued on June 30, 2026 and answered on September 25, 2026.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261018T142134Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T15:56:23.288846Z"
+  },
+  "reasoning_quality": 0.92,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.35444444444444445,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

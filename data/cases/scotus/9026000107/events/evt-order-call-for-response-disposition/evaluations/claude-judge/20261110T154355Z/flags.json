@@ -1,0 +1,14 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/9026000107",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-order-call-for-response-disposition",
+      "message": "gemini-baseline's reasoning.md quotes sal-v4 baseline reached rates (OT2023-2025: 5.3%/6.9%/6.9%, n=513/1277/1452) that do not match the statpack build resolved for its run (7bcde3b105cb: 5.9%/5.9%/4.0%, n=1312/1274/1314). Reflected in its reasoning_quality only.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261110T154355Z"
+}

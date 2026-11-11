@@ -1,0 +1,1 @@
+No retrieval beyond the provisioned inputs (plus `uv run fedcourts statpack-at` against local git history to verify the candidates' statpack builds; no corpus query, no CourtListener MCP lookups, and no web searches).

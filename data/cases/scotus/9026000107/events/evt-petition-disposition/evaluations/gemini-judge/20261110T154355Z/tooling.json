@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000107",
+  "run_id": "20261110T154355Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts statpack-at"
+  ],
+  "helpful": [
+    "fedcourts statpack-at reconstructed the exact sal-v4 statpack build in force when the candidates predicted on October 6, 2026, allowing accurate verification of their base-rate pooling after the repository migrated to sal-v8",
+    "Provisioned docket snapshot, case summary, and blinded retrieval logs provided complete context without needing external retrieval"
+  ],
+  "gaps": [],
+  "notes": "Clean forward cert-stage evaluation across three blinded candidates."
+}

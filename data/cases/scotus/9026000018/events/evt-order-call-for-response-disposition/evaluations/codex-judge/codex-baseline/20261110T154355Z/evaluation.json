@@ -1,0 +1,137 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.42,
+    "notes": "The questions concern reviewability of short-lived injunctions and the scope of Article III mootness, with recurring practical consequences for prison litigation. The immediate dispute concerns expired orders after Louisiana prevailed at trial; cert denial supplies no new nationwide holding."
+  },
+  "brier_score": 0.09,
+  "brier_skill_score": -0.6275573921028466,
+  "case_id": "scotus/9026000018",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.23515439429928742,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.3,
+        "score": -0.03470241084173526
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": null,
+        "probability": 0.98,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.65,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.16,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.035,
+          "Barrett": 0.01,
+          "Gorsuch": 0.025,
+          "Jackson": 0.015,
+          "Kagan": 0.006,
+          "Kavanaugh": 0.009,
+          "Roberts": 0.004,
+          "Sotomayor": 0.025,
+          "Thomas": 0.045
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": -0.03470241084173526,
+    "total": -0.03470241084173526
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T16:21:37.412644Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-order-call-for-response-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction was written October 29 before November 9 resolution. The two web rows are unobserved and are assessed from their general Turner/Honig query scopes, not treated as empty results. The candidate discloses an incidental questions-presented hit, not later case history. Other queries concern provisioned inputs, general priors and precedent; no own-case outcome retrieval is indicated.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.78,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records denied, matching the staged November 9 docket entry.",
+        "claim": "The Court will most likely deny the petition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Opposition arrived October 2; October 21 distribution set the November 6 conference, followed by November 9 denial. The final distribution count is two and timing fits either the original or extended response deadline.",
+        "claim": "One additional distribution will follow the requested response, with disposition at that conference or one further conference, roughly one to four months after the response deadline.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The final outcome has a null CVSG date and no invitation appears in the staged docket.",
+        "claim": "No CVSG is expected.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The petition establishes the final victory and preservation issues, but the staged denial gives no reason and cannot establish the Court's chosen ground.",
+        "claim": "The main denial path is vehicle selection after Louisiana's final merits victory, not approval of the Fifth Circuit's timing rationale.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "The outcome explicitly records no noted dissent from denial, consistent with the forecast, but no order text or writing inventory establishes the absence of every possible statement respecting denial.",
+        "claim": "The modal denial will have no separate writing.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261029T160941Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T16:21:37.412644Z"
+  },
+  "reasoning_quality": 0.9,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.23515439429928742,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,137 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.35,
+    "notes": "Whether Trustees v. Greenough (1882) and Central Railroad & Banking Co. v. Pettus (1885) categorically bar class-representative service awards from common-fund settlements under Rule 23 is the subject of an entrenched circuit split (the Eleventh Circuit in Johnson v. NPAS Solutions against the First, Second, Seventh, Ninth, and Federal Circuits) that affects federal class-action settlement practice nationwide and drew a cert-stage amicus brief from the U.S. Chamber of Commerce. However, this specific dispute involves a pro se objector challenging a modest $5,000 service award in a $2.375M consumer subscription settlement affirmed by an unpublished Second Circuit summary order, and the Court denied certiorari without comment or noted dissent on November 9, 2026."
+  },
+  "brier_score": 0.0484,
+  "brier_skill_score": -16.839714416034383,
+  "case_id": "scotus/73522552",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05208692652638841,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.22,
+        "score": -0.045686952085034614
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": null,
+        "probability": 0.98,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.015,
+        "score": null
+      },
+      {
+        "baseline": 0.345367027677497,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.08,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.02,
+          "Barrett": 0.004,
+          "Gorsuch": 0.018,
+          "Jackson": 0.002,
+          "Kagan": 0.002,
+          "Kavanaugh": 0.006,
+          "Roberts": 0.002,
+          "Sotomayor": 0.002,
+          "Thomas": 0.024
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": -0.045686952085034614,
+    "total": -0.045686952085034614
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T16:07:55.600134Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-order-call-for-response-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction placed on 2026-10-29, eleven days before the petition was denied on 2026-11-09. The retrieval log shows one corpus query filtered to --decided-before 2025, one throttled CourtListener search for 975 F.3d 1244, and web lookups of the 2022-2023 Supreme Court docket pages for Johnson v. NPAS Solutions (Nos. 22-389 and 22-517). No post-cutoff material about this case was sought or retrieved.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-argon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.77,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records actual_disposition = 'denied', actual_granted = 0, and noted_dissent_from_denial = false on 2026-11-09.",
+        "claim": "The Court will most likely deny the petition without a separate writing (predicted_disposition: denied, probability: 0.22).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "After the BIOs (Sept. 18, 2026) and cert reply (Oct. 2, 2026) were filed, the petition was redistributed once on Oct. 7, 2026 for the Nov. 6, 2026 conference (outcome.json signals.distribution_count = 2) and denied on Nov. 9, 2026 with no further conference relist.",
+        "claim": "Following the August 19, 2026 response request, the petition will receive one additional briefing-related distribution (relist-increment: 0.98) and be disposed of at that post-response conference with no additional true relist on the modal path.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records signals.cvsg_date = null, and 2026-11-09.json contains no CVSG entry.",
+        "claim": "The Court will not call for the Solicitor General's views (cvsg-increment: 0.015).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Certiorari was denied on 2026-11-09, leaving the conditional grant scope and plenary-vs.-summary route untested.",
+        "claim": "Conditional on a grant, the Court would address the petition's single categorical question on service awards under Greenough, Pettus, and Rule 23 via plenary briefing and argument rather than a summary disposition in the cert order (summary-disposition-route: 0.05).",
+        "status": "unresolved"
+      },
+      {
+        "basis": "outcome.json records noted_dissent_from_denial = false and writing_roles = null; the Nov. 9, 2026 denial order was unsigned with no separate statement.",
+        "claim": "The central prediction on denial is an unsigned order with no separate writing (conditional dissent-from-denial: 0.08, with Thomas, Alito, and Gorsuch having the largest conditional writing probabilities).",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261029T142045Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T16:07:55.600134Z"
+  },
+  "reasoning_quality": 0.76,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05208692652638841,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,23 @@
+{
+  "actor_id": "gemini-judge",
+  "case_id": "scotus/73522552",
+  "gaps": [],
+  "helpful": [
+    "fedcourts statpack-at reconstructed the exact sal-v4 statpack build (7bcde3b105cb) in force at prediction run time (20261029T142045Z), verifying codex-baseline's and claude-baseline's base-rate citations and exposing gemini-baseline's fabricated statpack figures",
+    "Staged retrieval_log.json files made it straightforward to verify forward-mode retrieval hygiene and see why gemini-baseline missed the salience band table in statpack.md"
+  ],
+  "notes": "Evaluated three blinded forward-mode predictions (gemini-baseline, codex-baseline, claude-baseline) for scotus/73522552 (evt-order-call-for-response-disposition) against outcome.json and the reconstructed statpack build 7bcde3b105cb.",
+  "role": "evaluator",
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts statpack-at",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

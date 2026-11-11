@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73278467",
+  "run_id": "20261110T154355Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell: provisioned-record and blinded-candidate reads",
+    "fedcourts statpack-at",
+    "apply_patch",
+    "jsonschema validation"
+  ],
+  "helpful": [
+    "The resolved snapshot states both intervening authorities and the final distribution, permitting a specific forecast review.",
+    "Historical statpack reconstruction separates candidate arithmetic errors from later build changes.",
+    "Per-call result-capture markers distinguish unknown results from verified empty returns."
+  ],
+  "gaps": [
+    "The staged statistical context has no SG-recommendation-conditioned following rate to substantiate numerical historical claims about GVR recommendations."
+  ],
+  "notes": "All three blinded candidates were evaluated. No external case facts were retrieved. Ordinary absence of staged opinions or separate writings was respected; unsupported writing details remain unresolved. Baseline, skill, quantitative claim scoring, and harness provenance stamps were left to the workflow."
+}

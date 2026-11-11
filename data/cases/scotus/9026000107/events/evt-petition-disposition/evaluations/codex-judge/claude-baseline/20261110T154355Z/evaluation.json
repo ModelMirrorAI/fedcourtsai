@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.4,
+    "notes": "The questions could affect access to federal takings remedies for owners and local governments nationally, but arise from a parcel-specific permitting/finality dispute. The unexplained denial establishes no new substantive rule. Moderate specialist significance, not a broad public-policy judgment."
+  },
+  "brier_score": 0.0484,
+  "brier_skill_score": -17.634310881274196,
+  "case_id": "scotus/9026000107",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05096429401285725,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.22,
+        "score": -0.04580264073577104
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.96,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.07,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.35,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.15,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": -0.04580264073577104,
+    "total": -0.04580264073577104
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T16:41:32.750653Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "All 39 logged calls have captured results. Calls occurred October 6, before the November 9 resolution. Searches and docket fetches included this petition and its companion, but the prose reports only an October 1 opposition and a companion response extension, not this petition's eventual disposition. No logged document date, query, or reasoning indicates that its own outcome surfaced. Forward retrieval of that then-pending docket was permitted.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.65,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records denied and actual_granted=0; the snapshot records Petition DENIED on November 9, 2026.",
+        "claim": "The petition is more likely denied than granted.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The frozen prediction records one distribution; the October 21 docket entry supplies exactly one additional distribution, for the November 6 conference.",
+        "claim": "The petition will receive at least one more distribution, with one to three further distributions expected.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The Court denied this petition on November 9, 2026, before the forecast's preferred December-January window. The document expressly identified this prompt-denial path as its alternative.",
+        "claim": "A companion-related hold makes a December 2026 or January 2027 decision the natural course, rather than prompt denial after redistribution.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "The outcome records signals.cvsg_date=null, and the docket proceeds from redistribution to denial without a CVSG entry.",
+        "claim": "The Court will not invite the Solicitor General's views.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The disposing docket entry says only Petition DENIED; outcome.json records noted_dissent_from_denial=false. No staged writing supplies a contrary indication. This establishes no private vote lineup.",
+        "claim": "Denial will most likely be silent, without a separate dissent or statement.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261005T231540Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T16:41:32.750653Z"
+  },
+  "reasoning_quality": 0.79,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05096429401285725,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9026000119",
+  "flags": [
+    {
+      "category": "capture-gap",
+      "event_id": "evt-petition-disposition",
+      "message": "codex-baseline's staged retrieval_log.json contains seven captured calls concerning only statistical review. Its reasoning.md and retrieval.md describe principal record reads, general-rule web attempts, and older-authority CourtListener lookups absent from that log. Reported capture coverage 1.0 applies only to the calls present, not demonstrable session completeness. Please check transcript selection/aggregation. No affirmative evidence of outcome retrieval or influence was found; the forward assessment remains not_applicable and scores are unchanged.",
+      "severity": "warning"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0"
+}

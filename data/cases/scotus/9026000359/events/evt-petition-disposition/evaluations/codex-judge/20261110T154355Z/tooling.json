@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000359",
+  "run_id": "20261110T154355Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell and jq",
+    "fedcourts statpack-at",
+    "JSON Schema validation",
+    "Pydantic model validation"
+  ],
+  "helpful": [
+    "Blinded predictions and captured retrieval logs",
+    "Resolved docket and provisioned petition/appendix text",
+    "Prediction-time statpack reconstruction"
+  ],
+  "gaps": [
+    "The bare denial entry and no-noted-dissent field do not settle every possible statement respecting denial."
+  ],
+  "notes": "All candidates were assessable without external case retrieval. Unobserved historical tool results were assessed by queries rather than treated as empty results. The virtual environment lacks jsonschema; the system Python provides it, and the project environment provides the matching Pydantic models. No installation was needed."
+}

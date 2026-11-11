@@ -1,0 +1,112 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.4,
+    "notes": "The questions could affect access to federal takings remedies for owners and local governments nationally, but arise from a parcel-specific permitting/finality dispute. The unexplained denial establishes no new substantive rule. Moderate specialist significance, not a broad public-policy judgment."
+  },
+  "brier_score": 0.12249999999999998,
+  "brier_skill_score": -46.163286837935715,
+  "case_id": "scotus/9026000107",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05096429401285725,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.35,
+        "score": -0.11990264073577103
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.99,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.35,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": -0.11990264073577103,
+    "total": -0.11990264073577103
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T16:41:32.750653Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "All 22 calls are marked unobserved, so null dates and absent digests provide no evidence that results were empty. The queries target the prediction contract, October 5 snapshot, context, questions presented, manifest, statpack, output writes, and validation; none seeks this petition's disposition or later history. Prose uses only then-known response and amicus information. No affirmative evidence of outcome material surfacing; confidence is limited by unavailable results, not by candidate identity.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.5,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The October 21 redistribution for the November 6 conference follows the October 1 opposition; the outcome's distribution_count=2 is one above the frozen count.",
+        "claim": "The petition will receive at least one further distribution after the brief in opposition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The petition was denied, so no granted question or treatment of the alleged conflict was announced.",
+        "claim": "If granted, the Court would likely take Question 1 on legislative exhaustion as a clean conflict.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "No grant occurred; denial does not test the document's conditional choice between summary and plenary review.",
+        "claim": "A summary GVR is unlikely on the grant branch because the petition seeks resolution of a split rather than application of an intervening decision.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "outcome.json records signals.cvsg_date=null and the docket contains no invitation before denial.",
+        "claim": "No CVSG is expected.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261005T231540Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T16:41:32.750653Z"
+  },
+  "reasoning_quality": 0.42,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05096429401285725,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

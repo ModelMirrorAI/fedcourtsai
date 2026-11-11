@@ -1,0 +1,26 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9026000249",
+  "gaps": [
+    "No staged separate-writing inventory or disposing order text independently settles no-statement forecasts."
+  ],
+  "helpful": [
+    "Blinded aliases and structured outcome kept identity and scoring separate.",
+    "Staged docket and petition materials settled the tested procedural forecasts.",
+    "Historical statpack reconstruction avoided penalizing candidates for a refreshed pack.",
+    "Per-call capture markers distinguished unobserved results from empty retrievals."
+  ],
+  "notes": "No new case retrieval was needed. Default uv cache was read-only; UV_CACHE_DIR=/tmp/uv-cache with UV_NO_SYNC=1 worked. The project virtualenv lacks jsonschema, but the preinstalled system Python supplies it. gemini-baseline result capture is entirely unobserved; assessed query intent without penalizing that standing telemetry shape.",
+  "role": "evaluator",
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "jq",
+    "apply_patch",
+    "fedcourts statpack-at",
+    "Python jsonschema"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

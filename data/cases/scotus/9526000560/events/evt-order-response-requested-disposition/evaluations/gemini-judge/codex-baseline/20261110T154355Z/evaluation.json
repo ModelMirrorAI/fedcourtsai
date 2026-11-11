@@ -1,0 +1,110 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.78,
+    "notes": "Significant Solicitor General emergency application resulting in a 6-page published per curiam opinion clarifying that major-questions challenges to agency action remain statutory rather than constitutional claims under Dalton v. Specter for purposes of IIRIRA \u00a7 102(c)(2)(A)'s jurisdiction strip, and unblocking over 300 miles of southern-border barrier construction."
+  },
+  "brier_score": 0.016900000000000002,
+  "brier_skill_score": 0.9783182921764862,
+  "case_id": "scotus/9526000560",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.1171303074670571,
+        "claim_id": "interim-disposition",
+        "outcome": 1,
+        "probability": 0.87,
+        "score": 0.7625588939932131
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": null,
+        "probability": 0.0,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.97,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 1,
+        "probability": 0.68,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": 0.7625588939932131,
+    "total": 0.7625588939932131
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T18:11:44.571201Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-order-response-requested-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction run on 2026-10-23 while the application was genuinely unresolved (response due 2026-10-29; decided 2026-11-09). All corpus queries and CourtListener searches in retrieval_log.json predated the resolution.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-argon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.88,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The November 9, 2026 per curiam opinion granted the stay pending the timely filing and disposition of a petition for a writ of certiorari (pp. 5-6) without granting certiorari before judgment or summarily reversing.",
+        "claim": "The Court will grant the stay pending the filing and disposition of a petition for a writ of certiorari and decline to construe the application as a certiorari petition for immediate summary reversal.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The per curiam opinion held that the district court likely lacked jurisdiction under IIRIRA \u00a7 102(c)(2)(A), citing Dalton v. Specter, 511 U.S. at 472-473, and Clark v. Martinez, 543 U.S. at 381, to explain that invoking the major-questions canon does not convert a statutory challenge into a constitutional one (pp. 3-5).",
+        "claim": "On likelihood of success, the primary ground is that IIRIRA \u00a7 102(c)(2)(A) limits district-court jurisdiction to constitutional claims and, under Dalton v. Specter, 511 U.S. 462 (1994), and Clark v. Martinez, 543 U.S. 371 (2005), a major-questions argument is a statutory-interpretation claim rather than a constitutional claim.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The per curiam opinion added an explicit '[i]n any event' paragraph quoting Biden v. Nebraska, 600 U.S. 477, 506 (2023), and concluding that the Secretary's determination that the Big Bend Sector (over 89,000 apprehensions in five years) had 'high illegal entry' was well within his statutory discretion and required no comparative approach (p. 5).",
+        "claim": "Even if the major-questions doctrine were reached, IIRIRA \u00a7 102(a) and (c)(1) clearly authorize the Secretary to waive all legal requirements, and the phrase 'areas of high illegal entry' does not require a comparative sector-by-sector analysis (citing Biden v. Nebraska and In re Border Infrastructure Environmental Litigation).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The per curiam opinion relied on \u00a7 102(c)(2)(C)'s direct-certiorari path and cited Von Raab, 489 U.S. at 672, Oakland Cannabis, 532 U.S. at 497, Winter, 555 U.S. at 23, and Trump v. Sierra Club, 588 U.S. 930 (2019), on the sovereign border-security interest and balance of equities (pp. 2, 5).",
+        "claim": "Certiorari is likely because IIRIRA \u00a7 102(c)(2)(C) makes direct Supreme Court certiorari the exclusive avenue of review, and the balance of equities favors the Government under Winter v. NRDC, Oakland Cannabis, Treasury Employees v. Von Raab, and Trump v. Sierra Club.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Only Justice Jackson noted that she would deny the application for stay; Justices Sotomayor and Kagan did not note dissents (p. 6).",
+        "claim": "Justices Sotomayor, Kagan, and Jackson will note dissents from the grant of the stay.",
+        "status": "not-borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261023T210522Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T18:11:44.571201Z"
+  },
+  "reasoning_quality": 0.91,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.1171303074670571,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

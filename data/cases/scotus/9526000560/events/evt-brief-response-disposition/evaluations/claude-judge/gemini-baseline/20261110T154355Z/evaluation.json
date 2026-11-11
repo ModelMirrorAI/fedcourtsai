@@ -1,0 +1,130 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.68,
+    "notes": "Interim stay, not a merits judgment, but the per curiam announces a categorical rule ('There is no such thing as a \"constitutional\" major-questions claim') that reaches every jurisdiction-stripping statute preserving only constitutional claims, and it unblocks border-barrier construction across the Big Bend Sector under IIRIRA s.102 waivers. High practical and doctrinal salience for an application; below a merits landmark."
+  },
+  "brier_score": 0.022500000000000006,
+  "brier_skill_score": 0.9711338209450261,
+  "case_id": "scotus/9526000560",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.1171303074670571,
+        "claim_id": "interim-disposition",
+        "outcome": 1,
+        "probability": 0.85,
+        "score": 0.7569588939932131
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": null,
+        "probability": 0.0,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.97,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.35,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v2",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.05,
+          "Barrett": 0.03,
+          "Gorsuch": 0.06,
+          "Jackson": 0.22,
+          "Kagan": 0.08,
+          "Kavanaugh": 0.08,
+          "Roberts": 0.02,
+          "Sotomayor": 0.22,
+          "Thomas": 0.05
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.7569588939932131,
+    "total": 0.7569588939932131
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T17:50:06.849512Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-brief-response-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell; all calls dated 2026-10-29, before the 2026-11-09 disposition. CourtListener retrieval covered precedents, OT2026 SG stay opinions, and the W.D. Tex. RECAP docket (lower-court entries through Oct 20; later calls throttled). No query could reach this application's disposition, which did not exist; no data/qp-topics access.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-opus-5-5",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.72,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Nov 9 order grants the stay pending cert; no summary reversal.",
+        "claim": "The Court will grant an unqualified stay pending certiorari and decline the invitation to summarily reverse.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Per curiam's core holding, citing Dalton v. Specter, 511 U.S. at 472-474.",
+        "claim": "Any explanation will center first on s.102(c)(2)(A) and Dalton: an ultra vires statutory claim cannot be recast as a constitutional one to evade the jurisdictional bar.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Per curiam rests on jurisdiction plus irreparable harm and Congress's balance of equities; it does not reach s.102(a) scope and does not mention CASA or remedial overbreadth.",
+        "claim": "The explanation will also reject the district court's major-questions narrowing of s.102(a) on statutory merits and find the sector-wide injunction overbroad under Trump v. CASA.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "Referred and granted Nov 9, 2026.",
+        "claim": "The order will issue Nov 3-9, 2026, after referral to the full Court.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Only Jackson noted she would deny; the Court issued an explanatory per curiam.",
+        "claim": "6-3 lineup with Sotomayor, Kagan and Jackson voting to deny (at minimum Sotomayor and Jackson noted), most likely with no authored opinion.",
+        "status": "not-borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261029T212853Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T17:50:06.849512Z"
+  },
+  "reasoning_quality": 0.8,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.1171303074670571,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

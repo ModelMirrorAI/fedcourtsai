@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.25,
+    "notes": "The questions could affect notice and disclosure practices in federal attorney discipline, particularly correction of fabricated citations. The immediate dispute is one lawyer's six-month suspension, and denial creates no Supreme Court merits precedent. Profession-wide procedural relevance warrants modest, not major-case, significance."
+  },
+  "brier_score": 0.000144,
+  "brier_skill_score": 0.9445590750639776,
+  "case_id": "scotus/9026000296",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05096429401285725,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.012,
+        "score": 0.0024533592642289573
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.96,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.003,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.4,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.0024533592642289573,
+    "total": 0.0024533592642289573
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T17:24:03.049113Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-arrival-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "All 24 calls have captured results (coverage 1.0). The case-specific lower-court order is dated June 3, 2026, before the cert forecast; other dated authority is historical. September 27 queries for Supreme Court docket 26-296 are legitimate while the petition was still open, not searches past its November 9 resolution. The prose reports no additional docket entries and presupposes no denial. The decided evaluator snapshot is not substituted for the candidate's frozen September 9 input.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.95,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The outcome and November 9, 2026 docket entry record denial, actual_granted 0.",
+        "claim": "The Court will deny the petition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The snapshot records a September 18 federal-respondent waiver and one October 14 distribution for the November 6 conference, followed by November 9 denial; the outcome distribution count is 1.",
+        "claim": "The Solicitor General will waive a response and the petition will receive one distribution for a late-October or November conference, with no relist before denial.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The outcome records cvsg_date null, and no invitation appears in the docket.",
+        "claim": "There will be no CVSG.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The outcome records no noted dissent, but the full denial order and a complete statement inventory are not staged, so the broader no-writing claim is not settled.",
+        "claim": "Most likely no separate writing will accompany denial.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "Both the outcome's resolved_at and the docket's denial entry are November 9, 2026, within the forecast's preferred interval.",
+        "claim": "Denial will occur by the end of November 2026, most likely on an order list in the first half of November.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20260927T182226Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T17:24:03.049113Z"
+  },
+  "reasoning_quality": 0.86,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05096429401285725,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,130 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.73,
+    "notes": "Substantial border-infrastructure, environmental and cultural stakes, with a nationally relevant distinction between constitutional claims and statutory interpretation under a jurisdiction-limiting waiver statute. The ruling is interim, not final approval of the projects or resolution of every constitutional challenge."
+  },
+  "brier_score": 0.06760000000000001,
+  "brier_skill_score": 0.9132731687059451,
+  "case_id": "scotus/9526000560",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.1171303074670571,
+        "claim_id": "interim-disposition",
+        "outcome": 1,
+        "probability": 0.74,
+        "score": 0.7118588939932131
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": null,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.85,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.45,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v2",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.05,
+          "Barrett": 0.05,
+          "Gorsuch": 0.1,
+          "Jackson": 0.3,
+          "Kagan": 0.1,
+          "Kavanaugh": 0.1,
+          "Roberts": 0.02,
+          "Sotomayor": 0.3,
+          "Thomas": 0.05
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.7118588939932131,
+    "total": 0.7118588939932131
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T17:54:19.057987Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-brief-response-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The fully captured log places all 12 calls on October 29, before the November 9 outcome. It shows provisioned-input and statpack reads plus a rejected corpus query and a broad granted-applications query. Neither query targets this application's disposition. The candidate discloses that the recent-application results were unhelpful and makes no claim of knowing the outcome. No already-decided disposition appears in the staged prose or query record.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.92,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The staged November 9 disposition grants the stay pending a timely certiorari petition, with no summary reversal.",
+        "claim": "The Court will grant a stay rather than summarily reverse, leaving further review for the certiorari process.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The docket records the October 30 reply and November 9 referral and disposition.",
+        "claim": "The application will be referred to the full Court and resolved in roughly one to two weeks after the October 29 response, following a reply.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The per-curiam explanation expressly relies on section 102(c)(2)(A), Dalton and the statutory character of the major-questions canon.",
+        "claim": "If the Court addresses the legal ground, it will apply the jurisdictional bar and Dalton because a major-questions argument concerns statutory authority rather than a constitutional claim.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The explanation does not adjudicate the geographic statutory predicate. It credits border security, unrecoverable costs and Congress's preference for expeditious construction over the asserted harms.",
+        "claim": "The Court will likely not decide whether Big Bend is an area of high illegal entry, and governmental border-construction interests will outweigh the asserted environmental and recreational harms.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The staged writing and docket both state that Justice Jackson would deny the stay. No separate dissent is staged, and the forecast made written dissents only possibilities.",
+        "claim": "A grant will draw noted opposition from at least one of Sotomayor, Kagan and Jackson.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261029T212853Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T17:54:19.057987Z"
+  },
+  "reasoning_quality": 0.84,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.1171303074670571,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

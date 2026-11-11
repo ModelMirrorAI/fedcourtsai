@@ -1,0 +1,112 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.2,
+    "notes": "While the underlying subject\u2014federal appellate bar discipline for AI-hallucinated citations and procedural due process notice under In re Ruffalo and FRAP 46/47(b)\u2014has salience for the legal profession given the Ninth Circuit's published opinion, this petition was a fact-bound challenge to one attorney's six-month suspension with no genuine circuit split, and the Court denied certiorari without dissent after a single conference following the Solicitor General's waiver."
+  },
+  "brier_score": 0.0009,
+  "brier_skill_score": 0.6534942191498601,
+  "case_id": "scotus/9026000296",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05096429401285725,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": 0.0016973592642289574
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.97,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.002,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.35,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.025,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.0016973592642289574,
+    "total": 0.0016973592642289574
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T17:17:13.143129Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-arrival-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction made on 2026-09-27, well before the 2026-10-14 distribution and 2026-11-09 cert denial. Retrieval log (result_capture_coverage 0.9375) shows only local reads of the 2026-09-09 arrival snapshot, petition text, and statpack, two unobserved general web-search attempts for Court rules, and CourtListener lookups for In re Ruffalo, 390 U.S. 544 (1968).",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-argon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.85,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The petition was denied on November 9, 2026, with no noted dissent or separate statement (outcome.json: actual_disposition='denied', noted_dissent_from_denial=false).",
+        "claim": "The Court will deny the petition for a writ of certiorari without a separate statement or noted dissent.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Following the September 18, 2026 waiver of response, the petition was distributed once on October 14, 2026 for the November 6, 2026 conference and denied on November 9, 2026 without a relist (outcome.json: signals.distribution_count=1).",
+        "claim": "The petition will receive one initial conference distribution after the response process and be denied without a subsequent relist.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "No CVSG was issued; the Solicitor General filed a waiver of response on September 18, 2026 on behalf of the Federal Respondents (outcome.json: signals.cvsg_date=null; snapshot 2026-11-09.json).",
+        "claim": "The Court will not issue a CVSG inviting the Solicitor General's views because the Solicitor General is already counsel for the federal respondents.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The petition was denied on November 9, 2026, so the conditional grant scope and disposition route were never tested.",
+        "claim": "Conditional on a grant, the Court would likely focus on the first question presented regarding supplemental notice under In re Ruffalo, with a 65% likelihood of plenary review over summary disposition (35%).",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20260927T182226Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T17:17:13.143129Z"
+  },
+  "reasoning_quality": 0.86,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05096429401285725,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

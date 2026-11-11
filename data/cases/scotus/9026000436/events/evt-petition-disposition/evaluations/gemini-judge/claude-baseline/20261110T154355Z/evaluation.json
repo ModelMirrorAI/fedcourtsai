@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.4,
+    "notes": "The petition raises a recurring post-Loper Bright circuit split over whether FMLA retaliation claims require but-for causation or follow the DOL's motivating-factor regulation, alongside a preservation question. However, this specific case arose from an unpublished Second Circuit summary order turning on invited error and post-trial forfeiture in a single-plaintiff employment dispute, and cert was summarily denied without dissent."
+  },
+  "brier_score": 0.0036,
+  "brier_skill_score": -0.38602312340056,
+  "case_id": "scotus/9026000436",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05096429401285725,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.06,
+        "score": -0.0010026407357710426
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.4,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.12,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": -0.0010026407357710426,
+    "total": -0.0010026407357710426
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T17:45:37.715012Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction made on 2026-10-09, one month before the 2026-11-09 denial. The retrieval log (32 calls, result_capture_coverage=1.0) shows local file reads, one general fedcourts query (--court scotus --era 2020s --limit 12), and CourtListener MCP lookups for prior CA2/CA11 decisions (Lapham, Haran) and the CA2 docket (filed 2025-03-13), with retrieved_doc_date values no later than 2025-11-25.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-argon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.86,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json and the 2026-11-09 docket snapshot show the petition was denied on November 9, 2026, the orders list immediately following the November 6, 2026 conference.",
+        "claim": "The petition will be denied, most likely at or shortly after the November 6, 2026 conference.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records signals.distribution_count=1 and the 2026-11-09 snapshot shows no call for a response or further distribution before the November 9, 2026 denial.",
+        "claim": "The modal path is a single distribution (P(at least one further distribution) = 0.40), with any additional distribution primarily driven by a potential call for a response.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records signals.cvsg_date=null and the 2026-11-09 snapshot shows no CVSG invitation.",
+        "claim": "The Court will not issue a CVSG (P = 0.05), disposing of the petition without seeking the Solicitor General's views.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Certiorari was denied on 2026-11-09 (outcome.json actual_disposition='denied'), so the conditional grant claims were not tested.",
+        "claim": "If granted, the Court would take Question 1 for plenary review rather than summarily disposing of the case in the cert order (P(summary disposition | grant) = 0.12).",
+        "status": "unresolved"
+      },
+      {
+        "basis": "outcome.json records noted_dissent_from_denial=false, votes=[], and writing_roles=null, and the 2026-11-09 docket entry states simply 'Petition DENIED.'",
+        "claim": "The denial will be a bare order with no dissent from or statement respecting denial (P = 0.04).",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261009T143059Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T17:45:37.715012Z"
+  },
+  "reasoning_quality": 0.9,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05096429401285725,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

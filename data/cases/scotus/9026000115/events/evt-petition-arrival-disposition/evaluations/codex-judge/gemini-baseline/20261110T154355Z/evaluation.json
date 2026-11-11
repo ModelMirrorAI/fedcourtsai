@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v3",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.22,
+    "notes": "The petition raises a potentially recurring question about nonmonetary health-and-safety burdens after Groff, but this individual employment record, unpublished affirmance, discovery dispute, and absence of an articulated circuit conflict limit its general significance. Denial supplies no new Supreme Court rule."
+  },
+  "brier_score": 0.0001,
+  "brier_skill_score": 0.9614993576833177,
+  "case_id": "scotus/9026000115",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05096429401285725,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": 0.0024973592642289575
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": null,
+        "probability": 0.15,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.1,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.08,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.0024973592642289575,
+    "total": 0.0024973592642289575
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T16:43:06.125343Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-arrival-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The August 16, 2026 forward prediction predates the November 9 denial. Queries show provisioned files and the committed statpack, with no search for this case's disposition and no outcome-bearing assertion in the prose. All 28 logged calls are unobserved (coverage 0.0); their null dates are capture limits, not evidence of empty results. No affirmative evidence falsifies the genuinely-open forward posture.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.75,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The snapshot shows one initial distribution for November 6, 2026 and denial on November 9; the outcome records distribution_count = 1.",
+        "claim": "The Court will deny certiorari without any relists.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The docket records no CVSG and outcome.signals.cvsg_date is null.",
+        "claim": "The Court will not issue a CVSG.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The actual disposition was not a GVR, but the unexplained denial and staged docket do not establish the asserted explanation or a complete history of intervening decisions.",
+        "claim": "The absence of an intervening decision altering the lower courts' Groff analysis makes a GVR unlikely.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "The outcome records no noted dissent, but does not separately establish whether a statement respecting denial existed; no order text or writings manifest is staged.",
+        "claim": "A denial is unlikely to draw a statement or dissent from denial.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "No grant occurred, so the conditional question-selection forecast was not tested.",
+        "claim": "If granted, the Court would take questions 1 and 3 and omit the Rule 56(d) questions.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20260816T111104Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T16:43:06.125343Z"
+  },
+  "reasoning_quality": 0.72,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05096429401285725,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

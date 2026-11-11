@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.05,
+    "notes": "Pro se paid petition from an unpublished-shape Eighth Circuit affirmance of a Rule 37(b)(2) dismissal with prejudice in a private ADA employment suit. The question presented (due process limits on a sanction dismissal while a disability-accommodation motion was pending) is framed constitutionally but is fact-bound; no split, respondent waived, denied without noted dissent. Stakes run to the parties."
+  },
+  "brier_score": 3.6e-05,
+  "brier_skill_score": 0.9861397687659944,
+  "case_id": "scotus/9026000462",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05096429401285725,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.006,
+        "score": 0.0025613592642289573
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.97,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.002,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.75,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.0025613592642289573,
+    "total": 0.0025613592642289573
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T17:45:34.997455Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell: prediction made 2026-10-08 while the petition was pending; the denial issued 2026-11-09, so no outcome existed to retrieve. Scanned the log: latest retrieved_doc_date is 2026-08-10 (district-court/lower-court material predating resolution); no query for this petition's SCOTUS disposition; no data/qp-topics read. Full result capture (1.0).",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-opus-5-5",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.75,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json: actual_disposition denied, noted_dissent_from_denial false.",
+        "claim": "The petition will be denied without separate writing.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Docket: Oct 14 2026 \"DISTRIBUTED for Conference of 11/6/2026\"; denied Nov 9 after that single further distribution; outcome distribution_count 2.",
+        "claim": "The Sep 9 distribution carried motion 26M22, not the petition, so the petition will be distributed at least once more (P=0.97), with no further relist (P(two or more) well under 0.1).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Distributed Oct 14 for the Nov 6 conference; denied Nov 9 - one week earlier than the window, though the shape was right.",
+        "claim": "That distribution will come around Oct 21-28 for the Nov 7 or Nov 14 conference, with denial on Nov 10 or Nov 17.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "outcome signals cvsg_date null; no CVSG entry on the docket.",
+        "claim": "No CVSG.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "No grant occurred; conditional content untested.",
+        "claim": "Conditional on any grant, a summary route is likelier (0.75).",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261008T143010Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T17:45:34.997455Z"
+  },
+  "reasoning_quality": 0.85,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05096429401285725,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.28,
+    "notes": "The questions implicate Article III judicial independence, judicial discipline, recusal, and Tucker Act jurisdiction. This particular collateral suit seeks nonmonetary relief, was summarily rejected on settled jurisdictional grounds, and ended in denial without a merits ruling. Its case-specific significance is limited despite the broader institutional subject."
+  },
+  "brier_score": 4e-06,
+  "brier_skill_score": 0.9984599743073327,
+  "case_id": "scotus/9026000351",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05096429401285725,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.002,
+        "score": 0.0025933592642289572
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.001,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.15,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.0025933592642289572,
+    "total": 0.0025933592642289572
+  },
+  "correct": 1,
+  "created_at": "2026-11-10T17:34:20.799512Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The log records 34 October 23 calls, all with unobserved results (capture coverage 0.0). Queries include related dockets 25-1217 and 26-9 and case-name searches for Dreiling v. United States and Newman v. Moore; the broad Dreiling query could include this case, but it was still unresolved. The rationale describes only earlier companion dispositions, not this petition's November 9 result. The claimed HTTP 429 failures and returned companion facts are self-reported, not independently captured. No own-case disposition or post-resolution material is shown.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.9,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The docket schedules the November 6 conference and records denial on November 9, with only one distribution; outcome.json records denied. The docket establishes the publication date, not the private vote date.",
+        "claim": "The Court will deny the petition on its first scheduled conference cycle, without further relists.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The staged docket moves from the October 16 response waiver to October 21 distribution and November 9 denial without a response request.",
+        "claim": "The Court will dispose of the petition without calling for a response.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The outcome records cvsg_date null, and no CVSG appears in the staged docket before denial.",
+        "claim": "The Court will not call for the Solicitor General's views.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Outcome.noted_dissent_from_denial is false, verifying the no-noted-dissent component. The broader no-statement component cannot be settled without staged order text or a complete writings inventory.",
+        "claim": "No Justice will note a dissent or issue a statement respecting denial.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "The petition was denied, so the conditional question selection, anticipated Tucker Act holding, and review route were not tested.",
+        "claim": "If review is granted, the Court must address the jurisdictional or recusal threshold and would favor plenary review rather than summary disposition.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261023T012839Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v20",
+    "pipeline_sha": "e68660d9d9233e01e01cbff45cbc4c2d12c8ffc0",
+    "stamped_at": "2026-11-10T17:34:20.799512Z"
+  },
+  "reasoning_quality": 0.88,
+  "run_id": "20261110T154355Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05096429401285725,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}
