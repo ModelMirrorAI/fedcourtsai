@@ -43,10 +43,10 @@ name: run-ops
 #
 # Failure signaling is a separate channel from those digests, and stays one:
 # GitHub's own workflow-failure notifications plus the issue-as-alarm labels
-# (this job's `data-validation` escalation, run-pull's `pull-log` / `live-log`)
-# carry a break. An open issue under an ALARM label therefore means exactly
+# (this job's `data-validation` and `pipeline-health` escalations, and
+# run-pull's `pull-log` / `live-log`) carry a break. An open issue under an ALARM label therefore means exactly
 # "something is wrong"; an open digest means only "unread". Nothing here files
-# an alarm on the happy path, and nothing rewrites a standing body — the
+# an alarm on the happy path, and nothing rewrites a standing body — each
 # escalation edits its own issue, and only its own, so a recurring failure
 # latches onto one thread instead of spamming new ones.
 on:
@@ -64,23 +64,23 @@ jobs:
   ops:
     runs-on: ubuntu-26.04
     # Setup + report is a couple of minutes; the cap is sized for the degraded
-    # API this job's retries exist to survive. Seven retryable shell calls
-    # across its three retried steps, each worth up to 105s when every attempt
+    # API this job's retries exist to survive. Eleven retryable shell calls
+    # across its four retried steps, each worth up to 105s when every attempt
     # times out (3 × `timeout 30` plus 5s + 10s of backoff), and the run
-    # listing up to 285s on its 90s bound: ~15 min of retry
+    # listing up to 285s on its 90s bound: ~22 min of retry
     # alone. The off-ledger spend sweep makes a retried call per page and per
     # artifact, so it carries its own 10 min cap and gives up quietly rather
     # than eat the escalation's share, and the scheduled-run listing its own
-    # 6 min cap the same way: ~31 min in all. Under a 15 min cap the
+    # 6 min cap the same way: ~38 min in all. Under a 15 min cap the
     # job would be killed mid-recovery, after the ops-metrics snapshot but
-    # before the data-validation escalation. This job
+    # before the two escalations. This job
     # holds no corpus lock, so a wider cap costs only runner minutes on a day
     # the API is already broken.
-    timeout-minutes: 36
+    timeout-minutes: 44
     permissions:
       contents: write # read the ledger + push the snapshot to the ops-metrics branch
       actions: read # read the workflow run history for the health section
-      issues: write # the data-validation escalation
+      issues: write # the data-validation and discovery frontier escalations
     steps:
       # Persist the built-in token so git can fetch/push the ops-metrics branch.
       # This job uploads no artifacts, so credential leakage is not a concern.
@@ -203,6 +203,7 @@ jobs:
           fi
           uv run fedcourts ops-report --runs runs.json --trigger-issues trigger-issues.json \
             "${prev_args[@]}" --json new-ops.json --data-health-out data-health.md \
+            --discovery-frontier-out discovery-frontier.md \
             --digest-out digest.md --status-out status.json > ops.md
           cat ops.md >> "$GITHUB_STEP_SUMMARY"
           if [ -f digest.md ]; then
@@ -406,6 +407,59 @@ jobs:
             # Resolved: data validation is green again, so close the escalation issue.
             gh_retry gh issue comment "$num" --repo "$REPO" \
               --body "✅ Data validation is green again as of the latest ops run — closing."
+            gh_retry gh issue close "$num" --repo "$REPO" --reason completed
+          fi
+
+      - name: Escalate a discovery frontier that is behind
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # shellcheck disable=SC1091  # resolved on the runner; actionlint lints this block out of tree
+          source "${GITHUB_WORKSPACE}/scripts/gh_retry.sh"
+          # The discovery frontier check's verdict rides the live-frontier
+          # snapshot the corpus-writer path publishes (fedcourts live-frontier):
+          # whether each numbering stream of the current Term reached the
+          # Court's real frontier. This step latches it the way the
+          # data-validation escalation above latches its verdict: open OR
+          # refresh ONE long-lived issue while an alarm stands, close it when
+          # the check is clean. No published verdict (the check is off, or no
+          # snapshot has landed) is neither: the step leaves any open issue as
+          # it is rather than closing it on missing evidence.
+          ok=$(jq -r '.substance.live_frontier.discovery.ok | if . == null then "unknown" else tostring end' new-ops.json)
+          if [ "$ok" = "unknown" ]; then
+            echo "No discovery frontier verdict in the published snapshot; nothing to latch."
+            exit 0
+          fi
+          if [ ! -s discovery-frontier.md ]; then
+            echo "::warning::discovery frontier verdict read but its alarm body is missing; nothing latched"
+            exit 0
+          fi
+          # `pipeline-health` is a NON-triggering label by design (no workflow
+          # keys on it), shared with run-seed's guard and created with the same
+          # color and description so neither `--force` rewrites the other's.
+          gh_retry gh label create pipeline-health --repo "$REPO" --force \
+            --color b60205 --description "Long-lived corpus-writer failure"
+          # Match this alarm's own title AND the workflow bot as author, since
+          # the label is shared: closing whichever issue wears it would close
+          # another alarm's. The listing is captured in a variable first so a
+          # failed read fails the step instead of reading as "none open".
+          listing=$(gh_retry gh api "repos/${REPO}/issues?labels=pipeline-health&state=open&per_page=100")
+          num=$(jq -r '[.[] | select(.title == "Discovery frontier behind"
+                          and .user.login == "github-actions[bot]"
+                          and (has("pull_request") | not))][0].number // empty' <<<"$listing")
+          if [ "$ok" = "false" ]; then
+            if [ -z "$num" ]; then
+              gh_retry gh issue create --repo "$REPO" --title "Discovery frontier behind" \
+                --label pipeline-health --body-file discovery-frontier.md
+            else
+              # Refresh the single open issue in place with the standing alarms.
+              gh_retry gh issue edit "$num" --repo "$REPO" --body-file discovery-frontier.md
+            fi
+          elif [ -n "$num" ]; then
+            gh_retry gh issue comment "$num" --repo "$REPO" \
+              --body "✅ No discovery frontier alarm stands as of the latest ops run — closing."
             gh_retry gh issue close "$num" --repo "$REPO" --reason completed
           fi
 

@@ -148,7 +148,13 @@ produces a correctness verdict and the live-frontier readiness snapshot where
 the corpus is already pulled, and `run-ops`
 renders them as the **data-health** section and the substance section's
 watchlist view, escalating a failing verdict to one
-long-lived issue — so the report surfaces run-health, data-health, and
+long-lived issue. The readiness snapshot also carries the discovery frontier
+check's verdict (*The discovery frontier check* in
+[live-sources.md](live-sources.md)): the substance section prints one line per
+numbering stream, and an alarm on any stream opens or refreshes the latched
+**Discovery frontier behind** issue under `pipeline-health`, which closes
+itself when every stream is clean and is left as it is when no verdict was
+published — so the report surfaces run-health, data-health, and
 substance while staying a read-only presenter that never touches the corpus.
 
 ### Schedule delivery
@@ -1864,8 +1870,9 @@ read, so the open ones are the unread backlog and nothing more. The
 healthy run, by comment rather than by rewrite, and it stays open by design (its
 own body says so). Nothing else is an issue: a run's own record is a per-run
 artifact — the step summaries, the ops report on its run summary — never a
-long-lived body a job rewrites in place. Only the data-validation alarm edits a
-body, and only its own, so that a recurring failure latches onto one thread
+long-lived body a job rewrites in place. Only the two run-ops alarms
+(data-validation and the discovery frontier) edit a body, and each only its
+own, so that a recurring failure latches onto one thread
 instead of spamming new ones. That split is what keeps an open issue worth
 reacting to, and it is why an alarm never depends on a later window firing to
 stay honest.

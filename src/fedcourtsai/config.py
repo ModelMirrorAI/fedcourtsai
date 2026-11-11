@@ -456,6 +456,45 @@ def load_courtlistener_budget(config_root: Path) -> CourtListenerBudget:
     return CourtListenerBudget.model_validate(data["courtlistener_budget"])
 
 
+class FrontierCheckConfig(BaseModel):
+    """The discovery frontier check's probes and alarm thresholds (`live.frontier_check`).
+
+    The check confirms, at most once a UTC day inside the live cycle, that each
+    of the current Term's numbering streams reached the Court's real frontier:
+    it reads the Court's newest published lists, probes a fixed run of serials
+    past the cursor, and re-probes serials the cursor skipped
+    (`pipeline.discovery_frontier`). Every request is a supremecourt.gov read at
+    the live client's own pacing. Off by default, so a config that does not name
+    the section spends nothing.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = False
+    # Serials probed past each stream's cursor. Sequential discovery stops at
+    # `frontier_misses` consecutive unserved numbers, so a served number past
+    # that run is one it can never reach. 0 skips the probe.
+    lookahead: int = Field(default=10, ge=0, le=50)
+    # Skipped serials (below the cursor, no corpus row) re-probed per stream per
+    # reading, rotating through the stream's holes by day. 0 skips the re-probe.
+    hole_reprobes_per_stream: int = Field(default=10, ge=0, le=50)
+    # The Court's newest order lists and miscellaneous orders read for the
+    # docket numbers they name. 0 reads no list, the Granted & Noted list
+    # included.
+    outside_documents: int = Field(default=5, ge=0, le=20)
+    # Alarm when more than this many skipped serials of one stream now serve.
+    hole_alarm_over: int = Field(default=5, ge=0)
+    # Alarm when a stream's newest held docket is this many business days old:
+    # the paid and application streams, the IFP stream, and every stream in the
+    # summer recess (July through September).
+    stall_business_days: int = Field(default=3, ge=1)
+    ifp_stall_business_days: int = Field(default=7, ge=1)
+    recess_stall_business_days: int = Field(default=10, ge=1)
+    # Alarm when a stream's stored reading is older than this many days: the
+    # check itself has stopped running.
+    stale_check_days: int = Field(default=3, ge=1)
+
+
 class LiveConfig(BaseModel):
     """The ``live:`` section of ``tracking.yaml`` — the SCOTUS live channel.
 
@@ -549,6 +588,7 @@ class LiveConfig(BaseModel):
     # observed late-filing tail; the `le` cap keeps it a *window*, since a value
     # past ~182 would make dual-Term probing year-round.
     outgoing_term_grace_days: int = Field(default=60, ge=0, le=182)
+    frontier_check: FrontierCheckConfig = Field(default_factory=FrontierCheckConfig)
 
     @model_validator(mode="after")
     def _reserve_leaves_most_of_the_cycle(self) -> Self:

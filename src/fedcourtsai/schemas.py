@@ -15256,14 +15256,75 @@ class ConferenceBucket(_Strict):
     petitions: int = Field(ge=0)
 
 
+class DiscoveryFrontierStream(_Strict):
+    """One numbering stream's standing against the Court's real frontier.
+
+    The cursor and its holes are read from the corpus as it stands; the outside
+    number, the look-ahead hits and the re-probed holes are the stream's stored
+    reading (``live_frontier_checks``), each kept only while the cursor has not
+    caught it. ``alarms`` is empty for a stream with nothing to act on.
+    """
+
+    stream: Literal["paid", "ifp", "application"]
+    cursor: int | None = Field(
+        default=None, description="Highest serial discovery has served; None before the first"
+    )
+    frontier: int | None = Field(
+        default=None, description="Serial the frontier was last stamped at, when a walk reached it"
+    )
+    newest_filed: date | None = Field(
+        default=None, description="Latest filing date among the stream's newest held dockets"
+    )
+    quiet_business_days: int | None = Field(
+        default=None,
+        ge=0,
+        description="Weekdays after newest_filed and before the as-of date; holidays count",
+    )
+    stall_threshold: int = Field(ge=1, description="Quiet business days at which the stream alarms")
+    holes: int = Field(ge=0, default=0, description="Serials below the cursor with no corpus row")
+    checked_on: date | None = Field(default=None, description="Day of the stored reading, if any")
+    outside_serial: int | None = Field(
+        default=None, description="Highest serial of this stream named on the Court's lists read"
+    )
+    outside_source: str | None = Field(
+        default=None, description="The list that named outside_serial"
+    )
+    lookahead_hits: list[int] = Field(
+        default_factory=list,
+        description="Served serials above the cursor that sequential probing cannot reach",
+    )
+    holes_reprobed: int = Field(ge=0, default=0, description="Holes re-probed in the reading")
+    holes_serving: list[int] = Field(
+        default_factory=list, description="Holes that served on a re-probe and are still unheld"
+    )
+    problems: list[str] = Field(
+        default_factory=list, description="What the stored reading could not read"
+    )
+    alarms: list[str] = Field(default_factory=list, description="One line per tripped threshold")
+
+
+class DiscoveryFrontier(_Strict):
+    """The discovery frontier check's verdict over the current Term's streams.
+
+    Monitoring, not a scored figure: it says whether a docket could have been
+    missed at the source, and nothing here enters a board or a base rate.
+    ``ok`` is false when any stream carries an alarm.
+    """
+
+    term: int = Field(ge=0, le=99, description="Two-digit docket Term the streams belong to")
+    ok: bool
+    streams: list[DiscoveryFrontierStream] = Field(default_factory=list)
+
+
 class LiveFrontier(_Strict):
     """``live-frontier.json`` — the live cert watchlist's readiness snapshot.
 
     Produced where the corpus is already pulled (``fedcourts live-frontier``,
     published by the corpus-writer path like the validation verdict) and
     rendered corpus-free by ``run-ops``: watchlist size, the distribution
-    calendar, and how many watchlist petitions carry provisioned filed-document
-    text. ``next_conference`` is relative to the supplied as-of date.
+    calendar, how many watchlist petitions carry provisioned filed-document
+    text, and the discovery frontier check's verdict. ``next_conference`` is
+    relative to the supplied as-of date.
     """
 
     schema_version: Literal["1.0"] = SCHEMA_VERSION
@@ -15281,6 +15342,10 @@ class LiveFrontier(_Strict):
     conferences: list[ConferenceBucket] = Field(default_factory=list)
     documents_provisioned: int = Field(
         ge=0, default=0, description="Watchlist petitions with >= 1 stored filed document"
+    )
+    discovery: DiscoveryFrontier | None = Field(
+        default=None,
+        description="The discovery frontier check's verdict; None when the check is off",
     )
 
 

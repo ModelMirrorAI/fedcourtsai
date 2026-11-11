@@ -21,10 +21,207 @@
       ],
       "title": "ConferenceBucket",
       "type": "object"
+    },
+    "DiscoveryFrontier": {
+      "additionalProperties": false,
+      "description": "The discovery frontier check's verdict over the current Term's streams.\n\nMonitoring, not a scored figure: it says whether a docket could have been\nmissed at the source, and nothing here enters a board or a base rate.\n``ok`` is false when any stream carries an alarm.",
+      "properties": {
+        "ok": {
+          "title": "Ok",
+          "type": "boolean"
+        },
+        "streams": {
+          "items": {
+            "$ref": "#/$defs/DiscoveryFrontierStream"
+          },
+          "title": "Streams",
+          "type": "array"
+        },
+        "term": {
+          "description": "Two-digit docket Term the streams belong to",
+          "maximum": 99,
+          "minimum": 0,
+          "title": "Term",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "term",
+        "ok"
+      ],
+      "title": "DiscoveryFrontier",
+      "type": "object"
+    },
+    "DiscoveryFrontierStream": {
+      "additionalProperties": false,
+      "description": "One numbering stream's standing against the Court's real frontier.\n\nThe cursor and its holes are read from the corpus as it stands; the outside\nnumber, the look-ahead hits and the re-probed holes are the stream's stored\nreading (``live_frontier_checks``), each kept only while the cursor has not\ncaught it. ``alarms`` is empty for a stream with nothing to act on.",
+      "properties": {
+        "alarms": {
+          "description": "One line per tripped threshold",
+          "items": {
+            "type": "string"
+          },
+          "title": "Alarms",
+          "type": "array"
+        },
+        "checked_on": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Day of the stored reading, if any",
+          "title": "Checked On"
+        },
+        "cursor": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Highest serial discovery has served; None before the first",
+          "title": "Cursor"
+        },
+        "frontier": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Serial the frontier was last stamped at, when a walk reached it",
+          "title": "Frontier"
+        },
+        "holes": {
+          "default": 0,
+          "description": "Serials below the cursor with no corpus row",
+          "minimum": 0,
+          "title": "Holes",
+          "type": "integer"
+        },
+        "holes_reprobed": {
+          "default": 0,
+          "description": "Holes re-probed in the reading",
+          "minimum": 0,
+          "title": "Holes Reprobed",
+          "type": "integer"
+        },
+        "holes_serving": {
+          "description": "Holes that served on a re-probe and are still unheld",
+          "items": {
+            "type": "integer"
+          },
+          "title": "Holes Serving",
+          "type": "array"
+        },
+        "lookahead_hits": {
+          "description": "Served serials above the cursor that sequential probing cannot reach",
+          "items": {
+            "type": "integer"
+          },
+          "title": "Lookahead Hits",
+          "type": "array"
+        },
+        "newest_filed": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Latest filing date among the stream's newest held dockets",
+          "title": "Newest Filed"
+        },
+        "outside_serial": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Highest serial of this stream named on the Court's lists read",
+          "title": "Outside Serial"
+        },
+        "outside_source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The list that named outside_serial",
+          "title": "Outside Source"
+        },
+        "problems": {
+          "description": "What the stored reading could not read",
+          "items": {
+            "type": "string"
+          },
+          "title": "Problems",
+          "type": "array"
+        },
+        "quiet_business_days": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Weekdays after newest_filed and before the as-of date; holidays count",
+          "title": "Quiet Business Days"
+        },
+        "stall_threshold": {
+          "description": "Quiet business days at which the stream alarms",
+          "minimum": 1,
+          "title": "Stall Threshold",
+          "type": "integer"
+        },
+        "stream": {
+          "enum": [
+            "paid",
+            "ifp",
+            "application"
+          ],
+          "title": "Stream",
+          "type": "string"
+        }
+      },
+      "required": [
+        "stream",
+        "stall_threshold"
+      ],
+      "title": "DiscoveryFrontierStream",
+      "type": "object"
     }
   },
   "additionalProperties": false,
-  "description": "``live-frontier.json`` \u2014 the live cert watchlist's readiness snapshot.\n\nProduced where the corpus is already pulled (``fedcourts live-frontier``,\npublished by the corpus-writer path like the validation verdict) and\nrendered corpus-free by ``run-ops``: watchlist size, the distribution\ncalendar, and how many watchlist petitions carry provisioned filed-document\ntext. ``next_conference`` is relative to the supplied as-of date.",
+  "description": "``live-frontier.json`` \u2014 the live cert watchlist's readiness snapshot.\n\nProduced where the corpus is already pulled (``fedcourts live-frontier``,\npublished by the corpus-writer path like the validation verdict) and\nrendered corpus-free by ``run-ops``: watchlist size, the distribution\ncalendar, how many watchlist petitions carry provisioned filed-document\ntext, and the discovery frontier check's verdict. ``next_conference`` is\nrelative to the supplied as-of date.",
   "properties": {
     "conferences": {
       "items": {
@@ -32,6 +229,18 @@
       },
       "title": "Conferences",
       "type": "array"
+    },
+    "discovery": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DiscoveryFrontier"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The discovery frontier check's verdict; None when the check is off"
     },
     "documents_provisioned": {
       "default": 0,

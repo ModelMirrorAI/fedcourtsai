@@ -317,7 +317,12 @@ Per-court discovery watermarks (`discovery_watermarks`: `court`, `last_filed`)
 are dormant in production (`pull.discover_new_filings` is off — the live
 channel onboards SCOTUS filings). The live channel's and the historical
 walker's per-(Term, stream) cursors share one `live_discovery_cursors` table
-with disjoint stream names and the same only-moves-forward semantics. Beside
+with disjoint stream names and the same only-moves-forward semantics. The
+discovery frontier check's last reading per forward (Term, stream) sits in
+`live_frontier_checks`: the day it was taken, the cursor it was taken
+against, the highest number the Court's lists named, the served serials past
+the cursor the walk cannot reach, and the skipped serials that now serve
+(`docs/live-sources.md`). It is monitoring state that no walk reads back. Beside
 each cursor's `last_serial` sits a nullable `frontier_serial` — where the
 stream's end (consecutive 404s) was last observed; `frontier_serial =
 last_serial` reads as *walk complete at the current cursor*, and the cursor
