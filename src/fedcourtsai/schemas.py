@@ -4079,7 +4079,7 @@ class RetrievalLog(_Strict):
 
 
 class ReliabilityBin(_Strict):
-    """One registered probability bin of a forward block's reliability table.
+    """One registered probability bin of a cert block's reliability table.
 
     Each event enters once, under its predictor's own forecast for the stage's
     binary target. The edges are registered and the same on every block, so a
@@ -4713,7 +4713,7 @@ _MERITS_BASELINE_FIELDS: Final = (
 )
 
 #: The forecast-calibration figures a stratum omits while null: a block with no
-#: cert facts (a non-cert stage, or a board built before the fields existed)
+#: cert facts (a non-cert stage, or a committed board that carries none)
 #: serializes as it did without them.
 _CALIBRATION_FIELDS: Final = (
     "grants_forecast",

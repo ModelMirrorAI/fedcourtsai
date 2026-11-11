@@ -1627,7 +1627,7 @@
     },
     "ReliabilityBin": {
       "additionalProperties": false,
-      "description": "One registered probability bin of a forward block's reliability table.\n\nEach event enters once, under its predictor's own forecast for the stage's\nbinary target. The edges are registered and the same on every block, so a\nbin is listed even where it is empty. The two rates are null under the\nregistered minimum count: a rate over a handful of events is one or two\noutcomes, not a calibration reading.",
+      "description": "One registered probability bin of a cert block's reliability table.\n\nEach event enters once, under its predictor's own forecast for the stage's\nbinary target. The edges are registered and the same on every block, so a\nbin is listed even where it is empty. The two rates are null under the\nregistered minimum count: a rate over a handful of events is one or two\noutcomes, not a calibration reading.",
       "properties": {
         "events": {
           "description": "Distinct events whose forecast fell in this bin",

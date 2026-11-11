@@ -18641,9 +18641,9 @@ freeze commit is recorded here.
   say, and a calibration fault and a discrimination fault have different
   fixes.
 
-  **The fields.** On every block a cert stratum is built for (each entry's
-  pooled strata, its `by_protocol`, `by_band` and `by_link` cuts, and each
-  paired engine's figure), over the events of the gradings that carry a Brier
+  **The fields.** On every block a cert stratum is built for (among them
+  each entry's pooled strata, its `by_protocol`, `by_band` and `by_link` cuts,
+  and each paired engine's figure), over the events of the gradings that carry a Brier
   score and outcome facts, the set `in_sample_events_scored` counts, each
   event entering once at the mean of its gradings' scored-prediction
   `probability`:
@@ -18670,8 +18670,9 @@ freeze commit is recorded here.
 
   **The reading rule** (`metrics/README.md`, beside the grant counts).
   - **Diagnostic only.** None of the fields is a rank key or a headline, and
-    no ordering of engines may be read off them: the entries' own forward
-    blocks span different events.
+    no ordering of engines may be read off them: an entry's own forward block
+    spans events no other engine shares, and on the paired figure, where the
+    events are shared, the fields are still no rank key.
   - **A forecast count above the realized one is not yet a calibration
     reading** on a cohort with relisted or held petitions pending. Those
     petitions grant more often and are not in the scored set until they
@@ -18702,10 +18703,11 @@ freeze commit is recorded here.
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_leaderboard.py -k "reliability or
-    grants_forecast or murphy or calibration"` is green;
+    grants_forecast or murphy or calibration"` is green (eight tests);
   - on `main` after the first metrics refresh that follows the promotion, `jq
     -c '.entries[] | [.predictor_id, .forward.grants_forecast,
     .forward.grants_forecast_realized, .forward.grants_forecast_scored,
-    (.forward.reliability_bins | length)]' metrics/leaderboard.json` prints,
+    .forward.in_sample_events_scored, (.forward.reliability_bins | length)]'
+    metrics/leaderboard.json` prints,
     for each predictor, a forecast count, a realized count, an event count
     equal to that block's `in_sample_events_scored`, and `6`.

@@ -251,8 +251,10 @@ Five blocks, in the order a reader needs them:
   (at a handful of realized grants one call moves it by whole points), and,
   grading-weighted, the mean Brier and the Brier skill against the
   strictly-prior segment base rate beside its grading count — the figure to
-  read — and the engine's own forecast grant count (its summed P(granted))
-  beside the grants that realized on the same events. Under the table, the gradings the build dropped for suspected leakage
+  read; and, per event, the engine's own forecast grant count (its summed
+  P(granted)) beside the grants that realized on the binary target and the
+  events both are over, a gap that reads as over- or under-forecasting only
+  once the cohort's relisted and held petitions have resolved. Under the table, the gradings the build dropped for suspected leakage
   (by predictor) or set aside as not shown to be forward, counted across every
   stage and so not subtractable from the cert figures. It leads the scored
   blocks because it is the program's output; the back-tests after it are

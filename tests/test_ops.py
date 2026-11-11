@@ -3746,7 +3746,7 @@ def test_the_weekly_digest_prints_each_engines_own_grant_forecast() -> None:
     md = ops.render_weekly_digest(_empty_report(), analytics=_analytics(leaderboard=board))
 
     assert "| Brier skill | Grants forecast |" in md
-    assert "| +0.65 (330 gradings) | 9.4 (6 realized) |" in md
+    assert "| +0.65 (330 gradings) | 9.4 (6 realized of 110) |" in md
     assert "| +0.65 (330 gradings) | — |" in md
 
 

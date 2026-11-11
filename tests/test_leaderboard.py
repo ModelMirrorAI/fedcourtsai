@@ -4287,7 +4287,7 @@ def test_grants_forecast_sums_the_predictors_own_probabilities_once_per_event() 
     assert block.grants_forecast_scored == block.in_sample_events_scored
 
 
-def test_two_runs_of_one_event_enter_at_their_mean_forecast() -> None:
+def test_grants_forecast_takes_two_runs_of_one_event_at_their_mean() -> None:
     graded = [
         (_evaluation("alpha", event_id="evt-a", evaluator_id="eval-a"), 0.2, 0),
         (_evaluation("alpha", event_id="evt-a", evaluator_id="eval-b"), 0.4, 0),
@@ -4297,7 +4297,7 @@ def test_two_runs_of_one_event_enter_at_their_mean_forecast() -> None:
     assert [b.events for b in block.reliability_bins] == [0, 0, 0, 1, 0, 0]
 
 
-def test_every_registered_bin_is_listed_and_a_thin_bin_carries_counts_only() -> None:
+def test_every_reliability_bin_is_listed_and_a_thin_bin_carries_counts_only() -> None:
     # Twelve events at 0.02 (none granted) fill the first bin past the minimum;
     # two at 0.8 (both granted) leave the top bin under it.
     low = [(_evaluation("alpha", event_id=f"evt-low-{i}"), 0.02, 0) for i in range(12)]
@@ -4350,9 +4350,17 @@ def test_calibration_fields_need_cert_facts_and_a_brier() -> None:
     assert plain.grants_forecast is None
     assert plain.grants_forecast_scored is None
     assert plain.reliability_bins == []
+    # A block with no forecast count serializes as it did without the fields.
+    dumped = plain.model_dump(mode="json")
+    assert "grants_forecast" not in dumped
+    assert "forecast_reliability" not in dumped
+    assert "reliability_bins" not in dumped
+    assert "reliability_bins" in forward.model_dump(mode="json")
 
 
-def test_cell_facts_carry_the_scored_predictions_probability(tmp_path: Path) -> None:
+def test_calibration_reads_the_scored_predictions_probability_off_cell_facts(
+    tmp_path: Path,
+) -> None:
     ev = _evaluation("alpha", event_id="evt-a")
     _write_cell(tmp_path, ev, context=_band_context("high"))
     event = CasePaths(tmp_path, "scotus", 123).event("evt-a")

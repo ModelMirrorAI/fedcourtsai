@@ -411,8 +411,8 @@ class CellFacts:
     #: The scored prediction's harness clock (:func:`fedcourtsai.integrity.cell_clock`)
     #: — what "earliest counted cell" means when a paired event is filed under a band.
     clock: datetime
-    #: The scored prediction's own P for the binary target ``granted`` is the
-    #: ``y`` of — what the calibration fields sum and bin.
+    #: The scored prediction's own probability of the binary target ``granted``
+    #: — what the calibration fields sum and bin.
     probability: float
     #: The ``by_link`` key: whether the scored prediction froze a ``Vide`` link.
     link_key: str = NO_LINK_KEY
