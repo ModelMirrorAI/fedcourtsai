@@ -24,6 +24,12 @@ maintainer's triage:
   Where the order's text is given, its decretal language must not disagree;
   it never resolves an event on its own, and an opinion whose docket text
   states no ruling is triage. Leave is read from the docket text only.
+- **A ruling that cites the motion after its title** is read in three plain
+  forms, in the capitals the court wrote: ``I GRANT … Motion … (D.I. 672).``,
+  ``… Motion to Dismiss (Doc. No. 54) is GRANTED.`` and ``ORDER GRANTING
+  MOTION FOR PRELIMINARY INJUNCTION 6 .``. The title must be the movant and
+  one of the stage's motions; a ruling on the cited motion in any other
+  shape, or beside a limit or a second ruling, is triage.
 - **A restraining order is not the injunction.** A motion that asks for both
   is an injunction event. A ruling whose text names a restraining order is
   passed over, and one on such a motion that names neither half is triage.
@@ -54,7 +60,7 @@ from enum import StrEnum
 from typing import Any, Final
 
 #: The label of the reading rule below. A changed rule is a new label.
-RESOLVER_RULE: Final = "trial-resolver-v2"
+RESOLVER_RULE: Final = "trial-resolver-v3"
 
 
 class TrialMoment(StrEnum):
@@ -457,9 +463,167 @@ def read_docket_ruling(text: str, number: int) -> Reading:
         found.add(ruling)
         leave = read_leave(cleaned[verb.start() : end + len(run)])
     if not found:
-        return Reading(None, leave)
+        return _read_cited_ruling(cleaned, number)
     if len(found) > 1:
         return Reading(None, leave, "the docket text rules on the motion in more than one way")
+    (ruling,) = found
+    return Reading(ruling, leave)
+
+
+# --- rulings that cite the motion after naming it ------------------------------
+
+# Three further forms put the motion's number after its title, so the ruling
+# verb's object is the title and not the number. Each is read in the case the
+# court wrote it, because the ruling words are its capitals, and each reads
+# only its plain shape: a sentence that stands where a sentence starts, whose
+# title is one of the stage's motions and nothing else. A text that rules on
+# the cited number in any other shape is triage.
+#
+# These patterns run on text `_clean` has collapsed to single spaces.
+_CITE = r"\((?:D\.I\.|Doc\.|Dkt\.|ECF) ?(?:Nos?\.)? ?\[? ?(?P<cited>\d+) ?\]? ?\)"
+_VERB_1P = (
+    r"(?P<verb>GRANT IN PART AND DENY IN PART|DENY IN PART AND GRANT IN PART|GRANT IN PART|"
+    r"DENY IN PART|(?:DENY|DISMISS) AS MOOT|GRANT|DENY)"
+)
+# Where a sentence starts: the body's first word, or after a full stop that
+# closes a lower-case word or a citation (so not after "Inc." or "P.").
+_SENTENCE = r"(?:^|(?<=[a-z)]\. ))"
+# "I GRANT Plaintiffs' Motion for Summary Judgment on Fair Use (D.I. 672)."
+_FIRST_PERSON = re.compile(
+    _SENTENCE + r"(?:Because [^.;()]{0,160}, )?I " + _VERB_1P + r" "
+    r"(?P<title>[^()]{1,240}?(?:\(No\. ?\d+\)[^()]{0,80}?)?) ?" + _CITE + r" ?(?P<end>[.;]|$)"
+)
+_FIRST_PERSON_LOOSE = re.compile(r"\bI (?:GRANT|DENY|DISMISS)\b[^.;]{0,300}?" + _CITE)
+# "Defendant's Motion to Dismiss (Doc. No. 54) is GRANTED."
+_PASSIVE_CITED = re.compile(
+    _SENTENCE + r"(?P<title>[^()]{1,200}?) ?" + _CITE + r" (?:is|are) (?:hereby )?"
+    r"(?P<verb>GRANTED IN PART AND DENIED IN PART|DENIED IN PART AND GRANTED IN PART|"
+    r"GRANTED|DENIED)(?P<end> ?\.|$)"
+)
+_PASSIVE_LOOSE = re.compile(_CITE + r" (?:is|are) (?:hereby )?(?:not )?(?i:granted|denied)\b")
+# "ORDER GRANTING MOTION FOR PRELIMINARY INJUNCTION 6 ."
+_VERB_CAPS = (
+    r"(?P<verb>GRANTING IN PART AND DENYING IN PART|DENYING IN PART AND GRANTING IN PART|"
+    r"GRANTING IN PART|DENYING IN PART|DENYING AS MOOT|GRANTING|DENYING)"
+)
+_CAPS_TITLE = re.compile(
+    _VERB_CAPS + r" (?:(?:[A-Z.&]+ ){0,3}[A-Z.&]+['\u2019]S? )?MOTION (?:FOR|TO) "
+    r"(?:(?:PARTIAL )?SUMMARY JUDGMENT|DISMISS|CLASS CERTIFICATION|(?:A )?PRELIMINARY INJUNCTION)"
+    r" (?P<cited>\d+) ?(?P<end>[.;]|$)"
+)
+_CAPS_LOOSE = re.compile(
+    r"(?:GRANTING|DENYING)\b[A-Z'\u2019 ,.&-]{0,200}?\bMOTIONS?\b[A-Z'\u2019 ,.&-]{0,200}? "
+    r"(?P<numbers>\d+(?: \d+)*) ?(?:[.;]|$)"
+)
+# "ORDER ON 166 215 CROSS MOTIONS FOR SUMMARY JUDGMENT": the ruling is in the order.
+_ORDER_ON = re.compile(r"ON (?P<numbers>\d+(?: \d+)*) [A-Z'\u2019 -]{0,40}?MOTIONS?\b")
+# The title of one of the stage's motions and nothing else: the movant, the
+# motion, and at most what it is "on".
+_CITED_TITLE = re.compile(
+    r"(?:the )?(?:(?:[A-Z][\w.,&-]* ){0,4}[A-Z][\w.,&-]*(?:'s?|\u2019s?) )?"
+    r"(?i:(?:(?:renewed|partial|cross|joint|amended)[ -])*motion (?:for|to) "
+    r"(?:(?:partial )?summary judgment|dismiss|class certification|"
+    r"certify (?:a |the )?class|(?:a )?preliminary injunction))"
+    r"(?P<tail>(?: on [^()]{1,120}?(?: ?\(No\. ?\d+\)[^()]{0,80}?)?)?)"
+)
+_NAMES_MOTION = re.compile(r"\bmotions?\b", re.I)
+# A first-person ruling on a motion that is none of the stage's (to preclude,
+# to exclude, to seal): its ruling words are not about the cited motion.
+_OTHER_MOTION = re.compile(
+    _SENTENCE + r"(?:Because [^.;()]{0,160}, ?)?I " + _VERB_1P + r" "
+    r"(?:[A-Z][\w.&-]*['\u2019]?s?['\u2019]? ){0,4}Motions? (?:to|for|in) "
+    r"(?!(?i:(?:partial )?summary judgment|dismiss|class certification|certify|"
+    r"(?:a )?preliminary injunction)\b)"
+)
+# A ruling word in the court's capitals, or a word that limits a ruling, left
+# in the text once its plain rulings are taken out.
+_LEFT_OVER = re.compile(
+    r"\b(?:GRANT|DEN[YI])\w*|(?i:\bhowever\b|\botherwise\b|\bother respects\b|\bsurviv\w*|"
+    r"\bproceed\w*|\bexcept\b|\bas to\b|\breserv\w*|\bcounts? [IVX\d]+\b|\bin part\b)"
+)
+# A text that states a ruling it does not make.
+_NOT_A_RULING = re.compile(
+    r"\btentative\w*|\binclined\b|\brecommend\w*|\bshow cause\b|\bunless\b|\bif\b|"
+    r"\bpreviously\b|\breconsider\w*|\bvacat\w*",
+    re.I,
+)
+_PLAIN_RULING: Final[dict[str, MotionRuling]] = {
+    "GRANT": MotionRuling.granted,
+    "GRANTED": MotionRuling.granted,
+    "GRANTING": MotionRuling.granted,
+    "DENY": MotionRuling.denied,
+    "DENIED": MotionRuling.denied,
+    "DENYING": MotionRuling.denied,
+    "GRANT IN PART": MotionRuling.granted_in_part,
+    "GRANTING IN PART": MotionRuling.granted_in_part,
+    "DENY IN PART": MotionRuling.granted_in_part,
+    "DENYING IN PART": MotionRuling.granted_in_part,
+    "GRANT IN PART AND DENY IN PART": MotionRuling.granted_in_part,
+    "GRANTED IN PART AND DENIED IN PART": MotionRuling.granted_in_part,
+    "GRANTING IN PART AND DENYING IN PART": MotionRuling.granted_in_part,
+    "DENY IN PART AND GRANT IN PART": MotionRuling.granted_in_part,
+    "DENIED IN PART AND GRANTED IN PART": MotionRuling.granted_in_part,
+    "DENYING IN PART AND GRANTING IN PART": MotionRuling.granted_in_part,
+    "DENY AS MOOT": MotionRuling.mooted,
+    "DISMISS AS MOOT": MotionRuling.mooted,
+    "DENYING AS MOOT": MotionRuling.mooted,
+}
+_UNSETTLED = "the docket text names the motion in a ruling the rule will not settle"
+
+
+def _is_cited_title(title: str) -> bool:
+    """Whether ``title`` is one of the stage's motions and nothing else."""
+    match = _CITED_TITLE.fullmatch(title.strip())
+    if match is None:
+        return False
+    tail = match.group("tail")
+    return not (_QUALIFIER.search(tail) or _NAMES_MOTION.search(tail))
+
+
+def _read_cited_ruling(  # noqa: PLR0912 - one branch per form and per refusal
+    cleaned: str, number: int
+) -> Reading:
+    """Read the forms that cite motion ``number`` after its title."""
+    head = _DOCKET_HEAD.match(cleaned)
+    trailer = _TRAILER.search(cleaned)
+    body = cleaned[head.end() if head is not None else 0 : trailer.start() if trailer else None]
+    found: set[MotionRuling] = set()
+    unsettled = False
+    spans: list[tuple[int, int]] = []
+    for match in (*_FIRST_PERSON.finditer(body), *_PASSIVE_CITED.finditer(body)):
+        spans.append(match.span())
+        if int(match.group("cited")) != number:
+            continue
+        if _is_cited_title(match.group("title")):
+            found.add(_PLAIN_RULING[match.group("verb")])
+        else:
+            unsettled = True
+    if head is not None:
+        caps = _CAPS_TITLE.match(body)
+        if caps is not None:
+            spans.append(caps.span())
+            if int(caps.group("cited")) == number:
+                found.add(_PLAIN_RULING[caps.group("verb")])
+        else:
+            loose = _CAPS_LOOSE.match(body) or _ORDER_ON.match(body)
+            if loose is not None and number in {int(n) for n in loose.group("numbers").split()}:
+                unsettled = True
+    if not found:
+        # A ruling on the cited number in any other shape.
+        unsettled = unsettled or any(
+            int(match.group("cited")) == number
+            for match in (*_FIRST_PERSON_LOOSE.finditer(body), *_PASSIVE_LOOSE.finditer(body))
+        )
+        return Reading(None, Leave.unstated, _UNSETTLED if unsettled else None)
+    rest = body
+    spans.extend(match.span() for match in _OTHER_MOTION.finditer(body))
+    for start, end in spans:
+        rest = rest[:start] + " " * (end - start) + rest[end:]
+    if unsettled or len(found) > 1 or _LEFT_OVER.search(rest) or _NOT_A_RULING.search(body):
+        return Reading(None, Leave.unstated, _UNSETTLED)
+    leave = read_leave(body)
+    if len(spans) > 1 and leave is not Leave.unstated:
+        return Reading(None, leave, "the docket text grants or denies leave among several rulings")
     (ruling,) = found
     return Reading(ruling, leave)
 
