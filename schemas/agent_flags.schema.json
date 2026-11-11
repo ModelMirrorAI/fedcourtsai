@@ -65,7 +65,7 @@
       "type": "object"
     },
     "FlagCategory": {
-      "description": "What kind of thing an agent flag is about, for maintainer triage.\n\n``provisioning`` is a cell's record that lacks something the pipeline should\nhave staged; ``capture-gap`` an outcome or docket record that cannot show\nwhat a forecast or grading needed; ``leakage-disclosure`` a note that\noutcome material about the case reached the cell or a candidate it grades\n(on a replay cell, material postdating its ``context.cutoff``).\n``blocked`` stays valid for every file that carries it; severity ``blocker``\nis what says a cell could not finish, under whatever category.",
+      "description": "What kind of thing an agent flag is about, for maintainer triage.\n\n``provisioning`` is a cell's record that lacks something the pipeline should\nhave staged; ``capture-gap`` an outcome or docket record that cannot show\nwhat a forecast or grading needed; ``leakage-disclosure`` a note that\noutcome material about the case reached the cell or a candidate it grades\n(on a replay cell, material postdating its ``context.cutoff``);\n``forecast-exposure`` a note that someone else's forecast of the case \u2014 this\nproject's published predictions or any other \u2014 reached a predict cell, or\nthat the cell's logged calls named where this project publishes its own.\n``blocked`` stays valid for every file that carries it; severity ``blocker``\nis what says a cell could not finish, under whatever category.",
       "enum": [
         "data-quality",
         "scope",
@@ -73,6 +73,7 @@
         "provisioning",
         "capture-gap",
         "leakage-disclosure",
+        "forecast-exposure",
         "blocked",
         "other"
       ],
