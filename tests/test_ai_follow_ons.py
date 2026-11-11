@@ -536,3 +536,38 @@ def test_check_command_writes_the_report_the_alarm_and_the_digest_line(
     assert [row["case_id"] for row in report["scotus"]] == ["scotus/1"]
     assert "scotus/1" in alarm.read_text(encoding="utf-8")
     assert digest.read_text(encoding="utf-8").startswith("AI watchlist: 1 unlinked")
+
+
+def test_a_stored_check_reads_back_and_goes_stale_with_age(tmp_path: Path) -> None:
+    clean = ai_follow_ons.WatchlistCheck(
+        generated_at=_NOW.isoformat(timespec="seconds"), listed=4, stale_after_days=7
+    )
+    stored = json.dumps({"ok": True, **clean.model_dump(mode="json")})
+
+    fresh = ai_follow_ons.read_back(stored, now=_NOW + timedelta(days=2))
+    assert (fresh.reading_age_days, fresh.ok) == (2, True)
+
+    old = ai_follow_ons.read_back(stored, now=_NOW + timedelta(days=3))
+    assert (old.reading_age_days, old.ok) == (3, False)
+    assert "the last check is 3 days old (2026-11-11)" in digest_line(old)
+    assert "has not run for 3 days" in render_alarm(old)
+
+    with pytest.raises(ValueError):
+        ai_follow_ons.read_back("[]")
+    with pytest.raises(ValueError):
+        ai_follow_ons.read_back(json.dumps({"listed": 4}))
+
+    report = tmp_path / "check.json"
+    report.write_text(stored, encoding="utf-8")
+    digest = tmp_path / "line.txt"
+    result = CliRunner().invoke(
+        app, ["ai-watchlist-check", "--from-report", str(report), "--digest-out", str(digest)]
+    )
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.stdout)["reading_age_days"] is not None
+    assert digest.read_text(encoding="utf-8").startswith("AI watchlist:")
+
+    report.write_text("not json", encoding="utf-8")
+    assert (
+        CliRunner().invoke(app, ["ai-watchlist-check", "--from-report", str(report)]).exit_code == 2
+    )
