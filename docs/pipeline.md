@@ -2874,6 +2874,18 @@ its JSON (`counts.case_reconciliation`) and `evaluate-plan` the monitor
 backfills the monitor over a longer window. The blocks are described in
 [cli.md](cli.md).
 
+Both guards measure delivery against what selection funded, so neither sees a
+selection gap: a grant on a petition the salience pass left unselected is
+declined `not_funded`, by design. `fedcourts unforecast-outcomes` is the
+readout for that side. It starts from the outcome (every grant-family paid
+petition, and every application referred to the Court or read substantive,
+resolved in a window), lists the ones no committed forecast preceded with the
+reason and band, reports the share of grants a forecast preceded for the
+window and the Term to date, and exits 3 on an alarm: an unforecast grant in
+the `federal` band, one a looser reading than the caption rule places federal,
+or Term-to-date recall under its floor. The figures are outcome-selected and
+describe selection, never a predictor; [cli.md](cli.md) has the rules.
+
 That is the shape both workflows invoke, on every round. The commands
 still accept an explicit case list — a ` ```json ``` ` block by `--body-file`, or
 `--court`/`--docket` — which is what a local dry run of one case uses; no

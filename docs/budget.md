@@ -55,16 +55,14 @@ up by `fedcourts usage-summary`), so the rates can be re-anchored from
 measurement rather than assumed. Re-anchoring is a deliberate edit to the pinned
 rate table the plans price against, never a drift: the figures move when someone
 moves them. That table (`src/fedcourtsai/planning_rates.py`) prices a fully
-predicted and evaluated event at about $17.70, well above the measured
+predicted and evaluated event at about $18.07, well above the measured
 figures. Pricing high errs toward holding: the review hold's per-round
 auto-release reads the table, and a round priced above
 `auto_release_usd_per_round` waits for a release. Its claude-code
 and codex rows are set from the pre-cutover measurements and anchors, well
-above the measured cells. Its gemini rows, $2.70 a prediction and $1.60 a
-grading run, are sized for the rate in force from 2026-12-01. The cells
-measured above double to about $2.80 and $1.86, so those two rows sit about
-3% and 14% below the projection and are owed a re-anchor before that date; the table's event total still stands well
-above the projected $7.35. [milestones.md](milestones.md) prices its plan at the table.
+above the measured cells. Its gemini rows, $2.80 a prediction and $1.90 a
+grading run, are the per-run Argon cells measured above doubled for the rate
+in force from 2026-12-01 and rounded up, so they hold across that change. [milestones.md](milestones.md) prices its plan at the table.
 
 **The plain-language case summaries also spend outside `events × cost per
 event`** ([case-summaries.md](case-summaries.md)). It is one non-agentic
@@ -123,22 +121,22 @@ the topic labeler's runs are what that window counts.)
 - **The replay** (`run-backtest`, `replay: merits`) runs every routable
   predictor on each drawn case at two moments, the grant and the briefed
   moment, so with the three engine predictors a case is two events. At the
-  planning table's predict rows ($4.27 claude-code + $1.88 codex + $2.70
-  gemini, $8.85 an event) a case prices at about $17.70, and the dispatch cap
-  of 20 cases at about $355. The
+  planning table's predict rows ($4.27 claude-code + $1.88 codex + $2.80
+  gemini, $8.95 an event) a case prices at about $17.90, and the dispatch cap
+  of 20 cases at about $360. The
   arm has no `review` hold, so the dispatch is the release: the 1–20 case cap,
   which the job's timeout sets, is its only bound.
 - **The pilot round** (`run-evaluate`, `mode: reasoning-pilot-merits`) grades
   the briefed moment's kept forecasts for up to 15 cases, one grading run per
-  evaluator per event. At the table's evaluate rows ($5.92 + $1.30 + $1.60,
-  $8.82 an event) that is about $130. The round is always held for a release
+  evaluator per event. At the table's evaluate rows ($5.92 + $1.30 + $1.90,
+  $9.12 an event) that is about $137. The round is always held for a release
   and never auto-released. It reads every writing of the decision, as every
   evaluate cell does, and the evaluate rows were measured on cert-stage
   gradings that read no opinion and graded no forecast document, so the figure
   reads low.
 
 Together, a 20-case replay and its pilot round (grading 15 of those cases)
-come to roughly $490, once. Both rates come from the planning table, not a
+come to roughly $495, once. Both rates come from the planning table, not a
 measurement, and neither round's cells reach the committed ledger, so
 `fedcourts usage-summary` never counts what they spent. What they spent is
 measured apart, with the rest of the test and staging spend below. No merits
