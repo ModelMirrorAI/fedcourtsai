@@ -11,18 +11,27 @@ and each entry is checked against the corpus four ways.
    disposition and its date.
 3. **Outcome record.** Where the row is selected or an event of the order's
    stage carries a prediction, the ledger holds an ``outcome.json`` for it.
-4. **Timeliness.** For an application, the row's first stored snapshot predates
-   the order: an application first seen only after it was ruled on could never
-   have been forecast.
+4. **Timeliness.** For an application, the row's first stored snapshot is
+   dated no later than the order: an application first seen only after it was
+   ruled on could never have been forecast. Snapshots are dated to the day, so
+   one first stored on the order's own day counts as timely.
 
 **What the list says.** The section heading is read first, because it is the
 Court's own classification and no grammar of this pipeline stands between it
-and the reading: every docket under ``CERTIORARI DENIED`` was denied, whatever
-its entry goes on to say about a motion. Order text is read only where the
-heading does not dispose of the docket (a summary disposition, an application,
-a document that prints no heading), and there the readers are the ones ingest
-applies to docket entries (:func:`~fedcourtsai.pipeline.cert_signals.match_disposition_signal`,
-:func:`~fedcourtsai.pipeline.interim_signals.match_interim_disposition`). A
+and the reading: a docket under ``CERTIORARI DENIED`` was denied, whatever its
+entry goes on to say about a motion. Under a denial heading the text is asked
+two narrow questions only, each by a pattern of this module: whether it
+dismisses the petition instead (Rule 39.8 dismissals are printed among the
+denials), and whether it denies leave to proceed in forma pauperis with time
+to pay, which leaves the petition pending. Under ``ORDERS IN PENDING CASES``
+it is asked whether the Solicitor General was invited. A disposition is read
+out of order text only where no heading gives one (a summary disposition, an
+application, a list that prints no heading), and there the readers are the
+ones ingest applies to docket entries
+(:func:`~fedcourtsai.pipeline.cert_signals.match_disposition_signal`,
+:func:`~fedcourtsai.pipeline.interim_signals.match_interim_disposition`), with
+one difference: an application's order is read clause by clause, so a side
+motion's word in the same sentence is not taken for the application's. A
 misreading those share is therefore not caught on such an entry; the heading
 reading, which covers most of a list, is independent of them.
 
@@ -30,13 +39,15 @@ reading, which covers most of a list, is independent of them.
 
 - ``out_of_frame``: a motion (``26M23``) or original (``22O141``) number, which
   the corpus does not follow;
+- ``no_row``: the corpus has no row for the number, whatever the entry says;
 - ``unparsed``: an entry under a heading outside the vocabulary here, or order
   text the readers take no disposition from where one was expected. Counted on
-  every report, so a grammar failure never reads as a clean list;
-- ``no_row``: the corpus has no row for the number;
+  every report, so a grammar failure on a docket the corpus holds never reads
+  as a clean list;
 - ``presence_only``: the entry disposes of nothing the corpus records (an order
   on a motion, a rehearing denied, an in forma pauperis denial that leaves the
-  petition pending), so presence is all there is to check;
+  petition pending), or the docket is named by a document that is not printed
+  as a list, whose order is not read. Presence is all there is to check;
 - ``renewed``: an application the corpus already records with the same
   disposition on an earlier date, which is how a renewed application to a
   second Justice reads;
@@ -45,14 +56,16 @@ reading, which covers most of a list, is independent of them.
 - ``matched``.
 
 **Alarms.** A listed docket with no row once the list is 48 hours old, a
-mismatch once it is two pull windows old, an outcome record still missing
-three days after its order, and any document the reader could not read at all
-(a failed fetch, an extraction with no text, an order list that yields no
-entry). The Court's listing dates a document to the day and not the hour, so a
-list's age is counted from the end of its day, UTC: an alarm can be late by up
-to that day, never early. Everything else is reported and never alarms: the
-unparsed and out-of-frame counts, the renewed applications, and the
-applications first observed after their ruling.
+mismatch once it is 12 hours old (two six-hour pull windows), an outcome
+record still missing once it is three days old, and any document the reader
+could not read whole (a failed fetch, an extraction with no text or cut at
+the cap, an order list that yields no entry). The Court's listing dates a
+document to the day and not the hour, so a list's age is counted from the end
+of its day, UTC: an alarm can be late by up to that day, never early.
+Everything else is reported and never alarms: the unparsed and out-of-frame
+counts, the renewed applications, the applications first stored after their
+order's day, those with no stored snapshot to date them by, and the documents
+whose cut recorded a problem.
 
 **Read-only, and not a scored figure.** Nothing here writes the corpus, the
 content store, the ledger or ``data/``. The readout is outcome-selected by
@@ -78,6 +91,7 @@ from .. import corpus
 from ..matrix import event_has_predictions
 from ..paths import CasePaths
 from ..schemas import GRANTED_DISPOSITIONS, Disposition, Stage
+from . import moments
 from .cert_signals import match_disposition_signal
 from .interim_signals import application_clauses, match_interim_disposition
 from .order_lineups import (
@@ -96,8 +110,8 @@ NO_ROW_GRACE: Final = timedelta(hours=48)
 MISMATCH_GRACE: Final = timedelta(hours=12)
 #: How long after its order a selected or predicted event may lack an outcome record.
 OUTCOME_GRACE: Final = timedelta(days=3)
-#: How far back a scheduled run reads. Every threshold above has passed well
-#: inside it, so a finding is re-reported for days after it first alarms.
+#: How far back the command reads by default. Every threshold above has passed
+#: well inside it, so a finding is re-reported for days after it first alarms.
 DEFAULT_LOOKBACK_DAYS: Final = 14
 
 _CORPUS_DOCKET_RE = re.compile(r"^\d{2}-\d{1,5}$|^\d{2}A\d{1,5}$")
@@ -105,6 +119,7 @@ _CVSG_RE = re.compile(r"\bSolicitor General is invited to file\b", re.I)
 # An in forma pauperis denial that gives the petitioner time to pay: the
 # petition stays pending whatever heading the entry is printed under.
 _FEE_ALLOWANCE_RE = re.compile(r"\ballowed until\b.{0,120}?\bto pay the docketing fees?\b", re.I)
+_PLURAL_MOTIONS_RE = re.compile(r"\bmotions\b[^.;]{0,120}?\bare denied\b", re.I)
 _PETITION_DISMISSED_RE = re.compile(
     r"\bpetitions?\b[^.;]{0,160}?\b(?:is|are)\s+dismissed\b"
     + r"|\bappeals?\b[^.;]{0,80}?\b(?:is|are)\s+dismissed\b",
@@ -137,15 +152,12 @@ class Expectation(BaseModel):
 
     ``dispositions`` is every label the corpus may carry and agree with the
     list; empty where the entry disposes of nothing (``presence``) or says the
-    Solicitor General was invited (``cvsg``). ``may_be_pending`` allows a row
-    with no disposition at all: the entry shares order text with a docket
-    whose petition that text leaves pending, and the text does not say which
-    of them it speaks of. ``unparsed`` carries the reason no reading was taken.
+    Solicitor General was invited (``cvsg``). ``unparsed`` carries the reason
+    no reading was taken.
     """
 
     kind: ReadingKind
     dispositions: frozenset[Disposition] = frozenset()
-    may_be_pending: bool = False
     unparsed: str | None = None
     out_of_frame: bool = False
 
@@ -174,9 +186,7 @@ def _application_reading(text: str) -> Expectation:
     return _unparsed("an application's order text reads as no disposition")
 
 
-def _heading_reading(  # noqa: PLR0911 - one return per heading family
-    entry: ListEntry, section: str, text: str
-) -> Expectation | None:
+def _heading_reading(entry: ListEntry, section: str, text: str) -> Expectation | None:
     """The reading a dispositive heading gives, or ``None`` where it gives none."""
     if section.endswith("GRANTED") or section.endswith("NOTED"):
         return Expectation(
@@ -187,12 +197,10 @@ def _heading_reading(  # noqa: PLR0911 - one return per heading family
         return Expectation(kind="cert", dispositions=frozenset({Disposition.dismissed}))
     if not section.endswith("DENIED"):
         return None
-    if _FEE_ALLOWANCE_RE.search(text):
-        if entry.closes_run:
-            return _presence()
-        return Expectation(
-            kind="cert", dispositions=frozenset({Disposition.denied}), may_be_pending=True
-        )
+    if _FEE_ALLOWANCE_RE.search(text) and (entry.closes_run or _PLURAL_MOTIONS_RE.search(text)):
+        # The allowance speaks of the caption it follows, and of the captions
+        # above that one only where it says so in the plural.
+        return _presence()
     if _PETITION_DISMISSED_RE.search(text):
         # A petition dismissed under Rule 39.8 is printed among the denials.
         labels = {Disposition.dismissed}
@@ -266,6 +274,7 @@ class OrderReconciliation(BaseModel):
     documents: list[DocumentReconciliation]
     counts: dict[str, int]
     late_applications: list[str]
+    undated_applications: list[str]
     alarms: list[str]
 
 
@@ -318,16 +327,19 @@ def _missing_outcomes(
     """The stage's events that owe an outcome record and have none.
 
     An event owes one when it carries a committed prediction, or when its row
-    is selected and the event is not closed without an outcome on purpose.
+    is selected, in predict scope, and the event is not closed without an
+    outcome on purpose. An event's stage is its own where it records one, else
+    the one its id declares.
     """
     court, docket = row.case_id.split("/", 1)
     paths = CasePaths(data_root, court, int(docket))
     missing: list[str] = []
     for event in corpus.events_for_case(conn, row.case_id):
-        if event.stage != stage:
+        if moments.event_stage(event.stage, event.event_id) != stage:
             continue
         predicted = event_has_predictions(data_root, court, int(docket), event.event_id)
-        owed = predicted or (row.salience_selected and not event.resolved_without_outcome)
+        selected = row.salience_selected and not row.predict_excluded
+        owed = predicted or (selected and not event.resolved_without_outcome)
         if owed and not paths.event(event.event_id).outcome.exists():
             missing.append(event.event_id)
     return missing
@@ -343,8 +355,6 @@ def _compare(  # noqa: PLR0911 - one return per verdict
         return EntryStatus.date_mismatch, f"the invitation is recorded on {row.cvsg_date}"
     recorded = Disposition(row.disposition) if row.disposition is not None else None
     if recorded is None:
-        if expected.may_be_pending:
-            return EntryStatus.presence_only, ""
         return EntryStatus.disposition_mismatch, "the row records no disposition"
     if recorded not in expected.dispositions:
         return EntryStatus.disposition_mismatch, f"the row records {recorded.value}"
@@ -423,7 +433,7 @@ def reconcile_entry(
     if expected.kind != "cvsg" and finding.status != EntryStatus.presence_only:
         stage = Stage.interim if application else Stage.cert
         finding.missing_outcomes = _missing_outcomes(conn, data_root, row, stage)
-        if finding.missing_outcomes and now.date() >= day + OUTCOME_GRACE:
+        if finding.missing_outcomes and age >= OUTCOME_GRACE:
             finding.alarms.append("no outcome record: " + ", ".join(finding.missing_outcomes))
     return finding
 
@@ -468,11 +478,13 @@ def reconcile_document(
     entries, problems, is_list = document_entries(document.text)
     result.problems = list(problems)
     if document.truncated:
-        result.problems.append("the text was cut at the extraction cap")
+        # A cut list is missing its last entries, and nothing says how many.
+        result.status, result.reason = "refused", "the text was cut at the extraction cap"
+        return result
     if not entries or (ref.kind == "order-list" and not is_list):
         result.status, result.reason = "refused", "the reader split no entry out of it"
         return result
-    rows = find_rows(conn, [e.docket for e in entries])
+    rows = find_rows(conn, [e.docket for e in entries if _CORPUS_DOCKET_RE.match(e.docket)])
     result.entries = [
         reconcile_entry(
             entry,
@@ -497,8 +509,8 @@ def refs_in_window(fetcher: OrderFetcher, since: date, until: date) -> list[Orde
     listing cannot be read is not an empty window.
     """
     terms: list[int] = []
-    for day in (since, until):
-        terms.extend(t for t in listing_terms(day) if t not in terms)
+    for offset in range((until - since).days + 1):
+        terms.extend(t for t in listing_terms(since + timedelta(days=offset)) if t not in terms)
     seen: set[str] = set()
     refs: list[OrderDocumentRef] = []
     for term in terms:
@@ -524,7 +536,13 @@ def reconcile(
 
     def observed(case_id: str) -> date | None:
         if case_id not in cache:
-            cache[case_id] = first_observed(case_id)
+            try:
+                cache[case_id] = first_observed(case_id)
+            except Exception:
+                # The store's answer feeds a count that never alarms; a fault
+                # reading it must not cost the checks that do. The case is
+                # reported undated.
+                cache[case_id] = None
         return cache[case_id]
 
     results = [
@@ -534,8 +552,10 @@ def reconcile(
     counts: Counter[str] = Counter()
     alarms: list[str] = []
     late: list[str] = []
+    undated: list[str] = []
     for result in results:
         counts["documents"] += 1
+        counts["documents_with_problems"] += bool(result.problems)
         counts["entries"] += len(result.entries)
         counts.update(result.counts)
         if result.status == "refused":
@@ -544,6 +564,13 @@ def reconcile(
         for finding in result.entries:
             if finding.observed_late and finding.docket not in late:
                 late.append(finding.docket)
+            if (
+                finding.case_id is not None
+                and finding.first_observed is None
+                and corpus.is_scotus_application_form(finding.docket)
+                and finding.docket not in undated
+            ):
+                undated.append(finding.docket)
             alarms.extend(f"{result.day} {finding.docket}: {alarm}" for alarm in finding.alarms)
     return OrderReconciliation(
         as_of=now,
@@ -552,6 +579,7 @@ def reconcile(
         documents=results,
         counts=dict(sorted(counts.items())),
         late_applications=late,
+        undated_applications=undated,
         alarms=alarms,
     )
 
@@ -582,12 +610,13 @@ def digest_lines(report: OrderReconciliation) -> list[str]:
             f"{counts[EntryStatus.matched.value]} matched, {mismatched} mismatched, "
             f"{counts[EntryStatus.no_row.value]} with no row, "
             f"{counts[EntryStatus.unparsed.value]} unparsed"
+            + (f", {len(document.problems)} problems in the cut" if document.problems else "")
         )
     return lines
 
 
 def render_markdown(report: OrderReconciliation, *, vintage: str | None = None) -> str:
-    """The latched issue's body: the verdict, the alarms, then every document's line."""
+    """The verdict as Markdown: the alarms, every document's line, then what is only reported."""
     verdict = "failing" if report.alarms else "passing"
     lines = [
         f"## Order-list reconciliation: {verdict}",
@@ -613,8 +642,12 @@ def render_markdown(report: OrderReconciliation, *, vintage: str | None = None) 
     lines += [
         "### Reported, never an alarm",
         "",
-        f"- Applications first observed after their ruling: {len(report.late_applications)}"
+        f"- Applications first stored after their order's day: {len(report.late_applications)}"
         + (f" ({', '.join(report.late_applications)})" if report.late_applications else ""),
+        "- Applications with no stored snapshot to date them by: "
+        f"{len(report.undated_applications)}"
+        + (f" ({', '.join(report.undated_applications)})" if report.undated_applications else ""),
+        f"- Documents whose cut recorded a problem: {counts['documents_with_problems']}",
         f"- Entries the reader took no disposition from: {counts[EntryStatus.unparsed.value]}",
         f"- Renewed applications already recorded: {counts[EntryStatus.renewed.value]}",
         f"- Motion and original numbers the corpus does not follow: "

@@ -324,7 +324,17 @@ def test_a_fee_allowance_leaves_the_petition_pending() -> None:
     own = read_entry(ListEntry("26-5136", "HABEAS CORPUS DENIED", text, closes_run=True))
     shared = read_entry(ListEntry("26-5135", "HABEAS CORPUS DENIED", text, closes_run=False))
     assert own.kind == "presence"
-    assert shared.dispositions == {Disposition.denied} and shared.may_be_pending
+    # The singular speaks of its own caption only; the plural of the run.
+    assert shared.dispositions == {Disposition.denied}
+    plural = (
+        "The motions of petitioners for leave to proceed in forma pauperis are denied. "
+        + "Petitioners are allowed until November 3, 2026, within which to pay the "
+        + "docketing fees."
+    )
+    assert (
+        read_entry(ListEntry("26-5135", "HABEAS CORPUS DENIED", plural, closes_run=False)).kind
+        == "presence"
+    )
 
 
 @pytest.mark.parametrize(
@@ -459,8 +469,8 @@ def test_a_selected_or_predicted_event_owes_an_outcome_record(tmp_path: Path) ->
     recorded.write_text("{}")
     seed_prediction(data, "scotus", 9, PETITION)
 
-    on_time = _reconcile(db, data, now=datetime(2026, 10, 15, 23, tzinfo=UTC))
-    overdue = _reconcile(db, data, now=datetime(2026, 10, 16, tzinfo=UTC))
+    on_time = _reconcile(db, data, now=datetime(2026, 10, 16, 23, tzinfo=UTC))
+    overdue = _reconcile(db, data, now=datetime(2026, 10, 17, tzinfo=UTC))
 
     found = _by_docket(overdue)
     assert found["25-1103"].missing_outcomes == [PETITION]
@@ -496,7 +506,11 @@ def test_an_application_first_stored_after_its_ruling_is_counted(tmp_path: Path)
     assert late.late_applications == ["26A36"] and late.alarms == []
     assert _by_docket(late)["26A36"].first_observed == DAY + timedelta(days=1)
     assert same_day.late_applications == []
-    assert "first observed after their ruling: 1 (26A36)" in order_reconcile.render_markdown(late)
+    assert "first stored after their order's day: 1 (26A36)" in order_reconcile.render_markdown(
+        late
+    )
+    assert late.undated_applications == [] and same_day.undated_applications == []
+    assert _reconcile(db, tmp_path / "data").undated_applications == ["26A36"]
 
 
 def test_a_document_the_reader_cannot_read_is_an_alarm_not_a_pass(tmp_path: Path) -> None:
@@ -688,3 +702,101 @@ def test_an_order_on_a_motion_about_an_application_disposes_of_nothing() -> None
     )
     reading = read_entry(ListEntry("26A97", "ORDERS IN PENDING CASES", referred, True))
     assert reading.kind == "application" and reading.dispositions == {Disposition.denied}
+
+
+def test_a_list_cut_at_the_extraction_cap_is_refused(tmp_path: Path) -> None:
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        _seed_everything(conn)
+    ref = OrderDocumentRef(url=URL, day=DAY, kind="order-list", label="Order List")
+    cut = FetchedDocument(URL, ref, ORDER_LIST, truncated=True)
+
+    report = _reconcile(db, tmp_path / "data", document=cut)
+
+    assert report.alarms == [f"2026-10-13 {URL}: not read (the text was cut at the extraction cap)"]
+    assert report.counts.get("entries", 0) == 0
+
+
+def test_an_unnumbered_caption_keeps_its_order_text_to_itself() -> None:
+    text = "\n".join(
+        [
+            "CERTIORARI DENIED",
+            "25-100 SMITH, JOHN V. JONES, MARY",
+            "25- DOE, JOHN V. ROE, RICHARD",
+            "  The petition for a writ of certiorari is dismissed.  See Rule 39.8.",
+            "25-103 ABLE, ANN V. BAKER, BOB",
+        ]
+    )
+    entries, problems = list_entries(text)
+    assert [(e.docket, e.text) for e in entries] == [("25-100", ""), ("25-103", "")]
+    assert problems  # the caption with no serial
+
+
+def test_a_heading_outside_the_vocabulary_files_its_entries_as_unparsed() -> None:
+    text = "\n".join(
+        [
+            "CERTIORARI GRANTED",
+            "25-100 SMITH, JOHN V. JONES, MARY",
+            "  The petition for a writ of certiorari is granted.",
+            "JURISDICTION POSTPONED",
+            "25-200 ABLE, ANN V. BAKER, BOB",
+            "  Further consideration of the question of jurisdiction is",
+            "postponed to the hearing of the case on the merits.",
+        ]
+    )
+    entries, _ = list_entries(text)
+    assert [(e.docket, e.section) for e in entries] == [
+        ("25-100", "CERTIORARI GRANTED"),
+        ("25-200", "JURISDICTION POSTPONED"),
+    ]
+    assert "JURISDICTION" not in entries[0].text
+    assert read_entry(entries[1]).unparsed == (
+        "a heading outside the vocabulary: JURISDICTION POSTPONED"
+    )
+
+
+def test_a_caption_the_cut_does_not_recognise_is_a_problem() -> None:
+    text = "\n".join(
+        [
+            "CERTIORARI DENIED",
+            "25-100 SMITH, JOHN V. JONES, MARY",
+            "  The motion for leave to file a brief as amicus curiae is granted.",
+            "25-101 VandeKamp, Ann V. ROE, RICHARD",
+        ]
+    )
+    entries, problems = list_entries(text)
+    assert [e.docket for e in entries] == ["25-100"]
+    assert any("opens on a docket number" in p for p in problems)
+
+
+def test_a_selected_row_out_of_predict_scope_owes_no_outcome(tmp_path: Path) -> None:
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        _seed_everything(conn)
+        case_id = _row(conn, 9, "25-590", disposition=Disposition.denied, denied=DAY, selected=True)
+        corpus.set_predict_excluded(conn, case_id, True)
+        conn.commit()
+
+    assert _reconcile(db, tmp_path / "data").alarms == []
+
+
+def test_a_store_fault_leaves_the_application_undated(tmp_path: Path) -> None:
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        _seed_everything(conn)
+
+    def fault(_case_id: str) -> date | None:
+        raise RuntimeError("the store is unreachable")
+
+    with corpus.connect_readonly(db) as read:
+        report = reconcile(
+            [_document()],
+            since=DAY,
+            until=DAY,
+            now=LATER,
+            conn=read,
+            data_root=tmp_path / "data",
+            first_observed=fault,
+        )
+
+    assert report.alarms == [] and report.undated_applications == ["26A36"]

@@ -571,6 +571,11 @@ _SECTION_HEADING_RE = re.compile(
     r"^(?:ORDERS? IN PENDING CASES?"
     + r"|[A-Z][A-Z ,'&\-]* (?:GRANTED|DENIED|DISMISSED|NOTED|DISPOSITIONS?|DISCIPLINE))$"
 )
+# A heading in wording the vocabulary above does not hold: two or more
+# capitals words and no sentence punctuation, which no wrapped line of order
+# text is.
+_UNKNOWN_HEADING_RE = re.compile(r"^(?=.{12,}$)[A-Z]{3,}(?:,? (?:-- )?[A-Z'&\-]{2,})+$")
+_TEXT_OPENS_ON_DOCKET_RE = re.compile(r"^(?:\d{2}-\d{1,5}|\d{2}[AMO]\d{1,5})\s+\S")
 
 
 @dataclass(frozen=True)
@@ -591,7 +596,9 @@ class ListEntry:
     closes_run: bool
 
 
-def list_entries(text: str) -> tuple[list[ListEntry], list[str]]:
+def list_entries(  # noqa: PLR0912 - one branch per line shape the list prints
+    text: str,
+) -> tuple[list[ListEntry], list[str]]:
     """Every docket the list proper names, with its section heading, and the cut's problems.
 
     The docket-by-docket reading :func:`split_document` does not give: that
@@ -602,6 +609,9 @@ def list_entries(text: str) -> tuple[list[ListEntry], list[str]]:
     (captions, bare docket numbers, parenthesized application numbers, lifted
     serials, page furniture); the differences are that a section heading
     always closes the entries above it and that every caption is an entry.
+    A caption whose docket could not be read takes its order text with it, and
+    a line of order text shaped like a caption the cut did not recognise is a
+    problem, so a docket the cut lost is never silent.
     Appended writings are not read. A docket named twice is two entries.
     """
     lines = [normalize_order_text(line) for line in text.splitlines()]
@@ -612,6 +622,7 @@ def list_entries(text: str) -> tuple[list[ListEntry], list[str]]:
     section: str | None = None
     run: list[str] = []
     body: list[str] = []
+    unnumbered = False
 
     def close() -> None:
         order_text = "\n".join(body)
@@ -639,19 +650,32 @@ def list_entries(text: str) -> tuple[list[ListEntry], list[str]]:
                 close()
             if (docket := docket or rejoined.get(index)) is not None:
                 run.append(docket)
+                unnumbered = False
+            else:
+                # A lifted caption whose serial was not rejoined: its docket is
+                # unknown (the problem is already recorded), and the text
+                # below it is its own, never the captions' above it.
+                close()
+                unnumbered = True
             continue
         if (application := _APPLICATION_LINE_RE.match(line)) is not None and run and not body:
             run.append(_docket(application.group("docket")))
             continue
-        if _SECTION_HEADING_RE.match(line):
+        if _SECTION_HEADING_RE.match(line) or (body and _UNKNOWN_HEADING_RE.match(line)):
+            # Capitals after order text are a heading whether or not its
+            # wording is one this reader knows; a reader of the entries
+            # decides what an unknown one means.
             close()
-            section = line
+            section, unnumbered = line, False
             continue
         if _HEADING_RE.match(line) and not body:
             # A caption wrapped onto a second line.
             continue
-        if run:
-            body.append(line)
+        if unnumbered or not run:
+            continue
+        if _TEXT_OPENS_ON_DOCKET_RE.match(line):
+            problems.append(f"a line of order text opens on a docket number: {line[:80]!r}")
+        body.append(line)
     close()
     return entries, problems
 

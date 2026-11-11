@@ -18462,12 +18462,13 @@ def order_reconcile_command(
     docket, and checks each against the corpus (`pipeline/order_reconcile.py`):
     the number has a row, the row records the disposition and date the list
     states, a selected or predicted event of that stage has its outcome record
-    in the ledger, and an application was first stored before it was ruled on.
+    in the ledger, and an application was first stored no later than the day
+    it was ruled on. A monitoring readout, never a scored figure.
     Prints one line per document to stderr and an `OrderReconciliation` as
-    JSON to stdout; `--summary-out` appends the Markdown verdict a latched
-    issue carries. Exits 3 when anything alarms: a listed docket with no row
-    48 hours on, a mismatch two pull windows on, an outcome record missing
-    three days on, or a document the reader could not read. Exits 1 when a
+    JSON to stdout; `--summary-out` appends the verdict as Markdown. Exits 3
+    when anything alarms: a listed docket with no row
+    48 hours on, a mismatch 12 hours on, an outcome record missing three days
+    on, or a document the reader could not read whole. Exits 1 when a
     listing or the corpus cannot be read, 2 on a bad window.
 
     Reads the corpus index, the content store's snapshot key listing for each
@@ -18526,7 +18527,8 @@ def order_reconcile_command(
     typer.echo(
         f"{first} to {last}: {len(report.documents)} documents, "
         f"{report.counts.get('entries', 0)} entries, {len(report.alarms)} alarms, "
-        f"{len(report.late_applications)} applications first observed after their ruling "
+        f"{len(report.late_applications)} applications first stored after their order's day, "
+        f"{len(report.undated_applications)} with no stored snapshot "
         f"(corpus {vintage})",
         err=True,
     )
