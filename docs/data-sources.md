@@ -967,6 +967,18 @@ The automated consumer stays within CourtListener's published API limits by desi
   and a caption can name an individual party, such as a minor in a chatbot
   injury suit. Nothing it names is admitted anywhere: a maintainer adds a
   case to the watchlist by a PR.
+- **The follow-on check shares that lane.** `ai-follow-ons` asks the search
+  index, once per district docket the watchlist names, for circuit and JPML
+  dockets filed in the last 45 days that carry the listed docket's number,
+  and reads each new circuit hit's docket once for its originating court and
+  originating case number, which is how a docket of another case with the
+  same number is told apart. It spends the `ai-candidates` lane's share (40),
+  so it must not be run on a day `ai-candidates` runs. It reads only what CourtListener
+  already holds, and writes nothing but its report and a comment for the same
+  `ai-candidates` issue. The comment carries the follow-on's court, docket
+  number, filing date and a link by docket id, beside the name of the listed
+  case it is related to, which the watchlist already publishes; the
+  follow-on's own caption, parties and entry text are not copied.
 
 The pilot holds a paid Free Law Project **membership tier** — **Tier 4**, at 25
 requests a minute, 300 an hour and 1,400 a day, for $1,000 a year. It is the top

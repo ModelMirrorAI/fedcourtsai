@@ -910,6 +910,41 @@ published:
 The generic back-test is process-independent (it replays reference baselines, not
 the tournament predictors), so it carries no process version.
 
+### What a back-test comparison is for
+
+A re-bless is decided before the forward events that would judge it resolve,
+and at the cert grant rate those events carry few grants when they do. A
+**back-test comparison** (`fedcourts cert-backtest-compare`,
+`fedcourts merits-backtest-compare`) is the instrument for that decision: one
+predictor replayed over the same decided cases as the registry configures it
+and with the one change a re-bless would register, another model or another
+prompt. Its use is bounded on purpose:
+
+- **It is evidence for a re-bless decision and never a claimable performance
+  figure.** Every replayed outcome was public before the run. The report says
+  which of its pairs were decided after both models' recorded training
+  cutoffs, the pairs least likely to be recalled.
+- **Replay cells never count toward a forward board.** They are written to a
+  scratch tree, never to `data/`, they carry no process stamp, and no board
+  reads the comparison reports or the pooled record.
+- **It registers nothing.** Each arm's `process_digest` is the digest its
+  configuration would carry (`process_version.digest_for_configuration`),
+  recorded so a later reader can tell which registered process, if any, a
+  comparison anticipated. Computing it adds no registration, moves no digest
+  and opens no window, and a replay cell is not a cell of that process: it
+  runs with no MCP server, and a cert replay cell with no staged documents (a
+  merits replay cell is staged the filings its moment's cut keeps).
+- **It does not decide.** A comparison that favours the candidate is one input
+  to the re-bless, beside cost and the amendment debt the re-bless would
+  carry. The decision and the registration are the maintainer's, by the
+  procedure below.
+
+The scored cells of every recording replay accumulate in the pooled back-test
+record, read per (predictor, model, process digest) and population and never
+across them, so
+figures from before and after a model switch are never pooled.
+[metrics/README.md](../metrics/README.md) has the reading rules for both.
+
 ## Freezing: the cutover procedure
 
 A label is **registered** in the PR that moves the digests and **stamped** by the

@@ -18628,6 +18628,146 @@ freeze commit is recorded here.
     fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
     print('decision-below-later-opinions' in {b.name for b in H})"` prints
     `True`.
+- **A back-test comparison mode, its outcome-stratified draw, and the pooled
+  back-test record; recorded 2026-11-11.** A **retrospective-instrument**
+  registration. It moves no digest, no prompt, no forward cell and no published
+  figure, and it changes neither the scheduled back-test's pins nor the shape
+  of `metrics/cert-backtest.json` or `metrics/merits-backtest.json`.
+
+  **Why.** The rules below decide what a comparison's numbers mean, and they
+  are fixed here before any comparison has run.
+
+  **What is added.** `fedcourts cert-backtest-compare` and `fedcourts
+  merits-backtest-compare` replay one predictor twice over the same drawn
+  cases: as the registry configures it (the incumbent) and with one change
+  (the candidate: another model, or another prompt, and never both). Each arm is an ordinary
+  replay campaign under its own scratch sub-root, the candidate first, and the
+  two arms' replay clocks (cert) or written cells (merits) are checked equal.
+  A replay command's `--record` appends its scored cells to
+  `metrics/backtest-record/`, and `fedcourts backtest-pooled` rolls the record
+  up.
+
+  **The draw rule `outcome-stratified-hash-v1`** (cert comparisons, the
+  default). The eligible population is the one `cert-backtest` draws from
+  under the dispatched `--scope`. It is split into two outcome classes on the
+  binary axis the Brier score is taken on: `granted` (a disposition
+  `granted_flag` reads as 1) and `not-granted` (every other). The allocation
+  is fixed: `limit // 2` granted petitions and `limit - limit // 2` not
+  granted. Every eligible petition is ranked by
+  `sha256("fedcourtsai/cert-backtest/outcome-stratified|<key>|<case_id>")`,
+  where `<key>` is the corpus vintage (the blob's newest pull stamp, as the
+  spread draw keys on), and each class takes its petitions in that order,
+  passing over one that is not replayable and continuing. A class whose
+  replayable petitions run out is drawn short and reported so. The set is
+  returned with the classes alternating, so a campaign cut short keeps close
+  to the allocation. No outcome-dependent choice is made inside a class, so
+  within a class the draw is a simple random sample of its replayable
+  petitions. A different salt, allocation or class definition is a new rule
+  under a new name. The equal allocation is chosen so that a small set holds
+  enough grants to read the granted class at all. It is close to the
+  variance-minimising allocation where the classes' weights are comparable
+  (the selected scope) and far from it for the `population` figure where the
+  granted weight is a few percent (the paid and all scopes), which the
+  estimator below answers by publishing no interval there.
+
+  **The estimator.** The unit is a replayed cell both arms scored. Its
+  difference is the candidate's Brier score minus the incumbent's, so a
+  negative value favours the candidate. Three figures are reported per moment:
+  - `drawn_set`: the mean of the differences, every pair counted once, with
+    the Student-t interval at 95% on the differences (`pairs - 1` degrees of
+    freedom; null below two pairs and where every difference is the same).
+  - `population` (stratified draw only): the sum over the two classes of the
+    class's mean difference times its weight, where the weight is the class's
+    share of the **eligible** population, replayable or not. Its variance is
+    the sum of `weight^2 * s^2 / n` over the classes, with no finite-population
+    correction, and its interval is the Student-t interval at 95% with the
+    Satterthwaite degrees of freedom. It is null where a class with a positive
+    weight holds no pair. Its interval is null where such a class holds one
+    pair, where the differences show no spread, and where one class's weight
+    exceeds 0.8: the estimate and its variance then rest on a handful of
+    near-constant differences from the dominant class, rare large moves go
+    undrawn, and a t interval covers far less often than its level (in a
+    simulation through this estimator, at a granted weight of 0.04 with ten
+    or twenty pairs a class and an assumed rare large move among denials,
+    between 40% and 80%; at 0.35, 94% to 96%). The simulated differences
+    were assumed, not measured from the corpus.
+  - `by_stratum`: each class's pairs, mean difference and largest absolute
+    difference.
+  - `after_both_cutoffs`: the `drawn_set` figure over the pairs whose case was
+    decided strictly after the later of the two arms' recorded training
+    cutoffs, unweighted. It is null where either cutoff is not recorded.
+  **Which figure decides** is fixed here, before any run: where no class's
+  weight exceeds 0.8, `population` with its interval; otherwise the
+  `by_stratum` figures read beside the `drawn_set` interval, where `n` pairs
+  in a class with no large move cannot exclude a large-move rate up to about
+  `3/n` in it.
+  The binary-call counts are plain counts of pairs under every figure: at
+  cert the call is the predicted disposition read on the granted axis, and at
+  merits it is the side of one half the probability falls on.
+
+  **The training cutoffs recorded.** `claude-opus-5-5` and `claude-fable-5-2`
+  both carry 2026-06-30: the vendor states a June 2026 training data cutoff
+  for each, and the last day of the stated month is recorded, so a case
+  decided inside the month is treated as inside the training data. No cutoff
+  is recorded for any other model, and a comparison naming one reports the
+  split as undetermined rather than assuming a date. A later entry records
+  any addition or correction.
+
+  **The pooled record.** One file per recording replay run, never rewritten,
+  one row per scored cell a model ran; an offline backend's cells are never
+  recorded. The roll-up has one entry per (predictor, model, process digest,
+  kind, population, stage, moment) and never pools across them. A population
+  is named by what defines it: the cert scope, with the salience floor under
+  the selected scope, or a merits replay's argued Terms. An entry's mean
+  Brier score is post-stratified on the outcome class: a case's rows are
+  averaged, the class's cases are averaged, and the classes are combined at
+  the eligible-population share recorded for them, the mean over the runs
+  that recorded the class with each run counted once. It is null where the
+  classes present do not make up the whole population. A row from a
+  `recency-head` draw records no share and enters no pooled figure. The
+  digest on a row or an arm is the one its configuration would carry
+  (`process_version.digest_for_configuration`); it registers nothing, and a
+  replay cell, which runs with no MCP server (and, at cert, no staged
+  documents; a merits replay cell is staged the filings its moment's cut
+  keeps), is not a cell of that process.
+
+  **The reading rule.** A comparison is evidence for a re-bless decision
+  between two configurations and is never a claimable performance figure.
+  No replay cell counts toward a forward board. An interval that spans zero
+  is no finding in either direction. A `drawn_set` figure under the
+  stratified draw describes a set that is half grants by design and is not
+  a population figure. The `population` figure and the pooled mean are the
+  eligible population's only as far as replayable coverage is ignorable
+  within an outcome class, which is not established: the 2026-10-03 entry on
+  the spread draw measured coverage as not outcome-neutral across classes
+  and nothing measures it within one. Every pair decided on or before a
+  model's training cutoff may be recalled rather than forecast, which favours
+  the later-trained model. A recorded cutoff is a stated month and
+  approximate. Two models with one recorded cutoff are free of that known
+  directional bias, though not of one recalling more than the other; two with
+  different cutoffs are compared on the `after_both_cutoffs` pairs alone,
+  which are an unweighted set of recently decided cases. A pair either arm
+  lost is in no figure, and the loss is not ignorable. A stub comparison's differences are zero by
+  construction.
+
+  **What does not move.** `uv run fedcourts process-digest --all` prints the
+  label and the six digests it printed before this entry. No base rate
+  re-prices, no membership rule moves and no scored figure moves.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_backtest_comparison.py` is green;
+  - where the corpus is pulled, `uv run fedcourts cert-backtest-compare
+    --predictor claude-baseline --candidate-model claude-fable-5-2 --limit 4
+    --out /tmp/comparison.json --work-dir /tmp/comparison-work` (the work
+    directory absent or empty) exits zero with `--engine` left at its `stub`
+    default, and `jq -c '[.dispatch.draw_rule, [.strata[].target],
+    [.arms[].model], [.arms[].requested_model], ([.pairs[].brier_difference]
+    | unique)]' /tmp/comparison.json` prints
+    `["outcome-stratified-hash-v1",[2,2],[null,null],["claude-opus-5-5","claude-fable-5-2"],[0]]`
+    (a `null` beside the `0` is a cell the stub lost).
 
 - **Each cert block carries the predictor's own forecast grant count and a
   reliability table on registered bins; recorded 2026-11-11.** A
