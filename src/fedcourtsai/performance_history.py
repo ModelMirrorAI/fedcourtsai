@@ -67,8 +67,6 @@ MIN_EVENTS_FOR_LEVEL_FLAGS = 10
 #: Slack on the re-scoring bound, for accuracies the board rounds.
 _BOUND_TOLERANCE = 1e-6
 
-_SeriesKey = tuple[str, str | None, str]
-
 
 def _point(entry: LeaderboardEntry | LeaderboardStageEntry, stage: str) -> PerformancePoint | None:
     forward = entry.forward

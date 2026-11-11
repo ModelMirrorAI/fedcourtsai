@@ -1446,7 +1446,7 @@ def _movement_lines(
         lines += [
             "",
             "| Stage | Predictor | Events | Accuracy (floor) | Mean Brier | Prior-Term skill "
-            "| Flags |",
+            + "| Flags |",
             "| --- | --- | --- | --- | --- | --- | --- |",
         ]
     for row in rows:
