@@ -96,7 +96,7 @@ from __future__ import annotations
 
 import math
 from collections import defaultdict
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -155,6 +155,7 @@ from .schemas import (
     CommonRecordReading,
     CountingWindow,
     Disposition,
+    EngineMeanReference,
     Evaluation,
     EvaluatorAgreement,
     ForwardClaimRecord,
@@ -1024,6 +1025,55 @@ def _paired(  # noqa: PLR0913 - one keyword per per-cell reading the figure list
         common_record=_common_record(
             qualifying, paired, entries, skills, facts, vote_scores, provisioning
         ),
+        engine_mean=_engine_mean(qualifying, engines, paired, facts),
+    )
+
+
+def _engine_mean(
+    qualifying: Mapping[str, Mapping[tuple[str, str], Sequence[Evaluation]]],
+    engines: Sequence[str],
+    paired: Collection[tuple[str, str]],
+    facts: Mapping[EvaluationKey, CellFacts] | None,
+) -> EngineMeanReference | None:
+    """The mean-of-engines reference line over the paired events, or ``None``.
+
+    Each engine's forecast on an event is the mean of its qualifying gradings'
+    :attr:`CellFacts.probability`; the reference is the unweighted mean of
+    those across ``engines``, scored per event against :attr:`CellFacts.granted`
+    beside each engine's own per-event Brier. An event enters only where every
+    one of those gradings carries facts, so every figure is over one event set.
+    ``None`` with fewer than two engines (one engine's mean is itself), with no
+    facts, or with no such event.
+    """
+    if facts is None or len(engines) < 2:
+        return None
+    rows: list[tuple[dict[str, float], int]] = []
+    for event in sorted(paired):
+        forecasts: dict[str, float] = {}
+        target: int | None = None
+        for pid in engines:
+            found = [facts.get(_evaluation_key(ev)) for ev in qualifying[pid][event]]
+            present = [fact for fact in found if fact is not None]
+            if len(present) != len(found):
+                break
+            forecasts[pid] = sum(fact.probability for fact in present) / len(present)
+            target = present[0].granted
+        else:
+            if target is not None:
+                rows.append((forecasts, target))
+    if not rows:
+        return None
+    means = [sum(forecasts.values()) / len(forecasts) for forecasts, _ in rows]
+    return EngineMeanReference(
+        events=len(rows),
+        grants=sum(target for _, target in rows),
+        grants_forecast=sum(means),
+        brier=sum((mean - target) ** 2 for mean, (_, target) in zip(means, rows, strict=True))
+        / len(rows),
+        engine_brier={
+            pid: sum((forecasts[pid] - target) ** 2 for forecasts, target in rows) / len(rows)
+            for pid in engines
+        },
     )
 
 
@@ -1362,17 +1412,17 @@ def big_case_agreement(
     # independent, and `cases` would count events while calling them cases.
     per_case: dict[tuple[Series, str], list[tuple[float, float]]] = defaultdict(list)
     for (series, case_id, _event_id, _run_id), (own_score, evaluator_scores) in reads.items():
-        panel_mean = sum(evaluator_scores) / len(evaluator_scores)
-        per_case[(series, case_id)].append((own_score, panel_mean))
+        engine_mean = sum(evaluator_scores) / len(evaluator_scores)
+        per_case[(series, case_id)].append((own_score, engine_mean))
 
     points: dict[Series, list[PanelPoint]] = defaultdict(list)
     for (series, case_id), moments_read in sorted(
         per_case.items(), key=lambda item: (series_sort_key(item[0][0]), item[0][1])
     ):
         predictor_mean = sum(own for own, _ in moments_read) / len(moments_read)
-        panel_mean = sum(panel for _, panel in moments_read) / len(moments_read)
+        engine_mean = sum(panel for _, panel in moments_read) / len(moments_read)
         points[series].append(
-            ((predictor_mean, panel_mean), case_id, point_reads[(series, case_id)])
+            ((predictor_mean, engine_mean), case_id, point_reads[(series, case_id)])
         )
 
     boards: dict[SeriesLabel, BigCaseLeaderboard] = {}

@@ -254,9 +254,13 @@ Five blocks, in the order a reader needs them:
   read; and, per event, the engine's own forecast grant count (its summed
   P(granted)) beside the grants that realized on the binary target and the
   events both are over, a gap that reads as over- or under-forecasting only
-  once the cohort's relisted and held petitions have resolved. Under the table, the gradings the build dropped for suspected leakage
-  (by predictor) or set aside as not shown to be forward, counted across every
-  stage and so not subtractable from the cert figures. It leads the scored
+  once the cohort's relisted and held petitions have resolved. One line under
+  the table reads the board's `engine_mean` reference, the mean of the engines'
+  probabilities, against the best engine's own per-event Brier, as a reference
+  and never a ranked row. Under it, the gradings the build dropped for
+  suspected leakage (by predictor) or set aside as not shown to be forward,
+  counted across every stage and so not subtractable from the cert figures. It
+  leads the scored
   blocks because it is the program's output; the back-tests after it are
   iteration instruments.
 - **Movement since the previous board** — under the forward block, each

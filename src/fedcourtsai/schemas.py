@@ -5174,6 +5174,49 @@ class PairedEngine(_Strict):
         )
 
 
+class EngineMeanReference(_Strict):
+    """A reference line on a paired figure: the mean of the engines' probabilities.
+
+    On each paired event every engine's forecast enters once (the mean of its
+    qualifying gradings' scored-prediction ``probability``), and the reference
+    forecast is the unweighted mean of those across the engines. Nobody forecast
+    it: it exists only where every engine did, it is computed after the fact,
+    and it never takes a rank. Every Brier here is **per event** against the
+    binary target, so the reference and the engines are read on one footing; an
+    engine's grading-weighted ``mean_brier_score`` is a different average.
+
+    A mean's Brier is never worse than the average of its members' Briers, on
+    any data, so that comparison says nothing. The reading is against the
+    **best** single engine on the same events (``engine_brier``). The engines'
+    forecasts are not independent draws, so a gain likely understates what
+    independent forecasters would give and the absence of one may reflect
+    shared information.
+    """
+
+    events: int = Field(
+        ge=1,
+        description="Paired events the reference is over: those on which every engine's "
+        "qualifying gradings all carry outcome facts. Read against `PairedEvents.events`",
+    )
+    grants: int = Field(
+        ge=0,
+        description="Events among `events` whose binary target (`Outcome.actual_granted`) is 1",
+    )
+    grants_forecast: float = Field(
+        ge=0.0, description="The sum of the reference forecast over `events`"
+    )
+    brier: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="Mean, over `events`, of the squared gap between the reference forecast "
+        "and the binary target",
+    )
+    engine_brier: dict[str, Annotated[float, Field(ge=0.0, le=1.0)]] = Field(
+        description="Each paired engine's own per-event Brier over the same `events`, by "
+        "`predictor_id`: the figures `brier` is read against, the lowest of them first of all",
+    )
+
+
 class PairedEvents(_Strict):
     """A population's paired-event figure: the events every compared engine holds.
 
@@ -5224,10 +5267,23 @@ class PairedEvents(_Strict):
         "supplied",
     )
 
+    engine_mean: EngineMeanReference | None = Field(
+        default=None,
+        description="The mean of the engines' probabilities on the paired events, as an "
+        "unranked reference line (see EngineMeanReference). Cert populations with two or "
+        "more engines only; omitted otherwise, and while no paired event carries outcome "
+        "facts for every engine",
+    )
+
     @model_serializer(mode="wrap")
     def _omit_empty_by_band(self, handler: SerializerFunctionWrapHandler) -> Any:
-        """Drop ``by_band`` and ``common_record`` while empty."""
-        return _omit_empty(handler(self), by_band=self.by_band, common_record=self.common_record)
+        """Drop ``by_band``, ``common_record`` and ``engine_mean`` while empty."""
+        return _omit_empty(
+            handler(self),
+            by_band=self.by_band,
+            common_record=self.common_record,
+            engine_mean=self.engine_mean,
+        )
 
 
 #: The key :attr:`LeaderboardEntry.by_band` files a cell under when its scored

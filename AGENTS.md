@@ -625,6 +625,7 @@ task-specific instructions: the prompt file named in your run
 | How does a development cycle run: sweep, rank, fan out, promote, close out? | `docs/work-cycle.md` |
 | Who can reach what, and why is a token scoped that way? | `SECURITY.md` (invariants), `docs/security.md` (setup) |
 | What is a district-court forecast, and how does it resolve? (the court-agnostic trial stage designed, not registered; its resolver built as library code and wired into nothing) | `docs/trial-stage.md` |
+| How is a watchlist case's appeal forecast, and what happens when it reaches the Supreme Court? (the court-agnostic appeal stage and the linked-petition rule designed, not registered; no resolver built) | `docs/appeal-stage.md` |
 | What does one prediction actually consist of, file by file? | `docs/predicted-artifacts.md` |
 | What does a cell agent have to produce? | `.github/prompts/` |
 | What are the plain-language case summaries, which cases get one, and who writes them? | `docs/case-summaries.md` |
