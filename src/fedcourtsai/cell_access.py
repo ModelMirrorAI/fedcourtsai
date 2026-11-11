@@ -28,9 +28,11 @@ hosted searches and fetches included, because the same forecasts are published
 where a search can find them:
 
 * **published forecast** — the call names the project's public site, or this
-  repository on GitHub's web, raw-content or API hosts. A search or fetch
-  also counts when it names the repository alone, since a search query has no
-  URL to carry the host.
+  repository by its owner and name, which is how a GitHub web, raw-content or
+  API address, an SSH remote and a ``gh`` call all spell it. A search or fetch
+  also counts when it names the repository alone, since a search query need
+  carry no address. The project's own User-Agent string, which cites the
+  repository's address, is no access and is stripped first.
 
 A path named only to exclude it — ``find … -not -path 'data/qp-topics/*'``,
 ``--exclude``, a ``!`` glob, a ``:(exclude)`` pathspec, a ``-prune`` — is no
@@ -56,10 +58,12 @@ path is written out in full. A published-forecast hit is read from what the
 call asked for, never from what came back: a search worded for something else
 whose results carry a forecast names nothing here, and only the cell's own
 disclosure shows it; a hosted search whose query the engine did not log shows
-nothing either; and a forecast published anywhere but the project's own hosts
-is outside the patterns. A hit is evidence that a call *named* the path, not that it
-read anything — a ``git status`` that lists the deletion names it too, which
-is why the hidden paths are marked skip-worktree before the agent runs.
+nothing either; a forecast published anywhere but the project's own hosts
+is outside the patterns; and an exclusion is not read as one here, so a search
+that names the site only to leave it out (``-site:``) still counts. A hit is
+evidence that a call *named* the path, not that it read anything — a
+``git status`` that lists the deletion names it too, which is why the hidden
+paths are marked skip-worktree before the agent runs.
 """
 
 from __future__ import annotations
@@ -150,16 +154,19 @@ _GUARDED_WRITE = re.compile(r"(?:^|/)(?:data|record)/")
 
 
 # Where the project's forecasts are published: the public site, and this
-# repository on GitHub's web, raw-content and API hosts. A hosted search or
-# fetch has no URL to carry a host in its query, so there the repository's
-# name alone counts; a shell names the package on every `fedcourts` call, so
-# there only a URL does.
-_REPOSITORY = r"modelmirrorai/fedcourtsai(?![\w-])"
+# repository, named by owner and name as every GitHub address, SSH remote and
+# `gh` call spells it. A hosted search or fetch need carry no address in its
+# query, so there the repository's name alone counts; a shell names the
+# package on every `fedcourts` call, so there only the owner-qualified name
+# does.
 _FORECAST_URL = re.compile(
-    rf"(?<![\w-])fedcourts\.ai(?![\w-]){_TOKEN}"
-    + rf"|{_TOKEN}github(?:usercontent)?\.com/(?:repos/)?{_REPOSITORY}{_TOKEN}",
+    rf"{_TOKEN}(?<![\w-])fedcourts\.ai(?![\w-]){_TOKEN}"
+    + rf"|{_TOKEN}(?<![\w-])modelmirrorai/fedcourtsai(?![\w-]){_TOKEN}",
     re.IGNORECASE,
 )
+# The project's own User-Agent cites the repository's address; a call that
+# sends it to another host reaches no forecast.
+_USER_AGENT = re.compile(r"fedcourtsai \(\+https://github\.com/modelmirrorai/fedcourtsai\)", re.I)
 _FORECAST_NAME = re.compile(rf"{_TOKEN}(?<![\w-])fedcourtsai(?![\w-]){_TOKEN}", re.IGNORECASE)
 
 
@@ -181,10 +188,10 @@ def _touches_tree(call: RetrievalCall) -> bool:
 
 def _forecast_hosts(call: RetrievalCall) -> list[str]:
     """The project's forecast-publishing hosts a call named, as it spelled them."""
-    text = call.query or ""
     tool_class = neutral_tool_class(call.tool)
     if tool_class.startswith("mcp:") or call.tool.lower() in _PROMPT_TOOLS:
         return []
+    text = _USER_AGENT.sub(" ", call.query or "")
     found: list[str] = _FORECAST_URL.findall(text)
     if tool_class in _REMOTE_CLASSES:
         found += [name for name in _FORECAST_NAME.findall(text) if name not in found]

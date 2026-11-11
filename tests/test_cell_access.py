@@ -225,6 +225,9 @@ def test_a_path_first_write_slice_is_caught_however_long_its_content() -> None:
         ("Bash", "curl -s https://raw.githubusercontent.com/ModelMirrorAI/fedcourtsai/main/x"),
         ("exec_command", "curl https://api.github.com/repos/modelmirrorai/fedcourtsai/contents"),
         ("run_shell_command", "git clone https://github.com/ModelMirrorAI/fedcourtsai.git /tmp/c"),
+        ("Bash", "gh api repos/ModelMirrorAI/fedcourtsai/contents/data/cases"),
+        ("Bash", "git ls-remote git@github.com:ModelMirrorAI/fedcourtsai.git"),
+        ("web_search_call", "26-294 cert -site:fedcourts.ai"),
     ],
 )
 def test_a_call_naming_where_the_forecasts_are_published_is_caught(tool: str, query: str) -> None:
@@ -242,6 +245,12 @@ def test_a_call_naming_where_the_forecasts_are_published_is_caught(tool: str, qu
         ("WebFetch", "https://www.supremecourt.gov/search.aspx?filename=/docket/26-294.html"),
         ("web_search_call", "notfedcourts.ai 26-294"),
         ("Bash", "curl https://github.com/ModelMirrorAI/fedcourtsai-mirror"),
+        # The project's own User-Agent, sent to another host.
+        (
+            "Bash",
+            "curl -A 'fedcourtsai (+https://github.com/ModelMirrorAI/fedcourtsai)' "
+            + "https://www.supremecourt.gov/x",
+        ),
         # An MCP query runs against someone else's server, and a subagent's
         # prompt names the hosts chiefly to forbid them.
         ("mcp__courtlistener__search", "fedcourts.ai"),
@@ -255,7 +264,5 @@ def test_a_call_that_reaches_no_published_forecast_is_no_hit(tool: str, query: s
 def test_a_published_forecast_hit_quotes_the_address_once_per_call() -> None:
     url = "https://fedcourts.ai/cases/26-294"
     assert _audit(("WebFetch", f"{url} {url}")) == [
-        AccessHit(
-            kind=AccessKind.published_forecast, tool="WebFetch", path="fedcourts.ai/cases/26-294"
-        )
+        AccessHit(kind=AccessKind.published_forecast, tool="WebFetch", path=url)
     ]

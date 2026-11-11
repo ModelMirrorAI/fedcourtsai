@@ -467,7 +467,7 @@ class FlagCategory(StrEnum):
     (on a replay cell, material postdating its ``context.cutoff``);
     ``forecast-exposure`` a note that someone else's forecast of the case — this
     project's published predictions or any other — reached a predict cell, or
-    that the cell's logged calls named a host that publishes them.
+    that the cell's logged calls named where this project publishes its own.
     ``blocked`` stays valid for every file that carries it; severity ``blocker``
     is what says a cell could not finish, under whatever category.
     """

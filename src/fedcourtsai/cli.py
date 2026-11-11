@@ -13876,8 +13876,8 @@ _CELL_ACCESS_WHAT: dict[AccessKind, str] = {
     + "glob over them)",
     AccessKind.write: "wrote under data/ or a case record/ outside this cell's own run "
     + "directory",
-    AccessKind.published_forecast: "named the project's public site or this repository's "
-    + "GitHub hosts, where every predictor's forecasts are published",
+    AccessKind.published_forecast: "named the project's public site or this repository, "
+    + "where every predictor's forecasts are published",
 }
 # The kind a maintainer counts on its own category; the rest are lane notes.
 _CELL_ACCESS_CATEGORY: dict[AccessKind, FlagCategory] = {
@@ -13900,8 +13900,8 @@ def _cell_access_note(kind: AccessKind, hits: list[AccessHit], event_id: str) ->
         severity=FlagSeverity.warning,
         message=(
             f"{_CELL_ACCESS_PREFIX} {_CELL_ACCESS_WHAT[kind]}: {len(hits)} call(s), "
-            + f"e.g. {shown}{more}. Read from retrieval_log.json, which records that a "
-            + "call named the path, not what it returned; check the transcript before "
+            + f"e.g. {shown}{more}. Read from retrieval_log.json, which records what a "
+            + "call named, not what it returned; check the transcript before "
             + "treating it as a read."
         )[:_FLAG_MESSAGE_LIMIT],
         event_id=event_id,

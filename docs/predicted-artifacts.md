@@ -510,8 +510,8 @@ cell or a candidate it grades (on a replay cell, material postdating its
 there as an exposure candidate, whatever its wording. `forecast-exposure` is
 a note that someone else's forecast of the case reached a predict cell (this
 project's published predictions or any other), or the lane audit's note that
-the cell's calls named a host that publishes them; it is not outcome material,
-so it is counted apart from `leakage-disclosure`. `blocked` also
+the cell's calls named where this project publishes its own; it is not outcome
+material, so it is filed apart from `leakage-disclosure`. `blocked` also
 validates; `severity: blocker` is what says a cell could not finish. An
 optional `issue` names the repository issue that already tracks the problem,
 so a cell can cite it instead of re-describing it. Written as a number it
@@ -569,16 +569,20 @@ writing under `data/` or a case `record/` outside that directory, which a path
 naming another case or event is, even under the same run id. A fourth kind is
 filed under `forecast-exposure` rather than `other`, so its occurrences count
 on their own: a call naming where the project's forecasts are published, which
-is the public site (`fedcourts.ai`) or this repository on GitHub's web,
-raw-content or API hosts. It is read from a shell call's URL and from a hosted
-search's or fetch's query, where the repository's name alone also counts. It
-sees what a call asked for and never what came back, so a search worded for
-something else whose results carry a forecast is shown only by the cell's own
-`forecast-exposure` note, a hosted search whose query the engine did not log
-shows nothing, and a forecast published anywhere else is outside it. A path named only
+is the public site (`fedcourts.ai`) or this repository by its owner and name,
+as a GitHub web, raw-content or API address, an SSH remote and a `gh` call all
+spell it. It is read from any call but an MCP one or a subagent's prompt, and
+in a hosted search or fetch the repository's name alone also counts. The
+project's own User-Agent string, which cites the repository's address, is not
+a hit. It sees what a call asked for and never what came back, so a search
+worded for something else whose results carry a forecast is shown only by the
+cell's own disclosure, under whatever category it files it; a hosted search
+whose query the engine did not log shows nothing; and a forecast published
+anywhere else is outside it. A path named only
 to exclude it (`-not -path`, `--exclude`, a `!` glob or an `:(exclude)`
-pathspec) does not count; nor, for the three path kinds, does a search or a
-fetch; nor, for all four, does an MCP call, or a
+pathspec) does not count, though a search's `-site:` exclusion of the site
+still counts as naming it. A search or a fetch counts only for the fourth
+kind, and none of the four counts an MCP call, or a
 subagent's prompt or a message sent to one (claude's `Agent`/`Task`, codex's
 `spawn_agent`, `send_input` and `send_message`). A `grep -v` over output a command already opened does
 count, as the evaluate prompt grades it. The log records that a call *named* a
