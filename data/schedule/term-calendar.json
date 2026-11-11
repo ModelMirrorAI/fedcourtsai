@@ -1,0 +1,891 @@
+{
+  "checked_on": "2026-11-11",
+  "distributions": [
+    {
+      "conference": "2026-09-28",
+      "distributed": "2026-09-02",
+      "list_name": "SUMMER LIST 23 (PAID)",
+      "term": 2026
+    },
+    {
+      "conference": "2026-09-28",
+      "distributed": "2026-09-03",
+      "list_name": "SUMMER LIST 24 (IFP)",
+      "term": 2026
+    },
+    {
+      "conference": "2026-09-28",
+      "distributed": "2026-09-09",
+      "list_name": "SUMMER LIST 25 (PAID)",
+      "term": 2026
+    },
+    {
+      "conference": "2026-09-28",
+      "distributed": "2026-09-10",
+      "list_name": "SUMMER LIST 26 (IFP)",
+      "term": 2026
+    },
+    {
+      "conference": "2026-10-09",
+      "distributed": "2026-09-16",
+      "list_name": "LIST 1 (PAID)",
+      "term": 2026
+    },
+    {
+      "conference": "2026-10-09",
+      "distributed": "2026-09-17",
+      "list_name": "LIST 2 (IFP)",
+      "term": 2026
+    },
+    {
+      "conference": "2026-09-28",
+      "distributed": "2026-09-18",
+      "list_name": "LIST 27",
+      "term": 2026
+    },
+    {
+      "conference": "2026-10-09",
+      "distributed": "2026-09-23",
+      "list_name": "LIST 3 (PAID)",
+      "term": 2026
+    },
+    {
+      "conference": "2026-10-09",
+      "distributed": "2026-09-24",
+      "list_name": "LIST 4 (IFP)",
+      "term": 2026
+    },
+    {
+      "conference": "2026-10-16",
+      "distributed": "2026-09-30",
+      "list_name": "LIST 1 (PAID)",
+      "term": 2026
+    },
+    {
+      "conference": "2026-10-16",
+      "distributed": "2026-10-01",
+      "list_name": "LIST 2 (IFP)",
+      "term": 2026
+    },
+    {
+      "conference": "2026-10-09",
+      "distributed": "2026-10-05",
+      "list_name": "LIST 5",
+      "term": 2026
+    },
+    {
+      "conference": "2026-11-06",
+      "distributed": "2026-10-07",
+      "list_name": "LIST 1 (PAID)",
+      "term": 2026
+    },
+    {
+      "conference": "2026-11-06",
+      "distributed": "2026-10-08",
+      "list_name": "LIST 2 (IFP)",
+      "term": 2026
+    },
+    {
+      "conference": "2026-10-16",
+      "distributed": "2026-10-13",
+      "list_name": "LIST 3",
+      "term": 2026
+    },
+    {
+      "conference": "2026-11-06",
+      "distributed": "2026-10-14",
+      "list_name": "LIST 3 (PAID)",
+      "term": 2026
+    },
+    {
+      "conference": "2026-11-06",
+      "distributed": "2026-10-15",
+      "list_name": "LIST 4 (IFP)",
+      "term": 2026
+    },
+    {
+      "conference": "2026-11-06",
+      "distributed": "2026-10-21",
+      "list_name": "LIST 5 (PAID)",
+      "term": 2026
+    },
+    {
+      "conference": "2026-11-06",
+      "distributed": "2026-10-22",
+      "list_name": "LIST 6 (IFP)",
+      "term": 2026
+    },
+    {
+      "conference": "2026-11-13",
+      "distributed": "2026-10-28",
+      "list_name": "LIST 1 (PAID)",
+      "term": 2026
+    },
+    {
+      "conference": "2026-11-13",
+      "distributed": "2026-10-29",
+      "list_name": "LIST 2 (IFP)",
+      "term": 2026
+    },
+    {
+      "conference": "2026-11-06",
+      "distributed": "2026-11-02",
+      "list_name": "LIST 7",
+      "term": 2026
+    },
+    {
+      "conference": "2026-12-04",
+      "distributed": "2026-11-04",
+      "list_name": "LIST 1 (PAID)",
+      "term": 2026
+    },
+    {
+      "conference": "2026-12-04",
+      "distributed": "2026-11-05",
+      "list_name": "LIST 2 (IFP)",
+      "term": 2026
+    },
+    {
+      "conference": "2026-11-13",
+      "distributed": "2026-11-09",
+      "list_name": "LIST 3",
+      "term": 2026
+    },
+    {
+      "conference": "2026-12-04",
+      "distributed": "2026-11-10",
+      "list_name": "LIST 3 (PAID)",
+      "term": 2026
+    },
+    {
+      "conference": "2026-12-04",
+      "distributed": "2026-11-12",
+      "list_name": "LIST 4 (IFP)",
+      "term": 2026
+    },
+    {
+      "conference": "2026-12-04",
+      "distributed": "2026-11-17",
+      "list_name": "LIST 5 (PAID)",
+      "term": 2026
+    },
+    {
+      "conference": "2026-12-04",
+      "distributed": "2026-11-18",
+      "list_name": "LIST 6 (IFP)",
+      "term": 2026
+    },
+    {
+      "conference": "2026-12-11",
+      "distributed": "2026-11-24",
+      "list_name": "LIST 1 (PAID)",
+      "term": 2026
+    },
+    {
+      "conference": "2026-12-11",
+      "distributed": "2026-11-25",
+      "list_name": "LIST 2 (IFP)",
+      "term": 2026
+    },
+    {
+      "conference": "2026-12-04",
+      "distributed": "2026-11-30",
+      "list_name": "LIST 7",
+      "term": 2026
+    },
+    {
+      "conference": "2027-01-08",
+      "distributed": "2026-12-02",
+      "list_name": "LIST 1 (PAID)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-01-08",
+      "distributed": "2026-12-03",
+      "list_name": "LIST 2 (IFP)",
+      "term": 2026
+    },
+    {
+      "conference": "2026-12-11",
+      "distributed": "2026-12-07",
+      "list_name": "LIST 3",
+      "term": 2026
+    },
+    {
+      "conference": "2027-01-08",
+      "distributed": "2026-12-09",
+      "list_name": "LIST 3 (PAID)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-01-08",
+      "distributed": "2026-12-10",
+      "list_name": "LIST 4 (IFP)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-01-08",
+      "distributed": "2026-12-16",
+      "list_name": "LIST 5 (PAID)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-01-08",
+      "distributed": "2026-12-17",
+      "list_name": "LIST 6 (IFP)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-01-08",
+      "distributed": "2026-12-22",
+      "list_name": "LIST 7 (PAID)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-01-08",
+      "distributed": "2026-12-23",
+      "list_name": "LIST 8 (IFP)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-01-15",
+      "distributed": "2026-12-30",
+      "list_name": "LIST 1 (PAID)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-01-15",
+      "distributed": "2026-12-31",
+      "list_name": "LIST 2 (IFP)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-01-08",
+      "distributed": "2027-01-04",
+      "list_name": "LIST 9",
+      "term": 2026
+    },
+    {
+      "conference": "2027-01-22",
+      "distributed": "2027-01-06",
+      "list_name": "LIST 1 (PAID)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-01-22",
+      "distributed": "2027-01-07",
+      "list_name": "LIST 2 (IFP)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-01-15",
+      "distributed": "2027-01-11",
+      "list_name": "LIST 3",
+      "term": 2026
+    },
+    {
+      "conference": "2027-02-19",
+      "distributed": "2027-01-13",
+      "list_name": "LIST 1 (PAID)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-02-19",
+      "distributed": "2027-01-14",
+      "list_name": "LIST 2 (IFP)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-01-22",
+      "distributed": "2027-01-19",
+      "list_name": "LIST 3",
+      "term": 2026
+    },
+    {
+      "conference": "2027-02-19",
+      "distributed": "2027-01-20",
+      "list_name": "LIST 3 (PAID)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-02-19",
+      "distributed": "2027-01-21",
+      "list_name": "LIST 4 (IFP)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-02-19",
+      "distributed": "2027-01-27",
+      "list_name": "LIST 5 (PAID)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-02-19",
+      "distributed": "2027-01-28",
+      "list_name": "LIST 6 (IFP)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-02-19",
+      "distributed": "2027-02-03",
+      "list_name": "LIST 7 (PAID)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-02-19",
+      "distributed": "2027-02-04",
+      "list_name": "LIST 8 (IFP)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-02-26",
+      "distributed": "2027-02-10",
+      "list_name": "LIST 1 (PAID)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-02-26",
+      "distributed": "2027-02-11",
+      "list_name": "LIST 2 (IFP)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-02-19",
+      "distributed": "2027-02-12",
+      "list_name": "LIST 9",
+      "term": 2026
+    },
+    {
+      "conference": "2027-03-05",
+      "distributed": "2027-02-17",
+      "list_name": "LIST 1 (PAID)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-03-05",
+      "distributed": "2027-02-18",
+      "list_name": "LIST 2 (IFP)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-02-26",
+      "distributed": "2027-02-22",
+      "list_name": "LIST 3",
+      "term": 2026
+    },
+    {
+      "conference": "2027-03-25",
+      "distributed": "2027-02-24",
+      "list_name": "LIST 1 (PAID)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-03-25",
+      "distributed": "2027-02-25",
+      "list_name": "LIST 2 (IFP)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-03-05",
+      "distributed": "2027-03-01",
+      "list_name": "LIST 3",
+      "term": 2026
+    },
+    {
+      "conference": "2027-03-25",
+      "distributed": "2027-03-03",
+      "list_name": "LIST 3 (PAID)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-03-25",
+      "distributed": "2027-03-04",
+      "list_name": "LIST 4 (IFP)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-03-25",
+      "distributed": "2027-03-09",
+      "list_name": "LIST 5 (PAID)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-03-25",
+      "distributed": "2027-03-10",
+      "list_name": "LIST 6 (IFP)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-04-02",
+      "distributed": "2027-03-17",
+      "list_name": "LIST 1 (PAID)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-04-02",
+      "distributed": "2027-03-18",
+      "list_name": "LIST 2 (IFP)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-03-25",
+      "distributed": "2027-03-19",
+      "list_name": "LIST 7",
+      "term": 2026
+    },
+    {
+      "conference": "2027-04-16",
+      "distributed": "2027-03-24",
+      "list_name": "LIST 1 (PAID)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-04-16",
+      "distributed": "2027-03-25",
+      "list_name": "LIST 2 (IFP)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-04-02",
+      "distributed": "2027-03-29",
+      "list_name": "LIST 3",
+      "term": 2026
+    },
+    {
+      "conference": "2027-04-16",
+      "distributed": "2027-03-31",
+      "list_name": "LIST 3 (PAID)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-04-16",
+      "distributed": "2027-04-01",
+      "list_name": "LIST 4 (IFP)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-04-23",
+      "distributed": "2027-04-07",
+      "list_name": "LIST 1 (PAID)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-04-23",
+      "distributed": "2027-04-08",
+      "list_name": "LIST 2 (IFP)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-04-16",
+      "distributed": "2027-04-12",
+      "list_name": "LIST 5",
+      "term": 2026
+    },
+    {
+      "conference": "2027-04-30",
+      "distributed": "2027-04-14",
+      "list_name": "LIST 1 (PAID)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-04-30",
+      "distributed": "2027-04-15",
+      "list_name": "LIST 2 (IFP)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-04-23",
+      "distributed": "2027-04-19",
+      "list_name": "LIST 3",
+      "term": 2026
+    },
+    {
+      "conference": "2027-05-13",
+      "distributed": "2027-04-21",
+      "list_name": "LIST 1 (PAID)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-05-13",
+      "distributed": "2027-04-22",
+      "list_name": "LIST 2 (IFP)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-04-30",
+      "distributed": "2027-04-26",
+      "list_name": "LIST 3",
+      "term": 2026
+    },
+    {
+      "conference": "2027-05-13",
+      "distributed": "2027-04-27",
+      "list_name": "LIST 3 (PAID)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-05-13",
+      "distributed": "2027-04-28",
+      "list_name": "LIST 4 (IFP)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-05-20",
+      "distributed": "2027-05-04",
+      "list_name": "LIST 1 (PAID)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-05-20",
+      "distributed": "2027-05-05",
+      "list_name": "LIST 2 (IFP)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-05-13",
+      "distributed": "2027-05-10",
+      "list_name": "LIST 5",
+      "term": 2026
+    },
+    {
+      "conference": "2027-05-27",
+      "distributed": "2027-05-11",
+      "list_name": "LIST 1 (PAID)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-05-27",
+      "distributed": "2027-05-12",
+      "list_name": "LIST 2 (IFP)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-05-20",
+      "distributed": "2027-05-17",
+      "list_name": "LIST 3",
+      "term": 2026
+    },
+    {
+      "conference": "2027-06-03",
+      "distributed": "2027-05-18",
+      "list_name": "LIST 1 (PAID)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-06-03",
+      "distributed": "2027-05-19",
+      "list_name": "LIST 2 (IFP)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-05-27",
+      "distributed": "2027-05-24",
+      "list_name": "LIST 3",
+      "term": 2026
+    },
+    {
+      "conference": "2027-06-10",
+      "distributed": "2027-05-25",
+      "list_name": "LIST 1 (PAID)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-06-10",
+      "distributed": "2027-05-26",
+      "list_name": "LIST 2 (IFP)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-06-03",
+      "distributed": "2027-05-28",
+      "list_name": "LIST 3",
+      "term": 2026
+    },
+    {
+      "conference": "2027-06-17",
+      "distributed": "2027-06-01",
+      "list_name": "LIST 1 (PAID)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-06-17",
+      "distributed": "2027-06-02",
+      "list_name": "LIST 2 (IFP)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-06-10",
+      "distributed": "2027-06-07",
+      "list_name": "LIST 3",
+      "term": 2026
+    },
+    {
+      "conference": "2027-06-24",
+      "distributed": "2027-06-08",
+      "list_name": "LIST 1 (PAID)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-06-24",
+      "distributed": "2027-06-09",
+      "list_name": "LIST 2 (IFP)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-06-17",
+      "distributed": "2027-06-14",
+      "list_name": "LIST 3",
+      "term": 2026
+    },
+    {
+      "conference": null,
+      "distributed": "2027-06-16",
+      "list_name": "SUMMER LIST 1 (PAID)",
+      "term": 2026
+    },
+    {
+      "conference": null,
+      "distributed": "2027-06-17",
+      "list_name": "SUMMER LIST 2 (IFP)",
+      "term": 2026
+    },
+    {
+      "conference": "2027-06-24",
+      "distributed": "2027-06-21",
+      "list_name": "LIST 3",
+      "term": 2026
+    },
+    {
+      "conference": null,
+      "distributed": "2027-06-23",
+      "list_name": "SUMMER LIST 3 (PAID)",
+      "term": 2026
+    },
+    {
+      "conference": null,
+      "distributed": "2027-06-24",
+      "list_name": "SUMMER LIST 4 (IFP)",
+      "term": 2026
+    },
+    {
+      "conference": null,
+      "distributed": "2027-06-30",
+      "list_name": "SUMMER LIST 5 (PAID)",
+      "term": 2026
+    },
+    {
+      "conference": null,
+      "distributed": "2027-07-01",
+      "list_name": "SUMMER LIST 6 (IFP)",
+      "term": 2026
+    },
+    {
+      "conference": null,
+      "distributed": "2027-07-07",
+      "list_name": "SUMMER LIST 7 (PAID)",
+      "term": 2026
+    },
+    {
+      "conference": null,
+      "distributed": "2027-07-08",
+      "list_name": "SUMMER LIST 8 (IFP)",
+      "term": 2026
+    },
+    {
+      "conference": null,
+      "distributed": "2027-07-14",
+      "list_name": "SUMMER LIST 9 (PAID)",
+      "term": 2026
+    },
+    {
+      "conference": null,
+      "distributed": "2027-07-15",
+      "list_name": "SUMMER LIST 10 (IFP)",
+      "term": 2026
+    },
+    {
+      "conference": null,
+      "distributed": "2027-07-21",
+      "list_name": "SUMMER LIST 11 (PAID)",
+      "term": 2026
+    },
+    {
+      "conference": null,
+      "distributed": "2027-07-22",
+      "list_name": "SUMMER LIST 12 (IFP)",
+      "term": 2026
+    },
+    {
+      "conference": null,
+      "distributed": "2027-07-28",
+      "list_name": "SUMMER LIST 13 (PAID)",
+      "term": 2026
+    },
+    {
+      "conference": null,
+      "distributed": "2027-07-29",
+      "list_name": "SUMMER LIST 14 (IFP)",
+      "term": 2026
+    }
+  ],
+  "schema_version": "1.0",
+  "sessions": [
+    {
+      "day": "2026-09-28",
+      "kind": "conference",
+      "long_conference": true,
+      "term": 2026
+    },
+    {
+      "day": "2026-10-09",
+      "kind": "conference",
+      "long_conference": false,
+      "term": 2026
+    },
+    {
+      "day": "2026-10-16",
+      "kind": "conference",
+      "long_conference": false,
+      "term": 2026
+    },
+    {
+      "day": "2026-11-06",
+      "kind": "conference",
+      "long_conference": false,
+      "term": 2026
+    },
+    {
+      "day": "2026-11-13",
+      "kind": "conference",
+      "long_conference": false,
+      "term": 2026
+    },
+    {
+      "day": "2026-12-04",
+      "kind": "conference",
+      "long_conference": false,
+      "term": 2026
+    },
+    {
+      "day": "2026-12-11",
+      "kind": "conference",
+      "long_conference": false,
+      "term": 2026
+    },
+    {
+      "day": "2027-01-08",
+      "kind": "conference",
+      "long_conference": false,
+      "term": 2026
+    },
+    {
+      "day": "2027-01-15",
+      "kind": "conference",
+      "long_conference": false,
+      "term": 2026
+    },
+    {
+      "day": "2027-01-22",
+      "kind": "conference",
+      "long_conference": false,
+      "term": 2026
+    },
+    {
+      "day": "2027-02-19",
+      "kind": "conference",
+      "long_conference": false,
+      "term": 2026
+    },
+    {
+      "day": "2027-02-26",
+      "kind": "conference",
+      "long_conference": false,
+      "term": 2026
+    },
+    {
+      "day": "2027-03-05",
+      "kind": "conference",
+      "long_conference": false,
+      "term": 2026
+    },
+    {
+      "day": "2027-03-25",
+      "kind": "conference",
+      "long_conference": false,
+      "term": 2026
+    },
+    {
+      "day": "2027-04-02",
+      "kind": "conference",
+      "long_conference": false,
+      "term": 2026
+    },
+    {
+      "day": "2027-04-16",
+      "kind": "conference",
+      "long_conference": false,
+      "term": 2026
+    },
+    {
+      "day": "2027-04-23",
+      "kind": "conference",
+      "long_conference": false,
+      "term": 2026
+    },
+    {
+      "day": "2027-04-30",
+      "kind": "conference",
+      "long_conference": false,
+      "term": 2026
+    },
+    {
+      "day": "2027-05-13",
+      "kind": "conference",
+      "long_conference": false,
+      "term": 2026
+    },
+    {
+      "day": "2027-05-20",
+      "kind": "conference",
+      "long_conference": false,
+      "term": 2026
+    },
+    {
+      "day": "2027-05-27",
+      "kind": "conference",
+      "long_conference": false,
+      "term": 2026
+    },
+    {
+      "day": "2027-06-03",
+      "kind": "conference",
+      "long_conference": false,
+      "term": 2026
+    },
+    {
+      "day": "2027-06-10",
+      "kind": "conference",
+      "long_conference": false,
+      "term": 2026
+    },
+    {
+      "day": "2027-06-17",
+      "kind": "conference",
+      "long_conference": false,
+      "term": 2026
+    },
+    {
+      "day": "2027-06-24",
+      "kind": "conference",
+      "long_conference": false,
+      "term": 2026
+    }
+  ],
+  "sources": [
+    {
+      "sha256": "8d0f7742c6ce70c38e28b199d62ce394fe0ec949661f68226f42e646675c0b68",
+      "term": 2026,
+      "url": "https://www.supremecourt.gov/casedistribution/casedistributionschedule2026.pdf"
+    }
+  ]
+}
