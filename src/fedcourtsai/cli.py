@@ -428,6 +428,7 @@ from .pipeline.evaluate import (
 )
 from .pipeline.exec_action import EXEC_ACTION_RULES
 from .pipeline.executive_success import DEFAULT_SCOPE_RULE, READINGS, executive_success
+from .pipeline.federal_label import federal_label_check
 from .pipeline.filing_simulation import filing_simulation
 from .pipeline.interim_reading_census import interim_reading_census
 from .pipeline.judgment import backfill_merits_judgments
@@ -6378,6 +6379,59 @@ def unforecast_outcomes_cmd(
         f"unforecast: cert {len(report.cert_unforecast)}, "
         f"IFP grants {len(report.ifp_grants_unforecast)}, "
         f"applications {len(report.interim_unforecast)} of {report.interim_outcomes}",
+        err=True,
+    )
+    for alarm in report.alarms:
+        typer.echo(f"alarm: {alarm}", err=True)
+    typer.echo(report.model_dump_json())
+    if report.alarms:
+        raise typer.Exit(code=3)
+
+
+@app.command("federal-label-check")
+def federal_label_check_cmd(
+    salience_version: Annotated[
+        str | None,
+        typer.Option(
+            "--salience-version",
+            help="Read the bands under this registered scorer (default: the active one).",
+        ),
+    ] = None,
+) -> None:
+    """Cross-check the `federal` band on pending paid petitions, read-only.
+
+    Over every pending paid cert petition in predict scope
+    (`pipeline/federal_label.py`): those outside the `federal` band that a
+    reading looser than any registered caption rule places federal
+    (`sg_office_counsel`, `federal_petitioner_party`), each with its band,
+    selection and conference. The check selects nothing and moves no band; a
+    confirmed miss is evidence for the next registered caption version.
+    `--salience-version` re-reads the bands under another registered scorer.
+    Reads the corpus index; reads no snapshot and writes nothing. A summary to
+    stderr, a `FederalLabelReport` as JSON to stdout; exits 3 when an alarm
+    holds (a flagged petition the Solicitor General's office appears for that
+    is not selected, so no forecast is coming), 2 on an unregistered scorer, 1
+    if the corpus is absent.
+    """
+    if salience_version is not None and salience_version not in registered_versions():
+        typer.echo(f"federal-label-check: {salience_version!r} is not registered.", err=True)
+        raise typer.Exit(code=2)
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if settings.corpus_backend == "local" and not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the federal-label check.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
+        report = federal_label_check(
+            conn, today=datetime.now(UTC).date(), salience_version=salience_version
+        )
+    typer.echo(
+        f"{report.salience_version}: pending paid petitions {report.pending}, "
+        f"federal {report.federal}, flagged {len(report.flagged)}",
         err=True,
     )
     for alarm in report.alarms:

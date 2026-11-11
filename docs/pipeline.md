@@ -2872,6 +2872,14 @@ the `federal` band, one a looser reading than the caption rule places federal,
 or Term-to-date recall under its floor. The figures are outcome-selected and
 describe selection, never a predictor; [cli.md](cli.md) has the rules.
 
+`fedcourts federal-label-check` asks the same question before the outcome
+rather than after it. Over the pending paid docket it lists every petition
+outside the `federal` band that a reading looser than the caption rule places
+federal, so a mislabeled federal petitioner is seen while its conference is
+still ahead. It reads pending rows only and selects nothing; a confirmed miss
+is evidence for the next registered caption version. Neither command is run
+by a workflow; each is a dry run a maintainer or a session reads by hand.
+
 That is the shape both workflows invoke, on every round. The commands
 still accept an explicit case list — a ` ```json ``` ` block by `--body-file`, or
 `--court`/`--docket` — which is what a local dry run of one case uses; no
