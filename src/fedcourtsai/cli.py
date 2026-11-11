@@ -26194,7 +26194,7 @@ def _plan_spend(cells: Sequence[Mapping[str, Any]], *, seam: str, breached: bool
             "rates_usd_per_cell": dict(rates),
             "fallback_usd_per_cell": _PLANNING_USD_PER_CELL,
             "fallback_source": (
-                "fedcourtsai.planning_rates.PLANNING_USD_PER_CELL (~$17 per "
+                "fedcourtsai.planning_rates.PLANNING_USD_PER_CELL (~$18 per "
                 "fully-tournamented case over a six-cell design mix)"
             ),
             "cells_at_fallback_rate": at_fallback,
