@@ -314,6 +314,7 @@ from .pipeline import (
     alignment_positions,
     alignment_score,
     alignment_side,
+    appeal_resolver,
     application_backfill,
     argument_features,
     authorship,
@@ -19894,6 +19895,61 @@ def trial_events_command(
         result = trial_opener.survey(watchlist, entries_of, today=read_on)
     typer.echo(json.dumps({"counts": result.counts(), **result.model_dump(mode="json")}, indent=2))
     for line in trial_opener.summary_lines(result):
+        typer.echo(line, err=True)
+
+
+@app.command("appeal-events")
+def appeal_events_command(
+    today: Annotated[
+        str | None,
+        typer.Option(
+            help="The day the dockets are read on (YYYY-MM-DD); entries dated after it are "
+            "not read. Defaults to today (UTC).",
+        ),
+    ] = None,
+) -> None:
+    """Survey the AI watchlist's stored appellate dockets for the appeal stage's disposition event.
+
+    A dry run of the appeal stage's reader (`pipeline/appeal_resolver.py`)
+    over what `watchlist-refresh` has stored. For each listed `relation:
+    appeal` docket it says when the briefing closed (the appellant's reply
+    brief, which is when the event would open), and how the panel disposed of
+    the appeal, or that the disposition goes to triage. Prints the survey as
+    JSON on stdout (identifiers and dates only, no docket text) and a
+    three-line reading on stderr.
+
+    Read-only: no upstream request, no write to the corpus, the ledger or
+    `data/`. Nothing here is registered or forecast; the appeal stage is a
+    design (`docs/appeal-stage.md`). Exits 1 when the corpus is missing, 2
+    when the watchlist or `--today` cannot be read.
+    """
+    settings = get_settings()
+    try:
+        watchlist = load_ai_watchlist(settings.config_root / AI_WATCHLIST_FILENAME)
+        read_on = date.fromisoformat(today) if today is not None else datetime.now(UTC).date()
+    except (OSError, ValueError) as exc:
+        typer.echo(f"appeal-events: cannot read its inputs: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if settings.corpus_backend == "local" and not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the survey.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
+
+        def entries_of(case_id: str) -> list[dict[str, Any]] | None:
+            found = corpus.latest_snapshot(conn, case_id)
+            if found is None:
+                return None
+            stored = found[1].get("docket_entries")
+            return stored if isinstance(stored, list) else None
+
+        result = appeal_resolver.survey(watchlist, entries_of, today=read_on)
+    typer.echo(json.dumps({"counts": result.counts(), **result.model_dump(mode="json")}, indent=2))
+    for line in appeal_resolver.summary_lines(result):
         typer.echo(line, err=True)
 
 

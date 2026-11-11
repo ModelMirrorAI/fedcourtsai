@@ -14,8 +14,10 @@ watchlist slice, beside the trial stage ([trial-stage.md](trial-stage.md)).
 That version adds `appeal` to `Stage` and the two moments below to `Moment`
 (`schemas.py`), declares their claims in `pipeline/moments.py`, and dates the
 entry in [freeze-record.md](freeze-record.md). Until it lands, this page is
-the design that entry cites, and a change to it needs no re-bless. No resolver
-for this stage is built.
+the design that entry cites, and a change to it needs no re-bless. The reader
+for `appeal-disposition` is built as library code (`pipeline/appeal_resolver.py`,
+rule `appeal-resolver-v1`), read by a dry-run command and wired into nothing
+else; none is built for `appeal-permission`.
 
 ## The moments
 
@@ -94,6 +96,66 @@ triage, and every resolution cites the entry it read. The court's opinion is
 its own work and public domain ([data-sources.md](data-sources.md)). The
 stage does not register until that resolver exists and its triage rate has
 been measured on the listed appeals already decided.
+
+### The reader as built
+
+`pipeline/appeal_resolver.py` reads one appellate docket for
+`appeal-disposition`, and `fedcourts appeal-events` runs it over the stored
+listed appeals ([cli.md](cli.md)). It reads the docket text only; the check
+against the opinion's own decretal line is not built.
+
+- **A disposition is read only from the court's own entry**, named by its
+  leading words: a judgment, an opinion, a memorandum, a summary order, or an
+  order whose own words dismiss the appeal. A mandate, a document received
+  from another court, a party's filing, the Supreme Court's judgment and an
+  entry the clerk has marked vacated, stricken, withdrawn or entered in error
+  dispose of nothing. Neither does an order that only speaks of a dismissal:
+  one to show cause, one that defers the question, one that dismisses unless
+  a party acts.
+- **The result is read in four forms**: a judgment entry that leads with it
+  ("Judgment, Affirmed") and speaks of no other result; the court's capitals
+  in an opinion or memorandum entry ("we VACATE … and REMAND", "AFFIRMED"); a
+  judgment "that the judgment of the District Court be affirmed"; and an entry
+  "affirming the judgment of the district court". Outside those forms,
+  lower-case prose is not read, because an opinion's summary speaks of what
+  the court below did. A remand is not an outcome. An opinion entry that
+  states no result is passed over for the judgment beside it.
+- **Result words beside another subject go to triage.** Where the entry also
+  speaks of a dissent or a concurrence, a cross-appeal, rehearing en banc, a
+  stay or injunction pending appeal, a certified question, fees or sanctions,
+  or a result "as to" a part, the rule cannot say the words are the panel's
+  disposition of the whole appeal.
+- **Mixed** is two different results with at least one stated in part.
+  Two results with no "in part" (reversed and vacated), and one result in
+  part with no other, go to triage.
+- **A dismissal is split by who ended the appeal.** A voluntary or stipulated
+  dismissal, a settlement or Rule 42(b) is *no merits decision*; a dismissal
+  for want of jurisdiction, as moot or as untimely is *dismissed*. A
+  dismissal that states neither, both, or another reason (a failure to
+  prosecute) goes to triage, and so does one that reaches less than the whole
+  appeal: in part, one of several appellants, one of several consolidated
+  appeals, a cross-appeal. The reader does not otherwise tell the members of
+  a consolidated set apart.
+- **A petition for review is triage.** Its outcomes (granted, denied) are not
+  this stage's, so a judgment on one is reported and never mapped.
+- **The first entry that reads as a disposition resolves the event.** Entries
+  the rule could not settle are triage only where none reads. A petition for
+  rehearing and what follows it are not read.
+- **The event opens on the appellant's reply brief as filed**: the first
+  entry that leads with the brief and names the appellant or petitioner as
+  its filer. A deadline, an extension, a deficiency notice, a stricken brief,
+  a paper copy received, a supplemental reply, a reply on a motion and
+  another party's reply are not it. The deadline path is not built: an appeal
+  whose reply deadline passes with no reply waits under this rule, because
+  the courts state that deadline in forms too varied to read safely.
+- **A docket that speaks of a cross-appeal opens nothing**, because the last
+  brief there is not the appellant's reply.
+- **A disposition the rule read with no reply read before it opens
+  nothing.** That covers an appeal decided before its briefing closed, one
+  decided the day the reply arrived, and one whose reply the rule could not
+  read. An entry the rule could not settle closes nothing.
+- **Entries with no date, or dated after the day of the reading, are not
+  read.**
 
 ## Documents
 
