@@ -95,8 +95,10 @@ def _label(word: str) -> str:
 _DATE = r"(\d{1,2}\s*/\s*\d{1,2}\s*/\s*\d{2,4})"
 _DECIDED_RE = re.compile(_label("Decided") + r"\s*" + _DATE)
 # "Granted: 6/29/26", or "Noted: 11/4/24" where an appeal's probable
-# jurisdiction was noted.
-_GRANTED_RE = re.compile(r"(?:" + _label("Granted") + r"|" + _label("Noted") + r")\s*" + _DATE)
+# jurisdiction was noted; a footnoted entry prints "Granted*:".
+_GRANTED_RE = re.compile(
+    r"\b(?:" + _spaced("Granted") + r"|" + _spaced("Noted") + r")\s*\*?\s*:\s*" + _DATE
+)
 # "Argument Date:", "Rescheduled Argument Date:" and "Reargument Date:" alike.
 _ARGUMENT_RE = re.compile(
     r"(?:"
@@ -111,7 +113,7 @@ _ARGUMENT_RE = re.compile(
 # What follows a docket number on its line: the closing parenthesis and
 # footnote digit a consolidated group prints, any unanimity marker, then the
 # three-letter case code (jurisdictional ground, court below, nature of case).
-_CODE_RE = re.compile(r"^\)?\d?\s*[*#]*\s*([ACQ][SFTMO][XYH])\s")
+_CODE_RE = re.compile(r"^\s*\)?\d?\s*[*#]*\s*([ACQ][SFTMO][XYH])\s")
 # An original-jurisdiction case's line: "156, Orig. *  NEW YORK V. NEW JERSEY".
 _ORIGINAL_LINE_RE = re.compile(r"^\s*(\d{1,3})\s*,\s*" + _spaced("Orig") + r"\b")
 # "Decided: 6/30/26 (with No. 24-38)": the entry's opinion also decides these.

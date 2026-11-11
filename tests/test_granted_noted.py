@@ -161,8 +161,12 @@ def test_the_grant_the_argument_and_the_case_codes_are_read() -> None:
         + "22-1 * CFX X V. Y\n   G r a n t e d :  1/13/23\n"
         + "   Argument Date:  2/27/23\n   Rescheduled Argument Date:  3/1/23\n"
         + "23-9 CFX P V. Q\n   Court:  USCA-4\n"
+        + "22-51   ) CFX R V. S\n24-20  ) # CFX T V. U\n   Granted*:  1/13/23\n"
     )
-    pair, appeal, moved, bare = parse_granted_noted(text)
+    pair, appeal, moved, bare, spaced = parse_granted_noted(text)
+    # A space before the parenthesis, a unanimity marker, a footnoted label.
+    assert spaced.codes == (("22-51", "CFX"), ("24-20", "CFX"))
+    assert spaced.granted == date(2023, 1, 13)
     assert pair.granted == date(2026, 6, 30)
     assert pair.argument == date(2026, 12, 2)
     assert pair.codes == (("25-238", "CFX"), ("25-566", "CSY"))

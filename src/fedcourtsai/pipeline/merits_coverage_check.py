@@ -20,7 +20,9 @@ pending case every finding (a missing row, a missing event, an argument
 approaching with no forecast) alarms until it is closed. Once the case is
 decided nothing can be repaired, so its findings alarm for
 :data:`MISS_ALARM_DAYS` after the decision and are then carried as one standing
-miss in the report: a permanent fact must not hold the alarm open forever.
+miss in the report: a permanent fact must not hold the alarm open forever. The
+one exception is a decision the list prints and the corpus row lacks, which is
+a corpus fault and stays an alarm until the row carries it.
 
 A consolidated set is one argument and one opinion, so the argument and
 decision checks are met by a forecast on any docket of the entry; the row and
@@ -33,6 +35,7 @@ Reads the corpus index and the committed predictions; writes nothing.
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import date, timedelta
 from enum import StrEnum
@@ -100,6 +103,8 @@ class MeritsAlarm(StrEnum):
     """Argued past the grace period, undecided, and no forecast at the argued moment."""
     decided_unforecast = "decided_unforecast"
     """Decided within the alarm window with no forecast before the decision date."""
+    decision_unrecorded = "decision_unrecorded"
+    """The list prints a decision the corpus row still lacks, past the grace period."""
 
 
 #: The census statuses that are a documented refusal: no forecast is owed.
@@ -146,6 +151,12 @@ class CheckedDocket(BaseModel):
     )
     argued_forecast: bool = Field(
         default=False, description="A committed prediction at the argued moment"
+    )
+    forecast_events: int = Field(
+        default=0, ge=0, description="Merits events holding a committed prediction"
+    )
+    decision_recorded: bool = Field(
+        default=False, description="The corpus row carries the merits decision's date"
     )
     alarms: list[MeritsAlarm] = Field(default_factory=list)
     standing_miss: bool = Field(
@@ -246,6 +257,7 @@ def _read_docket(
         docket.granted = row.date_cert_granted
     if row.merits_decided is not None:
         docket.decided = row.merits_decided
+        docket.decision_recorded = True
     if row.merits_terminated is not None:
         docket.terminated = str(row.merits_terminated)
     events = [
@@ -257,6 +269,7 @@ def _read_docket(
     forecasts = _forecasts(data_root, row.case_id, _MERITS_EVENT_IDS | {e.event_id for e in events})
     docket.first_forecast = _first(forecasts.values())
     docket.argued_forecast = any(eid in _ARGUED_EVENT_IDS for eid in forecasts)
+    docket.forecast_events = len(forecasts)
     if corpus.opens_merits_proceeding(row):
         docket.status, docket.detail = classify_grant(conn, data_root, row, today=today)
     return row
@@ -265,7 +278,7 @@ def _read_docket(
 def _alarm_entry(members: Sequence[CheckedDocket], *, today: date) -> None:
     """Set the alarms on one consolidated entry's dockets (a single docket is an entry)."""
     facts = _Facts(
-        any_forecast=any(m.status == MeritsCoverageStatus.forecast for m in members),
+        any_forecast=any(m.forecast_events for m in members),
         first_forecast=_first(m.first_forecast for m in members),
         argued_forecast=any(m.argued_forecast for m in members),
     )
@@ -281,7 +294,9 @@ def _alarm_entry(members: Sequence[CheckedDocket], *, today: date) -> None:
                 alarms.append(MeritsAlarm.no_merits_grant)
             elif docket.merits_events == 0 and not refused:
                 alarms.append(MeritsAlarm.no_merits_event)
-        if docket.status in GAP_STATUSES:
+        # The grace period covers the hole too: a grant pulled a day before
+        # its event is minted is the stream working.
+        if docket.status in GAP_STATUSES and overdue:
             alarms.append(MeritsAlarm.coverage_hole)
         if docket.status is not None and not refused:
             alarms.extend(_moment_alarms(docket, facts, today=today))
@@ -290,7 +305,21 @@ def _alarm_entry(members: Sequence[CheckedDocket], *, today: date) -> None:
         if docket.decided is not None and not _in_miss_window(docket, today):
             docket.standing_miss = bool(alarms) or (not refused and _missed(docket, facts))
             alarms = []
+        # A decision the list prints and the row lacks is a corpus fault that
+        # can still be repaired, however long ago the Court decided.
+        if _decision_unrecorded(docket, today):
+            alarms.append(MeritsAlarm.decision_unrecorded)
         docket.alarms = alarms
+
+
+def _decision_unrecorded(docket: CheckedDocket, today: date) -> bool:
+    return (
+        docket.status is not None
+        and docket.terminated is None
+        and docket.decided is not None
+        and not docket.decision_recorded
+        and today - docket.decided >= timedelta(days=EVENT_GRACE_DAYS)
+    )
 
 
 def _missed(docket: CheckedDocket, facts: _Facts) -> bool:
@@ -324,11 +353,15 @@ def _moment_alarms(docket: CheckedDocket, facts: _Facts, *, today: date) -> list
     return found
 
 
-def _listed(term: int, text: str) -> tuple[ListReading, list[list[CheckedDocket]]]:
-    """One list's reading and its entries' dockets, unread against the corpus."""
+def _listed(term: int, text: str, seen: set[str]) -> tuple[ListReading, list[list[CheckedDocket]]]:
+    """One list's reading and its entries' dockets, unread against the corpus.
+
+    ``seen`` carries the dockets already read, here or on another list, and
+    each is read once: a case held over for reargument is on two Terms' lists,
+    and the caller reads the later one first.
+    """
     reading = ListReading(term=term, read=True, original=granted_noted.original_dockets(text))
     groups: list[list[CheckedDocket]] = []
-    seen: set[str] = set()
     for entry in granted_noted.parse_granted_noted(text):
         reading.entries += 1
         codes = dict(entry.codes)
@@ -379,14 +412,17 @@ def merits_coverage_check(
     census = merits_coverage(conn, data_root, first_term=term - 1, last_term=term, today=today)
     readings: list[ListReading] = []
     groups: list[list[CheckedDocket]] = []
-    for list_term in sorted(lists):
+    seen: set[str] = set()
+    # Latest list first, so a case on two lists reads its current entry.
+    for list_term in sorted(lists, reverse=True):
         text = lists[list_term]
         if text is None:
             readings.append(ListReading(term=list_term, read=False))
             continue
-        reading, listed = _listed(list_term, text)
+        reading, listed = _listed(list_term, text, seen)
         readings.append(reading)
-        groups.extend(listed)
+        groups[:0] = listed
+    readings.reverse()
     numbers = [d.docket_number for group in groups for d in group]
     case_ids = corpus.scotus_case_ids_by_docket_numbers(conn, numbers)
     on_a_list: set[str] = set()
@@ -439,7 +475,16 @@ _ALARM_TEXT: Final[Mapping[MeritsAlarm, str]] = {
     MeritsAlarm.argued_unforecast: f"argued {ARGUED_GRACE_DAYS} or more days ago, "
     + "no forecast at the argued moment",
     MeritsAlarm.decided_unforecast: "decided with no forecast before the decision",
+    MeritsAlarm.decision_unrecorded: "the Court's list prints a decision the corpus row lacks",
 }
+
+
+_UNSAFE_RE: Final = re.compile(r"[^\w ,.()/-]")
+
+
+def _plain(text: str) -> str:
+    """Corpus text for the issue body, with anything that could mention or link removed."""
+    return _UNSAFE_RE.sub("", text)
 
 
 def _day(value: date | None) -> str:
@@ -479,12 +524,18 @@ def summary_lines(check: MeritsCoverageCheck) -> list[str]:
 
 
 def digest_line(check: MeritsCoverageCheck) -> str:
-    """The one-line count a digest carries for the Term."""
-    forecast = sum(d.status == MeritsCoverageStatus.forecast for d in check.dockets if d.list_term)
-    listed = sum(1 for d in check.dockets if d.list_term)
+    """The one-line count a digest carries for the Term.
+
+    Its first count is over the Term's own list alone, so the next Term's
+    list opening does not move it; the alarm count is over every docket the
+    check read, on a list or not.
+    """
+    own = [d for d in check.dockets if d.list_term == check.term]
+    forecast = sum(d.status == MeritsCoverageStatus.forecast for d in own)
     return (
-        f"Merits coverage, OT{check.term}: {forecast} of {listed} listed dockets forecast, "
-        f"{check.alarms} with an alarm (as of {check.as_of.isoformat()})"
+        f"Merits coverage, OT{check.term}: {forecast} of {len(own)} dockets on the Term's "
+        f"Granted & Noted list hold a merits forecast; {check.alarms} docket(s) checked, "
+        f"listed or not, carry an alarm (as of {check.as_of.isoformat()})"
     )
 
 
@@ -495,8 +546,17 @@ def render_report(check: MeritsCoverageCheck, *, vintage: str | None = None) -> 
     """
     out: list[str] = [f"## Merits coverage, OT{check.term}, as of {check.as_of.isoformat()}", ""]
     out.append(digest_line(check) + ".")
+    out.append("")
+    out.append(
+        "A docket holds a merits forecast when any prediction is committed on any of its "
+        + "merits events, whenever it was made; each docket of a consolidated set is counted, "
+        + "as are dismissed and out-of-scope ones. These are monitoring counts, selected on "
+        + "what has already happened to each case: not a coverage rate, and no part of a "
+        + "scored figure."
+    )
     if vintage:
-        out.append(f"Corpus vintage: {vintage}.")
+        out.append("")
+        out.append(f"Corpus vintage, corpus-wide: {vintage}.")
     out.append("")
     alarmed = [d for d in check.dockets if d.alarms]
     unread = [r for r in check.lists if not r.read and r.term == check.term]
@@ -513,8 +573,9 @@ def render_report(check: MeritsCoverageCheck, *, vintage: str | None = None) -> 
             status = f", census status `{d.status.value}`" if d.status is not None else ""
             case = f" (`{d.case_id}`)" if d.case_id else ""
             out.append(
-                f"- **{d.docket_number}**{case}: {reasons}{status}. Granted {_day(d.granted)}, "
-                f"argument {_day(d.argument)}, decided {_day(d.decided)}."
+                f"- **{_plain(d.docket_number)}**{case}: {reasons}{status}. "
+                f"Granted {_day(d.granted)}, argument {_day(d.argument)}, "
+                f"decided {_day(d.decided)}."
             )
         out.append("")
     else:
@@ -556,7 +617,7 @@ def _render_census(check: MeritsCoverageCheck) -> list[str]:
 
 def _refusal(docket: CheckedDocket) -> str:
     status = docket.status.value if docket.status is not None else "-"
-    return f"`{status}`" + (f" ({docket.detail})" if docket.detail else "")
+    return f"`{status}`" + (f" ({_plain(docket.detail)})" if docket.detail else "")
 
 
 def _render_reported(check: MeritsCoverageCheck) -> list[str]:
@@ -565,7 +626,7 @@ def _render_reported(check: MeritsCoverageCheck) -> list[str]:
     if members:
         out.extend(["### Consolidated members", ""])
         out.extend(
-            f"- {d.docket_number} with lead {d.lead}: "
+            f"- {_plain(d.docket_number)} with lead {_plain(d.lead or '')}: "
             + (f"`{d.status.value}`" if d.status is not None else "no merits grant on the row")
             for d in members
         )
@@ -578,8 +639,8 @@ def _render_reported(check: MeritsCoverageCheck) -> list[str]:
     if refused:
         out.extend(["### Listed, no further forecast owed", ""])
         out.extend(
-            f"- {d.docket_number}: "
-            + (f"terminated ({d.terminated})" if d.terminated is not None else _refusal(d))
+            f"- {_plain(d.docket_number)}: "
+            + (f"terminated ({_plain(d.terminated)})" if d.terminated is not None else _refusal(d))
             for d in refused
         )
         out.append("")
@@ -591,7 +652,9 @@ def _render_reported(check: MeritsCoverageCheck) -> list[str]:
             + "decision, or with no row, merits grant or merits event:"
         )
         out.append("")
-        out.append(", ".join(f"{d.docket_number} ({_day(d.decided)})" for d in standing) + ".")
+        out.append(
+            ", ".join(f"{_plain(d.docket_number)} ({_day(d.decided)})" for d in standing) + "."
+        )
         out.append("")
     for r in check.lists:
         apart = [*r.original, *r.applications]
@@ -613,12 +676,18 @@ def _render_reported(check: MeritsCoverageCheck) -> list[str]:
     return out
 
 
-def _alarm_issue(repo: str, runner: GhRunner) -> int | None:
-    """The open alarm issue's number: this check's title, opened by the workflow token."""
+def _alarm_issues(repo: str, runner: GhRunner) -> list[int]:
+    """Every open alarm issue: this check's title, opened by the workflow token.
+
+    One in the ordinary case. A create that lands and is then cut at its
+    timeout is re-sent by the runner's retry, so there can be two, and a clean
+    check has to close both for an open issue to keep meaning a hole.
+    """
     listing = json.loads(
         runner(["gh", "api", f"repos/{repo}/issues?labels={ISSUE_LABEL}&state=open&per_page=100"])
         or "[]"
     )
+    found: list[int] = []
     for issue in listing if isinstance(listing, list) else []:
         if not isinstance(issue, dict) or "pull_request" in issue:
             continue
@@ -626,8 +695,8 @@ def _alarm_issue(repo: str, runner: GhRunner) -> int | None:
         login = user.get("login") if isinstance(user, dict) else None
         number = issue.get("number")
         if issue.get("title") == ISSUE_TITLE and login == ALARM_AUTHOR and isinstance(number, int):
-            return number
-    return None
+            found.append(number)
+    return sorted(found)
 
 
 def latch(
@@ -659,9 +728,9 @@ def latch(
             ISSUE_LABEL_DESCRIPTION,
         ]
     )
-    number = _alarm_issue(repo, runner)
+    numbers = _alarm_issues(repo, runner)
     if check.alarms:
-        if number is None:
+        if not numbers:
             url = runner(
                 [
                     "gh",
@@ -678,23 +747,25 @@ def latch(
                 ]
             )
             return f"opened {url.strip()}"
+        number = numbers[0]
         runner(
             ["gh", "issue", "edit", str(number), "--repo", repo, "--body-file", str(report_path)]
         )
         return f"refreshed #{number}"
-    if number is None:
+    if not numbers:
         return "no alarm, and no open issue"
-    runner(
-        [
-            "gh",
-            "issue",
-            "comment",
-            str(number),
-            "--repo",
-            repo,
-            "--body",
-            f"Merits coverage has no alarm as of {check.as_of.isoformat()}: closing.",
-        ]
-    )
-    runner(["gh", "issue", "close", str(number), "--repo", repo, "--reason", "completed"])
-    return f"closed #{number}"
+    for number in numbers:
+        runner(
+            [
+                "gh",
+                "issue",
+                "comment",
+                str(number),
+                "--repo",
+                repo,
+                "--body",
+                f"Merits coverage has no alarm as of {check.as_of.isoformat()}: closing.",
+            ]
+        )
+        runner(["gh", "issue", "close", str(number), "--repo", repo, "--reason", "completed"])
+    return "closed " + ", ".join(f"#{number}" for number in numbers)

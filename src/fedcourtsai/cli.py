@@ -19125,7 +19125,8 @@ def merits_coverage_check_cmd(
     proceeding and a merits event within 7 days of its grant, a forecast once
     argument is within 14 days, a forecast at the argued moment within 7 days
     of argument, and a forecast dated before its decision. A finding on a case
-    decided more than 28 days ago is a standing miss, reported and not alarmed.
+    decided more than 28 days ago is a standing miss, reported and not alarmed,
+    except a decision the list prints and the corpus row still lacks.
     Original-jurisdiction cases and applications set for argument are listed
     apart. Monitoring only: nothing here enters a scored figure.
 
@@ -19165,10 +19166,19 @@ def merits_coverage_check_cmd(
             conn, settings.data_root, term=year, lists=lists, today=today
         )
         pulled = corpus.latest_pull_date(conn)
+        snapshot = corpus.latest_snapshot_date(conn)
     for line in merits_coverage_check.summary_lines(check):
         typer.echo(line, err=True)
     if report_out is not None:
-        vintage = f"latest pull {pulled.isoformat()}" if pulled else "never pulled"
+        vintage = (
+            (f"latest pull {pulled.isoformat()}" if pulled else "never pulled")
+            + ", "
+            + (
+                f"latest snapshot {snapshot.isoformat()}"
+                if snapshot
+                else "no snapshots in this blob"
+            )
+        )
         report_out.write_text(
             merits_coverage_check.render_report(check, vintage=vintage), encoding="utf-8"
         )
@@ -19196,7 +19206,8 @@ def merits_coverage_alarm_cmd(
     comments on the open issue and closes it, and writes nothing where none is
     open. Only an issue the workflow token opened under that title is the
     alarm. Refuses (exit 2) a check file that does not parse or that never read
-    its own Term's list.
+    its own Term's list; a `gh` call that fails after its retries fails the
+    command.
     """
     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo):
         typer.echo(f"merits-coverage-alarm: --repo must be owner/name, not {repo!r}", err=True)

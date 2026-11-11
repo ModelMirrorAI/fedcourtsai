@@ -305,9 +305,114 @@ def test_a_census_grant_on_no_list_is_still_checked(world: tuple[Path, Path]) ->
     assert not result.ok
     report = mcc.render_report(result, vintage="latest pull 2026-11-11")
     assert "**26-900** (`scotus/900`): census hole, census status `no_event`" in report
-    assert "Corpus vintage: latest pull 2026-11-11." in report
+    assert "Corpus vintage, corpus-wide: latest pull 2026-11-11." in report
+    # The headline counts the Term's own list (a member with no forecast of its
+    # own and the five-day-old grant are the two short); the alarm is off it.
+    assert "5 of 7 dockets on the Term's Granted & Noted list hold a merits forecast" in report
+    assert "1 docket(s) checked, listed or not, carry an alarm" in report
+    assert "not a coverage rate" in report
+    # Corpus text cannot mention or link from the bot's issue.
+    result.dockets[-1].docket_number = "26-900 @someone #12"
+    assert "**26-900 someone 12**" in mcc.render_report(result)
     assert "25-201 with lead 25-200" in report
     assert "156, Orig., 26A10" in report
+
+
+def test_a_fresh_grant_without_its_event_is_inside_the_grace_period(
+    world: tuple[Path, Path],
+) -> None:
+    # Pulled before its event is minted: a census hole on paper, the stream
+    # working in fact, on a list or off one.
+    db, data = world
+    with corpus.connect(db) as conn:
+        _case(conn, 500, "25-500", date(2026, 11, 6), events=())
+        _case(conn, 900, "26-900", date(2026, 11, 9), events=())
+    early = _check(db, data)
+    assert early["25-500"].status == "no_event"
+    assert early["25-500"].alarms == []
+    assert early["26-900"].alarms == []
+    late = _check(db, data, today=date(2026, 11, 16))
+    assert late["25-500"].alarms == [MeritsAlarm.no_merits_event, MeritsAlarm.coverage_hole]
+    assert late["26-900"].alarms == [MeritsAlarm.coverage_hole]
+
+
+def test_an_entry_with_no_grant_date_is_past_its_grace_period(world: tuple[Path, Path]) -> None:
+    db, data = world
+    text = LIST.replace("USCA-4     Granted:  11/6/26", "USCA-4")
+    with corpus.connect_readonly(db) as conn:
+        result = merits_coverage_check(conn, data, term=2026, lists={2026: text}, today=TODAY)
+    (own,) = result.lists
+    assert own.problems == ["25-500"]
+    docket = next(d for d in result.dockets if d.docket_number == "25-500")
+    assert docket.alarms == [MeritsAlarm.no_corpus_row]
+
+
+def test_the_miss_window_ends_after_twenty_eight_days(world: tuple[Path, Path]) -> None:
+    db, data = world
+    with corpus.connect(db) as conn:
+        _case(
+            conn,
+            401,
+            "25-401",
+            date(2026, 1, 16),
+            merits_judgment=Judgment.affirmed,
+            merits_decided=date(2026, 11, 2),
+        )
+    text = LIST + "\n25-401  CFX PSI V. OMEGA\n   Court:  USCA-4     Granted:  1/16/26\n"
+    on_the_day = _check(db, data, text=text, today=date(2026, 11, 30))["25-401"]
+    assert on_the_day.alarms == [MeritsAlarm.decided_unforecast]
+    after = _check(db, data, text=text, today=date(2026, 12, 1))["25-401"]
+    assert (after.alarms, after.standing_miss) == ([], True)
+
+
+def test_a_decision_the_corpus_lacks_stays_an_alarm(world: tuple[Path, Path]) -> None:
+    # The list prints the decision; the row was never latched. Forecast or
+    # not, and however old, that is a corpus fault someone can still repair.
+    db, data = world
+    text = LIST.replace(
+        "   Argument Date:  1/12/27\n", "   Argument Date:  3/2/26   Decided:  6/1/26\n"
+    )
+    docket = _check(db, data, text=text)["25-100"]
+    assert docket.decided == date(2026, 6, 1)
+    assert not docket.decision_recorded
+    assert docket.alarms == [MeritsAlarm.decision_unrecorded]
+    assert docket.standing_miss  # its only forecast is dated after the decision
+    recorded = _check(db, data)["25-400"]
+    assert recorded.decision_recorded and recorded.alarms == []
+
+
+def test_a_case_on_two_lists_is_read_once_from_the_later_one(world: tuple[Path, Path]) -> None:
+    # Held over for reargument: the earlier list's argument date is stale.
+    db, data = world
+    later = (
+        "25-300  CSY ZETA V. ALASKA\n   Court:  SC-AK     Granted:  6/15/26\n"
+        + "   Reargument Date:  10/12/27\n"
+    )
+    earlier = LIST.replace("Argument Date:  11/20/26", "Argument Date:  10/20/26")
+    with corpus.connect_readonly(db) as conn:
+        result = merits_coverage_check(
+            conn, data, term=2026, lists={2026: earlier, 2027: later}, today=TODAY
+        )
+    (docket,) = [d for d in result.dockets if d.docket_number == "25-300"]
+    assert (docket.list_term, docket.argument) == (2027, date(2027, 10, 12))
+    assert docket.alarms == []
+    assert [(r.term, r.dockets) for r in result.lists] == [(2026, 6), (2027, 1)]
+
+
+def test_a_members_forecast_counts_for_its_entry(world: tuple[Path, Path]) -> None:
+    # The lead holds no forecast and the member does: one argument, covered.
+    db, data = world
+    with corpus.connect(db) as conn:
+        _case(conn, 310, "25-310", date(2026, 6, 15))
+        _case(conn, 311, "25-311", date(2026, 6, 15))
+    seed_prediction(data, "scotus", 311, ORDER)
+    text = LIST + (
+        "\n25-310)1 CFX RHO V. SIGMA\n25-311)2 CFX PHI V. SIGMA\n"
+        + "   Court:  USCA-4     Granted:  6/15/26\n   Argument Date:  11/20/26\n"
+    )
+    dockets = _check(db, data, text=text)
+    assert dockets["25-310"].status == "owed"
+    assert dockets["25-310"].alarms == []
 
 
 def test_an_unread_list_is_never_ok(world: tuple[Path, Path]) -> None:
@@ -378,6 +483,11 @@ def test_the_latch_opens_refreshes_and_closes_one_issue(
     gh = _Gh([_ALARM])
     assert mcc.latch("o/r", passing, body, runner=gh) == "closed #7"
     assert gh.verbs()[-2:] == ["issue comment", "issue close"]
+
+    # A re-sent create can leave two: a clean check closes both.
+    gh = _Gh([_ALARM, {**_ALARM, "number": 9}])
+    assert mcc.latch("o/r", passing, body, runner=gh) == "closed #7, #9"
+    assert gh.verbs().count("issue close") == 2
 
     gh = _Gh([])
     assert mcc.latch("o/r", passing, body, runner=gh) == "no alarm, and no open issue"

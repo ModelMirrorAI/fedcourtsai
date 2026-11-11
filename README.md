@@ -58,7 +58,8 @@ document text-coverage enumeration, the
 tool-usage roll-up, the metrics refresh, the daily big-case board, the weekly
 public update history, the
 qp-topic labeler (the only one that runs an agent, weekly per frame behind
-the `review` hold), and the adverse-order scan
+the `review` hold), the weekly AI-case candidate check, the weekly merits
+coverage check against the Court's Granted & Noted list, and the adverse-order scan
 of CourtListener's RECAP index — both schedule/dispatch
 only. A development lane, `corpus-check`, runs the check a pull request's
 description declares at the PR's head against the corpus, read-only, once the

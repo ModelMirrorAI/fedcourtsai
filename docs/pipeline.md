@@ -495,15 +495,22 @@ queues behind the production run of the same mode. The modes:
   list for the Term (and the next Term's, where the Court has opened it),
   which the pipeline did not produce. A listed docket alarms when, 7 days
   after its grant, it has no corpus row, no grant opening a merits proceeding
-  or no merits event; when the census reads it `no_event` or
+  or no merits event (an entry printing no readable grant date is
+  treated as past that period); when the census reads it `no_event` or
   `not_forecastable`; when its argument is within 14 days with no forecast;
   when it was argued 7 or more days ago with no forecast at the argued moment;
-  and when it was decided with no forecast dated before the decision. A
+  and when it was decided with no forecast dated before the decision. The
+  grace period after a grant covers the census holes too. A case on two
+  Terms' lists (held over for reargument) is read once, from the later one. A
   consolidated set meets the argument and decision checks through any of its
   dockets. A finding on a case decided more than 28 days ago can no longer be
-  repaired and is carried as a standing miss, reported and not alarmed.
+  repaired and is carried as a standing miss, reported and not alarmed; the
+  exception is a decision the list prints and the corpus row still lacks 7
+  days on, a corpus fault that alarms until the row carries it.
   Original-jurisdiction cases and applications set for argument are listed
-  apart. That job holds the read-only role and no issue write, and leaves the
+  apart. A census grant without a prediction that no list read names is held
+  to the same census and decision rules, since the census also covers the
+  grants of the Term before. That job holds the read-only role and no issue write, and leaves the
   check and its report as a one-day artifact; the command's exit 3 (an alarm)
   is not a failed job, and any other failure uploads nothing. A second job,
   with the ambient token's `issues: write` and no environment, role or corpus,

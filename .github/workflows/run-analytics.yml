@@ -3835,11 +3835,12 @@ jobs:
     runs-on: ubuntu-26.04
     timeout-minutes: 20
     environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
-    # Its own group: read-only, so overlap with a sibling mode is harmless,
-    # and a superseded run of itself has nothing worth finishing.
+    # Its own group, never cancelled: a cancelled check uploads nothing, the
+    # alarm job then skips, and the week's tick would be lost without a trace.
+    # Read-only, so overlap with a sibling mode is harmless.
     concurrency:
       group: run-analytics-merits-coverage-${{ github.ref_name }}
-      cancel-in-progress: true
+      cancel-in-progress: false
     permissions:
       contents: read
       id-token: write # assume the read-only AWS role to pull the corpus
@@ -3922,7 +3923,7 @@ jobs:
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-26.04
-    # Setup plus at most five bounded `gh` calls, each worth up to 105s
+    # Setup plus at most four bounded `gh` calls, each worth up to 105s
     # against a degraded API.
     timeout-minutes: 15
     # Never cancelled: a cancel between the comment and the close would leave
