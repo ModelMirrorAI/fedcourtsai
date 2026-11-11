@@ -2379,7 +2379,8 @@ pairing with the mechanical claim total (*Relation to the other numbers*) is
 not on the board, so nothing on it says whether the grade measures more than
 the disposition; the split by call shows only the built-in part. The miss
 review also copies each listed forecast's mean grade beside it, as a detail
-of that row and not a figure. The site reads none of it. Reading rules: `metrics/README.md`.
+of that row and not a figure. The weekly metrics refresh regenerates the
+board with the leaderboard. The site reads none of it. Reading rules: `metrics/README.md`.
 
 ### What is built, and what remains
 
@@ -2407,7 +2408,6 @@ What remains:
 1. **The back-grade** of the already-resolved forward documents
    (*Registration* above): its shape, a new run-evaluate derivation to run
    it, and the decision to spend on it. The backlog owes none of it.
-2. **The rest of publication**: the weekly metrics refresh regenerating the
-   board, the grade's pairing with the mechanical claim total within the
+2. **The rest of publication**: the grade's pairing with the mechanical claim total within the
    right-call and wrong-call cells, and a site page if the grade is to be
    shown there.

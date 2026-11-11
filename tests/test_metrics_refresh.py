@@ -31,6 +31,7 @@ from fedcourtsai.schemas import (
     DocketPackTerm,
     FlagCategory,
     FlagSeverity,
+    ForecastDocumentGrades,
     GroupBy,
     Leaderboard,
     LeaderboardEntry,
@@ -1058,3 +1059,15 @@ def test_the_miss_review_headline_is_its_own_summary(tmp_path: Path) -> None:
     assert pr is not None
     assert pr.title == "metrics: refresh miss-review"
     assert "1 of 2 forward event(s) hold a miss" in pr.body
+
+
+def test_the_forecast_document_grades_headline_is_its_own_summary(tmp_path: Path) -> None:
+    metrics = tmp_path / "metrics"
+    write_json(
+        metrics / "forecast-document-grades.json",
+        ForecastDocumentGrades(process_scope="frozen", minimum_cells=10, later_run_reads=0),
+    )
+    pr = render_refresh_pr(["metrics/forecast-document-grades.json"], tmp_path, "RID")
+    assert pr is not None
+    assert pr.title == "metrics: refresh forecast-document-grades"
+    assert "no forward cell read by a judge whose prompt asks for the grade" in pr.body

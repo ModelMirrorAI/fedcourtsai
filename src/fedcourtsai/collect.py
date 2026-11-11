@@ -368,6 +368,7 @@ REFRESH_JAIL_PATHS = frozenset(
         "metrics/leaderboard.json",
         "metrics/claim-scores.json",
         "metrics/miss-review.json",
+        "metrics/forecast-document-grades.json",
         "metrics/backtest.json",
         "metrics/statpack.json",
         "metrics/statpack.md",

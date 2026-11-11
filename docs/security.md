@@ -2446,7 +2446,7 @@ data-not-instructions guard, the step takes an object only where its bytes
 match the row's digest, and the worst a forged text can do is mislead the
 committed grades that read it — the forecast document's
 `predicted_reasoning_quality`, which enters no score and no rank key and which
-no board reads, and the leakage and `reasoning_quality` readings of a cell
+the `forecast-document-grades` board rolls up as a graded, unranked figure, and the leakage and `reasoning_quality` readings of a cell
 whose grader takes the forged text as the Court's. That residual is likewise **pending the maintainer's
 acceptance**, which merging the sweep's jobs gives; the text half of it is
 added by the change that stores the text, and waits on the same acceptance. The plan is the
