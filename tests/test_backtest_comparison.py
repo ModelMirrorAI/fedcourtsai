@@ -1206,8 +1206,11 @@ def test_the_handoff_plan_command_prints_the_plan_as_json() -> None:
 def test_a_failed_record_write_is_annotated_and_does_not_fail_the_command(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    with cli._record_failure_annotated("cert-backtest"):
+    def append() -> None:
         raise FileExistsError("a cell made this run's file")
+
+    with cli._record_failure_annotated("cert-backtest"):
+        append()
     out = capsys.readouterr().out
     assert out.startswith("::error::cert-backtest: the pooled record was not written")
     assert "FileExistsError" in out and "a cell made" not in out
