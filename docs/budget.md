@@ -150,7 +150,9 @@ the topic labeler's runs are what that window counts.)
   the cert default of 20 petitions prices at about $171 and the merits
   default of 10 cases at about $171, where both arms run a model that row
   describes; a candidate model the rate table does not carry has no planning
-  rate of its own, and that row stands in for it. No workflow runs a comparison, so one is spent only by the command.
+  rate of its own, and that row stands in for it. A `run-backtest` dispatch
+  (`replay: cert-compare` or `merits-compare`) caps the draw at those
+  defaults and has no `review` hold, so the dispatch is the release.
 - **The pilot round** (`run-evaluate`, `mode: reasoning-pilot-merits`) grades
   the briefed moment's kept forecasts for up to 15 cases, one grading run per
   evaluator per event. At the table's evaluate rows ($5.92 + $1.30 + $1.90,
@@ -239,8 +241,9 @@ Which cases reach those moments is the salience gate's choice
 cohort and 24 of the long conference's, less the interim reserve's slots in
 use, a 1-in-20 sample of paid petitions at
 arrival, and a reserve of five interim applications at a time. Not forecast: the AI-case watchlist's
-district-court moments, which are designed and not registered
-([trial-stage.md](trial-stage.md)), and the late-Term authorship re-forecast
+district-court and appeal moments and a listed case's Supreme Court events
+outside the gate, which are designed and not registered
+([trial-stage.md](trial-stage.md), [appeal-stage.md](appeal-stage.md)), and the late-Term authorship re-forecast
 ([milestones.md](milestones.md)).
 
 **How many events.** The ledger on `main` (at `d7840ec19`, 2026-11-11) holds

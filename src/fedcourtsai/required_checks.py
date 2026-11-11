@@ -4,7 +4,8 @@ A required context is satisfied only by a check run that *reports* on the PR,
 and the workflow that would report it has to exist on the branch whose
 workflows the PR runs. PRs into ``main`` from the bot lanes — the collect run
 branches, ``cleanup/*``, ``metrics/refresh``, ``metrics/cert-backtest``,
-``metrics/salience-replay``, ``qp-topics/refresh``,
+``metrics/merits-backtest``, ``metrics/salience-replay``,
+``metrics/backtest-comparison-*``, ``qp-topics/refresh``,
 ``qp-topics/applications-refresh``, ``merits-alignment/side-codes``,
 ``merits-alignment/fits``,
 ``summaries/refresh`` — are

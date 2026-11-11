@@ -55,10 +55,12 @@ from .schemas import (
     CostEstimate,
     CountingWindow,
     DataHealth,
+    DocumentGradeSeries,
     Evaluation,
     FlagsDigest,
     FlagSeverity,
     FlagSource,
+    ForecastDocumentGrades,
     ForwardClaimRecord,
     Leaderboard,
     LeaderboardStratum,
@@ -69,6 +71,7 @@ from .schemas import (
     ModelUsage,
     OpenTriggerIssue,
     OpsReport,
+    PairedEvents,
     PredictableEvent,
     Prediction,
     PredictorScoreRow,
@@ -708,6 +711,9 @@ class WeeklyAnalytics:
     #: command always supplies it, so until the artifact is first committed the
     #: block is its absence line; unsupplied, no block is printed.
     miss_review: Vintaged[MissReview] | None = None
+    #: The forecast-document grade board, printed after the miss review on the
+    #: same terms: supplied by the digest command, absent until first committed.
+    document_grades: Vintaged[ForecastDocumentGrades] | None = None
     #: The board the current one replaced, its vintage the day it landed: what
     #: the movement block compares against. Null where the history is
     #: unreadable (a shallow checkout) or holds no earlier board.
@@ -1324,6 +1330,37 @@ def _forward_row(predictor_id: str, block: LeaderboardStratum) -> str:
     )
 
 
+def _engine_mean_line(paired: PairedEvents) -> list[str]:
+    """The mean-of-engines reference under the forward table, read against the best engine.
+
+    Per-event Briers throughout, the reference beside each engine's own over
+    the same events, so the line is one comparison on one footing — not the
+    grading-weighted mean Brier the table's column prints.
+    """
+    mean = paired.engine_mean
+    if mean is None:
+        return []
+    best = min(mean.engine_brier, key=lambda pid: (mean.engine_brier[pid], pid))
+    verdict = (
+        "below every engine's own"
+        if mean.brier < mean.engine_brier[best]
+        else f"not below the best engine's own (`{_cell(best)}`)"
+    )
+    engines = ", ".join(
+        f"`{_cell(pid)}` {_brier(mean.engine_brier[pid])}" for pid in sorted(mean.engine_brier)
+    )
+    line = (
+        "Reference, not a predictor and never ranked: the mean of the "
+        f"{len(mean.engine_brier)} engines' probabilities scores a per-event Brier of "
+        f"**{_brier(mean.brier)}** over {mean.events:,} of {paired.events:,} paired event(s) "
+        f"({mean.grants} granted), {verdict}. Per event over the same events: {engines}. "
+        "A mean always scores at least as well as its members' average, so only the "
+        "comparison with the best engine is a reading; the engines can surface the same "
+        "sources, so they are not independent forecasts."
+    )
+    return ["", line]
+
+
 def _left_out_line(board: Leaderboard) -> list[str]:
     """What the build dropped before any figure above was taken, stage-blind."""
     left_out = []
@@ -1408,6 +1445,7 @@ def _forward_lines(vintaged: Vintaged[Leaderboard]) -> list[str]:
         "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",
         *[_forward_row(p, by_engine[p]) for p in order],
     ]
+    lines += _engine_mean_line(paired)
     unranked = [
         e.predictor_id
         for e in board.entries
@@ -1523,6 +1561,91 @@ def _miss_review_lines(vintaged: Vintaged[MissReview] | None) -> list[str]:
     return lines
 
 
+def _grade_readings(series: DocumentGradeSeries) -> str:
+    """A series' per-judge means, each beside its count; a dash under the minimum."""
+    judges = Counter(reading.evaluator_id for reading in series.readings)
+    return "; ".join(
+        f"{_cell(reading.evaluator_id)} "
+        # A judge read under two digests is two rubrics: name each by its labels.
+        + (
+            f"[{_cell('/'.join(reading.labels) or 'unlabelled')}] "
+            if judges[reading.evaluator_id] > 1
+            else ""
+        )
+        + ("—" if reading.mean is None else f"{reading.mean:.2f}")
+        + f" ({reading.n})"
+        for reading in series.readings
+    )
+
+
+def _document_grade_lines(vintaged: Vintaged[ForecastDocumentGrades] | None) -> list[str]:
+    """Each predictor's forecast-document grade per stage, read per judge.
+
+    One row per predictor per stage, the pooled series only. The means are per
+    judge rubric and never averaged across judges, each beside the cells it is
+    over, and the judges' leave-one-out agreement closes each stage so no mean
+    is read without it. Graded, not scored: the block says so.
+    """
+    if vintaged is None:
+        return []
+    board = vintaged.value
+    heading = ["", "### Forecast-document grade", ""]
+    if board is None:
+        return [*heading, "_`metrics/forecast-document-grades.json` has never landed._"]
+    where = _sourced("forecast-document-grades.json", vintaged)
+    if not any(stage.cells for stage in board.stages):
+        return [*heading, f"_No forward forecast document is graded yet ({where})._"]
+    intro = (
+        f"Each judge's grade of `predicted_reasoning.md` itself, 0 to 1 ({where}, "
+        f"`{board.process_scope}` process scope). Graded, not scored: no rank and no claim "
+        "total reads it. A mean is one judge's, over the cells every judge on the cell "
+        f"graded, and prints only at {board.minimum_cells} cells or more; judges differ in "
+        "level, so read a column down, not a row across."
+    )
+    lines = [
+        *heading,
+        intro,
+        "",
+        "| Stage | Predictor | Cells graded by all (null by all, split) | Mean by judge (cells) |",
+        "| --- | --- | --- | --- |",
+    ]
+    for stage in board.stages:
+        for series in stage.series:
+            if series.process_window is not None:
+                continue
+            lines.append(
+                f"| {stage.stage!s} | {_cell(series.predictor_id)} "
+                f"| {series.graded_by_all} of {series.cells} ({series.null_by_all}, "
+                f"{series.split_on_mask}) | {_grade_readings(series)} |"
+            )
+    for stage in board.stages:
+        judges = Counter(row.evaluator_id for row in stage.agreement)
+        agreement = "; ".join(
+            f"{_cell(row.evaluator_id)} "
+            + (
+                f"[{_cell('/'.join(row.labels) or 'unlabelled')}] "
+                if judges[row.evaluator_id] > 1
+                else ""
+            )
+            + ("undefined" if row.tau_b is None else f"{row.tau_b:+.2f}")
+            + (
+                ""
+                if row.within_predictor_tau_b is None
+                else f" (within predictor {row.within_predictor_tau_b:+.2f})"
+            )
+            + f" over {row.units} cell(s) in {row.cases} case(s)"
+            for row in stage.agreement
+        )
+        if agreement:
+            lines += [
+                "",
+                f"Judge agreement on {stage.stage!s} (each judge rubric against the mean of "
+                + "the others, Kendall tau-b; undefined includes under the minimum): "
+                + f"{agreement}.",
+            ]
+    return lines
+
+
 def _render_backtests(analytics: WeeklyAnalytics) -> list[str]:
     """The last block: what the replays say, and which replay has never been run."""
     return [
@@ -1605,6 +1728,7 @@ def render_weekly_digest(
         lines += _forward_lines(analytics.leaderboard)
         lines += _movement_lines(analytics.leaderboard, analytics.previous_leaderboard)
         lines += _miss_review_lines(analytics.miss_review)
+        lines += _document_grade_lines(analytics.document_grades)
         lines += _render_backtests(analytics)
     # The marker line stays verbatim; everything below it is defused in one pass,
     # exactly as the daily digest's body is. Almost all of this document is

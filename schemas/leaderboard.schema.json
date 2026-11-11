@@ -239,6 +239,56 @@
       "title": "CountingWindow",
       "type": "object"
     },
+    "EngineMeanReference": {
+      "additionalProperties": false,
+      "description": "A reference line on a paired figure: the mean of the engines' probabilities.\n\nOn each paired event every engine's forecast enters once (the mean of its\nqualifying gradings' scored-prediction ``probability``), and the reference\nforecast is the unweighted mean of those across the engines. Nobody forecast\nit: it exists only where every engine did, it is computed after the fact,\nand it never takes a rank. Every Brier here is **per event** against the\nbinary target, so the reference and the engines are read on one footing; an\nengine's grading-weighted ``mean_brier_score`` is a different average.\n\nA mean's Brier is never worse than the average of its members' Briers, on\nany data, so that comparison says nothing. The reading is against the\n**best** single engine on the same events (``engine_brier``). The engines'\nforecasts are not independent draws, so a gain likely understates what\nindependent forecasters would give and the absence of one may reflect\nshared information.",
+      "properties": {
+        "brier": {
+          "description": "Mean, over `events`, of the squared gap between the reference forecast and the binary target",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Brier",
+          "type": "number"
+        },
+        "engine_brier": {
+          "additionalProperties": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "type": "number"
+          },
+          "description": "Each paired engine's own per-event Brier over the same `events`, by `predictor_id`: the figures `brier` is read against, the lowest of them first of all",
+          "title": "Engine Brier",
+          "type": "object"
+        },
+        "events": {
+          "description": "Paired events the reference is over: those on which every engine's qualifying gradings all carry outcome facts. Read against `PairedEvents.events`",
+          "minimum": 1,
+          "title": "Events",
+          "type": "integer"
+        },
+        "grants": {
+          "description": "Events among `events` whose binary target (`Outcome.actual_granted`) is 1",
+          "minimum": 0,
+          "title": "Grants",
+          "type": "integer"
+        },
+        "grants_forecast": {
+          "description": "The sum of the reference forecast over `events`",
+          "minimum": 0.0,
+          "title": "Grants Forecast",
+          "type": "number"
+        }
+      },
+      "required": [
+        "events",
+        "grants",
+        "grants_forecast",
+        "brier",
+        "engine_brier"
+      ],
+      "title": "EngineMeanReference",
+      "type": "object"
+    },
     "EvaluatorAgreement": {
       "additionalProperties": false,
       "description": "How far one evaluator's big-case reads track the rest of the panel's.\n\nThe check on grader latitude. An evaluator with room to judge can be\nsystematically generous or strict, and nothing in a per-predictor score would\nshow it \u2014 the distortion is spread evenly across everyone that evaluator\nscored. Comparing each grader against its peers is what makes it visible.\n\nComputed **leave-one-out**: the evaluator's ordering against the mean of the\n*other* evaluators' reads on the events they share. Including the evaluator in\nthe panel it is scored against would correlate it partly with itself, and with\na three-judge panel that self-term is a third of the comparison.\n\nA rank correlation for the same reason the predictor-side agreement is one:\nbigness is comparative, so what matters is whether two graders order cases the\nsame way, not whether they pick the same numbers. Read it with ``events``\nbeside it \u2014 with a panel this small and few shared events, tau-b is noisy, and\na single disagreement moves it far.",
@@ -1597,6 +1647,18 @@
           ],
           "default": null,
           "description": "The paired figure restricted to the paired events on which no engine's log shows a legible fetch of a court filing outside the provisioned set (see CommonRecordReading). A selected subset \u2014 the selection tracks outcome and uncertainty \u2014 read against its own always-deny floor, never ranked and never differenced against the paired figure; omitted while no retrieval-log reading was supplied"
+        },
+        "engine_mean": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EngineMeanReference"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The mean of the engines' probabilities on the paired events, as an unranked reference line (see EngineMeanReference). Cert populations with two or more engines only; omitted otherwise, and while no paired event carries outcome facts for every engine"
         },
         "entries": {
           "description": "Per engine, its standing over the paired events: in rank order on the ranked board, by `predictor_id` on an unranked block",

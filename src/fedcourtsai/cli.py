@@ -25,7 +25,7 @@ from collections import Counter
 from collections.abc import Callable, Collection, Iterable, Iterator, Mapping, Sequence
 from contextlib import ExitStack, contextmanager
 from contextvars import ContextVar
-from dataclasses import dataclass, field, replace
+from dataclasses import asdict, dataclass, field, replace
 from datetime import UTC, date, datetime, timedelta
 from enum import StrEnum
 from importlib.metadata import version
@@ -231,6 +231,10 @@ from .finalize import (
     snapshot_output_root,
 )
 from .fixture import build_fixture_corpus
+from .forecast_document_grades import (
+    build_forecast_document_grades,
+    forecast_document_grades_summary,
+)
 from .gvr_migration import relabel_munsingwear_gvr_outcomes
 from .handoff import HandoffRefused, read_handoff, write_handoff
 from .integrity import (
@@ -604,6 +608,7 @@ from .schemas import (
     FlagCategory,
     FlagSeverity,
     FlagSource,
+    ForecastDocumentGrades,
     ForwardClaimRecord,
     Judgment,
     Leaderboard,
@@ -6285,7 +6290,8 @@ def merits_backtest_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options m
     )
     write_json(destination, report)
     if record is not None:
-        _record_merits_backtest(record, drawn, population.cases, outcome, run_id, wanted)
+        with _record_failure_annotated("merits-backtest"):
+            _record_merits_backtest(record, drawn, population.cases, outcome, run_id, wanted)
     typer.echo(
         f"merits-backtest: {len(report.entries)} predictor(s) over {report.cells} cell(s), "
         f"{report.paired_cases} case(s) at both moments; engine {engine} -> {destination}"
@@ -11290,6 +11296,51 @@ def miss_review_command(
     typer.echo(f"miss-review [{scope}]: {miss_review_summary(review)} -> {destination}")
 
 
+@app.command("forecast-document-grades")
+def forecast_document_grades_command(
+    out: Annotated[
+        Path | None,
+        typer.Option(help="Output path (default: <metrics_root>/forecast-document-grades.json)."),
+    ] = None,
+    all_versions: Annotated[
+        bool,
+        typer.Option(
+            "--all-versions",
+            help="Include every process version, not only the frozen headline.",
+        ),
+    ] = False,
+) -> None:
+    """Roll up the forecast-document grade into ``metrics/forecast-document-grades.json``.
+
+    Deterministic and offline. Over the forward cells ``leaderboard`` scores,
+    it reads each judge's ``predicted_reasoning_quality`` of each predictor's
+    ``predicted_reasoning.md`` and reports, per stage: each predictor's mean
+    grade per judge rubric (pooled and per counting window) with the cells
+    graded by every judge, left null by every judge, and split; the judges'
+    leave-one-out agreement and its within-predictor reading; each judge's
+    grades of its own engine family's documents beside the others'; and the
+    grade where the disposition call was right and where it was wrong. Only
+    judges whose evaluate digest asks for the grade are read. Graded, not
+    scored: never a rank key or a claim total; reading rules:
+    ``metrics/README.md``.
+    """
+    settings = get_settings()
+    scope: Literal["frozen", "all"] = "all" if all_versions else "frozen"
+    run = stratify(settings.data_root, frozen_only=not all_versions)
+    _report_exclusions(run)
+    board = build_forecast_document_grades(
+        run.cells, settings.data_root, process_scope=scope, cell_windows=run.cell_windows
+    )
+    destination = (
+        out if out is not None else settings.metrics_root / "forecast-document-grades.json"
+    )
+    write_json(destination, board)
+    typer.echo(
+        f"forecast-document-grades [{scope}]: "
+        f"{forecast_document_grades_summary(board)} -> {destination}"
+    )
+
+
 @app.command("performance-history")
 def performance_history_command(
     ref: Annotated[
@@ -12359,6 +12410,25 @@ def _report_replay_drops(
     return dropped
 
 
+@contextmanager
+def _record_failure_annotated(command: str) -> Iterator[None]:
+    """Keep a failed record write from costing a standing replay its report.
+
+    The report is written before the record and its cells were paid for, so a
+    fault while appending to the pooled record is annotated and the command
+    still exits zero: the report lands, and the run's cells are missing from
+    the pool, which the annotation says where a maintainer looks.
+    """
+    try:
+        yield
+    except (OSError, KeyError, ValueError, RuntimeError, sqlite3.Error) as exc:
+        typer.echo(
+            f"::error::{command}: the pooled record was not written "
+            f"({type(exc).__name__}); the report is written and this run's cells are "
+            "not in the record"
+        )
+
+
 def _annotate_harness_faults(lost_cells: list[CertBacktestCellLoss]) -> None:
     """Turn a replay's harness faults into an Actions error annotation.
 
@@ -12746,17 +12816,18 @@ def cert_backtest_cmd(  # noqa: PLR0913, PLR0915, PLR0917 - a CLI entrypoint; op
         # The report first: nothing after it can cost a run its figures.
         write_json(destination, report)
         if record is not None and replay_run_id is not None:
-            _record_cert_backtest(
-                record,
-                conn,
-                items,
-                replayed,
-                run_id=replay_run_id,
-                scope=scope,
-                salience_floor=salience_cfg.floor,
-                draw_rule=drawn.draw.rule,
-                clocks=clocks,
-            )
+            with _record_failure_annotated("cert-backtest"):
+                _record_cert_backtest(
+                    record,
+                    conn,
+                    items,
+                    replayed,
+                    run_id=replay_run_id,
+                    scope=scope,
+                    salience_floor=salience_cfg.floor,
+                    draw_rule=drawn.draw.rule,
+                    clocks=clocks,
+                )
     _annotate_harness_faults(lost_cells)
     typer.echo(
         f"cert-backtest: {report.predictors_evaluated} predictor(s) over "
@@ -13469,6 +13540,72 @@ def backtest_pooled_cmd(
         f"backtest-pooled: {len(report.entries)} pooled entr(ies) over {report.rows} row(s) "
         f"in {report.files} file(s) -> {destination}"
     )
+
+
+@app.command("backtest-handoff-plan")
+def backtest_handoff_plan_cmd(
+    replay: Annotated[str, typer.Option(help="The dispatched replay mode.")],
+    run_id: Annotated[str, typer.Option(help="The workflow run id that names the run's files.")],
+    candidate: Annotated[
+        str, typer.Option(help="A comparison's `<predictor>=<model>`; empty otherwise.")
+    ] = "",
+) -> None:
+    """Print, as JSON, where a `run-backtest` replay writes its report and record file.
+
+    The one derivation the replay step, the hand-off and the publisher all
+    read (``backtest_comparison.handoff_plan``): the report and record paths
+    under the metrics root, and for a comparison its kind, predictor, model,
+    draw cap and cells per case. A malformed ``--candidate`` or an unknown
+    mode exits 2. Offline; reads nothing.
+    """
+    try:
+        plan = backtest_comparison.handoff_plan(replay, candidate, run_id)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    typer.echo(json.dumps(asdict(plan), sort_keys=True))
+
+
+@app.command("backtest-handoff-check")
+def backtest_handoff_check_cmd(
+    kind: Annotated[str, typer.Option(help="The replay's kind: cert or merits.")],
+    comparison_predictor: Annotated[
+        str,
+        typer.Option(
+            help="The compared predictor, for a comparison run; empty for a standing one."
+        ),
+    ] = "",
+    report: Annotated[
+        Path | None, typer.Option(help="A comparison report to check; omit for a standing run.")
+    ] = None,
+    record: Annotated[
+        Path | None, typer.Option(help="The run's record file to check; omit where none crossed.")
+    ] = None,
+) -> None:
+    """Check a replay run's comparison report and record file before they are committed.
+
+    For a publisher that did not write them: the report must parse as a
+    comparison of ``--kind`` about ``--comparison-predictor``, and the record
+    must parse row by row, hold one run's rows of that kind within the row
+    cap, and carry only the arms and predictors its mode writes
+    (``backtest_comparison.handoff_problems``). Exits 1 naming each problem,
+    never the bytes that caused it. Offline; reads nothing but the two files
+    and the predictor registry.
+    """
+    if kind not in {"cert", "merits"}:
+        raise typer.BadParameter("choose cert or merits", param_hint="--kind")
+    roster = {p.id for p in enabled_predictors(get_settings().config_root / "predictors.yaml")}
+    problems = backtest_comparison.handoff_problems(
+        kind=kind,
+        comparison_predictor=comparison_predictor or None,
+        known_predictors=roster,
+        report=report,
+        record=record,
+    )
+    for problem in problems:
+        typer.echo(f"backtest-handoff-check: {problem}", err=True)
+    if problems:
+        raise typer.Exit(1)
+    typer.echo("backtest-handoff-check: the hand-off is what this run's mode writes")
 
 
 @app.command("salience-replay")
@@ -17266,6 +17403,9 @@ def _weekly_analytics(metrics_root: Path) -> WeeklyAnalytics:
         salience_version_in_force=SALIENCE_VERSION,
         leaderboard=_vintaged(metrics_root / "leaderboard.json", Leaderboard),
         miss_review=_vintaged(metrics_root / "miss-review.json", MissReview),
+        document_grades=_vintaged(
+            metrics_root / "forecast-document-grades.json", ForecastDocumentGrades
+        ),
         previous_leaderboard=_previous_leaderboard(),
     )
 
@@ -19625,6 +19765,13 @@ def ai_watchlist_check_command(
         Path | None,
         typer.Option(help="Write the one-line reading here, for a digest."),
     ] = None,
+    from_report: Annotated[
+        Path | None,
+        typer.Option(
+            help="Read back a stored report (this command's JSON) instead of the "
+            "corpus, and render it; a report more than two days old is not ok.",
+        ),
+    ] = None,
 ) -> None:
     """Check the corpus for Supreme Court dockets of listed AI cases and stale listed dockets.
 
@@ -19641,7 +19788,20 @@ def ai_watchlist_check_command(
     changes no selection. Exits 0 whatever it finds, so the caller decides
     what an alarm does; 1 when the corpus is missing, 2 when the watchlist or
     `--linked` cannot be read.
+
+    `--from-report` renders a stored report where no corpus is at hand: it
+    reads neither the corpus nor the watchlist, stamps the report's age in
+    days, and counts a report more than two days old as not `ok`, so a check
+    that stopped being produced alarms. Exits 2 when the file is not a report.
     """
+    if from_report is not None:
+        try:
+            stored = ai_follow_ons.read_back(from_report.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            typer.echo(f"ai-watchlist-check: cannot read --from-report: {exc}", err=True)
+            raise typer.Exit(code=2) from exc
+        _emit_watchlist_check(stored, alarm_out, digest_out)
+        return
     settings = get_settings()
     try:
         watchlist = load_ai_watchlist(settings.config_root / AI_WATCHLIST_FILENAME)
@@ -19663,6 +19823,12 @@ def ai_watchlist_check_command(
         result = ai_follow_ons.watchlist_check(
             conn, watchlist, linked=linked_ids, stale_after_days=stale_after_days
         )
+    _emit_watchlist_check(result, alarm_out, digest_out)
+
+
+def _emit_watchlist_check(
+    result: ai_follow_ons.WatchlistCheck, alarm_out: Path | None, digest_out: Path | None
+) -> None:
     typer.echo(json.dumps({"ok": result.ok, **result.model_dump(mode="json")}, indent=2))
     line = ai_follow_ons.digest_line(result)
     typer.echo(line, err=True)

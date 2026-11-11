@@ -1064,9 +1064,9 @@ in prose.
   beside a null grade, the record's ground for it). It is registered with
   `proc-v16`: every evaluation stamped under it carries the grade, or a null
   with its ground, for each candidate that has a forecast document, on every
-  stage. Evaluations stamped earlier carry none. No board reads it yet
-  (*Grading the forecast document, design* in
-  `docs/outcome-decomposition.md`).
+  stage. Evaluations stamped earlier carry none. The
+  `forecast-document-grades` board rolls it up per judge (*Grading the
+  forecast document, design* in `docs/outcome-decomposition.md`).
 - **`evaluation.md`** — free-form: what the prediction got right or wrong and
   why, what drove the `reasoning_quality` score, and a **Predicted reasoning**
   section on what drove the forecast document's grade.

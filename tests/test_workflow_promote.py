@@ -1305,9 +1305,18 @@ def test_main_base_jail_covers_every_legitimate_lane() -> None:
     # workflow itself, so each one it can push is pinned from there.
     backtest = (ROOT / ".github" / "workflows" / "run-backtest.yml").read_text()
     arm_branches = re.findall(r"printf '%s' \"([^\"]+)\" > \"\$pr/branch\"", backtest)
-    assert sorted(arm_branches) == ["metrics/merits-backtest", "metrics/salience-replay"]
+    comparison = "metrics/backtest-comparison-"
+    assert sorted(arm_branches) == [
+        comparison + "${GITHUB_RUN_ID}",
+        "metrics/merits-backtest",
+        "metrics/salience-replay",
+    ]
     for branch in arm_branches:
-        assert f"github.head_ref == '{branch}'" in condition, branch
+        if branch.startswith(comparison):
+            # One branch per comparison run, so the allowlist names the prefix.
+            assert f"startsWith(github.head_ref, '{comparison}')" in condition
+        else:
+            assert f"github.head_ref == '{branch}'" in condition, branch
     assert job["permissions"] == {}
     # The job exists only to fail: when the `if` matches, the PR must not merge.
     assert "exit 1" in _steps_text(job)

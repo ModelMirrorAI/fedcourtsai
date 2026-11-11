@@ -5174,6 +5174,49 @@ class PairedEngine(_Strict):
         )
 
 
+class EngineMeanReference(_Strict):
+    """A reference line on a paired figure: the mean of the engines' probabilities.
+
+    On each paired event every engine's forecast enters once (the mean of its
+    qualifying gradings' scored-prediction ``probability``), and the reference
+    forecast is the unweighted mean of those across the engines. Nobody forecast
+    it: it exists only where every engine did, it is computed after the fact,
+    and it never takes a rank. Every Brier here is **per event** against the
+    binary target, so the reference and the engines are read on one footing; an
+    engine's grading-weighted ``mean_brier_score`` is a different average.
+
+    A mean's Brier is never worse than the average of its members' Briers, on
+    any data, so that comparison says nothing. The reading is against the
+    **best** single engine on the same events (``engine_brier``). The engines'
+    forecasts are not independent draws, so a gain likely understates what
+    independent forecasters would give and the absence of one may reflect
+    shared information.
+    """
+
+    events: int = Field(
+        ge=1,
+        description="Paired events the reference is over: those on which every engine's "
+        "qualifying gradings all carry outcome facts. Read against `PairedEvents.events`",
+    )
+    grants: int = Field(
+        ge=0,
+        description="Events among `events` whose binary target (`Outcome.actual_granted`) is 1",
+    )
+    grants_forecast: float = Field(
+        ge=0.0, description="The sum of the reference forecast over `events`"
+    )
+    brier: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="Mean, over `events`, of the squared gap between the reference forecast "
+        "and the binary target",
+    )
+    engine_brier: dict[str, Annotated[float, Field(ge=0.0, le=1.0)]] = Field(
+        description="Each paired engine's own per-event Brier over the same `events`, by "
+        "`predictor_id`: the figures `brier` is read against, the lowest of them first of all",
+    )
+
+
 class PairedEvents(_Strict):
     """A population's paired-event figure: the events every compared engine holds.
 
@@ -5224,10 +5267,23 @@ class PairedEvents(_Strict):
         "supplied",
     )
 
+    engine_mean: EngineMeanReference | None = Field(
+        default=None,
+        description="The mean of the engines' probabilities on the paired events, as an "
+        "unranked reference line (see EngineMeanReference). Cert populations with two or "
+        "more engines only; omitted otherwise, and while no paired event carries outcome "
+        "facts for every engine",
+    )
+
     @model_serializer(mode="wrap")
     def _omit_empty_by_band(self, handler: SerializerFunctionWrapHandler) -> Any:
-        """Drop ``by_band`` and ``common_record`` while empty."""
-        return _omit_empty(handler(self), by_band=self.by_band, common_record=self.common_record)
+        """Drop ``by_band``, ``common_record`` and ``engine_mean`` while empty."""
+        return _omit_empty(
+            handler(self),
+            by_band=self.by_band,
+            common_record=self.common_record,
+            engine_mean=self.engine_mean,
+        )
 
 
 #: The key :attr:`LeaderboardEntry.by_band` files a cell under when its scored
@@ -9242,6 +9298,14 @@ class BacktestComparison(_Strict):
     pairs: list[BacktestComparisonPair] = Field(default_factory=list)
 
 
+#: A name in a record row: an id, a model, a population, a draw rule. Bounded
+#: in length and alphabet, so a row holds names and numbers and has no field
+#: that could carry prose.
+_RecordName = Annotated[
+    str, Field(min_length=1, max_length=160, pattern=r"^[A-Za-z0-9][A-Za-z0-9._:@+/=-]*$")
+]
+
+
 class BacktestRecordRow(_Strict):
     """One scored replay cell: a line of a ``metrics/backtest-record/`` file.
 
@@ -9252,32 +9316,32 @@ class BacktestRecordRow(_Strict):
 
     schema_version: Literal["1.0"] = SCHEMA_VERSION
     kind: BacktestComparisonKind
-    run_id: str
-    predictor_id: str
+    run_id: _RecordName
+    predictor_id: _RecordName
     arm: BacktestArmRole = Field(
         description="'standing': a cell of the standing back-test. 'incumbent' / "
         "'candidate': a cell of a comparison run"
     )
-    engine: str
-    model: str
-    process_digest: str = Field(
+    engine: _RecordName
+    model: _RecordName
+    process_digest: _RecordName = Field(
         description="The process digest of the configuration that ran (see "
         "`BacktestComparisonArm.process_digest`). Figures pool within one "
         "(predictor, model, digest) and never across them"
     )
-    population: str = Field(
+    population: _RecordName = Field(
         description="The population the run drew from, as a stable name (cert: "
         "`cert:<scope>`; merits: `merits:argued`). Figures never pool across populations"
     )
-    case_id: str
-    stage: str
-    moment: str
+    case_id: _RecordName
+    stage: _RecordName
+    moment: _RecordName
     probability: float = Field(ge=0.0, le=1.0)
     outcome: int = Field(ge=0, le=1)
     decided: date | None = None
-    provisioning: str | None = None
-    draw_rule: str
-    stratum: str = Field(
+    provisioning: _RecordName | None = None
+    draw_rule: _RecordName
+    stratum: _RecordName = Field(
         description="The case's outcome class in its population (cert: granted or "
         "not-granted; merits: disturbed or not-disturbed), recorded under every "
         "draw rule because the pooled figure is post-stratified on it"
@@ -17055,6 +17119,220 @@ class PerformanceHistory(_Strict):
     )
 
 
+class DocumentGradeReading(_Strict):
+    """A predictor's mean forecast-document grade under one judge rubric.
+
+    The claimable form of a judge-authored figure: one (evaluator, digest)
+    pair's grades alone, over the cells every judge on the cell graded.
+    """
+
+    evaluator_id: str
+    digest: str | None = Field(
+        description="The evaluate process digest on the gradings' harness stamps"
+    )
+    labels: list[str] = Field(default_factory=list, description=_RUBRIC_LABELS_DESCRIPTION)
+    n: int = Field(
+        ge=0, description="Cells this rubric graded among those every judge on the cell graded"
+    )
+    mean: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Mean `predicted_reasoning_quality` over those `n` cells; null where "
+        "`n` is under the board's `minimum_cells`",
+    )
+
+
+class DocumentGradeSeries(_Strict):
+    """One predictor's forecast-document grades on a stage, pooled or in one window."""
+
+    predictor_id: str
+    process_window: str | None = Field(
+        description="The counting window's label; null for the predictor's record pooled "
+        "across its windows (and for every series of an all-versions build)"
+    )
+    cells: int = Field(
+        ge=0,
+        description="Forward (case, event) cells of this predictor that at least one judge "
+        "whose prompt asks for the grade read",
+    )
+    graded_by_all: int = Field(ge=0, description="Cells every such judge on the cell graded")
+    null_by_all: int = Field(
+        ge=0,
+        description="Cells every such judge left null: the staged record was silent on what "
+        "the document's central claims turn on",
+    )
+    split_on_mask: int = Field(
+        ge=0,
+        description="Cells some judges graded and others left null; in no mean and no coefficient",
+    )
+    reads_graded: int = Field(
+        ge=0, description="Judge reads carrying a grade, one per judge per cell, split cells too"
+    )
+    reads_null: int = Field(ge=0, description="Judge reads left null, split cells included")
+    readings: list[DocumentGradeReading] = Field(
+        default_factory=list,
+        description="The mean grade per judge rubric, over the `graded_by_all` cells. Never "
+        "one mean pooled across judges",
+    )
+
+
+class DocumentGradeWithinPredictor(_Strict):
+    """A judge's leave-one-out coefficient within one predictor's cells."""
+
+    predictor_id: str
+    units: int = Field(ge=0)
+    tau_b: float | None = Field(
+        default=None,
+        ge=-1.0,
+        le=1.0,
+        description="Null where undefined or where `units` is under `minimum_cells`",
+    )
+
+
+class DocumentGradeAgreement(_Strict):
+    """One judge rubric's grades against the mean of the other judges' on the cells they share.
+
+    One row per (evaluator, digest): a judge read under two digests is two
+    rubrics and gets two rows. The other judges' mean is taken as it stands on
+    each cell, whatever digests their reads carry. It is the leave-one-out
+    reading of how far the panel agrees on a document, with the cell (case,
+    event, predictor) as the unit. The within-predictor
+    coefficient is the predictor-tracking check: a pooled coefficient well above
+    it says the judges agree on which predictor wrote a document more than on
+    how good it was.
+    """
+
+    evaluator_id: str
+    digest: str | None = Field(
+        description="The evaluate process digest this judge's reads here were made under"
+    )
+    labels: list[str] = Field(default_factory=list, description=_RUBRIC_LABELS_DESCRIPTION)
+    units: int = Field(ge=0, description="Cells entering the coefficient")
+    cases: int = Field(ge=0, description="Distinct cases among those cells")
+    tau_b: float | None = Field(
+        default=None,
+        ge=-1.0,
+        le=1.0,
+        description="Kendall tau-b; null where undefined or where `units` is under "
+        "`minimum_cells`, never read as agreement",
+    )
+    within_predictor_tau_b: float | None = Field(
+        default=None,
+        ge=-1.0,
+        le=1.0,
+        description="The same coefficient within each predictor's cells, averaged unweighted "
+        "over the predictors; null unless it prints for every predictor with a shared cell, "
+        "so it is never one predictor's coefficient read against the pooled one",
+    )
+    within_predictor: list[DocumentGradeWithinPredictor] = Field(default_factory=list)
+
+
+class DocumentGradeFamily(_Strict):
+    """A judge rubric's mean grade of its own engine family's documents and of the others'."""
+
+    evaluator_id: str
+    digest: str | None = Field(
+        description="The evaluate process digest this judge's reads here were made under"
+    )
+    labels: list[str] = Field(default_factory=list, description=_RUBRIC_LABELS_DESCRIPTION)
+    engine: Engine
+    own_n: int = Field(ge=0)
+    own_mean: float | None = Field(
+        default=None, ge=0.0, le=1.0, description="Null where `own_n` is under `minimum_cells`"
+    )
+    other_n: int = Field(ge=0)
+    other_mean: float | None = Field(
+        default=None, ge=0.0, le=1.0, description="Null where `other_n` is under `minimum_cells`"
+    )
+
+
+class DocumentGradeByCall(_Strict):
+    """A judge's mean grade where the disposition call was right and where it was wrong.
+
+    The anchors grade whether the disposition held, so a grade tracks the call
+    by construction. The gap between the two means is that built-in part; what
+    the grade measures beyond the call is the spread **within** each group, and
+    this split shows only whether there is one. One row per judge rubric.
+    """
+
+    evaluator_id: str
+    digest: str | None = Field(
+        description="The evaluate process digest this judge's reads here were made under"
+    )
+    labels: list[str] = Field(default_factory=list, description=_RUBRIC_LABELS_DESCRIPTION)
+    correct_n: int = Field(ge=0, description="Cells graded by all whose stamped `correct` is 1")
+    correct_mean: float | None = Field(
+        default=None, ge=0.0, le=1.0, description="Null where its count is under `minimum_cells`"
+    )
+    correct_spread: float | None = Field(
+        default=None,
+        ge=0.0,
+        description="Population standard deviation of the grades in the group; null as the mean is",
+    )
+    incorrect_n: int = Field(ge=0, description="The same where `correct` is 0")
+    incorrect_mean: float | None = Field(
+        default=None, ge=0.0, le=1.0, description="Null where its count is under `minimum_cells`"
+    )
+    incorrect_spread: float | None = Field(
+        default=None, ge=0.0, description="As `correct_spread`, for the wrong-call group"
+    )
+    unscored_n: int = Field(
+        ge=0, description="Cells graded by all whose grading stamps no `correct`; in neither group"
+    )
+
+
+class DocumentGradeStage(_Strict):
+    """The forecast-document grades on one stage. Stages are never pooled."""
+
+    stage: Stage
+    cells: int = Field(
+        ge=0,
+        description="Forward (case, event, predictor) cells at least one asking judge read",
+    )
+    cases: int = Field(ge=0, description="Distinct cases among those cells")
+    graded_by_all: int = Field(ge=0)
+    null_by_all: int = Field(ge=0)
+    split_on_mask: int = Field(ge=0)
+    missing_judge: int = Field(
+        ge=0,
+        description="Cells some asking judge seen on this stage returned no read for; their "
+        "figures stand on a smaller panel",
+    )
+    reads_not_asked: int = Field(
+        ge=0,
+        description="Gradings of forward cells on this stage whose evaluate digest does not "
+        "ask for the grade; read by nothing here",
+    )
+    series: list[DocumentGradeSeries] = Field(default_factory=list)
+    agreement: list[DocumentGradeAgreement] = Field(default_factory=list)
+    family: list[DocumentGradeFamily] = Field(default_factory=list)
+    by_call: list[DocumentGradeByCall] = Field(default_factory=list)
+
+
+class ForecastDocumentGrades(_Strict):
+    """The roll-up of `predicted_reasoning_quality`, the grade of `predicted_reasoning.md`.
+
+    Graded, not scored: nothing here enters a claim total, a rank key or any
+    other grade. Every mean and coefficient is per judge rubric and per stage, over the cells
+    every asking judge on the cell graded, and travels with the judges'
+    agreement figures. Forward cells only, under the exclusions the leaderboard
+    applies.
+    """
+
+    process_scope: Literal["frozen", "all"]
+    minimum_cells: int = Field(
+        ge=1,
+        description="The registered count under which no mean and no coefficient is printed",
+    )
+    later_run_reads: int = Field(
+        ge=0,
+        description="Gradings of a later prediction run of a cell than the earliest graded "
+        "one; read by nothing here",
+    )
+    stages: list[DocumentGradeStage] = Field(default_factory=list)
+
+
 # Maps on-disk filename -> the model that validates it. Used by `fedcourts validate`.
 FILENAME_MODELS: dict[str, type[_Strict]] = {
     "case.yaml": TrackedCase,
@@ -17065,6 +17343,7 @@ FILENAME_MODELS: dict[str, type[_Strict]] = {
     "leaderboard.json": Leaderboard,
     "claim-scores.json": ClaimScoreBoard,
     "miss-review.json": MissReview,
+    "forecast-document-grades.json": ForecastDocumentGrades,
     "backtest.json": Backtest,
     "usage.json": ModelUsage,
     "ops.json": OpsReport,
@@ -17095,6 +17374,7 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "leaderboard": Leaderboard,
     "claim_score_board": ClaimScoreBoard,
     "miss_review": MissReview,
+    "forecast_document_grades": ForecastDocumentGrades,
     "performance_history": PerformanceHistory,
     "backtest": Backtest,
     "tool_usage": ToolUsage,

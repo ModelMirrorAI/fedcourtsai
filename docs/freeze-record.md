@@ -18852,6 +18852,146 @@ freeze commit is recorded here.
     for each predictor, a forecast count, a realized count, an event count
     equal to that block's `in_sample_events_scored`, and `6`.
 
+- **The paired cert figure carries the mean of the engines' probabilities as
+  an unranked reference; recorded 2026-11-11.** A **reading-rule**
+  registration with no scored figure moved, recorded ahead of the promotion
+  that carries it.
+
+  **Why.** The boards compared each engine with the always-deny call and with
+  base rates, and could not say whether averaging the engines' probabilities
+  scores better than the best of them, which is the question a single
+  published probability per case turns on.
+
+  **The field.** `paired.engine_mean`, on a cert population's paired figure
+  with two or more engines. On each paired event every engine's forecast
+  enters once, at the mean of its qualifying gradings' scored-prediction
+  `probability`, and the reference forecast is the unweighted mean of those
+  across the engines. It carries `events` (the paired events on which every
+  engine's gradings carry outcome facts), their `grants` on the binary
+  target, its `grants_forecast`, its per-event `brier`, and `engine_brier`,
+  each engine's own per-event Brier over the same events. There is no weight,
+  threshold or other constant to set.
+
+  **The reading rule** (`metrics/README.md`, beside the grant counts).
+  - **A reference, never a predictor.** It takes no rank and no headline:
+    nobody forecast it, and it exists only where every engine did.
+  - **Read only against the lowest `engine_brier`.** A mean's Brier is never
+    above the average of its members' Briers on any data, so that comparison
+    is not a finding. A tie with the best engine is not a gain.
+  - **Quoted with its `events` and `grants`**, and as a description of those
+    events, not a rule for which number to publish.
+  - **Bounded by dependence.** Forward cells can surface the same sources, so
+    the engines are not independent forecasters: a gain likely understates
+    what independent ones would give, and the absence of one may reflect
+    shared information.
+
+  **What was known when this was recorded.** The first build, on the
+  `staging` checkout at `517a1cd72` under the frozen scope, read over 148
+  paired events with 11 granted: the mean at a per-event Brier of 0.0338,
+  against `codex-baseline` 0.0302, `claude-baseline` 0.0312 and
+  `gemini-baseline` 0.0543. The mean was not below the best engine.
+
+  **What does not move.** No digest, no base rate, no membership rule, no
+  rank and no scored figure.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_leaderboard.py -k engine_mean` is green;
+  - on `main` after the first metrics refresh that follows the promotion, `jq
+    -c '.paired | [.events, .engine_mean.events, .engine_mean.brier,
+    .engine_mean.engine_brier]' metrics/leaderboard.json` prints the paired
+    event count, the reference's own event count, its Brier, and one Brier
+    per paired engine.
+- **The forecast-document grade is rolled up on a board of its own, with a
+  registered minimum count; recorded 2026-11-11.** A **reading-rule**
+  registration with no scored figure moved, recorded ahead of the promotion
+  that carries it.
+
+  **Why.** `predicted_reasoning_quality` has been collected by every judge on
+  every stage since `proc-v16`, and no artifact read it. The design
+  (`outcome-decomposition.md`, *Grading the forecast document, design*) fixed
+  what must travel with a published grade before any grade existed; this
+  entry records the board that publishes it and the one constant the design
+  left open.
+
+  **The board.** `fedcourts forecast-document-grades` writes
+  `metrics/forecast-document-grades.json` over the forward cells the
+  leaderboard scores, under its exclusions, per stage and never pooled across
+  stages:
+  - each predictor's mean grade per judge rubric, pooled across its counting
+    windows and per window, over the cells every judge on the cell graded,
+    beside the cells null by every judge and the cells split on the mask;
+  - each judge rubric's leave-one-out Kendall tau-b against the mean of the
+    other judges, the cell as the unit, with the same coefficient within each
+    predictor's cells;
+  - each judge rubric's grades of its own engine family's documents beside
+    the others';
+  - each judge rubric's mean grade and spread where the disposition call was
+    right and where it was wrong.
+
+  A judge read under two evaluate digests is two rubrics, and nothing is
+  pooled across them.
+
+  **The panel.** A judge is on a cell's panel only where its evaluate digest
+  is blessed at `proc-v16` or later, the rule `validate` already applies to a
+  committed grade. A grading under an earlier digest is counted and read by
+  nothing.
+
+  **The registered constant.** No mean and no coefficient prints under **10
+  cells**. The count prints and the value is null. A change is a new entry
+  here.
+
+  **The reading rule** (`metrics/README.md`, the `forecast-document-grades.json`
+  entry).
+  - **Graded, not scored.** No claim total, no rank key and no other grade
+    reads it, and the board ranks nothing.
+  - **One judge rubric's mean, never a pooled one.** A mean is read down a
+    judge's column across predictors. No mean across judges is on this board,
+    and none may be computed from its rows and quoted.
+  - **Every mean travels with the agreement figures**, and a low or undefined
+    coefficient is a caveat, not a figure withheld.
+  - **The family reading is confounded with the predictor**, since a judge's
+    own family is one predictor, and alone it is not evidence of favouritism
+    or of its absence.
+  - **The gap by call is built in.** The anchors grade whether the
+    disposition held. The pairing with the mechanical claim total that the
+    design names is not on the board.
+
+  **What was known when this was recorded.** The first build, on the
+  `staging` checkout at `6687ce59a` under the frozen scope: 84 cert cells,
+  28 per predictor, over 19 cases, all graded by every judge on the cell, 12
+  of them short one judge; 24 interim cells, 8 per predictor, over 5 cases,
+  all graded by all, 3 of them short one judge; 1,179 cert and 189 interim gradings under digests that do
+  not ask. On cert, each judge graded `gemini-baseline` below the other two
+  predictors (`claude-judge` 0.54 against 0.66 and 0.66; `codex-judge` 0.74
+  against 0.83 and 0.85; `gemini-judge` 0.72 against 0.84 and 0.85, on 24
+  cells), and the judges' leave-one-out coefficients were 0.58, 0.51 and
+  0.57, with within-predictor readings of 0.48, 0.43 and 0.49. On interim no
+  predictor's mean printed, every series being under the minimum. The
+  interim rows that did print were the `proc-v17` rubrics' pooled ones over
+  15 cells in 4 cases: leave-one-out coefficients of 0.59, 0.11 and 0.61, a
+  mean grade of the other families' documents of 0.73, 0.89 and 0.80, and a
+  mean grade on right-call cells of 0.74, 0.86 and 0.84. The minimum was set
+  before the first build. The first build pooled each judge's digests in the
+  agreement, family and call rows; that was changed to one row per rubric
+  after review, before this entry landed.
+
+  **What does not move.** No digest, no base rate, no membership rule, no
+  rank and no scored figure. No prompt changes, so no evaluate digest moves.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_forecast_document_grades.py` is green;
+  - on `main`, `uv run fedcourts forecast-document-grades --out
+    /tmp/grades.json` exits zero and `jq -c '[.minimum_cells, (.stages[] |
+    [.stage, .cells, .graded_by_all, .null_by_all, .split_on_mask])]'
+    /tmp/grades.json` prints `10` and one row per stage whose last three
+    counts sum to its `cells`.
+
 - **`proc-v21`, a cell forecasts independently, the Claude pair moves to
   `claude-fable-5-2` and the Gemini pair to `gemini-4-carbon`; recorded
   2026-11-11.** Carried to `main` by the promotion tagged `<FILL: promotion tag>`
