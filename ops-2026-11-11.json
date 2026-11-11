@@ -1,0 +1,2941 @@
+{
+  "cost": {
+    "actions_cost_usd": 0.0,
+    "actions_minutes": 1063.1,
+    "actions_monthly_usd": 0.0,
+    "estimated_monthly_usd": 1468.6,
+    "fixed_monthly_usd": 115.0,
+    "model_cost_usd": 5430.203589,
+    "model_monthly_usd": 1353.6,
+    "window_days": 1.0
+  },
+  "data_health": {
+    "corpus": {
+      "checks": [
+        {
+          "checked": 1,
+          "detail": "corpus opened",
+          "failures": 0,
+          "name": "corpus_opens",
+          "passed": true,
+          "problems": []
+        },
+        {
+          "checked": 2154093,
+          "detail": "2154093 rows vs baseline 2154093",
+          "failures": 0,
+          "name": "row_count_monotonic",
+          "passed": true,
+          "problems": []
+        },
+        {
+          "checked": 4311621,
+          "detail": "",
+          "failures": 0,
+          "name": "required_columns_non_empty",
+          "passed": true,
+          "problems": []
+        },
+        {
+          "checked": 2154093,
+          "detail": "no marked docket numbers stored (1 ***-shaped string(s) are legitimate separators)",
+          "failures": 0,
+          "name": "docket_numbers_carry_no_capital_marking",
+          "passed": true,
+          "problems": []
+        },
+        {
+          "checked": 3073,
+          "detail": "as of 2026-11-11",
+          "failures": 0,
+          "name": "snapshot_not_future_dated",
+          "passed": true,
+          "problems": []
+        },
+        {
+          "checked": 640,
+          "detail": "granted before 2024-11-11 (730 days); 14 resolved by termination (1 abated, 1 grant-vacated, 3 judgment-issued, 9 voluntary-dismissal)",
+          "failures": 0,
+          "name": "no_stale_unparsed_grants",
+          "passed": true,
+          "problems": []
+        },
+        {
+          "checked": 2154093,
+          "detail": "0 future-dated, 75 decided-before-filed (21 docket rows vs accepted baseline 30, 54 SCOTUS application rows vs accepted baseline 70; as of 2026-11-11); faithful upstream data \u2014 investigate the climb upstream before raising a baseline",
+          "failures": 75,
+          "name": "case_dates_ordered",
+          "passed": true,
+          "problems": [
+            "case 'ca1/4490126' is decided before filed (filed 2016-06-17, decided 2014-01-29; docket row)",
+            "case 'ca10/4134809' is decided before filed (filed 2016-06-24, decided 2015-05-01; docket row)",
+            "case 'ca10/66666109' is decided before filed (filed 2022-12-15, decided 2022-11-16; docket row)",
+            "case 'ca11/4565191' is decided before filed (filed 2017-09-01, decided 2015-01-05; docket row)",
+            "case 'ca2/4135978' is decided before filed (filed 2015-10-02, decided 2014-03-27; docket row)",
+            "case 'ca2/65360496' is decided before filed (filed 2023-03-29, decided 2023-01-24; docket row)",
+            "case 'ca3/4490420' is decided before filed (filed 2015-09-03, decided 2015-04-08; docket row)",
+            "case 'ca3/66808103' is decided before filed (filed 2023-09-08, decided 2023-08-17; docket row)",
+            "case 'ca5/66761616' is decided before filed (filed 2025-10-01, decided 2020-07-07; docket row)",
+            "case 'ca5/67681435' is decided before filed (filed 2023-12-11, decided 2023-10-19; docket row)",
+            "case 'ca6/66766012' is decided before filed (filed 2023-10-11, decided 2023-08-16; docket row)",
+            "case 'ca9/64454285' is decided before filed (filed 2023-10-23, decided 2023-06-23; docket row)",
+            "case 'ca9/64883208' is decided before filed (filed 2023-09-08, decided 2023-06-16; docket row)",
+            "case 'ca9/65770700' is decided before filed (filed 2023-11-06, decided 2022-12-16; docket row)",
+            "case 'ca9/67108822' is decided before filed (filed 2023-08-10, decided 2023-07-19; docket row)",
+            "case 'ca9/70552707' is decided before filed (filed 2025-06-03, decided 1994-08-08; docket row)",
+            "case 'ca9/71959035' is decided before filed (filed 2025-11-25, decided 1995-09-28; docket row)",
+            "case 'ca9/72111052' is decided before filed (filed 2025-12-12, decided 1994-10-04; docket row)",
+            "case 'ca9/73391004' is decided before filed (filed 2026-05-20, decided 1994-06-07; docket row)",
+            "case 'cafc/64942476' is decided before filed (filed 2023-08-21, decided 2023-07-14; docket row)"
+          ]
+        },
+        {
+          "checked": 4308548,
+          "detail": "",
+          "failures": 0,
+          "name": "domain_values_valid",
+          "passed": true,
+          "problems": []
+        },
+        {
+          "checked": 4311621,
+          "detail": "",
+          "failures": 0,
+          "name": "no_duplicate_cases_or_events",
+          "passed": true,
+          "problems": []
+        },
+        {
+          "checked": 18705,
+          "detail": "",
+          "failures": 0,
+          "name": "ledger_references_exist",
+          "passed": true,
+          "problems": []
+        },
+        {
+          "checked": 352,
+          "detail": "",
+          "failures": 0,
+          "name": "minted_moments_defined_in_ledger",
+          "passed": true,
+          "problems": []
+        },
+        {
+          "checked": 29803,
+          "detail": "",
+          "failures": 0,
+          "name": "event_dirs_hold_only_ledger_entries",
+          "passed": true,
+          "problems": []
+        },
+        {
+          "checked": 2193,
+          "detail": "",
+          "failures": 0,
+          "name": "evaluation_targets_prediction",
+          "passed": true,
+          "problems": []
+        },
+        {
+          "checked": 1563,
+          "detail": "",
+          "failures": 0,
+          "name": "base_rate_basis_carries_version",
+          "passed": true,
+          "problems": []
+        },
+        {
+          "checked": 4094,
+          "detail": "",
+          "failures": 0,
+          "name": "prediction_docs_exist",
+          "passed": true,
+          "problems": []
+        },
+        {
+          "checked": 1842,
+          "detail": "",
+          "failures": 0,
+          "name": "prediction_claims_scoreable",
+          "passed": true,
+          "problems": []
+        },
+        {
+          "checked": 207,
+          "detail": "",
+          "failures": 0,
+          "name": "prediction_semantic_claims_conform",
+          "passed": true,
+          "problems": []
+        },
+        {
+          "checked": 0,
+          "detail": "",
+          "failures": 0,
+          "name": "evaluation_semantic_grades_gradeable",
+          "passed": true,
+          "problems": []
+        },
+        {
+          "checked": 2193,
+          "detail": "",
+          "failures": 0,
+          "name": "predicted_reasoning_grade_only_under_a_prompt_that_asks",
+          "passed": true,
+          "problems": []
+        },
+        {
+          "checked": 201,
+          "detail": "",
+          "failures": 0,
+          "name": "merits_predictions_carry_judgment",
+          "passed": true,
+          "problems": []
+        },
+        {
+          "checked": 2193,
+          "detail": "",
+          "failures": 0,
+          "name": "vote_accuracy_only_on_merits_events",
+          "passed": true,
+          "problems": []
+        },
+        {
+          "checked": 14260,
+          "detail": "",
+          "failures": 0,
+          "name": "outcome_votes_await_a_registered_source",
+          "passed": true,
+          "problems": []
+        },
+        {
+          "checked": 717,
+          "detail": "",
+          "failures": 0,
+          "name": "evaluation_correct_agrees",
+          "passed": true,
+          "problems": []
+        },
+        {
+          "checked": 14252,
+          "detail": "",
+          "failures": 0,
+          "name": "judgment_only_on_merits_outcomes",
+          "passed": true,
+          "problems": []
+        }
+      ],
+      "corpus_events": 2154455,
+      "corpus_rows": 2154093,
+      "ok": true,
+      "schema_version": "1.0",
+      "skipped": false
+    },
+    "ledger": {
+      "checked": 44891,
+      "invalid": 0,
+      "ok": true,
+      "problems": []
+    },
+    "ok": true
+  },
+  "flags": {
+    "archived": 904,
+    "blockers": 0,
+    "cells": 141,
+    "harness": 38,
+    "infos": 99,
+    "normalised_cells": 0,
+    "recent": [
+      {
+        "actor_id": "codex-judge",
+        "case_id": "scotus/9526000560",
+        "flags": [
+          {
+            "category": "data-quality",
+            "event_id": "evt-motion-disposition",
+            "issue": null,
+            "message": "gemini-baseline's reasoning reports historical interim counts of 25/148 for 2025 and 23/113 for 2024, pooling 48/261. statpack-at reconstructed the candidate-era build eb6830084a187953fd58b91cb3c9125fc6775a7b (no alternative), whose eligible parsed rows are 17/226, 16/194, and 18/127 in 2025, 2024, and 2023, totaling 51/547. The discrepancy affects the rationale grade; it is not inferred from today's refreshed pack and does not change the independently computed headline Brier or correct label.",
+            "normalised": false,
+            "severity": "warning",
+            "source": "agent"
+          }
+        ],
+        "role": "evaluator",
+        "run_id": "20261110T154355Z",
+        "schema_version": "1.0"
+      },
+      {
+        "actor_id": "claude-judge",
+        "case_id": "scotus/9526000560",
+        "flags": [
+          {
+            "category": "data-quality",
+            "event_id": "evt-brief-response-disposition",
+            "issue": null,
+            "message": "gemini-baseline's reasoning.md and predicted_reasoning.md say the Oct 29 amicus brief was filed by 'Keep Big Bend Wild et al.' opposing a stay; the docket shows only the Federation for American Immigration Reform's brief (supporting applicants). This was weighed in reasoning_quality; no pipeline defect implied.",
+            "normalised": false,
+            "severity": "info",
+            "source": "agent"
+          }
+        ],
+        "role": "evaluator",
+        "run_id": "20261110T154355Z",
+        "schema_version": "1.0"
+      },
+      {
+        "actor_id": "codex-judge",
+        "case_id": "scotus/9026000462",
+        "flags": [
+          {
+            "category": "ambiguous-event",
+            "event_id": "evt-petition-disposition",
+            "issue": null,
+            "message": "All candidates froze distribution_count=1 before the petition's October 7, 2026 docketing; claude-baseline and codex-baseline identify that earlier distribution as concerning linked sealing motion 26M22. The October 14 petition distribution raises outcome.signals.distribution_count to two but does not itself show substantive reconsideration. gemini-baseline's forecast of no further relists is adverse on an additional-distribution reading but consistent on a narrower no-substantive-reconsideration reading. The forecast review records this ambiguity and limits its penalty; no event, outcome, frozen context, or harness-scored quantitative claim was changed.",
+            "normalised": false,
+            "severity": "warning",
+            "source": "agent"
+          }
+        ],
+        "role": "evaluator",
+        "run_id": "20261110T154355Z",
+        "schema_version": "1.0"
+      },
+      {
+        "actor_id": "codex-judge",
+        "case_id": "scotus/9026000314",
+        "flags": [
+          {
+            "category": "data-quality",
+            "event_id": "evt-petition-disposition",
+            "issue": null,
+            "message": "gemini-baseline's retrieval.md says no retrieval beyond provisioned inputs, but its harness log records an attempted fedcourts query for denied caDC comparators decided before October 15, 2026. That row is unobserved, so execution success and returned content cannot be determined. The discrepancy is in the retrieval account, not proof of outcome retrieval; the query does not seek this petition's November 9 disposition, and no leakage exclusion is imposed.",
+            "normalised": false,
+            "severity": "warning",
+            "source": "agent"
+          }
+        ],
+        "role": "evaluator",
+        "run_id": "20261110T154355Z",
+        "schema_version": "1.0"
+      },
+      {
+        "actor_id": "claude-judge",
+        "case_id": "scotus/9026000249",
+        "flags": [
+          {
+            "category": "provisioning",
+            "event_id": "evt-petition-disposition",
+            "issue": null,
+            "message": "documents.json marks the 13-page cert reply (filed 2026-10-05) as empty_text: it is a scanned filing with no text layer. Two candidates disclosed that they could not read it. OCR for the reply would close the gap.",
+            "normalised": false,
+            "severity": "info",
+            "source": "agent"
+          }
+        ],
+        "role": "evaluator",
+        "run_id": "20261110T154355Z",
+        "schema_version": "1.0"
+      },
+      {
+        "actor_id": "codex-judge",
+        "case_id": "scotus/9026000119",
+        "flags": [
+          {
+            "category": "capture-gap",
+            "event_id": "evt-petition-arrival-disposition",
+            "issue": null,
+            "message": "codex-baseline reports two rate-limited CourtListener precedent searches in reasoning.md and retrieval.md, but its staged retrieval_log.json contains no corresponding search calls. The logged calls are captured, so this is a limitation of the available call inventory rather than a claim that unobserved results were empty. The search failures cannot be independently verified. No outcome exposure is indicated, and the forward-mode leakage assessment remains not_applicable. Evaluation completed for all three candidates.",
+            "normalised": false,
+            "severity": "info",
+            "source": "agent"
+          }
+        ],
+        "role": "evaluator",
+        "run_id": "20261110T154355Z",
+        "schema_version": "1.0"
+      },
+      {
+        "actor_id": "codex-judge",
+        "case_id": "scotus/9026000119",
+        "flags": [
+          {
+            "category": "capture-gap",
+            "event_id": "evt-petition-disposition",
+            "issue": null,
+            "message": "codex-baseline's staged retrieval_log.json contains seven captured calls concerning only statistical review. Its reasoning.md and retrieval.md describe principal record reads, general-rule web attempts, and older-authority CourtListener lookups absent from that log. Reported capture coverage 1.0 applies only to the calls present, not demonstrable session completeness. Please check transcript selection/aggregation. No affirmative evidence of outcome retrieval or influence was found; the forward assessment remains not_applicable and scores are unchanged.",
+            "normalised": false,
+            "severity": "warning",
+            "source": "agent"
+          }
+        ],
+        "role": "evaluator",
+        "run_id": "20261110T154355Z",
+        "schema_version": "1.0"
+      },
+      {
+        "actor_id": "claude-judge",
+        "case_id": "scotus/9026000119",
+        "flags": [
+          {
+            "category": "capture-gap",
+            "event_id": "evt-petition-disposition",
+            "issue": null,
+            "message": "codex-baseline's staged retrieval_log.json carries 7 calls (all shell/statpack reads), but its retrieval.md discloses a web search, a web open attempt, and two CourtListener calls (search for 353 F.3d 870, search_document on opinion 164183) that do not appear in the captured log. The disclosed calls concern a 2003 Tenth Circuit precedent and are not outcome material, so the leakage grade is unaffected; the log appears incomplete for that engine's tool classes.",
+            "normalised": false,
+            "severity": "info",
+            "source": "agent"
+          }
+        ],
+        "role": "evaluator",
+        "run_id": "20261110T154355Z",
+        "schema_version": "1.0"
+      },
+      {
+        "actor_id": "claude-judge",
+        "case_id": "scotus/9026000107",
+        "flags": [
+          {
+            "category": "data-quality",
+            "event_id": "evt-order-call-for-response-disposition",
+            "issue": null,
+            "message": "gemini-baseline's reasoning.md quotes sal-v4 baseline reached rates (OT2023-2025: 5.3%/6.9%/6.9%, n=513/1277/1452) that do not match the statpack build resolved for its run (7bcde3b105cb: 5.9%/5.9%/4.0%, n=1312/1274/1314). Reflected in its reasoning_quality only.",
+            "normalised": false,
+            "severity": "info",
+            "source": "agent"
+          }
+        ],
+        "role": "evaluator",
+        "run_id": "20261110T154355Z",
+        "schema_version": "1.0"
+      },
+      {
+        "actor_id": "codex-judge",
+        "case_id": "scotus/9026000087",
+        "flags": [
+          {
+            "category": "data-quality",
+            "event_id": "evt-petition-disposition",
+            "issue": null,
+            "message": "The supplied decided snapshot dates the petition entry September 6, 2025, but DocketedDate is July 21, 2026, the event opens July 21, 2026, and petition/appendix link filenames and the response schedule point to 2026. claude-baseline and codex-baseline also identified this inconsistency in their staged rationales. Provenance review is warranted; I retain authoritative Term 2026 and the recorded November 9, 2026 denial and infer no untimeliness or jurisdictional defect. Scoring was completed for every staged alias.",
+            "normalised": false,
+            "severity": "warning",
+            "source": "agent"
+          }
+        ],
+        "role": "evaluator",
+        "run_id": "20261110T154355Z",
+        "schema_version": "1.0"
+      },
+      {
+        "actor_id": "codex-judge",
+        "case_id": "scotus/9026000018",
+        "flags": [
+          {
+            "category": "data-quality",
+            "event_id": "evt-order-call-for-response-disposition",
+            "issue": null,
+            "message": "gemini-baseline materially misreads petition p. 18: the May 26, 2026 judgment was for defendants, dismissing plaintiffs' claims with prejudice, not a comprehensive post-trial remedial order/permanent relief. Its rationale also converts null amicus data to a measured zero. These candidate-analysis errors affect reasoning_quality; the committed outcome is not disputed, and every candidate was fully scored.",
+            "normalised": false,
+            "severity": "warning",
+            "source": "agent"
+          }
+        ],
+        "role": "evaluator",
+        "run_id": "20261110T154355Z",
+        "schema_version": "1.0"
+      },
+      {
+        "actor_id": "codex-judge",
+        "case_id": "scotus/73522552",
+        "flags": [
+          {
+            "category": "data-quality",
+            "event_id": "evt-order-call-for-response-disposition",
+            "issue": null,
+            "message": "gemini-baseline's rationale misdescribes its historical calibration pack: the contract-authorized statpack-at reconstruction identifies build 7bcde3b105cb212283905eda17b827efc188e80c with no alternative, whose displayed Terms and OT 2024 baseline counts differ from its assertions. It also dates the final appellate decision to December 17, 2025 rather than the staged petition and docket's February 10, 2026. These checkable discrepancies reduce reasoning_quality, not correct or Brier; the rationale's claimed petition support for a catalogue of prior cert denials is also unsubstantiated by the staged passages. Details are in gemini-baseline's evaluation.md.",
+            "normalised": false,
+            "severity": "warning",
+            "source": "agent"
+          }
+        ],
+        "role": "evaluator",
+        "run_id": "20261110T154355Z",
+        "schema_version": "1.0"
+      },
+      {
+        "actor_id": "claude-judge",
+        "case_id": "scotus/73522552",
+        "flags": [
+          {
+            "category": "data-quality",
+            "event_id": "evt-order-call-for-response-disposition",
+            "issue": null,
+            "message": "gemini-baseline's reasoning.md quotes a sal-v4 baseline 'reached' rate of 2.1% (n=1,210) for OT 2024 and says the table renders only OT 2024-2025. Its placed statpack build (7bcde3b105cb) renders 2017-2026, with OT 2024 baseline reached 5.9% (n=1,274). It also attributes a catalogue of prior cert denials to the petition, which the staged petition text does not contain. Both were graded in reasoning_quality; the scored numbers are unaffected.",
+            "normalised": false,
+            "severity": "info",
+            "source": "agent"
+          }
+        ],
+        "role": "evaluator",
+        "run_id": "20261110T154355Z",
+        "schema_version": "1.0"
+      },
+      {
+        "actor_id": "codex-baseline",
+        "case_id": "scotus/9026000398",
+        "flags": [
+          {
+            "category": "data-quality",
+            "event_id": "evt-petition-disposition",
+            "issue": null,
+            "message": "The provisioned context has response_requested=null, but the snapshot explicitly records Response Requested on October 22, 2026 and an extension through December 23. Forecast uses those docket entries, including for the high probability of another distribution; the frozen baseline band and anchor are left unchanged. This did not block completion.",
+            "normalised": false,
+            "severity": "info",
+            "source": "agent"
+          }
+        ],
+        "role": "predictor",
+        "run_id": "20261109T212928Z",
+        "schema_version": "1.0"
+      },
+      {
+        "actor_id": "codex-baseline",
+        "case_id": "scotus/9026000396",
+        "flags": [
+          {
+            "category": "provisioning",
+            "event_id": "evt-order-call-for-response-disposition",
+            "issue": null,
+            "message": "record/documents/party-letter.txt for the October 9, 2026 filing contains only letterhead/contact information and no substantive letter body, although documents.json marks it nonempty and untruncated (one page). The forecast does not infer the letter's purpose or contents; a potentially consequential docket letter is substantively unavailable. Prediction otherwise completed from the snapshot, petition and independent lower-court conflict checks.",
+            "normalised": false,
+            "severity": "warning",
+            "source": "agent"
+          }
+        ],
+        "role": "predictor",
+        "run_id": "20261109T212928Z",
+        "schema_version": "1.0"
+      },
+      {
+        "actor_id": "codex-baseline",
+        "case_id": "scotus/9026000396",
+        "flags": [
+          {
+            "category": "data-quality",
+            "event_id": "evt-petition-disposition",
+            "issue": null,
+            "message": "context.json response_requested is null, but the provisioned 2026-11-09 snapshot expressly records Response Requested on October 13, 2026 and a November 6 extension of that response deadline to December 14, 2026. The forecast uses those docket entries and preserves the supplied baseline band and frozen anchor without recomputing them. The discrepancy materially affects interpretation of the procedural posture and future-distribution probability.",
+            "normalised": false,
+            "severity": "warning",
+            "source": "agent"
+          },
+          {
+            "category": "capture-gap",
+            "event_id": "evt-petition-disposition",
+            "issue": null,
+            "message": "The October 9 party-letter.txt contains only letterhead/contact details and no substantive body, although documents.json marks it empty_text=false and truncated=false. An attempt to open its exact predecision PDF through the web tool returned no usable content. The letter's substantive position is unavailable and was not inferred; it could bear on the vehicle or related litigation.",
+            "normalised": false,
+            "severity": "warning",
+            "source": "agent"
+          }
+        ],
+        "role": "predictor",
+        "run_id": "20261109T212928Z",
+        "schema_version": "1.0"
+      },
+      {
+        "actor_id": "claude-baseline",
+        "case_id": "scotus/9026000396",
+        "flags": [
+          {
+            "category": "data-quality",
+            "event_id": "evt-order-call-for-response-disposition",
+            "issue": null,
+            "message": "party-letter.txt (Oct 9, 2026 letter of petitioner) extracted only the letterhead; the letter body is missing though empty_text is false.",
+            "normalised": false,
+            "severity": "info",
+            "source": "agent"
+          }
+        ],
+        "role": "predictor",
+        "run_id": "20261109T212928Z",
+        "schema_version": "1.0"
+      },
+      {
+        "actor_id": "claude-baseline",
+        "case_id": "scotus/9026000396",
+        "flags": [
+          {
+            "category": "data-quality",
+            "event_id": "evt-petition-disposition",
+            "issue": null,
+            "message": "party-letter.txt (Oct 9 2026 letter from petitioner's counsel, 1 page) extracted only the letterhead; empty_text is false but the letter body is missing, so its content could not be read.",
+            "normalised": false,
+            "severity": "info",
+            "source": "agent"
+          }
+        ],
+        "role": "predictor",
+        "run_id": "20261109T212928Z",
+        "schema_version": "1.0"
+      },
+      {
+        "actor_id": "codex-baseline",
+        "case_id": "scotus/73500257",
+        "flags": [
+          {
+            "category": "capture-gap",
+            "event_id": "evt-order-relist-disposition",
+            "issue": null,
+            "message": "The staged decision-below.txt is the original September 8, 2025 opinion, not the controlling March 6, 2026 amended opinion. The lower-court-docket.txt rehearing excerpt stops in November 2025 and reports no disposition or dissent found. The official petition appendix supplies the amended opinion, rehearing denial, and eight-judge dissent; forecast relies on that appendix instead. Not blocking.",
+            "normalised": false,
+            "severity": "info",
+            "source": "agent"
+          }
+        ],
+        "role": "predictor",
+        "run_id": "20261109T212928Z",
+        "schema_version": "1.0"
+      },
+      {
+        "actor_id": "codex-baseline",
+        "case_id": "scotus/73500244",
+        "flags": [
+          {
+            "category": "data-quality",
+            "event_id": "evt-order-relist-disposition",
+            "issue": null,
+            "message": "The provisioned lower-court-docket.txt says no en banc petition was filed and no disposition was found. Appendix C, p. 20a, expressly denies en banc and panel rehearing on February 24, 2026, with no active judge requesting a poll. The forecast follows the filed order, not the incomplete enrichment summary.",
+            "normalised": false,
+            "severity": "warning",
+            "source": "agent"
+          },
+          {
+            "category": "data-quality",
+            "event_id": "evt-order-relist-disposition",
+            "issue": null,
+            "message": "The event describes the first relist, but the frozen snapshot and context already show three distributions, entered September 30, November 2 and November 9, 2026. The forecast uses the authoritative three-distribution baseline, with relist-increment meaning a fourth or later distribution. This may reflect event detection timing or rescheduling; no earlier baseline was reconstructed.",
+            "normalised": false,
+            "severity": "info",
+            "source": "agent"
+          }
+        ],
+        "role": "predictor",
+        "run_id": "20261109T212928Z",
+        "schema_version": "1.0"
+      }
+    ],
+    "total": 188,
+    "warnings": 89,
+    "window_days": 14
+  },
+  "generated_at": "2026-11-11T08:09:11.675047+00:00",
+  "health": [
+    {
+      "failures": 8,
+      "last_conclusion": "success",
+      "last_run_at": "2026-11-11T07:23:30Z",
+      "median_seconds": 104,
+      "p95_seconds": 471,
+      "runs_considered": 56,
+      "success_rate": 0.8571428571428571,
+      "successes": 48,
+      "workflow": "ci"
+    },
+    {
+      "failures": 4,
+      "last_conclusion": "success",
+      "last_run_at": "2026-11-11T07:23:30Z",
+      "median_seconds": 288,
+      "p95_seconds": 324,
+      "runs_considered": 60,
+      "success_rate": 0.9333333333333333,
+      "successes": 56,
+      "workflow": "codeql"
+    },
+    {
+      "failures": 0,
+      "last_conclusion": "success",
+      "last_run_at": "2026-11-11T07:50:44Z",
+      "median_seconds": 31,
+      "p95_seconds": 36,
+      "runs_considered": 48,
+      "success_rate": 1.0,
+      "successes": 48,
+      "workflow": "corpus-check"
+    },
+    {
+      "failures": 0,
+      "last_conclusion": "success",
+      "last_run_at": "2026-11-10T17:50:31Z",
+      "median_seconds": 120,
+      "p95_seconds": 238,
+      "runs_considered": 2,
+      "success_rate": 1.0,
+      "successes": 2,
+      "workflow": "integration-test"
+    },
+    {
+      "failures": 0,
+      "last_conclusion": "success",
+      "last_run_at": "2026-11-10T18:27:52Z",
+      "median_seconds": 27,
+      "p95_seconds": 28,
+      "runs_considered": 3,
+      "success_rate": 1.0,
+      "successes": 3,
+      "workflow": "lint-actions"
+    },
+    {
+      "failures": 0,
+      "last_conclusion": "success",
+      "last_run_at": "2026-11-11T07:28:02Z",
+      "median_seconds": 45,
+      "p95_seconds": 52,
+      "runs_considered": 21,
+      "success_rate": 1.0,
+      "successes": 21,
+      "workflow": "promotion-prep"
+    },
+    {
+      "failures": 0,
+      "last_conclusion": "success",
+      "last_run_at": "2026-11-11T07:23:30Z",
+      "median_seconds": 18,
+      "p95_seconds": 22,
+      "runs_considered": 30,
+      "success_rate": 1.0,
+      "successes": 30,
+      "workflow": "promotion-record"
+    },
+    {
+      "failures": 0,
+      "last_conclusion": "success",
+      "last_run_at": "2026-11-11T04:37:39Z",
+      "median_seconds": 1779,
+      "p95_seconds": 1861,
+      "runs_considered": 3,
+      "success_rate": 1.0,
+      "successes": 3,
+      "workflow": "run-analytics"
+    },
+    {
+      "failures": 0,
+      "last_conclusion": "success",
+      "last_run_at": "2026-11-10T16:02:32Z",
+      "median_seconds": 727,
+      "p95_seconds": 727,
+      "runs_considered": 1,
+      "success_rate": 1.0,
+      "successes": 1,
+      "workflow": "run-backtest"
+    },
+    {
+      "failures": 0,
+      "last_conclusion": "success",
+      "last_run_at": "2026-11-10T15:43:14Z",
+      "median_seconds": 777,
+      "p95_seconds": 777,
+      "runs_considered": 1,
+      "success_rate": 1.0,
+      "successes": 1,
+      "workflow": "run-evaluate"
+    },
+    {
+      "failures": 0,
+      "last_conclusion": null,
+      "last_run_at": "2026-11-11T08:07:51Z",
+      "median_seconds": null,
+      "p95_seconds": null,
+      "runs_considered": 1,
+      "success_rate": null,
+      "successes": 0,
+      "workflow": "run-ops"
+    },
+    {
+      "failures": 0,
+      "last_conclusion": "success",
+      "last_run_at": "2026-11-11T03:30:22Z",
+      "median_seconds": 1623,
+      "p95_seconds": 3243,
+      "runs_considered": 3,
+      "success_rate": 1.0,
+      "successes": 3,
+      "workflow": "run-predict"
+    },
+    {
+      "failures": 0,
+      "last_conclusion": "success",
+      "last_run_at": "2026-11-11T07:19:50Z",
+      "median_seconds": 754,
+      "p95_seconds": 2259,
+      "runs_considered": 14,
+      "success_rate": 1.0,
+      "successes": 14,
+      "workflow": "run-pull"
+    },
+    {
+      "failures": 0,
+      "last_conclusion": "success",
+      "last_run_at": "2026-11-11T02:35:13Z",
+      "median_seconds": 2477,
+      "p95_seconds": 2485,
+      "runs_considered": 3,
+      "success_rate": 1.0,
+      "successes": 3,
+      "workflow": "run-seed"
+    },
+    {
+      "failures": 0,
+      "last_conclusion": "success",
+      "last_run_at": "2026-11-11T03:44:49Z",
+      "median_seconds": 1101,
+      "p95_seconds": 1101,
+      "runs_considered": 1,
+      "success_rate": 1.0,
+      "successes": 1,
+      "workflow": "summarize"
+    },
+    {
+      "failures": 0,
+      "last_conclusion": "success",
+      "last_run_at": "2026-11-11T03:19:20Z",
+      "median_seconds": 577,
+      "p95_seconds": 577,
+      "runs_considered": 1,
+      "success_rate": 1.0,
+      "successes": 1,
+      "workflow": "sync-staging"
+    }
+  ],
+  "leakage": {
+    "assessed": 375,
+    "flagged": [],
+    "likely": 0,
+    "none": 3,
+    "not_applicable": 372,
+    "possible": 0,
+    "window_days": 14
+  },
+  "open_triggers": [
+    {
+      "created_at": "2026-10-29T16:50:58Z",
+      "label": "run:predict",
+      "number": 2866,
+      "title": "predict(gemini-baseline): partial and off-schema cells on the first proc-v14 rounds; prediction_summary.md missing on 2 cells"
+    }
+  ],
+  "schedule_delivery": {
+    "settle_minutes": 120,
+    "workflows": [
+      {
+        "crons": [
+          "27 4 * * 4"
+        ],
+        "day": {
+          "delivered": 0,
+          "dropped": 0,
+          "hours": 24,
+          "lateness_max_min": null,
+          "lateness_p50_min": null,
+          "slots": 0
+        },
+        "flags": [],
+        "last_scheduled_at": "2026-11-05T04:30:14Z",
+        "week": {
+          "delivered": 1,
+          "dropped": 0,
+          "hours": 168,
+          "lateness_max_min": 3,
+          "lateness_p50_min": 3,
+          "slots": 1
+        },
+        "workflow": "codeql"
+      },
+      {
+        "crons": [
+          "19,49 * * * *"
+        ],
+        "day": {
+          "delivered": 48,
+          "dropped": 0,
+          "hours": 24,
+          "lateness_max_min": 21,
+          "lateness_p50_min": 1,
+          "slots": 48
+        },
+        "flags": [],
+        "last_scheduled_at": "2026-11-11T07:50:44Z",
+        "week": {
+          "delivered": 261,
+          "dropped": 75,
+          "hours": 168,
+          "lateness_max_min": 24,
+          "lateness_p50_min": 1,
+          "slots": 336
+        },
+        "workflow": "corpus-check"
+      },
+      {
+        "crons": [
+          "53 11 * * *"
+        ],
+        "day": {
+          "delivered": 1,
+          "dropped": 0,
+          "hours": 24,
+          "lateness_max_min": 1,
+          "lateness_p50_min": 1,
+          "slots": 1
+        },
+        "flags": [],
+        "last_scheduled_at": "2026-11-10T11:54:11Z",
+        "week": {
+          "delivered": 7,
+          "dropped": 0,
+          "hours": 168,
+          "lateness_max_min": 430,
+          "lateness_p50_min": 1,
+          "slots": 7
+        },
+        "workflow": "integration-test"
+      },
+      {
+        "crons": [
+          "57 12 * * 1"
+        ],
+        "day": {
+          "delivered": 0,
+          "dropped": 0,
+          "hours": 24,
+          "lateness_max_min": null,
+          "lateness_p50_min": null,
+          "slots": 0
+        },
+        "flags": [],
+        "last_scheduled_at": "2026-11-09T22:48:59Z",
+        "week": {
+          "delivered": 1,
+          "dropped": 0,
+          "hours": 168,
+          "lateness_max_min": 591,
+          "lateness_p50_min": 591,
+          "slots": 1
+        },
+        "workflow": "post-public-update"
+      },
+      {
+        "crons": [
+          "26 * * * *"
+        ],
+        "day": {
+          "delivered": 24,
+          "dropped": 0,
+          "hours": 24,
+          "lateness_max_min": 17,
+          "lateness_p50_min": 2,
+          "slots": 24
+        },
+        "flags": [],
+        "last_scheduled_at": "2026-11-11T07:28:02Z",
+        "week": {
+          "delivered": 134,
+          "dropped": 34,
+          "hours": 168,
+          "lateness_max_min": 41,
+          "lateness_p50_min": 2,
+          "slots": 168
+        },
+        "workflow": "promotion-prep"
+      },
+      {
+        "crons": [
+          "41 5 * * 1",
+          "36 4 * * *",
+          "59 12 * * 1",
+          "8 9 * * 2",
+          "4 9 * * 3",
+          "14 9 * * 4",
+          "11 21 * * 5"
+        ],
+        "day": {
+          "delivered": 2,
+          "dropped": 0,
+          "hours": 24,
+          "lateness_max_min": 469,
+          "lateness_p50_min": 235,
+          "slots": 2
+        },
+        "flags": [],
+        "last_scheduled_at": "2026-11-11T04:37:39Z",
+        "week": {
+          "delivered": 10,
+          "dropped": 3,
+          "hours": 168,
+          "lateness_max_min": 469,
+          "lateness_p50_min": 5,
+          "slots": 13
+        },
+        "workflow": "run-analytics"
+      },
+      {
+        "crons": [
+          "23 6 * * 6"
+        ],
+        "day": {
+          "delivered": 0,
+          "dropped": 0,
+          "hours": 24,
+          "lateness_max_min": null,
+          "lateness_p50_min": null,
+          "slots": 0
+        },
+        "flags": [],
+        "last_scheduled_at": "2026-11-07T06:30:50Z",
+        "week": {
+          "delivered": 1,
+          "dropped": 0,
+          "hours": 168,
+          "lateness_max_min": 7,
+          "lateness_p50_min": 7,
+          "slots": 1
+        },
+        "workflow": "run-backtest"
+      },
+      {
+        "crons": [
+          "39 15 * * *"
+        ],
+        "day": {
+          "delivered": 1,
+          "dropped": 0,
+          "hours": 24,
+          "lateness_max_min": 4,
+          "lateness_p50_min": 4,
+          "slots": 1
+        },
+        "flags": [],
+        "last_scheduled_at": "2026-11-10T15:43:14Z",
+        "week": {
+          "delivered": 7,
+          "dropped": 0,
+          "hours": 168,
+          "lateness_max_min": 354,
+          "lateness_p50_min": 4,
+          "slots": 7
+        },
+        "workflow": "run-evaluate"
+      },
+      {
+        "crons": [
+          "0 8 * * *"
+        ],
+        "day": {
+          "delivered": 1,
+          "dropped": 0,
+          "hours": 24,
+          "lateness_max_min": 8,
+          "lateness_p50_min": 8,
+          "slots": 1
+        },
+        "flags": [],
+        "last_scheduled_at": "2026-11-11T08:07:51Z",
+        "week": {
+          "delivered": 7,
+          "dropped": 0,
+          "hours": 168,
+          "lateness_max_min": 484,
+          "lateness_p50_min": 9,
+          "slots": 7
+        },
+        "workflow": "run-ops"
+      },
+      {
+        "crons": [
+          "12 14 * * *",
+          "32 17 * * *"
+        ],
+        "day": {
+          "delivered": 2,
+          "dropped": 0,
+          "hours": 24,
+          "lateness_max_min": 4,
+          "lateness_p50_min": 2,
+          "slots": 2
+        },
+        "flags": [],
+        "last_scheduled_at": "2026-11-10T17:33:55Z",
+        "week": {
+          "delivered": 12,
+          "dropped": 2,
+          "hours": 168,
+          "lateness_max_min": 212,
+          "lateness_p50_min": 3,
+          "slots": 14
+        },
+        "workflow": "run-predict"
+      },
+      {
+        "crons": [
+          "17 1,7,13,19 * * *",
+          "47 4,10,16,22 * * *",
+          "47 0,2,6,8,12,14,18,20 * * *"
+        ],
+        "day": {
+          "delivered": 16,
+          "dropped": 0,
+          "hours": 24,
+          "lateness_max_min": 5,
+          "lateness_p50_min": 3,
+          "slots": 16
+        },
+        "flags": [],
+        "last_scheduled_at": "2026-11-11T07:19:50Z",
+        "week": {
+          "delivered": 97,
+          "dropped": 15,
+          "hours": 168,
+          "lateness_max_min": 117,
+          "lateness_p50_min": 4,
+          "slots": 112
+        },
+        "workflow": "run-pull"
+      },
+      {
+        "crons": [
+          "31 2 * * *",
+          "31 8 * * *",
+          "31 14 * * *",
+          "31 20 * * *"
+        ],
+        "day": {
+          "delivered": 4,
+          "dropped": 0,
+          "hours": 24,
+          "lateness_max_min": 5,
+          "lateness_p50_min": 4,
+          "slots": 4
+        },
+        "flags": [],
+        "last_scheduled_at": "2026-11-11T02:35:13Z",
+        "week": {
+          "delivered": 26,
+          "dropped": 2,
+          "hours": 168,
+          "lateness_max_min": 131,
+          "lateness_p50_min": 5,
+          "slots": 28
+        },
+        "workflow": "run-seed"
+      },
+      {
+        "crons": [
+          "43 3 * * *"
+        ],
+        "day": {
+          "delivered": 1,
+          "dropped": 0,
+          "hours": 24,
+          "lateness_max_min": 1,
+          "lateness_p50_min": 1,
+          "slots": 1
+        },
+        "flags": [],
+        "last_scheduled_at": "2026-11-11T03:44:49Z",
+        "week": {
+          "delivered": 7,
+          "dropped": 0,
+          "hours": 168,
+          "lateness_max_min": 465,
+          "lateness_p50_min": 1,
+          "slots": 7
+        },
+        "workflow": "summarize"
+      },
+      {
+        "crons": [
+          "13 3 * * *"
+        ],
+        "day": {
+          "delivered": 1,
+          "dropped": 0,
+          "hours": 24,
+          "lateness_max_min": 6,
+          "lateness_p50_min": 6,
+          "slots": 1
+        },
+        "flags": [],
+        "last_scheduled_at": "2026-11-11T03:19:20Z",
+        "week": {
+          "delivered": 7,
+          "dropped": 0,
+          "hours": 168,
+          "lateness_max_min": 462,
+          "lateness_p50_min": 6,
+          "slots": 7
+        },
+        "workflow": "sync-staging"
+      }
+    ]
+  },
+  "schema_version": "1.0",
+  "spend": {
+    "estimated_cost_usd": 5430.203589,
+    "mean_cost_usd_per_run": 1.817946,
+    "runs": 2987,
+    "total_tokens": 4681744012,
+    "window_days": 120.35010416666667
+  },
+  "substance": {
+    "calibration": {
+      "accuracy": 1.0,
+      "accuracy_scored": 18,
+      "base_rate_cases": 45537,
+      "deny_base_rate": 0.9518,
+      "lift_over_always_deny": 0.0482,
+      "mean_brier": 0.0005,
+      "mean_brier_skill": 0.9657,
+      "sample": 18,
+      "segment_base_rate_cases": 13714,
+      "segment_grant_rate": 0.0666,
+      "windows": [
+        {
+          "n": 6,
+          "predictor_id": "claude-baseline",
+          "process_window": "proc-v17"
+        },
+        {
+          "n": 6,
+          "predictor_id": "codex-baseline",
+          "process_window": "proc-v17"
+        },
+        {
+          "n": 6,
+          "predictor_id": "gemini-baseline",
+          "process_window": "proc-v17"
+        }
+      ]
+    },
+    "cells": {
+      "evaluations_forward": 1677,
+      "evaluations_forward_delta": 300,
+      "evaluations_retrospective": 18,
+      "evaluations_retrospective_delta": 18,
+      "events_predicted": 603,
+      "predicted_resolved": 241,
+      "predicted_resolved_delta": 40,
+      "predictions": 2252,
+      "predictions_delta": 277
+    },
+    "forward_claim": {
+      "by_predictor": {},
+      "claimed_forward": 1836,
+      "excluded": 0,
+      "policy": "exclude"
+    },
+    "leakage_exclusion": {
+      "assessed": 1836,
+      "by_predictor": {
+        "gemini-baseline": 3
+      },
+      "excluded": 3
+    },
+    "live_frontier": {
+      "conferences": [
+        {
+          "conference": "2017-09-25",
+          "petitions": 3
+        },
+        {
+          "conference": "2017-10-06",
+          "petitions": 4
+        },
+        {
+          "conference": "2017-10-27",
+          "petitions": 1
+        },
+        {
+          "conference": "2017-11-03",
+          "petitions": 2
+        },
+        {
+          "conference": "2017-11-09",
+          "petitions": 1
+        },
+        {
+          "conference": "2017-11-21",
+          "petitions": 1
+        },
+        {
+          "conference": "2017-12-01",
+          "petitions": 1
+        },
+        {
+          "conference": "2018-01-05",
+          "petitions": 1
+        },
+        {
+          "conference": "2018-01-19",
+          "petitions": 3
+        },
+        {
+          "conference": "2018-02-16",
+          "petitions": 4
+        },
+        {
+          "conference": "2018-02-23",
+          "petitions": 1
+        },
+        {
+          "conference": "2018-03-23",
+          "petitions": 1
+        },
+        {
+          "conference": "2018-04-13",
+          "petitions": 1
+        },
+        {
+          "conference": "2018-05-10",
+          "petitions": 1
+        },
+        {
+          "conference": "2018-05-17",
+          "petitions": 1
+        },
+        {
+          "conference": "2018-05-31",
+          "petitions": 1
+        },
+        {
+          "conference": "2018-06-07",
+          "petitions": 1
+        },
+        {
+          "conference": "2018-06-21",
+          "petitions": 2
+        },
+        {
+          "conference": "2018-06-27",
+          "petitions": 1
+        },
+        {
+          "conference": "2018-09-24",
+          "petitions": 12
+        },
+        {
+          "conference": "2018-10-05",
+          "petitions": 5
+        },
+        {
+          "conference": "2018-10-12",
+          "petitions": 3
+        },
+        {
+          "conference": "2018-10-26",
+          "petitions": 1
+        },
+        {
+          "conference": "2018-11-30",
+          "petitions": 7
+        },
+        {
+          "conference": "2019-01-04",
+          "petitions": 2
+        },
+        {
+          "conference": "2019-01-18",
+          "petitions": 1
+        },
+        {
+          "conference": "2019-03-15",
+          "petitions": 1
+        },
+        {
+          "conference": "2025-09-29",
+          "petitions": 5
+        },
+        {
+          "conference": "2025-10-10",
+          "petitions": 3
+        },
+        {
+          "conference": "2025-10-17",
+          "petitions": 2
+        },
+        {
+          "conference": "2025-11-07",
+          "petitions": 1
+        },
+        {
+          "conference": "2025-11-14",
+          "petitions": 3
+        },
+        {
+          "conference": "2025-11-21",
+          "petitions": 1
+        },
+        {
+          "conference": "2025-12-05",
+          "petitions": 2
+        },
+        {
+          "conference": "2025-12-12",
+          "petitions": 2
+        },
+        {
+          "conference": "2026-01-09",
+          "petitions": 2
+        },
+        {
+          "conference": "2026-02-20",
+          "petitions": 4
+        },
+        {
+          "conference": "2026-02-27",
+          "petitions": 1
+        },
+        {
+          "conference": "2026-03-06",
+          "petitions": 1
+        },
+        {
+          "conference": "2026-03-20",
+          "petitions": 1
+        },
+        {
+          "conference": "2026-04-02",
+          "petitions": 2
+        },
+        {
+          "conference": "2026-04-17",
+          "petitions": 4
+        },
+        {
+          "conference": "2026-04-24",
+          "petitions": 3
+        },
+        {
+          "conference": "2026-05-01",
+          "petitions": 1
+        },
+        {
+          "conference": "2026-05-14",
+          "petitions": 1
+        },
+        {
+          "conference": "2026-05-21",
+          "petitions": 1
+        },
+        {
+          "conference": "2026-05-28",
+          "petitions": 3
+        },
+        {
+          "conference": "2026-06-11",
+          "petitions": 2
+        },
+        {
+          "conference": "2026-06-18",
+          "petitions": 5
+        },
+        {
+          "conference": "2026-06-25",
+          "petitions": 6
+        },
+        {
+          "conference": "2026-06-29",
+          "petitions": 3
+        },
+        {
+          "conference": "2026-09-28",
+          "petitions": 70
+        },
+        {
+          "conference": "2026-10-09",
+          "petitions": 28
+        },
+        {
+          "conference": "2026-10-16",
+          "petitions": 10
+        },
+        {
+          "conference": "2026-11-06",
+          "petitions": 34
+        },
+        {
+          "conference": "2026-11-13",
+          "petitions": 153
+        },
+        {
+          "conference": "2026-12-04",
+          "petitions": 115
+        }
+      ],
+      "documents_provisioned": 167,
+      "generated_on": "2026-11-11",
+      "next_conference": "2026-11-13",
+      "next_conference_petitions": 153,
+      "schema_version": "1.0",
+      "skipped": false,
+      "watchlist": 532
+    },
+    "predictor_scores": [
+      {
+        "accuracy": 0.9257,
+        "accuracy_scored": 565,
+        "evaluations": 565,
+        "median": 0.85,
+        "p25": 0.8,
+        "p75": 0.9,
+        "predictor_id": "claude-baseline",
+        "process_window": null,
+        "rubrics": [
+          {
+            "digest": "sha256:0e123d10c73cb8a03f7859c46c1f3bd621187ecb12918542fee4512f6fde36ec",
+            "evaluator_id": "claude-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
+            "evaluator_id": "claude-judge",
+            "n": 52
+          },
+          {
+            "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+            "evaluator_id": "claude-judge",
+            "n": 7
+          },
+          {
+            "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+            "evaluator_id": "claude-judge",
+            "n": 31
+          },
+          {
+            "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+            "evaluator_id": "claude-judge",
+            "n": 99
+          },
+          {
+            "digest": "sha256:0a2c019943da445c875bf3b3cbfa9dfbfcc7a3fdcf03fb84412ca0e8e45e0b30",
+            "evaluator_id": "codex-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456",
+            "evaluator_id": "codex-judge",
+            "n": 24
+          },
+          {
+            "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+            "evaluator_id": "codex-judge",
+            "n": 7
+          },
+          {
+            "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+            "evaluator_id": "codex-judge",
+            "n": 99
+          },
+          {
+            "digest": "sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac",
+            "evaluator_id": "codex-judge",
+            "n": 28
+          },
+          {
+            "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+            "evaluator_id": "codex-judge",
+            "n": 31
+          },
+          {
+            "digest": "sha256:225580440df0f97970177cf3b0e8e5175d0c2fa66da329dacb7f80a875718300",
+            "evaluator_id": "gemini-judge",
+            "n": 24
+          },
+          {
+            "digest": "sha256:61cb758f964fffee9d99657cc31e70042bf9bfc61fdb4912b6accac77622f1a9",
+            "evaluator_id": "gemini-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4",
+            "evaluator_id": "gemini-judge",
+            "n": 28
+          },
+          {
+            "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+            "evaluator_id": "gemini-judge",
+            "n": 7
+          },
+          {
+            "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+            "evaluator_id": "gemini-judge",
+            "n": 26
+          },
+          {
+            "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+            "evaluator_id": "gemini-judge",
+            "n": 99
+          }
+        ],
+        "windows": [
+          {
+            "n": 460,
+            "opens": "2026-09-16T00:26:04Z",
+            "process_window": "proc-v8"
+          },
+          {
+            "n": 61,
+            "opens": "2026-10-11T12:00:00Z",
+            "process_window": "proc-v9"
+          },
+          {
+            "n": 9,
+            "opens": "2026-10-23T02:37:11Z",
+            "process_window": "proc-v11"
+          },
+          {
+            "n": 11,
+            "opens": "2026-10-29T14:16:26Z",
+            "process_window": "proc-v14"
+          },
+          {
+            "n": 9,
+            "opens": "2026-10-30T16:38:43Z",
+            "process_window": "proc-v15"
+          },
+          {
+            "n": 15,
+            "opens": "2026-11-02T17:51:42Z",
+            "process_window": "proc-v17"
+          }
+        ]
+      },
+      {
+        "accuracy": 0.9204,
+        "accuracy_scored": 565,
+        "evaluations": 565,
+        "median": 0.88,
+        "p25": 0.82,
+        "p75": 0.92,
+        "predictor_id": "codex-baseline",
+        "process_window": null,
+        "rubrics": [
+          {
+            "digest": "sha256:0e123d10c73cb8a03f7859c46c1f3bd621187ecb12918542fee4512f6fde36ec",
+            "evaluator_id": "claude-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
+            "evaluator_id": "claude-judge",
+            "n": 52
+          },
+          {
+            "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+            "evaluator_id": "claude-judge",
+            "n": 7
+          },
+          {
+            "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+            "evaluator_id": "claude-judge",
+            "n": 31
+          },
+          {
+            "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+            "evaluator_id": "claude-judge",
+            "n": 99
+          },
+          {
+            "digest": "sha256:0a2c019943da445c875bf3b3cbfa9dfbfcc7a3fdcf03fb84412ca0e8e45e0b30",
+            "evaluator_id": "codex-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456",
+            "evaluator_id": "codex-judge",
+            "n": 24
+          },
+          {
+            "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+            "evaluator_id": "codex-judge",
+            "n": 7
+          },
+          {
+            "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+            "evaluator_id": "codex-judge",
+            "n": 99
+          },
+          {
+            "digest": "sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac",
+            "evaluator_id": "codex-judge",
+            "n": 28
+          },
+          {
+            "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+            "evaluator_id": "codex-judge",
+            "n": 31
+          },
+          {
+            "digest": "sha256:225580440df0f97970177cf3b0e8e5175d0c2fa66da329dacb7f80a875718300",
+            "evaluator_id": "gemini-judge",
+            "n": 24
+          },
+          {
+            "digest": "sha256:61cb758f964fffee9d99657cc31e70042bf9bfc61fdb4912b6accac77622f1a9",
+            "evaluator_id": "gemini-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4",
+            "evaluator_id": "gemini-judge",
+            "n": 28
+          },
+          {
+            "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+            "evaluator_id": "gemini-judge",
+            "n": 7
+          },
+          {
+            "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+            "evaluator_id": "gemini-judge",
+            "n": 26
+          },
+          {
+            "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+            "evaluator_id": "gemini-judge",
+            "n": 99
+          }
+        ],
+        "windows": [
+          {
+            "n": 500,
+            "opens": "2026-09-16T00:26:04Z",
+            "process_window": "proc-v8"
+          },
+          {
+            "n": 21,
+            "opens": "2026-10-20T15:24:42Z",
+            "process_window": "proc-v10"
+          },
+          {
+            "n": 9,
+            "opens": "2026-10-23T02:37:11Z",
+            "process_window": "proc-v11"
+          },
+          {
+            "n": 11,
+            "opens": "2026-10-29T14:16:26Z",
+            "process_window": "proc-v14"
+          },
+          {
+            "n": 9,
+            "opens": "2026-10-30T16:38:43Z",
+            "process_window": "proc-v15"
+          },
+          {
+            "n": 15,
+            "opens": "2026-11-02T17:51:42Z",
+            "process_window": "proc-v17"
+          }
+        ]
+      },
+      {
+        "accuracy": 0.8832,
+        "accuracy_scored": 565,
+        "evaluations": 565,
+        "median": 0.6,
+        "p25": 0.5,
+        "p75": 0.7,
+        "predictor_id": "gemini-baseline",
+        "process_window": null,
+        "rubrics": [
+          {
+            "digest": "sha256:0e123d10c73cb8a03f7859c46c1f3bd621187ecb12918542fee4512f6fde36ec",
+            "evaluator_id": "claude-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
+            "evaluator_id": "claude-judge",
+            "n": 52
+          },
+          {
+            "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+            "evaluator_id": "claude-judge",
+            "n": 7
+          },
+          {
+            "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+            "evaluator_id": "claude-judge",
+            "n": 31
+          },
+          {
+            "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+            "evaluator_id": "claude-judge",
+            "n": 99
+          },
+          {
+            "digest": "sha256:0a2c019943da445c875bf3b3cbfa9dfbfcc7a3fdcf03fb84412ca0e8e45e0b30",
+            "evaluator_id": "codex-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456",
+            "evaluator_id": "codex-judge",
+            "n": 24
+          },
+          {
+            "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+            "evaluator_id": "codex-judge",
+            "n": 7
+          },
+          {
+            "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+            "evaluator_id": "codex-judge",
+            "n": 99
+          },
+          {
+            "digest": "sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac",
+            "evaluator_id": "codex-judge",
+            "n": 28
+          },
+          {
+            "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+            "evaluator_id": "codex-judge",
+            "n": 31
+          },
+          {
+            "digest": "sha256:225580440df0f97970177cf3b0e8e5175d0c2fa66da329dacb7f80a875718300",
+            "evaluator_id": "gemini-judge",
+            "n": 24
+          },
+          {
+            "digest": "sha256:61cb758f964fffee9d99657cc31e70042bf9bfc61fdb4912b6accac77622f1a9",
+            "evaluator_id": "gemini-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4",
+            "evaluator_id": "gemini-judge",
+            "n": 28
+          },
+          {
+            "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+            "evaluator_id": "gemini-judge",
+            "n": 7
+          },
+          {
+            "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+            "evaluator_id": "gemini-judge",
+            "n": 26
+          },
+          {
+            "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+            "evaluator_id": "gemini-judge",
+            "n": 99
+          }
+        ],
+        "windows": [
+          {
+            "n": 500,
+            "opens": "2026-09-16T00:26:04Z",
+            "process_window": "proc-v8"
+          },
+          {
+            "n": 21,
+            "opens": "2026-10-20T15:24:42Z",
+            "process_window": "proc-v10"
+          },
+          {
+            "n": 9,
+            "opens": "2026-10-23T02:37:11Z",
+            "process_window": "proc-v11"
+          },
+          {
+            "n": 11,
+            "opens": "2026-10-29T14:16:26Z",
+            "process_window": "proc-v14"
+          },
+          {
+            "n": 9,
+            "opens": "2026-10-30T16:38:43Z",
+            "process_window": "proc-v15"
+          },
+          {
+            "n": 15,
+            "opens": "2026-11-02T17:51:42Z",
+            "process_window": "proc-v17"
+          }
+        ]
+      }
+    ],
+    "predictor_scores_by_protocol": [
+      {
+        "accuracy": 0.9283,
+        "accuracy_scored": 460,
+        "evaluations": 460,
+        "median": 0.85,
+        "p25": 0.82,
+        "p75": 0.9,
+        "predictor_id": "claude-baseline",
+        "process_window": "proc-v8",
+        "rubrics": [
+          {
+            "digest": "sha256:0e123d10c73cb8a03f7859c46c1f3bd621187ecb12918542fee4512f6fde36ec",
+            "evaluator_id": "claude-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
+            "evaluator_id": "claude-judge",
+            "n": 44
+          },
+          {
+            "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+            "evaluator_id": "claude-judge",
+            "n": 10
+          },
+          {
+            "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+            "evaluator_id": "claude-judge",
+            "n": 99
+          },
+          {
+            "digest": "sha256:0a2c019943da445c875bf3b3cbfa9dfbfcc7a3fdcf03fb84412ca0e8e45e0b30",
+            "evaluator_id": "codex-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456",
+            "evaluator_id": "codex-judge",
+            "n": 24
+          },
+          {
+            "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+            "evaluator_id": "codex-judge",
+            "n": 99
+          },
+          {
+            "digest": "sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac",
+            "evaluator_id": "codex-judge",
+            "n": 20
+          },
+          {
+            "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+            "evaluator_id": "codex-judge",
+            "n": 10
+          },
+          {
+            "digest": "sha256:225580440df0f97970177cf3b0e8e5175d0c2fa66da329dacb7f80a875718300",
+            "evaluator_id": "gemini-judge",
+            "n": 24
+          },
+          {
+            "digest": "sha256:61cb758f964fffee9d99657cc31e70042bf9bfc61fdb4912b6accac77622f1a9",
+            "evaluator_id": "gemini-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4",
+            "evaluator_id": "gemini-judge",
+            "n": 20
+          },
+          {
+            "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+            "evaluator_id": "gemini-judge",
+            "n": 8
+          },
+          {
+            "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+            "evaluator_id": "gemini-judge",
+            "n": 99
+          }
+        ]
+      },
+      {
+        "accuracy": 0.8525,
+        "accuracy_scored": 61,
+        "evaluations": 61,
+        "median": 0.8,
+        "p25": 0.75,
+        "p75": 0.85,
+        "predictor_id": "claude-baseline",
+        "process_window": "proc-v9",
+        "rubrics": [
+          {
+            "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
+            "evaluator_id": "claude-judge",
+            "n": 8
+          },
+          {
+            "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+            "evaluator_id": "claude-judge",
+            "n": 13
+          },
+          {
+            "digest": "sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac",
+            "evaluator_id": "codex-judge",
+            "n": 8
+          },
+          {
+            "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+            "evaluator_id": "codex-judge",
+            "n": 13
+          },
+          {
+            "digest": "sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4",
+            "evaluator_id": "gemini-judge",
+            "n": 8
+          },
+          {
+            "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+            "evaluator_id": "gemini-judge",
+            "n": 11
+          }
+        ]
+      },
+      {
+        "accuracy": 1.0,
+        "accuracy_scored": 9,
+        "evaluations": 9,
+        "median": 0.8,
+        "p25": 0.78,
+        "p75": 0.82,
+        "predictor_id": "claude-baseline",
+        "process_window": "proc-v11",
+        "rubrics": [
+          {
+            "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+            "evaluator_id": "claude-judge",
+            "n": 3
+          },
+          {
+            "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+            "evaluator_id": "codex-judge",
+            "n": 3
+          },
+          {
+            "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+            "evaluator_id": "gemini-judge",
+            "n": 3
+          }
+        ]
+      },
+      {
+        "accuracy": 1.0,
+        "accuracy_scored": 11,
+        "evaluations": 11,
+        "median": 0.72,
+        "p25": 0.7,
+        "p75": 0.84,
+        "predictor_id": "claude-baseline",
+        "process_window": "proc-v14",
+        "rubrics": [
+          {
+            "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+            "evaluator_id": "claude-judge",
+            "n": 4
+          },
+          {
+            "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+            "evaluator_id": "codex-judge",
+            "n": 4
+          },
+          {
+            "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+            "evaluator_id": "gemini-judge",
+            "n": 3
+          }
+        ]
+      },
+      {
+        "accuracy": 1.0,
+        "accuracy_scored": 9,
+        "evaluations": 9,
+        "median": 0.72,
+        "p25": 0.7,
+        "p75": 0.78,
+        "predictor_id": "claude-baseline",
+        "process_window": "proc-v15",
+        "rubrics": [
+          {
+            "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+            "evaluator_id": "claude-judge",
+            "n": 2
+          },
+          {
+            "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+            "evaluator_id": "claude-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+            "evaluator_id": "codex-judge",
+            "n": 2
+          },
+          {
+            "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+            "evaluator_id": "codex-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+            "evaluator_id": "gemini-judge",
+            "n": 2
+          },
+          {
+            "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+            "evaluator_id": "gemini-judge",
+            "n": 1
+          }
+        ]
+      },
+      {
+        "accuracy": 1.0,
+        "accuracy_scored": 15,
+        "evaluations": 15,
+        "median": 0.78,
+        "p25": 0.75,
+        "p75": 0.8,
+        "predictor_id": "claude-baseline",
+        "process_window": "proc-v17",
+        "rubrics": [
+          {
+            "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+            "evaluator_id": "claude-judge",
+            "n": 5
+          },
+          {
+            "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+            "evaluator_id": "codex-judge",
+            "n": 5
+          },
+          {
+            "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+            "evaluator_id": "gemini-judge",
+            "n": 5
+          }
+        ]
+      },
+      {
+        "accuracy": 0.916,
+        "accuracy_scored": 500,
+        "evaluations": 500,
+        "median": 0.88,
+        "p25": 0.84,
+        "p75": 0.92,
+        "predictor_id": "codex-baseline",
+        "process_window": "proc-v8",
+        "rubrics": [
+          {
+            "digest": "sha256:0e123d10c73cb8a03f7859c46c1f3bd621187ecb12918542fee4512f6fde36ec",
+            "evaluator_id": "claude-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
+            "evaluator_id": "claude-judge",
+            "n": 47
+          },
+          {
+            "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+            "evaluator_id": "claude-judge",
+            "n": 21
+          },
+          {
+            "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+            "evaluator_id": "claude-judge",
+            "n": 99
+          },
+          {
+            "digest": "sha256:0a2c019943da445c875bf3b3cbfa9dfbfcc7a3fdcf03fb84412ca0e8e45e0b30",
+            "evaluator_id": "codex-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456",
+            "evaluator_id": "codex-judge",
+            "n": 24
+          },
+          {
+            "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+            "evaluator_id": "codex-judge",
+            "n": 99
+          },
+          {
+            "digest": "sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac",
+            "evaluator_id": "codex-judge",
+            "n": 23
+          },
+          {
+            "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+            "evaluator_id": "codex-judge",
+            "n": 21
+          },
+          {
+            "digest": "sha256:225580440df0f97970177cf3b0e8e5175d0c2fa66da329dacb7f80a875718300",
+            "evaluator_id": "gemini-judge",
+            "n": 24
+          },
+          {
+            "digest": "sha256:61cb758f964fffee9d99657cc31e70042bf9bfc61fdb4912b6accac77622f1a9",
+            "evaluator_id": "gemini-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4",
+            "evaluator_id": "gemini-judge",
+            "n": 23
+          },
+          {
+            "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+            "evaluator_id": "gemini-judge",
+            "n": 17
+          },
+          {
+            "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+            "evaluator_id": "gemini-judge",
+            "n": 99
+          }
+        ]
+      },
+      {
+        "accuracy": 0.8571,
+        "accuracy_scored": 21,
+        "evaluations": 21,
+        "median": 0.86,
+        "p25": 0.78,
+        "p75": 0.9,
+        "predictor_id": "codex-baseline",
+        "process_window": "proc-v10",
+        "rubrics": [
+          {
+            "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
+            "evaluator_id": "claude-judge",
+            "n": 5
+          },
+          {
+            "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+            "evaluator_id": "claude-judge",
+            "n": 2
+          },
+          {
+            "digest": "sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac",
+            "evaluator_id": "codex-judge",
+            "n": 5
+          },
+          {
+            "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+            "evaluator_id": "codex-judge",
+            "n": 2
+          },
+          {
+            "digest": "sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4",
+            "evaluator_id": "gemini-judge",
+            "n": 5
+          },
+          {
+            "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+            "evaluator_id": "gemini-judge",
+            "n": 2
+          }
+        ]
+      },
+      {
+        "accuracy": 1.0,
+        "accuracy_scored": 9,
+        "evaluations": 9,
+        "median": 0.91,
+        "p25": 0.85,
+        "p75": 0.92,
+        "predictor_id": "codex-baseline",
+        "process_window": "proc-v11",
+        "rubrics": [
+          {
+            "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+            "evaluator_id": "claude-judge",
+            "n": 3
+          },
+          {
+            "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+            "evaluator_id": "codex-judge",
+            "n": 3
+          },
+          {
+            "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+            "evaluator_id": "gemini-judge",
+            "n": 3
+          }
+        ]
+      },
+      {
+        "accuracy": 1.0,
+        "accuracy_scored": 11,
+        "evaluations": 11,
+        "median": 0.8,
+        "p25": 0.74,
+        "p75": 0.91,
+        "predictor_id": "codex-baseline",
+        "process_window": "proc-v14",
+        "rubrics": [
+          {
+            "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+            "evaluator_id": "claude-judge",
+            "n": 4
+          },
+          {
+            "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+            "evaluator_id": "codex-judge",
+            "n": 4
+          },
+          {
+            "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+            "evaluator_id": "gemini-judge",
+            "n": 3
+          }
+        ]
+      },
+      {
+        "accuracy": 1.0,
+        "accuracy_scored": 9,
+        "evaluations": 9,
+        "median": 0.74,
+        "p25": 0.65,
+        "p75": 0.9,
+        "predictor_id": "codex-baseline",
+        "process_window": "proc-v15",
+        "rubrics": [
+          {
+            "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+            "evaluator_id": "claude-judge",
+            "n": 2
+          },
+          {
+            "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+            "evaluator_id": "claude-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+            "evaluator_id": "codex-judge",
+            "n": 2
+          },
+          {
+            "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+            "evaluator_id": "codex-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+            "evaluator_id": "gemini-judge",
+            "n": 2
+          },
+          {
+            "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+            "evaluator_id": "gemini-judge",
+            "n": 1
+          }
+        ]
+      },
+      {
+        "accuracy": 1.0,
+        "accuracy_scored": 15,
+        "evaluations": 15,
+        "median": 0.83,
+        "p25": 0.78,
+        "p75": 0.88,
+        "predictor_id": "codex-baseline",
+        "process_window": "proc-v17",
+        "rubrics": [
+          {
+            "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+            "evaluator_id": "claude-judge",
+            "n": 5
+          },
+          {
+            "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+            "evaluator_id": "codex-judge",
+            "n": 5
+          },
+          {
+            "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+            "evaluator_id": "gemini-judge",
+            "n": 5
+          }
+        ]
+      },
+      {
+        "accuracy": 0.88,
+        "accuracy_scored": 500,
+        "evaluations": 500,
+        "median": 0.58,
+        "p25": 0.5,
+        "p75": 0.68,
+        "predictor_id": "gemini-baseline",
+        "process_window": "proc-v8",
+        "rubrics": [
+          {
+            "digest": "sha256:0e123d10c73cb8a03f7859c46c1f3bd621187ecb12918542fee4512f6fde36ec",
+            "evaluator_id": "claude-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
+            "evaluator_id": "claude-judge",
+            "n": 47
+          },
+          {
+            "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+            "evaluator_id": "claude-judge",
+            "n": 21
+          },
+          {
+            "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+            "evaluator_id": "claude-judge",
+            "n": 99
+          },
+          {
+            "digest": "sha256:0a2c019943da445c875bf3b3cbfa9dfbfcc7a3fdcf03fb84412ca0e8e45e0b30",
+            "evaluator_id": "codex-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456",
+            "evaluator_id": "codex-judge",
+            "n": 24
+          },
+          {
+            "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+            "evaluator_id": "codex-judge",
+            "n": 99
+          },
+          {
+            "digest": "sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac",
+            "evaluator_id": "codex-judge",
+            "n": 23
+          },
+          {
+            "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+            "evaluator_id": "codex-judge",
+            "n": 21
+          },
+          {
+            "digest": "sha256:225580440df0f97970177cf3b0e8e5175d0c2fa66da329dacb7f80a875718300",
+            "evaluator_id": "gemini-judge",
+            "n": 24
+          },
+          {
+            "digest": "sha256:61cb758f964fffee9d99657cc31e70042bf9bfc61fdb4912b6accac77622f1a9",
+            "evaluator_id": "gemini-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4",
+            "evaluator_id": "gemini-judge",
+            "n": 23
+          },
+          {
+            "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+            "evaluator_id": "gemini-judge",
+            "n": 17
+          },
+          {
+            "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+            "evaluator_id": "gemini-judge",
+            "n": 99
+          }
+        ]
+      },
+      {
+        "accuracy": 0.7143,
+        "accuracy_scored": 21,
+        "evaluations": 21,
+        "median": 0.78,
+        "p25": 0.62,
+        "p75": 0.88,
+        "predictor_id": "gemini-baseline",
+        "process_window": "proc-v10",
+        "rubrics": [
+          {
+            "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
+            "evaluator_id": "claude-judge",
+            "n": 5
+          },
+          {
+            "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+            "evaluator_id": "claude-judge",
+            "n": 2
+          },
+          {
+            "digest": "sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac",
+            "evaluator_id": "codex-judge",
+            "n": 5
+          },
+          {
+            "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+            "evaluator_id": "codex-judge",
+            "n": 2
+          },
+          {
+            "digest": "sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4",
+            "evaluator_id": "gemini-judge",
+            "n": 5
+          },
+          {
+            "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+            "evaluator_id": "gemini-judge",
+            "n": 2
+          }
+        ]
+      },
+      {
+        "accuracy": 1.0,
+        "accuracy_scored": 9,
+        "evaluations": 9,
+        "median": 0.8,
+        "p25": 0.72,
+        "p75": 0.86,
+        "predictor_id": "gemini-baseline",
+        "process_window": "proc-v11",
+        "rubrics": [
+          {
+            "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+            "evaluator_id": "claude-judge",
+            "n": 3
+          },
+          {
+            "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+            "evaluator_id": "codex-judge",
+            "n": 3
+          },
+          {
+            "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+            "evaluator_id": "gemini-judge",
+            "n": 3
+          }
+        ]
+      },
+      {
+        "accuracy": 1.0,
+        "accuracy_scored": 11,
+        "evaluations": 11,
+        "median": 0.6,
+        "p25": 0.45,
+        "p75": 0.8,
+        "predictor_id": "gemini-baseline",
+        "process_window": "proc-v14",
+        "rubrics": [
+          {
+            "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+            "evaluator_id": "claude-judge",
+            "n": 4
+          },
+          {
+            "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+            "evaluator_id": "codex-judge",
+            "n": 4
+          },
+          {
+            "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+            "evaluator_id": "gemini-judge",
+            "n": 3
+          }
+        ]
+      },
+      {
+        "accuracy": 1.0,
+        "accuracy_scored": 9,
+        "evaluations": 9,
+        "median": 0.85,
+        "p25": 0.82,
+        "p75": 0.95,
+        "predictor_id": "gemini-baseline",
+        "process_window": "proc-v15",
+        "rubrics": [
+          {
+            "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+            "evaluator_id": "claude-judge",
+            "n": 2
+          },
+          {
+            "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+            "evaluator_id": "claude-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+            "evaluator_id": "codex-judge",
+            "n": 2
+          },
+          {
+            "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+            "evaluator_id": "codex-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+            "evaluator_id": "gemini-judge",
+            "n": 2
+          },
+          {
+            "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+            "evaluator_id": "gemini-judge",
+            "n": 1
+          }
+        ]
+      },
+      {
+        "accuracy": 1.0,
+        "accuracy_scored": 15,
+        "evaluations": 15,
+        "median": 0.82,
+        "p25": 0.66,
+        "p75": 0.85,
+        "predictor_id": "gemini-baseline",
+        "process_window": "proc-v17",
+        "rubrics": [
+          {
+            "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+            "evaluator_id": "claude-judge",
+            "n": 5
+          },
+          {
+            "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+            "evaluator_id": "codex-judge",
+            "n": 5
+          },
+          {
+            "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+            "evaluator_id": "gemini-judge",
+            "n": 5
+          }
+        ]
+      }
+    ],
+    "process_scope": "frozen",
+    "set_aside": {
+      "by_predictor": {
+        "claude-baseline": 48,
+        "codex-baseline": 48,
+        "gemini-baseline": 42
+      },
+      "by_reason": {
+        "interim-decision-day": 66,
+        "post-conference-first-forecast": 72
+      },
+      "events": [
+        "scotus/73500246 evt-petition-disposition post-conference-first-forecast",
+        "scotus/9026000066 evt-petition-disposition post-conference-first-forecast",
+        "scotus/9026000079 evt-petition-disposition post-conference-first-forecast",
+        "scotus/9026000080 evt-petition-disposition post-conference-first-forecast",
+        "scotus/9026000095 evt-petition-disposition post-conference-first-forecast",
+        "scotus/9026000121 evt-petition-disposition post-conference-first-forecast",
+        "scotus/9026000183 evt-petition-disposition post-conference-first-forecast",
+        "scotus/9026000462 evt-petition-disposition post-conference-first-forecast",
+        "scotus/9526000428 evt-brief-response-disposition interim-decision-day",
+        "scotus/9526000428 evt-motion-disposition interim-decision-day",
+        "scotus/9526000434 evt-motion-disposition interim-decision-day",
+        "scotus/9526000437 evt-motion-disposition interim-decision-day",
+        "scotus/9526000447 evt-motion-disposition interim-decision-day",
+        "scotus/9526000477 evt-brief-response-disposition interim-decision-day",
+        "scotus/9526000477 evt-motion-disposition interim-decision-day",
+        "scotus/9526000477 evt-order-response-requested-disposition interim-decision-day"
+      ],
+      "excluded": 138
+    }
+  },
+  "tooling": {
+    "base_rate_uses": 635,
+    "corpus_query_uses": 526,
+    "gaps": [
+      {
+        "count": 13,
+        "label": "Web calls returned no usable content"
+      },
+      {
+        "count": 7,
+        "label": "Sparse corpus reporter-citation coverage"
+      },
+      {
+        "count": 6,
+        "label": "No statpack cut conditioned on a called-for response"
+      },
+      {
+        "count": 6,
+        "label": "Web attempts returned no usable content"
+      },
+      {
+        "count": 5,
+        "label": "No statpack cut conditions on a called-for response"
+      },
+      {
+        "count": 4,
+        "label": "No published response-request-conditioned cert base rate"
+      },
+      {
+        "count": 4,
+        "label": "No statpack cut conditioning on a called-for response"
+      },
+      {
+        "count": 3,
+        "label": "Corpus reporter-citation coverage was sparse"
+      },
+      {
+        "count": 3,
+        "label": "CourtListener MCP search returned HTTP 429 daily rate limit exceeded (1400/day)"
+      },
+      {
+        "count": 3,
+        "label": "CourtListener MCP server hit daily rate limit (HTTP 429: 1400/day)"
+      }
+    ],
+    "helpful": [
+      {
+        "count": 40,
+        "label": "cert_anchor in context.json"
+      },
+      {
+        "count": 26,
+        "label": "metrics/statpack.md"
+      },
+      {
+        "count": 15,
+        "label": "Frozen reached-band cert anchor"
+      },
+      {
+        "count": 13,
+        "label": "Frozen cert_anchor in context.json"
+      },
+      {
+        "count": 13,
+        "label": "fedcourts query"
+      },
+      {
+        "count": 10,
+        "label": "fedcourts query --docket-number"
+      },
+      {
+        "count": 9,
+        "label": "Frozen cert anchor"
+      },
+      {
+        "count": 9,
+        "label": "provisioned petition.txt and appendix.txt"
+      },
+      {
+        "count": 8,
+        "label": "record/context.json cert_anchor"
+      },
+      {
+        "count": 8,
+        "label": "record/documents/petition.txt"
+      }
+    ],
+    "recent": [
+      {
+        "actor_id": "gemini-baseline",
+        "case_id": "scotus/9026000076",
+        "gaps": [],
+        "helpful": [
+          "provisioned filings in record/documents/",
+          "staged companion docket in record/related/26-78.json",
+          "cert_anchor in record/context.json",
+          "metrics/statpack.md"
+        ],
+        "notes": "Staged companion docket 26-78.json was particularly helpful for explaining the August 28, 2026 Rescheduled entry on 26-76.",
+        "role": "predictor",
+        "run_id": "20261111T033130Z",
+        "schema_version": "1.0",
+        "tool_manifest": null,
+        "tools_used": [
+          "fedcourts paths",
+          "fedcourts query",
+          "fedcourts validate"
+        ],
+        "used_base_rates": true,
+        "used_corpus_query": true
+      },
+      {
+        "actor_id": "codex-baseline",
+        "case_id": "scotus/9026000076",
+        "gaps": [
+          "Corpus reporter-citation coverage was too sparse to locate Hurst or McKinney.",
+          "Web tools returned no visible search or PDF content in three attempts.",
+          "Provisioned amicus entries had no accompanying amicus brief texts."
+        ],
+        "helpful": [
+          "Frozen reached-band cert anchor prevents terminal-band anchoring errors.",
+          "Complete petition, opposition, reply and appendix text enabled adversarial assessment.",
+          "Related Hunt docket explained a plausible reason for pre-conference rescheduling.",
+          "CourtListener targeted opinion search verified McKinney efficiently."
+        ],
+        "notes": "Default uv cache was read-only; UV_CACHE_DIR=/tmp/uv-cache allowed the existing environment to run without package installation. Rescheduling must not be mistaken for completed conference consideration or a substantive relist. Broad outcome-filtered corpus results were not treated as matched priors.",
+        "role": "predictor",
+        "run_id": "20261111T033130Z",
+        "schema_version": "1.0",
+        "tool_manifest": null,
+        "tools_used": [
+          "fedcourts paths",
+          "fedcourts query",
+          "fedcourts validate",
+          "CourtListener MCP search",
+          "CourtListener MCP search_document",
+          "web search and open attempts",
+          "local text inspection and jq"
+        ],
+        "used_base_rates": true,
+        "used_corpus_query": true
+      },
+      {
+        "actor_id": "claude-baseline",
+        "case_id": "scotus/9026000076",
+        "gaps": [
+          "No statpack cut separating pre-conference reschedules from true relists",
+          "Companion docket's BIO text not staged"
+        ],
+        "helpful": [
+          "related/26-78.json companion snapshot",
+          "cert_anchor in context.json",
+          "full-text BIO and reply"
+        ],
+        "notes": "--docket-number requires --court; the error message was clear.",
+        "role": "predictor",
+        "run_id": "20261111T033130Z",
+        "schema_version": "1.0",
+        "tool_manifest": null,
+        "tools_used": [
+          "fedcourts query",
+          "metrics/statpack.md",
+          "WebFetch (supremecourt.gov docket)",
+          "WebSearch"
+        ],
+        "used_base_rates": true,
+        "used_corpus_query": true
+      },
+      {
+        "actor_id": "gemini-judge",
+        "case_id": "scotus/9526000560",
+        "gaps": [],
+        "helpful": [
+          "fedcourts statpack-at reconstructed the exact statpack build (eb6830084a18) in force at the candidates' prediction run time, distinguishing accurate historical base-rate citations from misquoted figures",
+          "staged per curiam opinion under record/opinion/writings/OT2026-2/01-per-curiam.txt enabled direct comparison of predicted_reasoning.md against the Court's actual rationale and citations"
+        ],
+        "notes": "All three blinded candidates, the outcome, the final docket snapshot, and the Per Curiam stay opinion were cleanly provisioned.",
+        "role": "evaluator",
+        "run_id": "20261110T154355Z",
+        "schema_version": "1.0",
+        "tool_manifest": null,
+        "tools_used": [
+          "fedcourts statpack-at",
+          "fedcourts paths"
+        ],
+        "used_base_rates": true,
+        "used_corpus_query": false
+      },
+      {
+        "actor_id": "gemini-judge",
+        "case_id": "scotus/9526000560",
+        "gaps": [
+          "CourtListener MCP upstream API hit the 300/hour rate limit (HTTP 429) on analyze_citations and read_document"
+        ],
+        "helpful": [
+          "Provisioned per curiam opinion in record/opinion/writings/OT2026-2/01-per-curiam.txt",
+          "Provisioned application, opposition, and reply briefs in record/documents/",
+          "fedcourts statpack-at for reconstructing the exact statpack build in force at prediction time"
+        ],
+        "notes": "All case citations and lower-court docket references were verified directly against the provisioned Supreme Court per curiam opinion and full briefing in record/.",
+        "role": "evaluator",
+        "run_id": "20261110T154355Z",
+        "schema_version": "1.0",
+        "tool_manifest": null,
+        "tools_used": [
+          "fedcourts statpack-at",
+          "mcp:courtlistener:analyze_citations",
+          "mcp:courtlistener:read_document"
+        ],
+        "used_base_rates": true,
+        "used_corpus_query": false
+      },
+      {
+        "actor_id": "codex-judge",
+        "case_id": "scotus/9526000560",
+        "gaps": [
+          "gemini-baseline's log records call outcomes but not result contents; its stated retrieval results cannot be independently reconstructed from the log"
+        ],
+        "helpful": [
+          "Staged per-curiam text and writings manifest",
+          "Docket snapshot and finer interim outcome",
+          "Explicit per-call result-capture markers",
+          "Local JSON Schema validation"
+        ],
+        "notes": "All three candidates evaluated blind from staged aliases. No external retrieval or package installation; no whole-tree validation during harness blinding. Capture limitations did not prevent completing these forward-cell assessments.",
+        "role": "evaluator",
+        "run_id": "20261110T154355Z",
+        "schema_version": "1.0",
+        "tool_manifest": null,
+        "tools_used": [
+          "local shell",
+          "staged blinded retrieval logs",
+          "committed interim statpack",
+          "apply_patch",
+          "jsonschema"
+        ],
+        "used_base_rates": true,
+        "used_corpus_query": false
+      },
+      {
+        "actor_id": "codex-judge",
+        "case_id": "scotus/9526000560",
+        "gaps": [],
+        "helpful": [
+          "The staged per curiam supports direct verification of doctrinal and equitable forecasts on this interim event.",
+          "statpack-at distinguishes erroneous historical counts from legitimate differences caused by refreshed coverage.",
+          "Capture markers prevent treating absent result dates as evidence that retrieval returned nothing."
+        ],
+        "notes": "No package installation or external case retrieval was needed. Output schemas match the installed Pydantic models exactly; validation uses those models. Baselines, skill, and claim scoring remain harness-owned.",
+        "role": "evaluator",
+        "run_id": "20261110T154355Z",
+        "schema_version": "1.0",
+        "tool_manifest": null,
+        "tools_used": [
+          "shell: read-only blinded record inspection",
+          "jq",
+          "fedcourts statpack-at",
+          "apply_patch",
+          "Python/Pydantic schema validation"
+        ],
+        "used_base_rates": true,
+        "used_corpus_query": false
+      },
+      {
+        "actor_id": "codex-judge",
+        "case_id": "scotus/9526000560",
+        "gaps": [
+          "gemini-baseline's retrieval log records queries but no result bodies, limiting independent verification of supplemental research; this was not treated as leakage or a candidate defect."
+        ],
+        "helpful": [
+          "Blinded candidate staging kept identities out of grading.",
+          "The staged per-curiam writing and decided docket allowed direct checking of legal grounds, timing, and publicly noted dissent.",
+          "statpack-at reconstructed the candidates' historical pack without accessing prediction history."
+        ],
+        "notes": "All three candidates were scored from their staged aliases. Baselines, skill, quantitative claim scores, process stamps, usage, and the evaluator retrieval_log.json are left to the harness. No installation or external substantive retrieval was needed.",
+        "role": "evaluator",
+        "run_id": "20261110T154355Z",
+        "schema_version": "1.0",
+        "tool_manifest": null,
+        "tools_used": [
+          "shell and local file reads",
+          "fedcourts statpack-at",
+          "apply_patch",
+          "JSON Schema validation",
+          "Pydantic model validation"
+        ],
+        "used_base_rates": true,
+        "used_corpus_query": false
+      }
+    ],
+    "reports": 666,
+    "window_days": 14
+  }
+}
