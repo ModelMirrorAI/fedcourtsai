@@ -1049,3 +1049,145 @@ def test_a_judgment_reversed_or_reopened_is_triage(later: str) -> None:
 def test_a_liability_only_judgment_is_triage() -> None:
     text = "JUDGMENT in favor of Plaintiff on liability; damages to be determined at trial."
     assert isinstance(resolve_judgment([entry(80, text)]), Unresolved)
+
+
+# --- preliminary injunctions, and the judge named before the ruling -----------
+
+PI = MotionEvent(TrialMoment.preliminary_injunction, 12)
+
+
+@pytest.mark.parametrize(
+    ("text", "moment"),
+    [
+        ("MOTION for Preliminary Injunction filed by Author.", TrialMoment.preliminary_injunction),
+        ("Emergency MOTION for a Preliminary Injunction", TrialMoment.preliminary_injunction),
+        (
+            "MOTION for Temporary Restraining Order and Preliminary Injunction",
+            TrialMoment.preliminary_injunction,
+        ),
+        (
+            "MOTION for Temporary Restraining Order, MOTION for Preliminary Injunction",
+            TrialMoment.preliminary_injunction,
+        ),
+        ("MOTION for Temporary Restraining Order filed by Author.", None),
+        ("MOTION for Leave to File Excess Pages for Motion for Preliminary Injunction", None),
+        ("MOTION to Ascertain Status of Motion for Preliminary Injunction re 12", None),
+    ],
+)
+def test_the_injunction_motion_kind(text: str, moment: TrialMoment | None) -> None:
+    assert motion_moment(text) is moment
+
+
+def test_an_injunction_ruling_reads_like_any_motion_ruling() -> None:
+    motion = entry(12, "MOTION for Preliminary Injunction filed by Author.", day="2026-01-10")
+    order = entry(
+        40, "ORDER denying 12 Motion for Preliminary Injunction. Signed by Judge A. Bench."
+    )
+    resolved = resolve_motion(PI, [motion, order])
+    assert isinstance(resolved, MotionResolution)
+    assert resolved.ruling is MotionRuling.denied
+    assert resolved.leave is None
+    assert resolved.rule == "trial-resolver-v2"
+
+
+COMBINED = entry(
+    12,
+    "Emergency MOTION for Temporary Restraining Order and Preliminary Injunction",
+    day="2026-01-10",
+)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "ORDER granting 12 Motion for TRO and Preliminary Injunction. Signed by Judge A. Bench.",
+        "ORDER granting in part 12 Motion for Temporary Restraining Order and Preliminary "
+        + "Injunction. Signed by Judge A. Bench.",
+        "ORDER granting 12 Emergency Motion. Defendants are temporarily restrained pending a "
+        + "hearing set for 2/20/2026.",
+        "ORDER by Judge A. Bench granting in part 12 Motion. Defendants are restrained from "
+        + "deleting data until the hearing.",
+    ],
+)
+def test_a_ruling_that_names_a_restraining_order_is_passed_over(text: str) -> None:
+    assert resolve_motion(PI, [COMBINED, entry(20, text)]) is None
+
+
+def test_a_ruling_on_a_combined_motion_that_names_neither_half_is_triage() -> None:
+    resolved = resolve_motion(PI, [COMBINED, entry(20, "ORDER denying 12 Motion.")])
+    assert isinstance(resolved, Unresolved)
+    assert "neither half" in resolved.reason
+
+
+def test_a_combined_motion_resolves_on_a_ruling_that_names_the_injunction_alone() -> None:
+    order = entry(30, "ORDER denying 12 Motion for Preliminary Injunction.")
+    restraining = entry(20, "ORDER granting 12 Motion for TRO.")
+    resolved = resolve_motion(PI, [COMBINED, restraining, order])
+    assert isinstance(resolved, MotionResolution)
+    assert resolved.ruling is MotionRuling.denied
+    assert resolved.cited.entry_number == 30
+
+
+def test_a_restraining_order_ruling_on_another_motion_leaves_the_injunction_open() -> None:
+    motion = entry(12, "MOTION for Preliminary Injunction filed by Author.", day="2026-01-10")
+    other = entry(20, "ORDER denying 11 Motion for Temporary Restraining Order.")
+    assert resolve_motion(PI, [motion, other]) is None
+
+
+@pytest.mark.parametrize(
+    ("text", "ruling"),
+    [
+        ("ORDER by Judge Rita F. Lin granting 45 Motion to Dismiss.", MotionRuling.granted),
+        (
+            "Order by Magistrate Judge A. B. Bench granting in part and denying in part 45 Motion "
+            + "to Dismiss.",
+            MotionRuling.granted_in_part,
+        ),
+        ("ORDER Signed by Judge A. Bench denying 45 Motion to Dismiss.", MotionRuling.denied),
+    ],
+)
+def test_a_judge_named_before_the_ruling_verb_is_read_past(text: str, ruling: MotionRuling) -> None:
+    assert read_docket_ruling(text, 45).ruling is ruling
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "ORDER by Judge A. Bench re 45 Motion to Dismiss. The parties shall confer on granting it.",
+        "ORDER by Judge A. Bench setting hearing on 45 Motion to Dismiss; granting 44 Motion.",
+        "NOTICE by Judge Grant granting 45 Motion to Dismiss",
+        "ORDER by Judge Lin tentatively granting 45 Motion to Dismiss",
+        "ORDER by Judge Lin not granting 45 Motion to Dismiss",
+        "ORDER by Judge Lin re Proposed Order granting 45 Motion to Dismiss",
+        "ORDER by Judge William Alsup vacating order granting 45 Motion to Dismiss",
+        "ORDER by Judge Lin withdrawing order granting 45 Motion to Dismiss",
+        "ORDER by Judge Lin staying order granting 45 Motion to Dismiss",
+        "ORDER by Judge Lin reversing magistrate order granting 45 Motion to Dismiss",
+        "ORDER by Judge Lin declining to adopt recommendation granting 45 Motion to Dismiss",
+        "ORDER by Judge Lin setting hearing before granting 45 Motion to Dismiss",
+        "ORDER by Judge Lin reconsidering order denying 45 Motion to Dismiss",
+        "ORDER by Judge Lin on reconsideration of order denying 45 Motion to Dismiss",
+        "ORDER BY JUDGE LIN VACATING ORDER GRANTING 45 MOTION TO DISMISS",
+        "ORDER by Judge Lin Vacating Prior Order Granting 45 Motion to Dismiss",
+    ],
+)
+def test_a_judge_s_name_does_not_make_a_reference_a_ruling(text: str) -> None:
+    assert read_docket_ruling(text, 45).ruling is None
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "MOTION for Preliminary Injunction Pending Appeal filed by Author.",
+        "MOTION for Preliminary Injunction Hearing Continuance",
+        "MOTION for Summary Judgment Briefing Schedule",
+        "MOTION for Summary Judgment Page Limit Extension",
+        "MOTION for Class Certification Deadline Extension",
+        "MOTION to Dismiss Party John Doe",
+        "MOTION to Dismiss Appeal",
+        "Joint MOTION to Dismiss with prejudice pursuant to settlement",
+        "Joint MOTION to Dismiss voluntarily",
+    ],
+)
+def test_a_motion_about_a_covered_motion_is_not_one(text: str) -> None:
+    assert motion_moment(text) is None
