@@ -231,6 +231,10 @@ from .finalize import (
     snapshot_output_root,
 )
 from .fixture import build_fixture_corpus
+from .forecast_document_grades import (
+    build_forecast_document_grades,
+    forecast_document_grades_summary,
+)
 from .gvr_migration import relabel_munsingwear_gvr_outcomes
 from .handoff import HandoffRefused, read_handoff, write_handoff
 from .integrity import (
@@ -604,6 +608,7 @@ from .schemas import (
     FlagCategory,
     FlagSeverity,
     FlagSource,
+    ForecastDocumentGrades,
     ForwardClaimRecord,
     Judgment,
     Leaderboard,
@@ -11290,6 +11295,51 @@ def miss_review_command(
     typer.echo(f"miss-review [{scope}]: {miss_review_summary(review)} -> {destination}")
 
 
+@app.command("forecast-document-grades")
+def forecast_document_grades_command(
+    out: Annotated[
+        Path | None,
+        typer.Option(help="Output path (default: <metrics_root>/forecast-document-grades.json)."),
+    ] = None,
+    all_versions: Annotated[
+        bool,
+        typer.Option(
+            "--all-versions",
+            help="Include every process version, not only the frozen headline.",
+        ),
+    ] = False,
+) -> None:
+    """Roll up the forecast-document grade into ``metrics/forecast-document-grades.json``.
+
+    Deterministic and offline. Over the forward cells ``leaderboard`` scores,
+    it reads each judge's ``predicted_reasoning_quality`` of each predictor's
+    ``predicted_reasoning.md`` and reports, per stage: each predictor's mean
+    grade per judge rubric (pooled and per counting window) with the cells
+    graded by every judge, left null by every judge, and split; the judges'
+    leave-one-out agreement and its within-predictor reading; each judge's
+    grades of its own engine family's documents beside the others'; and the
+    grade where the disposition call was right and where it was wrong. Only
+    judges whose evaluate digest asks for the grade are read. Graded, not
+    scored: never a rank key or a claim total; reading rules:
+    ``metrics/README.md``.
+    """
+    settings = get_settings()
+    scope: Literal["frozen", "all"] = "all" if all_versions else "frozen"
+    run = stratify(settings.data_root, frozen_only=not all_versions)
+    _report_exclusions(run)
+    board = build_forecast_document_grades(
+        run.cells, settings.data_root, process_scope=scope, cell_windows=run.cell_windows
+    )
+    destination = (
+        out if out is not None else settings.metrics_root / "forecast-document-grades.json"
+    )
+    write_json(destination, board)
+    typer.echo(
+        f"forecast-document-grades [{scope}]: "
+        f"{forecast_document_grades_summary(board)} -> {destination}"
+    )
+
+
 @app.command("performance-history")
 def performance_history_command(
     ref: Annotated[
@@ -17266,6 +17316,9 @@ def _weekly_analytics(metrics_root: Path) -> WeeklyAnalytics:
         salience_version_in_force=SALIENCE_VERSION,
         leaderboard=_vintaged(metrics_root / "leaderboard.json", Leaderboard),
         miss_review=_vintaged(metrics_root / "miss-review.json", MissReview),
+        document_grades=_vintaged(
+            metrics_root / "forecast-document-grades.json", ForecastDocumentGrades
+        ),
         previous_leaderboard=_previous_leaderboard(),
     )
 
