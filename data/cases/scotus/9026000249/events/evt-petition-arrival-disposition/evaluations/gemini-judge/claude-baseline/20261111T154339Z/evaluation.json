@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v3",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.02,
+    "notes": "Pro se petition seeking review of an unpublished Ninth Circuit memorandum affirming dismissal and a vexatious-litigant order in a repetitive private dispute over California real property and state-law litigation privilege (Cal. Civ. Code \u00a7 47(b)); despite involving celebrity petitioners, the case presents no circuit split, no recurring federal question, and negligible doctrinal or institutional stakes."
+  },
+  "brier_score": 9e-06,
+  "brier_skill_score": 0.9965349421914986,
+  "case_id": "scotus/9026000249",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05096429401285725,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.003,
+        "score": 0.0025883592642289574
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": null,
+        "probability": 0.95,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.002,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.5,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.0025883592642289574,
+    "total": 0.0025883592642289574
+  },
+  "correct": 1,
+  "created_at": "2026-11-11T16:15:46.246057Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-arrival-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction placed on 2026-08-27, on the day of docketing and more than two months before the 2026-11-09 denial. The retrieval log (26 calls, result_capture_coverage 1.0) shows reads of provisioned inputs and metrics/statpack.md, one fedcourts query (doc_date 2026-08-24), and four CourtListener MCP lookups of pre-petition Ninth Circuit and C.D. Cal. dockets (doc_dates in 2023 and 2025).",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-argon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.8,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The petition was distributed on October 14, 2026 for the November 6, 2026 conference and denied in a standard one-line order on November 9, 2026, three days after the conference.",
+        "claim": "The Court will deny certiorari in a one-line order within a week of a single conference in late October or November 2026.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records signals.distribution_count as 1, with a single distribution on October 14, 2026 followed by denial on November 9, 2026.",
+        "claim": "The petition will be distributed exactly once and denied without relisting.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Held in part: respondents Susan Williams, Bruce Berman, Craig Granet, and R. Scott and Lannette Turicchi filed waivers on September 11, 2026, as predicted for Granet and the Turicchis, but co-respondents Fidelity National Title Insurance Company and James Hepworth filed a Brief in Opposition on September 28, 2026.",
+        "claim": "The respondents (an attorney sued personally and the private buyers of the petitioners' former home) will waive a response by the September 28, 2026 due date.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "outcome.json records signals.cvsg_date as null and actual_disposition as denied.",
+        "claim": "The Court will not issue a CVSG or dispose of the petition by summary disposition (GVR).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records noted_dissent_from_denial as false.",
+        "claim": "No Justice will note a dissent from denial or issue a statement respecting denial.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20260827T155120Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+    "label": "proc-v20",
+    "pipeline_sha": "df41a1f965999c61d3baf2331d4d7356a2acc1e1",
+    "stamped_at": "2026-11-11T16:15:46.246057Z"
+  },
+  "reasoning_quality": 0.92,
+  "run_id": "20261111T154339Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05096429401285725,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

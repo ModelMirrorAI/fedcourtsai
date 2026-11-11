@@ -1,0 +1,21 @@
+{
+  "actor_id": "gemini-judge",
+  "case_id": "scotus/9026000119",
+  "gaps": [],
+  "helpful": [
+    "fedcourts statpack-at cleanly reconstructed the exact sal-v4 statpack build (886549a3ac32bdba039691b6d2ca7dc57bb72561) that was in force when the three candidates ran on 20261018T142134Z, confirming their risk-set state band pooling."
+  ],
+  "notes": "Provisioned petition.txt (including Appendices A-F), outcome.json, and blinded candidate artifacts were complete and unambiguous.",
+  "role": "evaluator",
+  "run_id": "20261111T154339Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "read_file",
+    "list_directory",
+    "run_shell_command",
+    "write_file",
+    "fedcourts statpack-at"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}
