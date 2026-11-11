@@ -64,19 +64,19 @@ jobs:
   ops:
     runs-on: ubuntu-26.04
     # Setup + report is a couple of minutes; the cap is sized for the degraded
-    # API this job's retries exist to survive. Eleven retryable shell calls
-    # across its four retried steps, each worth up to 105s when every attempt
+    # API this job's retries exist to survive. Fifteen retryable shell calls
+    # across its five retried steps, each worth up to 105s when every attempt
     # times out (3 × `timeout 30` plus 5s + 10s of backoff), and the run
-    # listing up to 285s on its 90s bound: ~22 min of retry
+    # listing up to 285s on its 90s bound: ~29 min of retry
     # alone. The off-ledger spend sweep makes a retried call per page and per
     # artifact, so it carries its own 10 min cap and gives up quietly rather
     # than eat the escalation's share, and the scheduled-run listing its own
-    # 6 min cap the same way: ~38 min in all. Under a 15 min cap the
+    # 6 min cap the same way: ~45 min in all. Under a 15 min cap the
     # job would be killed mid-recovery, after the ops-metrics snapshot but
-    # before the two escalations. This job
+    # before the three escalations. This job
     # holds no corpus lock, so a wider cap costs only runner minutes on a day
     # the API is already broken.
-    timeout-minutes: 44
+    timeout-minutes: 52
     permissions:
       contents: write # read the ledger + push the snapshot to the ops-metrics branch
       actions: read # read the workflow run history for the health section
@@ -208,6 +208,24 @@ jobs:
           cat ops.md >> "$GITHUB_STEP_SUMMARY"
           if [ -f digest.md ]; then
             cat digest.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+          # The AI watchlist's corpus check, published beside the verdict by
+          # the same corpus-writer path: its one line joins the summary, and
+          # the escalation step below reads the rendered files. Absent before
+          # its first publish, which leaves the files unwritten and the alarm
+          # step idle. A published file this checkout cannot read is a warning,
+          # never a failed step: the snapshot push and the data-validation
+          # escalation below must still land.
+          if git show origin/ops-metrics:ai-watchlist-check.json > ai-watchlist-published.json 2>/dev/null; then
+            if uv run fedcourts ai-watchlist-check --from-report ai-watchlist-published.json \
+                --alarm-out ai-watchlist-alarm.md --digest-out ai-watchlist-line.txt \
+                > ai-watchlist-check.tmp; then
+              mv ai-watchlist-check.tmp ai-watchlist-check.json
+              { echo ''; cat ai-watchlist-line.txt; } >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "::warning::the published AI watchlist check could not be read; its line and alarm are skipped this run"
+              rm -f ai-watchlist-check.tmp
+            fi
           fi
 
       # Test and staging spend: the integration suite, the promotion gate,
@@ -407,6 +425,48 @@ jobs:
             # Resolved: data validation is green again, so close the escalation issue.
             gh_retry gh issue comment "$num" --repo "$REPO" \
               --body "✅ Data validation is green again as of the latest ops run — closing."
+            gh_retry gh issue close "$num" --repo "$REPO" --reason completed
+          fi
+
+      - name: Escalate a failing AI watchlist check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # shellcheck disable=SC1091  # resolved on the runner; actionlint lints this block out of tree
+          source "${GITHUB_WORKSPACE}/scripts/gh_retry.sh"
+          # The data-validation idiom above, for the watchlist: one long-lived
+          # issue while the check is not ok (a Supreme Court docket from a
+          # listed case the watchlist does not link, a listed docket not
+          # refreshed in seven days, or no reading for two days), refreshed in
+          # place, and closed when the check is ok again. `ai-watchlist` is a
+          # non-triggering label. No published reading yet means nothing to
+          # escalate, and neither does a published one the report step could
+          # not read, which that step warns about.
+          if [ ! -f ai-watchlist-check.json ]; then
+            echo "No readable AI watchlist check: nothing to escalate."
+            exit 0
+          fi
+          gh_retry gh label create ai-watchlist --repo "$REPO" --force \
+            --color b60205 --description "Long-lived AI watchlist check failure (run-ops escalation)"
+          ok=$(jq -r '.ok' ai-watchlist-check.json)
+          # This step's own alarm only, matched by title and the ambient
+          # token's bot as author, as the data-validation step matches its own.
+          listing=$(gh_retry gh api "repos/${REPO}/issues?labels=ai-watchlist&state=open&per_page=100")
+          num=$(jq -r '[.[] | select(.title == "AI watchlist check failing"
+                          and .user.login == "github-actions[bot]"
+                          and (has("pull_request") | not))][0].number // empty' <<<"$listing")
+          if [ "$ok" = "false" ]; then
+            if [ -z "$num" ]; then
+              gh_retry gh issue create --repo "$REPO" --title "AI watchlist check failing" \
+                --label ai-watchlist --body-file ai-watchlist-alarm.md
+            else
+              gh_retry gh issue edit "$num" --repo "$REPO" --body-file ai-watchlist-alarm.md
+            fi
+          elif [ "$ok" = "true" ] && [ -n "$num" ]; then
+            gh_retry gh issue comment "$num" --repo "$REPO" \
+              --body "✅ The AI watchlist check is clean again as of the latest ops run — closing."
             gh_retry gh issue close "$num" --repo "$REPO" --reason completed
           fi
 

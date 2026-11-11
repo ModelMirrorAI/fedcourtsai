@@ -19683,6 +19683,13 @@ def ai_watchlist_check_command(
         Path | None,
         typer.Option(help="Write the one-line reading here, for a digest."),
     ] = None,
+    from_report: Annotated[
+        Path | None,
+        typer.Option(
+            help="Read back a stored report (this command's JSON) instead of the "
+            "corpus, and render it; a report more than two days old is not ok.",
+        ),
+    ] = None,
 ) -> None:
     """Check the corpus for Supreme Court dockets of listed AI cases and stale listed dockets.
 
@@ -19699,7 +19706,20 @@ def ai_watchlist_check_command(
     changes no selection. Exits 0 whatever it finds, so the caller decides
     what an alarm does; 1 when the corpus is missing, 2 when the watchlist or
     `--linked` cannot be read.
+
+    `--from-report` renders a stored report where no corpus is at hand: it
+    reads neither the corpus nor the watchlist, stamps the report's age in
+    days, and counts a report more than two days old as not `ok`, so a check
+    that stopped being produced alarms. Exits 2 when the file is not a report.
     """
+    if from_report is not None:
+        try:
+            stored = ai_follow_ons.read_back(from_report.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            typer.echo(f"ai-watchlist-check: cannot read --from-report: {exc}", err=True)
+            raise typer.Exit(code=2) from exc
+        _emit_watchlist_check(stored, alarm_out, digest_out)
+        return
     settings = get_settings()
     try:
         watchlist = load_ai_watchlist(settings.config_root / AI_WATCHLIST_FILENAME)
@@ -19721,6 +19741,12 @@ def ai_watchlist_check_command(
         result = ai_follow_ons.watchlist_check(
             conn, watchlist, linked=linked_ids, stale_after_days=stale_after_days
         )
+    _emit_watchlist_check(result, alarm_out, digest_out)
+
+
+def _emit_watchlist_check(
+    result: ai_follow_ons.WatchlistCheck, alarm_out: Path | None, digest_out: Path | None
+) -> None:
     typer.echo(json.dumps({"ok": result.ok, **result.model_dump(mode="json")}, indent=2))
     line = ai_follow_ons.digest_line(result)
     typer.echo(line, err=True)

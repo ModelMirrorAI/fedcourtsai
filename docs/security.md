@@ -730,7 +730,8 @@ this policy.
   orphan `ops-metrics` branch, where `run-ops` appends its JSON snapshots and the
   corpus-writer path (`run-pull`, `run-seed` and `run-repair`, via the `publish-corpus-verdict`
   action) publishes
-  the data-validation verdict and live-frontier snapshot for `run-ops` to present.
+  the data-validation verdict, the live-frontier snapshot and the AI watchlist's
+  corpus check for `run-ops` to present.
   `run-ops` also keeps the off-ledger spend records there, swept from
   `off-ledger-spend-*` run artifacts. Artifacts are uploaded by any run, a fork
   PR's included, so the sweep reads only those uploaded by a run of one of the
@@ -786,7 +787,7 @@ in this repository keys on `issues: labeled` at all, so labeling triggers
 nothing), which is the only reason a workflow here ever reaches for the App
 token — so issue-write deliberately stays **off** the App token that
 carries `contents: write` and opens and merges the run PR. This mirrors `run-ops`,
-which posts its `data-validation` / `pipeline-health` / `daily-digest` issues with the same
+which posts its `data-validation` / `ai-watchlist` / `pipeline-health` / `daily-digest` issues with the same
 ambient token, and `run-analytics`' ai-candidates and ai-follow-ons jobs, which
 comment the week's AI-case candidates and follow-on dockets on the long-lived
 `ai-candidates` issue with it —

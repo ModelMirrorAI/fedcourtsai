@@ -70,6 +70,7 @@ from .schemas import (
     ModelUsage,
     OpenTriggerIssue,
     OpsReport,
+    PairedEvents,
     PredictableEvent,
     Prediction,
     PredictorScoreRow,
@@ -1312,11 +1313,49 @@ def _forward_row(predictor_id: str, block: LeaderboardStratum) -> str:
         if block.population_brier_skill_score is None
         else f"{block.population_brier_skill_score:+.2f} ({block.skill_scored:,} gradings)"
     )
+    forecast = (
+        "—"
+        if block.grants_forecast is None
+        else f"{block.grants_forecast:.1f} ({block.grants_forecast_realized} realized of "
+        f"{block.grants_forecast_scored})"
+    )
     return (
         f"| {_cell(predictor_id)} | {_pct(block.event_accuracy)} "
         f"| {_pct(block.event_always_deny_accuracy)} "
-        f"| {_signed_pct(lift)}{lift_events} | {_brier(block.mean_brier_score)} | {skill} |"
+        f"| {_signed_pct(lift)}{lift_events} | {_brier(block.mean_brier_score)} | {skill} "
+        f"| {forecast} |"
     )
+
+
+def _engine_mean_line(paired: PairedEvents) -> list[str]:
+    """The mean-of-engines reference under the forward table, read against the best engine.
+
+    Per-event Briers throughout, the reference beside each engine's own over
+    the same events, so the line is one comparison on one footing — not the
+    grading-weighted mean Brier the table's column prints.
+    """
+    mean = paired.engine_mean
+    if mean is None:
+        return []
+    best = min(mean.engine_brier, key=lambda pid: (mean.engine_brier[pid], pid))
+    verdict = (
+        "below every engine's own"
+        if mean.brier < mean.engine_brier[best]
+        else f"not below the best engine's own (`{_cell(best)}`)"
+    )
+    engines = ", ".join(
+        f"`{_cell(pid)}` {_brier(mean.engine_brier[pid])}" for pid in sorted(mean.engine_brier)
+    )
+    line = (
+        "Reference, not a predictor and never ranked: the mean of the "
+        f"{len(mean.engine_brier)} engines' probabilities scores a per-event Brier of "
+        f"**{_brier(mean.brier)}** over {mean.events:,} of {paired.events:,} paired event(s) "
+        f"({mean.grants} granted), {verdict}. Per event over the same events: {engines}. "
+        "A mean always scores at least as well as its members' average, so only the "
+        "comparison with the best engine is a reading; the engines can surface the same "
+        "sources, so they are not independent forecasts."
+    )
+    return ["", line]
 
 
 def _left_out_line(board: Leaderboard) -> list[str]:
@@ -1352,7 +1391,9 @@ def _forward_lines(vintaged: Vintaged[Leaderboard]) -> list[str]:
     call moves it by whole points); the mean Brier and the Brier skill against
     the strictly-prior segment base rate — the leakage-safe baseline and the
     board's primary measure — are grading-weighted, with the skill's own grading
-    count. The exclusions the build applied ride under the table.
+    count. The last column is the engine's own forecast grant count beside the
+    grants that realized on the binary target and the events both are over. The
+    exclusions the build applied ride under the table.
     """
     board = vintaged.value
     where = _sourced("leaderboard.json", vintaged)
@@ -1388,12 +1429,20 @@ def _forward_lines(vintaged: Vintaged[Leaderboard]) -> list[str]:
         f"a scored cell on{grant_text}. Accuracy, floor and lift are per event; mean Brier "
         "and Brier skill are per grading (one per cell per judge). Brier skill is against "
         "each cell's strictly-prior segment base rate (positive beats it) and is the figure "
-        "to read. Interim and merits figures are the board's per-stage blocks.",
+        "to read. Grants forecast is the sum of the engine's own P(granted), per event, "
+        "beside the grants that realized on the binary target each probability is scored "
+        "against (so it can differ from the grant-family count above) and the events it "
+        "is over. A gap reads as over- or under-forecasting only once the cohort's "
+        "relisted and held petitions have resolved; until then realized runs low. The "
+        "reliability table on the board says where a gap sits. "
+        "Interim and merits figures are the board's per-stage blocks.",
         "",
-        "| Predictor | Accuracy | Always-deny floor | Lift | Mean Brier | Brier skill |",
-        "| --- | ---: | ---: | ---: | ---: | ---: |",
+        "| Predictor | Accuracy | Always-deny floor | Lift | Mean Brier | Brier skill "
+        + "| Grants forecast |",
+        "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",
         *[_forward_row(p, by_engine[p]) for p in order],
     ]
+    lines += _engine_mean_line(paired)
     unranked = [
         e.predictor_id
         for e in board.entries
