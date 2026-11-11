@@ -16466,6 +16466,95 @@ class MissReview(_Strict):
     )
 
 
+class PerformancePoint(_Strict):
+    """One forward series' figures as one committed leaderboard carried them.
+
+    A series is a (predictor, counting window, stage) triple; ``process_window``
+    null is the predictor's pooled record across its windows. Every figure is
+    copied from the board's own forward stratum, never recomputed.
+    """
+
+    predictor_id: str
+    process_window: str | None = Field(
+        default=None, description="The counting window, or null for the pooled record"
+    )
+    stage: str = Field(
+        description="`<stage>@<moment>`; the ranked cert board is `cert@distribution`"
+    )
+    events: int = Field(ge=0, description="The stratum's `accuracy_events_scored`")
+    gradings: int = Field(ge=0, description="The stratum's `evaluations`")
+    event_accuracy: float | None = None
+    event_always_deny_accuracy: float | None = None
+    mean_brier_score: float | None = None
+    population_brier_skill_score: float | None = None
+    population_realized_term_skill_score: float | None = None
+    mean_reasoning_quality: float | None = None
+
+
+class PerformanceRevision(_Strict):
+    """One landing of ``metrics/leaderboard.json`` on the history's ref."""
+
+    commit: str = Field(description="The first-parent commit that landed the board")
+    landed: date = Field(description="That commit's committer date, UTC")
+    points: list[PerformancePoint] = Field(default_factory=list)
+
+
+class PerformanceMovement(_Strict):
+    """How one series moved between two boards, and what the move trips.
+
+    An operational alarm over two refreshes of one artifact. A change between
+    two boards is not a finding about a predictor (``metrics/README.md``).
+    """
+
+    predictor_id: str
+    process_window: str | None = None
+    stage: str
+    events_before: int | None = Field(
+        default=None, description="Null where the earlier board carried no such series"
+    )
+    events_after: int
+    event_accuracy_before: float | None = None
+    event_accuracy_after: float | None = None
+    mean_brier_before: float | None = None
+    mean_brier_after: float | None = None
+    skill_before: float | None = None
+    skill_after: float | None = None
+    flags: list[str] = Field(
+        default_factory=list,
+        description="On a series of at least ten events, `at-or-below-floor`: event accuracy "
+        "does not clear the always-deny floor, and `negative-skill`: the prior-Term Brier "
+        "skill is below zero. On any series, "
+        "`events-removed`: the series holds fewer events than before; "
+        "`rescored`: accuracy moved by more than the added events can explain, so "
+        "earlier cells were re-scored, re-windowed or left the population",
+    )
+
+
+class PerformanceHistory(_Strict):
+    """``fedcourts performance-history`` — the forward record across committed boards.
+
+    Read from the first-parent history of ``metrics/leaderboard.json`` on a
+    ref, oldest landing first, so the committed boards are the record and
+    nothing is stored twice. Each counting window is its own series and the
+    pooled record is a separate one; a new window is never a continuation of
+    the one before it. Descriptive: a week-over-week change is not a finding.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    ref: str = Field(description="The ref whose first-parent history was read")
+    revisions: list[PerformanceRevision] = Field(default_factory=list)
+    unreadable: list[str] = Field(
+        default_factory=list,
+        description="Commits whose board does not parse under the current schema, oldest "
+        "first; their figures are absent, not zero",
+    )
+    movements: list[PerformanceMovement] = Field(
+        default_factory=list,
+        description="The newest readable board against the one before it, one row per "
+        "series the newer board carries",
+    )
+
+
 # Maps on-disk filename -> the model that validates it. Used by `fedcourts validate`.
 FILENAME_MODELS: dict[str, type[_Strict]] = {
     "case.yaml": TrackedCase,
@@ -16506,6 +16595,7 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "leaderboard": Leaderboard,
     "claim_score_board": ClaimScoreBoard,
     "miss_review": MissReview,
+    "performance_history": PerformanceHistory,
     "backtest": Backtest,
     "tool_usage": ToolUsage,
     "cert_backtest": CertBacktest,

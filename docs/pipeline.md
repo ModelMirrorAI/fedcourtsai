@@ -256,6 +256,13 @@ Five blocks, in the order a reader needs them:
   stage and so not subtractable from the cert figures. It leads the scored
   blocks because it is the program's output; the back-tests after it are
   iteration instruments.
+- **Movement since the previous board** — under the forward block, each
+  predictor's pooled forward series on the committed board against the board
+  it replaced, read from the checkout's own history of
+  `metrics/leaderboard.json`. Only a series that gained or lost events or trips
+  a flag is printed (`rescored`, `events-removed`, and from ten events
+  `at-or-below-floor` and `negative-skill`); an operational check, not a
+  finding. Omitted where the history is unreadable or holds no earlier board.
 - **Forward misses** — under the forward block, counts off the committed
   `metrics/miss-review.json` with its vintage: the forward events holding a
   miss, how many every predictor reviewed there shares, and the same per

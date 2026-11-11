@@ -74,6 +74,7 @@ from . import (
     merits_calibration,
     metrics_refresh,
     off_ledger_spend,
+    performance_history,
     process_registration,
     process_version,
     promotion_record,
@@ -11072,6 +11073,50 @@ def miss_review_command(
     typer.echo(f"miss-review [{scope}]: {miss_review_summary(review)} -> {destination}")
 
 
+@app.command("performance-history")
+def performance_history_command(
+    ref: Annotated[
+        str,
+        typer.Option(help="The ref whose first-parent history of the leaderboard is read."),
+    ] = performance_history.DEFAULT_REF,
+    out: Annotated[
+        Path | None,
+        typer.Option(help="Write the JSON here instead of stdout."),
+    ] = None,
+) -> None:
+    """Print the forward record across every committed ``metrics/leaderboard.json``.
+
+    Read-only. Walks the first-parent landings of the board on ``--ref``,
+    oldest first, and copies each board's forward figures per series — a
+    (predictor, counting window, stage) triple, the pooled record a series of
+    its own — then compares the newest board with the one before it and flags
+    a series at or below its floor, under zero skill, shrunk, or moved by more
+    than its added events can explain. Boards an older schema wrote are listed
+    as unreadable. It needs the full commit history; exit 2 on a shallow
+    checkout or an unknown ref. A change between two boards is not a finding;
+    reading rules: ``metrics/README.md``.
+    """
+    history = performance_history.build_history(Path.cwd(), ref)
+    if history is None:
+        typer.echo(
+            f"performance-history: cannot read the history of {ref!r} "
+            "(a shallow checkout, or no such ref)",
+            err=True,
+        )
+        raise typer.Exit(2)
+    if out is not None:
+        write_json(out, history)
+    else:
+        typer.echo(history.model_dump_json(indent=2))
+    flagged = sum(bool(row.flags) for row in history.movements)
+    typer.echo(
+        f"performance-history: {len(history.revisions)} board(s) on {ref}, "
+        f"{len(history.unreadable)} unreadable; {flagged} of {len(history.movements)} "
+        "series flagged on the newest",
+        err=True,
+    )
+
+
 @app.command("statpack-at")
 def statpack_at_command(
     prediction: Annotated[
@@ -16139,6 +16184,19 @@ def _vintaged[T: BaseModel](path: Path, model: type[T]) -> Vintaged[T]:
     return Vintaged(value=_read_best_effort(path, model), vintage=_artifact_vintage(path))
 
 
+def _previous_leaderboard() -> Vintaged[Leaderboard] | None:
+    """The committed board the checkout's ``HEAD`` replaced, or ``None``.
+
+    Read from ``HEAD``'s own first-parent history, so the digest compares the
+    board it prints with the one before it on the branch it runs on.
+    """
+    found = performance_history.previous_board(Path.cwd(), "HEAD")
+    if found is None:
+        return None
+    board, landed = found
+    return Vintaged(value=board, vintage=landed)
+
+
 def _weekly_analytics(metrics_root: Path) -> WeeklyAnalytics:
     """The committed metrics artifacts the weekly digest's scored blocks report."""
     return WeeklyAnalytics(
@@ -16151,6 +16209,7 @@ def _weekly_analytics(metrics_root: Path) -> WeeklyAnalytics:
         salience_version_in_force=SALIENCE_VERSION,
         leaderboard=_vintaged(metrics_root / "leaderboard.json", Leaderboard),
         miss_review=_vintaged(metrics_root / "miss-review.json", MissReview),
+        previous_leaderboard=_previous_leaderboard(),
     )
 
 
