@@ -502,6 +502,7 @@ from .pipeline.salience import (
 from .pipeline.salience_cert_backfill import COLUMNS as SALIENCE_CERT_COLUMNS
 from .pipeline.salience_cert_backfill import backfill_salience_cert_columns
 from .pipeline.scope_reconcile import reconcile_predict_scope
+from .pipeline.unforecast import Recall, unforecast_outcomes
 from .planning_rates import PLANNING_RATES_USD_PER_CELL as _PLANNING_RATES_USD_PER_CELL
 from .planning_rates import PLANNING_USD_PER_CELL as _PLANNING_USD_PER_CELL
 from .planning_rates import price_cells
@@ -6309,6 +6310,80 @@ def merits_coverage_cmd(
     typer.echo(f"uncovered {len(census.uncovered)}; holes {census.gaps}", err=True)
     typer.echo(census.model_dump_json())
     if census.gaps:
+        raise typer.Exit(code=3)
+
+
+@app.command("unforecast-outcomes")
+def unforecast_outcomes_cmd(
+    since: Annotated[
+        str | None,
+        typer.Option("--since", help="First resolution day (YYYY-MM-DD); 14 days before --until."),
+    ] = None,
+    until: Annotated[
+        str | None, typer.Option("--until", help="Last resolution day (YYYY-MM-DD); today.")
+    ] = None,
+) -> None:
+    """List the grants and application rulings no forecast preceded, read-only.
+
+    The selection-recall readout (`pipeline/unforecast.py`). Over the window's
+    resolutions: every grant-family paid cert petition, and every application
+    the Court referred to the full bench or the substantive-application test
+    admits, with no committed prediction on the case dated on or before the
+    day it resolved. Each is listed with why (`out_of_scope`,
+    `resolved_before_a_round`, `selected_unforecast`, `not_scored`,
+    `not_selected`), its band and score, and any loose
+    federal-petitioner reading on a petition outside the `federal` band.
+    In-forma-pauperis grants are listed apart and kept out of the recall,
+    which is reported for the window and for the Term to date. Reads the corpus
+    index and the committed predictions under the data root; reads no snapshot
+    and writes nothing. A summary to stderr, an `UnforecastReport` as JSON to
+    stdout; exits 3 when an alarm condition holds (an unforecast grant in the
+    `federal` band or reading federal, or Term-to-date reachable recall under
+    the floor), so a scheduled caller can alarm on it apart from a failure; 2
+    on a reversed or unreadable window; 1 if the corpus is absent.
+    """
+    try:
+        last = date.fromisoformat(until) if until else datetime.now(UTC).date()
+        first = date.fromisoformat(since) if since else last - timedelta(days=14)
+    except ValueError:
+        typer.echo("unforecast-outcomes: --since and --until take YYYY-MM-DD.", err=True)
+        raise typer.Exit(code=2) from None
+    if first > last:
+        typer.echo("unforecast-outcomes: --since must not be after --until.", err=True)
+        raise typer.Exit(code=2)
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if settings.corpus_backend == "local" and not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the unforecast-outcomes census.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
+        report = unforecast_outcomes(conn, settings.data_root, since=first, until=last)
+
+    def _rate(recall: Recall) -> str:
+        shown = "-" if recall.recall is None else f"{recall.recall:.3f}"
+        return (
+            f"{shown} ({recall.forecast}/{recall.outcomes}, {recall.reachable_outcomes} reachable)"
+        )
+
+    typer.echo(
+        f"{first.isoformat()}..{last.isoformat()}: grant recall {_rate(report.window)}; "
+        f"Term to date {_rate(report.term_to_date)}",
+        err=True,
+    )
+    typer.echo(
+        f"unforecast: cert {len(report.cert_unforecast)}, "
+        f"IFP grants {len(report.ifp_grants_unforecast)}, "
+        f"applications {len(report.interim_unforecast)} of {report.interim_outcomes}",
+        err=True,
+    )
+    for alarm in report.alarms:
+        typer.echo(f"alarm: {alarm}", err=True)
+    typer.echo(report.model_dump_json())
+    if report.alarms:
         raise typer.Exit(code=3)
 
 
