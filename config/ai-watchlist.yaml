@@ -16,9 +16,9 @@
 # rule change, made the same way as a new case. `related` lists the case's
 # other dockets (an appeal, a transferred-from or companion docket, an MDL's
 # panel docket and members), so the `ai` tag follows the case to every court
-# it reaches. A SCOTUS petition from a listed case is tagged by the same
-# relation once it exists, and enters the SCOTUS pipeline on its own salience
-# terms: the tag never changes selection, so `scotus` is never listed here.
+# it reaches. A SCOTUS petition from a listed case is found by the lower-court
+# docket it names (docs/appeal-stage.md), never by a line here, and the
+# salience gate never reads the list, so `scotus` is never listed here.
 
 categories:
   copyright: Training on, or outputting, protected works (infringement, DMCA §1202, licence claims).

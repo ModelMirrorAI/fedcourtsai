@@ -173,8 +173,8 @@ that admits a case are committed in `config/ai-watchlist.yaml`, and a case is
 added on a dated line. Each case names its AI-developer parties and one
 category from the file's closed vocabulary (copyright, government, product
 liability and so on), so the list's mix can be reported. Its cases carry an
-`ai` tag that follows them to any appeal or cert petition; the tag never
-changes SCOTUS selection. `fedcourts watchlist-refresh` keeps every listed
+`ai` tag that follows them to every listed docket, an appeal included; a
+Supreme Court petition is reached by the link described below. `fedcourts watchlist-refresh` keeps every listed
 docket's record current in the corpus, facts only, on its own share of the
 CourtListener budget.
 
@@ -186,7 +186,22 @@ What the step adds:
   disposition, forecast when a case enters the slice. Outcomes include ruling *in part*, which is
   the usual result, and *no merits decision* for a settlement or voluntary
   dismissal. Nothing is voided: a settlement or a mooted motion is something
-  forecasts price in.
+  forecasts price in. A motion for a preliminary injunction is a moment too,
+  opening on the opposition, since for some of these cases it is the ruling
+  that matters most.
+- **An appeal stage** ([appeal-stage.md](appeal-stage.md)). A listed case's
+  appeal is forecast once, when its briefing closes: affirmed, reversed,
+  vacated, in whole or in part, dismissed, or no merits decision. A petition
+  for permission to appeal is a moment of its own. The stage is designed and
+  not registered, and the D.C. Circuit slice adds its panel moments to it.
+- **A listed case at the Supreme Court.** A petition or application from a
+  listed case is linked to it by the lower-court docket it names, and is
+  forecast on the Court's own moments whether or not the salience gate
+  selects it. The gate itself is unchanged, and so is every SCOTUS figure: a
+  petition the gate selects is a SCOTUS case like any other, and one it has
+  not selected is forecast in the watchlist's population only
+  ([appeal-stage.md](appeal-stage.md#a-listed-case-at-the-supreme-court)).
+  Designed, not built; it registers with the slice.
 - **The AI-cases feed before any forecast.** The feed carries new filings and
   rulings on watchlist dockets, with links to the public record; forecasts are
   added once the district moments are registered. The feed is live and the
@@ -208,10 +223,12 @@ so a fully evaluated event is estimated at ≈$30–60, to be re-measured on the
 first events: ≈$1–2K of model spend a year. At the planning table's rates
 that upper end already fills the bootstrapping envelope, and if every case
 reached all four moments in one year (80 events at $60), it would be ≈$5K
-and the step would outgrow it. Most of these dockets are already well
-covered in RECAP, so document purchases should be rare. Watchlist forecasts
-score in their own stratum and never enter SCOTUS headline figures; the list
-is not a coverage claim.
+and the step would outgrow it. Those counts are of the three briefed
+motions and the final disposition; the injunction moment, the appeal stage
+and a listed case's Supreme Court events add events not yet estimated. Most of these dockets are already well
+covered in RECAP, so document purchases should be rare, appeals being the
+likely exception. Watchlist forecasts score in their own population and never
+enter SCOTUS headline figures; the list is not a coverage claim.
 
 ### 3. All paid cases — ≈$75K / yr
 
@@ -248,8 +265,9 @@ step adds:
   measures how much knowing who will judge a case moves and improves the
   forecast, prospectively and on the public ledger. At slice size this is a
   description, not a significance test.
-- **Circuit outcomes** — affirm, reverse, vacate, remand, or dismiss, in whole
-  or in part, or no merits decision at all. Once the panel is known, also each
+- **Circuit outcomes** — the appeal stage's ([appeal-stage.md](appeal-stage.md)):
+  affirm, reverse or vacate, with or without a remand, in whole or in part,
+  dismiss, or no merits decision at all. Once the panel is known, also each
   judge's vote and whether anyone dissents. Nothing is voided: a panel swap or
   a settlement is something forecasts price in, and a case can be re-predicted
   beside its earlier forecasts, which still score.
