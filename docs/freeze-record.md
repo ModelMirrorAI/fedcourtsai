@@ -18232,8 +18232,8 @@ freeze commit is recorded here.
 
   **The amendment debt.** It is unchanged. This entry adds no new token.
 
-  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
-  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by the promotion tagged `promotion/2026-11-11` (merge
+  commit `cc2af47aa17d4da76d75adcc2e8e6d3c07148bd4`, merged `2026-11-11T13:05:46Z`).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_supplemental_documents.py` is green;
@@ -18360,8 +18360,8 @@ freeze commit is recorded here.
 
   **The amendment debt.** It is unchanged. This entry adds no new token.
 
-  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
-  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by the promotion tagged `promotion/2026-11-11` (merge
+  commit `cc2af47aa17d4da76d75adcc2e8e6d3c07148bd4`, merged `2026-11-11T13:05:46Z`).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_direct_appeal_documents.py` is green;
@@ -18481,8 +18481,8 @@ freeze commit is recorded here.
 
   **The amendment debt.** It is unchanged. This entry adds no new token.
 
-  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
-  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by the promotion tagged `promotion/2026-11-11` (merge
+  commit `cc2af47aa17d4da76d75adcc2e8e6d3c07148bd4`, merged `2026-11-11T13:05:46Z`).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_ocr_recovery.py tests/test_ocr_sweep.py` is
@@ -18612,8 +18612,8 @@ freeze commit is recorded here.
   row that also holds a later opinion outgrows. Correcting the sentence moves
   the three predictor digests, so it is owed to the next re-bless.
 
-  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
-  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by the promotion tagged `promotion/2026-11-11` (merge
+  commit `cc2af47aa17d4da76d75adcc2e8e6d3c07148bd4`, merged `2026-11-11T13:05:46Z`).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_decision_below.py` is green;
