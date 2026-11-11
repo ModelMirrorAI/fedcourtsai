@@ -18628,3 +18628,84 @@ freeze commit is recorded here.
     fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
     print('decision-below-later-opinions' in {b.name for b in H})"` prints
     `True`.
+
+- **Each cert block carries the predictor's own forecast grant count and a
+  reliability table on registered bins; recorded 2026-11-11.** A
+  **reading-rule** registration with no scored figure moved, recorded ahead
+  of the promotion that carries it.
+
+  **Why.** `grants_expected` sums the registered base rates, so it reads the
+  same for every predictor on the same events and says nothing about any of
+  them. The Brier skill columns net calibration and discrimination together.
+  The board could not say whether a predictor's probabilities mean what they
+  say, and a calibration fault and a discrimination fault have different
+  fixes.
+
+  **The fields.** On every block a cert stratum is built for (each entry's
+  pooled strata, its `by_protocol`, `by_band` and `by_link` cuts, and each
+  paired engine's figure), over the events of the gradings that carry a Brier
+  score and outcome facts, the set `in_sample_events_scored` counts, each
+  event entering once at the mean of its gradings' scored-prediction
+  `probability`:
+  - `grants_forecast`, the sum of those probabilities, with
+    `grants_forecast_scored` (the events) and `grants_forecast_realized` (the
+    events whose binary target `Outcome.actual_granted` is 1);
+  - `reliability_bins`, one row per registered bin with its `events`, its
+    `grants`, the mean forecast and the observed grant rate;
+  - `forecast_reliability` and `forecast_resolution`, the Murphy terms of that
+    binning over every event of the block, each bin's forecast taken at its
+    mean.
+
+  **The registered constants.** They are fixed here so no table is tuned to
+  the outcomes it reports.
+  - **Bin edges** on P(granted): 0, 0.05, 0.10, 0.25, 0.50, 0.75, 1. Bins are
+    closed below and open above, and the last is closed at 1. They are finer
+    at the low end because the registered rates of the baseline, elevated
+    and high cert bands run from about 5% to about 35%, so that is where most
+    cert forecasts sit.
+  - **Minimum count**: 10 events. A bin under it carries its counts and no
+    mean forecast or observed rate; a block under it carries no Murphy term.
+  A change to either is a new entry here, and a table built under the
+  changed constants is not compared with one built under these.
+
+  **The reading rule** (`metrics/README.md`, beside the grant counts).
+  - **Diagnostic only.** None of the fields is a rank key or a headline, and
+    no ordering of engines may be read off them: the entries' own forward
+    blocks span different events.
+  - **A forecast count above the realized one is not yet a calibration
+    reading** on a cohort with relisted or held petitions pending. Those
+    petitions grant more often and are not in the scored set until they
+    resolve, so the realized count runs low for the reason
+    `grants_realized_expected_scored` runs below `grants_expected`.
+  - **The Murphy terms are binned estimates.** They move with the edges, both
+    are biased upward on small bins, and they do not sum with the block's
+    uncertainty to `mean_brier_score`, which is per grading and unbinned.
+  - **Cert only.** A non-cert block omits the fields. The interim and merits
+    readings on their own binary targets are not registered by this entry.
+
+  **What was known when the constants were set.** The edges and the minimum
+  were written before any table was built. The first table, built on the
+  `staging` checkout at `517a1cd72` under the frozen scope, read over each
+  entry's own 148 forward events with 11 realized on the binary target:
+  `claude-baseline` forecast 16.2, `codex-baseline` 18.9, `gemini-baseline`
+  19.3, against a base-rate sum of 16.0. For every entry the two bins above
+  0.50 held fewer than 10 events and printed no rate. The constants were not
+  changed after it was read.
+
+  **What does not move.** No digest, no base rate, no membership rule and no
+  scored figure: accuracy, the floors, every skill column, `paired` and the
+  ranks are unchanged, and a committed board parses and re-serializes byte
+  for byte until the metrics refresh next rebuilds it.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_leaderboard.py -k "reliability or
+    grants_forecast or murphy or calibration"` is green;
+  - on `main` after the first metrics refresh that follows the promotion, `jq
+    -c '.entries[] | [.predictor_id, .forward.grants_forecast,
+    .forward.grants_forecast_realized, .forward.grants_forecast_scored,
+    (.forward.reliability_bins | length)]' metrics/leaderboard.json` prints,
+    for each predictor, a forecast count, a realized count, an event count
+    equal to that block's `in_sample_events_scored`, and `6`.

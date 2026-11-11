@@ -1103,6 +1103,36 @@
           "title": "Events Scored",
           "type": "integer"
         },
+        "forecast_reliability": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The reliability term of the Murphy decomposition over `reliability_bins`: the event-weighted mean squared gap between each bin's mean forecast and its observed grant rate. Lower is better calibrated; 0 is a table on the diagonal. A binned estimate, so it moves with the bin edges and is biased upward on small counts. Null where the block holds fewer events than the registered minimum",
+          "title": "Forecast Reliability"
+        },
+        "forecast_resolution": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The resolution term of the same decomposition: the event-weighted mean squared gap between each bin's observed grant rate and the block's own. Higher means the forecasts sort grants from denials; 0 means every bin grants at the block's rate. Binned and small-count biased as `forecast_reliability` is, and null where it is",
+          "title": "Forecast Resolution"
+        },
         "grants_expected": {
           "anyOf": [
             {
@@ -1130,6 +1160,48 @@
           "default": null,
           "description": "Distinct (case, event) pairs contributing to `grants_expected` \u2014 its true denominator. Below `accuracy_events_scored` wherever an event carries no admitted base rate; null where `grants_realized` is",
           "title": "Grants Expected Scored"
+        },
+        "grants_forecast": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The grant count this predictor's **own** probabilities expected: the sum, over the `grants_forecast_scored` events, of the scored prediction's P(granted), each event entering once (the mean over its gradings, which differ only where they grade two runs). Read against `grants_forecast_realized` over the same events. Unlike `grants_expected`, which sums the registered base rates and is the same for every predictor on the same events, this one is the predictor's. Cert cells only; null, and omitted, where no grading qualifies. A diagnostic, never a rank key",
+          "title": "Grants Forecast"
+        },
+        "grants_forecast_realized": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Events among `grants_forecast_scored` whose binary target `Outcome.actual_granted` is 1 \u2014 the outcome each P(granted) is scored against, so a `granted-in-part` outcome counts here and not in the grant-family `grants_realized`. Null where `grants_forecast` is",
+          "title": "Grants Forecast Realized"
+        },
+        "grants_forecast_scored": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Distinct (case, event) pairs under `grants_forecast`: the events of the gradings carrying a Brier score and outcome facts, the set `in_sample_events_scored` counts. Null where `grants_forecast` is",
+          "title": "Grants Forecast Scored"
         },
         "grants_realized": {
           "anyOf": [
@@ -1303,6 +1375,14 @@
             "$ref": "#/$defs/RubricReading"
           },
           "title": "Reasoning Quality Rubrics",
+          "type": "array"
+        },
+        "reliability_bins": {
+          "description": "The reliability table of this predictor's forecasts over the `grants_forecast_scored` events: one row per registered bin on P(granted), empty bins included. Omitted where `grants_forecast` is null. A bin under the registered minimum count carries its counts and no rate",
+          "items": {
+            "$ref": "#/$defs/ReliabilityBin"
+          },
+          "title": "Reliability Bins",
           "type": "array"
         },
         "skill_scored": {
@@ -1543,6 +1623,76 @@
         }
       },
       "title": "PairedEvents",
+      "type": "object"
+    },
+    "ReliabilityBin": {
+      "additionalProperties": false,
+      "description": "One registered probability bin of a forward block's reliability table.\n\nEach event enters once, under its predictor's own forecast for the stage's\nbinary target. The edges are registered and the same on every block, so a\nbin is listed even where it is empty. The two rates are null under the\nregistered minimum count: a rate over a handful of events is one or two\noutcomes, not a calibration reading.",
+      "properties": {
+        "events": {
+          "description": "Distinct events whose forecast fell in this bin",
+          "minimum": 0,
+          "title": "Events",
+          "type": "integer"
+        },
+        "grants": {
+          "description": "Events in the bin whose binary target (`Outcome.actual_granted`) is 1",
+          "minimum": 0,
+          "title": "Grants",
+          "type": "integer"
+        },
+        "lower": {
+          "description": "Bin lower bound on P(granted), inclusive",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Lower",
+          "type": "number"
+        },
+        "mean_probability": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Mean forecast P(granted) over the bin's events; null where the bin holds fewer events than the registered minimum",
+          "title": "Mean Probability"
+        },
+        "observed_granted_rate": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "`grants / events`; null where the bin holds fewer events than the registered minimum",
+          "title": "Observed Granted Rate"
+        },
+        "upper": {
+          "description": "Bin upper bound on P(granted), exclusive; inclusive for the top bin",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Upper",
+          "type": "number"
+        }
+      },
+      "required": [
+        "lower",
+        "upper",
+        "events",
+        "grants"
+      ],
+      "title": "ReliabilityBin",
       "type": "object"
     },
     "RubricCount": {
