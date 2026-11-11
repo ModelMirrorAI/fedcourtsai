@@ -12,7 +12,13 @@ its committed predictions, not this planning document.)
 The pipeline runs end to end at the **bootstrapping** level
 ([budget.md](budget.md)): three predictors (Anthropic, OpenAI, Google), each
 cross-evaluated by three judges, forecasting a salience-ranked slice of the
-paid SCOTUS cert docket and every interim and merits event downstream of it.
+paid SCOTUS cert docket and every interim and merits event downstream of it,
+at twelve declared moments across the cert, interim and merits stages
+([budget.md](budget.md), *What is forecast*, lists them). Milestone 1 below is
+reached apart from its late-Term moment; milestone 2's watchlist is followed
+and published as a feed, and none of its cases is forecast yet. Measured
+committed model spend runs at about $1,300 over the trailing 30 days against
+the $2,000 monthly envelope ([budget.md](budget.md), *Scenario 1*).
 The dated record of process-version freezes is
 [freeze-record.md](freeze-record.md).
 
@@ -61,8 +67,7 @@ scaling plan.
 
 | Milestone | Model API / yr (cumulative) | Other / yr | **Funding needed / yr** |
 |---|---:|---:|---:|
-| Today — bootstrapping | ≈$17K (of the $24K envelope) | $7K | **≈$31K** |
-| 1. More prediction events | ≈$22K (of the $24K envelope) | $7K | **≈$31K** |
+| 1. More prediction events (today) | ≈$22K (of the $24K envelope) | $7K | **≈$31K** |
 | 2. The AI-case watchlist | ≈$24K (the whole $24K envelope) | $7K | **≈$31K** |
 | 3. All paid cases | ≈$47K | $28K | **≈$75K** |
 | 4. A D.C. Circuit slice | ≈$52K | $28K | **≈$80K** |
@@ -70,22 +75,32 @@ scaling plan.
 | 6. Prompt lenses | up to $120K | $28K | **≈$148K** |
 
 Every column is cumulative: each row is the whole project's annual run rate
-at that milestone, not the increment over the row above. The first three rows
+at that milestone, not the increment over the row above. The first two rows
 sit inside the bootstrapping envelope, so their funding figure is that
 envelope rather than the sum of the row. Other spend is assumed to step from the
 bootstrapping to the scaling level at milestone 3, when volume starts to grow.
 The model-spend column is priced at about $17 per fully evaluated SCOTUS
 event, the pinned planning table's total rounded down (the table sums to
 $17.67, so the column reads up to about 4% low), and $30–60 per lower-court
-event. The table prices the gemini pair at `gemini-4-argon`'s measured cells
-doubled for the rate in force from 2026-12-01, about $4.30 of each event;
+event. The table prices the gemini pair at about $4.30 of each event, set
+against the rate in force from 2026-12-01 ([budget.md](budget.md));
 the scaling is rough from milestone 5, where more predictors change each
 engine's share of an event. At milestone 2 the column fills the
-bootstrapping envelope, so any further spend inside it would outgrow it. At the about $10 per SCOTUS event [budget.md](budget.md)
-budgets, today's row is ≈$8.5–11K and milestone 3's ≈$21–27K; at the about
-$6.60 it measures for the current engines once gemini's rate doubles, they
-are ≈$5.6–7.3K and ≈$14–18K. The table stays the planning ceiling until a
-round of measured cells re-anchors it.
+bootstrapping envelope, so any further spend inside it would outgrow it.
+
+The column is the planning ceiling, and its event counts are the ones each
+step was sized at: 850–1,100 SCOTUS events a Term before milestone 1's
+moments, a few hundred more with them. Measurement moves both. The ledger's
+recent pace reads to roughly 1,400–2,000 events a Term,
+an extrapolation from six weeks, and a fully evaluated event measures about
+$4.90, about $7.35 once gemini's rate doubles on 2026-12-01
+([budget.md](budget.md)). At that count today's row is ≈$10–15K at the
+projected $7.35 and ≈$14–20K at the $10 budget.md budgets, both inside the
+envelope, and ≈$25–35K at the table's $17.67, which is not. So the envelope
+holds on measured cost and not on the planning ceiling. Milestone 3's event
+count rests on the same first sizing and is owed a re-count from a full Term
+on the ledger before that step is committed to. The table stays the planning
+ceiling until a round of measured cells re-anchors it.
 
 The order is deliberate. New moments are cheap and raise the value of every
 case already covered, so they come first. The AI-case watchlist comes next
@@ -100,10 +115,11 @@ sourcing and costs are learned at three predictors rather than seven. New
 developers come before prompt variants because a baseline for each model has
 to exist before a variant of it means anything.
 
-### 1. More prediction events — within bootstrapping (≈$31K / yr)
+### 1. More prediction events — reached, within bootstrapping (≈$31K / yr)
 
 Add the moments where a case's information set materially changes, starting
-with the one the public cares about most:
+with the one the public cares about most. Every moment below is forecast
+except the late-Term one:
 
 - **Post-oral-argument** — every argued case, after the transcript is out
   (~60 events a Term). Declared, minted and forecast (`evt-argument-judgment`,
@@ -137,14 +153,18 @@ with the one the public cares about most:
   conference after their trigger, so an event the poll opened for a petition
   called on long before is never filed: a conference has already sat on it.
 
-These add a few hundred events at most, mainly on the low-volume merits track,
-so the cost is engineering rather than inference: each moment is a
+These are sized at a few hundred events a Term at most, so the cost is
+engineering rather than inference: each moment is a
 pre-registered population with its own base rate, and new inputs (argument
-transcripts) move the registered process version.
+transcripts) move the registered process version. On the ledger so far
+(`main` at `d7840ec19`, 2026-11-11) the call for response holds 65 events, 52
+of them the backlog open when the moment was first forecast, the first relist
+17, the argued moment 10 and the Solicitor General's brief 3. The call for
+response is the largest of them, with 13 new events in the 11 days since.
 
 ### 2. The AI-case watchlist — within bootstrapping (≈$31K / yr)
 
-Follow a hand-curated watchlist of 10–20 AI cases — cases where an AI
+Follow a hand-curated watchlist of 10–20 AI cases (18 are listed) — cases where an AI
 developer, or an AI system's training, outputs or deployment, is central to a
 claim or defense — from the district court up. It exists for its audience: the
 evaluation and forecasting communities follow these cases closely, and
@@ -169,7 +189,9 @@ What the step adds:
   forecasts price in.
 - **The AI-cases feed before any forecast.** The feed carries new filings and
   rulings on watchlist dockets, with links to the public record; forecasts are
-  added once the district moments are registered.
+  added once the district moments are registered. The feed is live and the
+  district stage is designed and not registered, so the step's model spend so
+  far is the ruling summaries alone, a few cents each.
 - **Forecasts on a developer's own case.** Several watchlist cases name as a
   party the developer of one of the project's predictors. A comparison of how
   a predictor forecasts its own developer's cases against the other predictors
