@@ -15,7 +15,8 @@ What is stripped:
 
 What is **kept**: every other ``cases`` column (including ``summary``, which
 ``query`` emits), the ``events`` / ``discovery_watermarks`` / ``live_discovery_cursors`` /
-``live_frontier_checks`` tables, and every index. The schema is left identical to the corpus (columns are
+``live_frontier_checks`` tables, and every index. The schema is left
+identical to the corpus (columns are
 NULLed and tables emptied, never dropped), so read code does not error on the index.
 
 **Drop-in scope.** The index is *result-identical* for the three **bulk

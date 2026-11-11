@@ -652,7 +652,8 @@ def build_slice_blob(
     **Three tables are deliberately left empty**: ``discovery_watermarks``,
     ``live_discovery_cursors`` and ``live_frontier_checks``. All are
     *ingestion* state — where the pull governor and the Term walkers resume
-    from, and what the frontier check last read against those cursors — and the staging corpus exists
+    from, and what the frontier check last read against those cursors — and
+    the staging corpus exists
     for the read and orchestration seams, which never consult them. Copying
     them would be worse than useless: a slice carrying production's cursors
     reads as a corpus already walked to a frontier it does not contain, so
