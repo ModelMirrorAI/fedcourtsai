@@ -2,7 +2,7 @@
 
 import itertools
 import json
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
@@ -4368,3 +4368,72 @@ def test_calibration_reads_the_scored_predictions_probability_off_cell_facts(
     run = stratify(tmp_path, frozen_only=False)
     (fact,) = cell_facts(run.cells, tmp_path).values()
     assert fact.probability == scored.probability
+
+
+def _panel_cells(
+    forecasts: Mapping[str, Sequence[float]], targets: Sequence[int]
+) -> tuple[list[Cell], dict[Any, CellFacts]]:
+    """One forward cert cell per (engine, event), with each engine's own probability."""
+    graded = [
+        (_evaluation(pid, event_id=f"evt-{index}"), probability, targets[index])
+        for pid, probabilities in forecasts.items()
+        for index, probability in enumerate(probabilities)
+    ]
+    return [_forward(ev) for ev, _, _ in graded], _calibration_facts(graded)
+
+
+def test_the_panel_mean_scores_the_mean_forecast_per_event_beside_each_engine() -> None:
+    # Two events, the first granted. Means are 0.6 and 0.2: Brier (0.16 + 0.04) / 2.
+    cells, facts = _panel_cells({"alpha": [0.8, 0.1], "beta": [0.4, 0.3]}, [1, 0])
+    paired = build_leaderboard(cells, facts=facts).paired
+    assert paired is not None and paired.panel_mean is not None
+    mean = paired.panel_mean
+    assert (mean.events, mean.grants) == (2, 1)
+    assert mean.grants_forecast == pytest.approx(0.8)
+    assert mean.brier == pytest.approx(0.1)
+    assert mean.engine_brier == {
+        "alpha": pytest.approx((0.04 + 0.01) / 2),
+        "beta": pytest.approx((0.36 + 0.09) / 2),
+    }
+    # Never better than the best is possible, never worse than the average is not.
+    assert mean.brier <= sum(mean.engine_brier.values()) / 2
+
+
+def test_the_panel_mean_takes_each_engine_once_however_deep_its_panel() -> None:
+    # alpha is graded by two judges on the one event; its forecast still weighs
+    # one half of the mean, not two thirds.
+    graded = [
+        (_evaluation("alpha", event_id="evt-0", evaluator_id="eval-a"), 0.9, 1),
+        (_evaluation("alpha", event_id="evt-0", evaluator_id="eval-b"), 0.9, 1),
+        (_evaluation("beta", event_id="evt-0"), 0.3, 1),
+    ]
+    board = build_leaderboard(
+        [_forward(ev) for ev, _, _ in graded], facts=_calibration_facts(graded)
+    )
+    assert board.paired is not None and board.paired.panel_mean is not None
+    assert board.paired.panel_mean.grants_forecast == pytest.approx(0.6)
+
+
+def test_the_panel_mean_leaves_out_an_event_an_engine_has_no_facts_on() -> None:
+    graded = [
+        (_evaluation("alpha", event_id="evt-0"), 0.8, 1),
+        (_evaluation("alpha", event_id="evt-1"), 0.1, 0),
+        (_evaluation("beta", event_id="evt-0"), 0.4, 1),
+        (_evaluation("beta", event_id="evt-1"), 0.3, 0),
+    ]
+    paired = build_leaderboard(
+        [_forward(ev) for ev, _, _ in graded], facts=_calibration_facts(graded[:3])
+    ).paired
+    assert paired is not None and paired.panel_mean is not None
+    assert paired.events == 2
+    assert paired.panel_mean.events == 1
+
+
+def test_the_panel_mean_needs_two_engines_and_facts() -> None:
+    solo_cells, solo_facts = _panel_cells({"alpha": [0.8, 0.1]}, [1, 0])
+    solo = build_leaderboard(solo_cells, facts=solo_facts).paired
+    assert solo is not None and solo.panel_mean is None
+    cells, _ = _panel_cells({"alpha": [0.8], "beta": [0.4]}, [1])
+    bare = build_leaderboard(cells).paired
+    assert bare is not None and bare.panel_mean is None
+    assert "panel_mean" not in bare.model_dump(mode="json")

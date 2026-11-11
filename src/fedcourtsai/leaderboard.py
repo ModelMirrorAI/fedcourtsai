@@ -96,7 +96,7 @@ from __future__ import annotations
 
 import math
 from collections import defaultdict
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -170,6 +170,7 @@ from .schemas import (
     Outcome,
     PairedEngine,
     PairedEvents,
+    PanelMeanReference,
     Prediction,
     PredictionContext,
     ReliabilityBin,
@@ -1024,6 +1025,55 @@ def _paired(  # noqa: PLR0913 - one keyword per per-cell reading the figure list
         common_record=_common_record(
             qualifying, paired, entries, skills, facts, vote_scores, provisioning
         ),
+        panel_mean=_panel_mean(qualifying, engines, paired, facts),
+    )
+
+
+def _panel_mean(
+    qualifying: Mapping[str, Mapping[tuple[str, str], Sequence[Evaluation]]],
+    engines: Sequence[str],
+    paired: Collection[tuple[str, str]],
+    facts: Mapping[EvaluationKey, CellFacts] | None,
+) -> PanelMeanReference | None:
+    """The mean-of-engines reference line over the paired events, or ``None``.
+
+    Each engine's forecast on an event is the mean of its qualifying gradings'
+    :attr:`CellFacts.probability`; the reference is the unweighted mean of
+    those across ``engines``, scored per event against :attr:`CellFacts.granted`
+    beside each engine's own per-event Brier. An event enters only where every
+    one of those gradings carries facts, so every figure is over one event set.
+    ``None`` with fewer than two engines (one engine's mean is itself), with no
+    facts, or with no such event.
+    """
+    if facts is None or len(engines) < 2:
+        return None
+    rows: list[tuple[dict[str, float], int]] = []
+    for event in sorted(paired):
+        forecasts: dict[str, float] = {}
+        target: int | None = None
+        for pid in engines:
+            found = [facts.get(_evaluation_key(ev)) for ev in qualifying[pid][event]]
+            present = [fact for fact in found if fact is not None]
+            if len(present) != len(found):
+                break
+            forecasts[pid] = sum(fact.probability for fact in present) / len(present)
+            target = present[0].granted
+        else:
+            if target is not None:
+                rows.append((forecasts, target))
+    if not rows:
+        return None
+    means = [sum(forecasts.values()) / len(forecasts) for forecasts, _ in rows]
+    return PanelMeanReference(
+        events=len(rows),
+        grants=sum(target for _, target in rows),
+        grants_forecast=sum(means),
+        brier=sum((mean - target) ** 2 for mean, (_, target) in zip(means, rows, strict=True))
+        / len(rows),
+        engine_brier={
+            pid: sum((forecasts[pid] - target) ** 2 for forecasts, target in rows) / len(rows)
+            for pid in engines
+        },
     )
 
 

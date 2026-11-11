@@ -973,6 +973,28 @@ stays outside the gate:
   per-band and per-link cuts, and the paired figure); a non-cert block omits
   them.
 
+  `paired.panel_mean` is a **reference line**, not a predictor. On each paired
+  event every engine's forecast enters once (the mean of its gradings'
+  scored-prediction probability), the reference forecast is the unweighted
+  mean of those across the engines, and `brier` is its mean squared gap from
+  the binary target over `events` — the paired events on which every engine's
+  gradings carry outcome facts, beside their `grants` and the reference's own
+  `grants_forecast`. `engine_brier` gives each engine's own Brier **per event**
+  over those same events, which is the footing to compare on; an engine's
+  `mean_brier_score` is grading-weighted and is a different average. Nobody
+  forecast the mean: it exists only where every engine did, it is computed
+  after the fact, and it takes no rank. A mean's Brier is never above the
+  average of its members' Briers on any data, so that comparison is not a
+  finding. The reading is against the **lowest** `engine_brier`: below it, the
+  average is the better single number to publish for a case; not below it,
+  averaging adds nothing over the best engine on these events. Either reading
+  is quoted with `events` and `grants`, moves by large steps while grants are
+  few, and is bounded by the engines' dependence: forward cells can surface
+  the same sources, so a gain is a lower bound on what independent forecasters
+  would give and the absence of one may reflect shared information. The line
+  is on cert populations with two or more paired engines and omitted
+  elsewhere.
+
   None of this is the registered historical figure per band. The registered
   band rates of the cell's frozen salience version are the **skill anchor**:
   each band's risk-set rate pooled
