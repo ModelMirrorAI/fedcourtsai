@@ -106,10 +106,38 @@
     },
     {
       "conference": "2019-02-15",
-      "petitions": 2
+      "petitions": 4
     },
     {
       "conference": "2019-03-15",
+      "petitions": 2
+    },
+    {
+      "conference": "2019-03-22",
+      "petitions": 2
+    },
+    {
+      "conference": "2019-03-29",
+      "petitions": 2
+    },
+    {
+      "conference": "2019-04-26",
+      "petitions": 1
+    },
+    {
+      "conference": "2019-05-16",
+      "petitions": 1
+    },
+    {
+      "conference": "2019-06-13",
+      "petitions": 1
+    },
+    {
+      "conference": "2019-10-01",
+      "petitions": 5
+    },
+    {
+      "conference": "2019-11-22",
       "petitions": 1
     },
     {
@@ -239,5 +267,5 @@
   "next_conference_petitions": 153,
   "schema_version": "1.0",
   "skipped": false,
-  "watchlist": 534
+  "watchlist": 550
 }
