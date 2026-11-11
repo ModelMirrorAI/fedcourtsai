@@ -1,0 +1,375 @@
+{
+  "$defs": {
+    "MissEventTally": {
+      "additionalProperties": false,
+      "description": "A miss-review cut counted in events instead of cells.",
+      "properties": {
+        "events": {
+          "description": "Forward events in this cut holding at least one reviewed cell",
+          "minimum": 0,
+          "title": "Events",
+          "type": "integer"
+        },
+        "missed": {
+          "description": "Events on which at least one predictor missed",
+          "minimum": 0,
+          "title": "Missed",
+          "type": "integer"
+        },
+        "shared": {
+          "description": "Events on which every reviewed predictor missed, two or more of them being reviewed there",
+          "minimum": 0,
+          "title": "Shared",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "events",
+        "missed",
+        "shared"
+      ],
+      "title": "MissEventTally",
+      "type": "object"
+    },
+    "MissReviewCall": {
+      "additionalProperties": false,
+      "description": "One predictor's counted forward forecast of a listed event, and what it ran on.",
+      "properties": {
+        "band": {
+          "description": "`<salience_version>/<band>` off the scored prediction's frozen context, `(none)` where it froze no band",
+          "title": "Band",
+          "type": "string"
+        },
+        "brier_score": {
+          "description": "Brier re-scored against the committed outcome on the binary the stage's rule scores the cell on",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Brier Score",
+          "type": "number"
+        },
+        "call": {
+          "description": "The outcome label the prediction named, on the stage's own axis: the judgment on a merits event, the disposition elsewhere",
+          "title": "Call",
+          "type": "string"
+        },
+        "gradings": {
+          "description": "Gradings of this forecast the review read",
+          "minimum": 1,
+          "title": "Gradings",
+          "type": "integer"
+        },
+        "mean_predicted_reasoning_quality": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Mean `predicted_reasoning_quality` over those gradings that carry one",
+          "title": "Mean Predicted Reasoning Quality"
+        },
+        "mean_reasoning_quality": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Mean `reasoning_quality` over those gradings that carry one",
+          "title": "Mean Reasoning Quality"
+        },
+        "prediction_run_id": {
+          "description": "The run of the predictor the review read",
+          "title": "Prediction Run Id",
+          "type": "string"
+        },
+        "predictor_id": {
+          "title": "Predictor Id",
+          "type": "string"
+        },
+        "probability": {
+          "description": "The prediction's P on the stage's declared binary",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Probability",
+          "type": "number"
+        },
+        "process_window": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The counting window the scored prediction sits in; null on an all-versions build",
+          "title": "Process Window"
+        },
+        "retrieval_calls": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Tool calls in the scored run's `retrieval_log.json`; null where the run committed no log",
+          "title": "Retrieval Calls"
+        },
+        "self_provisioned_fetches": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The log's own `self_provisioned_fetches`; null where the run committed no log or the log predates the field",
+          "title": "Self Provisioned Fetches"
+        },
+        "snapshot_provenance": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The scored prediction's frozen `context.snapshot_provenance`; null where it froze no context",
+          "title": "Snapshot Provenance"
+        },
+        "snapshot_uptake": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The frozen `context.snapshot_uptake`, null where unrecorded",
+          "title": "Snapshot Uptake"
+        },
+        "wrong_call": {
+          "description": "The call re-scored against the committed outcome by the stage's rule is not correct",
+          "title": "Wrong Call",
+          "type": "boolean"
+        },
+        "wrong_side": {
+          "description": "The Brier is at or above the review's `wrong_side_brier`: the forecast sat on the wrong side of even odds on the scored binary, or on them",
+          "title": "Wrong Side",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "predictor_id",
+        "prediction_run_id",
+        "band",
+        "call",
+        "probability",
+        "brier_score",
+        "wrong_call",
+        "wrong_side",
+        "gradings"
+      ],
+      "title": "MissReviewCall",
+      "type": "object"
+    },
+    "MissReviewEvent": {
+      "additionalProperties": false,
+      "description": "One forward event at least one predictor missed, with every reviewed forecast of it.",
+      "properties": {
+        "actual_granted": {
+          "description": "The outcome's binary target",
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Actual Granted",
+          "type": "integer"
+        },
+        "calls": {
+          "description": "Every reviewed predictor's forecast of the event, the ones that did not miss included, in predictor order",
+          "items": {
+            "$ref": "#/$defs/MissReviewCall"
+          },
+          "title": "Calls",
+          "type": "array"
+        },
+        "case_id": {
+          "title": "Case Id",
+          "type": "string"
+        },
+        "event_id": {
+          "title": "Event Id",
+          "type": "string"
+        },
+        "outcome": {
+          "description": "The realized label on the axis the event is scored on: the judgment on a merits event, the interim reading where the first listed forecast is scored on it, the disposition elsewhere",
+          "title": "Outcome",
+          "type": "string"
+        },
+        "resolved_at": {
+          "format": "date",
+          "title": "Resolved At",
+          "type": "string"
+        },
+        "shared": {
+          "description": "Every reviewed predictor missed, two or more of them being reviewed here",
+          "title": "Shared",
+          "type": "boolean"
+        },
+        "stage": {
+          "description": "The `<stage>@<moment>` block the leaderboard files it under",
+          "title": "Stage",
+          "type": "string"
+        }
+      },
+      "required": [
+        "case_id",
+        "event_id",
+        "stage",
+        "outcome",
+        "actual_granted",
+        "resolved_at",
+        "shared",
+        "calls"
+      ],
+      "title": "MissReviewEvent",
+      "type": "object"
+    },
+    "MissTally": {
+      "additionalProperties": false,
+      "description": "How many forward cells a miss-review cut holds, and how many of them missed.\n\nCounts, never a rate: the cuts are small and descriptive, and a rate would\ninvite a comparison the population cannot bear (``metrics/README.md``).",
+      "properties": {
+        "cells": {
+          "description": "Forward cells in this cut, one per (case, event, predictor)",
+          "minimum": 0,
+          "title": "Cells",
+          "type": "integer"
+        },
+        "missed": {
+          "description": "How many of them missed \u2014 a wrong call, or the wrong side of even odds",
+          "minimum": 0,
+          "title": "Missed",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "cells",
+        "missed"
+      ],
+      "title": "MissTally",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``metrics/miss-review.json`` \u2014 the forward events the predictors got wrong.\n\nA diagnostic list beside the boards: which counted forward forecasts named\nthe wrong outcome or sat on the wrong side of even odds, whether the\npredictors missed together, and what each cell ran on. Built by ``fedcourts\nmiss-review`` over the same stratified cells the leaderboard scores, so the\ntwo apply one set of exclusions. Never a rank key and never a claimable\nfigure: every summary is a count, and the record-depth cuts are\nobservational (``metrics/README.md``). Carries no timestamp, so the same\nledger always serializes identically.",
+  "properties": {
+    "by_band": {
+      "additionalProperties": {
+        "$ref": "#/$defs/MissTally"
+      },
+      "description": "Cells per frozen band key",
+      "title": "By Band",
+      "type": "object"
+    },
+    "by_predictor": {
+      "additionalProperties": {
+        "$ref": "#/$defs/MissTally"
+      },
+      "title": "By Predictor",
+      "type": "object"
+    },
+    "by_self_provisioning": {
+      "additionalProperties": {
+        "$ref": "#/$defs/MissTally"
+      },
+      "description": "Cells by whether the scored run's log counts a self-provisioned fetch: `fetched`, `none`, or `unlogged` where no count was committed",
+      "title": "By Self Provisioning",
+      "type": "object"
+    },
+    "by_snapshot_provenance": {
+      "additionalProperties": {
+        "$ref": "#/$defs/MissTally"
+      },
+      "description": "Cells per frozen `snapshot_provenance`, `(none)` where no context was frozen",
+      "title": "By Snapshot Provenance",
+      "type": "object"
+    },
+    "by_stage": {
+      "additionalProperties": {
+        "$ref": "#/$defs/MissEventTally"
+      },
+      "description": "Events per `<stage>@<moment>` block",
+      "title": "By Stage",
+      "type": "object"
+    },
+    "cells": {
+      "$ref": "#/$defs/MissTally",
+      "description": "Every reviewed forward cell"
+    },
+    "events": {
+      "$ref": "#/$defs/MissEventTally",
+      "description": "Every reviewed forward event"
+    },
+    "missed_events": {
+      "description": "The events with a miss, in (case, event) order",
+      "items": {
+        "$ref": "#/$defs/MissReviewEvent"
+      },
+      "title": "Missed Events",
+      "type": "array"
+    },
+    "process_scope": {
+      "default": "frozen",
+      "description": "Which process versions the review covers, keyed on the prediction's stamp exactly like the leaderboard",
+      "enum": [
+        "frozen",
+        "all"
+      ],
+      "title": "Process Scope",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "unscored_cells": {
+      "default": 0,
+      "description": "Forward cells the stage's rule leaves unscored against the committed outcome; reviewed no further and in no count below",
+      "minimum": 0,
+      "title": "Unscored Cells",
+      "type": "integer"
+    },
+    "wrong_side_brier": {
+      "description": "The Brier at or above which a forecast is on the wrong side of even odds",
+      "title": "Wrong Side Brier",
+      "type": "number"
+    }
+  },
+  "required": [
+    "wrong_side_brier",
+    "cells",
+    "events"
+  ],
+  "title": "MissReview",
+  "type": "object"
+}
