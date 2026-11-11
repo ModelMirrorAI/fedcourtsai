@@ -38,7 +38,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from .. import corpus
 from ..supremecourt import october_term_year
-from .salience import SALIENCE_VERSION, scorer
+from .salience import scorer
 from .unforecast import FEDERAL_BAND, FederalSignal, federal_signals
 
 #: How many October Terms before the current one a pending docket may belong to.
@@ -110,8 +110,8 @@ def federal_label_check(
     conn: corpus.ReadConnection, *, today: date, salience_version: str | None = None
 ) -> FederalLabelReport:
     """Cross-check the ``federal`` band on every pending paid petition in scope."""
-    version = salience_version if salience_version is not None else SALIENCE_VERSION
-    band_of = scorer(version).band
+    active = scorer(salience_version)
+    version, band_of = active.version, active.band
     pending = federal = 0
     flagged: list[FlaggedPetition] = []
     for row in _pending_rows(conn, today=today):
