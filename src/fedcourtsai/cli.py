@@ -298,6 +298,7 @@ from .ops import (
 from .paths import CasePaths, EventPaths
 from .pipeline import (
     ai_candidates,
+    ai_follow_ons,
     alignment_baseline,
     alignment_fits,
     alignment_positions,
@@ -18470,6 +18471,180 @@ def ai_candidates_issue_command(
     issue_out.write_text(f"{number}\n", encoding="utf-8")
     raised_out.write_text(json.dumps(ids) + "\n", encoding="utf-8")
     typer.echo(f"ai-candidates-issue: #{number}, {len(ids)} dockets raised before")
+
+
+@app.command("ai-follow-ons")
+def ai_follow_ons_command(
+    max_requests: Annotated[
+        int | None,
+        typer.Option(
+            help="Requests this run may spend; defaults to the lane's share, and "
+            "may only lower it.",
+        ),
+    ] = None,
+    lookback_days: Annotated[
+        int,
+        typer.Option(
+            min=1,
+            max=3650,
+            help="How far back a follow-on docket's filing date may lie.",
+        ),
+    ] = ai_follow_ons.LOOKBACK_DAYS,
+    plan: Annotated[
+        bool,
+        typer.Option("--plan", help="Print the searches, sending no request."),
+    ] = False,
+    raised: Annotated[
+        Path | None,
+        typer.Option(
+            help="The docket ids earlier comments raised, as `ai-candidates-issue "
+            "--raised-out` writes them; without it nothing counts as raised.",
+        ),
+    ] = None,
+    comment_out: Annotated[
+        Path | None,
+        typer.Option(
+            help="Write the issue comment for the new follow-ons here; a run with "
+            "none writes no file.",
+        ),
+    ] = None,
+) -> None:
+    """Search CourtListener for appeals and MDL dockets of the AI watchlist's cases.
+
+    For every district docket `config/ai-watchlist.yaml` names, searches the
+    courts of appeals and the JPML for dockets filed inside the lookback window
+    that carry its number, reads each new circuit hit once to compare its
+    originating case, and drops every docket the watchlist names and every
+    docket in `--raised`. Prints the report as JSON on stdout and a summary on
+    stderr, and with `--comment-out` writes the comment that raises the rest on
+    the `ai-candidates` issue (`post-issue-comment` posts it), under the same
+    marker `ai-candidates` reads, so neither check raises the other's dockets.
+
+    Nothing here changes the watchlist: a maintainer adds a `related` row by a
+    PR. No corpus, content-store, ledger or `data/` write, no RECAP Fetch
+    purchase, no GitHub call. It spends one request per listed district docket
+    and one per new circuit hit, from the `ai-candidates` lane's share, which
+    reserves one run a day, so it must not run on a day `ai-candidates` does;
+    `--plan` shows the searches first and needs no token. Exits 1 after
+    printing the report when the credential was refused, the run stopped
+    before any search answered, or no search answered.
+    """
+    settings = get_settings()
+    try:
+        watchlist = load_ai_watchlist(settings.config_root / AI_WATCHLIST_FILENAME)
+    except (OSError, ValueError) as exc:
+        typer.echo(f"ai-follow-ons: cannot read the watchlist: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    cap = ai_follow_ons.MAX_REQUESTS
+    if max_requests is not None:
+        if not 0 < max_requests <= cap:
+            typer.echo(f"ai-follow-ons: --max-requests must be between 1 and {cap}", err=True)
+            raise typer.Exit(code=2)
+        cap = max_requests
+    if plan:
+        for line in ai_follow_ons.plan_lines(
+            watchlist,
+            max_requests=cap,
+            lookback_days=lookback_days,
+            today=datetime.now(UTC).date(),
+        ):
+            typer.echo(line)
+        return
+    raised_ids: list[int] = []
+    if raised is not None:
+        try:
+            raised_ids = TypeAdapter(list[int]).validate_json(raised.read_text())
+        except (OSError, ValueError) as exc:
+            typer.echo(f"ai-follow-ons: cannot read --raised {raised}: {exc}", err=True)
+            raise typer.Exit(code=2) from exc
+    if not settings.courtlistener_api_token:
+        typer.echo("ai-follow-ons: no CourtListener API token is configured", err=True)
+        raise typer.Exit(code=2)
+    with _client("ai-candidates") as client:
+        report = ai_follow_ons.check(
+            client, watchlist, raised=raised_ids, max_requests=cap, lookback_days=lookback_days
+        )
+    typer.echo(report.model_dump_json(indent=2))
+    for line in ai_follow_ons.summary_lines(report):
+        typer.echo(line, err=True)
+    comment = ai_follow_ons.render_comment(report)
+    if comment_out is not None and comment:
+        comment_out.write_text(comment, encoding="utf-8")
+    failed = ai_follow_ons.failure(report)
+    if failed is not None:
+        typer.echo(f"ai-follow-ons: failed: {failed}", err=True)
+        raise typer.Exit(code=1)
+
+
+@app.command("ai-watchlist-check")
+def ai_watchlist_check_command(
+    linked: Annotated[
+        Path | None,
+        typer.Option(
+            help="A JSON list of the SCOTUS case ids the `ai` relation already links "
+            "to the watchlist; without it every matching docket is unlinked.",
+        ),
+    ] = None,
+    stale_after_days: Annotated[
+        int,
+        typer.Option(min=1, help="Days without a refresh after which a listed docket is stale."),
+    ] = ai_follow_ons.STALE_AFTER_DAYS,
+    alarm_out: Annotated[
+        Path | None,
+        typer.Option(
+            help="Write the alarm issue's body here; a clean check writes no file.",
+        ),
+    ] = None,
+    digest_out: Annotated[
+        Path | None,
+        typer.Option(help="Write the one-line reading here, for a digest."),
+    ] = None,
+) -> None:
+    """Check the corpus for Supreme Court dockets of listed AI cases and stale listed dockets.
+
+    Reads the corpus index only. Reports every SCOTUS row whose lower court and
+    lower-court number are a docket `config/ai-watchlist.yaml` names, marking
+    the ones outside `--linked` unlinked, and every listed docket
+    `watchlist-refresh` has not stamped for `--stale-after-days` days (a docket
+    never refreshed counts from the day its case was listed). Prints the report
+    as JSON on stdout, with `ok` false when a SCOTUS docket is unlinked or a
+    listed docket is stale, and a one-line reading on stderr.
+
+    No request to any upstream and no write to the corpus, the watchlist, the
+    ledger or `data/`. A monitoring readout: it enters no scored figure and
+    changes no selection. Exits 0 whatever it finds, so the caller decides
+    what an alarm does; 1 when the corpus is missing, 2 when the watchlist or
+    `--linked` cannot be read.
+    """
+    settings = get_settings()
+    try:
+        watchlist = load_ai_watchlist(settings.config_root / AI_WATCHLIST_FILENAME)
+        linked_ids = (
+            TypeAdapter(list[str]).validate_json(linked.read_text()) if linked is not None else []
+        )
+    except (OSError, ValueError) as exc:
+        typer.echo(f"ai-watchlist-check: cannot read its inputs: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if settings.corpus_backend == "local" and not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the watchlist check.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
+        result = ai_follow_ons.watchlist_check(
+            conn, watchlist, linked=linked_ids, stale_after_days=stale_after_days
+        )
+    typer.echo(json.dumps({"ok": result.ok, **result.model_dump(mode="json")}, indent=2))
+    line = ai_follow_ons.digest_line(result)
+    typer.echo(line, err=True)
+    if digest_out is not None:
+        digest_out.write_text(line + "\n", encoding="utf-8")
+    alarm = ai_follow_ons.render_alarm(result)
+    if alarm_out is not None and alarm:
+        alarm_out.write_text(alarm, encoding="utf-8")
 
 
 @app.command("order-notations")
