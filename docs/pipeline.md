@@ -46,7 +46,7 @@ token or role, so privilege and outside reachability stay disjoint — see
 | `run-backtest`   | biweekly schedule (even ISO weeks, Sat 06:23 UTC — pinned cert parameters over the paid population, spends only on the manual `review` release), manual dispatch (replay/engine/limit/terms params; `replay: merits` replays the predictors over decided argued cases at the merits grant and briefed moments instead, dispatch only; `replay: salience-gate` runs the token-free gate replay instead of the predictors) | Claude Code + Codex + Gemini (replay) |
 | `run-ops`        | daily schedule (ops report, weekly performance digest on the run summary, public status snapshot, prediction-reading digest), manual | script (no agent)    |
 | `post-public-update` | weekly schedule (Mon 12:57 UTC), manual dispatch (`week`; re-dispatching a missed week is safe, since the post is idempotent per week) | script (no agent); creates up to three Buttondown drafts (the Court update, the forecasts update and the AI-cases update), never sends |
-| `run-analytics`  | manual dispatch + weekly schedule (metrics refresh, Mon 05:41 UTC) + daily schedule (big-case board, 04:36 UTC) + weekly schedule (update history, Mon 12:59 UTC) + weekly schedules (topic labeling: petitions Tue 09:08 UTC, applications Wed 09:04 UTC, merits side coding Thu 09:14 UTC, behind the `review` hold) + weekly schedule (AI-case candidates, Fri 21:11 UTC) | script; the `qp-topic-label`, `qp-topic-label-applications`, `qp-topic-replicate`, `qp-topic-replicate-applications` and `alignment-side-code` modes each run one Claude Code labeler |
+| `run-analytics`  | manual dispatch + weekly schedule (metrics refresh, Mon 05:41 UTC) + daily schedule (big-case board, 04:36 UTC) + weekly schedule (update history, Mon 12:59 UTC) + weekly schedules (topic labeling: petitions Tue 09:08 UTC, applications Wed 09:04 UTC, merits side coding Thu 09:14 UTC, behind the `review` hold) + weekly schedule (AI-case candidates, Fri 21:11 UTC) + weekly schedule (follow-on dockets of listed AI cases, Tue 21:21 UTC) | script; the `qp-topic-label`, `qp-topic-label-applications`, `qp-topic-replicate`, `qp-topic-replicate-applications` and `alignment-side-code` modes each run one Claude Code labeler |
 | `summarize`      | daily schedule (03:43 UTC), manual dispatch (`limit`); every run spends only on the `review` release, or on auto-release within the trailing spend budget (*Auto-release*) | script; one Messages API call per case (two when a rejected response is retried), no tools and no agent |
 | `integration-test` | manual dispatch + daily canary  | script; engine-smoke runs one real agent cell, engine-actions-smoke one boot probe per engine (the canary), each repro-family scenario one real cell against its pinned record, and qp-labeler-smoke one labeling agent over a synthetic extract |
 | `corpus-check`   | schedule every 30 minutes (:19, :49), input-less manual dispatch; a check of PR code runs only on the maintainer's `corpus-check` approval, an allowlisted `at: main` query unapproved under `corpus-check-auto` | script — the PR's own declared command, or `main`'s code for an `at: main` query (no agent) |
@@ -392,9 +392,8 @@ call, no branch write.
 
 `run-analytics` is the **corpus analysis & derived metrics** surface, also outside
 the cascade: every task that reads the corpus and answers a question or refreshes a
-derived artifact is a mode here (dispatch `mode` input, or one of the three
-schedules — the weekly metrics refresh, the daily big-case board and the weekly
-update history, each gated
+derived artifact is a mode here (dispatch `mode` input, or one of its
+schedules, each gated
 on which cron fired rather than on the event class),
 each as its own least-privilege job holding only the credentials its mode needs.
 
@@ -502,6 +501,23 @@ queues behind the production run of the same mode. The modes:
   credential is refused, the run stopped before its first request, or every
   search failed; the step summary carries the per-search counts and the
   spend.
+- **`ai-follow-ons`** (weekly, Tuesday 21:21 UTC, or dispatch) runs the
+  follow-on check: `fedcourts ai-candidates-issue` reads the same raised set,
+  and `fedcourts ai-follow-ons` searches the courts of appeals and the JPML
+  for dockets filed in the last 45 days that carry a listed district docket's
+  number, reads each new circuit hit once for its originating case, drops the
+  watchlist's dockets and the raised ones, and writes a comment for the rest,
+  which `post-issue-comment` posts on the `ai-candidates` issue. Each row
+  names the listed case it is related to; the maintainer adds it as a
+  `related` row by a PR, or leaves it. A quiet week posts nothing, and a
+  docket is raised once across both checks. It spends the `ai-candidates`
+  lane share (40 requests; one a listed district docket and one a new circuit
+  hit), which reserves one run a day, so its cron is three days from the
+  candidate check's and a dispatch belongs on a day that check does not run.
+  Credentials, the `main`-only posting fence and the rehearsal behaviour
+  match the candidate job's. The run fails when the credential is refused, the run
+  stopped before any search answered, or no search answered; hits the cap
+  left unread are counted in the step summary and read by the next run.
 - **`decision-below`** (dispatch) runs `fedcourts enrich-decision-below
   --max-cases 25`, the decision-below fill's dry run: for the next 25 cases of
   its rotation, whether CourtListener holds the lower court's docket and the
