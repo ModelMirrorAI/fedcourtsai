@@ -18891,8 +18891,10 @@ freeze commit is recorded here.
   having read another forecast of their case. The harness already counts the
   behaviour: the lane audit classifies a logged call that reaches this
   project's published predictions as `published_forecast` and files it as a
-  `forecast-exposure` harness note. Its baseline before the rule, over the
-  committed logs on 2026-11-11, was 1 such call in 71,194 logged calls, none
+  `forecast-exposure` harness note. Its baseline before the rule, counted
+  by `cell_access.audit_cell_access` over the committed retrieval logs and by
+  reading the committed predict `flags.json` files, on the `staging`
+  checkout whose data is `main`'s at `f7d5735eb`, was 1 such call in 71,194 logged calls, none
   among 2,438 web searches and fetches, and 2 agent disclosures in 674
   predict flags files. The model moves put each pair on its vendor's current
   model. No score motivates either move, and no back-test comparison of the
@@ -18903,8 +18905,11 @@ freeze commit is recorded here.
   change model and prompt together, so a movement in their windows is not
   split between the two and is not read as an effect of the independence
   rule. `codex-baseline` changes only by the prompt, and a movement in
-  **either** direction across this label in its window is not read as a
-  model effect. The judge-authored grades (`reasoning_quality`,
+  **either** direction across this label in its window is not read as an
+  effect of the independence rule either: the behaviour the rule forbids was
+  1 logged call and 2 disclosures before it, too rare to move a score. A
+  rise in `forecast-exposure` notes after this label is not read as a rise
+  in the behaviour, because the prompt now asks for the note. The judge-authored grades (`reasoning_quality`,
   `predicted_reasoning_quality`, and a claim a judge grades) from
   `claude-judge` and `gemini-judge` are made by a different grader model
   from this label on, so a per-rubric reading of either judge across this
@@ -18915,13 +18920,14 @@ freeze commit is recorded here.
   under this project's keys and pinned CLIs. That `claude-fable-5-2` is
   served to the pinned Claude Code CLI on the production workspace, under
   the data-retention terms and rate limit that model carries, and that
-  `gemini-4-carbon` is served to the pinned Gemini CLI, is owed to an
-  `engine-actions-smoke` rehearsal from the `staging` ref before the
+  `gemini-4-carbon` is served to the pinned Gemini CLI, is owed to the
+  `engine-smoke` legs of the `integration-test` suite, one real predict cell
+  per engine, run from `staging` or the promotion candidate before the
   carrying merge. The Gemini model id and its price (the same as
   `gemini-4-argon`'s, which is what its `MODEL_RATES` row carries) rest on
   press reports of its general availability on 2026-11-10: the vendor's own
   pages were unreachable from the session that registered this label. A
-  rehearsal that shows either id unserved means this label is re-registered
+  leg that shows either id unserved means this label is re-registered
   without that move before it is carried.
 
   **The amendment debt.** One is paid. The 2026-11-10 entry that registers

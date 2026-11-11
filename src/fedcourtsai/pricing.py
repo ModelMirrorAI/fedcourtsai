@@ -53,7 +53,8 @@ class ModelRate:
 # engine's frontier tier, the like-for-like comparators). The Carbon and Argon
 # rates are Google's introductory ones, each scheduled to double to $4 / $20
 # on 2026-12-01 (the cached rate with it); re-price both rows then, since
-# record-usage prices every cell at the table's current rate. The
+# record-usage prices every cell at the table's current rate. Carbon's row is
+# its rate as reported at release, to be confirmed against a billed cell. The
 # table is deliberately wider than what the registries route: the cheaper tier of each
 # engine is priced too — claude-sonnet-4-6 and claude-haiku-4-5, gpt-5.6-terra
 # and gpt-5.6-luna, gemini-3.7-flash (the newest stable Flash) and the
