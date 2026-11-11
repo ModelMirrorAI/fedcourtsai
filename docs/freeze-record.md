@@ -18851,3 +18851,56 @@ freeze commit is recorded here.
     metrics/leaderboard.json` prints,
     for each predictor, a forecast count, a realized count, an event count
     equal to that block's `in_sample_events_scored`, and `6`.
+
+- **The paired cert figure carries the mean of the engines' probabilities as
+  an unranked reference; recorded 2026-11-11.** A **reading-rule**
+  registration with no scored figure moved, recorded ahead of the promotion
+  that carries it.
+
+  **Why.** The boards compared each engine with the always-deny call and with
+  base rates, and could not say whether averaging the engines' probabilities
+  scores better than the best of them, which is the question a single
+  published probability per case turns on.
+
+  **The field.** `paired.engine_mean`, on a cert population's paired figure
+  with two or more engines. On each paired event every engine's forecast
+  enters once, at the mean of its qualifying gradings' scored-prediction
+  `probability`, and the reference forecast is the unweighted mean of those
+  across the engines. It carries `events` (the paired events on which every
+  engine's gradings carry outcome facts), their `grants` on the binary
+  target, its `grants_forecast`, its per-event `brier`, and `engine_brier`,
+  each engine's own per-event Brier over the same events. There is no weight,
+  threshold or other constant to set.
+
+  **The reading rule** (`metrics/README.md`, beside the grant counts).
+  - **A reference, never a predictor.** It takes no rank and no headline:
+    nobody forecast it, and it exists only where every engine did.
+  - **Read only against the lowest `engine_brier`.** A mean's Brier is never
+    above the average of its members' Briers on any data, so that comparison
+    is not a finding. A tie with the best engine is not a gain.
+  - **Quoted with its `events` and `grants`**, and as a description of those
+    events, not a rule for which number to publish.
+  - **Bounded by dependence.** Forward cells can surface the same sources, so
+    the engines are not independent forecasters: a gain likely understates
+    what independent ones would give, and the absence of one may reflect
+    shared information.
+
+  **What was known when this was recorded.** The first build, on the
+  `staging` checkout at `517a1cd72` under the frozen scope, read over 148
+  paired events with 11 granted: the mean at a per-event Brier of 0.0338,
+  against `codex-baseline` 0.0302, `claude-baseline` 0.0312 and
+  `gemini-baseline` 0.0543. The mean was not below the best engine.
+
+  **What does not move.** No digest, no base rate, no membership rule, no
+  rank and no scored figure.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_leaderboard.py -k engine_mean` is green;
+  - on `main` after the first metrics refresh that follows the promotion, `jq
+    -c '.paired | [.events, .engine_mean.events, .engine_mean.brier,
+    .engine_mean.engine_brier]' metrics/leaderboard.json` prints the paired
+    event count, the reference's own event count, its Brier, and one Brier
+    per paired engine.

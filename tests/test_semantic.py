@@ -555,7 +555,7 @@ def test_a_grader_who_reverses_the_panel_reads_negative() -> None:
     assert summary.agreement["g0"].rank_agreement < 0
 
 
-def test_agreement_is_leave_one_out_never_a_panel_mean_containing_itself() -> None:
+def test_agreement_is_leave_one_out_never_a_engine_mean_containing_itself() -> None:
     """The self-term is what leave-one-out removes, and removing it changes the answer.
 
     One grader varies, its only peer is uniformly generous. Against the peer
