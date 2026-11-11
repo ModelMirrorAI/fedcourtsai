@@ -172,6 +172,7 @@ from .schemas import (
     PairedEvents,
     Prediction,
     PredictionContext,
+    ReliabilityBin,
     RetrievalLog,
     RubricCount,
     RubricReading,
@@ -410,6 +411,9 @@ class CellFacts:
     #: The scored prediction's harness clock (:func:`fedcourtsai.integrity.cell_clock`)
     #: — what "earliest counted cell" means when a paired event is filed under a band.
     clock: datetime
+    #: The scored prediction's own probability of the binary target ``granted``
+    #: — what the calibration fields sum and bin.
+    probability: float
     #: The ``by_link`` key: whether the scored prediction froze a ``Vide`` link.
     link_key: str = NO_LINK_KEY
 
@@ -541,6 +545,7 @@ def _aggregate(
         reasoning_quality_rubrics=_reasoning_quality_rubrics(evals),
         **_floor_fields(evals, skills, facts),
         **_in_sample_fields(evals, facts),
+        **_calibration_fields(evals, facts),
     )
 
 
@@ -621,6 +626,106 @@ def _in_sample_fields(
         population_in_sample_skill_score=_skill_of_means(terms),
         in_sample_skill_scored=len(terms),
     )
+    return fields
+
+
+#: The registered reliability bin edges on P(granted): half-open ``[lower,
+#: upper)`` bins, the last closed at 1.0. Fixed in the freeze record before any
+#: table was published, and finer at the low end because that is where cert
+#: forecasts sit.
+RELIABILITY_BIN_EDGES: tuple[float, ...] = (0.0, 0.05, 0.10, 0.25, 0.50, 0.75, 1.0)
+
+#: The fewest events a reliability bin holds before it prints a mean forecast
+#: and an observed rate, and the fewest a block holds before it prints the two
+#: Murphy terms. Below it a bin carries its counts only.
+MIN_EVENTS_FOR_RELIABILITY = 10
+
+
+def reliability_bin_index(probability: float) -> int:
+    """The index of the registered bin ``probability`` falls in."""
+    for index in range(len(RELIABILITY_BIN_EDGES) - 2):
+        if probability < RELIABILITY_BIN_EDGES[index + 1]:
+            return index
+    return len(RELIABILITY_BIN_EDGES) - 2
+
+
+def _calibration_fields(
+    evals: Sequence[Evaluation], facts: Mapping[EvaluationKey, CellFacts] | None
+) -> dict[str, float | int | list[ReliabilityBin] | None]:
+    """The predictor's own forecast grant count, its reliability table, and the Murphy terms.
+
+    Over the events of the gradings ``in_sample_grant_rate`` reads — every
+    grading carrying a Brier score and :class:`CellFacts` — each event entering
+    **once**: its forecast is the mean, over those gradings, of the scored
+    prediction's ``probability``, and its outcome is the binary target
+    (``CellFacts.granted``) that probability is scored against. Gradings of one
+    prediction run share a probability, so the mean matters only where a block
+    holds gradings of two runs of one event.
+
+    ``grants_forecast`` is the sum of those forecasts, the count the predictor's
+    own probabilities expected, to read against ``grants_forecast_realized``
+    over the same ``grants_forecast_scored`` events. Every registered bin is
+    listed, empty ones included, so a table has one shape on every block; a bin
+    under :data:`MIN_EVENTS_FOR_RELIABILITY` events carries its counts and no
+    rate. ``forecast_reliability`` and ``forecast_resolution`` are the Murphy
+    terms of that binning over every event (each bin's forecast taken at the
+    bin's mean), null under the same minimum on the block.
+    """
+    if facts is None:
+        return {}
+    by_event: dict[tuple[str, str], list[CellFacts]] = defaultdict(list)
+    for ev in evals:
+        fact = facts.get(_evaluation_key(ev))
+        if ev.brier_score is not None and fact is not None:
+            by_event[(ev.case_id, ev.event_id)].append(fact)
+    if not by_event:
+        return {}
+    pairs = [
+        (sum(fact.probability for fact in group) / len(group), group[0].granted)
+        for group in by_event.values()
+    ]
+    members: list[list[tuple[float, int]]] = [[] for _ in RELIABILITY_BIN_EDGES[:-1]]
+    for probability, granted in pairs:
+        members[reliability_bin_index(probability)].append((probability, granted))
+    bins: list[ReliabilityBin] = []
+    for index, bin_members in enumerate(members):
+        printable = len(bin_members) >= MIN_EVENTS_FOR_RELIABILITY
+        grants = sum(granted for _, granted in bin_members)
+        bins.append(
+            ReliabilityBin(
+                lower=RELIABILITY_BIN_EDGES[index],
+                upper=RELIABILITY_BIN_EDGES[index + 1],
+                events=len(bin_members),
+                grants=grants,
+                mean_probability=(
+                    sum(p for p, _ in bin_members) / len(bin_members) if printable else None
+                ),
+                observed_granted_rate=grants / len(bin_members) if printable else None,
+            )
+        )
+    total = len(pairs)
+    realized = sum(granted for _, granted in pairs)
+    fields: dict[str, float | int | list[ReliabilityBin] | None] = {
+        "grants_forecast": sum(probability for probability, _ in pairs),
+        "grants_forecast_scored": total,
+        "grants_forecast_realized": realized,
+        "reliability_bins": bins,
+    }
+    if total >= MIN_EVENTS_FOR_RELIABILITY:
+        base = realized / total
+        reliability = 0.0
+        resolution = 0.0
+        for bin_members in members:
+            if not bin_members:
+                continue
+            mean = sum(p for p, _ in bin_members) / len(bin_members)
+            observed = sum(g for _, g in bin_members) / len(bin_members)
+            reliability += len(bin_members) * (mean - observed) ** 2
+            resolution += len(bin_members) * (observed - base) ** 2
+        fields.update(
+            forecast_reliability=reliability / total,
+            forecast_resolution=resolution / total,
+        )
     return fields
 
 
@@ -1637,6 +1742,7 @@ def cell_facts(cells: Iterable[StratifiedCell], data_root: Path) -> dict[Evaluat
                 )
             ),
             clock=cell_clock(scored),
+            probability=scored.probability,
         )
     return facts
 

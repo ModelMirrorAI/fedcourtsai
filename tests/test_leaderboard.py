@@ -1,5 +1,6 @@
 """Leaderboard aggregation and stratification over a small fixture ledger."""
 
+import itertools
 import json
 from collections.abc import Sequence
 from dataclasses import replace
@@ -23,7 +24,9 @@ from fedcourtsai.integrity import (
     leakage_record,
 )
 from fedcourtsai.leaderboard import (
+    MIN_EVENTS_FOR_RELIABILITY,
     NO_STAGE_KEY,
+    RELIABILITY_BIN_EDGES,
     CellFacts,
     CellSides,
     CellSkill,
@@ -37,6 +40,7 @@ from fedcourtsai.leaderboard import (
     cell_provisioning,
     evaluator_agreement,
     kendall_tau_b,
+    reliability_bin_index,
     signature_readings,
     skill_components,
     stage_moment_key,
@@ -71,6 +75,7 @@ from fedcourtsai.schemas import (
     JusticeVote,
     Leaderboard,
     LeaderboardEntry,
+    LeaderboardStratum,
     Moment,
     Outcome,
     PredictableEvent,
@@ -3085,6 +3090,7 @@ def test_a_gvr_is_a_miss_for_always_deny_and_for_a_granted_call(tmp_path: Path) 
         grant_family=True,
         granted=1,
         brier_reproduces=True,
+        probability=fact.probability,
     )
     (entry,) = _banded_board(tmp_path).entries
     assert entry.forward is not None
@@ -3109,6 +3115,7 @@ def _cert_facts(
             grant_family=False,
             granted=0,
             brier_reproduces=True,
+            probability=0.5,
         )
         for ev in evals
     }
@@ -3248,6 +3255,7 @@ def test_realized_grants_are_paired_to_the_expected_events() -> None:
             grant_family=True,
             granted=1,
             brier_reproduces=True,
+            probability=0.5,
         )
         for ev in (rated, unrated)
     }
@@ -3277,6 +3285,7 @@ def _in_sample_facts(graded: Sequence[tuple[Evaluation, int]]) -> dict[Any, Cell
             grant_family=bool(target),
             granted=target,
             brier_reproduces=True,
+            probability=0.5,
         )
         for ev, target in graded
     }
@@ -4222,3 +4231,140 @@ def test_a_board_without_facts_carries_no_by_link() -> None:
     (entry,) = build_leaderboard([_forward(ev)]).entries
     assert entry.by_link is None
     assert "by_link" not in entry.model_dump(mode="json")
+
+
+def _calibration_facts(
+    graded: Sequence[tuple[Evaluation, float, int]],
+) -> dict[Any, CellFacts]:
+    return {
+        _evaluation_key(ev): CellFacts(
+            clock=_CLOCK,
+            band_key="sal-v1/high",
+            always_deny_correct=1 - target,
+            recomputed_correct=ev.correct or 0,
+            grant_family=bool(target),
+            granted=target,
+            brier_reproduces=True,
+            probability=probability,
+        )
+        for ev, probability, target in graded
+    }
+
+
+def _calibration_block(graded: Sequence[tuple[Evaluation, float, int]]) -> LeaderboardStratum:
+    board = build_leaderboard(
+        [_forward(ev) for ev, _, _ in graded], facts=_calibration_facts(graded)
+    )
+    forward = board.entries[0].forward
+    assert forward is not None
+    return forward
+
+
+def test_reliability_bins_close_below_and_the_top_bin_closes_at_one() -> None:
+    edges = RELIABILITY_BIN_EDGES
+    assert edges[0] == 0.0 and edges[-1] == 1.0
+    assert list(edges) == sorted(set(edges))
+    assert reliability_bin_index(0.0) == 0
+    assert reliability_bin_index(0.0499) == 0
+    assert reliability_bin_index(0.05) == 1
+    assert reliability_bin_index(0.75) == len(edges) - 2
+    assert reliability_bin_index(1.0) == len(edges) - 2
+
+
+def test_grants_forecast_sums_the_predictors_own_probabilities_once_per_event() -> None:
+    # evt-a is graded by two judges and must enter once: 0.6 + 0.02 + 0.3, not
+    # 1.52. Two of the three events granted.
+    graded = [
+        (_evaluation("alpha", event_id="evt-a", evaluator_id="eval-a"), 0.6, 1),
+        (_evaluation("alpha", event_id="evt-a", evaluator_id="eval-b"), 0.6, 1),
+        (_evaluation("alpha", event_id="evt-b"), 0.02, 0),
+        (_evaluation("alpha", event_id="evt-c"), 0.3, 1),
+    ]
+    block = _calibration_block(graded)
+    assert block.grants_forecast == pytest.approx(0.92)
+    assert block.grants_forecast_scored == 3
+    assert block.grants_forecast_realized == 2
+    assert block.grants_forecast_scored == block.in_sample_events_scored
+
+
+def test_grants_forecast_takes_two_runs_of_one_event_at_their_mean() -> None:
+    graded = [
+        (_evaluation("alpha", event_id="evt-a", evaluator_id="eval-a"), 0.2, 0),
+        (_evaluation("alpha", event_id="evt-a", evaluator_id="eval-b"), 0.4, 0),
+    ]
+    block = _calibration_block(graded)
+    assert block.grants_forecast == pytest.approx(0.3)
+    assert [b.events for b in block.reliability_bins] == [0, 0, 0, 1, 0, 0]
+
+
+def test_every_reliability_bin_is_listed_and_a_thin_bin_carries_counts_only() -> None:
+    # Twelve events at 0.02 (none granted) fill the first bin past the minimum;
+    # two at 0.8 (both granted) leave the top bin under it.
+    low = [(_evaluation("alpha", event_id=f"evt-low-{i}"), 0.02, 0) for i in range(12)]
+    high = [(_evaluation("alpha", event_id=f"evt-high-{i}"), 0.8, 1) for i in range(2)]
+    block = _calibration_block([*low, *high])
+    bins = block.reliability_bins
+    assert [(b.lower, b.upper) for b in bins] == list(itertools.pairwise(RELIABILITY_BIN_EDGES))
+    assert [b.events for b in bins] == [12, 0, 0, 0, 0, 2]
+    assert sum(b.events for b in bins) == block.grants_forecast_scored
+    assert sum(b.grants for b in bins) == block.grants_forecast_realized
+    assert bins[0].mean_probability == pytest.approx(0.02)
+    assert bins[0].observed_granted_rate == 0.0
+    assert (bins[-1].events, bins[-1].grants) == (2, 2)
+    assert bins[-1].mean_probability is None
+    assert bins[-1].observed_granted_rate is None
+    assert MIN_EVENTS_FOR_RELIABILITY == 10
+
+
+def test_the_murphy_terms_read_the_registered_bins() -> None:
+    # 12 events at 0.02, none granted; 2 at 0.8, both granted. Base rate 2/14.
+    # Reliability = (12 * 0.02^2 + 2 * 0.2^2) / 14; resolution =
+    # (12 * (0 - 1/7)^2 + 2 * (1 - 1/7)^2) / 14.
+    low = [(_evaluation("alpha", event_id=f"evt-low-{i}"), 0.02, 0) for i in range(12)]
+    high = [(_evaluation("alpha", event_id=f"evt-high-{i}"), 0.8, 1) for i in range(2)]
+    block = _calibration_block([*low, *high])
+    assert block.forecast_reliability == pytest.approx((12 * 0.0004 + 2 * 0.04) / 14)
+    assert block.forecast_resolution == pytest.approx((12 * (1 / 7) ** 2 + 2 * (6 / 7) ** 2) / 14)
+
+
+def test_the_murphy_terms_are_null_on_a_block_under_the_minimum() -> None:
+    graded = [(_evaluation("alpha", event_id=f"evt-{i}"), 0.1, 0) for i in range(9)]
+    block = _calibration_block(graded)
+    assert block.grants_forecast == pytest.approx(0.9)
+    assert block.forecast_reliability is None
+    assert block.forecast_resolution is None
+
+
+def test_calibration_fields_need_cert_facts_and_a_brier() -> None:
+    scored = _evaluation("alpha", event_id="evt-a")
+    unscored = _evaluation("alpha", event_id="evt-b", brier_score=None)
+    uncovered = _evaluation("alpha", event_id="evt-c")
+    facts = _calibration_facts([(scored, 0.4, 1), (unscored, 0.9, 0)])
+    cells = [_forward(ev) for ev in (scored, unscored, uncovered)]
+    forward = build_leaderboard(cells, facts=facts).entries[0].forward
+    assert forward is not None
+    assert forward.grants_forecast == pytest.approx(0.4)
+    assert forward.grants_forecast_scored == 1
+    plain = build_leaderboard(cells).entries[0].forward
+    assert plain is not None
+    assert plain.grants_forecast is None
+    assert plain.grants_forecast_scored is None
+    assert plain.reliability_bins == []
+    # A block with no forecast count serializes as it did without the fields.
+    dumped = plain.model_dump(mode="json")
+    assert "grants_forecast" not in dumped
+    assert "forecast_reliability" not in dumped
+    assert "reliability_bins" not in dumped
+    assert "reliability_bins" in forward.model_dump(mode="json")
+
+
+def test_calibration_reads_the_scored_predictions_probability_off_cell_facts(
+    tmp_path: Path,
+) -> None:
+    ev = _evaluation("alpha", event_id="evt-a")
+    _write_cell(tmp_path, ev, context=_band_context("high"))
+    event = CasePaths(tmp_path, "scotus", 123).event("evt-a")
+    scored = read_model(event.prediction("alpha", "p1"), Prediction)
+    run = stratify(tmp_path, frozen_only=False)
+    (fact,) = cell_facts(run.cells, tmp_path).values()
+    assert fact.probability == scored.probability

@@ -4078,6 +4078,43 @@ class RetrievalLog(_Strict):
         return self
 
 
+class ReliabilityBin(_Strict):
+    """One registered probability bin of a cert block's reliability table.
+
+    Each event enters once, under its predictor's own forecast for the stage's
+    binary target. The edges are registered and the same on every block, so a
+    bin is listed even where it is empty. The two rates are null under the
+    registered minimum count: a rate over a handful of events is one or two
+    outcomes, not a calibration reading.
+    """
+
+    lower: float = Field(ge=0.0, le=1.0, description="Bin lower bound on P(granted), inclusive")
+    upper: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="Bin upper bound on P(granted), exclusive; inclusive for the top bin",
+    )
+    events: int = Field(ge=0, description="Distinct events whose forecast fell in this bin")
+    grants: int = Field(
+        ge=0,
+        description="Events in the bin whose binary target (`Outcome.actual_granted`) is 1",
+    )
+    mean_probability: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Mean forecast P(granted) over the bin's events; null where the bin "
+        "holds fewer events than the registered minimum",
+    )
+    observed_granted_rate: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="`grants / events`; null where the bin holds fewer events than the "
+        "registered minimum",
+    )
+
+
 class LeaderboardStratum(_Strict):
     """Aggregates over one stratum of a predictor's evaluations.
 
@@ -4254,6 +4291,64 @@ class LeaderboardStratum(_Strict):
         description="Distinct (case, event) pairs in `in_sample_grant_rate`'s "
         "denominator — the events of the `in_sample_skill_scored` gradings "
         "(or, where the skill is null, of the gradings that would have been)",
+    )
+    grants_forecast: float | None = Field(
+        default=None,
+        ge=0.0,
+        description="The grant count this predictor's **own** probabilities "
+        "expected: the sum, over the `grants_forecast_scored` events, of the "
+        "scored prediction's P(granted), each event entering once (the mean "
+        "over its gradings, which differ only where they grade two runs). Read "
+        "against `grants_forecast_realized` over the same events. Unlike "
+        "`grants_expected`, which sums the registered base rates and is the "
+        "same for every predictor on the same events, this one is the "
+        "predictor's. Cert cells only; null, and omitted, where no grading "
+        "qualifies. A diagnostic, never a rank key",
+    )
+    grants_forecast_scored: int | None = Field(
+        default=None,
+        ge=0,
+        description="Distinct (case, event) pairs under `grants_forecast`: the "
+        "events of the gradings carrying a Brier score and outcome facts, the "
+        "set `in_sample_events_scored` counts. Null where `grants_forecast` is",
+    )
+    grants_forecast_realized: int | None = Field(
+        default=None,
+        ge=0,
+        description="Events among `grants_forecast_scored` whose binary target "
+        "`Outcome.actual_granted` is 1 — the outcome each P(granted) is scored "
+        "against, so a `granted-in-part` outcome counts here and not in the "
+        "grant-family `grants_realized`. Null where `grants_forecast` is",
+    )
+    reliability_bins: list[ReliabilityBin] = Field(
+        default_factory=list,
+        description="The reliability table of this predictor's forecasts over "
+        "the `grants_forecast_scored` events: one row per registered bin on "
+        "P(granted), empty bins included. Omitted where `grants_forecast` is "
+        "null. A bin under the registered minimum count carries its counts "
+        "and no rate",
+    )
+    forecast_reliability: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="The reliability term of the Murphy decomposition over "
+        "`reliability_bins`: the event-weighted mean squared gap between each "
+        "bin's mean forecast and its observed grant rate. Lower is better "
+        "calibrated; 0 is a table on the diagonal. A binned estimate, so it "
+        "moves with the bin edges and is biased upward on small counts. Null "
+        "where the block holds fewer events than the registered minimum",
+    )
+    forecast_resolution: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="The resolution term of the same decomposition: the "
+        "event-weighted mean squared gap between each bin's observed grant "
+        "rate and the block's own. Higher means the forecasts sort grants "
+        "from denials; 0 means every bin grants at the block's rate. Binned "
+        "and small-count biased as `forecast_reliability` is, and null where "
+        "it is",
     )
     always_deny_accuracy: float | None = Field(
         default=None,
@@ -4525,12 +4620,14 @@ class LeaderboardStratum(_Strict):
 
     @model_serializer(mode="wrap")
     def _omit_ungraded(self, handler: SerializerFunctionWrapHandler) -> Any:
-        """Drop the rubric readings while they list nothing, and the merits baselines while null."""
+        """Drop the list fields while empty, and the merits and calibration figures while null."""
         payload = _omit_empty(
-            handler(self), reasoning_quality_rubrics=self.reasoning_quality_rubrics
+            handler(self),
+            reasoning_quality_rubrics=self.reasoning_quality_rubrics,
+            reliability_bins=self.reliability_bins,
         )
         if isinstance(payload, dict):
-            for name in _MERITS_BASELINE_FIELDS:
+            for name in (*_MERITS_BASELINE_FIELDS, *_CALIBRATION_FIELDS):
                 if payload.get(name, 0) is None:
                     payload.pop(name)
         return payload
@@ -4613,6 +4710,17 @@ _MERITS_BASELINE_FIELDS: Final = (
     "alignment_vote_events",
     "alignment_vote_accuracy",
     "alignment_vote_model_accuracy",
+)
+
+#: The forecast-calibration figures a stratum omits while null: a block with no
+#: cert facts (a non-cert stage, or a committed board that carries none)
+#: serializes as it did without them.
+_CALIBRATION_FIELDS: Final = (
+    "grants_forecast",
+    "grants_forecast_scored",
+    "grants_forecast_realized",
+    "forecast_reliability",
+    "forecast_resolution",
 )
 
 
