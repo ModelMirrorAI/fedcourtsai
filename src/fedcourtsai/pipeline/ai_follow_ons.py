@@ -45,6 +45,7 @@ circuit reading is what raises the appeal first.
 
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Iterable, Mapping
 from datetime import UTC, date, datetime, timedelta
@@ -79,6 +80,10 @@ LOOKBACK_DAYS: Final = 45
 MAX_REQUESTS: Final = 40
 #: Days without a successful refresh after which a listed docket is stale.
 STALE_AFTER_DAYS: Final = 7
+#: Days after which a stored check is too old to stand for today: the corpus
+#: side that produces it runs several times a day, so an older one means the
+#: check itself has stopped.
+MAX_READING_AGE_DAYS: Final = 2
 
 #: A district docket number: office, two-digit year, case type, sequence.
 _DISTRICT_NUMBER: Final = re.compile(r"^(\d+):(\d{2})-([a-z]{2})-(\d+)", re.IGNORECASE)
@@ -653,15 +658,44 @@ class WatchlistCheck(BaseModel):
     stale_after_days: int
     scotus: list[ScotusFollowOn] = Field(default_factory=list)
     stale: list[StaleDocket] = Field(default_factory=list)
+    #: Set when a stored check is read back: how many days old it is.
+    reading_age_days: int | None = None
 
     @property
     def unlinked(self) -> list[ScotusFollowOn]:
         return [row for row in self.scotus if not row.linked]
 
     @property
+    def outdated(self) -> bool:
+        """A stored check too old to stand for today."""
+        return self.reading_age_days is not None and (self.reading_age_days > MAX_READING_AGE_DAYS)
+
+    @property
     def ok(self) -> bool:
-        """Nothing to alarm on: no unlinked Supreme Court docket, no stale listed docket."""
-        return not self.unlinked and not self.stale
+        """Nothing to alarm on: a current reading with no unlinked Supreme Court
+        docket and no stale listed docket."""
+        return not self.unlinked and not self.stale and not self.outdated
+
+
+def read_back(text: str, *, now: datetime | None = None) -> WatchlistCheck:
+    """A stored check (the command's JSON) read back where no corpus is at hand.
+
+    The reading's age is stamped on it, so a check that stopped being produced
+    alarms instead of repeating its last clean answer. Raises ``ValueError``
+    on anything that is not a stored check.
+    """
+    data = json.loads(text)
+    if not isinstance(data, dict):
+        raise ValueError("a stored watchlist check is a JSON object")
+    data.pop("ok", None)
+    data.pop("reading_age_days", None)
+    check_ = WatchlistCheck.model_validate(data)
+    made = datetime.fromisoformat(check_.generated_at)
+    if made.tzinfo is None:
+        made = made.replace(tzinfo=UTC)
+    moment = now or datetime.now(UTC)
+    check_.reading_age_days = max((moment.date() - made.astimezone(UTC).date()).days, 0)
+    return check_
 
 
 def scotus_follow_ons(
@@ -776,6 +810,11 @@ def digest_line(check_: WatchlistCheck) -> str:
             + "no unlinked Supreme Court docket."
         )
     parts = []
+    if check_.outdated:
+        parts.append(
+            f"the last check is {check_.reading_age_days} days old "
+            + f"({check_.generated_at[:10]})"
+        )
     if check_.unlinked:
         parts.append(f"{len(check_.unlinked)} unlinked Supreme Court docket(s) from a listed case")
     if check_.stale:
@@ -796,6 +835,13 @@ def render_alarm(check_: WatchlistCheck) -> str:
     if check_.ok:
         return ""
     lines = [f"`fedcourts ai-watchlist-check`, {check_.generated_at[:10]}.", ""]
+    if check_.outdated:
+        lines += [
+            f"### The check has not run for {check_.reading_age_days} days",
+            "",
+            "No newer reading has been published, so what follows may be out of date.",
+            "",
+        ]
     if check_.unlinked:
         lines += [
             "### Supreme Court dockets from a listed case that the watchlist does not link",

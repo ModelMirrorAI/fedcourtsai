@@ -2020,6 +2020,7 @@ SOURCING_OPS_STEPS = (
     "Collect scheduled runs",
     "Collect issues wearing a stale fan-out label",
     "Escalate a failing data-validation verdict",
+    "Escalate a failing AI watchlist check",
     "Sweep the off-ledger spend records",
 )
 # `(workflow, job, step name)` for the record-keeping writes that source the

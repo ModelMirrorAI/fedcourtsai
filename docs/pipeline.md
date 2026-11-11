@@ -205,8 +205,8 @@ stands. Four sections:
 It carries counts, dates and committed headlines only: no spend figure and no
 agent-written text, because the page is public. Only a run on `main` publishes
 it, and a snapshot that cannot be built is skipped with a warning rather than
-failing the job, so the ops snapshot and the data-validation escalation still
-land.
+failing the job, so the ops snapshot and the data-validation and AI-watchlist
+escalations still land.
 
 ### The weekly performance digest
 
@@ -1888,11 +1888,23 @@ run-log issue means exactly "a window broke".
 
 **An open issue is one of exactly three things, and the reader can tell which
 from its label.** An **alarm** — `pull-log`, `live-log`, `data-validation`,
-`pipeline-health` — is filed only by a failure, so an open one always means
-something needs attention. A run-log alarm is closed by a human once triaged;
-the two latched alarms, `data-validation` and `pipeline-health`, also close
+`pipeline-health`, `ai-watchlist` — is filed only by a failure, so an open one
+always means something needs attention. A run-log alarm is closed by a human
+once triaged; the latched alarms, `data-validation`, `pipeline-health` and
+`ai-watchlist`, also close
 themselves when their check is green again, and each closes only the issue it
-filed, matched by its fixed title and the workflow bot as author. Alarm
+filed, matched by its fixed title and the workflow bot as author. The
+`ai-watchlist` alarm is `run-ops` reading the AI watchlist's corpus check
+(`fedcourts ai-watchlist-check`), which the corpus-writer path publishes to
+`ops-metrics` beside the validation verdict: it is open while a Supreme Court
+docket in the corpus arises from a listed case and is not on the check's
+linked list, a listed docket
+has gone seven days without a refresh, or the last published reading is more
+than two days old; the check's one line is on every ops run's summary.
+Nothing supplies a linked list, since no relation ties a Supreme Court docket
+to the watchlist, so every such docket alarms and stays open. A check that
+has never published does not alarm: the corpus-writer step warns when it
+produces no reading. Alarm
 labels are reserved for these jobs: a hand-filed issue takes a category
 label instead. A **digest** —
 `daily-digest` — is filed on the happy path and closed once
@@ -1901,8 +1913,8 @@ read, so the open ones are the unread backlog and nothing more. The
 healthy run, by comment rather than by rewrite, and it stays open by design (its
 own body says so). Nothing else is an issue: a run's own record is a per-run
 artifact — the step summaries, the ops report on its run summary — never a
-long-lived body a job rewrites in place. Only the data-validation alarm edits a
-body, and only its own, so that a recurring failure latches onto one thread
+long-lived body a job rewrites in place. Only the data-validation and
+ai-watchlist alarms edit a body, and each only its own, so that a recurring failure latches onto one thread
 instead of spamming new ones. That split is what keeps an open issue worth
 reacting to, and it is why an alarm never depends on a later window firing to
 stay honest.
@@ -1920,7 +1932,7 @@ Events created with the default `GITHUB_TOKEN` **do not trigger other workflows*
 run PRs, the metrics and back-test review PRs — is opened with a **GitHub App
 installation token** (`actions/create-github-app-token`), not `GITHUB_TOKEN`.
 The rule cuts the other way too, and that is what keeps the operational issues
-safe: the run-log alarms, the data-validation escalation, and the daily digest must
+safe: the run-log alarms, the data-validation and AI-watchlist escalations, and the daily digest must
 fire nothing, so they ride
 the ambient `GITHUB_TOKEN` and never the App's. See `docs/security.md` for the
 one-time App setup.
@@ -2143,7 +2155,7 @@ pattern rather than rediscovering it:
   fails on a bare `uv run fedcourts` reappearing in that composite.
 - **A GitHub API call has no retry unless you give it one.** The calls that
   route through `gh_retry` are the ones that keep the run *record* — the ops
-  report's collection calls, the data-validation escalation,
+  report's collection calls, the data-validation and AI-watchlist escalations,
   run-backtest's result comment,
   the per-day `pull-log` / `live-log` alarms, the seed guard. They are
   bookkeeping about a run rather than the work, which is what makes a lost one
