@@ -423,8 +423,12 @@ def refresh_watchlist(  # noqa: PLR0913 - each bound is a caller-tuned guard
     is killed before it returns.
     """
     report = WatchlistRefreshReport()
-    # Every request a refresh sends, failed reads included, so the share left
-    # stays exact after a read that fails part-way.
+    # Every request a refresh asks for, failed reads included, so the share
+    # left holds after a read that fails part-way. A request the client sends
+    # again (a retry, or after waiting out a refusal) is counted once here and
+    # each time by the client's limiter, which is what enforces the share: a
+    # run with resends reaches the limiter's cap a few requests early and
+    # stops there.
     spent = 0
 
     def count() -> None:

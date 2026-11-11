@@ -102,8 +102,9 @@ def refusal_detail(exc: BaseException) -> str:
     An HTTP error's ``Retry-After`` and the ``detail`` string of its JSON body,
     which for a 429 names the limit that refused (``Rate limit exceeded:
     25/min``), so a log line says which window the account ran into. Only that
-    one field is quoted, on one line and cut to a bounded length: an error page
-    is never copied into a log.
+    one field is quoted, on one line of printable characters, cut to a bounded
+    length and with a runner's command markers broken up: an error page is
+    never copied into a log, and upstream's text cannot act on one.
     """
     if not isinstance(exc, httpx.HTTPStatusError):
         return ""
@@ -117,7 +118,10 @@ def refusal_detail(exc: BaseException) -> str:
         body = None
     detail = body.get("detail") if isinstance(body, dict) else None
     if isinstance(detail, str) and detail.strip():
-        said = " ".join(detail.split())
+        # Upstream's text reaches a CI log: printable characters only, and
+        # nothing a runner would read as a workflow command.
+        said = " ".join("".join(c if c.isprintable() else " " for c in detail).split())
+        said = said.replace("::", ": :").replace("##[", "## [")
         if len(said) > _DETAIL_MAX_CHARS:
             said = said[:_DETAIL_MAX_CHARS] + "…"
         parts.append(f"upstream said: {said}")
@@ -207,6 +211,8 @@ class CourtListenerClient:
         # client, so a run's wall clock stays bounded.
         if max_throttle_wait < 0 or throttle_wait_budget < 0:
             raise ValueError("throttle waits must be >= 0")
+        if max_throttle_wait > throttle_wait_budget:
+            raise ValueError("throttle_wait_budget must cover at least one max_throttle_wait")
         self._max_throttle_wait = max_throttle_wait
         self._throttle_wait_left = throttle_wait_budget
         self._throttle_hold = 0.0
@@ -263,13 +269,15 @@ class CourtListenerClient:
     def _hold_for_throttle(self, resp: httpx.Response) -> None:
         """Schedule the wait a 429 states, or raise when this client may not serve it.
 
-        Does nothing for a client that never holds, or a refusal that states no
-        wait: the caller's ``raise_for_status`` then raises the plain 429 and
-        the retry cycle's backoff applies. A stated wait within both
-        ``max_throttle_wait`` and what is left of the budget is scheduled for
-        the next request and taken off the budget. A longer one (an hour- or
-        day-scale window) raises :class:`ThrottleOutlastsWait`, which is not
-        retried.
+        Does nothing for a client that never holds, a refusal that states no
+        wait, or a stated wait the run's budget no longer covers: the caller's
+        ``raise_for_status`` then raises the plain 429 and the retry cycle's
+        backoff applies. A stated wait within both ``max_throttle_wait`` and
+        what is left of the budget is scheduled for the next request and taken
+        off the budget when scheduled; the retry cycle's own backoff, seconds
+        long, is slept on top of it and is not counted. A stated wait over
+        ``max_throttle_wait`` (an hour- or day-scale window) raises
+        :class:`ThrottleOutlastsWait`, which is not retried.
         """
         if self._max_throttle_wait <= 0:
             return
@@ -277,15 +285,16 @@ class CourtListenerClient:
         if stated is None:
             return
         need = stated + _THROTTLE_MARGIN_SECONDS
-        if need > self._max_throttle_wait or need > self._throttle_wait_left:
+        if need > self._max_throttle_wait:
             raise ThrottleOutlastsWait(
                 f"Client error '429 Too Many Requests' for url '{resp.url}': its "
-                f"Retry-After of {stated:.0f}s is over what this client may wait "
-                f"({self._max_throttle_wait:.0f}s a refusal, "
-                f"{self._throttle_wait_left:.0f}s left this run)",
+                f"Retry-After of {stated:.0f}s is over the {self._max_throttle_wait:.0f}s "
+                "this client may wait on one refusal",
                 request=resp.request,
                 response=resp,
             )
+        if need > self._throttle_wait_left:
+            return
         self._throttle_wait_left -= need
         self._throttle_hold = need
 

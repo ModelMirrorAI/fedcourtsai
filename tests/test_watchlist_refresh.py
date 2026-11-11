@@ -552,7 +552,8 @@ def test_a_long_onboard_refused_mid_read_waits_and_lands_whole(
     assert held.failed == {}
     assert [(r.case_id, r.entries) for r in held.refreshed] == [("cand/7", pages * 20)]
     assert slept == [52.0]
-    # The count, the docket, the five pages, and the refused page's first send.
+    # The count, the docket and the five pages: the refresh counts a page
+    # once, however many times the client sent it.
     assert held.refreshed[0].requests == 2 + pages
 
     unheld, slept = run(_db(tmp_path / "unheld"))

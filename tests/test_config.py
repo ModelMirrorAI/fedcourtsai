@@ -415,6 +415,20 @@ def test_a_watchlist_run_can_finish_an_onboard_at_the_page_cap() -> None:
     assert cfg.max_entry_pages + 2 <= budget.lane("watchlist").per_run
 
 
+def test_watchlist_throttle_waits_outlast_a_minute_window_and_fit_the_step(
+    tmp_path: Path,
+) -> None:
+    cfg = load_watchlist_refresh_config(_REPO / "config")
+    # The account's per-minute window states a wait of up to sixty seconds.
+    assert cfg.max_throttle_wait_seconds > 60
+    assert cfg.max_throttle_wait_seconds <= cfg.throttle_wait_budget_seconds
+    (tmp_path / "tracking.yaml").write_text(
+        "watchlist_refresh: {max_throttle_wait_seconds: 65, throttle_wait_budget_seconds: 30}\n"
+    )
+    with pytest.raises(ValueError, match="throttle_wait_budget_seconds"):
+        load_watchlist_refresh_config(tmp_path)
+
+
 def test_pull_lane_is_sized_for_every_scheduled_pull_window() -> None:
     budget = load_courtlistener_budget(_REPO / "config")
     workflow = yaml.safe_load((_REPO / ".github" / "workflows" / "run-pull.yml").read_text())

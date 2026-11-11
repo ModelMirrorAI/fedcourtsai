@@ -511,17 +511,19 @@ def test_a_wait_longer_than_the_bound_is_not_retried() -> None:
     assert limiter.calls == 1  # the hour's window will not clear: no retry is spent on it
     # Still a 429 to every caller's classification.
     assert is_throttled(excinfo.value) and is_transient(excinfo.value)
-    assert "3400s" in str(excinfo.value)
+    assert "3400s" in str(excinfo.value) and "65s" in str(excinfo.value)
 
 
 def test_the_run_budget_bounds_the_holds_in_all() -> None:
     slept: list[float] = []
     client = _holding_client(_throttle_then_serve(9, "51"), slept, throttle_wait_budget=110.0)
-    with pytest.raises(ThrottleOutlastsWait):
+    with pytest.raises(httpx.HTTPStatusError) as excinfo:
         client.get_docket(1)
     client.close()
-    # Two holds of 52s fit the 110s budget; the third refusal finds 6s left.
+    # Two holds of 52s fit the 110s budget; the third refusal finds 6s left and
+    # is retried on the backoff alone, as a plain 429.
     assert slept == [52.0, 52.0]
+    assert not isinstance(excinfo.value, ThrottleOutlastsWait)
 
 
 def test_a_hold_left_by_a_final_refusal_is_served_before_the_next_read() -> None:
@@ -567,6 +569,12 @@ def test_negative_throttle_waits_are_refused() -> None:
         CourtListenerClient(max_throttle_wait=-1.0)
 
 
+def test_a_budget_under_one_wait_is_refused() -> None:
+    # It would hold for nothing while still refusing to retry a long wait.
+    with pytest.raises(ValueError, match="throttle_wait_budget"):
+        CourtListenerClient(max_throttle_wait=65.0, throttle_wait_budget=30.0)
+
+
 def _refused(response: httpx.Response) -> httpx.HTTPStatusError:
     response.request = httpx.Request("GET", "https://www.courtlistener.com/api/rest/v4/x/")
     return httpx.HTTPStatusError("refused", request=response.request, response=response)
@@ -587,3 +595,10 @@ def test_refusal_detail_quotes_one_bounded_line_and_never_an_error_page() -> Non
     assert refusal_detail(_refused(httpx.Response(502, text="<html>Bad gateway</html>"))) == ""
     assert refusal_detail(_refused(httpx.Response(429, json=["detail"]))) == ""
     assert refusal_detail(httpx.ConnectError("down")) == ""
+
+
+def test_refusal_detail_cannot_carry_a_runner_command_or_control_characters() -> None:
+    hostile = "ok\x1b[31m\x00 ##[add-mask]x ::error::boom"
+    said = refusal_detail(_refused(httpx.Response(429, json={"detail": hostile})))
+    assert said == "upstream said: ok [31m ## [add-mask]x : :error: :boom"
+    assert said.isprintable() and "::" not in said and "##[" not in said
