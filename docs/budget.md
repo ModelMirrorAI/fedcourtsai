@@ -222,8 +222,9 @@ Which cases reach those moments is the salience gate's choice
 cohort and 24 of the long conference's, less the interim reserve's slots in
 use, a 1-in-20 sample of paid petitions at
 arrival, and a reserve of five interim applications at a time. Not forecast: the AI-case watchlist's
-district-court moments, which are designed and not registered
-([trial-stage.md](trial-stage.md)), and the late-Term authorship re-forecast
+district-court and appeal moments and a listed case's Supreme Court events
+outside the gate, which are designed and not registered
+([trial-stage.md](trial-stage.md), [appeal-stage.md](appeal-stage.md)), and the late-Term authorship re-forecast
 ([milestones.md](milestones.md)).
 
 **How many events.** The ledger on `main` (at `d7840ec19`, 2026-11-11) holds

@@ -4078,6 +4078,43 @@ class RetrievalLog(_Strict):
         return self
 
 
+class ReliabilityBin(_Strict):
+    """One registered probability bin of a cert block's reliability table.
+
+    Each event enters once, under its predictor's own forecast for the stage's
+    binary target. The edges are registered and the same on every block, so a
+    bin is listed even where it is empty. The two rates are null under the
+    registered minimum count: a rate over a handful of events is one or two
+    outcomes, not a calibration reading.
+    """
+
+    lower: float = Field(ge=0.0, le=1.0, description="Bin lower bound on P(granted), inclusive")
+    upper: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="Bin upper bound on P(granted), exclusive; inclusive for the top bin",
+    )
+    events: int = Field(ge=0, description="Distinct events whose forecast fell in this bin")
+    grants: int = Field(
+        ge=0,
+        description="Events in the bin whose binary target (`Outcome.actual_granted`) is 1",
+    )
+    mean_probability: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Mean forecast P(granted) over the bin's events; null where the bin "
+        "holds fewer events than the registered minimum",
+    )
+    observed_granted_rate: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="`grants / events`; null where the bin holds fewer events than the "
+        "registered minimum",
+    )
+
+
 class LeaderboardStratum(_Strict):
     """Aggregates over one stratum of a predictor's evaluations.
 
@@ -4254,6 +4291,64 @@ class LeaderboardStratum(_Strict):
         description="Distinct (case, event) pairs in `in_sample_grant_rate`'s "
         "denominator — the events of the `in_sample_skill_scored` gradings "
         "(or, where the skill is null, of the gradings that would have been)",
+    )
+    grants_forecast: float | None = Field(
+        default=None,
+        ge=0.0,
+        description="The grant count this predictor's **own** probabilities "
+        "expected: the sum, over the `grants_forecast_scored` events, of the "
+        "scored prediction's P(granted), each event entering once (the mean "
+        "over its gradings, which differ only where they grade two runs). Read "
+        "against `grants_forecast_realized` over the same events. Unlike "
+        "`grants_expected`, which sums the registered base rates and is the "
+        "same for every predictor on the same events, this one is the "
+        "predictor's. Cert cells only; null, and omitted, where no grading "
+        "qualifies. A diagnostic, never a rank key",
+    )
+    grants_forecast_scored: int | None = Field(
+        default=None,
+        ge=0,
+        description="Distinct (case, event) pairs under `grants_forecast`: the "
+        "events of the gradings carrying a Brier score and outcome facts, the "
+        "set `in_sample_events_scored` counts. Null where `grants_forecast` is",
+    )
+    grants_forecast_realized: int | None = Field(
+        default=None,
+        ge=0,
+        description="Events among `grants_forecast_scored` whose binary target "
+        "`Outcome.actual_granted` is 1 — the outcome each P(granted) is scored "
+        "against, so a `granted-in-part` outcome counts here and not in the "
+        "grant-family `grants_realized`. Null where `grants_forecast` is",
+    )
+    reliability_bins: list[ReliabilityBin] = Field(
+        default_factory=list,
+        description="The reliability table of this predictor's forecasts over "
+        "the `grants_forecast_scored` events: one row per registered bin on "
+        "P(granted), empty bins included. Omitted where `grants_forecast` is "
+        "null. A bin under the registered minimum count carries its counts "
+        "and no rate",
+    )
+    forecast_reliability: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="The reliability term of the Murphy decomposition over "
+        "`reliability_bins`: the event-weighted mean squared gap between each "
+        "bin's mean forecast and its observed grant rate. Lower is better "
+        "calibrated; 0 is a table on the diagonal. A binned estimate, so it "
+        "moves with the bin edges and is biased upward on small counts. Null "
+        "where the block holds fewer events than the registered minimum",
+    )
+    forecast_resolution: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="The resolution term of the same decomposition: the "
+        "event-weighted mean squared gap between each bin's observed grant "
+        "rate and the block's own. Higher means the forecasts sort grants "
+        "from denials; 0 means every bin grants at the block's rate. Binned "
+        "and small-count biased as `forecast_reliability` is, and null where "
+        "it is",
     )
     always_deny_accuracy: float | None = Field(
         default=None,
@@ -4525,12 +4620,14 @@ class LeaderboardStratum(_Strict):
 
     @model_serializer(mode="wrap")
     def _omit_ungraded(self, handler: SerializerFunctionWrapHandler) -> Any:
-        """Drop the rubric readings while they list nothing, and the merits baselines while null."""
+        """Drop the list fields while empty, and the merits and calibration figures while null."""
         payload = _omit_empty(
-            handler(self), reasoning_quality_rubrics=self.reasoning_quality_rubrics
+            handler(self),
+            reasoning_quality_rubrics=self.reasoning_quality_rubrics,
+            reliability_bins=self.reliability_bins,
         )
         if isinstance(payload, dict):
-            for name in _MERITS_BASELINE_FIELDS:
+            for name in (*_MERITS_BASELINE_FIELDS, *_CALIBRATION_FIELDS):
                 if payload.get(name, 0) is None:
                     payload.pop(name)
         return payload
@@ -4613,6 +4710,17 @@ _MERITS_BASELINE_FIELDS: Final = (
     "alignment_vote_events",
     "alignment_vote_accuracy",
     "alignment_vote_model_accuracy",
+)
+
+#: The forecast-calibration figures a stratum omits while null: a block with no
+#: cert facts (a non-cert stage, or a committed board that carries none)
+#: serializes as it did without them.
+_CALIBRATION_FIELDS: Final = (
+    "grants_forecast",
+    "grants_forecast_scored",
+    "grants_forecast_realized",
+    "forecast_reliability",
+    "forecast_resolution",
 )
 
 
@@ -5066,6 +5174,49 @@ class PairedEngine(_Strict):
         )
 
 
+class EngineMeanReference(_Strict):
+    """A reference line on a paired figure: the mean of the engines' probabilities.
+
+    On each paired event every engine's forecast enters once (the mean of its
+    qualifying gradings' scored-prediction ``probability``), and the reference
+    forecast is the unweighted mean of those across the engines. Nobody forecast
+    it: it exists only where every engine did, it is computed after the fact,
+    and it never takes a rank. Every Brier here is **per event** against the
+    binary target, so the reference and the engines are read on one footing; an
+    engine's grading-weighted ``mean_brier_score`` is a different average.
+
+    A mean's Brier is never worse than the average of its members' Briers, on
+    any data, so that comparison says nothing. The reading is against the
+    **best** single engine on the same events (``engine_brier``). The engines'
+    forecasts are not independent draws, so a gain likely understates what
+    independent forecasters would give and the absence of one may reflect
+    shared information.
+    """
+
+    events: int = Field(
+        ge=1,
+        description="Paired events the reference is over: those on which every engine's "
+        "qualifying gradings all carry outcome facts. Read against `PairedEvents.events`",
+    )
+    grants: int = Field(
+        ge=0,
+        description="Events among `events` whose binary target (`Outcome.actual_granted`) is 1",
+    )
+    grants_forecast: float = Field(
+        ge=0.0, description="The sum of the reference forecast over `events`"
+    )
+    brier: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="Mean, over `events`, of the squared gap between the reference forecast "
+        "and the binary target",
+    )
+    engine_brier: dict[str, Annotated[float, Field(ge=0.0, le=1.0)]] = Field(
+        description="Each paired engine's own per-event Brier over the same `events`, by "
+        "`predictor_id`: the figures `brier` is read against, the lowest of them first of all",
+    )
+
+
 class PairedEvents(_Strict):
     """A population's paired-event figure: the events every compared engine holds.
 
@@ -5116,10 +5267,23 @@ class PairedEvents(_Strict):
         "supplied",
     )
 
+    engine_mean: EngineMeanReference | None = Field(
+        default=None,
+        description="The mean of the engines' probabilities on the paired events, as an "
+        "unranked reference line (see EngineMeanReference). Cert populations with two or "
+        "more engines only; omitted otherwise, and while no paired event carries outcome "
+        "facts for every engine",
+    )
+
     @model_serializer(mode="wrap")
     def _omit_empty_by_band(self, handler: SerializerFunctionWrapHandler) -> Any:
-        """Drop ``by_band`` and ``common_record`` while empty."""
-        return _omit_empty(handler(self), by_band=self.by_band, common_record=self.common_record)
+        """Drop ``by_band``, ``common_record`` and ``engine_mean`` while empty."""
+        return _omit_empty(
+            handler(self),
+            by_band=self.by_band,
+            common_record=self.common_record,
+            engine_mean=self.engine_mean,
+        )
 
 
 #: The key :attr:`LeaderboardEntry.by_band` files a cell under when its scored

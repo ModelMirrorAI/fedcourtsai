@@ -208,6 +208,24 @@ jobs:
           if [ -f digest.md ]; then
             cat digest.md >> "$GITHUB_STEP_SUMMARY"
           fi
+          # The AI watchlist's corpus check, published beside the verdict by
+          # the same corpus-writer path: its one line joins the summary, and
+          # the escalation step below reads the rendered files. Absent before
+          # its first publish, which leaves the files unwritten and the alarm
+          # step idle. A published file this checkout cannot read is a warning,
+          # never a failed step: the snapshot push and the data-validation
+          # escalation below must still land.
+          if git show origin/ops-metrics:ai-watchlist-check.json > ai-watchlist-published.json 2>/dev/null; then
+            if uv run fedcourts ai-watchlist-check --from-report ai-watchlist-published.json \
+                --alarm-out ai-watchlist-alarm.md --digest-out ai-watchlist-line.txt \
+                > ai-watchlist-check.tmp; then
+              mv ai-watchlist-check.tmp ai-watchlist-check.json
+              { echo ''; cat ai-watchlist-line.txt; } >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "::warning::the published AI watchlist check could not be read; its line and alarm are skipped this run"
+              rm -f ai-watchlist-check.tmp
+            fi
+          fi
 
       # Test and staging spend: the integration suite, the promotion gate,
       # staging rehearsals and the replay and pilot rounds commit nothing to
@@ -406,6 +424,48 @@ jobs:
             # Resolved: data validation is green again, so close the escalation issue.
             gh_retry gh issue comment "$num" --repo "$REPO" \
               --body "✅ Data validation is green again as of the latest ops run — closing."
+            gh_retry gh issue close "$num" --repo "$REPO" --reason completed
+          fi
+
+      - name: Escalate a failing AI watchlist check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # shellcheck disable=SC1091  # resolved on the runner; actionlint lints this block out of tree
+          source "${GITHUB_WORKSPACE}/scripts/gh_retry.sh"
+          # The data-validation idiom above, for the watchlist: one long-lived
+          # issue while the check is not ok (a Supreme Court docket from a
+          # listed case the watchlist does not link, a listed docket not
+          # refreshed in seven days, or no reading for two days), refreshed in
+          # place, and closed when the check is ok again. `ai-watchlist` is a
+          # non-triggering label. No published reading yet means nothing to
+          # escalate, and neither does a published one the report step could
+          # not read, which that step warns about.
+          if [ ! -f ai-watchlist-check.json ]; then
+            echo "No readable AI watchlist check: nothing to escalate."
+            exit 0
+          fi
+          gh_retry gh label create ai-watchlist --repo "$REPO" --force \
+            --color b60205 --description "Long-lived AI watchlist check failure (run-ops escalation)"
+          ok=$(jq -r '.ok' ai-watchlist-check.json)
+          # This step's own alarm only, matched by title and the ambient
+          # token's bot as author, as the data-validation step matches its own.
+          listing=$(gh_retry gh api "repos/${REPO}/issues?labels=ai-watchlist&state=open&per_page=100")
+          num=$(jq -r '[.[] | select(.title == "AI watchlist check failing"
+                          and .user.login == "github-actions[bot]"
+                          and (has("pull_request") | not))][0].number // empty' <<<"$listing")
+          if [ "$ok" = "false" ]; then
+            if [ -z "$num" ]; then
+              gh_retry gh issue create --repo "$REPO" --title "AI watchlist check failing" \
+                --label ai-watchlist --body-file ai-watchlist-alarm.md
+            else
+              gh_retry gh issue edit "$num" --repo "$REPO" --body-file ai-watchlist-alarm.md
+            fi
+          elif [ "$ok" = "true" ] && [ -n "$num" ]; then
+            gh_retry gh issue comment "$num" --repo "$REPO" \
+              --body "✅ The AI watchlist check is clean again as of the latest ops run — closing."
             gh_retry gh issue close "$num" --repo "$REPO" --reason completed
           fi
 

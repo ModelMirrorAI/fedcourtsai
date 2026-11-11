@@ -2,8 +2,10 @@ name: Publish corpus verdicts
 description: >
   Run the read-only corpus verdicts where the corpus is already pulled —
   `fedcourts validate-corpus` (integrity + referential) and `fedcourts
-  live-frontier` (the cert watchlist's readiness snapshot) — and publish
-  both JSONs to the orphan `ops-metrics` branch for the run-ops report to present.
+  live-frontier` (the cert watchlist's readiness snapshot) and `fedcourts
+  ai-watchlist-check` (Supreme Court dockets of listed AI cases, and listed
+  dockets gone stale) — and publish their JSONs to the orphan `ops-metrics`
+  branch for the run-ops report to present.
   NON-BLOCKING by design: a failing verdict (or a publish hiccup) must not fail the
   host run, so the workflow step that uses this action sets `continue-on-error: true`.
   The prior published verdict supplies the monotonic row-count baseline; each new
@@ -52,8 +54,16 @@ runs:
         # also loud-not-fatal, so a hiccup never fails the host run.
         uv run fedcourts live-frontier --out live-frontier.json || true
 
+        # The AI watchlist's corpus check, the same way. It exits 0 whatever it
+        # finds; a run that could not produce it publishes nothing new, and
+        # run-ops alarms on a reading more than two days old.
+        if ! uv run fedcourts ai-watchlist-check > ai-watchlist-check.json; then
+          echo "::warning::ai-watchlist-check produced no reading; nothing new is published for it"
+          rm -f ai-watchlist-check.json
+        fi
+
         # Publish to the orphan ops-metrics branch (same branch the ops snapshot
-        # rides). Touch only the corpus-validation files so a concurrent run-ops push
+        # rides). Touch only the verdict files so a concurrent run-ops push
         # of the ops snapshot rebases cleanly.
         stamp=$(date -u +%Y-%m-%dT%H%M%SZ)
         day=$(date -u +%Y-%m-%d)
@@ -70,11 +80,15 @@ runs:
         cp corpus-validation.json "$tree/corpus-validation-${day}.json"     # dated history
         cp live-frontier.json "$tree/live-frontier.json"                     # latest readiness snapshot
         cp live-frontier.json "$tree/live-frontier-${day}.json"              # dated history
+        if [ -s ai-watchlist-check.json ]; then
+          cp ai-watchlist-check.json "$tree/ai-watchlist-check.json"         # latest reading
+          cp ai-watchlist-check.json "$tree/ai-watchlist-check-${day}.json"  # dated history
+        fi
         git -C "$tree" add -A
         if git -C "$tree" diff --cached --quiet; then
           echo "No verdict change to persist."
         else
-          git -C "$tree" commit -m "validate: corpus verdict + live frontier ${stamp}"
+          git -C "$tree" commit -m "validate: corpus verdict + live frontier + watchlist check ${stamp}"
           for attempt in 1 2 3; do
             if git -C "$tree" push origin ops-metrics; then
               break
