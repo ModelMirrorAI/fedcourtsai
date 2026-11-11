@@ -639,7 +639,8 @@ def test_credential_shapes_are_redacted(text: str, rule: str) -> None:
 
 
 _SHAPED = {
-    "model-provider-key": "sk-ant-oat01-" + "aB3dE6gH9jK2mN5pQ8sT1vW4yZ7",
+    "model-provider-key": "sk-proj-" + "aB3dE6gH9jK2mN5pQ8sT1vW4yZ7",
+    "aws-session-token": "FwoG" + "ZXIvYXdzEA0aD" * 8,
     "jwt": _JWT,
     "github-token": "ghs_" + "aB3dE6gH9jK2mN5pQ8sT1vW4yZ7bC0eF2hiJ5k",
     "aws-key-id": "AKIA" + "IOSFODNN7EXAMPLE",
@@ -663,6 +664,9 @@ _SHAPED = {
         # A control character JSON has no short escape for.
         lambda token: json.dumps({"stdout": "ok\x1b" + token}),
         lambda token: "ANTHROPIC_AUTH_" + token,
+        # A coloured terminal line, and a query string in a logged URL.
+        lambda token: json.dumps({"stdout": "\x1b[32mok\x1b[0m" + token}),
+        lambda token: "https://example.com/v1?key%3D" + token,
     ],
 )
 def test_a_shaped_credential_is_found_after_a_json_escape_or_an_underscore(
@@ -678,11 +682,17 @@ def test_a_shaped_credential_is_found_after_a_json_escape_or_an_underscore(
     assert f"[redacted:{rule}]" in redacted
 
 
-@pytest.mark.parametrize("rule", ["model-provider-key", "github-token"])
-def test_a_distinctive_prefix_is_found_glued_to_any_text(rule: str) -> None:
-    line = "bearer" + _SHAPED[rule]
+@pytest.mark.parametrize(
+    ("token", "rule"),
+    [
+        ("sk-ant-oat01-" + "aB3dE6gH9jK2mN5pQ8sT1vW4yZ7", "model-provider-key"),
+        ("github_pat_" + "aB3dE6gH9jK2mN5pQ8sT1vW4yZ7bC", "github-token"),
+    ],
+)
+def test_a_distinctive_prefix_is_found_glued_to_any_text(token: str, rule: str) -> None:
+    line = "bearer" + token
     assert rule in {f.rule for f in scan_lines("t", [line], [], entropy=False)}
-    assert _SHAPED[rule] not in redact_credentials(line)
+    assert token not in redact_credentials(line)
 
 
 @pytest.mark.parametrize(
@@ -693,6 +703,10 @@ def test_a_distinctive_prefix_is_found_glued_to_any_text(rule: str) -> None:
         "risk-adjusted-return-on-capital-employed-in-the-period",
         "docket entry 12: MAKIAVELLIANPRINCIPLES0 of the brief",
         r"C:\notes\task-force-on-pretrial-detention-and-release",
+        # `\a` is no JSON escape, so it starts nothing.
+        r"C:\ask-the-expert-forum-archive-2019-and-later",
+        "weighs_" + "0123456789abcdef" * 3,
+        "highs_" + "aB3dE6gH9jK2mN5pQ8sT1vW4yZ7bC0eF2hiJ5k9",
     ],
 )
 def test_a_prefix_inside_an_ordinary_word_starts_no_match(text: str) -> None:
