@@ -62,7 +62,7 @@ def _predict(
             granted=int(probability >= 0.5),
             probability=probability,
             predicted_disposition=disposition,
-            **extra,  # type: ignore[arg-type]
+            **extra,
         ),
     )
     if fetches is not None:
@@ -90,7 +90,7 @@ def _resolve(
             resolved_at=date(2026, 6, 20),
             actual_disposition=disposition,
             actual_granted=int(disposition is not Disposition.denied),
-            **extra,  # type: ignore[arg-type]
+            **extra,
         ),
     )
 
