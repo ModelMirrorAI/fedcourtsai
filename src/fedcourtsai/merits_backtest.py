@@ -88,6 +88,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from . import corpus, provision
 from .backtest import BacktestPrediction
 from .cert_backtest import (
+    ReplayArm,
     _engine_lanes,
     _merged,
     _ProvisionedPetition,
@@ -1066,6 +1067,7 @@ def replay_merits_predictors(  # noqa: PLR0913 - the campaign's dispatch, each a
     skip_engines: frozenset[str] = frozenset(),
     workers: int = 0,
     keep_root: Path | None = None,
+    arm: ReplayArm | None = None,
 ) -> MeritsReplayOutcome:
     """Provision every case at each moment, then run every routable predictor's cells.
 
@@ -1097,10 +1099,14 @@ def replay_merits_predictors(  # noqa: PLR0913 - the campaign's dispatch, each a
     the same reason, unattempted. A predictor that loses every cell keeps its
     (empty) place in ``predictions``, so the report shows it with nothing scored
     rather than leaving it out.
+
+    With ``arm`` the campaign runs that one predictor alone under the arm's
+    model and prompt (:class:`.cert_backtest.ReplayArm`), which is how a
+    comparison runs each of its two sides.
     """
     if keep_root is not None:
         _check_keep_root(keep_root, work_root)
-    pairs = _runners_by_predictor(config_root, engine_override, skip_engines)
+    pairs = _runners_by_predictor(config_root, engine_override, skip_engines, arm)
     ran_on = {p.id: (engine_override or str(p.engine), replay_model(r)) for p, r in pairs}
     engines = {pid: backend for pid, (backend, _) in ran_on.items()}
     ledger_root = get_settings().data_root.resolve()

@@ -353,7 +353,10 @@ missing week, and
 `fedcourts salience-replay` (locally, or via the `run-backtest` dispatch's
 `replay: salience-gate` mode, landing as a reviewed PR),
 `merits-backtest.json`, which only a `run-backtest` dispatch in `replay: merits`
-mode writes, as a reviewed PR, and
+mode writes, as a reviewed PR, the back-test comparison reports under
+`backtest-comparisons/`, the pooled back-test record under `backtest-record/`
+and its roll-up `backtest-pooled.json`, which the replay commands and
+`fedcourts backtest-pooled` write, and
 `semantic-grades-<stratum>-<scope>.json`, which `fedcourts semantic-summary`
 writes **only** when the semantic census clears both preconditions below — it
 is outside the gate precisely because its absence is a state the contract
@@ -2064,6 +2067,131 @@ merits section rather than the cert band, with `base_rate_basis` and
   `exposure_candidates` count reads the cert back-test's disclosure bit, so
   it compares only across runs read under one rule, as that bit's own
   reading rule below says.
+
+- `backtest-comparisons/<kind>-<predictor>-<run_id>.json` — a back-test
+  **comparison** (`fedcourts cert-backtest-compare`,
+  `fedcourts merits-backtest-compare`): one predictor replayed twice over the
+  same drawn cases, as the registry configures it (the incumbent) and with one
+  change (the candidate: another model, or another prompt), from identically
+  provisioned records under the same replay clock. **What it is for: evidence
+  in a re-bless decision between two configurations, and nothing else.** It is
+  retrospective and never claimable, no cell in it counts toward a forward
+  board, and no figure in it is set beside a forward figure or beside another
+  comparison's. The reading rules:
+  - **Read the difference, not the two means.** `mean_brier_difference` is the
+    mean of the per-case differences, candidate minus incumbent, so negative
+    favours the candidate. Its interval is a Student-t interval on those
+    differences. The pairing is what makes a small set informative: the
+    case-to-case variation both arms share cancels. The two arms' own mean
+    Brier scores are context and are not differenced against any other report.
+  - **An interval that spans zero is no finding**, in either direction. The
+    differences are bounded and skewed (most cert cases move by little, a few
+    by a lot), so at a few dozen pairs the 95% coverage is approximate.
+  - **`drawn_set` describes the set; `population` estimates the population.**
+    Under the stratified draw (`outcome-stratified-hash-v1`) half the petitions
+    are grants by design, so `drawn_set` holds grants at many times their
+    population share and is not a population figure. `population` reweights
+    each outcome class's mean to its share of the eligible population
+    (`strata`, with each class's population count, weight, target and drawn
+    count): it estimates the eligible back-test population's mean difference.
+    It is null where a weighted class holds no pair. The weights are the
+    **eligible** population's shares, replayable or not, while the petitions
+    are drawn from the replayable ones: the figure is the population's only as
+    far as replayable coverage is ignorable within an outcome class, which is
+    not established. Under an unstratified draw there is no `population`
+    figure and `drawn_set` already estimates its population.
+  - **Where one class's weight exceeds 0.8, `population` carries no interval,
+    and the per-class figures decide.** At the paid and all scopes the
+    not-granted class is nearly the whole population, so the estimate and its
+    variance rest on ten or twenty denials whose differences are near-constant
+    with rare large moves. A sample that size usually draws none of the large
+    ones, and a t interval on it covers far less often than 95%. No
+    resampling interval repairs that, since none sees a move the sample did
+    not draw. Read `by_stratum` instead: each class's pairs, mean difference
+    and largest single move. `n` pairs in a class with no large move cannot
+    exclude a large-move rate up to about 3/`n` in that class. Which figure
+    decides is fixed before a run: `population` with its interval where no
+    class's weight exceeds 0.8, and otherwise `by_stratum` read beside the
+    `drawn_set` interval.
+  - **The call counts are counts.** `changed_to_correct` and `changed_to_wrong`
+    are pairs whose binary call moved, unweighted under every estimator. A
+    Brier improvement with no call moved is a calibration change, not a
+    change in what the predictor would have called.
+  - **Recall is not forecasting.** Every replayed outcome was public before the
+    run, and a model trained after a decision can recall it. A candidate with
+    a later training cutoff gains from that alone. Each arm states the
+    vendor-stated training data cutoff recorded for its model
+    (`training_cutoff`, the last day of the stated month), each pair states
+    whether it was decided after both (`after_both_cutoffs`), and the
+    `after_both_cutoffs` figures are over those pairs only. That figure is
+    unweighted, so under the stratified draw it describes a half-grants set of
+    recently decided cases and no population, and it is read with its `pairs`
+    beside it. A stated cutoff is a month and approximate, so those pairs are
+    the ones least likely to be recalled, not ones proven unseen.
+    `exposure_note` says in a sentence which of three things holds: no cutoff
+    is recorded for a model, so the split is undetermined; none of the scored
+    pairs postdates both cutoffs; or how many do. Two models with the same
+    recorded cutoff are free of the known directional bias, though one may
+    still recall more than the other; two with different cutoffs are compared
+    on the `after_both_cutoffs` pairs alone.
+  - **A stub report compares nothing.** Under `--engine stub` both arms'
+    `model` is null and every difference is zero by construction; the report
+    exists to rehearse the machinery. `requested_model` is what was asked
+    for, `model` is what ran.
+  - **`process_digest` names a configuration, not a registered process.** A
+    replay cell runs with no MCP server, and a cert replay cell with no staged
+    documents (a merits replay cell is staged the filings its moment's cut
+    keeps), so neither arm's cells are cells of the process the digest would
+    register.
+  - **Lost cells are not pairs.** A cell either arm lost is in `pairs` with a
+    null difference and is in no figure; each arm's `cells_lost` counts them.
+    The loss is not ignorable: an arm that loses its hard cases has them
+    removed from both arms' figures, so a comparison with many lost cells on
+    one arm is read as incomplete.
+    A candidate that scored nothing ends the run before the incumbent's cells,
+    and the report then shows every incumbent cell unscored.
+
+- `backtest-record/<kind>-<run_id>.jsonl` and `backtest-pooled.json` — the
+  **pooled back-test record** and its roll-up (`fedcourts backtest-pooled`).
+  The record is append-only: one file per replay run that was asked to record
+  (`--record`), never rewritten, one row per scored cell a model ran. An
+  offline rehearsal's cells are never recorded. The roll-up exists because
+  one replay's handful of cases cannot separate two predictors and a series
+  of recorded replays can. A record file exists only where a run was asked
+  for one; the caller names it, by the convention above. Both record
+  directories are held out of the tree while replay cells run, since their
+  rows name cases beside outcomes; `backtest-pooled.json` names no case and
+  is not. The reading rules:
+  - **One entry per (predictor, model, process digest, kind, population,
+    stage, moment), and nothing pools across them.** Two models, two prompts
+    or two populations are different measurements. A population's name
+    carries what defines it: a cert scope (`cert:paid`), with the salience
+    floor under the selected scope (`cert:selected@<floor>`), or the argued
+    Terms of a merits replay (`merits:argued:OT2024+OT2025`). An entry's
+    `process_digest` names its configuration as a comparison's does.
+  - **`mean_brier_score` is post-stratified on the outcome class.** Each
+    class's mean is over its distinct cases (a case replayed in several runs
+    is averaged first), and the classes are combined at the population share
+    recorded for them (`strata[].share`: the mean over the runs that recorded
+    the class, each run counted once). A simple random run and an
+    outcome-stratified run both sample at random within an outcome class, so
+    both feed the same class means, and in expectation the combination does
+    not depend on the mix of runs. It carries the caveat the comparison's
+    `population` figure carries: the shares are the eligible population's and
+    the cells the replayable population's. A case eligible at every vintage
+    can be drawn by every run, so long-eligible cases are over-represented
+    among an entry's cases. Where the classes present do not make up the
+    whole population (an entry holding one outcome class), the figure is null
+    and the class means stand alone. The figure's denominator is
+    `strata[].cases`; the entry's `rows` and `cases` also count the
+    unweighted rows.
+  - **`unweighted_rows` are counted and left out.** A recency-head run is
+    not a probability sample, so its rows record no share.
+  - **No interval is published.** The pooled figure is a description of the
+    record so far; a difference between two entries is not a paired
+    comparison, since the entries were scored over different cases, and is
+    not read as one.
+  - **Retrospective, never claimable**, like every back-test here.
 
 - `cert-backtest.json` — the cert-specific back-test (not regenerated by the
   weekly metrics refresh): predictors
@@ -4305,6 +4433,8 @@ but not nameable.
 
 **The backtest-as-iteration doctrine.** Backtests (the retrospective stratum,
 the replay runs, `backtest.json`, `cert-backtest.json`,
+`merits-backtest.json`, the comparison reports under `backtest-comparisons/`,
+the pooled record under `backtest-record/` with `backtest-pooled.json`,
 `salience-replay.json`) are **iteration
 instruments** — for tuning prompts, retrieval, and calibration — and are
 **never claimable performance**; the project claims results only from genuine
