@@ -714,6 +714,10 @@ jobs:
           # the two evaluation-derived artifacts refresh from one tree state.
           uv run fedcourts leaderboard
           uv run fedcourts claim-scores
+          # The miss review lists the forward events behind the board's
+          # accuracy, over the same stratified cells, so it is regenerated
+          # with the board it describes.
+          uv run fedcourts miss-review
           # The big-case board reads only the ledger too. The daily `big-cases`
           # job below keeps it current between weekly ticks; regenerating it here
           # as well is what keeps one refresh a self-consistent tree state rather

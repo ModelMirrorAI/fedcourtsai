@@ -533,8 +533,8 @@ queues behind the production run of the same mode. The modes:
   maintainer is reading. A staging dispatch fits against the staging pair and
   stops at the publish fence.
 - **`metrics-refresh`** (weekly schedule, or dispatch) keeps the committed metrics
-  artifacts from drifting stale: `metrics/claim-scores.json` (input: the `data/`
-  evaluations ledger), `metrics/leaderboard.json` (the same ledger plus the
+  artifacts from drifting stale: `metrics/claim-scores.json` and
+  `metrics/miss-review.json` (input: the `data/` evaluations ledger), `metrics/leaderboard.json` (the same ledger plus the
   committed `metrics/statpack.json`, which its realized-Term skill column is
   scored against — so it regenerates *after* the pack),
   `metrics/big-cases.{json,md}` (the same ledger again — the daily `big-cases`

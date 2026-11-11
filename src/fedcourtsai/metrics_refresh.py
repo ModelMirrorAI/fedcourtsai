@@ -4,11 +4,12 @@ The metrics artifacts are deterministic roll-ups whose inputs (the ``data/``
 evaluations ledger, the corpus) move without them. The ``run-analytics``
 workflow's weekly ``metrics-refresh`` job keeps the scheduled set current —
 ``metrics/leaderboard.json``, ``metrics/claim-scores.json``,
-``metrics/backtest.json``, ``metrics/statpack.{json,md}``,
+``metrics/miss-review.json``, ``metrics/backtest.json``, ``metrics/statpack.{json,md}``,
 ``metrics/docket.{json,md}``, ``metrics/big-cases.{json,md}``, and
 ``data/scope/scope.json`` — by rerunning the tested ``fedcourts`` commands
-(``leaderboard`` / ``claim-scores`` / ``backtest`` / ``statpack`` / ``docket``
-/ ``big-cases`` / ``scope-manifest``) and, when anything changed, landing the
+(``leaderboard`` / ``claim-scores`` / ``miss-review`` / ``backtest`` /
+``statpack`` / ``docket`` / ``big-cases`` / ``scope-manifest``) and, when
+anything changed, landing the
 result as a PR that merges unattended once its required checks pass (never a
 direct commit to ``main``), the ``paths`` check holding it to
 :data:`fedcourtsai.collect.REFRESH_JAIL_PATHS`. The docket pack is regenerated
@@ -39,6 +40,7 @@ from pydantic import BaseModel
 
 from .claim_metrics import agreement_summary
 from .leaderboard import coverage_shortfalls, entry_name
+from .miss_review import miss_review_summary
 from .schemas import (
     CERT_BACKTEST_ARMS,
     Backtest,
@@ -50,6 +52,7 @@ from .schemas import (
     ClaimScoreBoard,
     DocketPack,
     Leaderboard,
+    MissReview,
     ScopeManifest,
     StatPack,
 )
@@ -69,6 +72,7 @@ REFRESH_BRANCH = "metrics/refresh"
 REFRESH_ARTIFACTS = (
     "metrics/leaderboard.json",
     "metrics/claim-scores.json",
+    "metrics/miss-review.json",
     "metrics/backtest.json",
     "metrics/statpack.json",
     "metrics/statpack.md",
@@ -267,6 +271,10 @@ def _claim_scores_headline(path: Path) -> str:
     )
 
 
+def _miss_review_headline(path: Path) -> str:
+    return miss_review_summary(read_model(path, MissReview))
+
+
 def _backtest_headline(path: Path) -> str:
     bt = read_model(path, Backtest)
     return (
@@ -323,6 +331,7 @@ _FILENAME_HEADLINES: dict[str, Callable[[Path], str]] = {
     # the one that takes the predictor roster, which a filename table of
     # single-argument readers cannot carry.
     "claim-scores.json": _claim_scores_headline,
+    "miss-review.json": _miss_review_headline,
     "backtest.json": _backtest_headline,
     "statpack.json": _statpack_headline,
     "docket.json": _docket_headline,
