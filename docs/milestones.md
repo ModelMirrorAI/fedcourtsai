@@ -91,12 +91,12 @@ bootstrapping envelope, so any further spend inside it would outgrow it.
 The column is the planning ceiling, and its event counts are the ones each
 step was sized at: 850–1,100 SCOTUS events a Term before milestone 1's
 moments, a few hundred more with them. Measurement moves both. The ledger's
-trailing-30-day pace reads to roughly 1,500–2,000 events a Term,
-an extrapolation from one month, and a fully evaluated event measures about
-$4.70, about $7.05 once gemini's rate doubles on 2026-12-01
-([budget.md](budget.md)). At that count today's row is ≈$10.6–14K at the
-projected $7.05 and ≈$15–20K at the $10 budget.md budgets, both inside the
-envelope, and ≈$26–35K at the table's $17.67, which is not. So the envelope
+recent pace reads to roughly 1,400–2,000 events a Term,
+an extrapolation from six weeks, and a fully evaluated event measures about
+$4.90, about $7.35 once gemini's rate doubles on 2026-12-01
+([budget.md](budget.md)). At that count today's row is ≈$10–15K at the
+projected $7.35 and ≈$14–20K at the $10 budget.md budgets, both inside the
+envelope, and ≈$25–35K at the table's $17.67, which is not. So the envelope
 holds on measured cost and not on the planning ceiling. Milestone 3's event
 count rests on the same first sizing and is owed a re-count from a full Term
 on the ledger before that step is committed to. The table stays the planning
@@ -160,7 +160,7 @@ transcripts) move the registered process version. On the ledger so far
 (`main` at `d7840ec19`, 2026-11-11) the call for response holds 65 events, 52
 of them the backlog open when the moment was first forecast, the first relist
 17, the argued moment 10 and the Solicitor General's brief 3. The call for
-response is the largest of them, at five to eight new events a week since.
+response is the largest of them, with 13 new events in the 11 days since.
 
 ### 2. The AI-case watchlist — within bootstrapping (≈$31K / yr)
 

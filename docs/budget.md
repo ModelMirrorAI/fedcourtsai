@@ -35,13 +35,17 @@ It is the conservative figure, not the measured one. The current engines
 (`claude-opus-5-5`, `gpt-6.1-sol`, `gemini-4-argon`) measure, over their cells
 on `main` (at `d7840ec19`, 2026-11-11, every cell from 2026-10-20 on): about
 $0.74, $0.52 and $1.40 a prediction (227, 226 and 230 runs) and $0.71, $0.44
-and $0.93 a grading run (73 each), so about $4.70 a fully predicted and
-evaluated event. The stage moves the figure less than the engine does: the
-three predictions together run about $2.50 on a cert petition at distribution
-(75 events) and about $3.10 on an argued case (11 runs an engine). Gemini's share is at
-Argon's introductory rate ($2 / $10, $0.10 cached). The rate doubles from
-2026-12-01, which at equal tokens, and with the cached rate assumed to double
-too, adds about $2.33 to gemini's share and brings the event to about $7.05.
+and $0.93 a grading run (73 each). Those are per run. An event costs more
+than one run of each, since a retried cell spends again: the 213 events
+forecast in that span took 683 prediction runs, $2.85 an event, and the 73
+graded took $2.08, so a fully predicted and evaluated event measures about
+$4.90. The stage moves the figure less than the engine does: one run of each
+predictor comes to about $2.50 on a cert petition at distribution (75 runs an
+engine) and about $3.10 on an argued case (11 runs an engine). Gemini's share
+is at Argon's introductory rate ($2 / $10, $0.10 cached). The rate doubles
+from 2026-12-01, which at equal tokens, and with the cached rate assumed to
+double too, adds gemini's $2.44 of each event again and brings the event to
+about $7.35.
 The $10 figure stays the basis until cells at that rate are measured, since
 the doubling is a projection; the grading sample is the smaller one, and its
 cells are mostly cert-stage gradings, which read less than a merits one.
@@ -60,7 +64,7 @@ above the measured cells. Its gemini rows, $2.70 a prediction and $1.60 a
 grading run, are sized for the rate in force from 2026-12-01. The cells
 measured above double to about $2.80 and $1.86, so those two rows sit about
 3% and 14% below the projection and are owed a re-anchor before that date; the table's event total still stands well
-above the projected $7.05. [milestones.md](milestones.md) prices its plan at the table.
+above the projected $7.35. [milestones.md](milestones.md) prices its plan at the table.
 
 **The plain-language case summaries also spend outside `events × cost per
 event`** ([case-summaries.md](case-summaries.md)). It is one non-agentic
@@ -98,8 +102,8 @@ batches, $25.98 the ten replicate runs that measure the labeler's
 repeatability, and $2.79 the side coder below. Those batches are backlog
 work on the two frames. Once a backlog is labeled, a week labels only what
 is new or stands down, so the steady state is an estimate, not a measurement: about
-$20–40 a month at one part batch a frame a week, and about $90 if every week
-ran a full batch on both. A `claude-fable-5` dispatch
+$20–40 a month at one part batch a frame a week with no replicate runs, and
+about $70 if every week ran a full batch on both. A `claude-fable-5` dispatch
 of a full 1,200-row batch prices at $72, just under the $75 per-round cap, so
 it too can auto-release.
 The same lane runs the merits side coder
@@ -220,10 +224,13 @@ district-court moments, which are designed and not registered
 603 forecast events on 401 cases since the first round in July 2026. The
 trailing 30 days first forecast 251 of them, 52 in the one-time backlog that
 came with the call-for-response moment, and graded 102 as their outcomes
-arrived. That in-Term pace is about 200 events a month. If it held through
-June it would come to roughly 1,500–2,000 events a Term. The range is an
-extrapolation from one month, not a count: a full Term on the ledger settles
-it.
+arrived. Outside that backlog, a week from 2026-10-12 on first forecast 34 to
+51 events, about
+150–220 a month. Held across the nine months from October through June, that
+pace comes to roughly 1,400–2,000 events a Term, before the summer's few. The
+range is an extrapolation from six weeks, not a count, and its spread is the
+choice of weekly pace, not an interval: the first relists (15 of the 17 came
+in one week) may be start-up fill, and a full Term on the ledger settles it.
 
 | | Monthly | Yearly |
 |---|---:|---:|
@@ -245,16 +252,24 @@ auto-release budget read (`main` at `d7840ec19`, as of 2026-11-11 19:30Z):
 | Integration smokes, promotion gate, replays (recorded since 2026-11-01) | $26.40 | no, reported separately |
 
 By engine the cells are $434.09 gemini, $377.33 codex and $265.14 claude-code.
-The window holds none of the long-conference campaign of early October, the
-month whose cells came to $2,283. The trailing 14 days ran faster, at $716.53 across the same lanes,
-as the relist and call-for-response moments came on.
+The window still holds 150 cells of the engines' previous models
+(`gpt-6-astra`, $227.28, and `gemini-3.1-pro-preview`, $44.72), which is why
+codex, the cheapest engine a run today, reads second. Re-priced at the
+current models' per-run means the window's cells are about $940 and the total
+about $1,170. The window holds none of the long-conference campaign of early
+October, the month whose cells came to $2,283. The trailing 14 days, all on
+the current models, ran faster, at $716.53 across the same lanes.
 
 Projected, not measured: gemini's rate doubles on 2026-12-01, which at the
-window's volume adds its $434 and brings the month to about $1,740; at the
-trailing 14 days' pace it is about $2,200, above this line and inside the
-auto-release budget below. Over a Term, 1,500–2,000 events at the projected
-$7.05 is ≈$10.6–14K and at the budgeted $10 is ≈$15–20K, with the summaries
-and the labeler adding ≈$1.3–2.1K a year at the rates above. The headroom
+window's volume and the current models' rates adds about $480 and brings the
+month to about $1,650. At the trailing 14 days' pace it is about $2,200, above
+this line and inside the auto-release budget below; that fortnight holds the
+labeler's backlog batches and the call-for-response backlog, and without
+those two it is about $1,600. These are in-Term months. Over a Term,
+1,400–2,000 events at the projected $7.35 is ≈$10–15K and at the budgeted $10
+is ≈$14–20K, with the summaries and the labeler adding ≈$1.3–2.1K a year at
+the rates above; the annual figure sits below twelve in-Term months because
+the summer forecasts little. The headroom
 above that carries milestone 2's AI-case watchlist
 ([milestones.md](milestones.md)).
 
