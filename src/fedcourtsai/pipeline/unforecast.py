@@ -55,6 +55,7 @@ the committed ledger; reads no snapshot and writes nothing.
 
 from __future__ import annotations
 
+import re
 from datetime import date
 from enum import StrEnum
 from pathlib import Path
@@ -65,7 +66,7 @@ from .. import corpus, ids
 from ..paths import CasePaths
 from ..schemas import GRANT_FAMILY_DISPOSITIONS
 from ..supremecourt import october_term_year
-from .caption import classify_petitioner_v2
+from .caption import classify_petitioner_v2, petitioner_caption
 from .interim_signals import ApplicationKind
 from .missed import had_a_scheduled_round
 from .salience import salience_band
@@ -113,6 +114,12 @@ class FederalSignal(StrEnum):
     """The Solicitor General's office appears for a petitioner, of record or not."""
     federal_petitioner_party = "federal_petitioner_party"
     """A petitioner-side party name reads federal, anywhere in the party block."""
+
+
+#: A relator's caption ("ex rel."). The sovereign named before the relator is a
+#: party on the petitioner side of every such petition and the petitioner in
+#: none, so the party reading is not asked of one, whichever sovereign it is.
+_EX_REL_RE = re.compile(r"\bex rel\b\.?", re.IGNORECASE)
 
 
 class UnforecastOutcome(BaseModel):
@@ -209,14 +216,15 @@ def federal_signals(row: corpus.CorpusRow) -> list[FederalSignal]:
     here costs a minute of reading: the office anywhere on the petitioner side
     (the reading ``caption-v3`` was set aside for, since a docket can gain it
     after the outcome), and the federal caption grammar run over every
-    petitioner-side party name rather than the lead caption alone.
+    petitioner-side party name rather than the lead caption alone — except on
+    a relator's caption, where the United States is always such a party.
     """
     from .counsel import sg_office_annotations  # noqa: PLC0415 - counsel<-party<-caption cycle
 
     signals: list[FederalSignal] = []
     if sg_office_annotations(row, None).petitioner == "yes":
         signals.append(FederalSignal.sg_office_counsel)
-    if any(
+    if not _EX_REL_RE.search(petitioner_caption(row)) and any(
         entry.role == corpus.CounselRole.petitioner
         and classify_petitioner_v2(entry.party) == "federal"
         for entry in row.counsel

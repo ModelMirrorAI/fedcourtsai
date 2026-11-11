@@ -787,10 +787,10 @@ nothing), which is the only reason a workflow here ever reaches for the App
 token — so issue-write deliberately stays **off** the App token that
 carries `contents: write` and opens and merges the run PR. This mirrors `run-ops`,
 which posts its `data-validation` / `daily-digest` issues with the same
-ambient token, `run-analytics`' ai-candidates job, which comments the
-week's AI-case candidates on the long-lived `ai-candidates` issue with it,
-and its merits-coverage-alarm job, which opens, refreshes and closes the one
-`merits-coverage` alarm issue with it —
+ambient token, `run-analytics`' ai-candidates and ai-follow-ons jobs, which
+comment the week's AI-case candidates and follow-on dockets on the long-lived
+`ai-candidates` issue with it, and its merits-coverage-alarm job, which opens,
+refreshes and closes the one `merits-coverage` alarm issue with it —
 each of those labels
 non-triggering, so a reporting job opening an issue can never start a spending
 run — and `run-pull`, whose failure-only
@@ -879,9 +879,9 @@ enrichment — the dispatched enrich job's step and, step-scoped, the live job's
 awaiting-grading enrichment step and its decision-below fill step, the only two
 steps of that job holding it; by
 `run-analytics`'s order-scan job, step-scoped to its scan step, in a job that
-assumes no cloud role and mints no App token; by its ai-candidates job,
-step-scoped to its search step, in a job that likewise assumes no role and
-mints no App token; by its decision-below job,
+assumes no cloud role and mints no App token; by its ai-candidates and
+ai-follow-ons jobs, each step-scoped to its search step, in jobs that likewise
+assume no role and mint no App token; by its decision-below job,
 step-scoped to its dry-run step, in a job that holds the read-only role for
 its corpus pull and mints no App token; by the MCP
 sidecar composite's launch step — the cells', `integration-test`'s
@@ -1851,6 +1851,7 @@ Access mirrors each workflow's role in the pipeline:
 | `run-analytics` — public-updates          | none          | adds the committed `data/` ledger's missing weeks to the update history — no corpus, no network, no `id-token`. It binds the branch-resolved environment, never `website`, because it publishes, and mints the PR token there; it assumes no role |
 | `run-analytics` — order-scan              | none          | reads CourtListener's REST API only — no corpus, no `id-token`, no App token. It binds the branch-resolved environment for the CourtListener token, scoped to its scan step. Its runtime token adds `actions: read`, to fetch the previous run's report artifact the scan resumes |
 | `run-analytics` — ai-candidates          | none          | reads CourtListener's search index only — no corpus, no `id-token`, no App token. It binds the branch-resolved environment for the CourtListener token, scoped to its search step; its runtime token adds `issues: write`, on the steps that read the `ai-candidates` issue's raised set and post the week's comment, which only a `main`-ref run does |
+| `run-analytics` — ai-follow-ons          | none          | reads CourtListener's search index and, once per new circuit hit, that docket's own fields — no corpus, no `id-token`, no App token. It binds the branch-resolved environment for the CourtListener token, scoped to its search step; its runtime token adds `issues: write`, on the steps that read the `ai-candidates` issue's raised set and post the week's comment, which only a `main`-ref run does |
 | `run-analytics` — merits-coverage        | read-only     | the grants and merits events the coverage check classifies (full `corpus-pull`), with the committed predictions and the Court's Granted & Noted list off supremecourt.gov; the job fetches and parses those PDFs while holding the role, as `run-pull`'s live job parses upstream PDFs under its own, and what it could reach through it is the read side only; it writes no corpus, mints no App token, holds no issue write, and hands the check and its report (counts, docket numbers, case ids, statuses and dates) to the alarm job as a one-day artifact |
 | `run-analytics` — merits-coverage-alarm  | none          | reads that artifact only — no corpus, no `id-token`, no App token, no environment. Its runtime token adds `issues: write`, on the one step that opens, refreshes or closes the `merits-coverage` alarm issue, which only a `main`-ref run does |
 | `run-analytics` — decision-below          | read-only     | the fill's rotation (full `corpus-pull`, then each case's newest snapshot from the content store), then CourtListener's REST API; a dry run, it writes nothing. It binds the branch-resolved environment for the CourtListener token, scoped to its dry-run step, and mints no App token |
