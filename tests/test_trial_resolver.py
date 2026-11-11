@@ -1087,7 +1087,7 @@ def test_an_injunction_ruling_reads_like_any_motion_ruling() -> None:
     assert isinstance(resolved, MotionResolution)
     assert resolved.ruling is MotionRuling.denied
     assert resolved.leave is None
-    assert resolved.rule == "trial-resolver-v2"
+    assert resolved.rule == "trial-resolver-v3"
 
 
 COMBINED = entry(
@@ -1191,3 +1191,401 @@ def test_a_judge_s_name_does_not_make_a_reference_a_ruling(text: str) -> None:
 )
 def test_a_motion_about_a_covered_motion_is_not_one(text: str) -> None:
     assert motion_moment(text) is None
+
+
+# --- rulings that cite the motion after naming it ------------------------------
+
+_FIRST_PERSON_ORDER = (
+    "ORDER, I GRANT IN PART AND DENY IN PART Plaintiffs' motion for summary judgment on "
+    + "infringement (D.I. 249 ). I DENY Defendant's motion for summary judgment on fair use "
+    + "(D.I. 271 ). I GRANT Plaintiffs' Motion for Summary Judgment on Counterclaims (No. 1) "
+    + "(D.I. [519). Because I am granting summary judgment on Motions 1 and 2, I DISMISS AS MOOT "
+    + "Plaintiffs' Motion for Summary Judgment on Counterclaims (No. 3) Time (D.I. 523)."
+)
+
+
+@pytest.mark.parametrize(
+    ("text", "number", "ruling"),
+    [
+        (_FIRST_PERSON_ORDER, 249, MotionRuling.granted_in_part),
+        (_FIRST_PERSON_ORDER, 271, MotionRuling.denied),
+        (_FIRST_PERSON_ORDER, 519, MotionRuling.granted),
+        (_FIRST_PERSON_ORDER, 523, MotionRuling.mooted),
+        (
+            "ORDER GRANTING MOTION FOR PRELIMINARY INJUNCTION 6 . Signed by Judge A on 3/26/2026.",
+            6,
+            MotionRuling.granted,
+        ),
+        ("ORDER DENYING MOTION TO DISMISS 45.", 45, MotionRuling.denied),
+        (
+            "ORDER: Defendant's Motion to Dismiss (Doc. No. 54) is GRANTED.",
+            54,
+            MotionRuling.granted,
+        ),
+        (
+            "ORDER: Plaintiff's Motion for Class Certification (ECF No. 80) is DENIED. The parties "
+            + "shall confer.",
+            80,
+            MotionRuling.denied,
+        ),
+    ],
+)
+def test_a_ruling_that_cites_the_motion_after_its_title_is_read(
+    text: str, number: int, ruling: MotionRuling
+) -> None:
+    reading = read_docket_ruling(text, number)
+    assert reading.ruling is ruling
+    assert reading.conflict is None
+
+
+@pytest.mark.parametrize(
+    ("text", "number"),
+    [
+        (
+            "ORDER GRANTING MOTION FOR LEAVE TO FILE AMICUS BRIEF AND GRANTING IN PART AND DENYING "
+            + "IN PART MOTION TO DISMISS AND TO STRIKE 237 256 .",
+            237,
+        ),
+        (
+            "ORDER ON 166 215 CROSS MOTIONS FOR SUMMARY JUDGMENT; GRANTING 169 MOTION TO ADD "
+            + "TO THE RECORD.",
+            166,
+        ),
+        (
+            "ORDER: Defendant's Motion to Dismiss or, in the Alternative, to Transfer Venue (Doc. "
+            + "No. 54 ) is GRANTED IN PART and DENIED AS MOOT IN PART.",
+            54,
+        ),
+        ("ORDER: Defendant's Motion to Dismiss (Doc. No. 54) is GRANTED as to Count I.", 54),
+        (
+            "ORDER: I DENY Defendant's Motion for Reconsideration of the ruling on the Motion for "
+            + "Summary Judgment (D.I. 249).",
+            249,
+        ),
+        (
+            "ORDER: I GRANT Plaintiff's Motion to Strike the summary judgment papers (D.I. 249).",
+            249,
+        ),
+        ("ORDER: I GRANT Plaintiffs' Motion for Summary Judgment (D.I. 249) as to liability.", 249),
+        (
+            "ORDER: I GRANT Plaintiffs' Motion (D.I. 249). I DENY Plaintiffs' Motion (D.I. 249).",
+            249,
+        ),
+        ("ORDER GRANTING MOTION TO DISMISS OR TRANSFER 45.", 45),
+        ("ORDER GRANTING MOTION TO DISMISS 45 46.", 45),
+    ],
+)
+def test_a_cited_ruling_the_rule_will_not_settle_is_triage(text: str, number: int) -> None:
+    reading = read_docket_ruling(text, number)
+    assert reading.ruling is None
+    assert reading.conflict is not None
+
+
+@pytest.mark.parametrize(
+    ("text", "number"),
+    [
+        (_FIRST_PERSON_ORDER, 5),
+        ("ORDER GRANTING MOTION FOR PRELIMINARY INJUNCTION 6 .", 7),
+        ("ORDER: The hearing on the Motion to Dismiss (Doc. No. 54) is set for May 1.", 54),
+        ("ORDER: I will hear argument on the Motion for Summary Judgment (D.I. 249).", 249),
+        ("ORDER: i grant plaintiffs' motion (d.i. 249).", 249),
+        ("ORDER extending time. The Motion to Dismiss (Doc. No. 54) is fully briefed.", 54),
+    ],
+)
+def test_a_text_that_cites_the_motion_without_ruling_reads_nothing(text: str, number: int) -> None:
+    reading = read_docket_ruling(text, number)
+    assert reading.ruling is None
+    assert reading.conflict is None
+
+
+@pytest.mark.parametrize(
+    ("text", "number"),
+    [
+        (
+            "ORDER: I GRANT in part Plaintiffs' Motion for Summary Judgment (D.I. 249).",
+            249,
+        ),
+        (
+            "ORDER: I DENY as moot Plaintiffs' Motion for Summary Judgment (D.I. 249).",
+            249,
+        ),
+        (
+            "ORDER: I GRANT Plaintiffs' Motion for Summary Judgment as to liability (D.I. 2"
+            + "49).",
+            249,
+        ),
+        (
+            "ORDER: I GRANT the portion of Plaintiffs' Motion for Summary Judgment concerni"
+            + "ng infringement (D.I. 249).",
+            249,
+        ),
+        (
+            "ORDER: I DENY Defendant's Motion for Summary Judgment with respect to Count I "
+            + "(D.I. 249).",
+            249,
+        ),
+        (
+            "ORDER: I GRANT Defendants' Motion to Dismiss in Part (D.I. 45).",
+            45,
+        ),
+        (
+            "ORDER: I GRANT Defendant's Motion to Dismiss or, in the alternative, to Transf"
+            + "er (D.I. 45).",
+            45,
+        ),
+        (
+            "ORDER: I GRANT Defendant's Motion to Dismiss Count I, and otherwise reserve de"
+            + "cision (D.I. 45).",
+            45,
+        ),
+        (
+            "ORDER: I GRANT Plaintiffs' Motion for Summary Judgment (D.I. 249). However, I "
+            + "DENY it as to damages.",
+            249,
+        ),
+        (
+            "ORDER: I GRANT Plaintiffs' Motion for Summary Judgment (D.I. 249). Summary jud"
+            + "gment is DENIED as to Count III.",
+            249,
+        ),
+        (
+            "ORDER: Defendant's Motion to Dismiss (Doc. No. 54) is GRANTED. The claims agai"
+            + "nst Beta are DISMISSED. In all other respects the motion is DENIED.",
+            54,
+        ),
+        (
+            "ORDER: Defendant's Motion to Dismiss (Doc. No. 54) is GRANTED; however, Count "
+            + "III survives.",
+            54,
+        ),
+        (
+            "ORDER: Defendant's Motion to Dismiss (Doc. No. 54) is GRANTED. Counts I and II"
+            + " are dismissed; Count III may proceed.",
+            54,
+        ),
+        (
+            "ORDER GRANTING MOTION TO DISMISS 45. THE MOTION IS DENIED AS TO COUNT III.",
+            45,
+        ),
+        (
+            "ORDER GRANTING MOTION TO DISMISS 45; DENYING MOTION TO DISMISS 45.",
+            45,
+        ),
+        (
+            "ORDER: Plaintiff's request to file excess pages in opposition to Defendant's M"
+            + "otion for Summary Judgment (Doc. No. 88) is GRANTED.",
+            88,
+        ),
+        (
+            "ORDER: Plaintiff's request for oral argument on the Motion to Dismiss (Doc. No"
+            + ". 54) is DENIED.",
+            54,
+        ),
+        (
+            "ORDER: The parties' stipulation regarding briefing on the Motion to Dismiss (D"
+            + "oc. No. 54) is GRANTED.",
+            54,
+        ),
+        (
+            "ORDER: Plaintiff's objection to the Magistrate Judge's recommendation on the M"
+            + "otion to Dismiss (Doc. No. 54) is DENIED.",
+            54,
+        ),
+        (
+            "ORDER: I GRANT Defendant's request to file a sur-reply to Plaintiffs' Motion f"
+            + "or Summary Judgment (D.I. 249).",
+            249,
+        ),
+        (
+            "ORDER: I DENY the objections to the Report and Recommendation on the Motion to"
+            + " Dismiss (D.I. 45).",
+            45,
+        ),
+        (
+            "ORDER: Plaintiff's Motion to Strike Defendant's Fed. R. Civ. P. 12(b)(6) Motio"
+            + "n to Dismiss (Doc. No. 54) is GRANTED.",
+            54,
+        ),
+        (
+            "ORDER: Plaintiff's Motion for Extension of Time to respond to Defendant Acme, "
+            + "Inc. 's Motion to Dismiss (Doc. No. 54) is GRANTED.",
+            54,
+        ),
+        (
+            "ORDER: Plaintiff's Motion for Reconsideration of the ruling on Acme Inc. and B"
+            + "eta Corp. Motion to Dismiss (Doc. No. 54) is GRANTED.",
+            54,
+        ),
+        (
+            "ORDER: The Court does not agree that Defendant's Motion to Dismiss (Doc. No. 5"
+            + "4) is GRANTED.",
+            54,
+        ),
+        (
+            "ORDER: If no opposition is filed by May 1, the Motion to Dismiss (Doc. No. 54)"
+            + " is GRANTED.",
+            54,
+        ),
+        (
+            "ORDER: Unless Plaintiff files an amended complaint by June 1, Defendant's Moti"
+            + "on to Dismiss (Doc. No. 54) is GRANTED.",
+            54,
+        ),
+        (
+            "ORDER: The Court is inclined to rule that Defendant's Motion to Dismiss (Doc. "
+            + "No. 54) is GRANTED.",
+            54,
+        ),
+        (
+            "MINUTE ORDER: Tentative ruling: Defendant's Motion to Dismiss (Doc. No. 54) is"
+            + " GRANTED.",
+            54,
+        ),
+        (
+            "ORDER TO SHOW CAUSE why Defendant's Motion to Dismiss (Doc. No. 54) is GRANTED" + ".",
+            54,
+        ),
+        (
+            "ORDER granting 70 Motion for Reconsideration. The Court previously ruled that "
+            + "Defendant's Motion to Dismiss (Doc. No. 54) is DENIED. On reconsideration the "
+            + "motion is granted.",
+            54,
+        ),
+        (
+            "ORDER: The Magistrate Judge recommended that I GRANT Defendant's Motion to Dis"
+            + "miss (D.I. 45). I decline to adopt that recommendation.",
+            45,
+        ),
+        (
+            "ORDER ADOPTING REPORT AND RECOMMENDATIONS: The Magistrate Judge recommended th"
+            + "at Defendant's Motion to Dismiss (Doc. No. 54) is GRANTED. The Court declines "
+            + "to adopt it.",
+            54,
+        ),
+        (
+            "ORDER: Having reviewed the papers, I am not persuaded that I GRANT Plaintiffs'"
+            + " Motion (D.I. 249).",
+            249,
+        ),
+        (
+            "ORDER GRANTING MOTION FOR JUDGMENT ON THE PLEADINGS UNDER RULE 12.",
+            12,
+        ),
+        (
+            "ORDER DENYING MOTION FOR SANCTIONS UNDER RULE 11.",
+            11,
+        ),
+        (
+            "ORDER GRANTING MOTION FOR SUMMARY JUDGMENT ON CLAIM 6.",
+            6,
+        ),
+        (
+            "ORDER GRANTING MOTION TO DISMISS IN CASE NO 45.",
+            45,
+        ),
+        (
+            "ORDER GRANTING MOTION TO EXPEDITE BRIEFING ON PRELIMINARY INJUNCTION 6.",
+            6,
+        ),
+        (
+            "ORDER: I DENY without prejudice Plaintiffs' Motion for Summary Judgment (D.I. "
+            + "249).",
+            249,
+        ),
+        (
+            "ORDER DENYING WITHOUT PREJUDICE MOTION TO DISMISS 45.",
+            45,
+        ),
+        (
+            "ORDER: As to Count I GRANT the Motion to Dismiss (D.I. 45).",
+            45,
+        ),
+        (
+            "ORDER: Acme Corp. Motion to Dismiss (Doc. No. 54) is GRANTED.",
+            54,
+        ),
+    ],
+)
+def test_a_cited_ruling_outside_its_plain_shape_is_never_read_as_one(
+    text: str, number: int
+) -> None:
+    reading = read_docket_ruling(text, number)
+    assert reading.ruling is None
+    assert reading.conflict is not None
+
+
+@pytest.mark.parametrize(
+    ("text", "number"),
+    [
+        (
+            "ORDER: The deadline to respond to the Motion to Dismiss (Doc. No. 54) is EXTEN"
+            + "DED.",
+            54,
+        ),
+        (
+            "ORDER: Motion to Dismiss (Doc. No. 54) and Motion to Strike (Doc. No. 56) are "
+            + "DENIED.",
+            54,
+        ),
+        (
+            "ORDER GRANTING MOTION TO DISMISS 45 IN PART.",
+            45,
+        ),
+    ],
+)
+def test_a_citation_that_is_no_ruling_on_the_motion_reads_nothing(text: str, number: int) -> None:
+    reading = read_docket_ruling(text, number)
+    assert reading.ruling is None
+    assert reading.conflict is None
+
+
+def test_leave_is_read_from_a_cited_dismissal_that_stands_alone() -> None:
+    text = (
+        "ORDER: Defendant's Motion to Dismiss (Doc. No. 54) is GRANTED. Plaintiff may file an "
+        + "amended complaint within 21 days."
+    )
+    reading = read_docket_ruling(text, 54)
+    assert reading.ruling is MotionRuling.granted
+    assert reading.leave is Leave.with_leave
+
+
+def test_a_cited_ruling_resolves_the_event_and_cites_its_entry() -> None:
+    entries = [
+        {
+            "id": 1,
+            "entry_number": 6,
+            "date_filed": "2026-03-01",
+            "description": "MOTION for Preliminary Injunction filed by Plaintiff.",
+        },
+        {
+            "id": 2,
+            "entry_number": 134,
+            "date_filed": "2026-03-26",
+            "description": "ORDER GRANTING MOTION FOR PRELIMINARY INJUNCTION 6 . Signed by A.",
+        },
+    ]
+    resolved = resolve_motion(MotionEvent(TrialMoment.preliminary_injunction, 6), entries)
+    assert isinstance(resolved, MotionResolution)
+    assert resolved.ruling is MotionRuling.granted
+    assert resolved.cited.entry_number == 134
+
+
+_CITED_SJ = "ORDER: I GRANT Plaintiffs' Motion for Summary Judgment (D.I. 249). "
+
+
+def test_a_ruling_on_a_motion_outside_the_stage_does_not_unsettle_the_cited_one() -> None:
+    text = _CITED_SJ + "I GRANT IN PART Plaintiffs' Motion to Preclude Dr. Smith. I exclude a part."
+    assert read_docket_ruling(text, 249).ruling is MotionRuling.granted
+
+
+@pytest.mark.parametrize(
+    "more",
+    [
+        "I DENY IN PART Plaintiffs' Motion for Summary Judgment on damages.",
+        "I DENY Plaintiffs' Motion to Strike, and DENY summary judgment as to damages.",
+    ],
+)
+def test_a_second_uncited_ruling_that_may_reach_the_motion_is_triage(more: str) -> None:
+    reading = read_docket_ruling(_CITED_SJ + more, 249)
+    assert reading.ruling is None
+    assert reading.conflict is not None

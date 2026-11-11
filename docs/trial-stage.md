@@ -152,15 +152,11 @@ withdrawn, mooted by an amended complaint, or overtaken by settlement resolves
 as such, and the forecast prices that in. A forecaster who thinks a motion will
 be mooted puts weight on that outcome.
 
-The resolver is `pipeline/trial_resolver.py` (rule `trial-resolver-v2`). It is
+The resolver is `pipeline/trial_resolver.py` (rule `trial-resolver-v3`). It is
 deterministic, runs no agent, and is built to miss rather than misread: a text
 it cannot read leaves the event open, or sends it to triage, and never records
 a guessed outcome. It reads the four motion moments and the final
-disposition. It does not yet read a ruling the docket text states as a
-sentence (`the motion (Doc. 54) is GRANTED IN PART`, `I GRANT Plaintiffs'
-motion (D.I. 249)`) or with the entry number after the motion's title; an
-event ruled that way stays open until the rule learns the form, and the stage
-does not register while such rulings are a large share of the watchlist's.
+disposition.
 
 - **The docket text decides.** The disposing entry is the first court entry
   after the motion (an order, opinion, ruling or minute order, or an order
@@ -178,6 +174,30 @@ does not register while such rulings are a large share of the watchlist's.
   70, `ORDER vacating 60 Order granting 45` rules on nothing about 45, and
   `granting 45 days` rules on nothing. An entry that cites no entry number
   never rules, because a docket can hold several motions of one kind.
+- **A ruling that cites the motion after its title is read in three plain
+  shapes**, each only in the capitals the court wrote its ruling in: a
+  first-person sentence that ends on the citation (`I GRANT Plaintiffs' Motion
+  for Summary Judgment on Fair Use (D.I. 672).`); a passive sentence on the
+  citation (`Defendant's Motion to Dismiss (Doc. No. 54) is GRANTED.`); and a
+  capitalised title with one trailing entry number (`ORDER GRANTING MOTION
+  FOR PRELIMINARY INJUNCTION 6 .`). The sentence must stand where a sentence
+  starts, and its title must be the movant, one of the stage's four motions,
+  and at most what the motion is "on": a request, an objection or a motion
+  about the motion is not that title, and neither is one with a limit or an
+  alternative in it. The passive shape reads granted, denied, and granted in
+  part and denied in part, and no other wording.
+- **A ruling on the cited motion in any other shape is triage**, and so is a
+  plain one beside anything that could change it: a second ruling in the
+  court's capitals that the rule cannot tie to another motion, a limiting
+  word after the ruling ("however", "as to", "otherwise"), a text that states
+  a ruling it does not make (a tentative ruling, a recommendation, a
+  condition, an order to show cause), two readings that disagree, or leave
+  granted or denied in an order that rules on several motions. `ORDER ON 166
+  215 CROSS MOTIONS` is triage too: it names the motions and leaves the
+  ruling to the order. Triage here stops the reading at that entry, so an
+  order about the motion written in one of these shapes (a request for
+  argument on it that "is DENIED") holds the event for the maintainer even
+  where a later entry rules on it plainly.
 - **Anything that could limit the ruling is triage.** The ruling's run goes
   from the motion's number to the next ruling verb, across sentences, and
   stops at the clerk's trailer ("Signed by Judge ..."); the rest of the text
