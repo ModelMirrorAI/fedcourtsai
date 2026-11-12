@@ -2947,8 +2947,11 @@ After resolution, the evaluate derivation runs the **missed-forecast monitor**
 over the week's resolutions, driven from the corpus rather than the ledger so a
 case that never reached the ledger is still seen: an event a predictor owed
 never forecast is either declined by design (out of scope, not a forecastable
-moment, not funded, the predictor not yet producing forecasts, or resolved
-before a scheduled round could run) or **missed**, and each miss is annotated
+moment, not funded, the predictor not yet producing forecasts, resolved
+before a scheduled round could run, or open across rounds none of which fell
+inside the moment's own window: after its cells were first admitted and, for
+a relist, sg-brief or cert call-for-response moment, before the conference
+that next considered the petition) or **missed**, and each miss is annotated
 by name — as is a decided event with no outcome record on a selected row (resolved
 in the corpus, or a declared moment left open on a row that records its stage
 decided),

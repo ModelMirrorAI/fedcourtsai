@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import re
 import shutil
-from datetime import date, time, timedelta
+from datetime import date, datetime, time, timedelta
 from pathlib import Path
 
 import pytest
@@ -20,13 +20,14 @@ from fedcourtsai import cli, corpus
 from fedcourtsai.cli import app
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.missed import (
+    MOMENT_FIRST_FORECAST_UTC,
     PREDICT_ROUND_TIMES_UTC,
     PredictionlessReport,
     had_a_scheduled_round,
     scan_predictionless_resolutions,
 )
 from fedcourtsai.registry import enabled_predictors
-from fedcourtsai.schemas import CellFailure, Disposition, EventKind, Outcome, Stage
+from fedcourtsai.schemas import CellFailure, Disposition, EventKind, Moment, Outcome, Stage
 from fedcourtsai.serialize import write_json
 from tests.conftest import seed_prediction
 
@@ -60,6 +61,7 @@ def _resolved_case(  # noqa: PLR0913 - one fixture knob per classification rule
     outcome: bool = True,
     date_decided: date | None = None,
     polled_on: date | None = None,
+    date_filed: date | None = None,
 ) -> str:
     """Seed one resolved SCOTUS event: a corpus row and event, and its ledger outcome.
 
@@ -83,6 +85,7 @@ def _resolved_case(  # noqa: PLR0913 - one fixture knob per classification rule
                     salience_selected=selected,
                     date_decided=date_decided,
                     last_live_polled=polled_on,
+                    date_filed=date_filed,
                     # Read only on an application-form docket, where a
                     # substantive ask is what keeps it in interim scope.
                     application_kind="substantive" if docket_number else None,
@@ -137,10 +140,12 @@ def _enable_all(data_root: Path, *, run_id: str = "20260101T000000Z") -> None:
         )
 
 
-def _scan(db: Path, data_root: Path, *, since: date = SINCE) -> PredictionlessReport:
+def _scan(
+    db: Path, data_root: Path, *, since: date = SINCE, until: date = UNTIL
+) -> PredictionlessReport:
     with corpus.connect_readonly(db) as conn:
         return scan_predictionless_resolutions(
-            conn, data_root, PREDICTORS, since=since, until=UNTIL
+            conn, data_root, PREDICTORS, since=since, until=until
         )
 
 
@@ -276,6 +281,271 @@ def test_the_round_rule_reads_the_open_span_at_its_narrowest(
     opened: date, resolved: date, had: bool
 ) -> None:
     assert had_a_scheduled_round(opened, resolved) is had
+
+
+def test_the_round_rule_counts_no_round_before_the_moment_was_first_forecast() -> None:
+    opened, resolved = date(2026, 9, 8), date(2026, 9, 12)
+    assert had_a_scheduled_round(opened, resolved)
+    # After the last round of the last whole day: nothing left inside the span.
+    assert not had_a_scheduled_round(opened, resolved, not_before=datetime(2026, 9, 11, 17, 33))
+    # An instant before the span opens changes nothing.
+    assert had_a_scheduled_round(opened, resolved, not_before=datetime(2026, 9, 1, 0, 0))
+
+
+RELIST_EVENT = "evt-order-relist-disposition"
+CALL_EVENT = "evt-order-call-for-response-disposition"
+_LATE = {"since": date(2026, 10, 20), "until": date(2026, 12, 20)}
+
+
+def _later_cert_moment(
+    db: Path,
+    data_root: Path,
+    docket: int,
+    *,
+    event_id: str = RELIST_EVENT,
+    opened_at: date,
+    resolved_at: date,
+    entries: list[dict[str, str]] | None,
+    stored_on: date = date(2026, 12, 10),
+) -> None:
+    """One resolved later cert moment, with the docket stored for it where ``entries`` is given."""
+    case_id = _resolved_case(
+        db,
+        data_root,
+        docket,
+        event_id=event_id,
+        kind=EventKind.order,
+        opened_at=opened_at,
+        resolved_at=resolved_at,
+    )
+    if entries is not None:
+        with corpus.connect(db) as conn:
+            corpus.upsert_snapshot(conn, case_id, stored_on, {"ProceedingsandOrder": entries})
+
+
+def _relisted(on: str, conference: str) -> list[dict[str, str]]:
+    return [
+        {"Date": "Oct 20 2026", "Text": "DISTRIBUTED for Conference of 11/6/2026."},
+        {"Date": on, "Text": f"DISTRIBUTED for Conference of {conference}."},
+    ]
+
+
+def test_a_relist_is_judged_on_the_conference_it_was_relisted_for(tmp_path: Path) -> None:
+    """The relist cell forecasts the next conference, so the weeks a petition stays
+    pending after it are not time a round could have used."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    resolved = date(2026, 12, 7)
+    # Relisted Monday for Friday: three days of rounds inside the window.
+    _later_cert_moment(
+        db,
+        data,
+        1,
+        opened_at=date(2026, 11, 9),
+        resolved_at=resolved,
+        entries=_relisted("Nov 09 2026", "11/13/2026"),
+    )
+    # Relisted the day before the conference: no round certainly inside.
+    _later_cert_moment(
+        db,
+        data,
+        2,
+        opened_at=date(2026, 11, 12),
+        resolved_at=resolved,
+        entries=_relisted("Nov 12 2026", "11/13/2026"),
+    )
+    # The same docket with nothing stored: no bound is read, so it stays a miss.
+    _later_cert_moment(
+        db, data, 3, opened_at=date(2026, 11, 12), resolved_at=resolved, entries=None
+    )
+    # Stored before the conference sat: the docket cannot show it, so no bound.
+    _later_cert_moment(
+        db,
+        data,
+        4,
+        opened_at=date(2026, 11, 12),
+        resolved_at=resolved,
+        entries=_relisted("Nov 12 2026", "11/13/2026"),
+        stored_on=date(2026, 11, 12),
+    )
+    # Taken off the conference before it sat: it never considered the petition.
+    _later_cert_moment(
+        db,
+        data,
+        5,
+        opened_at=date(2026, 11, 12),
+        resolved_at=resolved,
+        entries=[
+            *_relisted("Nov 12 2026", "11/13/2026"),
+            {"Date": "Nov 12 2026", "Text": "Rescheduled."},
+        ],
+    )
+
+    # The relist's own distribution entry is not on the stored docket: no bound.
+    _later_cert_moment(
+        db,
+        data,
+        6,
+        opened_at=date(2026, 11, 12),
+        resolved_at=resolved,
+        entries=_relisted("Nov 12 2026", "11/13/2026")[:1],
+    )
+    # A call for a response whose next conference sat the day after it.
+    _later_cert_moment(
+        db,
+        data,
+        7,
+        event_id=CALL_EVENT,
+        opened_at=date(2026, 11, 10),
+        resolved_at=resolved,
+        entries=[
+            {"Date": "Nov 10 2026", "Text": "Response Requested. (Due November 10, 2026)"},
+            {"Date": "Nov 11 2026", "Text": "DISTRIBUTED for Conference of 11/11/2026."},
+        ],
+    )
+    called = [
+        {"Date": "Nov 02 2026", "Text": "Response Requested. (Due November 10, 2026)"},
+        {"Date": "Nov 12 2026", "Text": "DISTRIBUTED for Conference of 11/13/2026."},
+    ]
+    # The same call a week earlier: rounds ran before its conference sat.
+    _later_cert_moment(
+        db,
+        data,
+        8,
+        event_id=CALL_EVENT,
+        opened_at=date(2026, 11, 2),
+        resolved_at=resolved,
+        entries=called,
+    )
+
+    report = _scan(db, data, **_LATE)
+
+    assert _by_case(report) == {
+        "scotus/1": ("missed", "owed_and_unforecast"),
+        "scotus/2": ("declined", "moment_window_closed"),
+        "scotus/3": ("missed", "owed_and_unforecast"),
+        "scotus/4": ("missed", "owed_and_unforecast"),
+        "scotus/5": ("missed", "owed_and_unforecast"),
+        "scotus/6": ("missed", "owed_and_unforecast"),
+        "scotus/7": ("declined", "moment_window_closed"),
+        "scotus/8": ("missed", "owed_and_unforecast"),
+    }
+    (closed,) = (e for e in report.events if e.case_id == "scotus/2")
+    assert "the conference of 2026-11-13 closed it" in closed.detail
+
+
+def test_an_event_older_than_its_moments_first_forecast_is_declined(tmp_path: Path) -> None:
+    """Events were minted for petitions relisted or called on before any cell
+    could be placed on the moment; no round could have forecast them."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    # Relisted, and its conference sat, before the relist moment was forecast.
+    _later_cert_moment(
+        db,
+        data,
+        1,
+        opened_at=date(2026, 10, 5),
+        resolved_at=date(2026, 11, 6),
+        entries=[
+            {"Date": "Sep 09 2026", "Text": "DISTRIBUTED for Conference of 9/28/2026."},
+            {"Date": "Oct 05 2026", "Text": "DISTRIBUTED for Conference of 10/9/2026."},
+        ],
+    )
+    # Called for a response in July and dismissed before the moment was forecast.
+    _later_cert_moment(
+        db,
+        data,
+        2,
+        event_id=CALL_EVENT,
+        opened_at=date(2026, 7, 28),
+        resolved_at=date(2026, 10, 26),
+        entries=[{"Date": "Jul 28 2026", "Text": "Response Requested. (Due August 27, 2026)"}],
+    )
+    # Called on before the moment was forecast, still open days after it was.
+    _later_cert_moment(
+        db,
+        data,
+        3,
+        event_id=CALL_EVENT,
+        opened_at=date(2026, 7, 28),
+        resolved_at=date(2026, 11, 9),
+        entries=[{"Date": "Jul 28 2026", "Text": "Response Requested. (Due August 27, 2026)"}],
+    )
+
+    report = _scan(db, data, **_LATE)
+
+    assert _by_case(report) == {
+        "scotus/1": ("declined", "moment_window_closed"),
+        "scotus/2": ("declined", "moment_window_closed"),
+        "scotus/3": ("missed", "owed_and_unforecast"),
+    }
+    details = {e.case_id: e.detail for e in report.events}
+    assert "first forecast 2026-10-23 02:37Z" in details["scotus/1"]
+    assert "the conference of 2026-10-09 closed it" in details["scotus/1"]
+    assert "first forecast 2026-10-29 14:16Z" in details["scotus/2"]
+
+
+def test_an_application_is_reachable_from_its_docketing_not_its_papers(tmp_path: Path) -> None:
+    """An application's first entry is dated when the papers were submitted; the
+    docket a round could read exists only from the day the Court files it."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+
+    def application(docket: int, *, opened_at: date, date_filed: date | None) -> None:
+        _resolved_case(
+            db,
+            data,
+            docket,
+            event_id=INTERIM_EVENT,
+            kind=EventKind.motion,
+            stage=Stage.interim,
+            docket_number=f"26A{docket}",
+            opened_at=opened_at,
+            resolved_at=date(2026, 9, 5),
+            date_filed=date_filed,
+        )
+
+    application(1, opened_at=date(2026, 9, 2), date_filed=date(2026, 9, 4))
+    application(2, opened_at=date(2026, 9, 2), date_filed=None)
+    # A filing date earlier than the opening never widens the span.
+    application(3, opened_at=date(2026, 9, 4), date_filed=date(2026, 8, 1))
+    # Only an application docket is floored: a petition's later filing date is
+    # not evidence the docket was unreadable.
+    _resolved_case(
+        db,
+        data,
+        4,
+        opened_at=date(2026, 9, 2),
+        resolved_at=date(2026, 9, 5),
+        date_filed=date(2026, 9, 4),
+    )
+
+    report = _scan(db, data)
+
+    assert _by_case(report) == {
+        "scotus/1": ("declined", "resolved_before_a_round"),
+        "scotus/2": ("missed", "owed_and_unforecast"),
+        "scotus/3": ("declined", "resolved_before_a_round"),
+        "scotus/4": ("missed", "owed_and_unforecast"),
+    }
+    (docketed,) = (e for e in report.events if e.case_id == "scotus/1")
+    assert "on a docket filed 2026-09-04" in docketed.detail
+
+
+@pytest.mark.reads_docs
+def test_each_first_forecast_instant_is_a_merge_the_freeze_record_names() -> None:
+    """Each instant is the carrying merge of the label that released the moment."""
+    record = (_ROOT / "docs" / "freeze-record.md").read_text(encoding="utf-8")
+    released_by = {
+        (Stage.cert, Moment.sg_brief): "proc-v11",
+        (Stage.cert, Moment.relist): "proc-v11",
+        (Stage.merits, Moment.argued): "proc-v11",
+        (Stage.cert, Moment.response_requested): "proc-v14",
+    }
+    assert set(MOMENT_FIRST_FORECAST_UTC) == set(released_by)
+    for key, label in released_by.items():
+        header = record.split(f"- **`{label}`: ", 1)[1][:600]
+        assert f"`{MOMENT_FIRST_FORECAST_UTC[key]:%Y-%m-%dT%H:%M:%SZ}`" in header
 
 
 def test_the_round_times_mirror_the_predict_workflow_schedule() -> None:
