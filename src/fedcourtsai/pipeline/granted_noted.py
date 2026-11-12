@@ -20,6 +20,13 @@ writer (:mod:`fedcourtsai.vote_writer`) holds such a record back rather than
 publish it. The list itself is never published: it is a check, not a vote
 source, and nothing it says reaches ``Outcome.votes``.
 
+It is also the Court's own roll of the cases set for argument in a Term, so
+the merits coverage check (:mod:`fedcourtsai.pipeline.merits_coverage_check`)
+sets it against the corpus's grants: each entry carries the date the case was
+granted (or, for an appeal, probable jurisdiction noted), its argument date
+and the case code beside each docket, and a line numbered ``156, Orig.`` is
+an original-jurisdiction case (:func:`original_dockets`).
+
 It also says which dockets were decided together: an entry opening on
 ``24-354)`` and ``24-422)`` is one argument and one opinion, which is how the
 writer maps one opinion reading onto a consolidated case's other docket. The
@@ -34,7 +41,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date, datetime
 from types import MappingProxyType
 from typing import Final
@@ -85,7 +92,30 @@ def _label(word: str) -> str:
     return r"\b" + _spaced(word) + r"\s*:"
 
 
-_DECIDED_RE = re.compile(_label("Decided") + r"\s*(\d{1,2}\s*/\s*\d{1,2}\s*/\s*\d{2,4})")
+_DATE = r"(\d{1,2}\s*/\s*\d{1,2}\s*/\s*\d{2,4})"
+_DECIDED_RE = re.compile(_label("Decided") + r"\s*" + _DATE)
+# "Granted: 6/29/26", or "Noted: 11/4/24" where an appeal's probable
+# jurisdiction was noted; a footnoted entry prints "Granted*:".
+_GRANTED_RE = re.compile(
+    r"\b(?:" + _spaced("Granted") + r"|" + _spaced("Noted") + r")\s*\*?\s*:\s*" + _DATE
+)
+# "Argument Date:", "Rescheduled Argument Date:" and "Reargument Date:" alike.
+_ARGUMENT_RE = re.compile(
+    r"(?:"
+    + _spaced("Rea")
+    + r"|A)\s*"
+    + _spaced("rgument")
+    + r"\s*"
+    + _label("Date")
+    + r"\s*"
+    + _DATE
+)
+# What follows a docket number on its line: the closing parenthesis and
+# footnote digit a consolidated group prints, any unanimity marker, then the
+# three-letter case code (jurisdictional ground, court below, nature of case).
+_CODE_RE = re.compile(r"^\s*\)?\d?\s*[*#]*\s*([ACQ][SFTMO][XYH])\s")
+# An original-jurisdiction case's line: "156, Orig. *  NEW YORK V. NEW JERSEY".
+_ORIGINAL_LINE_RE = re.compile(r"^\s*(\d{1,3})\s*,\s*" + _spaced("Orig") + r"\b")
 # "Decided: 6/30/26 (with No. 24-38)": the entry's opinion also decides these.
 _WITH_RE = re.compile(r"\(\s*" + _spaced("with") + r"\s+" + _spaced("No") + r"s?\s*\.\s*([^)]*)\)")
 
@@ -126,12 +156,20 @@ class GrantedNotedEntry:
     problems: tuple[str, ...] = ()
     #: Dockets the entry says its opinion also decides ("with No. …").
     joined: tuple[str, ...] = ()
+    #: The date the case was granted, or an appeal's probable jurisdiction noted.
+    granted: date | None = None
+    #: The latest argument date the entry prints: a rescheduled argument or a
+    #: reargument where there is one, the argument date otherwise.
+    argument: date | None = None
+    #: ``(docket, case code)`` for each docket whose line prints a code.
+    codes: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass
 class _Draft:
     dockets: list[str] = field(default_factory=list)
     lines: list[str] = field(default_factory=list)
+    codes: list[tuple[str, str]] = field(default_factory=list)
 
 
 def _parse_date(raw: str) -> date | None:
@@ -189,6 +227,24 @@ def _ends_other(line: str) -> bool:
     return not solid or solid.startswith(_FIELD_LABELS)
 
 
+def _dates(pattern: re.Pattern[str], lines: Sequence[str]) -> list[date]:
+    """Every readable date ``pattern`` captures in an entry's lines, in order."""
+    found: list[date] = []
+    for raw_line in lines:
+        for match in pattern.finditer(" ".join(raw_line.split())):
+            if (day := _parse_date("".join(match.group(1).split()))) is not None:
+                found.append(day)
+    return found
+
+
+def _granted(lines: Sequence[str]) -> date | None:
+    return next(iter(_dates(_GRANTED_RE, lines)), None)
+
+
+def _argument(lines: Sequence[str]) -> date | None:
+    return max(_dates(_ARGUMENT_RE, lines), default=None)
+
+
 def _entry(draft: _Draft) -> GrantedNotedEntry:
     problems: list[str] = []
     decided: date | None = None
@@ -229,6 +285,9 @@ def _entry(draft: _Draft) -> GrantedNotedEntry:
         others=tuple(_others(" ".join(other_text), problems)),
         problems=tuple(problems),
         joined=tuple(joined),
+        granted=_granted(draft.lines),
+        argument=_argument(draft.lines),
+        codes=tuple(draft.codes),
     )
 
 
@@ -255,7 +314,10 @@ def parse_granted_noted(text: str) -> list[GrantedNotedEntry]:
                 if draft is not None:
                     entries.append(_entry(draft))
                 draft = _Draft()
-            draft.dockets.append(match.group(1).upper())
+            docket = match.group(1).upper()
+            draft.dockets.append(docket)
+            if (code := _CODE_RE.match(line[match.end() :])) is not None:
+                draft.codes.append((docket, code.group(1)))
             opening = True
             continue
         opening = False
@@ -264,6 +326,19 @@ def parse_granted_noted(text: str) -> list[GrantedNotedEntry]:
     if draft is not None:
         entries.append(_entry(draft))
     return entries
+
+
+def original_dockets(text: str) -> list[str]:
+    """The original-jurisdiction cases one list's text prints, as ``156, Orig.``.
+
+    Their lines open on a bare number, which no Term-form docket pattern
+    matches, so :func:`parse_granted_noted` reads none of them as an entry.
+    """
+    found: list[str] = []
+    for line in text.splitlines():
+        if (match := _ORIGINAL_LINE_RE.match(line)) is not None:
+            found.append(f"{match.group(1)}, Orig.")
+    return list(dict.fromkeys(found))
 
 
 def _open_paren(lines: Sequence[str]) -> bool:
@@ -297,15 +372,7 @@ def by_docket(entries: Iterable[GrantedNotedEntry]) -> dict[str, GrantedNotedEnt
         if lead is None or lead.decided != entry.decided:
             continue
         group = tuple(dict.fromkeys((*lead.dockets, *entry.dockets)))
-        merged = GrantedNotedEntry(
-            dockets=group,
-            decided=lead.decided,
-            author=lead.author,
-            per_curiam=lead.per_curiam,
-            others=lead.others,
-            problems=lead.problems,
-            joined=lead.joined,
-        )
+        merged = replace(lead, dockets=group, codes=(*lead.codes, *entry.codes))
         for docket in group:
             index[docket] = merged
     return index

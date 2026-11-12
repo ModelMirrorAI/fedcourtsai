@@ -48,11 +48,12 @@ adds and drops no cell, and computes the figure over the pooled cells exactly
 as over one window's, never as an average of window figures. It treats a
 `predictor_id` as one forecaster whose process evolves, model changes included,
 and its figure as that forecaster's record, not a property of its current
-process or model: `claude-baseline`'s `proc-v8` (`claude-fable-5-1`) and
-`proc-v9` (`claude-opus-5-5`) windows are one pooled record, as are
+process or model: `claude-baseline`'s `proc-v8` (`claude-fable-5-1`),
+`proc-v9` (`claude-opus-5-5`) and `proc-v21` (`claude-fable-5-2`) windows are
+one pooled record, as are
 `codex-baseline`'s `proc-v8` (`gpt-6-astra`) and `proc-v10` (`gpt-6.1-sol`)
-windows and `gemini-baseline`'s `proc-v8` (`gemini-3.1-pro-preview`) and
-`proc-v10` (`gemini-4-argon`) windows. Each counted
+windows and `gemini-baseline`'s `proc-v8` (`gemini-3.1-pro-preview`),
+`proc-v10` (`gemini-4-argon`) and `proc-v21` (`gemini-4-carbon`) windows. Each counted
 forecast was registered before its outcome existed and no later window can
 replace it, so the pooled record is out-of-sample however the process changed.
 No Term or trailing bound applies; a bounded figure is a cut. Under that rule:
@@ -353,7 +354,12 @@ missing week, and
 `fedcourts salience-replay` (locally, or via the `run-backtest` dispatch's
 `replay: salience-gate` mode, landing as a reviewed PR),
 `merits-backtest.json`, which only a `run-backtest` dispatch in `replay: merits`
-mode writes, as a reviewed PR, and
+mode writes, as a reviewed PR, the back-test comparison reports under
+`backtest-comparisons/` (a `run-backtest` dispatch in `replay: cert-compare`
+or `merits-compare` mode, each a reviewed PR), the pooled back-test record
+under `backtest-record/`, which every `run-backtest` replay that runs a model
+adds one file to in its report's PR, its roll-up `backtest-pooled.json`, which
+`fedcourts backtest-pooled` computes on demand and no lane commits, and
 `semantic-grades-<stratum>-<scope>.json`, which `fedcourts semantic-summary`
 writes **only** when the semantic census clears both preconditions below — it
 is outside the gate precisely because its absence is a state the contract
@@ -933,6 +939,68 @@ stays outside the gate:
   relisted or held petitions are still pending, realized runs below expected:
   those petitions grant more often and have not resolved yet.
 
+  `grants_expected` describes the base rates and is the same for every
+  predictor on the same events. The **predictor's own** expectation is
+  `grants_forecast`: the sum of the scored prediction's P(granted) over
+  `grants_forecast_scored` events, each event once (the mean over its
+  gradings, which differ only where a block grades two runs of one event),
+  read against `grants_forecast_realized` over those same events. The events
+  are the ones `in_sample_events_scored` counts, and the realized count is on
+  the **binary target** each probability is scored against, so a
+  `granted-in-part` outcome counts here and not in the grant-family counts
+  above. A forecast count above the realized one is over-forecasting grants;
+  while relisted and held petitions are pending it is expected to run above,
+  for the reason `grants_expected` does, so the gap is a calibration reading
+  only on a cohort that has resolved.
+
+  `reliability_bins` says where a gap sits. It is the same events in six
+  registered bins on P(granted) — `[0, 0.05)`, `[0.05, 0.10)`, `[0.10, 0.25)`,
+  `[0.25, 0.50)`, `[0.50, 0.75)` and `[0.75, 1]` — each with its `events`, its
+  `grants`, the mean forecast and the observed grant rate. Every bin is
+  listed, empty ones included. A bin holding fewer than 10 events carries its
+  counts and no rate: two grants of three is not a 67% reading.
+  `forecast_reliability` and `forecast_resolution` are the Murphy terms of
+  that binning over every event of the block: the event-weighted mean squared
+  gap between a bin's mean forecast and its observed rate (lower is better
+  calibrated), and between a bin's observed rate and the block's own (higher
+  sorts grants from denials better). Both are null, and omitted from the file,
+  on a block under 10 events. They read every bin, the ones too thin to print
+  a rate included, so they cannot be recomputed from the printed rates alone.
+  They are binned estimates: they move with the edges, both are biased upward
+  on small bins, and they do not sum
+  with the block's uncertainty to its mean Brier, which is per grading and
+  unbinned. What may be said from them: which of two faults a predictor's
+  Brier is carrying, on a block that names its event and grant counts. What
+  may not: an ordering of engines, since an entry's own forward block spans
+  events no other engine shares, and on the paired figure, where the events
+  are shared, the fields are still no rank key; and no reading at all off a
+  bin without a rate. The fields are cert-only and diagnostic, on every block
+  a cert stratum is built for (among them the pooled strata, the per-window,
+  per-band and per-link cuts, and the paired figure); a non-cert block omits
+  them.
+
+  `paired.engine_mean` is a **reference line**, not a predictor. On each paired
+  event every engine's forecast enters once (the mean of its gradings'
+  scored-prediction probability), the reference forecast is the unweighted
+  mean of those across the engines, and `brier` is its mean squared gap from
+  the binary target over `events` — the paired events on which every engine's
+  gradings carry outcome facts, beside their `grants` and the reference's own
+  `grants_forecast`. `engine_brier` gives each engine's own Brier **per event**
+  over those same events, which is the footing to compare on; an engine's
+  `mean_brier_score` is grading-weighted and is a different average. Nobody
+  forecast the mean: it exists only where every engine did, it is computed
+  after the fact, and it takes no rank. A mean's Brier is never above the
+  average of its members' Briers on any data, so that comparison is not a
+  finding. The reading is against the **lowest** `engine_brier`: below it, the
+  mean scored better than every engine on these events; not below it,
+  averaging added nothing over the best engine on them. Either reading
+  is quoted with `events` and `grants`, moves by large steps while grants are
+  few, and is bounded by the engines' dependence: forward cells can surface
+  the same sources, so a gain likely understates what independent forecasters
+  would give and the absence of one may reflect shared information. The line
+  is on cert populations with two or more paired engines and omitted
+  elsewhere.
+
   None of this is the registered historical figure per band. The registered
   band rates of the cell's frozen salience version are the **skill anchor**:
   each band's risk-set rate pooled
@@ -948,6 +1016,17 @@ stays outside the gate:
   Their complements are grant-family denial shares, not exact-match floors, so
   they are not comparable with `always_deny_accuracy`, and no lift is measured
   against them.
+
+  The skill anchor is also the board's **no-model forecast**. A band is the
+  stronger of the petition's caption class and its docket tier as at
+  prediction: no relist, one relist, or a CVSG or two or more relists
+  ([docs/salience.md](../docs/salience.md)). Forecasting a band's rate is
+  therefore forecasting from the relist count, the CVSG and the caption alone,
+  and a cert cell's Brier skill against its anchor is its gain over that
+  forecast, not over an uninformed base rate. A band stops counting at two
+  relists and reads neither the cert-stage amicus count nor a call for
+  response beyond its relist rule, so skill over the anchor is not skill over
+  every fact on the docket.
 
   Eight of these fields are cert-only, null off the cert stage (where
   `denied` is not the null call): the two floors (`always_deny_accuracy`,
@@ -1969,6 +2048,165 @@ records `segment_base_rate` read from the
 merits section rather than the cert band, with `base_rate_basis` and
 `base_rate_salience_version` null because that rate is no band product.
 
+- `miss-review.json` — the **forward miss review** (`fedcourts miss-review`):
+  the forward events at least one predictor got wrong, each with every
+  predictor's counted forecast of it. It is built over the cells the
+  leaderboard scores — the same stratified pass, so the forward-claim, leakage,
+  voided-event and set-aside rules above apply unchanged — and keeps the
+  forward stratum at every stage. The weekly metrics refresh regenerates it
+  with the leaderboard. Each forecast is re-scored against the committed outcome by the
+  rule that stamps a grading: the exact label on a cert or merits cell, and on
+  an interim cell scored under the finer reading, the side of `interim_granted`
+  its call falls on. A cell that rule leaves unscored is counted in
+  `unscored_cells` and reviewed no further. Because it re-scores, the review
+  can disagree with a board figure built on a grading whose stamped `correct`
+  no longer reproduces. Where a predictor's gradings of an event name more
+  than one of its runs, the earliest run by harness clock is reviewed. A
+  forecast **misses** on a wrong call or on the wrong side of even odds, a
+  Brier at or above `wrong_side_brier` (one quarter, the score of a forecast
+  at one half on the scored binary). The two differ where the labels are finer
+  than the binary: a `gvr` called `granted` is a wrong call on the right side
+  of one half. An event is `shared` when two or more predictors are reviewed
+  on it and all of them missed.
+
+  Beside each forecast sits what its run committed about the record it worked
+  from: the frozen `snapshot_provenance` and `snapshot_uptake`, the retrieval
+  log's call count and its `self_provisioned_fetches`, and the forecast's mean
+  `reasoning_quality` and `predicted_reasoning_quality`. The provisioned
+  document set is not committed with a cell, so it is not reported.
+
+  **A diagnostic list, and nothing may be claimed from it.** It is never a
+  rank key, and no figure on it is a performance figure: the boards carry
+  those. Its summaries (`by_predictor`, `by_stage`, `by_band`,
+  `by_snapshot_provenance`, `by_self_provisioning`) are **counts, never
+  rates**, because each cut is small and the listed events are selected on the
+  outcome. A cut pools every counting window a predictor holds cells in and
+  every stage, so two predictors' miss counts are comparable only where their
+  cell counts are over the same events, and the record-depth cuts are
+  observational: cases with a dated snapshot or a self-provisioned filing
+  differ from the others in more than their record. A miss is not an error: a
+  calibrated forecaster at `p` lands on the wrong side at rate `min(p, 1 - p)`,
+  so a miss count is no evidence of miscalibration, and on cert nearly every
+  listed event is a grant. A shared miss may point at the record or the base
+  rate, a single predictor's at that predictor; either is a place to start
+  reading, not a finding. The weekly digest prints the counts
+  under its forward block.
+
+- **The record over time** (`fedcourts performance-history`) is not a file
+  here: it is read from the committed history of `leaderboard.json` itself.
+  Each first-parent landing of the board on `main` is one revision, and each
+  revision's forward figures are copied out per **series**, a (predictor,
+  counting window, stage) triple, with the predictor's pooled record a series
+  of its own and the ranked cert board filed as `cert@distribution`. Nothing
+  is recomputed. A board an older schema wrote that no longer parses is listed
+  as unreadable with its figures absent, and one that parses without a field
+  added since has that figure null. `mean_reasoning_quality` is not carried:
+  pooled across rubrics it is coverage, and a series of it would be the
+  comparison across judge digests the rule above forbids. A window a re-bless opens is a new series, never a
+  continuation of the one it closed, and `big_case_score` has no series here.
+
+  The command, and the weekly digest's "Movement since the previous board"
+  block, compare the newest board with the one before it and flag a series:
+  `at-or-below-floor` and `negative-skill`, raised only on a series of ten
+  events or more (the accuracy column's events, which is not the skill
+  column's own denominator); `events-removed`, a series that shrank; and `rescored`, an
+  event accuracy outside what the added events allow (`k` of `n` correct and
+  `a` more events bound the new accuracy between `k / (n + a)` and
+  `(k + a) / (n + a)`), which means earlier cells were re-scored, re-windowed
+  or left the population. A re-score inside that bound is invisible to it.
+  The digest's rows are each predictor's own pooled record at a stage, not the
+  paired figure its forward block prints, and are not comparable across
+  predictors. **These are alarms about the artifact, not findings
+  about a predictor.** A change between two boards is not a trend, a
+  week-over-week difference is not a claim, and nothing may be quoted from the
+  record that could not be quoted from the board it was read from, under that
+  board's own rules. The ten-event threshold is an alarm setting, not a
+  registered floor for reading a figure.
+
+- `forecast-document-grades.json` — the **forecast-document grade board**
+  (`fedcourts forecast-document-grades`): `predicted_reasoning_quality`, each
+  judge's 0 to 1 grade of a predictor's `predicted_reasoning.md` itself
+  ([outcome-decomposition.md](../docs/outcome-decomposition.md), *Grading the
+  forecast document*), rolled up. It is built over the cells the leaderboard
+  scores — the same stratified pass, so the forward-claim, leakage,
+  voided-event and set-aside rules above apply unchanged — and keeps the
+  forward stratum. The weekly metrics refresh regenerates it with the
+  leaderboard. The unit is
+  the **cell**, a (case, event, predictor) document read by a panel of judges.
+  Only a judge whose evaluate digest asks for the grade is on the panel; a
+  grading under an earlier prompt is counted in `reads_not_asked` and read by
+  nothing, because its null is not a judgment that the record was silent.
+  Where a predictor's gradings name more than one of its runs, the earliest by
+  harness clock is read.
+
+  **The mask.** A cell every judge on its panel graded enters the means and
+  the coefficients (`graded_by_all`). A cell every judge left null is counted
+  (`null_by_all`): the staged record was silent on what the document's central
+  claims turn on. A cell the judges split on, some grading and some null, is
+  counted on its own (`split_on_mask`) and enters nothing, so a figure holds
+  only where the panel agreed the record spoke. `missing_judge` counts cells
+  whose panel is short a judge seen on the stage; their figures stand on the
+  smaller panel.
+
+  **What it carries**, per stage and never pooled across stages:
+  - `series`: per predictor, pooled across its counting windows
+    (`process_window` null) and per window, the mask counts and one
+    `readings` row **per judge rubric** (evaluator and evaluate digest) with
+    the cells it is over and the mean grade;
+  - `agreement`: per judge rubric, Kendall tau-b between its grades and the
+    mean of the other judges' on the cells they share (the others as they
+    stand on the cell, whatever their digests), with the count of cells and
+    distinct cases, and the same coefficient within each predictor's cells
+    averaged over the predictors (`within_predictor_tau_b`), which is null
+    unless it prints for every predictor with a shared cell;
+  - `family`: per judge rubric, its mean grade of documents written by its
+    own engine family beside its mean grade of the others';
+  - `by_call`: per judge rubric, the mean grade and its spread over the cells
+    whose disposition call was right, and over those where it was wrong, with
+    the cells whose grading stamps no call counted apart.
+
+  A judge read under two evaluate digests is two rubrics and has two rows in
+  each list; nothing is pooled across them. These three lists pool a rubric's
+  cells across the predictors' counting windows; the per-window reading is
+  the `series` rows.
+
+  No mean and no coefficient prints under `minimum_cells`, the registered 10:
+  the count is printed and the value is null.
+
+  **Graded, not scored, and what may be said from it.** The grade enters no
+  claim total, no rank key and no other grade, and the board ranks nothing.
+  - A mean is **one judge rubric's**. Judges can differ in level, so a mean
+    is read down a judge's column, across predictors, and never across a row.
+    No mean pooled across judges is on this board, and none may be computed
+    from its rows and quoted.
+  - A difference between two predictors under one judge is that judge's
+    reading of those documents. It is quoted with its cells and with the
+    stage's `agreement` beside it; a low or undefined coefficient is a caveat
+    the reader sees, not a figure withheld.
+  - The entries' cells are each predictor's own, so two series can span
+    different events and different panels. Where their `cells` or a judge's
+    `n` differ the comparison is not like-for-like, and equal counts certify
+    neither the same events nor the same panel.
+  - `agreement` well above `within_predictor_tau_b` says the judges agree on
+    which predictor wrote a document more than on how good it was. Blinding
+    hides the name, not the prose style.
+  - `family` is confounded with the predictor: a judge's own family is one
+    predictor here, so a gap between `own_mean` and `other_mean` is that
+    predictor's level under this judge as much as any preference. It is read
+    beside the other judges' grades of the same predictor, and alone it is not
+    evidence of favouritism or of its absence.
+  - `by_call` shows the built-in part. The anchors grade whether the
+    disposition held, so the grade is higher where the call was right by
+    construction; that gap is not a finding. A spread within a group shows
+    only that the grade varies there, which may be judge noise. Whether the
+    grade measures more than the call needs the within-group coefficient
+    against the mechanical claim total, which this board does not carry. On
+    cert the wrong-call group is a handful of cells for as long as nearly
+    everything is denied.
+  - A cert or interim cell graded after the case's merits decision can read
+    writings one graded before it could not, so readings can differ by grading
+    date.
+
 - `merits-backtest.json` — the merits back-test (`fedcourts merits-backtest`,
   not regenerated by the weekly metrics refresh): predictors replayed over
   decided argued cases at the merits grant and briefed moments, scored on
@@ -1989,6 +2227,132 @@ merits section rather than the cert band, with `base_rate_basis` and
   `exposure_candidates` count reads the cert back-test's disclosure bit, so
   it compares only across runs read under one rule, as that bit's own
   reading rule below says.
+
+- `backtest-comparisons/<kind>-<predictor>-<run_id>.json` — a back-test
+  **comparison** (`fedcourts cert-backtest-compare`,
+  `fedcourts merits-backtest-compare`): one predictor replayed twice over the
+  same drawn cases, as the registry configures it (the incumbent) and with one
+  change (the candidate: another model, or another prompt), from identically
+  provisioned records under the same replay clock. **What it is for: evidence
+  in a re-bless decision between two configurations, and nothing else.** It is
+  retrospective and never claimable, no cell in it counts toward a forward
+  board, and no figure in it is set beside a forward figure or beside another
+  comparison's. The reading rules:
+  - **Read the difference, not the two means.** `mean_brier_difference` is the
+    mean of the per-case differences, candidate minus incumbent, so negative
+    favours the candidate. Its interval is a Student-t interval on those
+    differences. The pairing is what makes a small set informative: the
+    case-to-case variation both arms share cancels. The two arms' own mean
+    Brier scores are context and are not differenced against any other report.
+  - **An interval that spans zero is no finding**, in either direction. The
+    differences are bounded and skewed (most cert cases move by little, a few
+    by a lot), so at a few dozen pairs the 95% coverage is approximate.
+  - **`drawn_set` describes the set; `population` estimates the population.**
+    Under the stratified draw (`outcome-stratified-hash-v1`) half the petitions
+    are grants by design, so `drawn_set` holds grants at many times their
+    population share and is not a population figure. `population` reweights
+    each outcome class's mean to its share of the eligible population
+    (`strata`, with each class's population count, weight, target and drawn
+    count): it estimates the eligible back-test population's mean difference.
+    It is null where a weighted class holds no pair. The weights are the
+    **eligible** population's shares, replayable or not, while the petitions
+    are drawn from the replayable ones: the figure is the population's only as
+    far as replayable coverage is ignorable within an outcome class, which is
+    not established. Under an unstratified draw there is no `population`
+    figure and `drawn_set` already estimates its population.
+  - **Where one class's weight exceeds 0.8, `population` carries no interval,
+    and the per-class figures decide.** At the paid and all scopes the
+    not-granted class is nearly the whole population, so the estimate and its
+    variance rest on ten or twenty denials whose differences are near-constant
+    with rare large moves. A sample that size usually draws none of the large
+    ones, and a t interval on it covers far less often than 95%. No
+    resampling interval repairs that, since none sees a move the sample did
+    not draw. Read `by_stratum` instead: each class's pairs, mean difference
+    and largest single move. `n` pairs in a class with no large move cannot
+    exclude a large-move rate up to about 3/`n` in that class. Which figure
+    decides is fixed before a run: `population` with its interval where no
+    class's weight exceeds 0.8, and otherwise `by_stratum` read beside the
+    `drawn_set` interval.
+  - **The call counts are counts.** `changed_to_correct` and `changed_to_wrong`
+    are pairs whose binary call moved, unweighted under every estimator. A
+    Brier improvement with no call moved is a calibration change, not a
+    change in what the predictor would have called.
+  - **Recall is not forecasting.** Every replayed outcome was public before the
+    run, and a model trained after a decision can recall it. A candidate with
+    a later training cutoff gains from that alone. Each arm states the
+    vendor-stated training data cutoff recorded for its model
+    (`training_cutoff`, the last day of the stated month), each pair states
+    whether it was decided after both (`after_both_cutoffs`), and the
+    `after_both_cutoffs` figures are over those pairs only. That figure is
+    unweighted, so under the stratified draw it describes a half-grants set of
+    recently decided cases and no population, and it is read with its `pairs`
+    beside it. A stated cutoff is a month and approximate, so those pairs are
+    the ones least likely to be recalled, not ones proven unseen.
+    `exposure_note` says in a sentence which of three things holds: no cutoff
+    is recorded for a model, so the split is undetermined; none of the scored
+    pairs postdates both cutoffs; or how many do. Two models with the same
+    recorded cutoff are free of the known directional bias, though one may
+    still recall more than the other; two with different cutoffs are compared
+    on the `after_both_cutoffs` pairs alone.
+  - **A stub report compares nothing.** Under `--engine stub` both arms'
+    `model` is null and every difference is zero by construction; the report
+    exists to rehearse the machinery. `requested_model` is what was asked
+    for, `model` is what ran.
+  - **`process_digest` names a configuration, not a registered process.** A
+    replay cell runs with no MCP server, and a cert replay cell with no staged
+    documents (a merits replay cell is staged the filings its moment's cut
+    keeps), so neither arm's cells are cells of the process the digest would
+    register.
+  - **Lost cells are not pairs.** A cell either arm lost is in `pairs` with a
+    null difference and is in no figure; each arm's `cells_lost` counts them.
+    The loss is not ignorable: an arm that loses its hard cases has them
+    removed from both arms' figures, so a comparison with many lost cells on
+    one arm is read as incomplete.
+    A candidate that scored nothing ends the run before the incumbent's cells,
+    and the report then shows every incumbent cell unscored.
+
+- `backtest-record/<kind>-<run_id>.jsonl` and `backtest-pooled.json` — the
+  **pooled back-test record** and its roll-up (`fedcourts backtest-pooled`).
+  The record is append-only: one file per replay run that was asked to record
+  (`--record`), never rewritten, one row per scored cell a model ran. An
+  offline rehearsal's cells are never recorded. The roll-up exists because
+  one replay's handful of cases cannot separate two predictors and a series
+  of recorded replays can. A record file exists only where a run was asked
+  for one; the caller names it, by the convention above, and `run-backtest`
+  names it by its run. Both record
+  directories are held out of the tree while replay cells run, since their
+  rows name cases beside outcomes; `backtest-pooled.json` names no case and
+  is not. The reading rules:
+  - **One entry per (predictor, model, process digest, kind, population,
+    stage, moment), and nothing pools across them.** Two models, two prompts
+    or two populations are different measurements. A population's name
+    carries what defines it: a cert scope (`cert:paid`), with the salience
+    floor under the selected scope (`cert:selected@<floor>`), or the argued
+    Terms of a merits replay (`merits:argued:OT2024+OT2025`). An entry's
+    `process_digest` names its configuration as a comparison's does.
+  - **`mean_brier_score` is post-stratified on the outcome class.** Each
+    class's mean is over its distinct cases (a case replayed in several runs
+    is averaged first), and the classes are combined at the population share
+    recorded for them (`strata[].share`: the mean over the runs that recorded
+    the class, each run counted once). A simple random run and an
+    outcome-stratified run both sample at random within an outcome class, so
+    both feed the same class means, and in expectation the combination does
+    not depend on the mix of runs. It carries the caveat the comparison's
+    `population` figure carries: the shares are the eligible population's and
+    the cells the replayable population's. A case eligible at every vintage
+    can be drawn by every run, so long-eligible cases are over-represented
+    among an entry's cases. Where the classes present do not make up the
+    whole population (an entry holding one outcome class), the figure is null
+    and the class means stand alone. The figure's denominator is
+    `strata[].cases`; the entry's `rows` and `cases` also count the
+    unweighted rows.
+  - **`unweighted_rows` are counted and left out.** A recency-head run is
+    not a probability sample, so its rows record no share.
+  - **No interval is published.** The pooled figure is a description of the
+    record so far; a difference between two entries is not a paired
+    comparison, since the entries were scored over different cases, and is
+    not read as one.
+  - **Retrospective, never claimable**, like every back-test here.
 
 - `cert-backtest.json` — the cert-specific back-test (not regenerated by the
   weekly metrics refresh): predictors
@@ -4230,6 +4594,8 @@ but not nameable.
 
 **The backtest-as-iteration doctrine.** Backtests (the retrospective stratum,
 the replay runs, `backtest.json`, `cert-backtest.json`,
+`merits-backtest.json`, the comparison reports under `backtest-comparisons/`,
+the pooled record under `backtest-record/` with `backtest-pooled.json`,
 `salience-replay.json`) are **iteration
 instruments** — for tuning prompts, retrieval, and calibration — and are
 **never claimable performance**; the project claims results only from genuine

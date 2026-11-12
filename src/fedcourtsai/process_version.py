@@ -95,7 +95,7 @@ from .schemas import (
 
 # Human label the current process is stamped with. Bump on a deliberate,
 # named process change; the digest moves on *any* input change regardless.
-CURRENT_PROCESS_LABEL = "proc-v20"
+CURRENT_PROCESS_LABEL = "proc-v21"
 
 #: The committed frozen-process registry the freeze constants below are built
 #: from: the labels and their counting instants, the digests the current label
@@ -663,6 +663,31 @@ def digest_for_actor(
         raise ValueError(f"role must be predictor or evaluator, not {role!r}")
     prompt_bytes = (repo_root / entry.prompt).read_bytes()
     return compute_process_digest(prompt_bytes, _config_canonical(registry_path, entry, code))
+
+
+def digest_for_configuration(
+    repo_root: Path,
+    config_root: Path,
+    predictor_id: str,
+    *,
+    model: str | None = None,
+    prompt: str | None = None,
+    code: CodeInputs = RUNNING_CODE_INPUTS,
+) -> str:
+    """The digest a predictor's process would carry with ``model`` or ``prompt`` changed.
+
+    :func:`digest_for_actor` over the registry entry with the named fields
+    replaced, so a back-test comparison can name each of its two
+    configurations by the digest it would be registered under. With neither
+    given it is the predictor's own digest. It registers nothing and no cell
+    is stamped with it.
+    """
+    registry_path = config_root / "predictors.yaml"
+    entry = _find(load_predictors(registry_path), predictor_id, "predictor")
+    changed = {k: v for k, v in (("model", model), ("prompt", prompt)) if v is not None}
+    configured = entry.model_copy(update=changed)
+    prompt_bytes = (repo_root / configured.prompt).read_bytes()
+    return compute_process_digest(prompt_bytes, _config_canonical(registry_path, configured, code))
 
 
 def _find(

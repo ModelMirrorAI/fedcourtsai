@@ -937,6 +937,21 @@ def latest_stored_snapshot_date(case_id: str) -> date | None:
     return None if transport is None else read_latest_snapshot_date(transport, case_id)
 
 
+def earliest_stored_snapshot_date(case_id: str) -> date | None:
+    """The oldest dated snapshot's date over the process (active) transport, or ``None``.
+
+    The day the pipeline first stored the docket, which is the nearest thing
+    the corpus keeps to a first observation: the index row carries no history.
+    One key listing and no body, as :func:`latest_stored_snapshot_date` costs;
+    ``None`` when the store is unbuilt or holds no snapshot of the case.
+    """
+    transport = active_transport()
+    if transport is None:
+        return None
+    dates = _snapshot_dates(transport, case_id)
+    return min(dates) if dates else None
+
+
 def read_snapshot_at(
     transport: ObjectTransport, case_id: str, *, before: date
 ) -> tuple[date, dict[str, Any]] | None:

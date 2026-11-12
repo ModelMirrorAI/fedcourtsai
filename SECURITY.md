@@ -61,7 +61,7 @@ runbook, [docs/security.md](docs/security.md).
   **aggregate step**, where the secret scan (below) needs the live value to
   search the run's output for it — a step that parses agent bytes with
   jq/git/tested Python but never executes them. (Pull's ingestion, the
-  opinion enrichment, run-pull's decision-below fill and `run-analytics`' order-scan and decision-below steps hold the same secret
+  opinion enrichment, run-pull's decision-below fill and `run-analytics`' order-scan, appeal-sample and decision-below steps hold the same secret
   under its own name, each in a deterministic step that runs no agent; the two
   kinds here are the agent workflows'. A new caller of the composite is a new *call site*, never a new
   kind of place — the token reaches the launch step's env and stops there.) **No agent step holds it, and no file an agent can read
@@ -304,7 +304,12 @@ runbook, [docs/security.md](docs/security.md).
   routing, not a capability. The deadline markers (`FIRED`, `STOOD_DOWN`) are
   forgeable on the same terms, and a planted one buys less still: it sets the
   cell's `engine_deadline` in `status.json`, which only changes the reason the
-  draft PR names for a stop — it never readies a cell.
+  draft PR names for a stop — it never readies a cell. The Gemini step's own
+  clean conclusion over a failing exit (an engine-reported fault after
+  complete, valid output; `scripts/gemini-cell.sh`) is a second route to
+  `agent_ok` under the same bounds: a gemini agent controls its exit status
+  and its output files as it controls the marker, so the route adds nothing a
+  zero exit did not already give it.
 - **No workflow creates a Release or holds a Zenodo credential.** Release
   archiving is Zenodo's GitHub integration: an OAuth grant on the maintainer's
   account (webhook administration across the repositories that account

@@ -42,6 +42,14 @@ were read.
 A degraded upstream degrades the run rather than hanging it: the run stops at
 a wall-clock deadline or after consecutive transient failures, as ``pull-all``
 does, and defers the dockets it did not reach.
+
+The account's rate windows are shared with every other lane, and this
+process's limiter counts only its own requests, so a read can be refused (429)
+while its own count is in bounds. The command's client waits out a refusal
+whose stated ``Retry-After`` is short (the per-minute window) and sends the
+request again, since a whole read that fails keeps none of its pages; a longer
+stated wait fails the docket at once. A failed docket's reason quotes what
+upstream said, which names the limit that refused.
 """
 
 from __future__ import annotations
@@ -64,6 +72,7 @@ from ..courtlistener import (
     EntryPageCapExceeded,
     RateBudgetExceeded,
     is_transient,
+    refusal_detail,
 )
 from .entry_reads import ENTRIES_PER_PAGE, full_read_due, merge_entries
 from .ingest import from_api_docket, upsert_to_corpus
@@ -414,8 +423,12 @@ def refresh_watchlist(  # noqa: PLR0913 - each bound is a caller-tuned guard
     is killed before it returns.
     """
     report = WatchlistRefreshReport()
-    # Every request a refresh sends, failed reads included, so the share left
-    # stays exact after a read that fails part-way.
+    # Every request a refresh asks for, failed reads included, so the share
+    # left holds after a read that fails part-way. A request the client sends
+    # again (a retry, or after waiting out a refusal) is counted once here and
+    # each time by the client's limiter, which is what enforces the share: a
+    # run with resends reaches the limiter's cap a few requests early and
+    # stops there.
     spent = 0
 
     def count() -> None:
@@ -447,7 +460,12 @@ def refresh_watchlist(  # noqa: PLR0913 - each bound is a caller-tuned guard
             report.deferred.append(planned.case_id)
             continue
         except (httpx.HTTPError, EntryPageCapExceeded, KeyError, ValueError) as exc:
-            report.failed[planned.case_id] = f"{type(exc).__name__}: {exc}"
+            # What upstream said about a refusal rides the reason: for a 429,
+            # the limit that refused and the wait it asked for.
+            said = refusal_detail(exc)
+            report.failed[planned.case_id] = f"{type(exc).__name__}: {exc}" + (
+                f" [{said}]" if said else ""
+            )
             transient_run = transient_run + 1 if is_transient(exc) else 0
             if transient_run >= max_consecutive_transient_failures:
                 report.stop_reason = (

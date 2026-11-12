@@ -196,7 +196,7 @@ def test_claude_runner_builds_the_workflow_env_contract(tmp_path: Path) -> None:
     assert recorder.env["EVENT_ID"] == EVENT
     assert recorder.env["PREDICTOR_ID"] == PREDICTOR
     assert recorder.env["RUN_ID"] == RUN
-    assert recorder.env["MODEL_ID"] == "claude-opus-5-5"
+    assert recorder.env["MODEL_ID"] == "claude-fable-5-2"
     assert "EVALUATOR_ID" not in recorder.env
     # Live cells carry no replay clock; both halves are back-test-only.
     assert "DECIDED_BEFORE" not in recorder.env
@@ -205,7 +205,7 @@ def test_claude_runner_builds_the_workflow_env_contract(tmp_path: Path) -> None:
     assert recorder.argv[0] == "claude"
     assert "-p" in recorder.argv
     assert "bypassPermissions" in recorder.argv
-    assert "claude-opus-5-5" in recorder.argv
+    assert "claude-fable-5-2" in recorder.argv
     # The registry prompt path rides in the instruction it passes the agent.
     assert ".github/prompts/predict.md" in recorder.argv[recorder.argv.index("-p") + 1]
     # It reports the artifacts the agent left at the canonical paths.
@@ -413,7 +413,7 @@ def test_gemini_runner_builds_the_headless_yolo_call(
 
     # The command reproduces run-predict.yml's headless Gemini invocation.
     assert recorder.argv[:2] == ["gemini", "--yolo"]
-    assert "gemini-4-argon" in recorder.argv
+    assert "gemini-4-carbon" in recorder.argv
     assert recorder.argv[-2:] == ["--output-format", "json"]
     # The kickoff prompt rides on --prompt: the template by reference, ids inline,
     # because Gemini's CLI strips the env-var channel from the agent's shell.
@@ -423,7 +423,7 @@ def test_gemini_runner_builds_the_headless_yolo_call(
     # A headless run must trust the workspace or the CLI exits 55; auth
     # (GEMINI_API_KEY) is inherited from the ambient environment, never set here.
     assert recorder.env["GEMINI_CLI_TRUST_WORKSPACE"] == "true"
-    assert recorder.env["MODEL_ID"] == "gemini-4-argon"
+    assert recorder.env["MODEL_ID"] == "gemini-4-carbon"
     # It reports the artifacts the agent left at the canonical paths.
     events = CasePaths(tmp_path / "data", COURT, DOCKET).event(EVENT)
     assert written == _predict_artifacts(events)
@@ -1200,6 +1200,77 @@ def test_a_gemini_nonzero_exit_after_writing_its_judgment_is_not_retried(
     )
 
     with pytest.raises(EngineFailed, match="produced the cell's output"):
+        _gemini(seq, []).run(request)
+
+    assert seq.calls == 1
+
+
+def test_a_gemini_attempt_whose_judgment_fails_its_schema_is_retried(tmp_path: Path) -> None:
+    # A prediction its own model refuses is no finished work: the retry
+    # discards it with the rest of the failed turn.
+    request = _predict_request(tmp_path / "data")
+    events = CasePaths(tmp_path / "data", COURT, DOCKET).event(EVENT)
+
+    def malformed() -> None:
+        prediction = events.prediction(PREDICTOR, RUN)
+        prediction.parent.mkdir(parents=True, exist_ok=True)
+        prediction.write_text('{"granted": "perhaps"}')
+
+    seq = _AttemptRunner(
+        [
+            (malformed, CommandResult(0, stdout=_INVALID_STREAM)),
+            (lambda: StubRunner().run(request), CommandResult(0)),
+        ]
+    )
+
+    written = _gemini(seq, []).run(request)
+
+    assert seq.calls == 2
+    assert written == _predict_artifacts(events)
+    read_model(events.prediction(PREDICTOR, RUN), Prediction)
+
+
+_REPORTED_UNAVAILABLE = json.dumps({"error": {"type": "Error", "message": "503 unavailable"}})
+_REPORTED_BAD_REQUEST = json.dumps(
+    {"error": {"type": "Error", "message": "code 400 INVALID_ARGUMENT"}}
+)
+
+
+def _whole_cell(request: RunRequest, events: EventPaths) -> Callable[[], None]:
+    def write() -> None:
+        StubRunner().run(request)
+        events.prediction_retrieval(PREDICTOR, RUN).write_text("what was read\n")
+        events.prediction_tooling(PREDICTOR, RUN).write_text("{}\n")
+
+    return write
+
+
+@pytest.mark.parametrize("stderr", [_REPORTED_UNAVAILABLE, _REPORTED_BAD_REQUEST])
+def test_a_gemini_reported_fault_over_a_whole_cell_keeps_its_output(
+    tmp_path: Path, stderr: str
+) -> None:
+    # The fault arrived after the work: every owed file is there and the
+    # prediction validates, so the cell is not an engine-failed loss, whether
+    # the classifier reads the reported fault as transient or as permanent.
+    request = _predict_request(tmp_path / "data")
+    events = CasePaths(tmp_path / "data", COURT, DOCKET).event(EVENT)
+    seq = _AttemptRunner([(_whole_cell(request, events), CommandResult(1, stderr))] * 3)
+
+    written = _gemini(seq, []).run(request)
+
+    assert seq.calls == 1
+    assert events.prediction(PREDICTOR, RUN) in written
+
+
+def test_a_gemini_turn_ended_from_outside_over_a_whole_cell_is_a_failed_cell(
+    tmp_path: Path,
+) -> None:
+    # No error object: something else ended the turn, so it is no finished cell.
+    request = _predict_request(tmp_path / "data")
+    events = CasePaths(tmp_path / "data", COURT, DOCKET).event(EVENT)
+    seq = _AttemptRunner([(_whole_cell(request, events), CommandResult(143, ""))] * 3)
+
+    with pytest.raises(EngineFailed):
         _gemini(seq, []).run(request)
 
     assert seq.calls == 1

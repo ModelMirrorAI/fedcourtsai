@@ -144,7 +144,12 @@ what and who joined it.
   mistyped year, a decision dated two days early), and a reargued case whose
   entry mixes the reargument order's dissent with the decision's writers. It also says which
   dockets one opinion decides, which the opinions listing does not: the
-  listing prints only the lead docket of a consolidated case.
+  listing prints only the lead docket of a consolidated case. The same list
+  is the Court's roll of the cases set for argument, with each case's grant
+  date, argument date and case code, and the weekly merits coverage check
+  (`fedcourts merits-coverage-check`, `pipeline/merits_coverage_check.py`)
+  sets the corpus's grants against it; there too it is a check and never a
+  source.
 - **What exists.** The lineup model, the syllabus grammar and the read-only
   fetcher (`pipeline/lineup.py`, `pipeline/syllabus_lineup.py`,
   `pipeline/opinion_lineups.py`), with `fedcourts opinion-lineups` printing
@@ -214,11 +219,10 @@ each fetching in a job that holds no credential
   either docket's reading would misstate the other's. Where only the headers
   carry the difference ("concurring as to No. 19-8709, and … dissenting … as
   to No. 20-444"), the split disagrees with the syllabus and refuses it.
-- **Coverage, and what it leaves out.** As projected on 2026-11-09 (for
-  OT2020–OT2025, the record as of that day's `opinion-record` apply, which
-  inserted the 126 rows its dry run planned; for OT2017–OT2019, what a dry run
-  of the current reader over the live listings and volumes would add, since
-  the stored record holds no row before OT2020 until the pass's next apply),
+- **Coverage, and what it leaves out.** As of the `opinion-record` apply of
+  2026-11-11, which inserted the 575 rows its dry run planned and took the
+  stored record back to OT2018 (for OT2017, what a dry run of the current
+  reader over the live listing would add),
   documents recorded, refused and skipped per Term: OT2025 72 / 1 / 1
   (the decree; 177 opinions), OT2024 66 / 1 / 0 (163), OT2023 60 / 0 / 0
   (159), OT2022 57 / 1 / 0 (135), OT2021 66 / 0 / 0 (159), OT2020 66 / 2 / 0
@@ -934,6 +938,14 @@ The automated consumer stays within CourtListener's published API limits by desi
   opinion; the record keeps upstream's panel and judges strings, which a
   staged copy carries only into a cell's gitignored record. No RECAP Fetch
   request is made ([cli.md](cli.md)).
+- **The appeal reader's sample shares it too.** `appeal-sample` draws one
+  court of appeals' civil appeals a run through the same client: a docket
+  search page per twenty drawn dockets, one read per drawn docket and up to
+  six entry pages per civil appeal, stopping at its lane's share (150). It
+  reads only what CourtListener already holds, with no RECAP Fetch purchase,
+  and stores nothing: its report carries court-record identifiers, counts and
+  the reader's reason strings.
+  It is dispatched as `run-analytics`'s `appeal-sample` mode, never scheduled.
 - **The adverse-order scan shares it too.** `order-scan` runs the RECAP
   searches `config/order-scan.yaml` configures — district dockets whose
   entries match an order phrase in a window of entry dates, one request a
@@ -968,6 +980,18 @@ The automated consumer stays within CourtListener's published API limits by desi
   and a caption can name an individual party, such as a minor in a chatbot
   injury suit. Nothing it names is admitted anywhere: a maintainer adds a
   case to the watchlist by a PR.
+- **The follow-on check shares that lane.** `ai-follow-ons` asks the search
+  index, once per district docket the watchlist names, for circuit and JPML
+  dockets filed in the last 45 days that carry the listed docket's number,
+  and reads each new circuit hit's docket once for its originating court and
+  originating case number, which is how a docket of another case with the
+  same number is told apart. It spends the `ai-candidates` lane's share (40),
+  so it must not be run on a day `ai-candidates` runs. It reads only what CourtListener
+  already holds, and writes nothing but its report and a comment for the same
+  `ai-candidates` issue. The comment carries the follow-on's court, docket
+  number, filing date and a link by docket id, beside the name of the listed
+  case it is related to, which the watchlist already publishes; the
+  follow-on's own caption, parties and entry text are not copied.
 
 The pilot holds a paid Free Law Project **membership tier** — **Tier 4**, at 25
 requests a minute, 300 an hour and 1,400 a day, for $1,000 a year. It is the top

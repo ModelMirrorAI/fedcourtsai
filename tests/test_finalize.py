@@ -20,7 +20,9 @@ from fedcourtsai.finalize import (
     JudgeFileOutcome,
     JudgeFileSettlement,
     OutputSnapshot,
+    agent_output_validates,
     agent_produced_output,
+    cell_outputs_complete,
     reset_output_root,
     settle_judge_level_outputs,
     snapshot_output_root,
@@ -327,3 +329,152 @@ def test_json_copies_that_differ_in_type_are_not_the_same_answer(tmp_path: Path)
         '{"used_corpus_query": 1}'
     )
     assert _settle(events)["tooling.json"].outcome is JudgeFileOutcome.ambiguous
+
+
+# --- does the judgment artifact hold to its schema ------------------------------
+
+
+def _validates(role: FinalizeRole, data_root: Path, actor: str) -> bool:
+    return agent_output_validates(
+        role, data_root=data_root, court="ca9", docket=1, event="evt-x", actor=actor, run_id="R"
+    )
+
+
+def test_a_cell_with_no_judgment_artifact_has_nothing_to_refuse(tmp_path: Path) -> None:
+    assert _validates(FinalizeRole.predict, tmp_path, "claude-baseline")
+    assert _validates(FinalizeRole.evaluate, tmp_path, "claude-judge")
+
+
+def test_a_prediction_its_model_refuses_does_not_validate(tmp_path: Path) -> None:
+    prediction = CasePaths(tmp_path, "ca9", 1).event("evt-x").prediction("claude-baseline", "R")
+    prediction.parent.mkdir(parents=True)
+    prediction.write_text('{"granted": "perhaps"}')
+    assert not _validates(FinalizeRole.predict, tmp_path, "claude-baseline")
+    prediction.write_text("{ not json")
+    assert not _validates(FinalizeRole.predict, tmp_path, "claude-baseline")
+
+
+def test_one_refused_evaluation_fails_the_cell_and_other_runs_are_not_read(
+    tmp_path: Path,
+) -> None:
+    events = CasePaths(tmp_path, "ca9", 1).event("evt-x")
+    # Another run's file is not this cell's output, whatever it holds.
+    earlier = events.evaluation("claude-judge", "alias-a", "EARLIER")
+    earlier.parent.mkdir(parents=True)
+    earlier.write_text('{"leakage": {"confirmed": true}}')
+    assert _validates(FinalizeRole.evaluate, tmp_path, "claude-judge")
+    current = events.evaluation("claude-judge", "alias-a", "R")
+    current.parent.mkdir(parents=True)
+    current.write_text('{"leakage": {"confirmed": true}}')
+    assert not _validates(FinalizeRole.evaluate, tmp_path, "claude-judge")
+
+
+def _committed(name: str) -> Path:
+    """One committed, landed artifact of this name: a file the tail accepted."""
+    return next(iter(sorted(Path("data/cases").glob(f"scotus/*/events/*/*/*/**/{name}"))))
+
+
+@pytest.mark.reads_data
+def test_output_the_tail_would_land_validates(tmp_path: Path) -> None:
+    events = CasePaths(tmp_path, "ca9", 1).event("evt-x")
+    prediction = events.prediction("claude-baseline", "R")
+    prediction.parent.mkdir(parents=True)
+    prediction.write_text(_committed("prediction.json").read_text())
+    assert _validates(FinalizeRole.predict, tmp_path, "claude-baseline")
+
+    # A judge's `predictor_id` is un-aliasing's to write, from the directory:
+    # an evaluation that omits or nulls it lands, so it validates here.
+    graded = json.loads(_committed("evaluation.json").read_text())
+    evaluation = events.evaluation("claude-judge", "alias-a", "R")
+    evaluation.parent.mkdir(parents=True)
+    for predictor_id in ("alias-a", None, ...):
+        written = dict(graded)
+        if predictor_id is ...:
+            del written["predictor_id"]
+        else:
+            written["predictor_id"] = predictor_id
+        evaluation.write_text(json.dumps(written))
+        assert _validates(FinalizeRole.evaluate, tmp_path, "claude-judge")
+
+    # `validate` and the stamp decode with `json.loads`, which accepts the lone
+    # surrogate escape a truncated emoji leaves; a stricter decode here would
+    # discard output the tail lands.
+    text = json.dumps(graded)
+    assert '"case_id": "' in text
+    evaluation.write_text(text.replace('"case_id": "', '"case_id": "\\ud83d', 1))
+    assert _validates(FinalizeRole.evaluate, tmp_path, "claude-judge")
+
+
+def test_finalize_validates_prints_the_verdict(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(tmp_path))
+    args = ["finalize-validates", "--role", "predict", "--court", "ca9", "--docket", "1"]
+    args += ["--event", "evt-x", "--actor", "claude-baseline", "--run-id", "R"]
+    assert CliRunner().invoke(app, args).stdout.strip() == "true"
+    prediction = CasePaths(tmp_path, "ca9", 1).event("evt-x").prediction("claude-baseline", "R")
+    prediction.parent.mkdir(parents=True)
+    prediction.write_text("{}")
+    assert CliRunner().invoke(app, args).stdout.strip() == "false"
+
+
+# --- does the cell hold every file it owes --------------------------------------
+
+
+def _complete(role: FinalizeRole, data_root: Path, actor: str) -> bool:
+    return cell_outputs_complete(
+        role, data_root=data_root, court="ca9", docket=1, event="evt-x", actor=actor, run_id="R"
+    )
+
+
+def test_a_predict_cell_is_complete_only_with_every_owed_file(tmp_path: Path) -> None:
+    events = CasePaths(tmp_path, "ca9", 1).event("evt-x")
+    owed = [
+        events.prediction("claude-baseline", "R"),
+        events.reasoning("claude-baseline", "R"),
+        events.predicted_reasoning("claude-baseline", "R"),
+        events.prediction_retrieval("claude-baseline", "R"),
+        events.prediction_tooling("claude-baseline", "R"),
+    ]
+    owed[0].parent.mkdir(parents=True)
+    for path in owed[:-1]:
+        path.write_text("{}" if path.suffix == ".json" else "prose\n")
+    assert not _complete(FinalizeRole.predict, tmp_path, "claude-baseline")
+    owed[-1].write_text("{ half a")
+    assert not _complete(FinalizeRole.predict, tmp_path, "claude-baseline")
+    owed[-1].write_text("{}")
+    assert _complete(FinalizeRole.predict, tmp_path, "claude-baseline")
+    owed[1].write_text("")
+    assert not _complete(FinalizeRole.predict, tmp_path, "claude-baseline")
+
+
+def test_an_evaluate_cell_is_complete_over_its_staged_candidates(tmp_path: Path) -> None:
+    case = CasePaths(tmp_path, "ca9", 1)
+    events = case.event("evt-x")
+    # No staged candidate: no completion set, so never complete.
+    assert not _complete(FinalizeRole.evaluate, tmp_path, "claude-judge")
+    for alias in ("alias-a", "alias-b"):
+        (case.blinded_predictions / alias).mkdir(parents=True)
+    events.evaluation_retrieval("claude-judge", "R").parent.mkdir(parents=True)
+    events.evaluation_retrieval("claude-judge", "R").write_text("what was read\n")
+    events.evaluation_tooling("claude-judge", "R").write_text("{}")
+    graded = events.evaluation("claude-judge", "alias-a", "R")
+    graded.parent.mkdir(parents=True)
+    graded.write_text("{}")
+    events.evaluation_notes("claude-judge", "alias-a", "R").write_text("notes\n")
+    # One of two candidates graded is a cell still at work.
+    assert not _complete(FinalizeRole.evaluate, tmp_path, "claude-judge")
+    second = events.evaluation("claude-judge", "alias-b", "R")
+    second.parent.mkdir(parents=True)
+    second.write_text("{}")
+    events.evaluation_notes("claude-judge", "alias-b", "R").write_text("notes\n")
+    assert _complete(FinalizeRole.evaluate, tmp_path, "claude-judge")
+
+
+def test_finalize_complete_prints_the_verdict(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(tmp_path))
+    args = ["finalize-complete", "--role", "predict", "--court", "ca9", "--docket", "1"]
+    args += ["--event", "evt-x", "--actor", "claude-baseline", "--run-id", "R"]
+    assert CliRunner().invoke(app, args).stdout.strip() == "false"

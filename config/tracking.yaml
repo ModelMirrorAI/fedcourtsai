@@ -182,6 +182,34 @@ live:
   # a late filing onto the old prefix is caught before the historical walker
   # reaches it (docs/live-sources.md). 0 disables the grace probe.
   outgoing_term_grace_days: 60
+  # The discovery frontier check (docs/live-sources.md): at most once a UTC
+  # day, after the cycle's own work, confirm each current-Term numbering stream
+  # reached the Court's real frontier. Every request is a supremecourt.gov read
+  # at the pacing above: the order listing page, the Granted & Noted list, the
+  # newest `outside_documents` order documents, and per stream `lookahead`
+  # serials past the cursor plus `hole_reprobes_per_stream` skipped serials,
+  # about 70 requests a day, plus the re-probes and document fetches of a
+  # skipped serial it onboards. It moves no cursor.
+  frontier_check:
+    enabled: true
+    lookahead: 10
+    hole_reprobes_per_stream: 10
+    # A skipped serial the re-probe finds serving is onboarded on the spot.
+    onboard_serving_holes: true
+    outside_documents: 5
+    # Alarm thresholds, read by the readiness snapshot the ops report latches
+    # on: more than this many skipped serials now serving; a stream whose
+    # newest held docket is this many business days old (IFP and the July to
+    # September recess run slower); a stored reading older than
+    # `stale_check_days`. A number on the Court's lists above the cursor, and a
+    # served serial the sequential probe cannot reach, alarm at one.
+    # The stall thresholds assume a docket is served within a business day of
+    # its filing date; a holiday counts as a quiet day.
+    hole_alarm_over: 5
+    stall_business_days: 3
+    ifp_stall_business_days: 7
+    recess_stall_business_days: 10
+    stale_check_days: 3
   # Per-document cap on extracted text stored in the corpus: ~40 dense
   # pages, one cap per stored row. The selected filed documents
   # (docs/live-sources.md) are fetched on the transitions that queue predict,
@@ -755,7 +783,10 @@ courtlistener_budget:
     watchlist: {per_run: 160, runs_per_day: 1}
     # ai-candidates: config/ai-candidates.yaml caps a run at 40, its saved
     # searches at two pages each. Sized for a weekly run but reserved as if
-    # daily, so a run never needs a day of its own.
+    # daily, so a run never needs a day of its own. `ai-follow-ons` (one
+    # search per listed district docket, one read per new circuit hit, capped
+    # at the same 40) spends this share, so it must not run on a day
+    # ai-candidates does.
     ai-candidates: {per_run: 40, runs_per_day: 1}
     # The agent cells' CourtListener MCP servers (their own client), across
     # the day's predict and evaluate rounds and the daily integration-test
@@ -767,6 +798,10 @@ courtlistener_budget:
     # enrich-opinions as a walk (run-pull mode=enrich-opinions): the default
     # 50 cases at about four requests each.
     opinion-walk: {per_run: 200, dispatched: true}
+    # appeal-sample: one court of appeals' draw of up to 25 civil appeals for the
+    # appeal reader's measurement, a search page per 20 drawn dockets, one read
+    # per drawn docket and up to six entry pages per civil appeal.
+    appeal-sample: {per_run: 150, dispatched: true}
     # decision-below and enrich-decision-below's dry run (run-analytics mode
     # decision-below): 25 cases, held to the same 150 as order-scan.
     decision-below: {per_run: 150, dispatched: true}
@@ -794,6 +829,19 @@ watchlist_refresh:
   max_run_minutes: 10
   # Stop after this many transient upstream failures in a row.
   max_consecutive_transient_failures: 3
+  # A 429 states how long to wait (Retry-After). A wait that, with the
+  # client's one-second margin, is at most this many seconds is waited out
+  # and the request sent again: the account's per-minute
+  # window clears within it, and a long onboard would otherwise lose every page
+  # it had read to one refusal. A longer stated wait (the hourly or daily
+  # window) fails the docket at once.
+  max_throttle_wait_seconds: 65
+  # The most one run may wait this way in all, at least one
+  # max_throttle_wait_seconds. It bounds the step with the lane's share: 160
+  # requests paced at the account's per-minute rate take under seven minutes,
+  # and these waits add three, inside the step's sixteen-minute timeout
+  # (max_run_minutes is checked only between dockets).
+  throttle_wait_budget_seconds: 180
 
 courts:
   # The tracked set: SCOTUS + all 13 federal courts of appeals, by CourtListener

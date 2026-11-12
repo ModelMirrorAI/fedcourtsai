@@ -34,9 +34,12 @@ from fedcourtsai.schemas import (
     CorpusCheck,
     CorpusValidation,
     DataHealth,
+    DiscoveryFrontier,
+    DiscoveryFrontierStream,
     Disposition,
     DispositionShare,
     Engine,
+    EngineMeanReference,
     Evaluation,
     EventKind,
     FlagCategory,
@@ -1487,6 +1490,54 @@ def test_ops_report_writes_the_digest_and_reads_the_frontier(tmp_path: Path) -> 
     assert body.startswith("<!-- weekly-digest: ")
     assert "# Weekly performance digest" in body
     assert "## Produced this week (2026-07-04 to 2026-07-11, the 7d before this digest)" in body
+
+
+def test_ops_report_prints_the_discovery_frontier_and_writes_its_alarm(tmp_path: Path) -> None:
+    """The verdict in the published snapshot reaches the report, the JSON bit the
+    latch reads, and the alarm body; a snapshot without one writes no body."""
+    discovery = DiscoveryFrontier(
+        term=26,
+        ok=False,
+        streams=[
+            DiscoveryFrontierStream(
+                stream="application",
+                cursor=669,
+                frontier=669,
+                stall_threshold=3,
+                checked_on=date(2026, 11, 11),
+                outside_serial=672,
+                outside_source="miscellaneous-order 2026-11-10",
+                alarms=["miscellaneous-order 2026-11-10 names 26A672, above the cursor at 26A669"],
+            )
+        ],
+    )
+    frontier_path = tmp_path / "live-frontier.json"
+    json_out = tmp_path / "ops.json"
+    alarm_out = tmp_path / "discovery-frontier.md"
+    args = [
+        "ops-report",
+        *("--live-frontier", str(frontier_path)),
+        *("--json", str(json_out)),
+        *("--discovery-frontier-out", str(alarm_out)),
+        *("--generated-at", "2026-11-11T08:00:00+00:00"),
+    ]
+
+    frontier_path.write_text(LiveFrontier(watchlist=1).model_dump_json())
+    result = runner.invoke(app, args, env=_ops_env(tmp_path))
+    assert result.exit_code == 0, result.output
+    assert "Discovery frontier" not in result.output
+    assert not alarm_out.exists()
+    assert json.loads(json_out.read_text())["substance"]["live_frontier"]["discovery"] is None
+
+    frontier_path.write_text(LiveFrontier(watchlist=1, discovery=discovery).model_dump_json())
+    result = runner.invoke(app, args, env=_ops_env(tmp_path))
+    assert result.exit_code == 0, result.output
+    assert "**Discovery frontier** (OT26): **behind**" in result.output
+    assert "- **application**: cursor 26A669, frontier stamped there" in result.output
+    assert "names 26A672, above the cursor at 26A669" in alarm_out.read_text()
+    assert (
+        json.loads(json_out.read_text())["substance"]["live_frontier"]["discovery"]["ok"] is False
+    )
 
 
 # --- the live-frontier snapshot CLI ------------------------------------------------
@@ -3729,6 +3780,58 @@ def test_the_weekly_digest_prints_an_unscored_forward_skill_as_unknown() -> None
 
     assert "| p | 98.2% | 94.5% | +3.63% (+4 events) | 0.0185 | — |" in md
     assert "realized grant-family" not in md
+
+
+def test_the_weekly_digest_reads_the_engine_mean_against_the_best_engine() -> None:
+    board = _board(_lb_entry("claude-baseline", _forward()), _lb_entry("p", _forward()))
+    assert board.paired is not None
+
+    def with_mean(brier: float) -> str:
+        paired = board.paired.model_copy(  # type: ignore[union-attr]
+            update={
+                "engine_mean": EngineMeanReference(
+                    events=110,
+                    grants=6,
+                    grants_forecast=9.0,
+                    brier=brier,
+                    engine_brier={"claude-baseline": 0.03, "p": 0.05},
+                )
+            }
+        )
+        return ops.render_weekly_digest(
+            _empty_report(),
+            analytics=_analytics(leaderboard=board.model_copy(update={"paired": paired})),
+        )
+
+    worse = with_mean(0.034)
+    assert "Reference, not a predictor and never ranked" in worse
+    assert "**0.0340** over 110 of 110 paired event(s) (6 granted)" in worse
+    assert "not below the best engine's own (`claude-baseline`)" in worse
+    assert "`claude-baseline` 0.0300, `p` 0.0500" in worse
+    assert "below every engine's own" in with_mean(0.02)
+    # A tie with the best engine is not a gain.
+    assert "not below the best engine's own" in with_mean(0.03)
+    plain = ops.render_weekly_digest(_empty_report(), analytics=_analytics(leaderboard=board))
+    assert "Reference, not a predictor" not in plain
+
+
+def test_the_weekly_digest_prints_each_engines_own_grant_forecast() -> None:
+    # The engine's own summed P(granted) beside the grants that realized on the
+    # same events; a block with no forecast count prints a dash.
+    forecast = _forward().model_copy(
+        update={
+            "grants_forecast": 9.44,
+            "grants_forecast_scored": 110,
+            "grants_forecast_realized": 6,
+        }
+    )
+    board = _board(_lb_entry("claude-baseline", forecast), _lb_entry("p", _forward()))
+
+    md = ops.render_weekly_digest(_empty_report(), analytics=_analytics(leaderboard=board))
+
+    assert "| Brier skill | Grants forecast |" in md
+    assert "| +0.65 (330 gradings) | 9.4 (6 realized of 110) |" in md
+    assert "| +0.65 (330 gradings) | — |" in md
 
 
 def test_the_weekly_digest_says_an_unsplit_scotus_row_is_still_mixed() -> None:

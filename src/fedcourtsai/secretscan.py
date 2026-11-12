@@ -25,7 +25,12 @@ Detectors, strongest first:
 - **Structured patterns**: credential shapes with distinctive prefixes (AWS
   key ids and session tokens, PEM private-key headers, GitHub/Slack tokens,
   JWTs, model-provider ``sk-`` keys, Google keys, ``key=value`` assignments
-  with a token-shaped value).
+  with a token-shaped value). A prefix counts at a word boundary and at the
+  places a transcript or a logged URL puts a token with none: directly after
+  a JSON escape (a token printed at the start of a line arrives as ``\\n`` and
+  then the token), a terminal colour code, a percent-escape, or an
+  underscore. The typed Anthropic prefix and ``github_pat_`` count anywhere. A
+  token glued to any other letter or digit is not found by shape.
 - **High entropy**: long random-looking runs, tuned so the ledger's normal
   content — citations, docket numbers, hex digests, run ids, URLs — passes
   clean. A raw opaque blob pasted into free text *does* flag, by design: the
@@ -127,29 +132,58 @@ MIN_KNOWN_SECRET_LENGTH = 8
 # confirmation's own note below.
 _MAX_SEGMENT = 4096
 
+# Where a prefixed credential may start. A word boundary alone misses the
+# places a token most often lands in a transcript, which is JSON: directly
+# after an escaped control character (`"x\nsk-…"` reads, as text, as an `n`
+# followed by the token, with no boundary between two word characters), after
+# a `\uXXXX` escape, after a terminal colour code (`[0m`), after a
+# percent-escape in a logged URL (`key%3Dsk-…`), or glued to an underscore
+# (`KEY_sk-…`). The lookbehinds are fixed-width and admit only those, so a
+# prefix inside an ordinary word (`task-force-…`, `MoneyJournal.…`) still does
+# not start a match; the escape letters are JSON's own (`\a` is not one, and
+# admitting it would convict `\ask-…`). A token glued to any other letter or
+# digit is left to containment and the entropy rule.
+_START = (
+    r"(?:\b|(?<=\\[bfnrt])|(?<=\\u[0-9A-Fa-f]{4})|(?<=%[0-9A-Fa-f]{2})"
+    r"|(?<=\[m)|(?<=\[[0-9]m)|(?<=\[[0-9]{2}m)|(?<=_))"
+)
+
 # Structured credential shapes. Each pattern anchors on a distinctive prefix
 # or header, so ordinary legal text (citations, docket numbers, case slugs)
 # cannot match. Order is the report order.
 _STRUCTURED_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
-    ("aws-key-id", re.compile(r"\b(?:AKIA|ASIA)[0-9A-Z]{16}\b")),
-    ("aws-session-token", re.compile(r"\b(?:FwoG|IQoJ)[A-Za-z0-9+/=]{80,}")),
+    ("aws-key-id", re.compile(rf"{_START}(?:AKIA|ASIA)[0-9A-Z]{{16}}\b")),
+    ("aws-session-token", re.compile(rf"{_START}(?:FwoG|IQoJ)[A-Za-z0-9+/=]{{80,}}")),
     ("pem-private-key", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----")),
-    ("github-token", re.compile(r"\b(?:gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{22,})")),
-    ("slack-token", re.compile(r"\bxox[baprs]-[A-Za-z0-9-]{10,}")),
+    # The four-character prefixes end ordinary words (`weighs_`, `highs_`), so
+    # they keep the start rule; `github_pat_` is distinctive wherever it sits.
+    (
+        "github-token",
+        re.compile(rf"(?:{_START}gh[pousr]_[A-Za-z0-9]{{36,}}|github_pat_[A-Za-z0-9_]{{22,}})"),
+    ),
+    ("slack-token", re.compile(rf"{_START}xox[baprs]-[A-Za-z0-9-]{{10,}}")),
     # A JWT's three base64url segments. The signature may be empty (`alg=none`).
     (
         "jwt",
         re.compile(
-            rf"\beyJ[A-Za-z0-9_-]{{8,{_MAX_SEGMENT}}}"
+            rf"{_START}eyJ[A-Za-z0-9_-]{{8,{_MAX_SEGMENT}}}"
             rf"\.[A-Za-z0-9_-]{{8,{_MAX_SEGMENT}}}"
             rf"\.[A-Za-z0-9_-]{{0,{_MAX_SEGMENT}}}"
         ),
     ),
     # Model-provider keys: the `sk-proj-` / `sk-ant-` variants continue in the
-    # same alphabet, so one pattern covers them. No English word starts `sk-`.
-    ("model-provider-key", re.compile(r"\bsk-[A-Za-z0-9_-]{20,}")),
+    # same alphabet, so one pattern covers them. No English word starts `sk-`,
+    # but plenty end in it (`task-force-…`), so the bare prefix keeps its start
+    # anchor; Anthropic's typed prefix (`sk-ant-api03-`, `sk-ant-oat01-`) is
+    # distinctive enough to match wherever it sits.
+    (
+        "model-provider-key",
+        re.compile(
+            rf"(?:{_START}sk-[A-Za-z0-9_-]{{20,}}|sk-ant-[a-z]{{2,8}}[0-9]{{2}}-[A-Za-z0-9_-]{{20,}})"
+        ),
+    ),
     # Google API keys and OAuth access tokens.
-    ("google-key", re.compile(r"\b(?:AIza|ya29\.)[A-Za-z0-9_-]{20,}")),
+    ("google-key", re.compile(rf"{_START}(?:AIza|ya29\.)[A-Za-z0-9_-]{{20,}}")),
 )
 
 # Keys that name a credential, shared by the scan's assignment detector and

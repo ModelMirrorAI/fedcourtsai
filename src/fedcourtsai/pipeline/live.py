@@ -954,6 +954,49 @@ def _within_term_roll_grace(today: date, grace_days: int) -> bool:
     return 0 <= (today - term_roll_date(today)).days <= grace_days
 
 
+def onboard_served(  # noqa: PLR0913 - one served record plus the cycle's own settings
+    client: SupremeCourtClient,
+    corpus_db_path: Path,
+    data_root: Path,
+    payload: dict[str, Any],
+    term: int,
+    serial: int,
+    *,
+    form: Literal["cert", "application"],
+    document_text_cap: int = 150_000,
+    gated: bool = False,
+    today: date,
+) -> LiveResult:
+    """Onboard one served docket: reconcile its identity, snapshot it, define its events.
+
+    The one onboarding step, shared by the sequential walk and by the frontier
+    check's re-probe of a number the walk passed before the Court posted it, so
+    a docket enters the corpus the same way whichever probe found it. It moves
+    no cursor.
+    """
+    with corpus.connect(corpus_db_path) as conn:
+        docket_id = _resolve_identity(conn, payload, term, serial, form=form)
+    ingested = ingest_live_payload(
+        corpus_db_path, data_root, payload, docket_id, today=today, form=form
+    )
+    if ingested.petition_distributed and (
+        not gated or _in_predict_scope(corpus_db_path, ingested.case_id)
+    ):
+        # Catch-up on an already-distributed petition that the gate would
+        # queue: provision its documents now. A deferred petition just enters
+        # the watchlist — the selection sweep provisions it if it is ever
+        # latched.
+        provision_documents(
+            client,
+            corpus_db_path,
+            ingested.case_id,
+            payload,
+            char_cap=document_text_cap,
+            today=today,
+        )
+    return ingested
+
+
 def discover_live(  # noqa: PLR0913 - soft-budget deadline + injected clock over the cycle args
     client: SupremeCourtClient,
     corpus_db_path: Path,
@@ -1004,26 +1047,18 @@ def discover_live(  # noqa: PLR0913 - soft-budget deadline + injected clock over
                 serial += 1
                 continue
             misses = 0
-            with corpus.connect(corpus_db_path) as conn:
-                docket_id = _resolve_identity(conn, payload, term, serial, form=form)
-            ingested = ingest_live_payload(
-                corpus_db_path, data_root, payload, docket_id, today=today, form=form
+            ingested = onboard_served(
+                client,
+                corpus_db_path,
+                data_root,
+                payload,
+                term,
+                serial,
+                form=form,
+                document_text_cap=document_text_cap,
+                gated=gated,
+                today=today,
             )
-            if ingested.petition_distributed and (
-                not gated or _in_predict_scope(corpus_db_path, ingested.case_id)
-            ):
-                # Frontier catch-up on an already-distributed petition that the
-                # gate would queue: provision its documents now. A deferred
-                # petition just enters the watchlist — the selection sweep
-                # provisions it if it is ever latched.
-                provision_documents(
-                    client,
-                    corpus_db_path,
-                    ingested.case_id,
-                    payload,
-                    char_cap=document_text_cap,
-                    today=today,
-                )
             with corpus.connect(corpus_db_path) as conn:
                 corpus.set_live_cursor(conn, term, stream, serial)
             result.onboarded.append(ingested)

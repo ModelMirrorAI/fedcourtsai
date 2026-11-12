@@ -253,11 +253,55 @@ def test_originating_link_extracted_from_api_and_bulk() -> None:
             "id": 1,
             "court_id": "scotus",
             "appeal_from": "https://www.courtlistener.com/api/rest/v4/courts/ca9/",
-            "originating_court_information": {"docket_number": "21-35466"},
+            "original_court_info": {"docket_number": "21-35466"},
         }
     )
     assert api.originating_court == "ca9"
     assert api.originating_docket_number == "21-35466"
+
+    # The v4 REST docket nests the originating case under `original_court_info`,
+    # beside fields the link does not read.
+    v4 = from_api_docket(
+        {
+            "id": 70622297,
+            "court_id": "ca3",
+            "docket_number": "25-2153",
+            "appeal_from": "https://www.courtlistener.com/api/rest/v4/courts/ded/",
+            "original_court_info": {
+                "id": 43555,
+                "docket_number": "1:20-cv-00613",
+                "docket_number_raw": "1:20-cv-00613",
+                "date_filed": "2020-05-06",
+                "date_judgment": "2025-02-11",
+            },
+        }
+    )
+    assert v4.originating_court == "ded"
+    assert v4.originating_docket_number == "1:20-cv-00613"
+
+    # A docket with no originating case upstream serves the key as null.
+    unlinked = from_api_docket({"id": 4, "court_id": "ca3", "original_court_info": None})
+    assert unlinked.originating_docket_number is None
+
+    # The REST key wins where both shapes are present, and a REST key with no
+    # number leaves the live-channel shape to answer.
+    both = {"id": 5, "court_id": "scotus"}
+    rest_first = from_api_docket(
+        {
+            **both,
+            "original_court_info": {"docket_number": "24-1224"},
+            "originating_court_information": {"docket_number": "24-9999"},
+        }
+    )
+    assert rest_first.originating_docket_number == "24-1224"
+    live_shape = from_api_docket(
+        {
+            **both,
+            "original_court_info": {"docket_number": ""},
+            "originating_court_information": {"docket_number": "24-9999"},
+        }
+    )
+    assert live_shape.originating_docket_number == "24-9999"
 
     # Bulk carries `appeal_from_id` (the court) but not the lower-court docket
     # number (CourtListener publishes no originating-court-info bulk table).
@@ -286,7 +330,7 @@ def test_upsert_never_pulls_a_coa_docket_into_scope(tmp_path: Path) -> None:
                     "id": 1,
                     "court_id": "scotus",
                     "appeal_from": "https://www.courtlistener.com/api/rest/v4/courts/ca9/",
-                    "originating_court_information": {"docket_number": "21-35466"},
+                    "original_court_info": {"docket_number": "21-35466"},
                 }
             )
         ],

@@ -31,12 +31,16 @@ from fedcourtsai.schemas import (
     DocketPackTerm,
     FlagCategory,
     FlagSeverity,
+    ForecastDocumentGrades,
     GroupBy,
     Leaderboard,
     LeaderboardEntry,
     LeaderboardStage,
     LeaderboardStageEntry,
     LeaderboardStratum,
+    MissEventTally,
+    MissReview,
+    MissTally,
     PairedEngine,
     PairedEvents,
     ScopeManifest,
@@ -1039,3 +1043,31 @@ def test_render_backtest_pr_names_the_exposure_candidates(tmp_path: Path) -> Non
     assert plain is not None
     assert "Cell disclosures" not in plain.body
     assert "outcome-exposure" not in plain.body
+
+
+def test_the_miss_review_headline_is_its_own_summary(tmp_path: Path) -> None:
+    metrics = tmp_path / "metrics"
+    write_json(
+        metrics / "miss-review.json",
+        MissReview(
+            wrong_side_brier=0.25,
+            cells=MissTally(cells=6, missed=2),
+            events=MissEventTally(events=2, missed=1, shared=0),
+        ),
+    )
+    pr = render_refresh_pr(["metrics/miss-review.json"], tmp_path, "RID")
+    assert pr is not None
+    assert pr.title == "metrics: refresh miss-review"
+    assert "1 of 2 forward event(s) hold a miss" in pr.body
+
+
+def test_the_forecast_document_grades_headline_is_its_own_summary(tmp_path: Path) -> None:
+    metrics = tmp_path / "metrics"
+    write_json(
+        metrics / "forecast-document-grades.json",
+        ForecastDocumentGrades(process_scope="frozen", minimum_cells=10, later_run_reads=0),
+    )
+    pr = render_refresh_pr(["metrics/forecast-document-grades.json"], tmp_path, "RID")
+    assert pr is not None
+    assert pr.title == "metrics: refresh forecast-document-grades"
+    assert "no forward cell read by a judge whose prompt asks for the grade" in pr.body

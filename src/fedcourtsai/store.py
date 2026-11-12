@@ -37,7 +37,11 @@ from .integrity import (
 )
 from .paths import CasePaths
 from .pipeline import moments
-from .pipeline.cert_signals import conference_sat_since, considering_conference
+from .pipeline.cert_signals import (
+    conference_sat_since,
+    considering_conference,
+    petition_distributions,
+)
 from .pipeline.moments import first_moment
 from .prediction_slices import SCOTUS_POPULATION, Population, population_of
 from .process_version import (
@@ -515,6 +519,56 @@ def _conference_bounded_cell_closed(
         event.opened_at,
         trigger_is_distribution=spec.moment is Moment.relist,
     )
+
+
+def conference_bound_closed_on(
+    event: corpus.CorpusEvent, *, through: date, payloads: PayloadReader
+) -> date | None:
+    """The day a conference-bounded cert moment closed, read after the fact, or ``None``.
+
+    The first conference on or before ``through`` that
+    :func:`_conference_bounded_cell_closed` would have read as sat: from that
+    day on the fan-out refused the moment's cells, whatever the petition's own
+    resolution date. ``None`` for any other moment, and where no such
+    conference shows.
+
+    The admission errs toward refusing; this reading errs the other way,
+    because its caller is the missed-forecast monitor and an alarm should
+    over-report. So what the admission reads as sat on missing evidence reads
+    here as no bound at all: an event with no opening date, a docket with no
+    readable payload, a conference later than the stored payload, and a relist
+    whose own distribution entry the payload does not carry.
+    """
+    spec = moments.spec_for(event.event_id)
+    if (
+        spec is None
+        or spec.stage != Stage.cert
+        or spec.moment not in _CONFERENCE_BOUNDED_MOMENTS
+        or event.opened_at is None
+    ):
+        return None
+    found = payloads(event.case_id)
+    if found is None:
+        return None
+    payload_date, payload = found
+    last = min(through, payload_date)
+    conferences = sorted(
+        {
+            conference
+            for distributed, conference in petition_distributions(payload, through=last)
+            if event.opened_at <= distributed <= conference <= last
+        }
+    )
+    for conference in conferences:
+        if conference_sat_since(
+            payload,
+            payload_date,
+            conference,
+            event.opened_at,
+            trigger_is_distribution=spec.moment is Moment.relist,
+        ):
+            return conference
+    return None
 
 
 def _cert_forecastable(

@@ -43,10 +43,10 @@ token or role, so privilege and outside reachability stay disjoint — see
 | `run-repair`     | manual dispatch only (one maintenance pass per dispatch, dry-run by default) | script (no agent)    |
 | `run-predict`    | daily schedules (14:12 and 17:32 UTC), input-less dispatch (manual, or the dispatch App's chain jobs) | Claude Code + Codex + Gemini |
 | `run-evaluate`   | daily schedule (15:39 UTC), manual dispatch whose one input picks the derivation: the backlog, the `reasoning-pilot` round of the `predicted_reasoning_quality` grade (a re-grade of a fixed sample under the registered prompt), or its `reasoning-pilot-merits` round over the replay merits calibration cells (the newest merits back-test's kept forecasts), each always held for review and committing nothing | Claude Code + Codex + Gemini |
-| `run-backtest`   | biweekly schedule (even ISO weeks, Sat 06:23 UTC — pinned cert parameters over the paid population, spends only on the manual `review` release), manual dispatch (replay/engine/limit/terms params; `replay: merits` replays the predictors over decided argued cases at the merits grant and briefed moments instead, dispatch only; `replay: salience-gate` runs the token-free gate replay instead of the predictors) | Claude Code + Codex + Gemini (replay) |
+| `run-backtest`   | biweekly schedule (even ISO weeks, Sat 06:23 UTC — pinned cert parameters over the paid population, spends only on the manual `review` release), manual dispatch (replay/engine/limit/terms params; `replay: merits` replays the predictors over decided argued cases at the merits grant and briefed moments instead, dispatch only; `replay: cert-compare` / `merits-compare` replay one predictor against the model `candidate` names, dispatch only; `replay: salience-gate` runs the token-free gate replay instead of the predictors) | Claude Code + Codex + Gemini (replay) |
 | `run-ops`        | daily schedule (ops report, weekly performance digest on the run summary, public status snapshot, prediction-reading digest), manual | script (no agent)    |
 | `post-public-update` | weekly schedule (Mon 12:57 UTC), manual dispatch (`week`; re-dispatching a missed week is safe, since the post is idempotent per week) | script (no agent); creates up to three Buttondown drafts (the Court update, the forecasts update and the AI-cases update), never sends |
-| `run-analytics`  | manual dispatch + weekly schedule (metrics refresh, Mon 05:41 UTC) + daily schedule (big-case board, 04:36 UTC) + weekly schedule (update history, Mon 12:59 UTC) + weekly schedules (topic labeling: petitions Tue 09:08 UTC, applications Wed 09:04 UTC, merits side coding Thu 09:14 UTC, behind the `review` hold) + weekly schedule (AI-case candidates, Fri 21:11 UTC) | script; the `qp-topic-label`, `qp-topic-label-applications`, `qp-topic-replicate`, `qp-topic-replicate-applications` and `alignment-side-code` modes each run one Claude Code labeler |
+| `run-analytics`  | manual dispatch + weekly schedule (metrics refresh, Mon 05:41 UTC) + daily schedule (big-case board, 04:36 UTC) + weekly schedule (update history, Mon 12:59 UTC) + weekly schedules (topic labeling: petitions Tue 09:08 UTC, applications Wed 09:04 UTC, merits side coding Thu 09:14 UTC, behind the `review` hold) + weekly schedule (AI-case candidates, Fri 21:11 UTC) + weekly schedule (follow-on dockets of listed AI cases, Tue 21:21 UTC) + weekly schedule (merits coverage check, Wed 09:22 UTC) + daily schedule (order-list reconciliation, 15:33 UTC) + daily schedule (forecast-coverage verdict, 16:09 UTC) | script; the `qp-topic-label`, `qp-topic-label-applications`, `qp-topic-replicate`, `qp-topic-replicate-applications` and `alignment-side-code` modes each run one Claude Code labeler |
 | `summarize`      | daily schedule (03:43 UTC), manual dispatch (`limit`); every run spends only on the `review` release, or on auto-release within the trailing spend budget (*Auto-release*) | script; one Messages API call per case (two when a rejected response is retried), no tools and no agent |
 | `integration-test` | manual dispatch + daily canary  | script; engine-smoke runs one real agent cell, engine-actions-smoke one boot probe per engine (the canary), each repro-family scenario one real cell against its pinned record, and qp-labeler-smoke one labeling agent over a synthetic extract |
 | `corpus-check`   | schedule every 30 minutes (:19, :49), input-less manual dispatch; a check of PR code runs only on the maintainer's `corpus-check` approval, an allowlisted `at: main` query unapproved under `corpus-check-auto` | script — the PR's own declared command, or `main`'s code for an `at: main` query (no agent) |
@@ -148,7 +148,13 @@ produces a correctness verdict and the live-frontier readiness snapshot where
 the corpus is already pulled, and `run-ops`
 renders them as the **data-health** section and the substance section's
 watchlist view, escalating a failing verdict to one
-long-lived issue — so the report surfaces run-health, data-health, and
+long-lived issue. The readiness snapshot also carries the discovery frontier
+check's verdict (*The discovery frontier check* in
+[live-sources.md](live-sources.md)): the substance section prints one line per
+numbering stream, and an alarm on any stream opens or refreshes the latched
+**Discovery frontier behind** issue under `pipeline-health`, which closes
+itself when every stream is clean and is left as it is when no verdict was
+published — so the report surfaces run-health, data-health, and
 substance while staying a read-only presenter that never touches the corpus.
 
 ### Schedule delivery
@@ -205,8 +211,8 @@ stands. Four sections:
 It carries counts, dates and committed headlines only: no spend figure and no
 agent-written text, because the page is public. Only a run on `main` publishes
 it, and a snapshot that cannot be built is skipped with a warning rather than
-failing the job, so the ops snapshot and the data-validation escalation still
-land.
+failing the job, so the ops snapshot and the data-validation and AI-watchlist
+escalations still land.
 
 ### The weekly performance digest
 
@@ -251,11 +257,40 @@ Five blocks, in the order a reader needs them:
   (at a handful of realized grants one call moves it by whole points), and,
   grading-weighted, the mean Brier and the Brier skill against the
   strictly-prior segment base rate beside its grading count — the figure to
-  read. Under the table, the gradings the build dropped for suspected leakage
-  (by predictor) or set aside as not shown to be forward, counted across every
-  stage and so not subtractable from the cert figures. It leads the scored
+  read; and, per event, the engine's own forecast grant count (its summed
+  P(granted)) beside the grants that realized on the binary target and the
+  events both are over, a gap that reads as over- or under-forecasting only
+  once the cohort's relisted and held petitions have resolved. One line under
+  the table reads the board's `engine_mean` reference, the mean of the engines'
+  probabilities, against the best engine's own per-event Brier, as a reference
+  and never a ranked row. Under it, the gradings the build dropped for
+  suspected leakage (by predictor) or set aside as not shown to be forward,
+  counted across every stage and so not subtractable from the cert figures. It
+  leads the scored
   blocks because it is the program's output; the back-tests after it are
   iteration instruments.
+- **Movement since the previous board** — under the forward block, each
+  predictor's pooled forward series on the committed board against the board
+  it replaced, read from the checkout's own history of
+  `metrics/leaderboard.json`. Only a series that gained or lost events or trips
+  a flag is printed (`rescored`, `events-removed`, and from ten events
+  `at-or-below-floor` and `negative-skill`), a flagged series that did not
+  move as one line. These are each predictor's own record, not the paired
+  figure above, with the floor beside each accuracy; an operational check,
+  not a finding. Omitted where the history is unreadable or holds no earlier board.
+- **Forward misses** — under the forward block, counts off the committed
+  `metrics/miss-review.json` with its vintage: the forward events holding a
+  miss, how many every predictor reviewed there shares, and the same per
+  stage. Per event, never per predictor, and never a rate. Where the artifact
+  has not landed the block says so.
+- **Forecast-document grade** — after the misses, off the committed
+  `metrics/forecast-document-grades.json` with its vintage: one row per
+  predictor per stage with its cells graded by every judge (and those null by
+  every judge, and split), and each judge's mean grade of that predictor's
+  forecast documents beside the cells it is over, a dash under the minimum.
+  One line per stage gives each judge's leave-one-out agreement with the rest
+  of the panel. Graded, not scored, and never averaged across judges. Where
+  the artifact has not landed the block says so.
 - **Backtest results** — the historical replay **per court**, with each row's
   own always-deny floor beside its accuracy and the pooled row labelled as the
   mixture it is (`granted` means cert on a SCOTUS row and a motion granted on a
@@ -378,9 +413,8 @@ call, no branch write.
 
 `run-analytics` is the **corpus analysis & derived metrics** surface, also outside
 the cascade: every task that reads the corpus and answers a question or refreshes a
-derived artifact is a mode here (dispatch `mode` input, or one of the three
-schedules — the weekly metrics refresh, the daily big-case board and the weekly
-update history, each gated
+derived artifact is a mode here (dispatch `mode` input, or one of its
+schedules, each gated
 on which cron fired rather than on the event class),
 each as its own least-privilege job holding only the credentials its mode needs.
 
@@ -488,6 +522,121 @@ queues behind the production run of the same mode. The modes:
   credential is refused, the run stopped before its first request, or every
   search failed; the step summary carries the per-search counts and the
   spend.
+- **`appeal-sample`** (dispatch) runs `fedcourts appeal-sample` for the court
+  of appeals the `court` input names (`ca2`, `ca3`, `ca9` or `cadc`): the
+  measurement of the appeal stage's disposition reader on a draw of civil
+  appeals ([appeal-stage.md](appeal-stage.md), *Measuring the reader*). One
+  court a run, and the four runs together are the measurement. Like
+  `order-scan` it reads CourtListener and not the corpus, holds the
+  CourtListener token on its one sample step and no cloud role, and runs the
+  governor with its lane's share (150) as the hourly limit, at 10 requests a
+  minute. It is one of the dispatched lanes that share a day's slot, so run
+  one court a day, in the quiet odd hours `run-pull`'s enrich job names. It
+  writes nothing and uploads no artifact: the report (court-record
+  identifiers, counts and the reader's reason strings) goes on the run's
+  summary page. A staging dispatch runs the same read against the same
+  account where the staging environment holds a token, and refuses before
+  any request where it does not.
+- **`ai-follow-ons`** (weekly, Tuesday 21:21 UTC, or dispatch) runs the
+  follow-on check: `fedcourts ai-candidates-issue` reads the same raised set,
+  and `fedcourts ai-follow-ons` searches the courts of appeals and the JPML
+  for dockets filed in the last 45 days that carry a listed district docket's
+  number, reads each new circuit hit once for its originating case, drops the
+  watchlist's dockets and the raised ones, and writes a comment for the rest,
+  which `post-issue-comment` posts on the `ai-candidates` issue. Each row
+  names the listed case it is related to; the maintainer adds it as a
+  `related` row by a PR, or leaves it. A quiet week posts nothing, and a
+  docket is raised once across both checks. It spends the `ai-candidates`
+  lane share (40 requests; one a listed district docket and one a new circuit
+  hit), which reserves one run a day, so its cron is three days from the
+  candidate check's and a dispatch belongs on a day that check does not run.
+  Credentials, the `main`-only posting fence and the rehearsal behaviour
+  match the candidate job's. The run fails when the credential is refused, the run
+  stopped before any search answered, or no search answered; hits the cap
+  left unread are counted in the step summary and read by the next run.
+- **`order-reconcile`** (daily, 15:33 UTC, or dispatch) reconciles the corpus
+  with the Court's order lists. Its first job runs `fedcourts order-reconcile`
+  over today and the 14 days before it: every docket an order list, a
+  miscellaneous order or an opinion relating to orders names must have a
+  corpus row, the row must record the disposition and date the list states,
+  and a selected or predicted event of that stage must have its outcome
+  record. It alarms on a listed docket with no row 48 hours after its list, a
+  mismatch 12 hours on, an outcome record missing three days on, and a
+  document the reader could not read whole; entries it took no disposition
+  from and applications first stored after their order's day are counted and
+  never alarm. The job's summary carries the verdict and one line per order
+  document (entries read, matched, mismatched, with no row, unparsed). That
+  job holds the read-only role and no issue write, fetches and parses the
+  Court's PDFs under it, and leaves its report as a one-day artifact (every
+  count, and only the entries that need a look); the command's exit 3 (an
+  alarm) is not a failed job, and any other failure uploads nothing. A second
+  job, with the ambient token's `issues: write` and no environment, role or
+  corpus, runs `fedcourts order-reconcile-alarm` on that artifact: an alarm
+  opens the issue "Order-list reconciliation failing" under the
+  `order-reconcile` label or rewrites its body in place, naming each alarm by
+  list date and docket number, and a clean report closes it. A reconciliation
+  that could not run leaves the issue as it stood. A finding leaves the
+  report when its list leaves the window, so an alarm nobody acted on clears,
+  and its issue closes, once the list is more than 14 days old. Only a run on
+  the `main` branch ref writes the issue; a staging dispatch reads the staging
+  corpus pair and reports in the step summary. The readout is monitoring and
+  enters no board, base rate or release figure.
+- **`coverage-verdict`** (daily, 16:09 UTC, or dispatch) reads every
+  forecast-coverage check as one verdict. Its first job runs `fedcourts
+  coverage-verdict`: the missed-forecast monitor over 35 days, the grants and
+  application rulings of the last 14 days that had no forecast, and the
+  federal-label cross-check on pending petitions (*The missed-forecast
+  guards*, below, says what each alarms on). The job's summary carries the
+  verdict. That job holds the read-only role and no issue write and leaves the
+  verdict and its issue body as a one-day artifact; the command's exit 3 (an
+  alarm) is not a failed job, and any other failure uploads nothing. A second
+  job, with the ambient token's `issues: write` and no environment, role or
+  corpus, runs `fedcourts coverage-verdict-alarm` on that artifact: an alarm
+  opens the issue "Forecast coverage failing" under the `forecast-coverage`
+  label or rewrites its body in place, and a clean verdict closes it. A
+  verdict that was never reached leaves the issue as it stood. A missed
+  forecast cannot be repaired once its event has resolved, so it stays in the
+  verdict until it is 35 days old and the issue is often open for weeks; a
+  body rewrite notifies no one, so a refresh that brings an alarm the issue
+  did not already name also comments, naming the new ones. The body lists at
+  most 150 alarms by name and counts the rest. Only a run on the
+  `main` branch ref writes the issue; a staging dispatch reads the staging
+  corpus pair and the staging ledger and reports in the step summary. The
+  verdict is monitoring and enters no board, base rate or release figure.
+- **`merits-coverage`** (weekly, Wednesday 09:22 UTC, or dispatch) checks that
+  every case the Court has set for argument is in the merits stream. Its
+  first job runs `fedcourts merits-coverage-check`: the coverage census for
+  the Term and the one before it, set against the Court's Granted & Noted
+  list for the Term (and the next Term's, where the Court has opened it),
+  which the pipeline did not produce. A listed docket alarms when, 7 days
+  after its grant, it has no corpus row, no grant opening a merits proceeding
+  or no merits event (an entry printing no readable grant date is
+  treated as past that period); when the census reads it `no_event` or
+  `not_forecastable`; when its argument is within 14 days with no forecast;
+  when it was argued 7 or more days ago with no forecast at the argued moment;
+  and when it was decided with no forecast dated before the decision. The
+  grace period after a grant covers the census holes too. A case on two
+  Terms' lists (held over for reargument) is read once, from the later one. A
+  consolidated set meets the argument and decision checks through any of its
+  dockets. A finding on a case decided more than 28 days ago can no longer be
+  repaired and is carried as a standing miss, reported and not alarmed; the
+  exception is a decision the list prints and the corpus row still lacks 7
+  days on, a corpus fault that alarms until the row carries it.
+  Original-jurisdiction cases and applications set for argument are listed
+  apart. A census grant without a prediction that no list read names is held
+  to the same census and decision rules, since the census also covers the
+  grants of the Term before. That job holds the read-only role and no issue write, and leaves the
+  check and its report as a one-day artifact; the command's exit 3 (an alarm)
+  is not a failed job, and any other failure uploads nothing. A second job,
+  with the ambient token's `issues: write` and no environment, role or corpus,
+  runs `fedcourts merits-coverage-alarm` on that artifact: an alarm opens the
+  issue "Merits coverage failing" under the `merits-coverage` label or
+  rewrites its body in place, and a clean check closes it. A check that could
+  not run leaves the issue as it stood. Only a run on the `main` branch ref
+  writes the issue; a staging dispatch reads the staging corpus pair and
+  reports in the step summary. The readout is monitoring: every figure in it
+  is selected on what has already happened to a case, so none enters a board,
+  a base rate or a release figure.
 - **`decision-below`** (dispatch) runs `fedcourts enrich-decision-below
   --max-cases 25`, the decision-below fill's dry run: for the next 25 cases of
   its rotation, whether CourtListener holds the lower court's docket and the
@@ -528,8 +677,8 @@ queues behind the production run of the same mode. The modes:
   maintainer is reading. A staging dispatch fits against the staging pair and
   stops at the publish fence.
 - **`metrics-refresh`** (weekly schedule, or dispatch) keeps the committed metrics
-  artifacts from drifting stale: `metrics/claim-scores.json` (input: the `data/`
-  evaluations ledger), `metrics/leaderboard.json` (the same ledger plus the
+  artifacts from drifting stale: `metrics/claim-scores.json`,
+  `metrics/miss-review.json` and `metrics/forecast-document-grades.json` (input: the `data/` evaluations ledger), `metrics/leaderboard.json` (the same ledger plus the
   committed `metrics/statpack.json`, which its realized-Term skill column is
   scored against — so it regenerates *after* the pack),
   `metrics/big-cases.{json,md}` (the same ledger again — the daily `big-cases`
@@ -1851,11 +2000,23 @@ run-log issue means exactly "a window broke".
 
 **An open issue is one of exactly three things, and the reader can tell which
 from its label.** An **alarm** — `pull-log`, `live-log`, `data-validation`,
-`pipeline-health` — is filed only by a failure, so an open one always means
-something needs attention. A run-log alarm is closed by a human once triaged;
-the two latched alarms, `data-validation` and `pipeline-health`, also close
+`pipeline-health`, `ai-watchlist`, `merits-coverage`, `order-reconcile`, `forecast-coverage` — is filed only by a failure, so an open one
+always means something needs attention. A run-log alarm is closed by a human
+once triaged; the latched alarms, `data-validation`, `pipeline-health`,
+`ai-watchlist`, `merits-coverage`, `order-reconcile` and `forecast-coverage`, also close
 themselves when their check is green again, and each closes only the issue it
-filed, matched by its fixed title and the workflow bot as author. Alarm
+filed, matched by its fixed title and the workflow bot as author. The
+`ai-watchlist` alarm is `run-ops` reading the AI watchlist's corpus check
+(`fedcourts ai-watchlist-check`), which the corpus-writer path publishes to
+`ops-metrics` beside the validation verdict: it is open while a Supreme Court
+docket in the corpus arises from a listed case and is not on the check's
+linked list, a listed docket
+has gone seven days without a refresh, or the last published reading is more
+than two days old; the check's one line is on every ops run's summary.
+Nothing supplies a linked list, since no relation ties a Supreme Court docket
+to the watchlist, so every such docket alarms and stays open. A check that
+has never published does not alarm: the corpus-writer step warns when it
+produces no reading. Alarm
 labels are reserved for these jobs: a hand-filed issue takes a category
 label instead. A **digest** —
 `daily-digest` — is filed on the happy path and closed once
@@ -1864,8 +2025,9 @@ read, so the open ones are the unread backlog and nothing more. The
 healthy run, by comment rather than by rewrite, and it stays open by design (its
 own body says so). Nothing else is an issue: a run's own record is a per-run
 artifact — the step summaries, the ops report on its run summary — never a
-long-lived body a job rewrites in place. Only the data-validation alarm edits a
-body, and only its own, so that a recurring failure latches onto one thread
+long-lived body a job rewrites in place. Only the data-validation,
+ai-watchlist, discovery-frontier, merits-coverage, order-reconcile and forecast-coverage alarms edit a body, and
+each only its own, so that a recurring failure latches onto one thread
 instead of spamming new ones. That split is what keeps an open issue worth
 reacting to, and it is why an alarm never depends on a later window firing to
 stay honest.
@@ -1883,7 +2045,7 @@ Events created with the default `GITHUB_TOKEN` **do not trigger other workflows*
 run PRs, the metrics and back-test review PRs — is opened with a **GitHub App
 installation token** (`actions/create-github-app-token`), not `GITHUB_TOKEN`.
 The rule cuts the other way too, and that is what keeps the operational issues
-safe: the run-log alarms, the data-validation escalation, and the daily digest must
+safe: the run-log alarms, the data-validation and AI-watchlist escalations, the merits-coverage, order-reconcile and forecast-coverage alarms, and the daily digest must
 fire nothing, so they ride
 the ambient `GITHUB_TOKEN` and never the App's. See `docs/security.md` for the
 one-time App setup.
@@ -2106,7 +2268,7 @@ pattern rather than rediscovering it:
   fails on a bare `uv run fedcourts` reappearing in that composite.
 - **A GitHub API call has no retry unless you give it one.** The calls that
   route through `gh_retry` are the ones that keep the run *record* — the ops
-  report's collection calls, the data-validation escalation,
+  report's collection calls, the data-validation and AI-watchlist escalations,
   run-backtest's result comment,
   the per-day `pull-log` / `live-log` alarms, the seed guard. They are
   bookkeeping about a run rather than the work, which is what makes a lost one
@@ -2130,7 +2292,7 @@ pattern rather than rediscovering it:
   A call that routes through `agent_feedback.py`'s runner carries the bound
   already: that module's default `GhRunner` applies the same three attempts at
   the same 30s cap to every `gh` call it makes, so the `post-issue-comment`,
-  `post-agent-feedback`, and `daily-digest --post`
+  `post-agent-feedback`, `merits-coverage-alarm`, `order-reconcile-alarm`, `coverage-verdict-alarm`, and `daily-digest --post`
   commands — the plan report each non-empty
   predict/evaluate round posts before the review hold, the collect job's stall
   and secret-scan reports, the flag roll-up latch itself, and the daily digest's
@@ -2426,7 +2588,7 @@ The mechanics:
   or a `promote/` PR whose name the train would not have cut.
 
   **Cost.** One paid `gate` suite per candidate — three engine-smoke cells
-  plus three boot probes, about $1.60 of staging's engine keys as measured
+  plus three boot probes, about $1.90 of staging's engine keys as measured
   ([budget.md](budget.md)), with no review
   hold and outside the auto-release budget. The dispatch is refused while
   *any* dispatched integration run sits at the head, whatever its title, so a
@@ -2849,8 +3011,11 @@ After resolution, the evaluate derivation runs the **missed-forecast monitor**
 over the week's resolutions, driven from the corpus rather than the ledger so a
 case that never reached the ledger is still seen: an event a predictor owed
 never forecast is either declined by design (out of scope, not a forecastable
-moment, not funded, the predictor not yet producing forecasts, or resolved
-before a scheduled round could run) or **missed**, and each miss is annotated
+moment, not funded, the predictor not yet producing forecasts, resolved
+before a scheduled round could run, or open across rounds none of which fell
+inside the moment's own window: after its cells were first admitted and, for
+a relist, sg-brief or cert call-for-response moment, before the conference
+that next considered the petition) or **missed**, and each miss is annotated
 by name — as is a decided event with no outcome record on a selected row (resolved
 in the corpus, or a declared moment left open on a row that records its stage
 decided),
@@ -2859,6 +3024,54 @@ its JSON (`counts.case_reconciliation`) and `evaluate-plan` the monitor
 (`counts.predictionless_resolutions`); `evaluate-plan --missed-since`
 backfills the monitor over a longer window. The blocks are described in
 [cli.md](cli.md).
+
+Both guards measure delivery against what selection funded, so neither sees a
+selection gap: a grant on a petition the salience pass left unselected is
+declined `not_funded`, by design. `fedcourts unforecast-outcomes` is the
+readout for that side. It starts from the outcome (every grant-family paid
+petition, and every application referred to the Court or read substantive,
+resolved in a window), lists the ones no committed forecast preceded with the
+reason and band, reports the share of grants a forecast preceded for the
+window and the Term to date, and exits 3 on an alarm: an unforecast grant in
+the `federal` band, one a looser reading than the caption rule places federal,
+or Term-to-date recall under its floor. The figures are outcome-selected and
+describe selection, never a predictor; [cli.md](cli.md) has the rules.
+
+`fedcourts federal-label-check` asks the same question before the outcome
+rather than after it. Over the pending paid docket it lists every petition
+outside the `federal` band that a reading looser than the caption rule places
+federal, so a mislabeled federal petitioner is seen while its conference is
+still ahead. It reads pending rows only and selects nothing; a confirmed miss
+is evidence for the next registered caption version.
+
+`fedcourts coverage-verdict` folds the three into one answer: the
+missed-forecast monitor read over 35 days, and the two censuses, as a single
+`ok` with the alarms named by check, a flat block of counts to keep as a
+series, and a rendered issue body. The round's own `::warning::` lines expire
+with the run log; the verdict is the form the same findings take when they
+are to outlive it. `run-analytics`' `coverage-verdict` mode runs it daily and
+latches its alarms onto the one `forecast-coverage` issue; `unforecast-outcomes`
+and `federal-label-check` run on their own only when a maintainer or a session
+reads one by hand.
+
+Every check above starts from the corpus, so none can see a ruling the
+corpus never recorded. `fedcourts order-reconcile` starts from the Court's side: it
+reads the order lists and miscellaneous orders `supremecourt.gov` lists for a
+window, one entry per docket, and checks that each number has a corpus row,
+that the row records the disposition and date the list states, that a
+selected or predicted event of that stage has its outcome record, and that an
+application was first stored no later than the day it was ruled on
+(`pipeline/order_reconcile.py`). It alarms, by exit code 3, on a listed
+docket with no row 48 hours after its list, a mismatch 12 hours on, an
+outcome record missing three days on, and any document it could not read
+whole; it counts, and never alarms on, the entries it took no disposition from and
+the applications first stored after their order's day. It is a monitoring
+readout and feeds no scored figure.
+
+`run-analytics`' `order-reconcile` mode runs it daily over its default
+window, today and the 14 days before it; the mode's entry under that workflow
+says what each of its two jobs holds and how the **Order-list reconciliation
+failing** issue is latched from the report.
 
 That is the shape both workflows invoke, on every round. The commands
 still accept an explicit case list — a ` ```json ``` ` block by `--body-file`, or
@@ -3204,7 +3417,43 @@ to `publish`, its removal never reaches what the PR commits. The weekly public
 update history, `metrics/updates/`, leaves and comes back with the board on the
 same terms, because each week's resolved section names decided events beside
 their outcomes. The standing `metrics/cert-backtest.json` is withheld by
-`cert-backtest` itself (see the `cert-backtest` row in [cli.md](cli.md)).
+`cert-backtest` itself (see the `cert-backtest` row in [cli.md](cli.md)), as
+are the pooled back-test record `metrics/backtest-record/` and the comparison
+reports `metrics/backtest-comparisons/`, by `cert-backtest`, `merits-backtest`
+and the two comparison commands alike.
+
+The comparison arms (`replay: cert-compare`, `replay: merits-compare`) run in
+the same checkout under the same removals and restores. `candidate` is
+`<predictor>=<model>`, checked against that shape by
+`fedcourts backtest-handoff-plan` before it reaches a command line or a path,
+and the one predictor it names is replayed twice
+(`fedcourts cert-backtest-compare` / `merits-backtest-compare`), the
+candidate's campaign first. The draw is capped at 20 petitions or 10 cases,
+40 cells of one engine either way, since a dispatch has no `review` hold. The
+report, `metrics/backtest-comparisons/<kind>-<predictor>-<run id>.json`,
+lands on its own `metrics/backtest-comparison-<run id>` branch, so one
+unmerged comparison is never overwritten by the next. A prompt candidate is
+not dispatchable, its template having to be in the commit's tree: that
+comparison runs by command where the corpus is pulled.
+
+Every arm that runs a model also passes `--record`, so the run's scored cells
+are written to `metrics/backtest-record/<kind>-<run id>.jsonl` and cross to
+`publish` beside the report. Both jobs take the two paths from
+`fedcourts backtest-handoff-plan`, which derives them from the dispatch and
+the run id and never from what is on disk. `publish` refuses a hand-off
+holding anything else or a record file the tree already has, and before it
+mints runs `fedcourts backtest-handoff-check`: a comparison report must parse
+as one, of this kind and predictor, and the record must be one run's rows of
+this kind, of the arms and predictors this mode writes, each row names and
+numbers with no field that holds prose. A fault while a standing replay
+appends its record is annotated and does not fail the command, and a record
+file that is not a regular file is left behind by the hand-off, so in both
+cases the paid-for report still lands and the run's cells are missing from
+the pool. The roll-up `metrics/backtest-pooled.json` is not committed
+by the lane, since two open PRs each carrying a copy would conflict on it:
+`fedcourts backtest-pooled` computes it from the record on `main`. A fixed
+review branch that a later run force-pushes drops an unmerged earlier run's
+record file with its report.
 
 Two residuals ride that fence, and both are the reason it is described as
 structural rather than as a wall. The checkout is full-depth, so the ledger
@@ -3525,6 +3774,17 @@ an event first materialized this run, would reach the run PR. It runs under
 back. The scope is `data/` alone: the engine state, sidecar logs and watchdog
 bundle the harness writes at the workspace root are outside it.
 
+One stray is the cell's whole output. A predictor that names its run directory
+as one joined component, `predictions/<predictor_id>__<run_id>/` (underscores,
+hyphens or dots between the two ids), has written every file it owes one level
+too high, where the confinement would remove them and the cell would land
+nothing. Before the comparison the step renames that directory onto
+`predictions/<predictor_id>/<run_id>/`, contents untouched, and leaves an
+`info` harness note in the cell's `flags.json`. It does so only for exactly one
+such directory the baseline did not hold, a real directory with a
+`prediction.json`, with the run directory absent or empty and no link on the
+way; anything else is put back as any other stray is.
+
 The same step in both cells, and a step of its own in every other job that
 starts an engine in a checkout (the back-test, the qp-topic labeler and the
 integration-test jobs), takes `AGENTS.md`, `CLAUDE.md` and `.claude/` out of
@@ -3565,6 +3825,30 @@ the committed trees → agent → restore them → capture usage → capture ret
 log → **un-alias** → stamp → validate.
 Wiring the un-aliasing and the stamp anywhere else in that sequence produces a
 run that looks green and quietly drops a scoring block.
+
+**A judge that keys its candidate directories in the wrong order still lands.**
+The contract path is `evaluations/<evaluator>/<alias>/<run_id>/`. A judge
+sometimes writes the same three components as
+`evaluations/<evaluator>/<run_id>/<alias>/` or as
+`evaluations/<alias>/<evaluator>/<run_id>/`: every file the cell owes exists,
+under a path nothing downstream reads, so the cell would land nothing and be
+owed again at full cost. `unblind-evaluations` first renames such directories
+onto the contract path, contents untouched, and leaves a `harness` note in the
+cell's `flags.json` naming the ordering it found. It does so only for a whole
+reordering: every misplaced directory under the same one of those two shapes,
+each holding an `evaluation.json`, none also present at the contract path, no
+link on the way, and nothing that would be left behind. Anything short of that
+is left exactly as written and the cell fails or lands nothing as it would have.
+A third shape is flat: one `evaluations/<evaluator>/<run_id>/<alias>.json` per
+candidate and a single `evaluation.md` for all of them beside those files. The
+step renames each file to that candidate's `evaluation.json` at the contract
+path and copies the shared write-up beside each one, on the same terms: no
+candidate written as a directory anywhere, the shared `evaluation.md` present,
+and no other alias-named entry in the cell's directory. Moving a file does not
+make it valid, so a grade that does not fit the schema still fails `validate`.
+When the step un-aliases nothing, or fails, it prints the untracked files under
+the event directory (paths only), so the log says where a cell that landed
+nothing put its output.
 
 How a cell's output becomes a PR is the same across **run-predict** and
 **run-evaluate**: each cell validates its own output and
@@ -4037,15 +4321,32 @@ no retry can carry the step past the deadline. Before the first attempt the
 cell's output root is snapshotted (`cell-output-snapshot`), and before each
 retry everything an attempt added under it is removed (`cell-output-reset`),
 so a half-written file from a failed turn is never read as the cell's output;
-an attempt that already wrote the cell's judgment artifact is never retried, and
-neither is one that wrote the cell's `flags.json` — a disclosure (in a replay
+an attempt that already wrote the cell's judgment artifact is not retried while
+that artifact holds to its schema (`finalize-validates`), since the retry would
+discard finished work; one whose `prediction.json` or `evaluation.json` its own
+model refuses is retried, since the cell's tail would refuse that output and
+the cell would otherwise wait for a later round. The check is the artifact's
+model alone, so a cell that is valid but incomplete is kept as it is. Nor is an
+attempt retried that wrote the cell's `flags.json` — a disclosure (in a replay
 cell, of outcome-revealing material) that a fresh session would know nothing
 of, so the reset declines rather than discard it. Files an attempt leaves
 outside the output root are not reset; the cell contract writes nothing there.
 The telemetry log stays in place across attempts — gemini-cli opens it for
 append — so `usage.json` and `retrieval_log.json` count every attempt's tokens
 and tool calls, failed turns included. The step's exit status is its last
-attempt's, and each non-`ok` attempt leaves a `::warning::` naming the cell, the
+attempt's, with one exception: a last attempt that exited non-zero on a fault
+the engine itself reported, after the cell's work was whole, concludes the
+step clean. Reported means the error object in the engine's result or on its
+stderr (`engine-attempt-reported`), under a `transient` or `permanent`
+verdict; a turn ended from outside (the deadline's signal, a crash) leaves no
+such object and stays failed, as does a spent quota, an unclassified fault,
+and any step the watchdog has acted on. Whole
+means every file the cell owes is present, non-empty and, where JSON, parsing
+(`finalize-complete`, the completion sentinel's own test) and every judgment
+artifact holds to its schema (`finalize-validates`); the fault then cost the
+cell nothing, a zero-exit fault over the same output already ends the step
+clean, and the cell's tail still validates what it lands. Each
+non-`ok` attempt leaves a `::warning::` naming the cell, the
 verdict and, where the engine reported one, its fault in one screened line
 after `engine said:` (`fedcourts engine-attempt-fault`): the result's error,
 else the error object a failed exit leaves on stderr, else stderr's last
@@ -4063,12 +4364,15 @@ both, lane-prefixed, to the log live; the runner classifies every attempt with
 the same classifier, retries only a `transient` one under its own attempt cap
 (the `runner:` section of `config/tracking.yaml`), and resets the cell's
 output root to its pre-attempt snapshot before each retry, never past a
-written judgment artifact or `flags.json`. The reset covers only that root:
-scratch an attempt wrote elsewhere under the work root survives a retry, as it
-does in the cells' in-place retry. These rules hold for a non-zero exit too,
-so unlike claude and codex — which retry a transient non-zero exit in place,
-without a reset — a Gemini cell that already wrote its judgment is not
-retried. A zero-exit turn that is not retried keeps whatever it produced; one
+written judgment artifact that validates, or a `flags.json`. The reset covers
+only that root: scratch an attempt wrote elsewhere under the work root
+survives a retry, as it does in the cells' in-place retry. These rules hold
+for a non-zero exit too, so unlike claude and codex — which retry a transient
+non-zero exit in place, without a reset — a Gemini cell that already wrote its
+judgment is not retried, and its non-zero exit is an `engine-failed` lost cell
+unless the engine itself reported the fault and the cell's output was already
+complete and valid, which keeps the output as the cell step does. A zero-exit turn that is
+not retried keeps whatever it produced; one
 that produced nothing is a classified failure — an `engine-failed` lost cell,
 or a spent quota that finishes the engine for the campaign — rather than a
 cell that silently wrote nothing. Two things differ from the cell step: the

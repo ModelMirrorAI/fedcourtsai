@@ -33,6 +33,8 @@ from .analytics import _GRANT_LABELS
 from .collect import flags_table, flags_tally
 from .integrity import FORWARD, RETROSPECTIVE
 from .metrics_refresh import arm_mix_text, arm_score_text, outcome_mix
+from .performance_history import MIN_EVENTS_FOR_LEVEL_FLAGS, board_points, movements
+from .pipeline import discovery_frontier
 from .process_version import (
     Series,
     composition_of,
@@ -54,19 +56,23 @@ from .schemas import (
     CostEstimate,
     CountingWindow,
     DataHealth,
+    DocumentGradeSeries,
     Evaluation,
     FlagsDigest,
     FlagSeverity,
     FlagSource,
+    ForecastDocumentGrades,
     ForwardClaimRecord,
     Leaderboard,
     LeaderboardStratum,
     LeakageDigest,
     LeakageExclusionRecord,
     LiveFrontier,
+    MissReview,
     ModelUsage,
     OpenTriggerIssue,
     OpsReport,
+    PairedEvents,
     PredictableEvent,
     Prediction,
     PredictorScoreRow,
@@ -661,6 +667,7 @@ def render_substance(digest: SubstanceDigest) -> str:
             f"Watchlist **{frontier.watchlist}** petition(s) · {upcoming} · "
             f"documents provisioned on **{frontier.documents_provisioned}/{frontier.watchlist}**",
         ]
+        lines += discovery_frontier.render_block(frontier.discovery)
     return "\n".join(lines) + "\n"
 
 
@@ -702,6 +709,17 @@ class WeeklyAnalytics:
     cert_backtest: Vintaged[CertBacktest]
     salience_version_in_force: str
     leaderboard: Vintaged[Leaderboard]
+    #: The forward miss review, printed under the forward block. The digest
+    #: command always supplies it, so until the artifact is first committed the
+    #: block is its absence line; unsupplied, no block is printed.
+    miss_review: Vintaged[MissReview] | None = None
+    #: The forecast-document grade board, printed after the miss review on the
+    #: same terms: supplied by the digest command, absent until first committed.
+    document_grades: Vintaged[ForecastDocumentGrades] | None = None
+    #: The board the current one replaced, its vintage the day it landed: what
+    #: the movement block compares against. Null where the history is
+    #: unreadable (a shallow checkout) or holds no earlier board.
+    previous_leaderboard: Vintaged[Leaderboard] | None = None
 
 
 @dataclass(frozen=True)
@@ -1300,11 +1318,49 @@ def _forward_row(predictor_id: str, block: LeaderboardStratum) -> str:
         if block.population_brier_skill_score is None
         else f"{block.population_brier_skill_score:+.2f} ({block.skill_scored:,} gradings)"
     )
+    forecast = (
+        "—"
+        if block.grants_forecast is None
+        else f"{block.grants_forecast:.1f} ({block.grants_forecast_realized} realized of "
+        f"{block.grants_forecast_scored})"
+    )
     return (
         f"| {_cell(predictor_id)} | {_pct(block.event_accuracy)} "
         f"| {_pct(block.event_always_deny_accuracy)} "
-        f"| {_signed_pct(lift)}{lift_events} | {_brier(block.mean_brier_score)} | {skill} |"
+        f"| {_signed_pct(lift)}{lift_events} | {_brier(block.mean_brier_score)} | {skill} "
+        f"| {forecast} |"
     )
+
+
+def _engine_mean_line(paired: PairedEvents) -> list[str]:
+    """The mean-of-engines reference under the forward table, read against the best engine.
+
+    Per-event Briers throughout, the reference beside each engine's own over
+    the same events, so the line is one comparison on one footing — not the
+    grading-weighted mean Brier the table's column prints.
+    """
+    mean = paired.engine_mean
+    if mean is None:
+        return []
+    best = min(mean.engine_brier, key=lambda pid: (mean.engine_brier[pid], pid))
+    verdict = (
+        "below every engine's own"
+        if mean.brier < mean.engine_brier[best]
+        else f"not below the best engine's own (`{_cell(best)}`)"
+    )
+    engines = ", ".join(
+        f"`{_cell(pid)}` {_brier(mean.engine_brier[pid])}" for pid in sorted(mean.engine_brier)
+    )
+    line = (
+        "Reference, not a predictor and never ranked: the mean of the "
+        f"{len(mean.engine_brier)} engines' probabilities scores a per-event Brier of "
+        f"**{_brier(mean.brier)}** over {mean.events:,} of {paired.events:,} paired event(s) "
+        f"({mean.grants} granted), {verdict}. Per event over the same events: {engines}. "
+        "A mean always scores at least as well as its members' average, so only the "
+        "comparison with the best engine is a reading; the engines can surface the same "
+        "sources, so they are not independent forecasts."
+    )
+    return ["", line]
 
 
 def _left_out_line(board: Leaderboard) -> list[str]:
@@ -1340,7 +1396,9 @@ def _forward_lines(vintaged: Vintaged[Leaderboard]) -> list[str]:
     call moves it by whole points); the mean Brier and the Brier skill against
     the strictly-prior segment base rate — the leakage-safe baseline and the
     board's primary measure — are grading-weighted, with the skill's own grading
-    count. The exclusions the build applied ride under the table.
+    count. The last column is the engine's own forecast grant count beside the
+    grants that realized on the binary target and the events both are over. The
+    exclusions the build applied ride under the table.
     """
     board = vintaged.value
     where = _sourced("leaderboard.json", vintaged)
@@ -1376,12 +1434,20 @@ def _forward_lines(vintaged: Vintaged[Leaderboard]) -> list[str]:
         f"a scored cell on{grant_text}. Accuracy, floor and lift are per event; mean Brier "
         "and Brier skill are per grading (one per cell per judge). Brier skill is against "
         "each cell's strictly-prior segment base rate (positive beats it) and is the figure "
-        "to read. Interim and merits figures are the board's per-stage blocks.",
+        "to read. Grants forecast is the sum of the engine's own P(granted), per event, "
+        "beside the grants that realized on the binary target each probability is scored "
+        "against (so it can differ from the grant-family count above) and the events it "
+        "is over. A gap reads as over- or under-forecasting only once the cohort's "
+        "relisted and held petitions have resolved; until then realized runs low. The "
+        "reliability table on the board says where a gap sits. "
+        "Interim and merits figures are the board's per-stage blocks.",
         "",
-        "| Predictor | Accuracy | Always-deny floor | Lift | Mean Brier | Brier skill |",
-        "| --- | ---: | ---: | ---: | ---: | ---: |",
+        "| Predictor | Accuracy | Always-deny floor | Lift | Mean Brier | Brier skill "
+        + "| Grants forecast |",
+        "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",
         *[_forward_row(p, by_engine[p]) for p in order],
     ]
+    lines += _engine_mean_line(paired)
     unranked = [
         e.predictor_id
         for e in board.entries
@@ -1395,6 +1461,191 @@ def _forward_lines(vintaged: Vintaged[Leaderboard]) -> list[str]:
             + ".",
         ]
     return [*lines, *_left_out_line(board)]
+
+
+def _signed(value: float | None, digits: int) -> str:
+    return "—" if value is None else f"{value:+.{digits}f}"
+
+
+def _movement_lines(
+    current: Vintaged[Leaderboard], previous: Vintaged[Leaderboard] | None
+) -> list[str]:
+    """What moved between the previous committed board and this one, per pooled series.
+
+    An alarm over two refreshes of one artifact, not a finding: only series
+    that gained or lost events or trip a flag are printed, the pooled record
+    only, and the paragraph says so. A window opened by a re-bless is a new
+    series, which the artifact's own per-window rows carry.
+    """
+    if previous is None or previous.value is None or current.value is None:
+        return []
+    every = [
+        row
+        for row in movements(board_points(previous.value), board_points(current.value))
+        if row.process_window is None
+    ]
+    rows = [row for row in every if row.events_before != row.events_after]
+    standing = [row for row in every if row.flags and row.events_before == row.events_after]
+    heading = ["", "### Movement since the previous board", ""]
+    against = f"the board landed {previous.vintage}" if previous.vintage else "the previous board"
+    if not rows and not standing:
+        return [*heading, f"_No pooled forward series moved or trips a flag against {against}._"]
+    lines = [
+        *heading,
+        f"Each predictor's own pooled forward series against {against}: its whole record at "
+        "each stage, not the paired figure above, and not comparable across predictors. An "
+        "operational check on the artifact, not a finding: `rescored` means accuracy moved by "
+        "more than the added events can explain, `events-removed` that the series shrank, and "
+        f"the two level flags are raised only at {MIN_EVENTS_FOR_LEVEL_FLAGS} events or more.",
+    ]
+    if rows:
+        lines += [
+            "",
+            "| Stage | Predictor | Events | Accuracy (floor) | Mean Brier | Prior-Term skill "
+            + "| Flags |",
+            "| --- | --- | --- | --- | --- | --- | --- |",
+        ]
+    for row in rows:
+        after = "—" if row.events_after is None else str(row.events_after)
+        events = f"{after} (new)" if row.events_before is None else f"{row.events_before} → {after}"
+        accuracy = (
+            f"{_pct(row.event_accuracy_before)} → {_pct(row.event_accuracy_after)} "
+            f"({_pct(row.floor_after)})"
+        )
+        brier = f"{_brier(row.mean_brier_before)} → {_brier(row.mean_brier_after)}"
+        skill = f"{_signed(row.skill_before, 2)} → {_signed(row.skill_after, 2)}"
+        flags = ", ".join(f"`{flag}`" for flag in row.flags) or "—"
+        lines.append(
+            f"| {_cell(row.stage)} | {_cell(row.predictor_id)} | {events} | {accuracy} "
+            f"| {brier} | {skill} | {flags} |"
+        )
+    if standing:
+        named = "; ".join(
+            f"{row.predictor_id} at {row.stage} ({', '.join(f'`{flag}`' for flag in row.flags)})"
+            for row in standing
+        )
+        lines += ["", f"Unchanged and still flagged: {named}."]
+    return lines
+
+
+def _miss_review_lines(vintaged: Vintaged[MissReview] | None) -> list[str]:
+    """The forward misses, in counts: how many events hold one, by stage.
+
+    Counts only, never a rate, and per event, never per predictor: the
+    predictors' own counts span events they do not share, so a table of them
+    would read as the comparison the paired forward block exists to make. The
+    per-event rows stay in the artifact the line names.
+    """
+    if vintaged is None:
+        return []
+    review = vintaged.value
+    heading = ["", "### Forward misses", ""]
+    if review is None:
+        return [*heading, "_`metrics/miss-review.json` has never landed._"]
+    where = _sourced("miss-review.json", vintaged)
+    if not review.events.events:
+        return [*heading, f"_No forward cell is reviewed yet ({where})._"]
+    lines = [
+        *heading,
+        f"A miss is a wrong call or a forecast on the wrong side of even odds ({where}, "
+        f"`{review.process_scope}` process scope): **{review.events.missed}** of "
+        f"**{review.events.events}** forward event(s) hold one, **{review.events.shared}** of "
+        "them missed by every predictor reviewed there. Counts, not rates, and not a "
+        "comparison of predictors; the events are listed in the artifact.",
+        "",
+        "| Stage | Events | With a miss | Shared |",
+        "| --- | --- | --- | --- |",
+        *(
+            f"| {_cell(stage)} | {tally.events} | {tally.missed} | {tally.shared} |"
+            for stage, tally in review.by_stage.items()
+        ),
+    ]
+    return lines
+
+
+def _grade_readings(series: DocumentGradeSeries) -> str:
+    """A series' per-judge means, each beside its count; a dash under the minimum."""
+    judges = Counter(reading.evaluator_id for reading in series.readings)
+    return "; ".join(
+        f"{_cell(reading.evaluator_id)} "
+        # A judge read under two digests is two rubrics: name each by its labels.
+        + (
+            f"[{_cell('/'.join(reading.labels) or 'unlabelled')}] "
+            if judges[reading.evaluator_id] > 1
+            else ""
+        )
+        + ("—" if reading.mean is None else f"{reading.mean:.2f}")
+        + f" ({reading.n})"
+        for reading in series.readings
+    )
+
+
+def _document_grade_lines(vintaged: Vintaged[ForecastDocumentGrades] | None) -> list[str]:
+    """Each predictor's forecast-document grade per stage, read per judge.
+
+    One row per predictor per stage, the pooled series only. The means are per
+    judge rubric and never averaged across judges, each beside the cells it is
+    over, and the judges' leave-one-out agreement closes each stage so no mean
+    is read without it. Graded, not scored: the block says so.
+    """
+    if vintaged is None:
+        return []
+    board = vintaged.value
+    heading = ["", "### Forecast-document grade", ""]
+    if board is None:
+        return [*heading, "_`metrics/forecast-document-grades.json` has never landed._"]
+    where = _sourced("forecast-document-grades.json", vintaged)
+    if not any(stage.cells for stage in board.stages):
+        return [*heading, f"_No forward forecast document is graded yet ({where})._"]
+    intro = (
+        f"Each judge's grade of `predicted_reasoning.md` itself, 0 to 1 ({where}, "
+        f"`{board.process_scope}` process scope). Graded, not scored: no rank and no claim "
+        "total reads it. A mean is one judge's, over the cells every judge on the cell "
+        f"graded, and prints only at {board.minimum_cells} cells or more; judges differ in "
+        "level, so read a column down, not a row across."
+    )
+    lines = [
+        *heading,
+        intro,
+        "",
+        "| Stage | Predictor | Cells graded by all (null by all, split) | Mean by judge (cells) |",
+        "| --- | --- | --- | --- |",
+    ]
+    for stage in board.stages:
+        for series in stage.series:
+            if series.process_window is not None:
+                continue
+            lines.append(
+                f"| {stage.stage!s} | {_cell(series.predictor_id)} "
+                f"| {series.graded_by_all} of {series.cells} ({series.null_by_all}, "
+                f"{series.split_on_mask}) | {_grade_readings(series)} |"
+            )
+    for stage in board.stages:
+        judges = Counter(row.evaluator_id for row in stage.agreement)
+        agreement = "; ".join(
+            f"{_cell(row.evaluator_id)} "
+            + (
+                f"[{_cell('/'.join(row.labels) or 'unlabelled')}] "
+                if judges[row.evaluator_id] > 1
+                else ""
+            )
+            + ("undefined" if row.tau_b is None else f"{row.tau_b:+.2f}")
+            + (
+                ""
+                if row.within_predictor_tau_b is None
+                else f" (within predictor {row.within_predictor_tau_b:+.2f})"
+            )
+            + f" over {row.units} cell(s) in {row.cases} case(s)"
+            for row in stage.agreement
+        )
+        if agreement:
+            lines += [
+                "",
+                f"Judge agreement on {stage.stage!s} (each judge rubric against the mean of "
+                + "the others, Kendall tau-b; undefined includes under the minimum): "
+                + f"{agreement}.",
+            ]
+    return lines
 
 
 def _render_backtests(analytics: WeeklyAnalytics) -> list[str]:
@@ -1477,6 +1728,9 @@ def render_weekly_digest(
         lines += _frozen_cells_line(report.substance)
     if analytics is not None:
         lines += _forward_lines(analytics.leaderboard)
+        lines += _movement_lines(analytics.leaderboard, analytics.previous_leaderboard)
+        lines += _miss_review_lines(analytics.miss_review)
+        lines += _document_grade_lines(analytics.document_grades)
         lines += _render_backtests(analytics)
     # The marker line stays verbatim; everything below it is defused in one pass,
     # exactly as the daily digest's body is. Almost all of this document is
