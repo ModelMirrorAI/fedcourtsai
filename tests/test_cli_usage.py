@@ -57,10 +57,10 @@ def test_record_predict_usage_from_explicit_tokens(
         .prediction_usage("claude-baseline", "20260624T103000Z")
     )
     usage = read_model(path, ModelUsage)
-    assert usage.model == "claude-opus-5-5"  # engine default applied
+    assert usage.model == "claude-fable-5-2"  # engine default applied
     assert usage.input_tokens == 150_000
-    # 150K fresh input + 8K output at claude-opus-5-5's $4/$20 = $0.76.
-    assert usage.estimated_cost_usd == pytest.approx(0.76)
+    # 150K fresh input + 8K output at claude-fable-5-2's $8/$40 = $1.52.
+    assert usage.estimated_cost_usd == pytest.approx(1.52)
     # created_at was derived from the run id timestamp.
     assert usage.created_at.isoformat() == "2026-06-24T10:30:00+00:00"
     # Provenance resolved ambiently from the Actions checkout env.
@@ -312,7 +312,7 @@ def test_record_usage_reads_gemini_telemetry_file(_data_root: Path, tmp_path: Pa
     assert result.exit_code == 0, result.output
     usage = iter_usage(_data_root)[0]
     assert usage.engine == "gemini"
-    assert usage.model == "gemini-4-argon"  # engine default applied
+    assert usage.model == "gemini-4-carbon"  # engine default applied
     assert usage.input_tokens == 70_000  # 90k - 20k cached
     assert usage.cache_read_input_tokens == 20_000
     assert usage.output_tokens == 5_000  # 4k + 1k thoughts
@@ -434,7 +434,7 @@ def test_record_usage_stamps_the_models_the_engine_log_names(
     )
     usage = read_model(path, ModelUsage)
     # Requested and served side by side; pricing stays on the requested model.
-    assert (usage.model, usage.served_models) == ("claude-opus-5-5", ["claude-sonnet-5-5"])
+    assert (usage.model, usage.served_models) == ("claude-fable-5-2", ["claude-sonnet-5-5"])
     # Explicit token overrides name no log, so no model is claimed.
     runner.invoke(app, _record(None))
     assert read_model(path, ModelUsage).served_models is None

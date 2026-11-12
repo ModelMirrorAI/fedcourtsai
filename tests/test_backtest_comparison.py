@@ -58,7 +58,7 @@ from tests.test_merits_backtest import _DECIDED_DOCKET, _replayable
 runner = CliRunner()
 
 INCUMBENT_MODEL = DEFAULT_MODELS["claude-code"]
-CANDIDATE_MODEL = "claude-fable-5-2"
+CANDIDATE_MODEL = "claude-opus-5-5"
 
 
 def _cell(

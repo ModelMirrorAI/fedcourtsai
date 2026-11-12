@@ -196,7 +196,7 @@ def test_claude_runner_builds_the_workflow_env_contract(tmp_path: Path) -> None:
     assert recorder.env["EVENT_ID"] == EVENT
     assert recorder.env["PREDICTOR_ID"] == PREDICTOR
     assert recorder.env["RUN_ID"] == RUN
-    assert recorder.env["MODEL_ID"] == "claude-opus-5-5"
+    assert recorder.env["MODEL_ID"] == "claude-fable-5-2"
     assert "EVALUATOR_ID" not in recorder.env
     # Live cells carry no replay clock; both halves are back-test-only.
     assert "DECIDED_BEFORE" not in recorder.env
@@ -205,7 +205,7 @@ def test_claude_runner_builds_the_workflow_env_contract(tmp_path: Path) -> None:
     assert recorder.argv[0] == "claude"
     assert "-p" in recorder.argv
     assert "bypassPermissions" in recorder.argv
-    assert "claude-opus-5-5" in recorder.argv
+    assert "claude-fable-5-2" in recorder.argv
     # The registry prompt path rides in the instruction it passes the agent.
     assert ".github/prompts/predict.md" in recorder.argv[recorder.argv.index("-p") + 1]
     # It reports the artifacts the agent left at the canonical paths.
@@ -413,7 +413,7 @@ def test_gemini_runner_builds_the_headless_yolo_call(
 
     # The command reproduces run-predict.yml's headless Gemini invocation.
     assert recorder.argv[:2] == ["gemini", "--yolo"]
-    assert "gemini-4-argon" in recorder.argv
+    assert "gemini-4-carbon" in recorder.argv
     assert recorder.argv[-2:] == ["--output-format", "json"]
     # The kickoff prompt rides on --prompt: the template by reference, ids inline,
     # because Gemini's CLI strips the env-var channel from the agent's shell.
@@ -423,7 +423,7 @@ def test_gemini_runner_builds_the_headless_yolo_call(
     # A headless run must trust the workspace or the CLI exits 55; auth
     # (GEMINI_API_KEY) is inherited from the ambient environment, never set here.
     assert recorder.env["GEMINI_CLI_TRUST_WORKSPACE"] == "true"
-    assert recorder.env["MODEL_ID"] == "gemini-4-argon"
+    assert recorder.env["MODEL_ID"] == "gemini-4-carbon"
     # It reports the artifacts the agent left at the canonical paths.
     events = CasePaths(tmp_path / "data", COURT, DOCKET).event(EVENT)
     assert written == _predict_artifacts(events)

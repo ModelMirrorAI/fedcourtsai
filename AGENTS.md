@@ -356,8 +356,11 @@ before the first command rather than mid-task:
   not exist yet) may retrieve without restriction; a `replay` cell has the same
   tools but must not seek information about *its case* postdating the event
   date, and discloses any outcome-revealing material it surfaces in
-  `flags.json`. Never invent facts. The prompt template carries the full
-  contract; all tool calls are logged harness-side.
+  `flags.json`. In either mode a cell forecasts independently: it does not
+  seek or use anyone else's forecast of its case, this project's published
+  predictions included, and discloses one that surfaces. Never invent facts.
+  The prompt template carries the full contract; all tool calls are logged
+  harness-side.
 - **No secrets in code or data.** Never print or log API tokens; they arrive
   as environment variables. In the cell workflows no config file carries one
   either: the MCP client configs name only a localhost sidecar URL, and the
