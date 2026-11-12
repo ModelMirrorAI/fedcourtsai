@@ -4,14 +4,16 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from collections.abc import Sequence
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 import pytest
 from typer.testing import CliRunner
 
-from fedcourtsai import corpus
+from fedcourtsai import alarm_issue, corpus
 from fedcourtsai.cli import app
+from fedcourtsai.pipeline import coverage_verdict as cv
 from fedcourtsai.pipeline.coverage_verdict import (
     CoverageVerdict,
     coverage_verdict,
@@ -217,3 +219,135 @@ def test_an_unselected_office_petition_raises_the_federal_label_alarm(tmp_path: 
 
     assert [(a.check, a.subject) for a in verdict.alarms] == [("federal_label", "26-101")]
     assert "- 26-101: band " in render_markdown(verdict)
+
+
+class _Gh:
+    """A recorded `gh`: a canned issue listing and issue body, every call kept."""
+
+    def __init__(self, issues: list[dict[str, object]], body: str = "") -> None:
+        self.issues = issues
+        self.body = body
+        self.calls: list[list[str]] = []
+
+    def __call__(self, argv: Sequence[str]) -> str:
+        self.calls.append(list(argv))
+        if argv[:2] == ["gh", "api"]:
+            return self.body if "--jq" in argv else json.dumps(self.issues)
+        if argv[1:3] == ["issue", "create"]:
+            return "https://github.com/o/r/issues/7\n"
+        return ""
+
+    def verbs(self) -> list[str]:
+        return [" ".join(call[1:3]) for call in self.calls]
+
+
+_ALARM = {"number": 7, "title": cv.ISSUE_TITLE, "user": {"login": alarm_issue.ALARM_AUTHOR}}
+
+
+def _missed_and_clean(tmp_path: Path) -> tuple[CoverageVerdict, CoverageVerdict]:
+    db, data = corpus.corpus_db_path(tmp_path / "corpus"), tmp_path / "data"
+    with corpus.connect(db) as conn:
+        _resolved(conn, 1, "26-101", selected=False)
+    clean = _verdict(db, data)
+    with corpus.connect(db) as conn:
+        _resolved(conn, 2, "26-102")
+    return _verdict(db, data), clean
+
+
+def test_the_latch_opens_refreshes_and_closes_one_issue(tmp_path: Path) -> None:
+    failing, passing = _missed_and_clean(tmp_path)
+    assert failing.alarms and passing.ok
+    body = tmp_path / "v.md"
+    body.write_text(render_markdown(failing), encoding="utf-8")
+
+    gh = _Gh([])
+    assert cv.latch("o/r", failing, body, runner=gh) == "opened https://github.com/o/r/issues/7"
+    assert gh.calls[-1][-2:] == ["--body-file", str(body)]
+    assert "forecast-coverage" in gh.calls[-1]
+
+    # The open issue already names every alarm: a body rewrite and no comment.
+    gh = _Gh([_ALARM], body=render_markdown(failing))
+    assert cv.latch("o/r", failing, body, runner=gh) == "refreshed #7"
+    assert "issue comment" not in gh.verbs()
+
+    gh = _Gh([_ALARM, {**_ALARM, "number": 9}])
+    assert cv.latch("o/r", passing, body, runner=gh) == "closed #7, #9"
+    assert gh.verbs().count("issue close") == 2
+
+    gh = _Gh([])
+    assert cv.latch("o/r", passing, body, runner=gh) == "no alarm, and no open issue"
+    assert "issue create" not in gh.verbs()
+
+
+def test_a_refresh_comments_only_the_alarms_the_issue_did_not_name(tmp_path: Path) -> None:
+    failing, _ = _missed_and_clean(tmp_path)
+    body = tmp_path / "v.md"
+    body.write_text(render_markdown(failing), encoding="utf-8")
+
+    gh = _Gh([_ALARM], body="Forecast coverage as of 2026-11-01: 1 alarm(s).\n\n- `scotus/9 x`")
+    done = cv.latch("o/r", failing, body, runner=gh)
+
+    assert done == f"refreshed #7, {len(failing.alarms)} new alarm(s) commented"
+    # The comment lands before the rewrite, so a failed rewrite is re-noticed.
+    verbs = gh.verbs()
+    assert verbs.index("issue comment") < verbs.index("issue edit")
+    comment = next(c for c in gh.calls if c[1:3] == ["issue", "comment"])[-1]
+    assert all(f"`{a.subject}`" in comment for a in failing.alarms)
+
+
+def test_a_subject_already_named_under_another_check_is_still_new(tmp_path: Path) -> None:
+    failing, _ = _missed_and_clean(tmp_path)
+    alarm = failing.alarms[0]
+    body = tmp_path / "v.md"
+    body.write_text(render_markdown(failing), encoding="utf-8")
+    others = "".join(f"- **{a.check}** `{a.subject}`: x\n" for a in failing.alarms[1:])
+
+    gh = _Gh([_ALARM], body=f"- **some_other_check** `{alarm.subject}`: x\n" + others)
+    done = cv.latch("o/r", failing, body, runner=gh)
+
+    assert done == "refreshed #7, 1 new alarm(s) commented"
+    comment = next(c for c in gh.calls if c[1:3] == ["issue", "comment"])[-1]
+    assert f"**{alarm.check}** `{alarm.subject}`" in comment
+
+
+def test_a_long_verdict_lists_a_bounded_number_of_alarms(tmp_path: Path) -> None:
+    failing, _ = _missed_and_clean(tmp_path)
+    many = failing.model_copy(
+        update={
+            "alarms": [
+                cv.CoverageAlarm(check="missed_forecast", subject=f"scotus/{n} {EVENT}", detail="d")
+                for n in range(cv.ALARMS_LISTED + 25)
+            ]
+        }
+    )
+
+    body = render_markdown(many)
+
+    assert body.count("- **missed_forecast**") == cv.ALARMS_LISTED
+    assert "- and 25 more, not listed." in body
+    assert len(body) <= cv.ALARM_BODY_CHARS + 200
+    # Only listed alarms can be new, so the unlisted ones never comment daily.
+    path = tmp_path / "many.md"
+    path.write_text(body, encoding="utf-8")
+    gh = _Gh([_ALARM], body=body)
+    assert cv.latch("o/r", many, path, runner=gh) == "refreshed #7"
+
+
+def test_the_latch_touches_only_an_issue_the_workflow_token_opened(tmp_path: Path) -> None:
+    _, passing = _missed_and_clean(tmp_path)
+    gh = _Gh(
+        [
+            {"number": 1, "title": cv.ISSUE_TITLE, "user": {"login": "someone"}},
+            {"number": 2, "title": "Another report", "user": {"login": alarm_issue.ALARM_AUTHOR}},
+            {**_ALARM, "number": 3, "pull_request": {}},
+        ]
+    )
+    assert cv.latch("o/r", passing, tmp_path / "v.md", runner=gh) == "no alarm, and no open issue"
+
+
+def test_the_alarm_command_refuses_what_it_cannot_read(tmp_path: Path) -> None:
+    bad = tmp_path / "v.json"
+    bad.write_text("{}", encoding="utf-8")
+    args = ["coverage-verdict-alarm", "--verdict", str(bad), "--report", str(bad)]
+    assert CliRunner().invoke(app, [*args, "--repo", "o/r"]).exit_code == 2
+    assert CliRunner().invoke(app, [*args, "--repo", "not a repo"]).exit_code == 2

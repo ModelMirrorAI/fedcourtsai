@@ -46,7 +46,7 @@ token or role, so privilege and outside reachability stay disjoint — see
 | `run-backtest`   | biweekly schedule (even ISO weeks, Sat 06:23 UTC — pinned cert parameters over the paid population, spends only on the manual `review` release), manual dispatch (replay/engine/limit/terms params; `replay: merits` replays the predictors over decided argued cases at the merits grant and briefed moments instead, dispatch only; `replay: cert-compare` / `merits-compare` replay one predictor against the model `candidate` names, dispatch only; `replay: salience-gate` runs the token-free gate replay instead of the predictors) | Claude Code + Codex + Gemini (replay) |
 | `run-ops`        | daily schedule (ops report, weekly performance digest on the run summary, public status snapshot, prediction-reading digest), manual | script (no agent)    |
 | `post-public-update` | weekly schedule (Mon 12:57 UTC), manual dispatch (`week`; re-dispatching a missed week is safe, since the post is idempotent per week) | script (no agent); creates up to three Buttondown drafts (the Court update, the forecasts update and the AI-cases update), never sends |
-| `run-analytics`  | manual dispatch + weekly schedule (metrics refresh, Mon 05:41 UTC) + daily schedule (big-case board, 04:36 UTC) + weekly schedule (update history, Mon 12:59 UTC) + weekly schedules (topic labeling: petitions Tue 09:08 UTC, applications Wed 09:04 UTC, merits side coding Thu 09:14 UTC, behind the `review` hold) + weekly schedule (AI-case candidates, Fri 21:11 UTC) + weekly schedule (follow-on dockets of listed AI cases, Tue 21:21 UTC) + weekly schedule (merits coverage check, Wed 09:22 UTC) + daily schedule (order-list reconciliation, 15:33 UTC) | script; the `qp-topic-label`, `qp-topic-label-applications`, `qp-topic-replicate`, `qp-topic-replicate-applications` and `alignment-side-code` modes each run one Claude Code labeler |
+| `run-analytics`  | manual dispatch + weekly schedule (metrics refresh, Mon 05:41 UTC) + daily schedule (big-case board, 04:36 UTC) + weekly schedule (update history, Mon 12:59 UTC) + weekly schedules (topic labeling: petitions Tue 09:08 UTC, applications Wed 09:04 UTC, merits side coding Thu 09:14 UTC, behind the `review` hold) + weekly schedule (AI-case candidates, Fri 21:11 UTC) + weekly schedule (follow-on dockets of listed AI cases, Tue 21:21 UTC) + weekly schedule (merits coverage check, Wed 09:22 UTC) + daily schedule (order-list reconciliation, 15:33 UTC) + daily schedule (forecast-coverage verdict, 16:09 UTC) | script; the `qp-topic-label`, `qp-topic-label-applications`, `qp-topic-replicate`, `qp-topic-replicate-applications` and `alignment-side-code` modes each run one Claude Code labeler |
 | `summarize`      | daily schedule (03:43 UTC), manual dispatch (`limit`); every run spends only on the `review` release, or on auto-release within the trailing spend budget (*Auto-release*) | script; one Messages API call per case (two when a rejected response is retried), no tools and no agent |
 | `integration-test` | manual dispatch + daily canary  | script; engine-smoke runs one real agent cell, engine-actions-smoke one boot probe per engine (the canary), each repro-family scenario one real cell against its pinned record, and qp-labeler-smoke one labeling agent over a synthetic extract |
 | `corpus-check`   | schedule every 30 minutes (:19, :49), input-less manual dispatch; a check of PR code runs only on the maintainer's `corpus-check` approval, an allowlisted `at: main` query unapproved under `corpus-check-auto` | script — the PR's own declared command, or `main`'s code for an `at: main` query (no agent) |
@@ -566,6 +566,28 @@ queues behind the production run of the same mode. The modes:
   the `main` branch ref writes the issue; a staging dispatch reads the staging
   corpus pair and reports in the step summary. The readout is monitoring and
   enters no board, base rate or release figure.
+- **`coverage-verdict`** (daily, 16:09 UTC, or dispatch) reads every
+  forecast-coverage check as one verdict. Its first job runs `fedcourts
+  coverage-verdict`: the missed-forecast monitor over 35 days, the grants and
+  application rulings of the last 14 days that had no forecast, and the
+  federal-label cross-check on pending petitions (*The missed-forecast
+  guards*, below, says what each alarms on). The job's summary carries the
+  verdict. That job holds the read-only role and no issue write and leaves the
+  verdict and its issue body as a one-day artifact; the command's exit 3 (an
+  alarm) is not a failed job, and any other failure uploads nothing. A second
+  job, with the ambient token's `issues: write` and no environment, role or
+  corpus, runs `fedcourts coverage-verdict-alarm` on that artifact: an alarm
+  opens the issue "Forecast coverage failing" under the `forecast-coverage`
+  label or rewrites its body in place, and a clean verdict closes it. A
+  verdict that was never reached leaves the issue as it stood. A missed
+  forecast cannot be repaired once its event has resolved, so it stays in the
+  verdict until it is 35 days old and the issue is often open for weeks; a
+  body rewrite notifies no one, so a refresh that brings an alarm the issue
+  did not already name also comments, naming the new ones. The body lists at
+  most 150 alarms by name and counts the rest. Only a run on the
+  `main` branch ref writes the issue; a staging dispatch reads the staging
+  corpus pair and the staging ledger and reports in the step summary. The
+  verdict is monitoring and enters no board, base rate or release figure.
 - **`merits-coverage`** (weekly, Wednesday 09:22 UTC, or dispatch) checks that
   every case the Court has set for argument is in the merits stream. Its
   first job runs `fedcourts merits-coverage-check`: the coverage census for
@@ -1963,10 +1985,10 @@ run-log issue means exactly "a window broke".
 
 **An open issue is one of exactly three things, and the reader can tell which
 from its label.** An **alarm** — `pull-log`, `live-log`, `data-validation`,
-`pipeline-health`, `ai-watchlist`, `merits-coverage`, `order-reconcile` — is filed only by a failure, so an open one
+`pipeline-health`, `ai-watchlist`, `merits-coverage`, `order-reconcile`, `forecast-coverage` — is filed only by a failure, so an open one
 always means something needs attention. A run-log alarm is closed by a human
 once triaged; the latched alarms, `data-validation`, `pipeline-health`,
-`ai-watchlist`, `merits-coverage` and `order-reconcile`, also close
+`ai-watchlist`, `merits-coverage`, `order-reconcile` and `forecast-coverage`, also close
 themselves when their check is green again, and each closes only the issue it
 filed, matched by its fixed title and the workflow bot as author. The
 `ai-watchlist` alarm is `run-ops` reading the AI watchlist's corpus check
@@ -1989,7 +2011,7 @@ healthy run, by comment rather than by rewrite, and it stays open by design (its
 own body says so). Nothing else is an issue: a run's own record is a per-run
 artifact — the step summaries, the ops report on its run summary — never a
 long-lived body a job rewrites in place. Only the data-validation,
-ai-watchlist, discovery-frontier, merits-coverage and order-reconcile alarms edit a body, and
+ai-watchlist, discovery-frontier, merits-coverage, order-reconcile and forecast-coverage alarms edit a body, and
 each only its own, so that a recurring failure latches onto one thread
 instead of spamming new ones. That split is what keeps an open issue worth
 reacting to, and it is why an alarm never depends on a later window firing to
@@ -2008,7 +2030,7 @@ Events created with the default `GITHUB_TOKEN` **do not trigger other workflows*
 run PRs, the metrics and back-test review PRs — is opened with a **GitHub App
 installation token** (`actions/create-github-app-token`), not `GITHUB_TOKEN`.
 The rule cuts the other way too, and that is what keeps the operational issues
-safe: the run-log alarms, the data-validation and AI-watchlist escalations, the merits-coverage and order-reconcile alarms, and the daily digest must
+safe: the run-log alarms, the data-validation and AI-watchlist escalations, the merits-coverage, order-reconcile and forecast-coverage alarms, and the daily digest must
 fire nothing, so they ride
 the ambient `GITHUB_TOKEN` and never the App's. See `docs/security.md` for the
 one-time App setup.
@@ -2255,7 +2277,7 @@ pattern rather than rediscovering it:
   A call that routes through `agent_feedback.py`'s runner carries the bound
   already: that module's default `GhRunner` applies the same three attempts at
   the same 30s cap to every `gh` call it makes, so the `post-issue-comment`,
-  `post-agent-feedback`, `merits-coverage-alarm`, `order-reconcile-alarm`, and `daily-digest --post`
+  `post-agent-feedback`, `merits-coverage-alarm`, `order-reconcile-alarm`, `coverage-verdict-alarm`, and `daily-digest --post`
   commands — the plan report each non-empty
   predict/evaluate round posts before the review hold, the collect job's stall
   and secret-scan reports, the flag roll-up latch itself, and the daily digest's
@@ -3012,9 +3034,10 @@ missed-forecast monitor read over 35 days, and the two censuses, as a single
 `ok` with the alarms named by check, a flat block of counts to keep as a
 series, and a rendered issue body. The round's own `::warning::` lines expire
 with the run log; the verdict is the form the same findings take when they
-are to outlive it. No workflow runs `unforecast-outcomes`,
-`federal-label-check` or `coverage-verdict`: each is a dry run a maintainer or
-a session reads by hand.
+are to outlive it. `run-analytics`' `coverage-verdict` mode runs it daily and
+latches its alarms onto the one `forecast-coverage` issue; `unforecast-outcomes`
+and `federal-label-check` run on their own only when a maintainer or a session
+reads one by hand.
 
 Every check above starts from the corpus, so none can see a ruling the
 corpus never recorded. `fedcourts order-reconcile` starts from the Court's side: it

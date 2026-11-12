@@ -4539,7 +4539,8 @@ def test_run_analytics_environments_resolve_from_the_dispatching_branch() -> Non
     literal `test_workflow_auth_gate.py` pins as BRANCH_RESOLVED_ENVIRONMENT),
     `tool-usage`
     must stay environment-free (it reads committed `data/` only), as must
-    `merits-coverage-alarm` and `order-reconcile-alarm` (each reads one run
+    `merits-coverage-alarm`, `order-reconcile-alarm` and
+    `coverage-verdict-alarm` (each reads one run
     artifact and writes an issue with the ambient token, so an environment
     would only hand it secrets it has no use for), and every
     concurrency group must carry the ref, because two refs are two
@@ -4561,7 +4562,12 @@ def test_run_analytics_environments_resolve_from_the_dispatching_branch() -> Non
             if job_id != "qp-topic-approval":
                 assert "environment" not in job, f"{job_id} reaches nothing; no environment"
             continue
-        if job_id in {"tool-usage", "merits-coverage-alarm", "order-reconcile-alarm"}:
+        if job_id in {
+            "tool-usage",
+            "merits-coverage-alarm",
+            "order-reconcile-alarm",
+            "coverage-verdict-alarm",
+        }:
             assert "environment" not in job, f"{job_id} reaches nothing; no environment"
         elif job_id == "qp-topic-label":
             # The labeler binds the Claude-only counterpart of the same
@@ -5996,3 +6002,38 @@ def test_the_order_reconciliation_splits_its_read_from_its_issue_write() -> None
     writers = [s for s in alarm["steps"] if "GH_TOKEN" in (s.get("env") or {})]
     assert [s["if"] for s in writers] == ["${{ github.ref == 'refs/heads/main' }}"]
     assert "order-reconcile-alarm" in writers[0]["run"]
+
+
+def test_the_coverage_verdict_splits_its_read_from_its_issue_write() -> None:
+    """The forecast-coverage verdict never holds a corpus role and an issue write together.
+
+    The verdict job holds the read-only role and no issue write; the alarm job
+    holds the ambient issue write, no `id-token`, no environment and no corpus
+    step, and sees only the artifact. The alarm needs the verdict job to have
+    succeeded, so a verdict that was never reached leaves the issue as it
+    stood, and it writes only on the `main` ref. The verdict job gates on its
+    own cron, so no other schedule tick starts it.
+    """
+    workflow = _load("run-analytics.yml")
+    jobs = workflow["jobs"]
+    check, alarm = jobs["coverage-verdict"], jobs["coverage-verdict-alarm"]
+
+    assert check["permissions"] == {"contents": "read", "id-token": "write"}
+    assert any("corpus-readonly" in str(s.get("uses") or "") for s in check["steps"])
+    run = next(
+        s["run"] for s in check["steps"] if "fedcourts coverage-verdict" in str(s.get("run"))
+    )
+    assert '[ "$status" -ne 0 ] && [ "$status" -ne 3 ]' in run, (
+        "an alarm (exit 3) must reach the alarm job; any other failure must not"
+    )
+    crons = [entry["cron"] for entry in workflow[True]["schedule"]]
+    assert [c for c in crons if c.startswith("9 ")] == ["9 16 * * *"]
+    assert "startsWith(github.event.schedule, '9 ')" in _norm(check["if"])
+
+    assert alarm["permissions"] == {"contents": "read", "issues": "write"}
+    assert "coverage-verdict" in alarm["needs"]
+    assert "needs.coverage-verdict.result == 'success'" in _norm(alarm["if"])
+    assert not any("corpus" in str(s.get("uses") or "") for s in alarm["steps"])
+    writers = [s for s in alarm["steps"] if "GH_TOKEN" in (s.get("env") or {})]
+    assert [s["if"] for s in writers] == ["${{ github.ref == 'refs/heads/main' }}"]
+    assert "coverage-verdict-alarm" in writers[0]["run"]
