@@ -49,7 +49,7 @@
 #
 # The step's exit status is the last attempt's, so the cell's tail reads it as
 # the outcome of the turn that counted, with one exception: a last attempt that
-# exited non-zero on a transient fault after the cell's output was complete
+# exited non-zero on a transient or permanent fault after the cell's output was complete
 # (`fedcourts finalize-complete`, the completion sentinel's test) and valid
 # (`fedcourts finalize-validates`) concludes the step clean, since the fault
 # arrived after the work. Each attempt's stdout (the JSON result)
@@ -202,17 +202,23 @@ while :; do
   sleep "$wait_s"
 done
 
-# A turn that ended on a transient fault with a failing exit, after the cell's
+# A turn that ended on an engine fault with a failing exit, after the cell's
 # work was whole: every file the cell owes is there and parses, and its
 # judgment artifacts hold to their schema. The fault cost the cell nothing, so
-# the step concludes clean, as a zero-exit transient fault over the same output
-# already does and as the watchdog's reap of a finished cell does. Each check
-# must say "true" outright; a check that could not run leaves the failure as it
-# is. The tail still validates the cell, so nothing malformed is readied here.
-if [ "$status" -ne 0 ] && [ "$verdict" = transient ] &&
+# the step concludes clean, as a zero-exit fault over the same output already
+# does and as the watchdog's reap of a finished cell does. The fault's class
+# does not enter beyond two exclusions: a transient or a permanent fault both
+# qualify, since a finished cell is finished whichever ended its turn (and the
+# classifier reads a whole stderr, so a 400 after a recovered network error
+# reads transient and a bare one permanent); a spent quota stays a failure,
+# which the collect job accounts for as one, and so does a fault that could not
+# be classified. Each check must say "true" outright; a check that could not
+# run leaves the failure as it is. The tail still validates the cell, so
+# nothing malformed is readied here.
+if [ "$status" -ne 0 ] && { [ "$verdict" = transient ] || [ "$verdict" = permanent ]; } &&
   [ "$(harness finalize-complete "${coords[@]}" 2> /dev/null)" = "true" ] &&
   [ "$(harness finalize-validates "${coords[@]}" 2> /dev/null)" = "true" ]; then
-  echo "::warning::gemini (${cell}): attempt ${attempt}/${max_attempts} exited ${status} on a transient fault after the cell's output was complete and valid; the step concludes clean"
+  echo "::warning::gemini (${cell}): attempt ${attempt}/${max_attempts} exited ${status} on a ${verdict} fault after the cell's output was complete and valid; the step concludes clean"
   status=0
 fi
 

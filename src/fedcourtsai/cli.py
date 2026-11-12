@@ -30849,7 +30849,7 @@ def finalize_complete_cmd(
 
     The completion sentinel's test, asked once: the cells' gemini step
     (``scripts/gemini-cell.sh``) reads it for a last attempt that ended on a
-    transient fault with a failing exit, and concludes the step clean only where
+    transient or permanent fault with a failing exit, and concludes the step clean only where
     the cell's work was already whole and its judgment artifacts validate
     (``finalize-validates``).
     """

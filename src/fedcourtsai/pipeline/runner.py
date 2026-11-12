@@ -1564,8 +1564,8 @@ class AgenticRunner:
           root could not be snapshotted or reset.
 
         A zero-exit attempt that is not retried keeps what it produced, as the
-        cell step does, and so does a failing exit on a transient fault that
-        arrived after the cell's output was complete
+        cell step does, and so does a failing exit on a transient or permanent
+        fault that arrived after the cell's output was complete
         (:func:`cell_outputs_complete`) and valid. A zero-exit attempt that
         produced nothing raises instead, so the caller records a classified
         failure rather than a cell that silently wrote nothing:
@@ -1643,7 +1643,7 @@ class AgenticRunner:
                 sys.stderr.write(f"{base}; not retried: {reason}; keeping its output\n")
                 return _produced_artifacts(request)
             if (
-                verdict is AttemptClass.transient
+                verdict in {AttemptClass.transient, AttemptClass.permanent}
                 and keep
                 and cell_outputs_complete(
                     role,
@@ -1656,7 +1656,7 @@ class AgenticRunner:
                 )
             ):
                 sys.stderr.write(
-                    f"{base} on a transient fault after the cell's output was complete "
+                    f"{base} on a {verdict.value} fault after the cell's output was complete "
                     "and valid; keeping its output\n"
                 )
                 return _produced_artifacts(request)

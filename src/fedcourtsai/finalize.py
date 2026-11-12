@@ -245,7 +245,7 @@ def cell_outputs_complete(
     ``scripts/engine-watchdog.sh``), asked once after the fact instead of polled:
     the set is :func:`required_outputs`, an evaluate cell's candidates are the
     staged aliases, and a JSON file counts only if it decodes. The in-step retry
-    asks it of an attempt that ended on a transient fault with a failing exit,
+    asks it of an attempt that ended on an engine fault with a failing exit,
     to tell a turn cut off mid-cell from one whose work was already whole.
 
     An evaluate cell with no staged candidate has no completion set and is never

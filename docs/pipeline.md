@@ -4335,12 +4335,13 @@ The telemetry log stays in place across attempts — gemini-cli opens it for
 append — so `usage.json` and `retrieval_log.json` count every attempt's tokens
 and tool calls, failed turns included. The step's exit status is its last
 attempt's, with one exception: a last attempt that exited non-zero on a
-transient fault after the cell's work was whole concludes the step clean. Whole
+transient or permanent fault after the cell's work was whole concludes the
+step clean (a spent quota or an unclassified fault does not). Whole
 means every file the cell owes is present, non-empty and, where JSON, parsing
 (`finalize-complete`, the completion sentinel's own test) and every judgment
 artifact holds to its schema (`finalize-validates`); the fault then cost the
-cell nothing, a zero-exit transient fault over the same output already ends
-the step clean, and the cell's tail still validates what it lands. Each
+cell nothing, a zero-exit fault over the same output already ends the step
+clean, and the cell's tail still validates what it lands. Each
 non-`ok` attempt leaves a `::warning::` naming the cell, the
 verdict and, where the engine reported one, its fault in one screened line
 after `engine said:` (`fedcourts engine-attempt-fault`): the result's error,
@@ -4365,8 +4366,8 @@ survives a retry, as it does in the cells' in-place retry. These rules hold
 for a non-zero exit too, so unlike claude and codex — which retry a transient
 non-zero exit in place, without a reset — a Gemini cell that already wrote its
 judgment is not retried, and its non-zero exit is an `engine-failed` lost cell
-unless the fault was transient and the cell's output was already complete and
-valid, which keeps the output as the cell step does. A zero-exit turn that is
+unless the fault was transient or permanent and the cell's output was already
+complete and valid, which keeps the output as the cell step does. A zero-exit turn that is
 not retried keeps whatever it produced; one
 that produced nothing is a classified failure — an `engine-failed` lost cell,
 or a spent quota that finishes the engine for the campaign — rather than a
