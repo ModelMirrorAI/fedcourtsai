@@ -288,9 +288,49 @@ def test_a_refresh_comments_only_the_alarms_the_issue_did_not_name(tmp_path: Pat
     done = cv.latch("o/r", failing, body, runner=gh)
 
     assert done == f"refreshed #7, {len(failing.alarms)} new alarm(s) commented"
-    assert gh.verbs()[-2:] == ["issue edit", "issue comment"]
-    comment = gh.calls[-1][-1]
+    # The comment lands before the rewrite, so a failed rewrite is re-noticed.
+    verbs = gh.verbs()
+    assert verbs.index("issue comment") < verbs.index("issue edit")
+    comment = next(c for c in gh.calls if c[1:3] == ["issue", "comment"])[-1]
     assert all(f"`{a.subject}`" in comment for a in failing.alarms)
+
+
+def test_a_subject_already_named_under_another_check_is_still_new(tmp_path: Path) -> None:
+    failing, _ = _missed_and_clean(tmp_path)
+    alarm = failing.alarms[0]
+    body = tmp_path / "v.md"
+    body.write_text(render_markdown(failing), encoding="utf-8")
+    others = "".join(f"- **{a.check}** `{a.subject}`: x\n" for a in failing.alarms[1:])
+
+    gh = _Gh([_ALARM], body=f"- **some_other_check** `{alarm.subject}`: x\n" + others)
+    done = cv.latch("o/r", failing, body, runner=gh)
+
+    assert done == "refreshed #7, 1 new alarm(s) commented"
+    comment = next(c for c in gh.calls if c[1:3] == ["issue", "comment"])[-1]
+    assert f"**{alarm.check}** `{alarm.subject}`" in comment
+
+
+def test_a_long_verdict_lists_a_bounded_number_of_alarms(tmp_path: Path) -> None:
+    failing, _ = _missed_and_clean(tmp_path)
+    many = failing.model_copy(
+        update={
+            "alarms": [
+                cv.CoverageAlarm(check="missed_forecast", subject=f"scotus/{n} {EVENT}", detail="d")
+                for n in range(cv.ALARMS_LISTED + 25)
+            ]
+        }
+    )
+
+    body = render_markdown(many)
+
+    assert body.count("- **missed_forecast**") == cv.ALARMS_LISTED
+    assert "- and 25 more, not listed." in body
+    assert len(body) <= cv.ALARM_BODY_CHARS + 200
+    # Only listed alarms can be new, so the unlisted ones never comment daily.
+    path = tmp_path / "many.md"
+    path.write_text(body, encoding="utf-8")
+    gh = _Gh([_ALARM], body=body)
+    assert cv.latch("o/r", many, path, runner=gh) == "refreshed #7"
 
 
 def test_the_latch_touches_only_an_issue_the_workflow_token_opened(tmp_path: Path) -> None:

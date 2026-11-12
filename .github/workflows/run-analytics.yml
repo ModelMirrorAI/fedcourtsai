@@ -4461,9 +4461,9 @@ jobs:
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-26.04
-    # Setup plus at most a handful of bounded `gh` calls, each worth up to
-    # 105s against a degraded API.
-    timeout-minutes: 15
+    # Setup plus at most six bounded `gh` calls, each worth up to 105s
+    # against a degraded API.
+    timeout-minutes: 20
     # Never cancelled: a cancel between the comment and the close would leave
     # a closed-sounding issue open.
     concurrency:
@@ -4489,7 +4489,7 @@ jobs:
 
       - name: Latch the alarm issue
         if: ${{ github.ref == 'refs/heads/main' }}
-        timeout-minutes: 10
+        timeout-minutes: 12
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}

@@ -60,8 +60,9 @@ public update history, the
 qp-topic labeler (the only one that runs an agent, weekly per frame behind
 the `review` hold), the adverse-order scan
 of CourtListener's RECAP index, the weekly AI-watchlist candidate and
-follow-on docket checks, and the weekly merits coverage check against the
-Court's Granted & Noted list — both schedule/dispatch
+follow-on docket checks, the weekly merits coverage check against the
+Court's Granted & Noted list, the daily order-list reconciliation, and the
+daily forecast-coverage verdict — both schedule/dispatch
 only. A development lane, `corpus-check`, runs the check a pull request's
 description declares at the PR's head against the corpus, read-only, once the
 maintainer approves it — or, for an allowlisted read-only query the PR asks to

@@ -60,6 +60,14 @@ ALARM_ISSUE: Final = alarm_issue.AlarmIssue(
     label_description="Long-lived forecast coverage alarm (run-analytics)",
 )
 
+#: The most alarms an issue body or a comment lists by name; the rest are
+#: counted. A long predict outage can owe hundreds of forecasts, and a body
+#: over the size an issue may have would fail the refresh on the worst day.
+ALARMS_LISTED: Final = 150
+#: The longest issue body, in characters, with room for the note that says it
+#: was cut.
+ALARM_BODY_CHARS: Final = 60_000
+
 #: How far back the verdict reads the missed-forecast monitor.
 MISSED_WINDOW_DAYS = 35
 
@@ -195,6 +203,15 @@ def _share(forecast: int, outcomes: int) -> str:
     return f"{forecast} of {outcomes}" + (f" ({forecast / outcomes:.0%})" if outcomes else "")
 
 
+def _alarm_key(alarm: CoverageAlarm) -> str:
+    """How a body names one alarm: its check and its subject, as rendered."""
+    return f"**{alarm.check}** `{alarm.subject}`"
+
+
+def _alarm_line(alarm: CoverageAlarm) -> str:
+    return f"- {_alarm_key(alarm)}: {alarm.detail}"
+
+
 def render_markdown(verdict: CoverageVerdict) -> str:
     """The verdict as the body of its alarm issue: alarms first, then each check's list.
 
@@ -209,7 +226,9 @@ def render_markdown(verdict: CoverageVerdict) -> str:
     ]
     if verdict.alarms:
         lines += ["## Alarms", ""]
-        lines += [f"- **{a.check}** `{a.subject}`: {a.detail}" for a in verdict.alarms]
+        lines += [_alarm_line(a) for a in verdict.alarms[:ALARMS_LISTED]]
+        if len(verdict.alarms) > ALARMS_LISTED:
+            lines.append(f"- and {len(verdict.alarms) - ALARMS_LISTED} more, not listed.")
         lines.append("")
     lines += [
         "## Grants and application rulings with no forecast",
@@ -257,7 +276,11 @@ def render_markdown(verdict: CoverageVerdict) -> str:
         f"{NO_OUTCOME_GRACE_DAYS}-day grace period).",
         "",
     ]
-    return "\n".join(lines).rstrip() + "\n"
+    body = "\n".join(lines).rstrip() + "\n"
+    if len(body) <= ALARM_BODY_CHARS:
+        return body
+    kept = body[:ALARM_BODY_CHARS].rsplit("\n", 1)[0]
+    return kept + "\n\nCut here to fit an issue; the run's summary carries the whole verdict.\n"
 
 
 def latch(
@@ -268,15 +291,33 @@ def latch(
     A verdict with an alarm opens the issue or rewrites the open one's body in
     place from ``body_path``; a clean verdict comments on the open issue and
     closes it, and writes nothing where none is open. A refresh also comments
-    when the verdict carries an alarm whose subject the issue's body did not
-    name before, because the body rewrite alone reaches no one.
+    when the verdict lists an alarm the issue's body did not name before,
+    under that check, because the body rewrite alone reaches no one. The
+    comment goes first: if the rewrite then fails, the next read comments
+    again, where the other order would lose the notice for good.
     """
     runner = runner or _gh
-    before: str | None = None
+    new: list[CoverageAlarm] = []
     if verdict.alarms:
         numbers = alarm_issue.open_alarm_issues(repo, ALARM_ISSUE, runner)
         if numbers:
-            before = runner(["gh", "api", f"repos/{repo}/issues/{numbers[0]}", "--jq", ".body"])
+            number = str(numbers[0])
+            before = runner(["gh", "api", f"repos/{repo}/issues/{number}", "--jq", ".body"])
+            new = [a for a in verdict.alarms[:ALARMS_LISTED] if _alarm_key(a) not in before]
+            if new:
+                runner(
+                    [
+                        "gh",
+                        "issue",
+                        "comment",
+                        number,
+                        "--repo",
+                        repo,
+                        "--body",
+                        f"New as of {verdict.as_of.isoformat()}:\n\n"
+                        + "\n".join(_alarm_line(a) for a in new),
+                    ]
+                )
     done = alarm_issue.latch_issue(
         repo,
         ALARM_ISSUE,
@@ -285,23 +326,4 @@ def latch(
         clear_comment=f"Forecast coverage has no alarm as of {verdict.as_of.isoformat()}: closing.",
         runner=runner,
     )
-    if before is None or not done.startswith("refreshed #"):
-        return done
-    new = [a for a in verdict.alarms if f"`{a.subject}`" not in before]
-    if not new:
-        return done
-    number = done.removeprefix("refreshed #")
-    runner(
-        [
-            "gh",
-            "issue",
-            "comment",
-            number,
-            "--repo",
-            repo,
-            "--body",
-            f"New as of {verdict.as_of.isoformat()}:\n\n"
-            + "\n".join(f"- **{a.check}** `{a.subject}`: {a.detail}" for a in new),
-        ]
-    )
-    return f"{done}, {len(new)} new alarm(s) commented"
+    return f"{done}, {len(new)} new alarm(s) commented" if new else done
