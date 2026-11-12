@@ -27,7 +27,7 @@ from fedcourtsai.pipeline.missed import (
     scan_predictionless_resolutions,
 )
 from fedcourtsai.registry import enabled_predictors
-from fedcourtsai.schemas import CellFailure, Disposition, EventKind, Outcome, Stage
+from fedcourtsai.schemas import CellFailure, Disposition, EventKind, Moment, Outcome, Stage
 from fedcourtsai.serialize import write_json
 from tests.conftest import seed_prediction
 
@@ -381,6 +381,43 @@ def test_a_relist_is_judged_on_the_conference_it_was_relisted_for(tmp_path: Path
         ],
     )
 
+    # The relist's own distribution entry is not on the stored docket: no bound.
+    _later_cert_moment(
+        db,
+        data,
+        6,
+        opened_at=date(2026, 11, 12),
+        resolved_at=resolved,
+        entries=_relisted("Nov 12 2026", "11/13/2026")[:1],
+    )
+    # A call for a response whose next conference sat the day after it.
+    _later_cert_moment(
+        db,
+        data,
+        7,
+        event_id=CALL_EVENT,
+        opened_at=date(2026, 11, 10),
+        resolved_at=resolved,
+        entries=[
+            {"Date": "Nov 10 2026", "Text": "Response Requested. (Due November 10, 2026)"},
+            {"Date": "Nov 11 2026", "Text": "DISTRIBUTED for Conference of 11/11/2026."},
+        ],
+    )
+    called = [
+        {"Date": "Nov 02 2026", "Text": "Response Requested. (Due November 10, 2026)"},
+        {"Date": "Nov 12 2026", "Text": "DISTRIBUTED for Conference of 11/13/2026."},
+    ]
+    # The same call a week earlier: rounds ran before its conference sat.
+    _later_cert_moment(
+        db,
+        data,
+        8,
+        event_id=CALL_EVENT,
+        opened_at=date(2026, 11, 2),
+        resolved_at=resolved,
+        entries=called,
+    )
+
     report = _scan(db, data, **_LATE)
 
     assert _by_case(report) == {
@@ -389,6 +426,9 @@ def test_a_relist_is_judged_on_the_conference_it_was_relisted_for(tmp_path: Path
         "scotus/3": ("missed", "owed_and_unforecast"),
         "scotus/4": ("missed", "owed_and_unforecast"),
         "scotus/5": ("missed", "owed_and_unforecast"),
+        "scotus/6": ("missed", "owed_and_unforecast"),
+        "scotus/7": ("declined", "moment_window_closed"),
+        "scotus/8": ("missed", "owed_and_unforecast"),
     }
     (closed,) = (e for e in report.events if e.case_id == "scotus/2")
     assert "the conference of 2026-11-13 closed it" in closed.detail
@@ -469,6 +509,16 @@ def test_an_application_is_reachable_from_its_docketing_not_its_papers(tmp_path:
     application(2, opened_at=date(2026, 9, 2), date_filed=None)
     # A filing date earlier than the opening never widens the span.
     application(3, opened_at=date(2026, 9, 4), date_filed=date(2026, 8, 1))
+    # Only an application docket is floored: a petition's later filing date is
+    # not evidence the docket was unreadable.
+    _resolved_case(
+        db,
+        data,
+        4,
+        opened_at=date(2026, 9, 2),
+        resolved_at=date(2026, 9, 5),
+        date_filed=date(2026, 9, 4),
+    )
 
     report = _scan(db, data)
 
@@ -476,6 +526,7 @@ def test_an_application_is_reachable_from_its_docketing_not_its_papers(tmp_path:
         "scotus/1": ("declined", "resolved_before_a_round"),
         "scotus/2": ("missed", "owed_and_unforecast"),
         "scotus/3": ("declined", "resolved_before_a_round"),
+        "scotus/4": ("missed", "owed_and_unforecast"),
     }
     (docketed,) = (e for e in report.events if e.case_id == "scotus/1")
     assert "on a docket filed 2026-09-04" in docketed.detail
@@ -483,9 +534,18 @@ def test_an_application_is_reachable_from_its_docketing_not_its_papers(tmp_path:
 
 @pytest.mark.reads_docs
 def test_each_first_forecast_instant_is_a_merge_the_freeze_record_names() -> None:
+    """Each instant is the carrying merge of the label that released the moment."""
     record = (_ROOT / "docs" / "freeze-record.md").read_text(encoding="utf-8")
-    for instant in set(MOMENT_FIRST_FORECAST_UTC.values()):
-        assert f"`{instant:%Y-%m-%dT%H:%M:%SZ}`" in record
+    released_by = {
+        (Stage.cert, Moment.sg_brief): "proc-v11",
+        (Stage.cert, Moment.relist): "proc-v11",
+        (Stage.merits, Moment.argued): "proc-v11",
+        (Stage.cert, Moment.response_requested): "proc-v14",
+    }
+    assert set(MOMENT_FIRST_FORECAST_UTC) == set(released_by)
+    for key, label in released_by.items():
+        header = record.split(f"- **`{label}`: ", 1)[1][:600]
+        assert f"`{MOMENT_FIRST_FORECAST_UTC[key]:%Y-%m-%dT%H:%M:%SZ}`" in header
 
 
 def test_the_round_times_mirror_the_predict_workflow_schedule() -> None:

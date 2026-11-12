@@ -556,7 +556,7 @@ def conference_bound_closed_on(
         {
             conference
             for distributed, conference in petition_distributions(payload, through=last)
-            if distributed >= event.opened_at and conference <= last
+            if event.opened_at <= distributed <= conference <= last
         }
     )
     for conference in conferences:

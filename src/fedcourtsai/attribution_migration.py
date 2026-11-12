@@ -244,8 +244,18 @@ class _Recorded:
         resolution pass attributes the same disposition to it again. Both
         halves are asked: an undeclared id is not a moment, and a declared id
         on a row of another stage has no claim on this stage's disposition.
+
+        Held to the shapes the attribution rule itself accepts, so a record it
+        could not have produced stays repairable: an entry-pinned event is no
+        claimant, and neither is a moment that opened after the outcome it
+        carries resolved.
         """
-        return self.stage is not None and moments.declares(self.event.event_id, self.stage)
+        return (
+            self.stage is not None
+            and moments.declares(self.event.event_id, self.stage)
+            and self.event.docket_entry_id is None
+            and (self.event.opened_at is None or self.event.opened_at <= self.outcome.resolved_at)
+        )
 
     @property
     def fingerprint(self) -> tuple[str, str, int]:

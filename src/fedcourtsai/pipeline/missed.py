@@ -66,15 +66,23 @@ than patched:
 - ``opened_at`` is the docket date of the transition, not the day the pipeline
   first observed it, so ingestion lag makes the round rule *over*-report (a
   miss that no round could have reached) — the safe direction for an alarm.
-- An event is reachable from the later of its ``opened_at`` and the row's
-  ``date_filed``. An application's first entry is dated when the papers were
-  submitted, days before the Court dockets it, and no docket exists to poll
-  until then. A ``date_filed`` later than the real docketing would hide a miss.
+- An event on an application docket is reachable from the later of its
+  ``opened_at`` and the row's ``date_filed``. An application's first entry is
+  dated when the papers were submitted, days before the Court dockets it, and
+  no docket exists to poll until then. A ``date_filed`` later than the real
+  docketing would hide a miss, which is why no other docket form is floored.
 - A moment's window can be shorter than the event's open span, at both ends
   (:func:`_forecast_window`). The start is read from a table of instants,
   the end from the docket as stored **now**; where the stored docket cannot
   show the conference that closed a moment, no end is read and the event is
-  judged on its resolution date, the over-report direction.
+  judged on its resolution date, the over-report direction. Three readings
+  can hide a miss instead. The end is read with the admission's own conference
+  reading, so where that reading wrongly refused a cell (a conference the
+  petition was taken off by an entry it does not recognize) the monitor
+  declines the event the refusal cost. A distribution docketed late under an
+  earlier date shows a conference now that the admission could not see then.
+  And an instant in the table later than the moment's real first admission
+  excuses the rounds between the two.
 - Events are dated to the day, so merits funding counts a merits event only
   if it opened *before* the resolution day — the one a cert grant mints opens
   on the day the petition resolves. An unrelated event resolving the same day
@@ -413,6 +421,7 @@ def _merits_funded(events: list[corpus.CorpusEvent], resolved_at: date) -> bool:
 
 def _forecast_window(
     event: corpus.CorpusEvent,
+    event_opened: date,
     row: corpus.CorpusRow,
     resolved_at: date,
     payloads: PayloadReader,
@@ -420,10 +429,11 @@ def _forecast_window(
     """The decline a full gap earns because no round could reach it, or ``None``.
 
     Two rules, the plain one first. ``resolved_before_a_round``: no scheduled
-    round fell certainly between the day the event could first be polled (the
-    later of its ``opened_at`` and the docket's ``date_filed``) and the day it
-    resolved. ``moment_window_closed``: rounds ran in that span, but none
-    inside the part of it the moment was forecastable for. A moment's window
+    round fell certainly between the day the event could first be polled (its
+    ``opened_at``, or on an application docket the later of that and the
+    docket's ``date_filed``) and the day it resolved. ``moment_window_closed``:
+    rounds ran in that span, but none inside the part of it the moment was
+    forecastable for. A moment's window
     opens no earlier than the instant its cells were first admitted
     (:data:`MOMENT_FIRST_FORECAST_UTC`), and a conference-bounded cert moment's
     closes on the first conference that considers the petition after the
@@ -431,17 +441,20 @@ def _forecast_window(
     forecasts the conference it was relisted for, and the petition's later
     relists and eventual disposition belong to no cell the fan-out would place.
     """
-    assert event.opened_at is not None
-    opened = event.opened_at
+    opened = event_opened
     filed = row.date_filed
-    if filed is not None and filed > opened:
+    if (
+        filed is not None
+        and filed > opened
+        and corpus.is_scotus_application_form(row.docket_number)
+    ):
         opened = filed
+    since = (
+        f"opened {event_opened.isoformat()}"
+        if opened == event_opened
+        else f"opened {event_opened.isoformat()} on a docket filed {opened.isoformat()}"
+    )
     if not had_a_scheduled_round(opened, resolved_at):
-        since = (
-            f"opened {event.opened_at.isoformat()}"
-            if opened == event.opened_at
-            else f"opened {event.opened_at.isoformat()} on a docket filed {opened.isoformat()}"
-        )
         return (
             DeclineReason.resolved_before_a_round,
             f"{since}, resolved {resolved_at.isoformat()}: "
@@ -456,13 +469,15 @@ def _forecast_window(
     if had_a_scheduled_round(opened, closed, not_before=first_forecast):
         return None
     bounds = []
-    if first_forecast is not None and first_forecast > datetime.combine(opened, time.min):
+    if first_forecast is not None and first_forecast > datetime.combine(
+        opened + timedelta(days=1), time.min
+    ):
         bounds.append(f"the moment was first forecast {first_forecast:%Y-%m-%d %H:%M}Z")
     if conference is not None:
         bounds.append(f"the conference of {conference.isoformat()} closed it")
     return (
         DeclineReason.moment_window_closed,
-        f"opened {opened.isoformat()}, resolved {resolved_at.isoformat()}; "
+        f"{since}, resolved {resolved_at.isoformat()}; "
         + " and ".join(bounds)
         + ": no scheduled predict round fell certainly inside the moment's window",
     )
@@ -531,7 +546,7 @@ def _classify(  # noqa: PLR0911 - one early return per declared rule
     # only guards against flagging an event no round could have reached, is
     # asked of full gaps alone.
     if not partial and event.opened_at is not None:
-        unreachable = _forecast_window(event, row, resolved_at, payloads)
+        unreachable = _forecast_window(event, event.opened_at, row, resolved_at, payloads)
         if unreachable is not None:
             return Verdict.declined, unreachable[0], unreachable[1]
     return Verdict.missed, MissReason.owed_and_unforecast, ""
