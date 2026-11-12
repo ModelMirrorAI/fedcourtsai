@@ -228,6 +228,7 @@ from .finalize import (
     agent_produced_output,
     blinded_candidates,
     cell_output_root,
+    cell_outputs_complete,
     required_outputs,
     reset_output_root,
     settle_judge_level_outputs,
@@ -30833,6 +30834,36 @@ def finalize_validates_cmd(
         run_id=run_id,
     )
     typer.echo("true" if valid else "false")
+
+
+@app.command("finalize-complete")
+def finalize_complete_cmd(
+    role: Annotated[FinalizeRole, typer.Option(help="predict | evaluate.")],
+    court: Annotated[str, typer.Option()],
+    docket: Annotated[int, typer.Option()],
+    event: Annotated[str, typer.Option(help="Event id the cell acted on.")],
+    actor: Annotated[str, typer.Option(help="The predictor_id / evaluator_id for this cell.")],
+    run_id: Annotated[str, typer.Option(help="The fan-out run id (a UTC timestamp).")],
+) -> None:
+    """Print 'true' if the cell holds every file it owes, each non-empty and parsing, else 'false'.
+
+    The completion sentinel's test, asked once: the cells' gemini step
+    (``scripts/gemini-cell.sh``) reads it for a last attempt that ended on a
+    transient fault with a failing exit, and concludes the step clean only where
+    the cell's work was already whole and its judgment artifacts validate
+    (``finalize-validates``).
+    """
+    settings = get_settings()
+    complete = cell_outputs_complete(
+        role,
+        data_root=settings.data_root,
+        court=court,
+        docket=docket,
+        event=event,
+        actor=actor,
+        run_id=run_id,
+    )
+    typer.echo("true" if complete else "false")
 
 
 @app.command("engine-attempt-class")

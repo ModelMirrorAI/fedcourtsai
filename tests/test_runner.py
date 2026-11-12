@@ -1230,6 +1230,27 @@ def test_a_gemini_attempt_whose_judgment_fails_its_schema_is_retried(tmp_path: P
     read_model(events.prediction(PREDICTOR, RUN), Prediction)
 
 
+def test_a_gemini_transient_nonzero_exit_over_a_whole_cell_keeps_its_output(
+    tmp_path: Path,
+) -> None:
+    # The fault arrived after the work: every owed file is there and the
+    # prediction validates, so the cell is not an engine-failed loss.
+    request = _predict_request(tmp_path / "data")
+    events = CasePaths(tmp_path / "data", COURT, DOCKET).event(EVENT)
+
+    def whole_cell() -> None:
+        StubRunner().run(request)
+        events.prediction_retrieval(PREDICTOR, RUN).write_text("what was read\n")
+        events.prediction_tooling(PREDICTOR, RUN).write_text("{}\n")
+
+    seq = _AttemptRunner([(whole_cell, CommandResult(1, "503 Service Unavailable"))] * 3)
+
+    written = _gemini(seq, []).run(request)
+
+    assert seq.calls == 1
+    assert events.prediction(PREDICTOR, RUN) in written
+
+
 def test_claude_and_codex_never_read_stdout(tmp_path: Path) -> None:
     # Their stdout is not captured; a result-shaped fault there changes nothing.
     request = _predict_request(tmp_path / "data")

@@ -42,6 +42,9 @@ INVALID_STREAM = {
 #                    its schema
 #   invalid-malformed  the same, after writing a judgment artifact its schema
 #                    refuses
+#   transient-exit-produce   a non-zero exit on a transient fault, after
+#                  writing a valid judgment artifact and nothing else
+#   transient-exit-complete  the same, after writing every file the cell owes
 #   permanent      a non-zero exit whose stderr names a context-length fault
 #   quota          a non-zero exit with gemini's terminal-quota wording
 #   stderr-object  a non-zero exit leaving a stack and the error object on stderr
@@ -73,6 +76,16 @@ case "$turn" in
   invalid-flags)
     mkdir -p "$STUB_OUT"; echo '{"flags": []}' > "$STUB_OUT/flags.json"
     echo "$invalid" ;;
+  transient-exit-produce)
+    mkdir -p "$STUB_OUT"; printf '%s' "$STUB_VALID_ARTIFACT" > "$STUB_OUT/$STUB_ARTIFACT"
+    echo "503 Service Unavailable" >&2; exit 144 ;;
+  transient-exit-complete)
+    mkdir -p "$STUB_OUT"; printf '%s' "$STUB_VALID_ARTIFACT" > "$STUB_OUT/$STUB_ARTIFACT"
+    for doc in reasoning.md predicted_reasoning.md retrieval.md; do
+      echo "prose" > "$STUB_OUT/$doc"
+    done
+    echo '{}' > "$STUB_OUT/tooling.json"
+    echo "503 Service Unavailable" >&2; exit 144 ;;
   permanent) echo "API error: request exceeds the context length" >&2; exit 1 ;;
   stderr-object)
     echo "    at async GeminiChat.makeApiCallAndProcessStream (chunk.js:321564:28)" >&2
@@ -339,6 +352,32 @@ def test_malformed_output_is_kept_when_its_schema_check_cannot_run(tmp_path: Pat
     assert (root / "prediction.json").is_file()
     (warning,) = _warnings(result)
     assert "the attempt produced the cell's output, which a retry would discard" in warning
+
+
+def test_a_failing_transient_exit_over_a_whole_cell_concludes_clean(tmp_path: Path) -> None:
+    # The fault arrived after the work: every owed file is there and the
+    # prediction validates, so the step is not failed for the manner of its end.
+    result, root = _run(tmp_path, ["transient-exit-complete", "ok"])
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert _attempts(tmp_path) == 1
+    assert (root / "prediction.json").is_file()
+    assert any("the step concludes clean" in w for w in _warnings(result)), _warnings(result)
+
+
+def test_a_failing_transient_exit_over_a_partial_cell_stays_failed(tmp_path: Path) -> None:
+    result, _ = _run(tmp_path, ["transient-exit-produce", "ok"])
+    assert result.returncode == 144
+    assert _attempts(tmp_path) == 1
+    assert not any("concludes clean" in w for w in _warnings(result))
+
+
+@pytest.mark.parametrize("failing", ["finalize-complete", "finalize-validates"])
+def test_a_whole_cell_stays_failed_when_a_check_cannot_run(tmp_path: Path, failing: str) -> None:
+    result, _ = _run(
+        tmp_path, ["transient-exit-complete", "ok"], knobs={"STUB_FAIL_COMMAND": failing}
+    )
+    assert result.returncode == 144
+    assert not any("concludes clean" in w for w in _warnings(result))
 
 
 def test_an_evaluate_retry_removes_only_what_the_failed_attempt_added(tmp_path: Path) -> None:

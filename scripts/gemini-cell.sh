@@ -48,7 +48,11 @@
 #     and what it retrieved was really retrieved. (Re-check on a CLI bump.)
 #
 # The step's exit status is the last attempt's, so the cell's tail reads it as
-# the outcome of the turn that counted. Each attempt's stdout (the JSON result)
+# the outcome of the turn that counted, with one exception: a last attempt that
+# exited non-zero on a transient fault after the cell's output was complete
+# (`fedcourts finalize-complete`, the completion sentinel's test) and valid
+# (`fedcourts finalize-validates`) concludes the step clean, since the fault
+# arrived after the work. Each attempt's stdout (the JSON result)
 # and stderr stream into the job log as they are written, and are also kept
 # under the runner temp dir, outside the workspace and the cell artifact.
 #
@@ -197,6 +201,20 @@ while :; do
   echo "::warning::gemini (${cell}): attempt ${attempt}/${max_attempts} ended transient; retrying from a clean output root in ${wait_s}s${fault:+; engine said: ${fault}}"
   sleep "$wait_s"
 done
+
+# A turn that ended on a transient fault with a failing exit, after the cell's
+# work was whole: every file the cell owes is there and parses, and its
+# judgment artifacts hold to their schema. The fault cost the cell nothing, so
+# the step concludes clean, as a zero-exit transient fault over the same output
+# already does and as the watchdog's reap of a finished cell does. Each check
+# must say "true" outright; a check that could not run leaves the failure as it
+# is. The tail still validates the cell, so nothing malformed is readied here.
+if [ "$status" -ne 0 ] && [ "$verdict" = transient ] &&
+  [ "$(harness finalize-complete "${coords[@]}" 2> /dev/null)" = "true" ] &&
+  [ "$(harness finalize-validates "${coords[@]}" 2> /dev/null)" = "true" ]; then
+  echo "::warning::gemini (${cell}): attempt ${attempt}/${max_attempts} exited ${status} on a transient fault after the cell's output was complete and valid; the step concludes clean"
+  status=0
+fi
 
 if [ -n "${GEMINI_RESULT_FILE:-}" ]; then
   cp "$out" "$GEMINI_RESULT_FILE"

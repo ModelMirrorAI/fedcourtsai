@@ -65,6 +65,7 @@ from ..finalize import (
     agent_output_validates,
     agent_produced_output,
     cell_output_root,
+    cell_outputs_complete,
     reset_output_root,
     snapshot_output_root,
 )
@@ -1563,11 +1564,13 @@ class AgenticRunner:
           root could not be snapshotted or reset.
 
         A zero-exit attempt that is not retried keeps what it produced, as the
-        cell step does. One that produced nothing raises instead, so the caller
-        records a classified failure rather than a cell that silently wrote
-        nothing: :class:`EngineQuotaExhausted` for a spent quota,
-        :class:`EngineFailed` otherwise. A non-zero exit raises as the shared
-        loop does.
+        cell step does, and so does a failing exit on a transient fault that
+        arrived after the cell's output was complete
+        (:func:`cell_outputs_complete`) and valid. A zero-exit attempt that
+        produced nothing raises instead, so the caller records a classified
+        failure rather than a cell that silently wrote nothing:
+        :class:`EngineQuotaExhausted` for a spent quota, :class:`EngineFailed`
+        otherwise. Any other non-zero exit raises as the shared loop does.
         """
         role = (
             FinalizeRole.predict if request.role == UsageRole.predictor else FinalizeRole.evaluate
@@ -1638,6 +1641,24 @@ class AgenticRunner:
                 continue
             if result.returncode == 0 and produced:
                 sys.stderr.write(f"{base}; not retried: {reason}; keeping its output\n")
+                return _produced_artifacts(request)
+            if (
+                verdict is AttemptClass.transient
+                and keep
+                and cell_outputs_complete(
+                    role,
+                    data_root=request.data_root,
+                    court=request.court_id,
+                    docket=request.docket_id,
+                    event=request.event_id,
+                    actor=request.actor_id,
+                    run_id=request.run_id,
+                )
+            ):
+                sys.stderr.write(
+                    f"{base} on a transient fault after the cell's output was complete "
+                    "and valid; keeping its output\n"
+                )
                 return _produced_artifacts(request)
             raise EngineFailed(f"{base} ({reason})" if verdict is AttemptClass.transient else base)
         raise AssertionError("retry loop exited without a result")  # pragma: no cover
