@@ -1048,7 +1048,7 @@ class CandidateLayoutSettlement:
     #: The shape the judge wrote its candidate directories in, when it moved
     #: them; ``None`` when nothing moved.
     layout: str | None = None
-    #: The aliases whose directories moved to the contract path, in alias order.
+    #: The aliases whose output moved to the contract path, in alias order.
     aliases: tuple[str, ...] = ()
     #: The judge-level files moved up from the top of ``evaluations/``.
     judge_files: tuple[str, ...] = ()
@@ -1114,7 +1114,7 @@ def settle_candidate_layout(
     alias-named entry.
 
     **All or nothing, and only a whole reordering.** Nothing moves unless every
-    directory found is one of the two shapes above, all of them the same one,
+    directory found is one of the two orderings, all of them the same one,
     each a real directory holding a regular ``evaluation.json``, and the move
     would leave no alias-shaped tree or loose file behind at the top of
     ``evaluations/``. So it declines, and says why, when any
@@ -1122,6 +1122,7 @@ def settle_candidate_layout(
     reordering, and choosing between its copies would speak for it), when an
     alias appears under both shapes, when a link stands anywhere on the way,
     when the misplaced tree holds anything besides the run's own directories,
+    when the cell's directory also holds an alias-named flat file,
     or when a judge-level file would land on one already written. Declining
     changes nothing: the cell reaches the un-aliasing exactly as the judge left
     it, which fails or lands nothing as before.
@@ -1142,7 +1143,9 @@ def settle_candidate_layout(
     cell_dir = event_paths.evaluation_cell_dir(evaluator_id, run_id)
     try:
         layout, found = _misplaced_candidates(event_paths, sorted(aliases), evaluator_id, run_id)
-        if not found:
+        if found:
+            _require_no_flat_files(cell_dir)
+        else:
             layout, found = _flat_candidates(event_paths, sorted(aliases), evaluator_id, run_id)
         if not found:
             return CandidateLayoutSettlement()
@@ -1174,7 +1177,7 @@ def settle_candidate_layout(
         # Every precondition was checked above, so this is the filesystem
         # itself; the cell fails here rather than reaching a second pass that
         # would read a half-moved tree as the judge's own.
-        raise BlindingError(f"could not move a reordered candidate directory: {exc}") from exc
+        raise BlindingError(f"could not move a misplaced candidate: {exc}") from exc
     return CandidateLayoutSettlement(
         layout=layout,
         aliases=tuple(found),
@@ -1226,6 +1229,22 @@ def _misplaced_candidates(
     for alias, path in placed.items():
         _require_whole_directory(event_paths, alias, path, layout, evaluator_id, run_id)
     return layout, placed
+
+
+def _require_no_flat_files(cell_dir: Path) -> None:
+    """Raise :class:`_LayoutDeclined` where a reordered cell also holds an alias-named file.
+
+    A judge that wrote some candidates as directories and others as flat files
+    is not plainly either shape, and moving the directories would land part of
+    the cell with the rest left behind under an alias.
+    """
+    if not cell_dir.is_dir():
+        return
+    for child in sorted(cell_dir.iterdir()):
+        if child.name.lower().startswith(ALIAS_PREFIX) and (
+            child.is_symlink() or not child.is_dir()
+        ):
+            raise _LayoutDeclined(f"the cell's directory also holds a flat file, {child.name!r}")
 
 
 def _flat_candidates(

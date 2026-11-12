@@ -1267,6 +1267,72 @@ def test_anything_short_of_a_whole_flat_cell_is_left_exactly_as_written(
     assert _file_bytes(ledger) == before
 
 
+def _flat_linked_notes(ledger: Path, result: blinding.BlindingResult) -> None:
+    event_paths = CasePaths(ledger, COURT, DOCKET).event(EVENT)
+    notes = event_paths.evaluation_cell_dir(EVALUATOR, EVALUATE_RUN) / "evaluation.md"
+    notes.rename(ledger / "elsewhere.md")
+    notes.symlink_to(ledger / "elsewhere.md")
+
+
+def _flat_linked_cell_directory(ledger: Path, result: blinding.BlindingResult) -> None:
+    event_paths = CasePaths(ledger, COURT, DOCKET).event(EVENT)
+    cell_dir = event_paths.evaluation_cell_dir(EVALUATOR, EVALUATE_RUN)
+    real = event_paths.evaluations_dir.parent / "elsewhere"
+    cell_dir.rename(real)
+    cell_dir.symlink_to(real, target_is_directory=True)
+
+
+@pytest.mark.parametrize("spoil", [_flat_linked_notes, _flat_linked_cell_directory])
+def test_a_flat_cell_with_a_link_in_it_is_left_exactly_as_written(
+    ledger: Path, spoil: Callable[[Path, blinding.BlindingResult], None]
+) -> None:
+    result = _blind(ledger)
+    _seed_evaluations(ledger, result)
+    _flatten(ledger, result)
+    spoil(ledger, result)
+    before = _file_bytes(ledger)
+
+    settled = _settle(ledger)
+
+    assert not settled.moved
+    assert settled.declined
+    assert _file_bytes(ledger) == before
+
+
+def test_a_cell_part_reordered_and_part_flat_is_left_exactly_as_written(ledger: Path) -> None:
+    """Directories for some candidates and a flat file for another is neither shape."""
+    result = _blind(ledger)
+    _seed_evaluations(ledger, result)
+    _reorder(ledger, result, "under-run")
+    event_paths = CasePaths(ledger, COURT, DOCKET).event(EVENT)
+    cell_dir = event_paths.evaluation_cell_dir(EVALUATOR, EVALUATE_RUN)
+    flat = result.candidates[0].alias
+    (cell_dir / flat / "evaluation.json").rename(cell_dir / f"{flat}.json")
+    (cell_dir / flat / "evaluation.md").rename(cell_dir / "evaluation.md")
+    (cell_dir / flat).rmdir()
+    before = _file_bytes(ledger)
+
+    settled = _settle(ledger)
+
+    assert not settled.moved
+    assert "flat file" in settled.declined
+    assert _file_bytes(ledger) == before
+
+
+def test_judge_level_files_above_a_flat_cell_move_with_it(ledger: Path) -> None:
+    result = _blind(ledger)
+    _seed_evaluations(ledger, result)
+    _flatten(ledger, result)
+    event_paths = CasePaths(ledger, COURT, DOCKET).event(EVENT)
+    write_text(event_paths.evaluations_dir / "retrieval.md", "nothing fetched\n")
+
+    settled = _settle(ledger)
+
+    assert settled.moved
+    assert settled.judge_files == ("retrieval.md",)
+    assert event_paths.evaluation_retrieval(EVALUATOR, EVALUATE_RUN).is_file()
+
+
 def test_a_flat_cell_missing_a_candidate_lands_the_rest(ledger: Path) -> None:
     result = _blind(ledger)
     _seed_evaluations(ledger, result)
@@ -1279,6 +1345,9 @@ def test_a_flat_cell_missing_a_candidate_lands_the_rest(ledger: Path) -> None:
 
     assert dropped not in settled.aliases
     assert len(settled.aliases) == len(result.candidates) - 1
+    assert len(_unblind(ledger)) == len(result.candidates) - 1
+    verdict = validate_ledger(ledger)
+    assert verdict.ok, verdict.problems
 
 
 def test_the_command_moves_a_flat_cell_and_says_so_in_its_flags(
