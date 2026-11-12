@@ -1205,6 +1205,31 @@ def test_a_gemini_nonzero_exit_after_writing_its_judgment_is_not_retried(
     assert seq.calls == 1
 
 
+def test_a_gemini_attempt_whose_judgment_fails_its_schema_is_retried(tmp_path: Path) -> None:
+    # A prediction its own model refuses is no finished work: the retry
+    # discards it with the rest of the failed turn.
+    request = _predict_request(tmp_path / "data")
+    events = CasePaths(tmp_path / "data", COURT, DOCKET).event(EVENT)
+
+    def malformed() -> None:
+        prediction = events.prediction(PREDICTOR, RUN)
+        prediction.parent.mkdir(parents=True, exist_ok=True)
+        prediction.write_text('{"granted": "perhaps"}')
+
+    seq = _AttemptRunner(
+        [
+            (malformed, CommandResult(0, stdout=_INVALID_STREAM)),
+            (lambda: StubRunner().run(request), CommandResult(0)),
+        ]
+    )
+
+    written = _gemini(seq, []).run(request)
+
+    assert seq.calls == 2
+    assert written == _predict_artifacts(events)
+    read_model(events.prediction(PREDICTOR, RUN), Prediction)
+
+
 def test_claude_and_codex_never_read_stdout(tmp_path: Path) -> None:
     # Their stdout is not captured; a result-shaped fault there changes nothing.
     request = _predict_request(tmp_path / "data")

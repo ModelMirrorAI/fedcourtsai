@@ -34,7 +34,10 @@
 #     (`fedcourts cell-output-reset`), so a half-written file from a failed turn
 #     is never read — by the retry, the completion sentinel or the tail — as the
 #     cell's output. An attempt that already produced the cell's judgment
-#     artifact is never retried, since a retry would discard it; nor is one that
+#     artifact is not retried while that artifact holds to its schema
+#     (`fedcourts finalize-validates`), since a retry would discard it; one
+#     whose artifact fails its schema is retried, since the cell's tail would
+#     refuse that output anyway. Nor is an attempt retried that
 #     wrote the cell's flags.json, a disclosure (in a replay cell, of
 #     outcome-revealing material) that a fresh session would know nothing of;
 #     nor is one whose root cannot be snapshotted or reset.
@@ -164,9 +167,12 @@ while :; do
     reason="all ${max_attempts} attempts are spent"
   elif [ "$can_reset" != true ]; then
     reason="there is no snapshot to reset the output root to"
-  elif [ "$(harness finalize-produced "${coords[@]}" 2> /dev/null)" != "false" ]; then
-    # Anything but a clear "false" — including a check that could not run —
-    # keeps the attempt's output rather than wiping it.
+  elif [ "$(harness finalize-produced "${coords[@]}" 2> /dev/null)" != "false" ] &&
+    [ "$(harness finalize-validates "${coords[@]}" 2> /dev/null)" != "false" ]; then
+    # Anything but a clear "false" from the first check — including a check
+    # that could not run — keeps the attempt's output rather than wiping it,
+    # and so does anything but a clear "false" from the second: only output
+    # the harness positively read as failing its schema is retried over.
     reason="the attempt produced the cell's output, which a retry would discard"
   elif [ $((SECONDS + wait_s + min_remaining_s)) -gt "$deadline_s" ]; then
     reason="under ${min_remaining_s}s of the ${ENGINE_DEADLINE_MINUTES}-minute engine deadline would remain"

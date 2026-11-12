@@ -224,6 +224,7 @@ from .finalize import (
     JudgeFileOutcome,
     JudgeFileSettlement,
     OutputSnapshot,
+    agent_output_validates,
     agent_produced_output,
     blinded_candidates,
     cell_output_root,
@@ -30602,6 +30603,36 @@ def finalize_produced_cmd(
         run_id=run_id,
     )
     typer.echo("true" if produced else "false")
+
+
+@app.command("finalize-validates")
+def finalize_validates_cmd(
+    role: Annotated[FinalizeRole, typer.Option(help="predict | evaluate.")],
+    court: Annotated[str, typer.Option()],
+    docket: Annotated[int, typer.Option()],
+    event: Annotated[str, typer.Option(help="Event id the cell acted on.")],
+    actor: Annotated[str, typer.Option(help="The predictor_id / evaluator_id for this cell.")],
+    run_id: Annotated[str, typer.Option(help="The fan-out run id (a UTC timestamp).")],
+) -> None:
+    """Print 'false' if a judgment artifact the agent wrote fails its schema, else 'true'.
+
+    The cells' gemini step (``scripts/gemini-cell.sh``) asks this of an attempt
+    that ended on a transient fault after writing the cell's judgment artifact:
+    output that validates is kept, and output its own model refuses is retried
+    over, since the cell's tail would refuse it as well. The check is the
+    artifact's model and nothing else, so an incomplete cell prints 'true'.
+    """
+    settings = get_settings()
+    valid = agent_output_validates(
+        role,
+        data_root=settings.data_root,
+        court=court,
+        docket=docket,
+        event=event,
+        actor=actor,
+        run_id=run_id,
+    )
+    typer.echo("true" if valid else "false")
 
 
 @app.command("engine-attempt-class")
