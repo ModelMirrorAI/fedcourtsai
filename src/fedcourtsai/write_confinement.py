@@ -317,8 +317,8 @@ def settle_run_directory(data_root: Path, stash_dir: Path, own_run_dir: Path) ->
     exactly one such directory beside the predictor's own, one the baseline
     did not hold, a real directory holding a regular ``prediction.json``, with
     the run directory absent or empty and no symlink on the way to either.
-    Anything short of that is left for the confinement to put back, which is
-    what happens to it today.
+    Anything short of that is left for the confinement to put back, as any
+    other stray.
     """
     baseline = load_baseline(stash_dir)
     root = _check_root(data_root)
@@ -348,13 +348,13 @@ def settle_run_directory(data_root: Path, stash_dir: Path, own_run_dir: Path) ->
         return None
     if os.path.lexists(actor_dir) and not _plain_dir(actor_dir):
         return None
-    if os.path.lexists(own):
-        # An empty run directory is one a step made ahead of the agent; one
-        # holding anything is output the judge of the two is not ours to pick.
-        if not _plain_dir(own) or any(own.iterdir()):
-            return None
-        own.rmdir()
+    # An empty run directory is one a step made ahead of the agent; one holding
+    # anything is output, and which of the two stands is not ours to pick.
+    if os.path.lexists(own) and (not _plain_dir(own) or any(own.iterdir())):
+        return None
     actor_dir.mkdir(exist_ok=True)
+    # A rename replaces an empty directory in one step, so a rename that fails
+    # leaves both names as they were.
     source.rename(own)
     return source.relative_to(root).as_posix()
 

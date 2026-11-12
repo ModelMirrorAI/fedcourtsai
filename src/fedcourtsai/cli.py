@@ -24635,8 +24635,18 @@ def confine_cell_writes_cmd(
     own = event_paths.prediction_dir(actor, run_id)
     case = ids.case_id(court, docket)
     where = CellCoordinates(case_id=case, run_id=run_id, role=UsageRole.predictor, actor_id=actor)
+    moved: str | None = None
     try:
-        moved = write_confinement.settle_run_directory(settings.data_root, stash_dir, own)
+        try:
+            moved = write_confinement.settle_run_directory(settings.data_root, stash_dir, own)
+        except OSError as exc:
+            # A run directory that cannot be moved is a stray like any other:
+            # the confinement below still puts the tree back.
+            typer.echo(
+                "::warning::write confinement: could not move a misnamed run directory: "
+                + _log_safe(str(exc)),
+                err=True,
+            )
         report = write_confinement.confine_writes(settings.data_root, stash_dir, own)
     except (write_confinement.ConfinementError, OSError) as exc:
         typer.echo(f"::error::write confinement failed: {exc}", err=True)

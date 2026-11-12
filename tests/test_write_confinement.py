@@ -394,9 +394,20 @@ def _spoil_actor_directory_is_a_link(data_root: Path) -> None:
     (data_root / OWN).parent.symlink_to(data_root / "schedule", target_is_directory=True)
 
 
+def _spoil_run_directory_is_a_file(data_root: Path) -> None:
+    (data_root / OWN).rmdir()
+    (data_root / OWN).write_text("not a directory\n", encoding="utf-8")
+
+
+def _spoil_joined_names_another_predictor(data_root: Path) -> None:
+    (data_root / JOINED).rename(data_root / f"{EVENT_DIR}/predictions/gemini__{RUN}")
+
+
 @pytest.mark.parametrize(
     "spoil",
     [
+        _spoil_run_directory_is_a_file,
+        _spoil_joined_names_another_predictor,
         _spoil_run_directory_holds_output,
         _spoil_no_prediction,
         _spoil_two_joined,
@@ -448,3 +459,69 @@ def test_the_command_moves_a_joined_run_directory_and_notes_it(
     assert note.source == FlagSource.harness
     assert note.severity == FlagSeverity.info
     assert f"{ACTOR}__{RUN}" in note.message
+
+
+def _refuse_the_move(monkeypatch: pytest.MonkeyPatch) -> None:
+    rename = Path.rename
+
+    def refusing(self: Path, target: str | os.PathLike[str]) -> Path:
+        if self.name == f"{ACTOR}__{RUN}":
+            raise PermissionError(13, "Permission denied", str(self))
+        return rename(self, target)
+
+    monkeypatch.setattr(Path, "rename", refusing)
+
+
+def test_a_move_that_fails_leaves_both_names_as_they_were(
+    data_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    record_baseline(data_root, _stash(tmp_path))
+    _write_joined(data_root)
+    before = _tree(data_root)
+    _refuse_the_move(monkeypatch)
+
+    with pytest.raises(PermissionError):
+        settle_run_directory(data_root, _stash(tmp_path), data_root / OWN)
+
+    assert _tree(data_root) == before
+    assert (data_root / OWN).is_dir()
+
+
+def test_the_command_still_puts_the_tree_back_when_the_move_fails(
+    data_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(data_root))
+    stash = ["--stash-dir", str(_stash(tmp_path))]
+    assert runner.invoke(app, ["record-write-baseline", *stash]).exit_code == 0
+    _write_joined(data_root)
+    stray = data_root / EVENT_DIR / "notes.md"
+    stray.write_text("stray\n", encoding="utf-8")
+    _refuse_the_move(monkeypatch)
+
+    result = runner.invoke(app, _cli("confine-cell-writes", *stash))
+
+    assert result.exit_code == 0, result.output
+    assert "could not move a misnamed run directory" in result.output
+    assert not stray.exists()
+    assert not (data_root / JOINED).exists()
+    assert not (data_root / OWN / "prediction.json").exists()
+
+
+def test_the_command_moves_the_run_directory_and_removes_a_stray_beside_it(
+    data_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(data_root))
+    stash = ["--stash-dir", str(_stash(tmp_path))]
+    assert runner.invoke(app, ["record-write-baseline", *stash]).exit_code == 0
+    _write_joined(data_root)
+    stray = data_root / EVENT_DIR / "notes.md"
+    stray.write_text("stray\n", encoding="utf-8")
+
+    result = runner.invoke(app, _cli("confine-cell-writes", *stash))
+
+    assert result.exit_code == 0, result.output
+    assert not stray.exists()
+    assert (data_root / OWN / "prediction.json").is_file()
+    flags_path = CasePaths(data_root, COURT, DOCKET).event(EVENT).prediction_flags(ACTOR, RUN)
+    messages = [f.message for f in AgentFlags.model_validate_json(flags_path.read_text()).flags]
+    assert len(messages) == 2
