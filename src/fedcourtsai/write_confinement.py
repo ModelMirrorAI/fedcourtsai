@@ -22,6 +22,12 @@ went missing is restored from the copy, and a directory the agent created is
 removed once it is empty. The run directory itself, and the directories leading
 to it, are the cell's own and are left as the agent wrote them.
 
+One careless write is the cell's whole output: a predictor that joins its two
+path components into one directory name, ``predictions/<predictor_id>__<run_id>/``,
+has written every file it owes one level too high, and the comparison above
+would remove them all. :func:`settle_run_directory` runs first and renames that
+one shape onto the run directory, so the cell lands what it wrote.
+
 What this contains is a careless write, not a hostile one. A claude or gemini
 agent runs as the runner's own user, so the baseline under the runner temp
 directory, the git objects and the project code that runs this check are all
@@ -36,6 +42,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import shutil
 import stat
 from dataclasses import dataclass, field
@@ -289,6 +296,67 @@ def _remove_created(
             report.failed.append(relative + "/")
         else:
             report.removed.append(relative + "/")
+
+
+def _plain_dir(path: Path) -> bool:
+    """A real directory whose path names it without passing through a symlink."""
+    return not path.is_symlink() and path.is_dir() and path.resolve() == Path(os.path.abspath(path))
+
+
+def settle_run_directory(data_root: Path, stash_dir: Path, own_run_dir: Path) -> str | None:
+    """Rename a run directory the agent named in one joined component onto ``own_run_dir``.
+
+    The contract is ``predictions/<predictor_id>/<run_id>/``. A predictor that
+    writes ``predictions/<predictor_id>__<run_id>/`` instead (the two ids
+    joined by underscores, hyphens or dots) names its predictor and its run
+    just as unambiguously, in a directory :func:`confine_writes` would remove
+    as a stray. This moves it, contents untouched, and returns its
+    data-root-relative path; ``None`` when there is nothing to move.
+
+    It moves only what is plainly the cell's whole output and nothing else:
+    exactly one such directory beside the predictor's own, one the baseline
+    did not hold, a real directory holding a regular ``prediction.json``, with
+    the run directory absent or empty and no symlink on the way to either.
+    Anything short of that is left for the confinement to put back, which is
+    what happens to it today.
+    """
+    baseline = load_baseline(stash_dir)
+    root = _check_root(data_root)
+    if root != baseline.root:
+        raise ConfinementError(f"the baseline was recorded for {baseline.root}, not {root}")
+    own = Path(os.path.abspath(own_run_dir))
+    try:
+        own.relative_to(root)
+    except ValueError as exc:
+        raise ConfinementError(f"{own_run_dir} is not under {root}") from exc
+    actor_dir, predictions = own.parent, own.parent.parent
+    if not _plain_dir(predictions):
+        return None
+    joined = re.compile(rf"{re.escape(actor_dir.name)}[_.\-]+{re.escape(own.name)}")
+    found = [
+        child
+        for child in sorted(predictions.iterdir())
+        if joined.fullmatch(child.name)
+        and child.relative_to(root).as_posix() not in baseline.directories
+        and child.relative_to(root).as_posix() not in baseline.entries
+    ]
+    if len(found) != 1:
+        return None
+    (source,) = found
+    report = source / "prediction.json"
+    if not _plain_dir(source) or report.is_symlink() or not report.is_file():
+        return None
+    if os.path.lexists(actor_dir) and not _plain_dir(actor_dir):
+        return None
+    if os.path.lexists(own):
+        # An empty run directory is one a step made ahead of the agent; one
+        # holding anything is output the judge of the two is not ours to pick.
+        if not _plain_dir(own) or any(own.iterdir()):
+            return None
+        own.rmdir()
+    actor_dir.mkdir(exist_ok=True)
+    source.rename(own)
+    return source.relative_to(root).as_posix()
 
 
 def confine_writes(data_root: Path, stash_dir: Path, own_run_dir: Path) -> ConfinementReport:

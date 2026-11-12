@@ -24578,6 +24578,25 @@ def _write_confinement_note(
     )
 
 
+_RUN_DIRECTORY_PREFIX = "Harness check: the cell wrote its run directory as"
+
+
+def _run_directory_note(moved: str, event_id: str) -> AgentFlag:
+    """The harness note a predict cell carries when its run directory was renamed."""
+    return AgentFlag(
+        category=FlagCategory.other,
+        severity=FlagSeverity.info,
+        message=(
+            f"{_RUN_DIRECTORY_PREFIX} {ascii(moved)[:_WRITE_CONFINEMENT_PATH_CHARS]} (relative "
+            + "to data/) rather than predictions/<predictor_id>/<run_id>/. The harness renamed "
+            + "that directory onto the contract path before the write confinement, with every "
+            + "file's contents as the cell wrote them."
+        )[:_FLAG_MESSAGE_LIMIT],
+        event_id=event_id,
+        source=FlagSource.harness,
+    )
+
+
 @app.command("confine-cell-writes")
 def confine_cell_writes_cmd(
     court: Annotated[str, typer.Option()],
@@ -24601,6 +24620,12 @@ def confine_cell_writes_cmd(
     noted in the cell's ``flags.json`` as a harness flag (normalised first, so
     the note lands in a file that parses), and named in the run log.
 
+    Before the comparison, a run directory the cell named as one joined
+    component (``predictions/<predictor_id>__<run_id>/``) is renamed onto the
+    contract path (:func:`fedcourtsai.write_confinement.settle_run_directory`),
+    with its own harness note, so a cell whose only fault is that name lands
+    what it wrote instead of having it removed as a stray.
+
     Exits 1 when the baseline is missing or foreign, or when any path could not
     be put back: the cell's tree is then not the one its output is judged
     against, and the job says so rather than carrying it forward quietly.
@@ -24608,12 +24633,27 @@ def confine_cell_writes_cmd(
     settings = get_settings()
     event_paths = CasePaths(settings.data_root, court, docket).event(event)
     own = event_paths.prediction_dir(actor, run_id)
+    case = ids.case_id(court, docket)
+    where = CellCoordinates(case_id=case, run_id=run_id, role=UsageRole.predictor, actor_id=actor)
     try:
+        moved = write_confinement.settle_run_directory(settings.data_root, stash_dir, own)
         report = write_confinement.confine_writes(settings.data_root, stash_dir, own)
     except (write_confinement.ConfinementError, OSError) as exc:
         typer.echo(f"::error::write confinement failed: {exc}", err=True)
         raise typer.Exit(code=1) from exc
-    case = ids.case_id(court, docket)
+    if moved is not None:
+        typer.echo(
+            f"::warning::write confinement: {actor} {_one_line(case)} wrote its run directory "
+            + f"as data/{_log_safe(moved)}; moved to the contract path",
+            err=True,
+        )
+        _normalise_cell_flags(event_paths, where)
+        _append_harness_notes(
+            event_paths.prediction_flags(actor, run_id),
+            where,
+            [_run_directory_note(moved, event)],
+            what="run-directory note",
+        )
     if not report.changed:
         typer.echo(
             f"write confinement: {case} {event} {actor}: data tree unchanged outside the run"
@@ -24631,9 +24671,6 @@ def confine_cell_writes_cmd(
                 err=True,
             )
     if own.is_dir():
-        where = CellCoordinates(
-            case_id=case, run_id=run_id, role=UsageRole.predictor, actor_id=actor
-        )
         _normalise_cell_flags(event_paths, where)
         _append_harness_notes(
             event_paths.prediction_flags(actor, run_id),
