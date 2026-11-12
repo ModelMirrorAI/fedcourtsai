@@ -1,0 +1,184 @@
+{
+  "additionalProperties": false,
+  "description": "One scored replay cell: a line of a ``metrics/backtest-record/`` file.\n\nThe pooled back-test record is one append-only file per replay run, never\nrewritten once written. A row is a cell a model actually ran and that came\nback scored; an offline rehearsal's cells are never recorded.",
+  "properties": {
+    "arm": {
+      "description": "'standing': a cell of the standing back-test. 'incumbent' / 'candidate': a cell of a comparison run",
+      "enum": [
+        "standing",
+        "incumbent",
+        "candidate"
+      ],
+      "title": "Arm",
+      "type": "string"
+    },
+    "case_id": {
+      "maxLength": 160,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@+/=-]*$",
+      "title": "Case Id",
+      "type": "string"
+    },
+    "decided": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Decided"
+    },
+    "draw_rule": {
+      "maxLength": 160,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@+/=-]*$",
+      "title": "Draw Rule",
+      "type": "string"
+    },
+    "engine": {
+      "maxLength": 160,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@+/=-]*$",
+      "title": "Engine",
+      "type": "string"
+    },
+    "kind": {
+      "enum": [
+        "cert",
+        "merits"
+      ],
+      "title": "Kind",
+      "type": "string"
+    },
+    "model": {
+      "maxLength": 160,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@+/=-]*$",
+      "title": "Model",
+      "type": "string"
+    },
+    "moment": {
+      "maxLength": 160,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@+/=-]*$",
+      "title": "Moment",
+      "type": "string"
+    },
+    "outcome": {
+      "maximum": 1,
+      "minimum": 0,
+      "title": "Outcome",
+      "type": "integer"
+    },
+    "population": {
+      "description": "The population the run drew from, as a stable name (cert: `cert:<scope>`; merits: `merits:argued`). Figures never pool across populations",
+      "maxLength": 160,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@+/=-]*$",
+      "title": "Population",
+      "type": "string"
+    },
+    "predictor_id": {
+      "maxLength": 160,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@+/=-]*$",
+      "title": "Predictor Id",
+      "type": "string"
+    },
+    "probability": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Probability",
+      "type": "number"
+    },
+    "process_digest": {
+      "description": "The process digest of the configuration that ran (see `BacktestComparisonArm.process_digest`). Figures pool within one (predictor, model, digest) and never across them",
+      "maxLength": 160,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@+/=-]*$",
+      "title": "Process Digest",
+      "type": "string"
+    },
+    "provisioning": {
+      "anyOf": [
+        {
+          "maxLength": 160,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@+/=-]*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Provisioning"
+    },
+    "run_id": {
+      "maxLength": 160,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@+/=-]*$",
+      "title": "Run Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "stage": {
+      "maxLength": 160,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@+/=-]*$",
+      "title": "Stage",
+      "type": "string"
+    },
+    "stratum": {
+      "description": "The case's outcome class in its population (cert: granted or not-granted; merits: disturbed or not-disturbed), recorded under every draw rule because the pooled figure is post-stratified on it",
+      "maxLength": 160,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@+/=-]*$",
+      "title": "Stratum",
+      "type": "string"
+    },
+    "stratum_share": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "That class's share of the eligible population the run drew from, replayable or not. Null under a rule that is not a probability sample (`recency-head`), whose rows no pooled figure includes",
+      "title": "Stratum Share"
+    }
+  },
+  "required": [
+    "kind",
+    "run_id",
+    "predictor_id",
+    "arm",
+    "engine",
+    "model",
+    "process_digest",
+    "population",
+    "case_id",
+    "stage",
+    "moment",
+    "probability",
+    "outcome",
+    "draw_rule",
+    "stratum"
+  ],
+  "title": "BacktestRecordRow",
+  "type": "object"
+}

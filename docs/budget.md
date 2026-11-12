@@ -31,8 +31,11 @@ Model spend is `events × cost per event`, and two dials set it:
 
 At today's `P = 3` with three evaluators, one fully predicted and evaluated
 event is budgeted at roughly **$10**, the basis everything below scales from.
-It is the conservative figure, not the measured one. The current engines
-(`claude-opus-5-5`, `gpt-6.1-sol`, `gemini-4-argon`) measure, over their cells
+It is the conservative figure, not the measured one. The measured cells are
+those of `claude-opus-5-5`, `gpt-6.1-sol` and `gemini-4-argon`; the claude and
+gemini pairs run `claude-fable-5-2` and `gemini-4-carbon` from `proc-v21`,
+which have no measured cells yet (their projection is given below).
+The three measured engines come to, over their cells
 on `main` (at `d7840ec19`, 2026-11-11, every cell from 2026-10-20 on): about
 $0.74, $0.52 and $1.40 a prediction (227, 226 and 230 runs) and $0.71, $0.44
 and $0.93 a grading run (73 each). Those are per run. An event costs more
@@ -46,8 +49,22 @@ is at Argon's introductory rate ($2 / $10, $0.10 cached). The rate doubles
 from 2026-12-01, which at equal tokens, and with the cached rate assumed to
 double too, adds gemini's $2.44 of each event again and brings the event to
 about $7.35.
-The $10 figure stays the basis until cells at that rate are measured, since
-the doubling is a projection; the grading sample is the smaller one, and its
+`gemini-4-carbon` is priced as Argon is, introductory rate and doubling
+included (Carbon's rate as reported at its release, not yet read from an
+invoice), so the gemini share moves only if Carbon spends different tokens.
+`claude-fable-5-2` is priced at $8 / $40 with cache reads at $0.20, against
+Opus 5.5's $4 / $20 and $0.20. Repricing the same measured Opus cells at
+those rates, token for token, a claude prediction run comes to about $1.29
+and a grading run to about $1.25. Repricing instead the whole token counts of
+the `claude-fable-5-1` cells on `main` (252 prediction runs and 124 grading
+runs, 2026-09-04 to 2026-10-10, which wrote far more output on the same kind
+of cell) gives about $2.45 and $2.11. That adds between about $1.10 and $3.10
+to an event before retries, so from 2026-12-01 an event projects to between
+about $8.45 and $10.50. The top of that range is above the $10 basis, which
+is therefore no longer conservative if Fable 5.2 spends as Fable 5.1 did;
+the planning rates a round is priced at sit above both projections.
+The $10 figure stays the basis until cells at those rates are measured, since
+the doubling and both model changes are projections; the grading sample is the smaller one, and its
 cells are mostly cert-stage gradings, which read less than a merits one.
 The evaluator count holds at 3 as `P` grows.
 Per-run token usage and cost are recorded on the ledger (`usage.json`, rolled
@@ -55,16 +72,14 @@ up by `fedcourts usage-summary`), so the rates can be re-anchored from
 measurement rather than assumed. Re-anchoring is a deliberate edit to the pinned
 rate table the plans price against, never a drift: the figures move when someone
 moves them. That table (`src/fedcourtsai/planning_rates.py`) prices a fully
-predicted and evaluated event at about $17.70, well above the measured
+predicted and evaluated event at about $18.07, well above the measured
 figures. Pricing high errs toward holding: the review hold's per-round
 auto-release reads the table, and a round priced above
 `auto_release_usd_per_round` waits for a release. Its claude-code
 and codex rows are set from the pre-cutover measurements and anchors, well
-above the measured cells. Its gemini rows, $2.70 a prediction and $1.60 a
-grading run, are sized for the rate in force from 2026-12-01. The cells
-measured above double to about $2.80 and $1.86, so those two rows sit about
-3% and 14% below the projection and are owed a re-anchor before that date; the table's event total still stands well
-above the projected $7.35. [milestones.md](milestones.md) prices its plan at the table.
+above the measured cells. Its gemini rows, $2.80 a prediction and $1.90 a
+grading run, are the per-run Argon cells measured above doubled for the rate
+in force from 2026-12-01 and rounded up, so they hold across that change. [milestones.md](milestones.md) prices its plan at the table.
 
 **The plain-language case summaries also spend outside `events × cost per
 event`** ([case-summaries.md](case-summaries.md)). It is one non-agentic
@@ -123,22 +138,32 @@ the topic labeler's runs are what that window counts.)
 - **The replay** (`run-backtest`, `replay: merits`) runs every routable
   predictor on each drawn case at two moments, the grant and the briefed
   moment, so with the three engine predictors a case is two events. At the
-  planning table's predict rows ($4.27 claude-code + $1.88 codex + $2.70
-  gemini, $8.85 an event) a case prices at about $17.70, and the dispatch cap
-  of 20 cases at about $355. The
+  planning table's predict rows ($4.27 claude-code + $1.88 codex + $2.80
+  gemini, $8.95 an event) a case prices at about $17.90, and the dispatch cap
+  of 20 cases at about $360. The
   arm has no `review` hold, so the dispatch is the release: the 1–20 case cap,
   which the job's timeout sets, is its only bound.
+- **A back-test comparison** (`fedcourts cert-backtest-compare`,
+  `fedcourts merits-backtest-compare`) runs one predictor's cell twice on
+  each drawn case: two cells a petition at cert and four a case at merits,
+  two moments an arm. At the planning table's claude-code predict row ($4.27)
+  the cert default of 20 petitions prices at about $171 and the merits
+  default of 10 cases at about $171, where both arms run a model that row
+  describes; a candidate model the rate table does not carry has no planning
+  rate of its own, and that row stands in for it. A `run-backtest` dispatch
+  (`replay: cert-compare` or `merits-compare`) caps the draw at those
+  defaults and has no `review` hold, so the dispatch is the release.
 - **The pilot round** (`run-evaluate`, `mode: reasoning-pilot-merits`) grades
   the briefed moment's kept forecasts for up to 15 cases, one grading run per
-  evaluator per event. At the table's evaluate rows ($5.92 + $1.30 + $1.60,
-  $8.82 an event) that is about $130. The round is always held for a release
+  evaluator per event. At the table's evaluate rows ($5.92 + $1.30 + $1.90,
+  $9.12 an event) that is about $137. The round is always held for a release
   and never auto-released. It reads every writing of the decision, as every
   evaluate cell does, and the evaluate rows were measured on cert-stage
   gradings that read no opinion and graded no forecast document, so the figure
   reads low.
 
 Together, a 20-case replay and its pilot round (grading 15 of those cases)
-come to roughly $490, once. Both rates come from the planning table, not a
+come to roughly $495, once. Both rates come from the planning table, not a
 measurement, and neither round's cells reach the committed ledger, so
 `fedcourts usage-summary` never counts what they spent. What they spent is
 measured apart, with the rest of the test and staging spend below. No merits
@@ -216,8 +241,9 @@ Which cases reach those moments is the salience gate's choice
 cohort and 24 of the long conference's, less the interim reserve's slots in
 use, a 1-in-20 sample of paid petitions at
 arrival, and a reserve of five interim applications at a time. Not forecast: the AI-case watchlist's
-district-court moments, which are designed and not registered
-([trial-stage.md](trial-stage.md)), and the late-Term authorship re-forecast
+district-court and appeal moments and a listed case's Supreme Court events
+outside the gate, which are designed and not registered
+([trial-stage.md](trial-stage.md), [appeal-stage.md](appeal-stage.md)), and the late-Term authorship re-forecast
 ([milestones.md](milestones.md)).
 
 **How many events.** The ledger on `main` (at `d7840ec19`, 2026-11-11) holds

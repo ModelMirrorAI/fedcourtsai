@@ -4,7 +4,7 @@ name: run-analytics
 # same mode at a glance, or a rehearsal reads as production history. Both
 # components are server-validated vocabulary: `mode` is a closed choice, and
 # the environment half is the same branch resolution the jobs bind.
-run-name: "run-analytics: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || (startsWith(github.event.schedule, '41 ') && 'metrics-refresh (schedule)' || startsWith(github.event.schedule, '59 ') && 'public-updates (schedule)' || startsWith(github.event.schedule, '8 ') && 'qp-topic-label (schedule)' || startsWith(github.event.schedule, '4 ') && 'qp-topic-label-applications (schedule)' || startsWith(github.event.schedule, '14 ') && 'alignment-side-code (schedule)' || startsWith(github.event.schedule, '11 ') && 'ai-candidates (schedule)' || 'big-cases (schedule)') }} @ ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}"
+run-name: "run-analytics: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || (startsWith(github.event.schedule, '41 ') && 'metrics-refresh (schedule)' || startsWith(github.event.schedule, '59 ') && 'public-updates (schedule)' || startsWith(github.event.schedule, '8 ') && 'qp-topic-label (schedule)' || startsWith(github.event.schedule, '4 ') && 'qp-topic-label-applications (schedule)' || startsWith(github.event.schedule, '14 ') && 'alignment-side-code (schedule)' || startsWith(github.event.schedule, '11 ') && 'ai-candidates (schedule)' || startsWith(github.event.schedule, '21 ') && 'ai-follow-ons (schedule)' || startsWith(github.event.schedule, '22 ') && 'merits-coverage (schedule)' || 'big-cases (schedule)') }} @ ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}"
 
 # Corpus analysis & derived metrics. One surface for every task that reads the
 # corpus and answers a question or refreshes a derived artifact, selected by
@@ -118,6 +118,28 @@ run-name: "run-analytics: ${{ github.event_name == 'workflow_dispatch' && inputs
 #                      writes no corpus, `data/` or git, and its only write is
 #                      that issue comment, with the ambient token. A quiet week
 #                      posts nothing.
+#   - ai-follow-ons:   search CourtListener for appeals and MDL dockets of the
+#                      AI watchlist's cases (`fedcourts ai-follow-ons`): circuit
+#                      and JPML dockets that carry a listed district docket's
+#                      number, each new circuit hit read once for its
+#                      originating case, commented on the same `ai-candidates`
+#                      issue for the maintainer to add as a `related` row or
+#                      leave. Also a weekly cron's job, on a different day
+#                      from ai-candidates, whose lane share (40 requests) it
+#                      spends. Same reach as ai-candidates: CourtListener only,
+#                      no corpus, `data/` or git, and one issue comment with
+#                      the ambient token.
+#   - merits-coverage: check that every case the Court has set for argument is
+#                      in the merits stream (`fedcourts merits-coverage-check`):
+#                      the coverage census, set against the Court's Granted &
+#                      Noted list, which the pipeline did not produce. Also a
+#                      weekly cron's job. It reads the corpus (a full pull,
+#                      the read-only role), the committed predictions and the
+#                      list off supremecourt.gov, and leaves its report as a
+#                      run artifact; a second job with no role and the ambient
+#                      token opens, refreshes or closes the one `merits-coverage`
+#                      alarm issue from it. A run with no alarm and no open
+#                      issue posts nothing.
 #   - decision-below:  dry-run the decision-below fill over the next 25 cases
 #                      of its rotation (`fedcourts enrich-decision-below
 #                      --max-cases 25`): what a writer window would store, and
@@ -155,8 +177,9 @@ run-name: "run-analytics: ${{ github.event_name == 'workflow_dispatch' && inputs
 # frozen fit and a side-coding batch are reviewed.
 # GitHub scopes permissions and tokens per **job**, so each mode runs as its own
 # least-privilege job gated on `mode` and none is ever granted another's credential:
-# corpus-stats, text-coverage and qp-topic-extract hold only the read-only S3
-# role; decision-below holds that role and the CourtListener token, on its one
+# corpus-stats, text-coverage, merits-coverage and qp-topic-extract hold only
+# the read-only S3 role (merits-coverage-alarm, which writes the alarm issue,
+# holds no role and reads only the artifact that job leaves); decision-below holds that role and the CourtListener token, on its one
 # measuring step; metrics-refresh holds that role *and* mints the dev App token (contents + PR
 # write) for its refresh PR; qp-topic-label, big-cases and public-updates mint the
 # same token but assume no role at all — the first because it is the one job here
@@ -189,7 +212,7 @@ run-name: "run-analytics: ${{ github.event_name == 'workflow_dispatch' && inputs
 # run belongs on a staging ref.
 on:
   schedule:
-    # Seven crons, and every scheduled job gates on **which** one fired
+    # Nine crons, and every scheduled job gates on **which** one fired
     # (`github.event.schedule`): an `event_name == 'schedule'` gate is fail-open
     # on any cron it does not name, so a second entry would otherwise run the
     # weekly refresh daily. The mode-gated jobs stay skipped either way — a
@@ -238,6 +261,18 @@ on:
     # reaches back three weeks, so a dropped tick is caught up by the next
     # Friday's.
     - cron: "11 21 * * 5"
+    # Weekly follow-on dockets of listed AI cases (Tue 21:21 UTC): the same
+    # quiet hour as the candidate check, three days off it, because the two
+    # spend one lane share that reserves one run a day. Its own minute on the
+    # repo's grid. The search reaches back 45 days, so a dropped tick is caught
+    # up by the next Tuesday's.
+    - cron: "21 21 * * 2"
+    # Weekly merits coverage check (Wed 09:22 UTC): two days after the Monday
+    # order list, so a new grant has reached both the Court's Granted & Noted
+    # list and the corpus, and clear of the 08:47 and 10:47 live windows. Its
+    # own minute on the repo's grid. The check reads state, not a window, so a
+    # dropped tick is caught up by the next Wednesday's.
+    - cron: "22 9 * * 3"
   workflow_dispatch:
     inputs:
       mode:
@@ -257,6 +292,8 @@ on:
           - alignment-side-code
           - order-scan
           - ai-candidates
+          - ai-follow-ons
+          - merits-coverage
           - decision-below
           - alignment-fit
         default: corpus-stats
@@ -714,6 +751,14 @@ jobs:
           # the two evaluation-derived artifacts refresh from one tree state.
           uv run fedcourts leaderboard
           uv run fedcourts claim-scores
+          # The miss review lists the forward events behind the board's
+          # accuracy, over the same stratified cells, so it is regenerated
+          # with the board it describes.
+          uv run fedcourts miss-review
+          # The forecast-document grade board rolls the judges' grades of the
+          # forecast documents up over those same cells, so it too is
+          # regenerated with the board whose cells it reads.
+          uv run fedcourts forecast-document-grades
           # The big-case board reads only the ledger too. The daily `big-cases`
           # job below keeps it current between weekly ticks; regenerating it here
           # as well is what keeps one refresh a self-consistent tree state rather
@@ -3786,6 +3831,309 @@ jobs:
             fi
           } | tee -a "$GITHUB_STEP_SUMMARY"
 
+  ai-follow-ons:
+    needs: [authorize]
+    # The follow-on check (`fedcourts ai-follow-ons`): for every district
+    # docket config/ai-watchlist.yaml names, circuit and JPML dockets filed in
+    # the last 45 days that carry its number, each new circuit hit read once
+    # for its originating case, minus the watchlist's dockets and every docket
+    # an earlier comment raised, commented on the long-lived `ai-candidates`
+    # issue. Nothing here changes the watchlist; the maintainer adds a
+    # `related` row by a PR.
+    #
+    # The same reach and the same two credentials as ai-candidates, each on
+    # the one step that uses it: the CourtListener token on the search step,
+    # and the ambient token (job-scoped `issues: write`) on the steps that
+    # read the raised set and post the comment. No corpus, no cloud role, no
+    # App token. The raised set is the one ai-candidates reads, so neither
+    # check raises what the other already has, and it trusts only comments the
+    # ambient token wrote.
+    #
+    # Only a run on the `main` branch ref posts. A staging rehearsal searches
+    # against an empty raised set and reports what it would post in the step
+    # summary, so a rehearsal never marks a docket raised.
+    #
+    # Its spend is the `ai-candidates` lane share in config/tracking.yaml (40
+    # requests: one a listed district docket, one a new circuit hit), which
+    # reserves one run a day, so its cron sits on a different day from
+    # ai-candidates'; a dispatch on a Friday would spend that day's share
+    # twice. The governor counts per process, so the job runs under an hourly
+    # ceiling equal to the cap and at the search endpoint's 8-a-minute pace.
+    if: >-
+      ${{ ((github.event_name == 'schedule' && startsWith(github.event.schedule, '21 ')) ||
+      inputs.mode == 'ai-follow-ons')
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
+    runs-on: ubuntu-26.04
+    # At most 40 requests at 8 a minute is five minutes, plus setup.
+    timeout-minutes: 20
+    environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
+    # Never cancelled: a cancelled run after its search has spent the requests
+    # and before it posts would only spend them again next time.
+    concurrency:
+      group: run-analytics-ai-follow-ons-${{ github.ref_name }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      issues: write # the ai-candidates issue: its label, the issue, and the comment (ambient)
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
+
+      - name: Read what earlier runs raised
+        if: ${{ github.ref == 'refs/heads/main' }}
+        timeout-minutes: 5
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          uv run fedcourts ai-candidates-issue --repo "$REPO" \
+            --issue-out "$RUNNER_TEMP/ai-candidates-issue.txt" \
+            --raised-out "$RUNNER_TEMP/ai-candidates-raised.json"
+
+      - name: Search for follow-on dockets
+        timeout-minutes: 10
+        env:
+          FEDCOURTS_COURTLISTENER_API_TOKEN: ${{ secrets.COURTLISTENER_API_TOKEN }}
+          # The per-day window is the account's tier, as run-pull reads it; the
+          # lane share narrows it to the run cap. The hourly window is the run
+          # cap, so the governor counts every request, retries included, and
+          # the search endpoint's throttle, the stricter of the two endpoints
+          # this step reads, sets the per-minute pace.
+          FEDCOURTS_COURTLISTENER_RPM: "8"
+          FEDCOURTS_COURTLISTENER_RPH: "40"
+          FEDCOURTS_COURTLISTENER_RPD: ${{ vars.COURTLISTENER_RPD || '1400' }}
+        run: |
+          set -euo pipefail
+          raised="$RUNNER_TEMP/ai-candidates-raised.json"
+          args=(--comment-out "$RUNNER_TEMP/ai-follow-ons-comment.md")
+          if [ -f "$raised" ]; then
+            args+=(--raised "$raised")
+          fi
+          summary="$RUNNER_TEMP/ai-follow-ons-summary.txt"
+          uv run fedcourts ai-follow-ons "${args[@]}" > /dev/null \
+            2> "$summary" || status=$?
+          {
+            echo "## ai-follow-ons — $(date -u +%Y-%m-%d)"
+            echo '```'
+            cat "$summary"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          cat "$summary"
+          exit "${status:-0}"
+
+      - name: Post the new follow-ons
+        # A failed search step still writes the comment for what it found
+        # before failing, so this runs whenever the search wrote one; a quiet
+        # week writes none and posts nothing. The raised set keeps a re-run
+        # from raising a docket twice; the once-only key is the run attempt.
+        # The comment's raised-ids marker sits on the line below that key,
+        # where `ai-candidates-issue` reads it.
+        if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
+        timeout-minutes: 5
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          comment="$RUNNER_TEMP/ai-follow-ons-comment.md"
+          if [ ! -s "$comment" ]; then
+            echo "No new follow-on dockets: nothing to post."
+            exit 0
+          fi
+          issue=$(cat "$RUNNER_TEMP/ai-candidates-issue.txt")
+          uv run fedcourts post-issue-comment --issue "$issue" --repo "$REPO" \
+            --marker "<!-- ai-follow-ons-run: ${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT} -->" \
+            --body-file "$comment"
+
+      - name: Note the rehearsal boundary (posting fenced off this ref)
+        if: ${{ !cancelled() && github.ref != 'refs/heads/main' }}
+        env:
+          COMMENT: ${{ runner.temp }}/ai-follow-ons-comment.md
+        run: |
+          set -euo pipefail
+          {
+            echo "ai-follow-ons rehearsal: the comment is fenced to main-branch runs, and this run read no raised set; nothing was posted."
+            if [ -s "$COMMENT" ]; then
+              echo ''
+              cat "$COMMENT"
+            fi
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+  merits-coverage:
+    needs: [authorize]
+    # The merits coverage check (`fedcourts merits-coverage-check`): every
+    # docket on the Court's Granted & Noted list for the Term must have a
+    # corpus row whose grant opens a merits proceeding, a merits event, and a
+    # forecast before its argument, at the argued moment and before its
+    # decision. The list is the Court's own roll of the cases set for argument,
+    # prepared apart from the docket pages the pipeline reads, so a grant the
+    # corpus missed is visible here and nowhere in the census alone.
+    #
+    # Read-only on corpus-stats's terms: the read-only role, no contents:write,
+    # no App token, no issue write. It reads the corpus index, the committed
+    # predictions in this checkout and two PDFs from supremecourt.gov, and
+    # leaves the check and its report as a run artifact for the alarm job
+    # below, which is the one that writes. What it reports is counts, docket
+    # numbers, case ids, statuses and dates: no stored document text.
+    #
+    # An alarm is not a failed job: the command's exit 3 says the check ran and
+    # found something, which the alarm issue carries. Any other non-zero exit
+    # (an unreadable list, a missing corpus) fails the job, uploads nothing,
+    # and so leaves the alarm issue as it stood.
+    if: >-
+      ${{ ((github.event_name == 'schedule' && startsWith(github.event.schedule, '22 ')) ||
+      inputs.mode == 'merits-coverage')
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 20
+    environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
+    # Its own group, never cancelled: a cancelled check uploads nothing, the
+    # alarm job then skips, and the week's tick would be lost without a trace.
+    # Read-only, so overlap with a sibling mode is harmless.
+    concurrency:
+      group: run-analytics-merits-coverage-${{ github.ref_name }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write # assume the read-only AWS role to pull the corpus
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
+
+      # The check classifies corpus rows and their events, so the corpus must
+      # be on disk. No contents:write, no App token: this job cannot touch git
+      # or the corpus.
+      - uses: ./.github/actions/corpus-readonly
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
+          aws-region: ${{ vars.AWS_REGION }}
+          corpus-base-url: ${{ vars.CORPUS_BASE_URL }}
+          # The out-of-band staging index pointer, forwarded only off `main`,
+          # as corpus-stats forwards it and for the reason stated there.
+          corpus-pointer: ${{ github.ref_name != 'main' && vars.FEDCOURTS_CORPUS_POINTER || '' }}
+
+      - name: Check merits coverage against the Granted & Noted list
+        timeout-minutes: 10
+        env:
+          # The corpus estate's base URL, as corpus-stats sets it: the check
+          # reads row and event columns only, and the shared reader is
+          # addressed at the store all the same.
+          FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/merits-coverage"
+          mkdir -p "$out"
+          status=0
+          uv run fedcourts merits-coverage-check --report-out "$out/report.md" \
+            > "$out/check.json" 2> "$out/summary.txt" || status=$?
+          cat "$out/summary.txt"
+          # Exit 3 is an alarm the check found, carried by the report; anything
+          # else non-zero is a check that did not run.
+          if [ "$status" -ne 0 ] && [ "$status" -ne 3 ]; then
+            exit "$status"
+          fi
+          cat "$out/report.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish the check
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: merits-coverage
+          path: |
+            ${{ runner.temp }}/merits-coverage/check.json
+            ${{ runner.temp }}/merits-coverage/report.md
+          if-no-files-found: error
+          # The one-day window every analytics run artifact rides. The alarm
+          # job reads it within the run; the issue is the durable record.
+          retention-days: 1
+
+  merits-coverage-alarm:
+    needs: [authorize, merits-coverage]
+    # The issue side of the merits coverage check (`fedcourts
+    # merits-coverage-alarm`): one long-lived issue under the non-triggering
+    # `merits-coverage` label, opened on an alarm, rewritten in place while the
+    # alarm stands, and closed with a comment when a check comes back clean.
+    # An open issue under the label means exactly "merits coverage has a hole".
+    #
+    # Its own job because permissions are per job: this one holds the ambient
+    # token with `issues: write` and nothing else. No environment, no cloud
+    # role, no corpus: it reads the artifact the check job left, which carries
+    # counts and identifiers only. It runs only when that job succeeded, so a
+    # check that could not run neither raises nor clears the alarm.
+    #
+    # Only a run on the `main` branch ref writes the issue (`github.ref`, as
+    # the publishing jobs fence it). A staging rehearsal reads the staging
+    # corpus pair, whose merits stream is not production's, and says in the
+    # step summary what it would have done.
+    if: >-
+      ${{ needs.merits-coverage.result == 'success'
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
+    runs-on: ubuntu-26.04
+    # Setup plus at most four bounded `gh` calls, each worth up to 105s
+    # against a degraded API.
+    timeout-minutes: 15
+    # Never cancelled: a cancel between the comment and the close would leave
+    # a closed-sounding issue open.
+    concurrency:
+      group: run-analytics-merits-coverage-alarm-${{ github.ref_name }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      issues: write # the merits-coverage alarm: its label, the issue, and the closing comment (ambient)
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
+
+      - name: Download the check
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: merits-coverage
+          path: ${{ runner.temp }}/merits-coverage
+
+      - name: Latch the alarm issue
+        if: ${{ github.ref == 'refs/heads/main' }}
+        timeout-minutes: 10
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # The find-or-create, the in-place refresh, the close and the bounded
+          # gh retry all live in tested Python, so this step has no `gh` of its
+          # own. `merits-coverage` is a NON-triggering label by design: no
+          # workflow keys on `issues: labeled`.
+          uv run fedcourts merits-coverage-alarm --repo "$REPO" \
+            --check "$RUNNER_TEMP/merits-coverage/check.json" \
+            --report "$RUNNER_TEMP/merits-coverage/report.md" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Note the rehearsal boundary (the alarm issue is fenced off this ref)
+        if: ${{ github.ref != 'refs/heads/main' }}
+        run: |
+          set -euo pipefail
+          echo "merits-coverage rehearsal: the alarm issue is fenced to main-branch runs; nothing was opened, refreshed or closed. The check's report is on the merits-coverage job's summary." \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+
   decision-below:
     needs: [authorize]
     # The decision-below fill's dry run: for the next 25 cases of its rotation
@@ -4129,7 +4477,7 @@ jobs:
   # not pass or this attempt is neither the one the gate judged nor a re-run by
   # a login the gate published. No checkout, no token, no environment.
   run-gate:
-    needs: [authorize, corpus-stats, tool-usage, text-coverage, metrics-refresh, big-cases, public-updates, qp-topic-resolve, qp-topic-extract, qp-topic-approval, qp-topic-rejected, qp-topic-label, qp-topic-publish, order-scan, ai-candidates, decision-below, alignment-fit, alignment-fit-publish]
+    needs: [authorize, corpus-stats, tool-usage, text-coverage, metrics-refresh, big-cases, public-updates, qp-topic-resolve, qp-topic-extract, qp-topic-approval, qp-topic-rejected, qp-topic-label, qp-topic-publish, order-scan, ai-candidates, ai-follow-ons, merits-coverage, merits-coverage-alarm, decision-below, alignment-fit, alignment-fit-publish]
     if: always()
     runs-on: ubuntu-26.04
     timeout-minutes: 5

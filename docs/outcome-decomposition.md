@@ -11,7 +11,8 @@ scores them.
 is pre-registration — with two carve-outs: the semantic family, which is
 declared but neither pre-registered nor producing anything; and the grade of
 `predicted_reasoning.md` itself (*Grading the forecast document, design*),
-registered and collected on every stage, and published by no board yet.** The scoring rule is `pipeline.base_rates.claim_score`; the
+registered and collected on every stage, and rolled up by the
+`forecast-document-grades` board, which nothing ranks on.** The scoring rule is `pipeline.base_rates.claim_score`; the
 declared sets — `cert-v3` on every declared cert moment (`cert-v2`'s five
 binary claims and the `order-writers` distribution claim), `interim-v3` on every
 interim moment (`interim-v1`'s four binary claims and `order-writers`, its
@@ -1089,8 +1090,8 @@ the structured claims that carry the same content — the mechanical `claims`
 block, and on a merits cell the graded `semantic_claims` block. The document
 itself is **graded** as a whole, by a reader under an anchored rubric
 (`predicted_reasoning_quality`, *Grading the forecast document, design*): a
-grade beside the scores, never folded into one, and published by no board
-yet. This register is the join between the content classes and those routes. Every
+grade beside the scores, never folded into one, and rolled up on a board of
+its own. This register is the join between the content classes and those routes. Every
 content class the predict prompt asks a cell to commit to appears here with its
 route, so that *unscored* is a stated position rather than an oversight. A class
 the prompt elicits and this table does not name is a defect in one of them.
@@ -1125,7 +1126,7 @@ pre-registered rule that keeps it there permanently.
 | merits | Whether a separate writing splits the rationale from the result | Context-only; **mechanical** family the day a field records it | Existence is a countable docket fact, not a reader's judgment, so it belongs with a real baseline and a proper score rather than as prose graded by impression. `semantic-v1` holds no place for it |
 | merits | Which question presented the Court reaches and which it leaves | Context-only | The merits-side twin of the cert QP row, with the same framing gap |
 | merits | Authorship and the writing roles | `majority-author`, `separate-writers` (`merits-v2`) | Distribution claims the predict prompt elicits on every merits cell (*The authorship claims*); they resolve from the `merits_author` and `writing_roles` the opinions writer stamps on a merits outcome |
-| any | The forecast document as a whole: its central claims, including what it volunteers beyond the declared sets | `predicted_reasoning_quality`, with its central-claims list in `predicted_reasoning_review` | **Graded**, not scored, on every stage. Collected by every judge on every cell from the registering label on; no board reads it yet, and it enters no claim total, no rank key and no other grade |
+| any | The forecast document as a whole: its central claims, including what it volunteers beyond the declared sets | `predicted_reasoning_quality`, with its central-claims list in `predicted_reasoning_review` | **Graded**, not scored, on every stage. Collected by every judge on every cell from the registering label on; the `forecast-document-grades` board rolls it up, and it enters no claim total, no rank key and no other grade |
 | any | The rationale for the predictor's own number | Never scored, by construction | That is `reasoning.md`, a different document with a different epistemic status: it resolves against nothing. `reasoning_quality` grades its soundness and grades no forecast |
 
 Three properties of the table are worth reading off it. **Every scored route is
@@ -2090,16 +2091,17 @@ advance, so the most informative part of a forecast — the specific, checkable
 things a predictor volunteered beyond the declared sets — earns nothing and
 costs nothing. A grade of the document is what makes that content count.
 
-**This section is a registered process, collected and not yet published.**
+**This section is a registered process, collected and rolled up on its own
+board.**
 The schema carries the grade (`Evaluation.predicted_reasoning_quality`, with
 the central-claims list in `predicted_reasoning_review`), the registered
 evaluate prompt's *Grading the forecast document* section asks every judge for
 it on every stage, and `validate` takes a committed one from a judge whose
 digest is blessed at the registering label or later, refusing it under an
 earlier or unstamped one
-(`predicted_reasoning_grade_only_under_a_prompt_that_asks`). No artifact reads the grade:
-publication, with the agreement figures *The pilot* fixes to travel beside it,
-is a later change (*Registration* below). The design was settled before a
+(`predicted_reasoning_grade_only_under_a_prompt_that_asks`). The
+`forecast-document-grades` board (*The board* below) rolls the grade up, with the
+agreement figures *The pilot* fixes to travel beside it. The design was settled before a
 single grade existed, for the same reason the rest of this document is: a
 rubric chosen after reading the grades is a rubric fitted to them.
 
@@ -2325,8 +2327,7 @@ cert and interim readings can differ by grading date. The prompt
 change moves **every** evaluate digest, not only this grade's: the existing
 `reasoning_quality`, `big_case` and agreement readings start new signatures at
 that boundary, which is the cost of asking for the grade inside the evaluate
-cell. No site change rides it, since no artifact publishes the grade; the
-change that publishes it carries the site change and the agreement figures.
+cell.
 
 The already-resolved forward documents are graded **once**, in new evaluation
 runs stamped with the grading's process version; committed evaluations are
@@ -2349,6 +2350,37 @@ per-rubric readings lose those cells. So the shape of the back-grade is open:
 a committed round, an uploaded pilot-style round, or a grade-only evaluation
 the latest-grading collapse skips for every other field. The freeze-record
 entry records the counts it would cover.
+
+### The board
+
+`fedcourts forecast-document-grades` rolls the committed grades up into
+`metrics/forecast-document-grades.json`, over the forward cells the
+leaderboard scores and under its exclusions. Per stage, never pooled across
+stages, it carries:
+
+- each predictor's mean grade **per judge rubric**, pooled across its counting
+  windows and per window, beside the cells every judge on the cell graded,
+  the cells every judge left null, and the cells split on the mask;
+- each judge rubric's leave-one-out agreement with the rest of the panel, the
+  cell as the unit, with its distinct cases and the predictor-tracking check
+  beside it;
+- each judge rubric's grades of its own engine family's documents beside its
+  grades of the others';
+- each judge rubric's mean grade, and its spread, where the disposition call
+  was right and where it was wrong.
+
+The agreement, family and call rows pool a rubric's cells across the
+predictors' counting windows; the per-window reading is the series' own.
+
+Only a judge whose evaluate digest asks for the grade is on a cell's panel,
+so a null from an earlier prompt is never read as a silent record. No mean
+and no coefficient prints under the registered minimum of 10 cells. The
+pairing with the mechanical claim total (*Relation to the other numbers*) is
+not on the board, so nothing on it says whether the grade measures more than
+the disposition; the split by call shows only the built-in part. The miss
+review also copies each listed forecast's mean grade beside it, as a detail
+of that row and not a figure. The weekly metrics refresh regenerates the
+board with the leaderboard. The site reads none of it. Reading rules: `metrics/README.md`.
 
 ### What is built, and what remains
 
@@ -2376,6 +2408,6 @@ What remains:
 1. **The back-grade** of the already-resolved forward documents
    (*Registration* above): its shape, a new run-evaluate derivation to run
    it, and the decision to spend on it. The backlog owes none of it.
-2. **Publication**: a board or summary that reads the grade, per stage, per
-   process version and per rubric, with the agreement figures *The pilot*
-   fixes beside every mean, and the matching site change.
+2. **The rest of publication**: the grade's pairing with the mechanical claim total within the
+   right-call and wrong-call cells, and a site page if the grade is to be
+   shown there.

@@ -322,6 +322,125 @@ def select_cert_backtest_set(
     ).items
 
 
+#: The outcome-stratified draw a comparison may ask for. Pre-registered and
+#: fixed like the spread draw's: a different salt, allocation or stratum
+#: definition is a new rule under a new name.
+STRATIFIED_DRAW_SALT = "fedcourtsai/cert-backtest/outcome-stratified"
+STRATIFIED_DRAW_RULE = "outcome-stratified-hash-v1"
+
+#: The two outcome classes, in the order a stratified walk alternates them.
+CERT_STRATA: tuple[str, ...] = ("granted", "not-granted")
+
+
+def cert_stratum(disposition: Disposition) -> str:
+    """A petition's outcome class on the binary axis the Brier score is taken on."""
+    return CERT_STRATA[0] if granted_flag(disposition) else CERT_STRATA[1]
+
+
+def cert_strata_population(rows: Iterable[corpus.CorpusRow]) -> dict[str, int]:
+    """How many of the eligible petitions fall in each outcome class."""
+    counts = dict.fromkeys(CERT_STRATA, 0)
+    for row in rows:
+        counts[cert_stratum(Disposition(str(row.disposition)))] += 1
+    return counts
+
+
+@dataclass(frozen=True)
+class StratumDraw:
+    """What an outcome-stratified draw took from one stratum."""
+
+    stratum: str
+    population: int
+    target: int
+    drawn: int
+    passed_over: int
+
+
+@dataclass(frozen=True)
+class StratifiedCertSet:
+    """An outcome-stratified cert set and the record of how it was drawn."""
+
+    items: list[BacktestItem]
+    key: str
+    strata: list[StratumDraw]
+    #: Case ids the walk passed over as unreplayable, in walk order.
+    passed_over: list[str] = field(default_factory=list)
+
+
+def draw_stratified_cert_set(
+    conn: sqlite3.Connection,
+    *,
+    limit: int,
+    scope: str = "all",
+    salience_floor: float | None = None,
+    replayable_only: bool = False,
+) -> StratifiedCertSet:
+    """Draw granted and not-granted petitions at fixed counts, at random within each.
+
+    The simple random draw (:func:`draw_cert_backtest_set` under ``spread``)
+    returns the population's own outcome mix, which at cert is mostly denials: a
+    set of ten holds about one grant, and the grants are where two forecasters
+    differ. This rule fixes the allocation instead: ``limit // 2`` granted
+    petitions and the rest not granted, each stratum walked in the order of a
+    salted SHA-256 of the case id keyed by the corpus vintage, exactly as the
+    spread draw walks the whole population. Within a stratum the draw is a
+    simple random sample, so a figure reweighted to the strata's population
+    shares estimates the population's.
+
+    The set is deliberately not the population's mix, so nothing computed over
+    it unweighted is a population figure: the caller reports the strata, their
+    population counts and the targets beside every number.
+
+    ``replayable_only`` passes over unreplayable petitions within each stratum
+    and keeps walking. A stratum whose replayable petitions run out is drawn
+    short, and its ``drawn`` says so. The items alternate strata in walk order,
+    so a campaign cut short by a spent quota leaves a prefix that is still
+    close to the fixed allocation.
+    """
+    rows = cert_backtest_population(conn, scope=scope, salience_floor=salience_floor)
+    key = spread_draw_key(conn)
+    population = cert_strata_population(rows)
+    granted_target = limit // 2
+    targets = {CERT_STRATA[0]: granted_target, CERT_STRATA[1]: limit - granted_target}
+
+    def rank(case_id: str) -> str:
+        return hashlib.sha256(f"{STRATIFIED_DRAW_SALT}|{key}|{case_id}".encode()).hexdigest()
+
+    drawn: dict[str, list[corpus.CorpusRow]] = {stratum: [] for stratum in CERT_STRATA}
+    skipped: dict[str, list[str]] = {stratum: [] for stratum in CERT_STRATA}
+    for row in sorted(rows, key=lambda r: rank(r.case_id)):
+        stratum = cert_stratum(Disposition(str(row.disposition)))
+        if len(drawn[stratum]) >= targets[stratum]:
+            continue
+        if replayable_only and not is_replayable(conn, row.case_id):
+            skipped[stratum].append(row.case_id)
+            continue
+        drawn[stratum].append(row)
+        if all(len(drawn[s]) >= targets[s] for s in CERT_STRATA):
+            break
+    interleaved: list[corpus.CorpusRow] = []
+    for index in range(max((len(members) for members in drawn.values()), default=0)):
+        interleaved.extend(drawn[s][index] for s in CERT_STRATA if index < len(drawn[s]))
+    return StratifiedCertSet(
+        items=[
+            BacktestItem(backtest_features(row), Disposition(str(row.disposition)))
+            for row in interleaved
+        ],
+        key=key,
+        strata=[
+            StratumDraw(
+                stratum=stratum,
+                population=population[stratum],
+                target=targets[stratum],
+                drawn=len(drawn[stratum]),
+                passed_over=len(skipped[stratum]),
+            )
+            for stratum in CERT_STRATA
+        ],
+        passed_over=[case_id for stratum in CERT_STRATA for case_id in skipped[stratum]],
+    )
+
+
 def _kept_entries_show_a_disposition(payload: Mapping[str, Any]) -> bool:
     """Whether a truncated payload still carries a disposing order.
 
@@ -383,10 +502,29 @@ def replay_model(runner: Runner) -> str | None:
     return runner.model if isinstance(runner, AgenticRunner) else None
 
 
+@dataclass(frozen=True)
+class ReplayArm:
+    """One predictor's configuration for a replay campaign that runs it alone.
+
+    A comparison (:mod:`fedcourtsai.backtest_comparison`) replays one predictor
+    twice over the same cells, and each campaign is routed by one of these:
+    ``predictor_id`` narrows the roster to that predictor, ``model`` is the
+    model its engine is invoked with (``None`` leaves the engine's default) and
+    ``prompt`` the template its cells are handed (``None`` leaves the
+    registry's). The predictor keeps its registry id under either arm, so the
+    cell contract an agent reads is the same but for the one thing under test.
+    """
+
+    predictor_id: str
+    model: str | None = None
+    prompt: str | None = None
+
+
 def _runners_by_predictor(
     config_root: Path,
     engine_override: str | None,
     skip_engines: frozenset[str] = frozenset(),
+    arm: ReplayArm | None = None,
 ) -> list[tuple[PredictorConfig, Runner]]:
     """Pair each enabled predictor with its runner, dropping unroutable ones.
 
@@ -402,14 +540,33 @@ def _runners_by_predictor(
     predictor's declared engine even under an ``engine_override`` sweep, so
     ``--skip-engines gemini`` means "don't run gemini-baseline" regardless of how
     the rest is routed. The default runs every enabled predictor's engine.
+
+    ``arm`` (a comparison campaign) narrows the roster to its one predictor and
+    applies its configuration: the predictor's cells are handed the arm's
+    prompt, and an agentic runner is invoked with the arm's model. An arm
+    naming a predictor that is not enabled raises, since a comparison of
+    nothing is a caller error. An offline backend invokes no model, so the
+    arm's model has nothing to apply to there.
     """
     predictors = [
         p
         for p in enabled_predictors(config_root / "predictors.yaml")
         if str(p.engine) not in skip_engines
     ]
+    if arm is not None:
+        predictors = [p for p in predictors if p.id == arm.predictor_id]
+        if not predictors:
+            raise ValueError(f"{arm.predictor_id!r} is not an enabled predictor")
+        if arm.prompt is not None:
+            predictors = [p.model_copy(update={"prompt": arm.prompt}) for p in predictors]
+
+    def configured(runner: Runner) -> Runner:
+        if arm is not None and arm.model is not None and isinstance(runner, AgenticRunner):
+            return replace(runner, model=arm.model)
+        return runner
+
     if engine_override is not None:
-        runner = get_runner(engine_override)
+        runner = configured(get_runner(engine_override))
         return [(p, runner) for p in predictors]
     pairs: list[tuple[PredictorConfig, Runner]] = []
     runners: dict[str, Runner] = {}
@@ -417,7 +574,7 @@ def _runners_by_predictor(
         backend = str(predictor.engine)
         if backend not in runners:
             try:
-                runners[backend] = get_runner(backend)
+                runners[backend] = configured(get_runner(backend))
             except KeyError:
                 continue
         pairs.append((predictor, runners[backend]))
@@ -1122,7 +1279,7 @@ def _write_case_tree(
     write_yaml(case_paths.event(definition.event_id).event_file, definition)
 
 
-def replay_predictors(
+def replay_predictors(  # noqa: PLR0913 - the campaign's dispatch, each a keyword
     items: list[BacktestItem],
     *,
     corpus_db_path: Path,
@@ -1132,9 +1289,14 @@ def replay_predictors(
     engine_override: str | None = None,
     skip_engines: frozenset[str] = frozenset(),
     workers: int = 0,
+    arm: ReplayArm | None = None,
 ) -> ReplayOutcome:
     """Replay every routable enabled predictor over ``items``, each through its
     own configured engine.
+
+    With ``arm`` the campaign runs that one predictor alone, under the arm's
+    model and prompt (:class:`ReplayArm`), which is how a comparison runs each
+    of its two sides.
 
     For each petition this provisions what a live predict cell reads — the
     latest snapshot (**redacted**, see :func:`redact_snapshot`) and the event
@@ -1205,7 +1367,7 @@ def replay_predictors(
     is a record, not a filter: a cell that disclosed seeing its own outcome is
     still scored, because the back-test has no grader to decide it leaked.
     """
-    pairs = _runners_by_predictor(config_root, engine_override, skip_engines)
+    pairs = _runners_by_predictor(config_root, engine_override, skip_engines, arm)
     # What ran each predictor, captured at routing time rather than inferred from
     # the result: under `engine_override` every predictor runs on the named
     # backend whatever its registry entry says, and that discrepancy is exactly

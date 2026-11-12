@@ -144,7 +144,12 @@ what and who joined it.
   mistyped year, a decision dated two days early), and a reargued case whose
   entry mixes the reargument order's dissent with the decision's writers. It also says which
   dockets one opinion decides, which the opinions listing does not: the
-  listing prints only the lead docket of a consolidated case.
+  listing prints only the lead docket of a consolidated case. The same list
+  is the Court's roll of the cases set for argument, with each case's grant
+  date, argument date and case code, and the weekly merits coverage check
+  (`fedcourts merits-coverage-check`, `pipeline/merits_coverage_check.py`)
+  sets the corpus's grants against it; there too it is a check and never a
+  source.
 - **What exists.** The lineup model, the syllabus grammar and the read-only
   fetcher (`pipeline/lineup.py`, `pipeline/syllabus_lineup.py`,
   `pipeline/opinion_lineups.py`), with `fedcourts opinion-lineups` printing
@@ -967,6 +972,18 @@ The automated consumer stays within CourtListener's published API limits by desi
   and a caption can name an individual party, such as a minor in a chatbot
   injury suit. Nothing it names is admitted anywhere: a maintainer adds a
   case to the watchlist by a PR.
+- **The follow-on check shares that lane.** `ai-follow-ons` asks the search
+  index, once per district docket the watchlist names, for circuit and JPML
+  dockets filed in the last 45 days that carry the listed docket's number,
+  and reads each new circuit hit's docket once for its originating court and
+  originating case number, which is how a docket of another case with the
+  same number is told apart. It spends the `ai-candidates` lane's share (40),
+  so it must not be run on a day `ai-candidates` runs. It reads only what CourtListener
+  already holds, and writes nothing but its report and a comment for the same
+  `ai-candidates` issue. The comment carries the follow-on's court, docket
+  number, filing date and a link by docket id, beside the name of the listed
+  case it is related to, which the watchlist already publishes; the
+  follow-on's own caption, parties and entry text are not copied.
 
 The pilot holds a paid Free Law Project **membership tier** — **Tier 4**, at 25
 requests a minute, 300 an hour and 1,400 a day, for $1,000 a year. It is the top

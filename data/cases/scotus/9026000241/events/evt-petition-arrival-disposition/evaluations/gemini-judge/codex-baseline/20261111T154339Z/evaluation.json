@@ -1,0 +1,112 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v3",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.15,
+    "notes": "Routine, fact-bound \u00a7 1983 dispute arising from an unpublished Fifth Circuit opinion that held the petitioners forfeited their Nieves/Gonzalez arguments below; minimal legal or public reach beyond the parties."
+  },
+  "brier_score": 0.00032399999999999996,
+  "brier_skill_score": 0.8752579188939495,
+  "case_id": "scotus/9026000241",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05096429401285725,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.018,
+        "score": 0.0022733592642289573
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": null,
+        "probability": 0.982,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.004,
+        "score": null
+      },
+      {
+        "baseline": 0.3458149779735683,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.62,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.025,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.0022733592642289573,
+    "total": 0.0022733592642289573
+  },
+  "correct": 1,
+  "created_at": "2026-11-11T16:05:45.717837Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-arrival-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction placed at docketing (2026-08-25), prior to the November 9, 2026 denial. retrieval_log.json matches retrieval.md one-for-one: reads of all provisioned record files and statpack, plus six CourtListener MCP calls inspecting Murphy v. Schmitt (opinion ID 11092467) and checking for published Fifth Circuit opinions in Rahdar.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-argon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.95,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "After the respondent waived a response, the petition was distributed once on October 7, 2026 for the November 6, 2026 conference and denied on November 9, 2026 (distribution_count: 1).",
+        "claim": "The petition will be distributed once for an initial conference after the response period and denied at that first conference without a further relist.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records signals.cvsg_date: null.",
+        "claim": "The Court will not call for the views of the Solicitor General (CVSG).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records noted_dissent_from_denial: false.",
+        "claim": "No Justice will note a dissent or issue a separate statement respecting the denial of certiorari.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Certiorari was denied, leaving conditional grant-route and question-reformulation claims untested.",
+        "claim": "Conditional on favorable action, the Court would more likely dispose of the case in the cert order (GVR) than grant plenary review, or would reformulate the muddled Question Presented if plenary review were granted.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20260825T172743Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+    "label": "proc-v20",
+    "pipeline_sha": "df41a1f965999c61d3baf2331d4d7356a2acc1e1",
+    "stamped_at": "2026-11-11T16:05:45.717837Z"
+  },
+  "reasoning_quality": 0.95,
+  "run_id": "20261111T154339Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05096429401285725,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

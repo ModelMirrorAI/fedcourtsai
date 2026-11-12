@@ -130,7 +130,7 @@ class GitStatpackHistory:
 
     def _landings(self) -> list[tuple[datetime, str]]:
         """Every first-parent commit of ``ref`` touching the statpack, newest first."""
-        log = _git(
+        log = git_read(
             self._repo, "log", "--first-parent", "--format=%H %cI", self._ref, "--", STATPACK_PATH
         )
         landings = []
@@ -143,7 +143,7 @@ class GitStatpackHistory:
         return landings
 
     def _read(self, landed: datetime, sha: str) -> CommittedBuild | None:
-        text = _git(self._repo, "cat-file", "blob", f"{sha}:{STATPACK_PATH}")
+        text = git_read(self._repo, "cat-file", "blob", f"{sha}:{STATPACK_PATH}")
         if text is None:
             return None
         try:
@@ -174,10 +174,10 @@ class GitStatpackHistory:
 
     def file_at(self, sha: str, path: str) -> str | None:
         """``path`` as committed at ``sha``, or ``None`` where it cannot be read."""
-        return _git(self._repo, "cat-file", "blob", f"{sha}:{path}")
+        return git_read(self._repo, "cat-file", "blob", f"{sha}:{path}")
 
     def lookback_terms_at(self, sha: str) -> int | None:
-        text = _git(self._repo, "cat-file", "blob", f"{sha}:{TRACKING_PATH}")
+        text = git_read(self._repo, "cat-file", "blob", f"{sha}:{TRACKING_PATH}")
         if text is None:
             return None
         try:
@@ -187,7 +187,8 @@ class GitStatpackHistory:
             return None
 
 
-def _git(cwd: Path, *args: str) -> str | None:
+def git_read(cwd: Path, *args: str) -> str | None:
+    """One bounded ``git`` read in ``cwd``, or ``None`` where it cannot be made."""
     # The user's and the system's config are not read: the agent that ran
     # before the stamp could have written the first. The repository is named
     # safe on the command line instead, so a caller running as another user
