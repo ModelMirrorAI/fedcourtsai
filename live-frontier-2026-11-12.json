@@ -149,6 +149,10 @@
       "petitions": 13
     },
     {
+      "conference": "2019-10-11",
+      "petitions": 1
+    },
+    {
       "conference": "2019-11-08",
       "petitions": 2
     },
@@ -178,6 +182,54 @@
     },
     {
       "conference": "2020-04-24",
+      "petitions": 1
+    },
+    {
+      "conference": "2020-05-01",
+      "petitions": 1
+    },
+    {
+      "conference": "2020-05-15",
+      "petitions": 2
+    },
+    {
+      "conference": "2020-05-21",
+      "petitions": 1
+    },
+    {
+      "conference": "2020-06-04",
+      "petitions": 2
+    },
+    {
+      "conference": "2020-06-11",
+      "petitions": 1
+    },
+    {
+      "conference": "2020-06-18",
+      "petitions": 1
+    },
+    {
+      "conference": "2020-06-25",
+      "petitions": 1
+    },
+    {
+      "conference": "2020-09-29",
+      "petitions": 5
+    },
+    {
+      "conference": "2020-11-06",
+      "petitions": 1
+    },
+    {
+      "conference": "2020-12-04",
+      "petitions": 4
+    },
+    {
+      "conference": "2020-12-11",
+      "petitions": 1
+    },
+    {
+      "conference": "2021-06-24",
       "petitions": 1
     },
     {
@@ -307,5 +359,5 @@
   "next_conference_petitions": 153,
   "schema_version": "1.0",
   "skipped": false,
-  "watchlist": 576
+  "watchlist": 598
 }
