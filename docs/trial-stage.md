@@ -48,7 +48,10 @@ member's entry opens none, so one motion is never forecast twice.
 before the other side is heard, which leaves no forecast window. A motion that
 asks for both a restraining order and a preliminary injunction is a
 `trial-preliminary-injunction` event for its injunction half: a ruling on the
-restraining order alone does not resolve it. An injunction the court enters on
+restraining order alone does not resolve it, so the resolver passes over a
+ruling whose text names the restraining order and keeps reading for one that
+names the injunction. A ruling on such a motion that names neither half goes
+to triage, since the rule cannot say which half it decides. An injunction the court enters on
 the parties' stipulation resolves the motion mooted, because the court decided
 nothing, and so does an order consolidating the injunction hearing with the
 trial on the merits.
@@ -69,18 +72,58 @@ dismissal without prejudice does not by itself grant leave.
 ## When each moment opens
 
 A motion moment opens when the motion is **fully briefed**: the opposition and
-the reply are both on the docket, or the reply deadline has passed with no
-reply. The deadline is the one the court set by order where it set one, and
-otherwise the district's local rule, recorded per court in the slice's config
-when the slice registers; a court whose rule the config does not carry opens on
-the reply alone. The forecast's information set is therefore the complete
-briefing, as the merits stage's `briefed` moment is for the Court.
+the reply are both on the docket, or the opposition is and the reply deadline
+has passed with no reply. The deadline is the one the docket states (the response and reply
+dates a clerk enters on the motion, or on a later entry that sets or resets
+them), and otherwise the district's local rule, recorded per court in the
+slice's config when the slice registers; a court whose rule the config does
+not carry opens on the reply alone. A statement of non-opposition opens
+nothing by itself: the motion waits for its ruling like any motion with no
+opposition the rule can read. The forecast's information set is
+therefore the complete briefing, as the merits stage's `briefed` moment is for
+the Court.
+
+The opener is `pipeline/trial_opener.py` (rule `trial-opener-v1`),
+deterministic like the resolver and built the same way: a motion it cannot
+name or briefing it cannot date opens nothing and is reported with its reason.
+
+- **A motion is its own entry's leading phrase**, and the event is named by
+  that entry's number. A motion re-filed as a correction is the later entry's
+  event.
+- **Briefing is a party's filing that leads with what it is** (an opposition,
+  a response, an answering brief, a reply) and cites the motion as the first
+  entry it refers to. A declaration, a notice, a request for argument, an
+  amicus filing and a motion about the briefing are not briefing, and neither
+  is briefing on a motion about the motion.
+- **Briefing cites its motion directly.** The motion's number follows the
+  brief's name with nothing but the reference between them; a filing that
+  names a second motion, request or objection first is briefing on that one.
+- **A deadline is distrusted once any briefing schedule on the docket
+  moves.** After a later entry that speaks of an extension, a stipulation, a
+  continuance or a schedule for a brief, whichever motion it cites, neither
+  the docket's stated dates nor the local rule opens the motion; the reply
+  itself still does. An entry that sets or resets this motion's deadlines
+  restores only the deadline it states.
+- **A reply deadline that falls before the opposition opens nothing.** It was
+  stated for a schedule the opposition did not keep.
+- **Entries dated after the day of the reading are not read**, so a reading
+  as of a past day sees what the docket showed then.
+- **A motion with no opposition the rule can read stays unopened.** The
+  opposition may be a cross-motion, which this rule does not read as one, so a
+  clerk's default reply date alone opens nothing.
+- **A motion the court rules on before its briefing closes opens nothing.**
+- **A transferred-from docket opens nothing.** It repeats the entries of the
+  docket the case was transferred to, which owns the events.
+
+`fedcourts trial-events` runs the opener and the resolver over the stored
+watchlist dockets and prints what each read ([cli.md](cli.md)).
 
 `trial-preliminary-injunction` opens earlier, when the **opposition** is on
-the docket or its deadline has passed with none, the deadline read the same
-way. These motions are heard on a compressed schedule, and a court often rules
-without waiting for a reply or allowing one, so a rule that waited for the
-reply would open many of them after their ruling or never.
+the docket, or its response deadline has passed with none: the date the
+docket states, or the local rule's where the docket states none and no
+schedule has moved. These motions are heard on a compressed schedule, and a
+court often rules without waiting for a reply or allowing one, so a rule that
+waited for the reply would open many of them after their ruling or never.
 
 **A motion already open when the stage registers.** A motion that these rules
 would have opened before the registration, and that the court has not ruled
@@ -109,13 +152,11 @@ withdrawn, mooted by an amended complaint, or overtaken by settlement resolves
 as such, and the forecast prices that in. A forecaster who thinks a motion will
 be mooted puts weight on that outcome.
 
-The resolver is `pipeline/trial_resolver.py` (rule `trial-resolver-v1`). It is
+The resolver is `pipeline/trial_resolver.py` (rule `trial-resolver-v3`). It is
 deterministic, runs no agent, and is built to miss rather than misread: a text
 it cannot read leaves the event open, or sends it to triage, and never records
-a guessed outcome. It reads the three briefed motion moments and the final
-disposition. A preliminary-injunction ruling is not among the texts it reads:
-its reading rules join the resolver, with a triage rate measured on the
-watchlist's stored dockets, before the stage registers.
+a guessed outcome. It reads the four motion moments and the final
+disposition.
 
 - **The docket text decides.** The disposing entry is the first court entry
   after the motion (an order, opinion, ruling or minute order, or an order
@@ -123,7 +164,8 @@ watchlist's stored dockets, before the stage registers.
   recommendation itself, or a court of appeals' order or mandate) whose docket
   text rules on the motion. A ruling is the CM/ECF form: a ruling verb standing
   right after the entry's head (`ORDER granting`, `MEMORANDUM OPINION AND
-  ORDER denying`, `ORDER ADOPTING 58 REPORT AND RECOMMENDATIONS and granting`)
+  ORDER denying`, `ORDER ADOPTING 58 REPORT AND RECOMMENDATIONS and granting`,
+  `ORDER by Judge Rita F. Lin granting`)
   or opening a later clause after a semicolon, a comma or "and", with the
   motion's entry number directly after it and going straight on to name a
   motion (`ORDER granting 45 Motion to Dismiss`, `denying [45]`, `granting 45
@@ -132,6 +174,30 @@ watchlist's stored dockets, before the stage registers.
   70, `ORDER vacating 60 Order granting 45` rules on nothing about 45, and
   `granting 45 days` rules on nothing. An entry that cites no entry number
   never rules, because a docket can hold several motions of one kind.
+- **A ruling that cites the motion after its title is read in three plain
+  shapes**, each only in the capitals the court wrote its ruling in: a
+  first-person sentence that ends on the citation (`I GRANT Plaintiffs' Motion
+  for Summary Judgment on Fair Use (D.I. 672).`); a passive sentence on the
+  citation (`Defendant's Motion to Dismiss (Doc. No. 54) is GRANTED.`); and a
+  capitalised title with one trailing entry number (`ORDER GRANTING MOTION
+  FOR PRELIMINARY INJUNCTION 6 .`). The sentence must stand where a sentence
+  starts, and its title must be the movant, one of the stage's four motions,
+  and at most what the motion is "on": a request, an objection or a motion
+  about the motion is not that title, and neither is one with a limit or an
+  alternative in it. The passive shape reads granted, denied, and granted in
+  part and denied in part, and no other wording.
+- **A ruling on the cited motion in any other shape is triage**, and so is a
+  plain one beside anything that could change it: a second ruling in the
+  court's capitals that the rule cannot tie to another motion, a limiting
+  word after the ruling ("however", "as to", "otherwise"), a text that states
+  a ruling it does not make (a tentative ruling, a recommendation, a
+  condition, an order to show cause), two readings that disagree, or leave
+  granted or denied in an order that rules on several motions. `ORDER ON 166
+  215 CROSS MOTIONS` is triage too: it names the motions and leaves the
+  ruling to the order. Triage here stops the reading at that entry, so an
+  order about the motion written in one of these shapes (a request for
+  argument on it that "is DENIED") holds the event for the maintainer even
+  where a later entry rules on it plainly.
 - **Anything that could limit the ruling is triage.** The ruling's run goes
   from the motion's number to the next ruling verb, across sentences, and
   stops at the clerk's trailer ("Signed by Judge ..."); the rest of the text

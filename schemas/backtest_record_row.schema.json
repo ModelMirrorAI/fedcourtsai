@@ -13,6 +13,9 @@
       "type": "string"
     },
     "case_id": {
+      "maxLength": 160,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@+/=-]*$",
       "title": "Case Id",
       "type": "string"
     },
@@ -30,10 +33,16 @@
       "title": "Decided"
     },
     "draw_rule": {
+      "maxLength": 160,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@+/=-]*$",
       "title": "Draw Rule",
       "type": "string"
     },
     "engine": {
+      "maxLength": 160,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@+/=-]*$",
       "title": "Engine",
       "type": "string"
     },
@@ -46,10 +55,16 @@
       "type": "string"
     },
     "model": {
+      "maxLength": 160,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@+/=-]*$",
       "title": "Model",
       "type": "string"
     },
     "moment": {
+      "maxLength": 160,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@+/=-]*$",
       "title": "Moment",
       "type": "string"
     },
@@ -61,10 +76,16 @@
     },
     "population": {
       "description": "The population the run drew from, as a stable name (cert: `cert:<scope>`; merits: `merits:argued`). Figures never pool across populations",
+      "maxLength": 160,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@+/=-]*$",
       "title": "Population",
       "type": "string"
     },
     "predictor_id": {
+      "maxLength": 160,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@+/=-]*$",
       "title": "Predictor Id",
       "type": "string"
     },
@@ -76,12 +97,18 @@
     },
     "process_digest": {
       "description": "The process digest of the configuration that ran (see `BacktestComparisonArm.process_digest`). Figures pool within one (predictor, model, digest) and never across them",
+      "maxLength": 160,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@+/=-]*$",
       "title": "Process Digest",
       "type": "string"
     },
     "provisioning": {
       "anyOf": [
         {
+          "maxLength": 160,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@+/=-]*$",
           "type": "string"
         },
         {
@@ -92,6 +119,9 @@
       "title": "Provisioning"
     },
     "run_id": {
+      "maxLength": 160,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@+/=-]*$",
       "title": "Run Id",
       "type": "string"
     },
@@ -102,11 +132,17 @@
       "type": "string"
     },
     "stage": {
+      "maxLength": 160,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@+/=-]*$",
       "title": "Stage",
       "type": "string"
     },
     "stratum": {
       "description": "The case's outcome class in its population (cert: granted or not-granted; merits: disturbed or not-disturbed), recorded under every draw rule because the pooled figure is post-stratified on it",
+      "maxLength": 160,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@+/=-]*$",
       "title": "Stratum",
       "type": "string"
     },

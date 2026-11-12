@@ -25,7 +25,7 @@ from collections import Counter
 from collections.abc import Callable, Collection, Iterable, Iterator, Mapping, Sequence
 from contextlib import ExitStack, contextmanager
 from contextvars import ContextVar
-from dataclasses import dataclass, field, replace
+from dataclasses import asdict, dataclass, field, replace
 from datetime import UTC, date, datetime, timedelta
 from enum import StrEnum
 from importlib.metadata import version
@@ -233,6 +233,10 @@ from .finalize import (
     snapshot_output_root,
 )
 from .fixture import build_fixture_corpus
+from .forecast_document_grades import (
+    build_forecast_document_grades,
+    forecast_document_grades_summary,
+)
 from .gvr_migration import relabel_munsingwear_gvr_outcomes
 from .handoff import HandoffRefused, read_handoff, write_handoff
 from .integrity import (
@@ -312,6 +316,7 @@ from .pipeline import (
     alignment_positions,
     alignment_score,
     alignment_side,
+    appeal_resolver,
     application_backfill,
     argument_features,
     authorship,
@@ -321,6 +326,7 @@ from .pipeline import (
     historical,
     justice_priors,
     liveprobe,
+    merits_coverage_check,
     merits_lineups,
     moments,
     ocr_sweep,
@@ -335,6 +341,7 @@ from .pipeline import (
     same_question,
     semantic,
     sg_briefs,
+    trial_opener,
     vide_links,
     vided,
     vote_sources,
@@ -608,6 +615,7 @@ from .schemas import (
     FlagCategory,
     FlagSeverity,
     FlagSource,
+    ForecastDocumentGrades,
     ForwardClaimRecord,
     Judgment,
     Leaderboard,
@@ -6289,7 +6297,8 @@ def merits_backtest_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options m
     )
     write_json(destination, report)
     if record is not None:
-        _record_merits_backtest(record, drawn, population.cases, outcome, run_id, wanted)
+        with _record_failure_annotated("merits-backtest"):
+            _record_merits_backtest(record, drawn, population.cases, outcome, run_id, wanted)
     typer.echo(
         f"merits-backtest: {len(report.entries)} predictor(s) over {report.cells} cell(s), "
         f"{report.paired_cases} case(s) at both moments; engine {engine} -> {destination}"
@@ -11334,6 +11343,51 @@ def miss_review_command(
     typer.echo(f"miss-review [{scope}]: {miss_review_summary(review)} -> {destination}")
 
 
+@app.command("forecast-document-grades")
+def forecast_document_grades_command(
+    out: Annotated[
+        Path | None,
+        typer.Option(help="Output path (default: <metrics_root>/forecast-document-grades.json)."),
+    ] = None,
+    all_versions: Annotated[
+        bool,
+        typer.Option(
+            "--all-versions",
+            help="Include every process version, not only the frozen headline.",
+        ),
+    ] = False,
+) -> None:
+    """Roll up the forecast-document grade into ``metrics/forecast-document-grades.json``.
+
+    Deterministic and offline. Over the forward cells ``leaderboard`` scores,
+    it reads each judge's ``predicted_reasoning_quality`` of each predictor's
+    ``predicted_reasoning.md`` and reports, per stage: each predictor's mean
+    grade per judge rubric (pooled and per counting window) with the cells
+    graded by every judge, left null by every judge, and split; the judges'
+    leave-one-out agreement and its within-predictor reading; each judge's
+    grades of its own engine family's documents beside the others'; and the
+    grade where the disposition call was right and where it was wrong. Only
+    judges whose evaluate digest asks for the grade are read. Graded, not
+    scored: never a rank key or a claim total; reading rules:
+    ``metrics/README.md``.
+    """
+    settings = get_settings()
+    scope: Literal["frozen", "all"] = "all" if all_versions else "frozen"
+    run = stratify(settings.data_root, frozen_only=not all_versions)
+    _report_exclusions(run)
+    board = build_forecast_document_grades(
+        run.cells, settings.data_root, process_scope=scope, cell_windows=run.cell_windows
+    )
+    destination = (
+        out if out is not None else settings.metrics_root / "forecast-document-grades.json"
+    )
+    write_json(destination, board)
+    typer.echo(
+        f"forecast-document-grades [{scope}]: "
+        f"{forecast_document_grades_summary(board)} -> {destination}"
+    )
+
+
 @app.command("performance-history")
 def performance_history_command(
     ref: Annotated[
@@ -12403,6 +12457,25 @@ def _report_replay_drops(
     return dropped
 
 
+@contextmanager
+def _record_failure_annotated(command: str) -> Iterator[None]:
+    """Keep a failed record write from costing a standing replay its report.
+
+    The report is written before the record and its cells were paid for, so a
+    fault while appending to the pooled record is annotated and the command
+    still exits zero: the report lands, and the run's cells are missing from
+    the pool, which the annotation says where a maintainer looks.
+    """
+    try:
+        yield
+    except (OSError, KeyError, ValueError, RuntimeError, sqlite3.Error) as exc:
+        typer.echo(
+            f"::error::{command}: the pooled record was not written "
+            f"({type(exc).__name__}); the report is written and this run's cells are "
+            "not in the record"
+        )
+
+
 def _annotate_harness_faults(lost_cells: list[CertBacktestCellLoss]) -> None:
     """Turn a replay's harness faults into an Actions error annotation.
 
@@ -12790,17 +12863,18 @@ def cert_backtest_cmd(  # noqa: PLR0913, PLR0915, PLR0917 - a CLI entrypoint; op
         # The report first: nothing after it can cost a run its figures.
         write_json(destination, report)
         if record is not None and replay_run_id is not None:
-            _record_cert_backtest(
-                record,
-                conn,
-                items,
-                replayed,
-                run_id=replay_run_id,
-                scope=scope,
-                salience_floor=salience_cfg.floor,
-                draw_rule=drawn.draw.rule,
-                clocks=clocks,
-            )
+            with _record_failure_annotated("cert-backtest"):
+                _record_cert_backtest(
+                    record,
+                    conn,
+                    items,
+                    replayed,
+                    run_id=replay_run_id,
+                    scope=scope,
+                    salience_floor=salience_cfg.floor,
+                    draw_rule=drawn.draw.rule,
+                    clocks=clocks,
+                )
     _annotate_harness_faults(lost_cells)
     typer.echo(
         f"cert-backtest: {report.predictors_evaluated} predictor(s) over "
@@ -13513,6 +13587,72 @@ def backtest_pooled_cmd(
         f"backtest-pooled: {len(report.entries)} pooled entr(ies) over {report.rows} row(s) "
         f"in {report.files} file(s) -> {destination}"
     )
+
+
+@app.command("backtest-handoff-plan")
+def backtest_handoff_plan_cmd(
+    replay: Annotated[str, typer.Option(help="The dispatched replay mode.")],
+    run_id: Annotated[str, typer.Option(help="The workflow run id that names the run's files.")],
+    candidate: Annotated[
+        str, typer.Option(help="A comparison's `<predictor>=<model>`; empty otherwise.")
+    ] = "",
+) -> None:
+    """Print, as JSON, where a `run-backtest` replay writes its report and record file.
+
+    The one derivation the replay step, the hand-off and the publisher all
+    read (``backtest_comparison.handoff_plan``): the report and record paths
+    under the metrics root, and for a comparison its kind, predictor, model,
+    draw cap and cells per case. A malformed ``--candidate`` or an unknown
+    mode exits 2. Offline; reads nothing.
+    """
+    try:
+        plan = backtest_comparison.handoff_plan(replay, candidate, run_id)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    typer.echo(json.dumps(asdict(plan), sort_keys=True))
+
+
+@app.command("backtest-handoff-check")
+def backtest_handoff_check_cmd(
+    kind: Annotated[str, typer.Option(help="The replay's kind: cert or merits.")],
+    comparison_predictor: Annotated[
+        str,
+        typer.Option(
+            help="The compared predictor, for a comparison run; empty for a standing one."
+        ),
+    ] = "",
+    report: Annotated[
+        Path | None, typer.Option(help="A comparison report to check; omit for a standing run.")
+    ] = None,
+    record: Annotated[
+        Path | None, typer.Option(help="The run's record file to check; omit where none crossed.")
+    ] = None,
+) -> None:
+    """Check a replay run's comparison report and record file before they are committed.
+
+    For a publisher that did not write them: the report must parse as a
+    comparison of ``--kind`` about ``--comparison-predictor``, and the record
+    must parse row by row, hold one run's rows of that kind within the row
+    cap, and carry only the arms and predictors its mode writes
+    (``backtest_comparison.handoff_problems``). Exits 1 naming each problem,
+    never the bytes that caused it. Offline; reads nothing but the two files
+    and the predictor registry.
+    """
+    if kind not in {"cert", "merits"}:
+        raise typer.BadParameter("choose cert or merits", param_hint="--kind")
+    roster = {p.id for p in enabled_predictors(get_settings().config_root / "predictors.yaml")}
+    problems = backtest_comparison.handoff_problems(
+        kind=kind,
+        comparison_predictor=comparison_predictor or None,
+        known_predictors=roster,
+        report=report,
+        record=record,
+    )
+    for problem in problems:
+        typer.echo(f"backtest-handoff-check: {problem}", err=True)
+    if problems:
+        raise typer.Exit(1)
+    typer.echo("backtest-handoff-check: the hand-off is what this run's mode writes")
 
 
 @app.command("salience-replay")
@@ -17310,6 +17450,9 @@ def _weekly_analytics(metrics_root: Path) -> WeeklyAnalytics:
         salience_version_in_force=SALIENCE_VERSION,
         leaderboard=_vintaged(metrics_root / "leaderboard.json", Leaderboard),
         miss_review=_vintaged(metrics_root / "miss-review.json", MissReview),
+        document_grades=_vintaged(
+            metrics_root / "forecast-document-grades.json", ForecastDocumentGrades
+        ),
         previous_leaderboard=_previous_leaderboard(),
     )
 
@@ -19757,6 +19900,118 @@ def _emit_watchlist_check(
         alarm_out.write_text(alarm, encoding="utf-8")
 
 
+@app.command("trial-events")
+def trial_events_command(
+    today: Annotated[
+        str | None,
+        typer.Option(
+            help="The day the dockets are read on (YYYY-MM-DD); a deadline opens a motion "
+            "only once this day has passed it. Defaults to today (UTC).",
+        ),
+    ] = None,
+) -> None:
+    """Survey the AI watchlist's stored district dockets for the trial stage's motion events.
+
+    A dry run of the trial stage's two readers over what `watchlist-refresh`
+    has stored. For each listed case's own docket and its member and companion
+    dockets in a district court, the opener (`pipeline/trial_opener.py`) lists
+    every motion to dismiss, for class certification, for summary judgment and
+    for a preliminary injunction, the entries it read as the opposition and
+    the reply, and the day the motion would open as a forecast event; the
+    resolver (`pipeline/trial_resolver.py`) says how each resolved, or that it
+    goes to triage. Prints the survey as JSON on stdout (identifiers and dates
+    only, no docket text) and a three-line reading on stderr.
+
+    Read-only: no upstream request, no write to the corpus, the ledger or
+    `data/`. Nothing here is registered or forecast; the trial stage is a
+    design (`docs/trial-stage.md`). Exits 1 when the corpus is missing, 2 when
+    the watchlist or `--today` cannot be read.
+    """
+    settings = get_settings()
+    try:
+        watchlist = load_ai_watchlist(settings.config_root / AI_WATCHLIST_FILENAME)
+        read_on = date.fromisoformat(today) if today is not None else datetime.now(UTC).date()
+    except (OSError, ValueError) as exc:
+        typer.echo(f"trial-events: cannot read its inputs: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if settings.corpus_backend == "local" and not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the survey.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
+
+        def entries_of(case_id: str) -> list[dict[str, Any]] | None:
+            found = corpus.latest_snapshot(conn, case_id)
+            if found is None:
+                return None
+            stored = found[1].get("docket_entries")
+            return stored if isinstance(stored, list) else None
+
+        result = trial_opener.survey(watchlist, entries_of, today=read_on)
+    typer.echo(json.dumps({"counts": result.counts(), **result.model_dump(mode="json")}, indent=2))
+    for line in trial_opener.summary_lines(result):
+        typer.echo(line, err=True)
+
+
+@app.command("appeal-events")
+def appeal_events_command(
+    today: Annotated[
+        str | None,
+        typer.Option(
+            help="The day the dockets are read on (YYYY-MM-DD); entries dated after it are "
+            "not read. Defaults to today (UTC).",
+        ),
+    ] = None,
+) -> None:
+    """Survey the AI watchlist's stored appellate dockets for the appeal stage's disposition event.
+
+    A dry run of the appeal stage's reader (`pipeline/appeal_resolver.py`)
+    over what `watchlist-refresh` has stored. For each listed `relation:
+    appeal` docket it says when the briefing closed (the appellant's reply
+    brief, which is when the event would open), and how the panel disposed of
+    the appeal, or that the disposition goes to triage. Prints the survey as
+    JSON on stdout (identifiers and dates only, no docket text) and a
+    three-line reading on stderr.
+
+    Read-only: no upstream request, no write to the corpus, the ledger or
+    `data/`. Nothing here is registered or forecast; the appeal stage is a
+    design (`docs/appeal-stage.md`). Exits 1 when the corpus is missing, 2
+    when the watchlist or `--today` cannot be read.
+    """
+    settings = get_settings()
+    try:
+        watchlist = load_ai_watchlist(settings.config_root / AI_WATCHLIST_FILENAME)
+        read_on = date.fromisoformat(today) if today is not None else datetime.now(UTC).date()
+    except (OSError, ValueError) as exc:
+        typer.echo(f"appeal-events: cannot read its inputs: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if settings.corpus_backend == "local" and not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the survey.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
+
+        def entries_of(case_id: str) -> list[dict[str, Any]] | None:
+            found = corpus.latest_snapshot(conn, case_id)
+            if found is None:
+                return None
+            stored = found[1].get("docket_entries")
+            return stored if isinstance(stored, list) else None
+
+        result = appeal_resolver.survey(watchlist, entries_of, today=read_on)
+    typer.echo(json.dumps({"counts": result.counts(), **result.model_dump(mode="json")}, indent=2))
+    for line in appeal_resolver.summary_lines(result):
+        typer.echo(line, err=True)
+
+
 @app.command("order-notations")
 def order_notations_command(
     on: Annotated[
@@ -20514,6 +20769,134 @@ def granted_noted_check_cmd(
         f"Granted & Noted entry",
         err=True,
     )
+
+
+@app.command("merits-coverage-check")
+def merits_coverage_check_cmd(
+    term: Annotated[
+        int | None,
+        typer.Option("--term", help="Four-digit October Term to check (default: the current one)."),
+    ] = None,
+    report_out: Annotated[
+        Path | None,
+        typer.Option("--report-out", help="Write the Markdown report (the alarm issue's body)."),
+    ] = None,
+    throttle: Annotated[
+        float,
+        typer.Option(help="Seconds to sleep between requests (polite-client pacing)."),
+    ] = 1.0,
+    cache_dir: Annotated[
+        Path | None,
+        typer.Option(help="Keep the fetched lists here and re-read them from here (a dev cache)."),
+    ] = None,
+) -> None:
+    """Check merits coverage against the Court's Granted & Noted list, read-only.
+
+    Runs the merits coverage census (`merits-coverage`) for the Term and the
+    one before it, then sets the corpus against the Court's own roll of the
+    cases set for argument (`pipeline/merits_coverage_check.py`): the Term's
+    Granted & Noted list, and the next Term's where the Court has opened it.
+    Every listed docket must have a corpus row whose grant opens a merits
+    proceeding and a merits event within 7 days of its grant, a forecast once
+    argument is within 14 days, a forecast at the argued moment within 7 days
+    of argument, and a forecast dated before its decision. A finding on a case
+    decided more than 28 days ago is a standing miss, reported and not alarmed,
+    except a decision the list prints and the corpus row still lacks.
+    Original-jurisdiction cases and applications set for argument are listed
+    apart. Monitoring only: nothing here enters a scored figure.
+
+    Reads the corpus index, the committed predictions and the two lists;
+    writes nothing but `--report-out` and the optional cache. Prints a count
+    summary to stderr and the `MeritsCoverageCheck` JSON to stdout; exits 3
+    when any docket carries an alarm, 1 when the Term's own list cannot be read
+    or the local corpus is missing, 2 on a bad option.
+    """
+    if throttle <= 0:
+        typer.echo("--throttle must be positive", err=True)
+        raise typer.Exit(code=2)
+    today = date.today()
+    year = term if term is not None else october_term_year(today)
+    if not 2000 <= year <= 2099:
+        typer.echo(
+            "merits-coverage-check: --term is a four-digit October Term, e.g. 2026.", err=True
+        )
+        raise typer.Exit(code=2)
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if settings.corpus_backend == "local" and not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the merits coverage check.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with SupremeCourtClient(throttle_seconds=throttle) as client:
+        fetcher = opinion_lineups.OpinionFetcher(client, cache_dir=cache_dir)
+        lists = {t: _granted_noted_text(fetcher, t % 100) for t in (year, year + 1)}
+    if lists[year] is None:
+        typer.echo(f"OT{year}: the Granted & Noted list could not be read", err=True)
+        raise typer.Exit(code=1)
+    with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
+        check = merits_coverage_check.merits_coverage_check(
+            conn, settings.data_root, term=year, lists=lists, today=today
+        )
+        pulled = corpus.latest_pull_date(conn)
+        snapshot = corpus.latest_snapshot_date(conn)
+    for line in merits_coverage_check.summary_lines(check):
+        typer.echo(line, err=True)
+    if report_out is not None:
+        vintage = (
+            (f"latest pull {pulled.isoformat()}" if pulled else "never pulled")
+            + ", "
+            + (
+                f"latest snapshot {snapshot.isoformat()}"
+                if snapshot
+                else "no snapshots in this blob"
+            )
+        )
+        report_out.write_text(
+            merits_coverage_check.render_report(check, vintage=vintage), encoding="utf-8"
+        )
+    typer.echo(check.model_dump_json())
+    if check.alarms:
+        raise typer.Exit(code=3)
+
+
+@app.command("merits-coverage-alarm")
+def merits_coverage_alarm_cmd(
+    repo: Annotated[str, typer.Option("--repo", help="owner/name of the repository.")],
+    check: Annotated[
+        Path, typer.Option("--check", help="The `merits-coverage-check` JSON to latch.")
+    ],
+    report: Annotated[
+        Path, typer.Option("--report", help="The Markdown report `merits-coverage-check` wrote.")
+    ],
+) -> None:
+    """Open, refresh or close the one merits coverage alarm issue.
+
+    The issue side of `merits-coverage-check`, run with a token that may write
+    issues and no corpus access. A check carrying an alarm opens the issue
+    titled "Merits coverage failing" under the non-triggering `merits-coverage`
+    label, or rewrites the open one's body with `--report`; a check with none
+    comments on the open issue and closes it, and writes nothing where none is
+    open. Only an issue the workflow token opened under that title is the
+    alarm. Refuses (exit 2) a check file that does not parse or that never read
+    its own Term's list; a `gh` call that fails after its retries fails the
+    command.
+    """
+    if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo):
+        typer.echo(f"merits-coverage-alarm: --repo must be owner/name, not {repo!r}", err=True)
+        raise typer.Exit(code=2)
+    try:
+        parsed = merits_coverage_check.MeritsCoverageCheck.model_validate_json(
+            check.read_text(encoding="utf-8")
+        )
+        report.read_text(encoding="utf-8")
+        done = merits_coverage_check.latch(repo, parsed, report)
+    except (OSError, ValueError) as exc:
+        typer.echo(f"merits-coverage-alarm: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    typer.echo(f"merits-coverage-alarm: {done}")
 
 
 @app.command("refresh-historical")

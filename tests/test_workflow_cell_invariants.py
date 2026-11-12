@@ -113,6 +113,7 @@ from fedcourtsai.agent_feedback import (
     _GH_BACKOFF_SECONDS,
     _GH_TIMEOUT_SECONDS,
 )
+from fedcourtsai.backtest_comparison import handoff_plan
 from fedcourtsai.cli import _echo_text_coverage
 from fedcourtsai.collect import (
     BOARD_ARTIFACTS,
@@ -438,9 +439,20 @@ def test_every_gemini_allowlist_covers_its_own_cell_env_contract() -> None:
             assert {"DECIDED_BEFORE", "REPLAY_CUTOFF"} <= allowed, name
 
 
+# What crosses from the replay job to the token holder is named by one tested
+# derivation (`backtest_comparison.handoff_plan`), which both jobs call with
+# the dispatch and the run id and neither reads off the disk.
+BACKTEST_HANDOFF_PATHS = """\
+plan=$(uv run fedcourts backtest-handoff-plan --replay "$BT_REPLAY" \\
+  --candidate "$BT_CANDIDATE" --run-id "$GITHUB_RUN_ID")
+report=$(jq -r '.report' <<<"$plan")
+record=$(jq -r '.record // ""' <<<"$plan")
+"""
+
+
 def _backtest_report_upload(steps: list[dict[str, Any]]) -> int:
-    """The replay job's one hand-off: the arm's report, staged out of the tree
-    and uploaded for the publish job."""
+    """The replay job's one hand-off: the arm's report, and its record file
+    where a model ran, staged out of the tree and uploaded for the publish job."""
     stage = next(i for i, step in enumerate(steps) if step.get("id") == "report")
     uploads = [
         i for i, step in enumerate(steps) if "upload-artifact" in str(step.get("uses") or "")
@@ -457,8 +469,18 @@ def _backtest_report_upload(steps: list[dict[str, Any]]) -> int:
     assert stage < found[0]
     run = str(steps[stage]["run"])
     assert '[ -L "metrics/$report" ]' in run, "a symlinked report must be refused"
-    assert "salience-gate) report=salience-replay.json" in run
-    assert "*) report=cert-backtest.json" in run
+    assert '[ -L "metrics/$file" ] || [ ! -f "metrics/$file" ]' in run, (
+        "a symlinked report or record file must be refused"
+    )
+    assert '[ -L "$(dirname "metrics/$file")" ]' in run, "nor one under a symlinked directory"
+    assert 'for file in "$report" "$record"; do' in run, "nothing else may cross"
+    assert BACKTEST_HANDOFF_PATHS in run
+    # The standing steps name their record file as the plan does.
+    replay_runs = "\n".join(str(step.get("run") or "") for step in steps)
+    for kind in ("cert", "merits"):
+        planned = handoff_plan(kind, "", "77").record
+        assert planned == f"backtest-record/{kind}-77.jsonl"
+        assert f'--record "metrics/backtest-record/{kind}-${{GITHUB_RUN_ID}}.jsonl"' in replay_runs
     # Implicit `success()`: a failed replay hands nothing off.
     assert "if" not in steps[stage]
     return found[0]
@@ -591,21 +613,32 @@ def test_the_backtest_replay_brackets_its_cells_with_the_update_history_removal(
 
 
 def _backtest_cell_steps(runs: list[str]) -> tuple[int, int]:
-    """The first and last of the back-test's two cell steps, cert's and merits'.
+    """The first and last of the back-test's three cell steps: cert's, merits'
+    and the comparison's, which runs either kind twice.
 
     Each is named by the scratch root only a cell invocation passes, and each
-    must be the one invocation of its command, so a third arm that runs cells
-    fails here until the fences are checked around it too.
+    must be the one step invoking its commands, so a further arm that runs
+    cells fails here until the fences are checked around it too.
     """
     cells = [i for i, run in enumerate(runs) if '--work-dir "$work_dir"' in run]
-    commands = sorted(
-        name
+    commands = [
+        sorted(
+            name
+            for name in (
+                "fedcourts cert-backtest \\",
+                "fedcourts merits-backtest \\",
+                "fedcourts cert-backtest-compare \\",
+                "fedcourts merits-backtest-compare \\",
+            )
+            if name in runs[i]
+        )
         for i in cells
-        for name in ("fedcourts cert-backtest", "fedcourts merits-backtest")
-        if name in runs[i]
-    )
-    assert commands == ["fedcourts cert-backtest", "fedcourts merits-backtest"], commands
-    assert len(cells) == 2, cells
+    ]
+    assert commands == [
+        ["fedcourts cert-backtest \\"],
+        ["fedcourts merits-backtest \\"],
+        ["fedcourts cert-backtest-compare \\", "fedcourts merits-backtest-compare \\"],
+    ], commands
     return cells[0], cells[-1]
 
 
@@ -613,11 +646,14 @@ def test_the_backtest_publish_job_checks_the_report_before_it_mints() -> None:
     """The publish job holds the dev App token, whose bypass covers `main`'s
     approval rule, and reads bytes a replay cell could have written. So every
     step that reads them runs before the mint: the hand-off must hold the arm's
-    one report and nothing else, as a regular file; it overlays the committed
-    copy rather than replacing `metrics/` (an upload drops dotfiles, and a
-    replaced tree would stage their deletion); the tree may then differ from
-    the commit at that path alone, modified or, for an arm's first report, new;
-    the plan is rendered and the change and the prose are scanned for secrets.
+    report, at most this run's record file beside it, and nothing else, each as
+    a regular file at a path the job derives for itself; the report overlays
+    the committed copy rather than replacing `metrics/` (an upload drops
+    dotfiles, and a replaced tree would stage their deletion) and the record
+    file must be new, the record being append-only; the tree may then differ
+    from the commit at those paths alone, the report modified or, for an arm's
+    first, new; the record is read back through the schema, the plan is
+    rendered, and the change and the prose are scanned for secrets.
     The token steps run only on a checked change, and run git and gh alone."""
     steps = _load("run-backtest.yml")["jobs"]["publish"]["steps"]
     names = [step.get("name") for step in steps]
@@ -626,16 +662,32 @@ def test_the_backtest_publish_job_checks_the_report_before_it_mints() -> None:
     assert stage_at < mint_at
     run = str(steps[stage_at]["run"])
     assert "rm -rf metrics" not in run and "git add -A" not in run
-    assert 'find "$dir" -mindepth 1 ! -path "$dir/$report"' in run
+    assert BACKTEST_HANDOFF_PATHS in run, "both jobs derive the same two paths"
+    # The publisher also reads what the check below is told to expect.
+    assert 'kind=$(jq -r \'.kind // ""\' <<<"$plan")' in run
+    assert 'predictor=$(jq -r \'.predictor // ""\' <<<"$plan")' in run
+    assert 'held=$(cd "$dir" && find . -mindepth 1 ! -type d | LC_ALL=C sort)' in run
+    assert 'elif [ "$held" != "./$report" ]; then' in run
     assert '[ -L "$dir/$report" ]' in run
+    assert '[ -n "$(find "$dir" -mindepth 1 -type l)" ]' in run
     assert 'cp "$dir/$report" "metrics/$report"' in run
-    assert (
-        'if [ "$changed" != " M metrics/${report}" ] '
-        + '&& [ "$changed" != "?? metrics/${report}" ]; then'
-    ) in run
+    assert '[ -e "metrics/$record" ] || [ -L "metrics/$record" ]' in run, (
+        "a record file is never rewritten"
+    )
+    # What crossed is checked as data, by kind, predictor and arm, before it is staged.
+    assert 'uv run fedcourts backtest-handoff-check "${check[@]}"' in run
+    assert run.index("backtest-handoff-check") < run.index('git add "$path"')
+    allowed = (
+        '" M metrics/${report}" | "?? metrics/${report}") ;;\n'
+        + '    "?? metrics/${record}")\n'
+        + '      [ "$recorded" = true ] || line=\n'
+        + '      paths+=("metrics/$record") ;;\n'
+        + "    *) line= ;;\n"
+    )
+    assert allowed in run, "the tree may differ at the report and the new record file alone"
     assert "uv run fedcourts cert-backtest-plan" in run
     assert "uv run fedcourts scan-diff-for-secrets" in run
-    assert run.index('git add "metrics/$report"') < run.index("scan-diff-for-secrets")
+    assert run.index('git add "$path"') < run.index("scan-diff-for-secrets")
     assert run.rstrip().endswith('echo "land=true" >> "$GITHUB_OUTPUT"')
     for step in steps[mint_at:]:
         assert step.get("if") == "steps.stage.outputs.land == 'true'", step.get("name")
@@ -4334,9 +4386,19 @@ def test_the_back_test_dispatch_keeps_its_free_default_and_its_parameters() -> N
         "skip_engines",
         "scope",
         "spread",
+        "candidate",
     }
     assert inputs["engine"]["default"] == "stub"
     assert inputs["replay"]["default"] == "cert"
+    # A comparison is dispatch-only and names its candidate; the default names none.
+    assert inputs["replay"]["options"] == [
+        "cert",
+        "merits",
+        "cert-compare",
+        "merits-compare",
+        "salience-gate",
+    ]
+    assert inputs["candidate"]["default"] == ""
     assert inputs["limit"]["default"] == "25"
     assert inputs["spread"]["default"] is False
 
@@ -4471,7 +4533,10 @@ def test_run_analytics_environments_resolve_from_the_dispatching_branch() -> Non
     the staging pair, anything else binds nothing — fail-closed; the same
     literal `test_workflow_auth_gate.py` pins as BRANCH_RESOLVED_ENVIRONMENT),
     `tool-usage`
-    must stay environment-free (it reads committed `data/` only), and every
+    must stay environment-free (it reads committed `data/` only), as must
+    `merits-coverage-alarm` (it reads one run artifact and writes an issue with
+    the ambient token, so an environment would only hand it secrets it has no
+    use for), and every
     concurrency group must carry the ref, because two refs are two
     environments reading two corpus pairs and one must never cancel — or
     queue behind — the other."""
@@ -4491,8 +4556,8 @@ def test_run_analytics_environments_resolve_from_the_dispatching_branch() -> Non
             if job_id != "qp-topic-approval":
                 assert "environment" not in job, f"{job_id} reaches nothing; no environment"
             continue
-        if job_id == "tool-usage":
-            assert "environment" not in job, "tool-usage reaches nothing; no environment"
+        if job_id in {"tool-usage", "merits-coverage-alarm"}:
+            assert "environment" not in job, f"{job_id} reaches nothing; no environment"
         elif job_id == "qp-topic-label":
             # The labeler binds the Claude-only counterpart of the same
             # resolution (test_workflow_auth_gate.py pins it).
@@ -5539,7 +5604,7 @@ def test_the_merits_forecasts_leave_without_their_record_and_only_after_a_scan()
     and for credential shapes, and a fault there withholds the forecasts
     without failing the job that hands off the report."""
     steps = _load("run-backtest.yml")["jobs"]["backtest"]["steps"]
-    [merits] = [s for s in steps if "fedcourts merits-backtest" in str(s.get("run") or "")]
+    [merits] = [s for s in steps if "fedcourts merits-backtest \\" in str(s.get("run") or "")]
     assert '--keep-cells "$RUNNER_TEMP/merits-cells"' in merits["run"]
     assert '[ "$BT_LIMIT" -gt 20 ]' in merits["run"]
     collect = next(i for i, step in enumerate(steps) if step.get("id") == "forecasts")
@@ -5868,3 +5933,32 @@ def test_the_alignment_fit_is_computed_read_only_and_published_reviewed() -> Non
     assert "alignment-fit" in gate and "alignment-fit-publish" in gate
     ci = _norm(_load("ci.yml")["jobs"]["main-base"]["if"])
     assert "github.head_ref == 'merits-alignment/fits'" in ci
+
+
+def test_the_merits_coverage_check_and_its_alarm_split_their_credentials() -> None:
+    """The check job reads the corpus; the alarm job writes one issue and reads none.
+
+    One job holding both the corpus role and `issues: write` could post what
+    it read. The check job therefore holds the read-only role and no issue
+    write, and the alarm job the ambient issue write, no `id-token`, no
+    environment and no corpus step: it sees only the artifact. The alarm also
+    needs the check job to have succeeded, so a check that could not run
+    leaves the issue as it stood, and it writes only on the `main` ref.
+    """
+    jobs = _load("run-analytics.yml")["jobs"]
+    check, alarm = jobs["merits-coverage"], jobs["merits-coverage-alarm"]
+
+    assert check["permissions"] == {"contents": "read", "id-token": "write"}
+    assert any("corpus-readonly" in str(s.get("uses") or "") for s in check["steps"])
+    run = next(s["run"] for s in check["steps"] if "merits-coverage-check" in str(s.get("run")))
+    assert '[ "$status" -ne 0 ] && [ "$status" -ne 3 ]' in run, (
+        "an alarm (exit 3) must reach the alarm job; any other failure must not"
+    )
+
+    assert alarm["permissions"] == {"contents": "read", "issues": "write"}
+    assert "merits-coverage" in alarm["needs"]
+    assert "needs.merits-coverage.result == 'success'" in _norm(alarm["if"])
+    assert not any("corpus" in str(s.get("uses") or "") for s in alarm["steps"])
+    writers = [s for s in alarm["steps"] if "GH_TOKEN" in (s.get("env") or {})]
+    assert [s["if"] for s in writers] == ["${{ github.ref == 'refs/heads/main' }}"]
+    assert "merits-coverage-alarm" in writers[0]["run"]

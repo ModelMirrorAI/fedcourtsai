@@ -21,6 +21,9 @@ below says how:
   cell nothing about your own case postdating its event, with any
   outcome-revealing material you surface disclosed in `flags.json`
   (*Retrieval — the leakage doctrine* below). Never invent facts.
+- **Your forecast is your own.** Do not seek out or rely on anyone else's
+  forecast of this case, whether this project's published predictions or any
+  other, and disclose one that surfaces in `flags.json` (*Rules*).
 - **Some fields are the harness's.** `usage.json` and `retrieval_log.json`
   are written by harness steps from the engine's own log, and the
   `process_version`, `context` and `created_at` stamps on `prediction.json`
@@ -223,7 +226,10 @@ the output directory you will write to.
 
    On a cert-stage or merits-stage cell whose case comes from a federal court
    of appeals, `record/documents/` may also hold `decision-below.txt` (that
-   court's opinion on its judgment date, as CourtListener extracted it) and
+   court's opinion on its judgment date, as CourtListener extracted it, and
+   where the court issued one, a later opinion in the same case under its own
+   dated heading: an amended opinion, or a writing on the denial of rehearing)
+   and
    `lower-court-docket.txt` (a short record of its docket: the panel where
    recorded, and whether a petition for rehearing en banc was filed, how it
    was disposed of and whether a dissent was noted, citing the entries read).
@@ -312,7 +318,9 @@ capture.
   the forecast. Public information that *predates* your snapshot — a companion
   or lead case's ruling, news or market context — is legitimate forward
   signal, not leakage: use it, and say in `reasoning.md` where it was
-  decisive. It needs no `flags.json` note.
+  decisive. It needs no `flags.json` note. The one thing unrestricted
+  retrieval does not cover is someone else's forecast of this case (*Forecast
+  independently* under *Rules*).
 - **`replay` mode** (a decided case replayed as of a past moment): the **same
   tools**, with etiquette instead of walls. Your snapshot carries this docket as
   it stood at your boundary — before `context.cutoff` under a `date` cut, and at
@@ -1430,6 +1438,8 @@ willing to be scored on, not a hedge.
     needs;
   - `leakage-disclosure` — material about this case postdating your boundary
     surfaced (replay);
+  - `forecast-exposure` — someone else's forecast of this case surfaced
+    (either mode);
   - `scope` — whether this cell should exist at all;
   - `ambiguous-event` — what the event asks is unclear;
   - `other` — none of these.
@@ -1479,6 +1489,24 @@ willing to be scored on, not a hedge.
   git (`git show`, `git log -p` and the like). Your own output directory is
   the one exception. If you have already read one, say so in `flags.json`
   (`category` `leakage-disclosure`) and disregard what you saw.
+- **Forecast independently — never seek or use anyone else's forecast of this
+  case.** A forecast here is a stated prediction or probability of how the
+  Court will act on the event you are predicting: this project's own published
+  predictions (its public site and its public repository carry every
+  predictor's, for this moment and for earlier ones), a forecasting site's or a
+  prediction market's, or another model's or a commentator's stated odds. Do
+  not search for one, do not open a page to read one, and do not weigh one in
+  your number: each forecast is scored as its predictor's own, and a number
+  anchored on someone else's is not. This holds in both modes. Reporting on
+  the case and legal analysis of it stay legitimate signal where your mode
+  allows them (*Retrieval* above); what you set aside is an author's
+  bottom-line prediction, not the facts and arguments around it. Base rates,
+  the statpack and corpus priors are not forecasts of this case and are always
+  fair game. If a forecast surfaces anyway (a search snippet, a page that
+  turned out to carry one), read no further into it, disregard it, and
+  **disclose it in `flags.json` under `forecast-exposure`**: what surfaced,
+  where, and whether it shaped your prediction. Use `info` where you set it
+  aside, and `warning` where you read it or it may have moved your number.
 - Stay in your lane: write **only** under your own
   `predictions/$PREDICTOR_ID/$RUN_ID/` path (the `flags.json` / `tooling.json` above
   live here too). Never edit the snapshot, the event, another predictor's output, or

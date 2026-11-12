@@ -18232,8 +18232,8 @@ freeze commit is recorded here.
 
   **The amendment debt.** It is unchanged. This entry adds no new token.
 
-  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
-  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by the promotion tagged `promotion/2026-11-11` (merge
+  commit `cc2af47aa17d4da76d75adcc2e8e6d3c07148bd4`, merged `2026-11-11T13:05:46Z`).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_supplemental_documents.py` is green;
@@ -18360,8 +18360,8 @@ freeze commit is recorded here.
 
   **The amendment debt.** It is unchanged. This entry adds no new token.
 
-  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
-  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by the promotion tagged `promotion/2026-11-11` (merge
+  commit `cc2af47aa17d4da76d75adcc2e8e6d3c07148bd4`, merged `2026-11-11T13:05:46Z`).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_direct_appeal_documents.py` is green;
@@ -18481,8 +18481,8 @@ freeze commit is recorded here.
 
   **The amendment debt.** It is unchanged. This entry adds no new token.
 
-  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
-  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by the promotion tagged `promotion/2026-11-11` (merge
+  commit `cc2af47aa17d4da76d75adcc2e8e6d3c07148bd4`, merged `2026-11-11T13:05:46Z`).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_ocr_recovery.py tests/test_ocr_sweep.py` is
@@ -18612,8 +18612,8 @@ freeze commit is recorded here.
   row that also holds a later opinion outgrows. Correcting the sentence moves
   the three predictor digests, so it is owed to the next re-bless.
 
-  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
-  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by the promotion tagged `promotion/2026-11-11` (merge
+  commit `cc2af47aa17d4da76d75adcc2e8e6d3c07148bd4`, merged `2026-11-11T13:05:46Z`).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_decision_below.py` is green;
@@ -18904,3 +18904,243 @@ freeze commit is recorded here.
     .engine_mean.engine_brier]' metrics/leaderboard.json` prints the paired
     event count, the reference's own event count, its Brier, and one Brier
     per paired engine.
+- **The forecast-document grade is rolled up on a board of its own, with a
+  registered minimum count; recorded 2026-11-11.** A **reading-rule**
+  registration with no scored figure moved, recorded ahead of the promotion
+  that carries it.
+
+  **Why.** `predicted_reasoning_quality` has been collected by every judge on
+  every stage since `proc-v16`, and no artifact read it. The design
+  (`outcome-decomposition.md`, *Grading the forecast document, design*) fixed
+  what must travel with a published grade before any grade existed; this
+  entry records the board that publishes it and the one constant the design
+  left open.
+
+  **The board.** `fedcourts forecast-document-grades` writes
+  `metrics/forecast-document-grades.json` over the forward cells the
+  leaderboard scores, under its exclusions, per stage and never pooled across
+  stages:
+  - each predictor's mean grade per judge rubric, pooled across its counting
+    windows and per window, over the cells every judge on the cell graded,
+    beside the cells null by every judge and the cells split on the mask;
+  - each judge rubric's leave-one-out Kendall tau-b against the mean of the
+    other judges, the cell as the unit, with the same coefficient within each
+    predictor's cells;
+  - each judge rubric's grades of its own engine family's documents beside
+    the others';
+  - each judge rubric's mean grade and spread where the disposition call was
+    right and where it was wrong.
+
+  A judge read under two evaluate digests is two rubrics, and nothing is
+  pooled across them.
+
+  **The panel.** A judge is on a cell's panel only where its evaluate digest
+  is blessed at `proc-v16` or later, the rule `validate` already applies to a
+  committed grade. A grading under an earlier digest is counted and read by
+  nothing.
+
+  **The registered constant.** No mean and no coefficient prints under **10
+  cells**. The count prints and the value is null. A change is a new entry
+  here.
+
+  **The reading rule** (`metrics/README.md`, the `forecast-document-grades.json`
+  entry).
+  - **Graded, not scored.** No claim total, no rank key and no other grade
+    reads it, and the board ranks nothing.
+  - **One judge rubric's mean, never a pooled one.** A mean is read down a
+    judge's column across predictors. No mean across judges is on this board,
+    and none may be computed from its rows and quoted.
+  - **Every mean travels with the agreement figures**, and a low or undefined
+    coefficient is a caveat, not a figure withheld.
+  - **The family reading is confounded with the predictor**, since a judge's
+    own family is one predictor, and alone it is not evidence of favouritism
+    or of its absence.
+  - **The gap by call is built in.** The anchors grade whether the
+    disposition held. The pairing with the mechanical claim total that the
+    design names is not on the board.
+
+  **What was known when this was recorded.** The first build, on the
+  `staging` checkout at `6687ce59a` under the frozen scope: 84 cert cells,
+  28 per predictor, over 19 cases, all graded by every judge on the cell, 12
+  of them short one judge; 24 interim cells, 8 per predictor, over 5 cases,
+  all graded by all, 3 of them short one judge; 1,179 cert and 189 interim gradings under digests that do
+  not ask. On cert, each judge graded `gemini-baseline` below the other two
+  predictors (`claude-judge` 0.54 against 0.66 and 0.66; `codex-judge` 0.74
+  against 0.83 and 0.85; `gemini-judge` 0.72 against 0.84 and 0.85, on 24
+  cells), and the judges' leave-one-out coefficients were 0.58, 0.51 and
+  0.57, with within-predictor readings of 0.48, 0.43 and 0.49. On interim no
+  predictor's mean printed, every series being under the minimum. The
+  interim rows that did print were the `proc-v17` rubrics' pooled ones over
+  15 cells in 4 cases: leave-one-out coefficients of 0.59, 0.11 and 0.61, a
+  mean grade of the other families' documents of 0.73, 0.89 and 0.80, and a
+  mean grade on right-call cells of 0.74, 0.86 and 0.84. The minimum was set
+  before the first build. The first build pooled each judge's digests in the
+  agreement, family and call rows; that was changed to one row per rubric
+  after review, before this entry landed.
+
+  **What does not move.** No digest, no base rate, no membership rule, no
+  rank and no scored figure. No prompt changes, so no evaluate digest moves.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_forecast_document_grades.py` is green;
+  - on `main`, `uv run fedcourts forecast-document-grades --out
+    /tmp/grades.json` exits zero and `jq -c '[.minimum_cells, (.stages[] |
+    [.stage, .cells, .graded_by_all, .null_by_all, .split_on_mask])]'
+    /tmp/grades.json` prints `10` and one row per stage whose last three
+    counts sum to its `cells`.
+
+- **`proc-v21`, a cell forecasts independently, the Claude pair moves to
+  `claude-fable-5-2` and the Gemini pair to `gemini-4-carbon`; recorded
+  2026-11-11.** Carried to `main` by the promotion tagged `<FILL: promotion tag>`
+  (merge commit `<FILL: merge hash>`, merged `<FILL: merged-at>`), to be tagged
+  **`prereg/proc-v21`**. Registered under the merge-stamped rule, so its
+  counting instant, its bless moments and every window edge it moves are the
+  carrying merge's committer time. The predict prompt changes and two
+  engines' default models change, so five digests move and `codex-judge`'s is
+  carried forward. No harness boundary is registered here, and no scored
+  number moves.
+
+  **What changes.**
+  - *The predict prompt, forecast independence.* A cell, in either mode, does
+    not seek or use anyone else's forecast of its case: a prediction market,
+    a forecasting site, a published model or pundit probability, or this
+    project's own published predictions, boards and repository. A forecast
+    that surfaces unsought is not used, and the cell discloses it in
+    `flags.json` under the category `forecast-exposure`. The rule names no
+    engine. The prompt states it in its opening summary, at the close of the
+    forward-mode retrieval paragraph, in the flag categories and under
+    *Rules*.
+  - *The predict prompt, `decision-below.txt`.* The sentence describing the
+    file now says it holds the court's opinion on its judgment date and,
+    where the court issued one, a later opinion in the same case under its
+    own dated heading (an amended opinion, or a writing on the denial of
+    rehearing).
+  - *The Claude pair's model.* `pricing.DEFAULT_MODELS["claude-code"]` moves
+    from `claude-opus-5-5` to `claude-fable-5-2`, which `claude-baseline` and
+    `claude-judge` both run.
+  - *The Gemini pair's model.* `pricing.DEFAULT_MODELS["gemini"]` moves from
+    `gemini-4-argon` to `gemini-4-carbon`, which `gemini-baseline` and
+    `gemini-judge` both run.
+  - *Unchanged.* The evaluate prompt, the codex pair's model, every engine
+    CLI pin and every agent's configuration.
+
+  **Why.** The independence rule answers two predict cells that disclosed
+  having read another forecast of their case. The harness already counts the
+  behaviour: the lane audit classifies a logged call that reaches this
+  project's published predictions as `published_forecast` and files it as a
+  `forecast-exposure` harness note. Its baseline before the rule, counted
+  by `cell_access.audit_cell_access` over the committed retrieval logs and by
+  reading the committed predict `flags.json` files, on the `staging`
+  checkout whose data is `main`'s at `f7d5735eb`, was 1 such call in 71,194 logged calls, none
+  among 2,438 web searches and fetches, and 2 agent disclosures in 674
+  predict flags files. The model moves put each pair on its vendor's current
+  model. No score motivates either move, and no back-test comparison of the
+  outgoing and incoming models preceded this registration.
+
+  **Pre-registered.** No direction of skill movement is predicted for any
+  predictor. Across this label `claude-baseline` and `gemini-baseline`
+  change model and prompt together, so a movement in their windows is not
+  split between the two and is not read as an effect of the independence
+  rule. `codex-baseline` changes only by the prompt, and a movement in
+  **either** direction across this label in its window is not read as an
+  effect of the independence rule either: the behaviour the rule forbids was
+  1 logged call and 2 disclosures before it, too rare to move a score. A
+  rise in `forecast-exposure` notes after this label is not read as a rise
+  in the behaviour, because the prompt now asks for the note. The judge-authored grades (`reasoning_quality`,
+  `predicted_reasoning_quality`, and a claim a judge grades) from
+  `claude-judge` and `gemini-judge` are made by a different grader model
+  from this label on, so a per-rubric reading of either judge across this
+  label compares graders as well as candidates; `codex-judge` is the one
+  judge whose process is the same on both sides.
+
+  **What is not verified at registration.** No cell has run on either model
+  under this project's keys and pinned CLIs. That `claude-fable-5-2` is
+  served to the pinned Claude Code CLI on the production workspace, under
+  the data-retention terms and rate limit that model carries, and that
+  `gemini-4-carbon` is served to the pinned Gemini CLI, is owed to the
+  `engine-smoke` legs of the `integration-test` suite, one real predict cell
+  per engine, run from `staging` or the promotion candidate before the
+  carrying merge. The Gemini model id and its price (the same as
+  `gemini-4-argon`'s, which is what its `MODEL_RATES` row carries) rest on
+  press reports of its general availability on 2026-11-10: the vendor's own
+  pages were unreachable from the session that registered this label. A
+  leg that shows either id unserved means this label is re-registered
+  without that move before it is carried.
+
+  **The amendment debt.** One is paid. The 2026-11-10 entry that registers
+  the `decision-below-later-opinions` boundary owed the predict prompt a
+  corrected description of `decision-below.txt`, and the second prompt
+  change above is that correction. This entry adds no new token.
+
+  The runnable effect check once it is live:
+  - on `main`, `uv run python -c "from fedcourtsai.process_version import
+    CURRENT_PROCESS_LABEL as L; print(L)"` prints `proc-v21`, and `uv run
+    fedcourts process-digest --all` prints the six digests below;
+  - `grep -c 'Forecast independently' .github/prompts/predict.md` and `grep
+    -c 'under its own dated heading' .github/prompts/predict.md` on `main`
+    each print a count above 0 (both print 0 on `proc-v20`);
+  - on the first predict run's collect PR after the carrying merge, a
+    `claude-baseline` `prediction.json` carries `"model":
+    "claude-fable-5-2"` and a `gemini-baseline` one `"model":
+    "gemini-4-carbon"`, each with the `proc-v21` digest below, and on the
+    first evaluate run's the same holds for `claude-judge` and
+    `gemini-judge` in `evaluation.json`.
+
+  **The registration** (`uv run fedcourts register-process --label
+  proc-v21`, run 2026-11-11 over `staging` at `b81b07c36` with `proc-v20`
+  stamped; `process-digest --all` prints the same six over `staging` at
+  `6687ce59a`). Five digests move.
+
+  | Actor | Before | `proc-v21` |
+  | --- | --- | --- |
+  | `claude-baseline` | `sha256:69076c7e6ef3b55358bbb298c3ab3e821f14f7ce165f7a1eed2e51a550f5ca21` (`proc-v20`) | `sha256:b61115d400ce9267e594df12aa530e5a53f6412fb350ec04fc5cc04dac832e78` (new) |
+  | `codex-baseline` | `sha256:56f5da33ed8eeda29c8094135a9141710b69c76fb939abe281da85d263d238a7` (`proc-v20`) | `sha256:a74ea5610425d331c2616ae8719866bf78f06ea6e1c6b111d66dfac31f2c8578` (new) |
+  | `gemini-baseline` | `sha256:154ba5e6732eb9627dfa988245cba7a2f5a5682fa4b9bf6ac5d0c7e6e4e984de` (`proc-v20`) | `sha256:ff9786ea91896f0f50f176c3b1de403074ccf54cbe49ba69d844d201c59d2069` (new) |
+  | `claude-judge` | `sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768` (`proc-v20`) | `sha256:c1b452dea2e2f9a5c263428a31ed4c11f562c6ca10765b1dcfe66ff54daa733d` (new) |
+  | `codex-judge` | `sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c` (`proc-v20`) | the same digest, carried forward (`proc-v20`, `proc-v21`) |
+  | `gemini-judge` | `sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5` (`proc-v20`) | `sha256:93dfd6b52d95a78cbc7ce722aa2230f0e8ce09716d6219c95036ca071419fee9` (new) |
+
+  **What was made under the retiring digests.** At `origin/main`
+  `1006d3caa` (`2026-11-11T21:35:25Z`), committed files under `data/cases`
+  naming each retiring digest: 51 for each of the three `proc-v20` predictor
+  digests, and 108 for each of the two retiring `proc-v20` evaluator digests
+  (108 as well for `codex-judge`'s, which does not retire).
+
+  **Step 0.** At the same commit, the count of committed files under
+  `data/cases` naming `sha256:<digest>` is **0** for each of the five newly
+  blessed digests, and **4044** files there carry a `process_version` stamp.
+
+  **Windows** (`COUNTING_WINDOWS`, once the carrying merge stamps them):
+
+  | Predictor | Label | Opens | Closes |
+  | --- | --- | --- | --- |
+  | `claude-baseline` (`69076c7e…`) | `proc-v20` | `2026-11-08T18:17:04Z` | this label's instant (was open) |
+  | `codex-baseline` (`56f5da33…`) | `proc-v20` | `2026-11-08T18:17:04Z` | this label's instant (was open) |
+  | `gemini-baseline` (`154ba5e6…`) | `proc-v20` | `2026-11-08T18:17:04Z` | this label's instant (was open) |
+  | `claude-baseline` (`b61115d4…`) | `proc-v21` | this label's instant | open (new) |
+  | `codex-baseline` (`a74ea561…`) | `proc-v21` | this label's instant | open (new) |
+  | `gemini-baseline` (`ff9786ea…`) | `proc-v21` | this label's instant | open (new) |
+
+  Earlier windows keep the closes earlier labels gave them.
+
+  **What the close owes, provisional.** Run with this commit's pending rows
+  stamped by hand at a provisional instant, `2026-11-12T00:00:00Z`, in a
+  scratch copy of the registry, over the ledger at `origin/main`
+  `1006d3caa`. `uv run fedcourts successor-disclosures --closed proc-v20
+  --successor proc-v21`:
+
+  ```
+  successor proc-v21 closes proc-v20 at 2026-11-12T00:00:00+00:00
+    closed proc-v20 gemini-baseline: 51 counted event(s) — 0 resolved, 51 pending at close
+    closed proc-v20 codex-baseline: 51 counted event(s) — 0 resolved, 51 pending at close
+    closed proc-v20 claude-baseline: 51 counted event(s) — 0 resolved, 51 pending at close
+    split events: 0 (0 resolved) — in no complete grid
+  ```
+
+  Cells keep landing until the instant, so the run is repeated once the
+  carrying merge has stamped the registry, and a dated follow-up entry quotes
+  it before any `proc-v20` window figure is quoted outside the committed
+  board.

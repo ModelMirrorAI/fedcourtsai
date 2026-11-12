@@ -356,8 +356,11 @@ before the first command rather than mid-task:
   not exist yet) may retrieve without restriction; a `replay` cell has the same
   tools but must not seek information about *its case* postdating the event
   date, and discloses any outcome-revealing material it surfaces in
-  `flags.json`. Never invent facts. The prompt template carries the full
-  contract; all tool calls are logged harness-side.
+  `flags.json`. In either mode a cell forecasts independently: it does not
+  seek or use anyone else's forecast of its case, this project's published
+  predictions included, and discloses one that surfaces. Never invent facts.
+  The prompt template carries the full contract; all tool calls are logged
+  harness-side.
 - **No secrets in code or data.** Never print or log API tokens; they arrive
   as environment variables. In the cell workflows no config file carries one
   either: the MCP client configs name only a localhost sidecar URL, and the
@@ -619,13 +622,13 @@ task-specific instructions: the prompt file named in your run
 | Which cases get predicted, and against which base rate? | `docs/salience.md` |
 | What do the petitions ask about, and how are QP texts labeled? (vocabulary, reference set, labeler, run mode, and the docket-pack cut all built; the labels artifact accrues batch by batch, ten batches have landed covering the scoped frame; the weekly metrics refresh regenerates `metrics/docket.md`, so its cut follows the labels `main` publishes) | `docs/qp-topic.md` |
 | What is pre-registered, and when does a digest move? | `docs/process-version.md` (the rules), `docs/freeze-record.md` (the dated record) |
-| How is a predicted outcome decomposed and scored? (mechanical cert, interim, and merits-judgment claims implemented; vote pre-registered; writing elicited as distribution claims on every moment (authorship scored on the merits moments, order writers collected); the semantic family an alpha declared, elicited, staged and graded on the merits moments, producing only the availability mask while opinion coverage is a rounding error; a grade of `predicted_reasoning.md` itself, `predicted_reasoning_quality`, registered and collected on every stage, published by no board yet) | `docs/outcome-decomposition.md` |
+| How is a predicted outcome decomposed and scored? (mechanical cert, interim, and merits-judgment claims implemented; vote pre-registered; writing elicited as distribution claims on every moment (authorship scored on the merits moments, order writers collected); the semantic family an alpha declared, elicited, staged and graded on the merits moments, producing only the availability mask while opinion coverage is a rounding error; a grade of `predicted_reasoning.md` itself, `predicted_reasoning_quality`, registered and collected on every stage, rolled up per judge on the `forecast-document-grades` board) | `docs/outcome-decomposition.md` |
 | How many votes decide this, and what can I ever observe? (merits scoring registered and wired; vote accuracy scored, merits-gated and completeness-gated, and recomputed over the whole bench for the leaderboard's `mean_vote_accuracy` — the orders vote source (cert and interim, banked unscored) is stamped on committed outcomes, while the opinions source (merits) is registered with a dispatch-only writer and not yet populated; margins pre-registered only) | `docs/decision-model.md` |
 | What must a merits vote forecast beat before its accuracy means anything? (majority alignment and unanimity built, with a read-only readout over the corpus's merits lineups; the side coder's prompt, extract, append-only codes artifact and run mode built, and the score baselines' read-only readout, with positions estimated from the lineups and a valence split, read over the first run's codes; the unanimity and majority-alignment floors on the leaderboard's merits blocks; the frozen per-Term fit file, its command and its writer built, and the coded baselines read from it on the leaderboard's merits blocks; the clean check owed) | `docs/merits-alignment-baseline.md` |
 | How does a development cycle run: sweep, rank, fan out, promote, close out? | `docs/work-cycle.md` |
 | Who can reach what, and why is a token scoped that way? | `SECURITY.md` (invariants), `docs/security.md` (setup) |
-| What is a district-court forecast, and how does it resolve? (the court-agnostic trial stage designed, not registered; its resolver built as library code and wired into nothing) | `docs/trial-stage.md` |
-| How is a watchlist case's appeal forecast, and what happens when it reaches the Supreme Court? (the court-agnostic appeal stage and the linked-petition rule designed, not registered; no resolver built) | `docs/appeal-stage.md` |
+| What is a district-court forecast, and how does it resolve? (the court-agnostic trial stage designed, not registered; its opener and resolver built as library code, read by a dry-run command and wired into nothing else) | `docs/trial-stage.md` |
+| How is a watchlist case's appeal forecast, and what happens when it reaches the Supreme Court? (the court-agnostic appeal stage and the linked-petition rule designed, not registered; the disposition reader built as library code, read by a dry-run command and wired into nothing else) | `docs/appeal-stage.md` |
 | What does one prediction actually consist of, file by file? | `docs/predicted-artifacts.md` |
 | What does a cell agent have to produce? | `.github/prompts/` |
 | What are the plain-language case summaries, which cases get one, and who writes them? | `docs/case-summaries.md` |

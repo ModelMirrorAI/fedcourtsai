@@ -1,8 +1,9 @@
 """Deterministic resolution of the trial stage's events from a district docket.
 
-The trial stage (``docs/trial-stage.md``) defines four moments a district case
+The trial stage (``docs/trial-stage.md``) defines five moments a district case
 passes: a ruling on a motion to dismiss, on class certification, on a motion
-for summary judgment, and the case's final disposition. This module reads how
+for summary judgment and on a motion for a preliminary injunction, and the
+case's final disposition. This module reads how
 each resolved from the court's own record, with no agent.
 
 The rule is built to miss rather than misread. It reads only the forms courts
@@ -23,6 +24,15 @@ maintainer's triage:
   Where the order's text is given, its decretal language must not disagree;
   it never resolves an event on its own, and an opinion whose docket text
   states no ruling is triage. Leave is read from the docket text only.
+- **A ruling that cites the motion after its title** is read in three plain
+  forms, in the capitals the court wrote: ``I GRANT … Motion … (D.I. 672).``,
+  ``… Motion to Dismiss (Doc. No. 54) is GRANTED.`` and ``ORDER GRANTING
+  MOTION FOR PRELIMINARY INJUNCTION 6 .``. The title must be the movant and
+  one of the stage's motions; a ruling on the cited motion in any other
+  shape, or beside a limit or a second ruling, is triage.
+- **A restraining order is not the injunction.** A motion that asks for both
+  is an injunction event. A ruling whose text names a restraining order is
+  passed over, and one on such a motion that names neither half is triage.
 - **A closure is read from its own leading noun and must name nothing it is
   limited to**: a stipulation or notice of dismissal, an order granting one, a
   final approval of a settlement, or a consent judgment, followed by nothing
@@ -50,7 +60,7 @@ from enum import StrEnum
 from typing import Any, Final
 
 #: The label of the reading rule below. A changed rule is a new label.
-RESOLVER_RULE: Final = "trial-resolver-v1"
+RESOLVER_RULE: Final = "trial-resolver-v3"
 
 
 class TrialMoment(StrEnum):
@@ -59,12 +69,18 @@ class TrialMoment(StrEnum):
     dismissal = "trial-dismissal"
     class_certification = "trial-class"
     summary_judgment = "trial-summary-judgment"
+    preliminary_injunction = "trial-preliminary-injunction"
     judgment = "trial-judgment"
 
 
 #: The moments that forecast a ruling on one motion.
 MOTION_MOMENTS: Final = frozenset(
-    {TrialMoment.dismissal, TrialMoment.class_certification, TrialMoment.summary_judgment}
+    {
+        TrialMoment.dismissal,
+        TrialMoment.class_certification,
+        TrialMoment.summary_judgment,
+        TrialMoment.preliminary_injunction,
+    }
 )
 
 
@@ -192,19 +208,41 @@ def _clean(text: str) -> str:
 # Summary Judgment". Only the kind the motion word governs counts, so a motion
 # for an extension of time about a motion to dismiss is not one.
 _MOTION_LEAD = (
-    r"^\s*(?:(?:joint|renewed|amended|corrected|cross|consolidated|second|"
-    r"supplemental|partial)[-\s]+)*motions?\s+"
+    r"^\s*(?:(?:joint|renewed|amended|corrected|cross|consolidated|first|second|third|"
+    r"supplemental|partial|emergency|expedited)[-\s]+)*motions?\s+"
 )
+# A temporary restraining order, by name or by its usual abbreviation. A motion
+# for one alone is no event; one that also asks for a preliminary injunction is
+# an injunction event.
+_TRO = r"(?:temporary\s+restraining\s+order|t\.?r\.?o\.?)"
+_NAMES_TRO = re.compile(r"\b" + _TRO + r"(?!\w)|\brestrain\w*", re.I)
+_NAMES_INJUNCTION = re.compile(r"\bpreliminary\s+injunction\b", re.I)
+# What makes a motion one about the covered motion rather than the motion
+# itself ("for Summary Judgment Briefing Schedule", "for Preliminary
+# Injunction Pending Appeal").
+_ABOUT = r"(?!\s+(?:pending\s+appeal|hearing|briefing|schedul\w*|deadline\w*|page\w*|bond)\b)"
 _MOTION_KIND: Final[tuple[tuple[TrialMoment, re.Pattern[str]], ...]] = (
     (
         TrialMoment.summary_judgment,
-        re.compile(_MOTION_LEAD + r"for\s+(?:partial\s+)?summary\s+judgment\b", re.I),
+        re.compile(_MOTION_LEAD + r"for\s+(?:partial\s+)?summary\s+judgment\b" + _ABOUT, re.I),
     ),
     (
         TrialMoment.class_certification,
         re.compile(
             _MOTION_LEAD + r"(?:to\s+certify\s+(?:a\s+|the\s+)?class\b|"
-            r"for\s+class\s+certification\b|for\s+certification\s+of\s+(?:a\s+|the\s+)?class\b)",
+            r"for\s+class\s+certification\b|for\s+certification\s+of\s+(?:a\s+|the\s+)?class\b)"
+            + _ABOUT,
+            re.I,
+        ),
+    ),
+    (
+        TrialMoment.preliminary_injunction,
+        re.compile(
+            _MOTION_LEAD + r"for\s+(?:an?\s+)?"
+            r"(?:"
+            + _TRO
+            + r"(?:\s+and\s+|\s*,\s*(?:and\s+)?)(?:motions?\s+)?(?:for\s+)?(?:an?\s+)?)?"
+            r"preliminary\s+injunction\b" + _ABOUT,
             re.I,
         ),
     ),
@@ -212,7 +250,9 @@ _MOTION_KIND: Final[tuple[tuple[TrialMoment, re.Pattern[str]], ...]] = (
         TrialMoment.dismissal,
         re.compile(
             _MOTION_LEAD + r"to\s+dismiss\b"
-            r"(?![^.;]{0,60}\b(?:counterclaim|or|alternative\w*|transfer|stay|compel|arbitrat))",
+            r"(?!\s+(?:part(?:y|ies)|appeal|voluntar\w*)\b)"
+            r"(?![^.;]{0,60}\b(?:counterclaim|or|alternative\w*|transfer|stay|compel|arbitrat|"
+            r"settle\w*|stipulat\w*))",
             re.I,
         ),
     ),
@@ -291,10 +331,25 @@ _DOCKET_VERB = re.compile(
 # ADOPTING 58 REPORT AND RECOMMENDATIONS and granting". A verb anywhere else
 # ("ORDER granting 70 Motion for Reconsideration of Order granting 45", "The
 # Court is inclined toward granting 45") is a reference, not a ruling.
+# A judge's name as a clerk writes it before a ruling: up to four capitalised
+# words or initials, read in the case written. A word that could be anything
+# else ("tentatively", "vacating", "Order", "not", "re") is not part of a
+# name, so "ORDER by Judge Lin vacating order granting 45" rules on nothing.
+_NAME_WORD = (
+    r"(?-i:(?![A-Za-z'\u2019.-]*(?:ing|ING|ly|LY)\b)"
+    r"(?!(?i:re|on|of|not|order|orders|before|after|to|the|in|and|as|for|upon|motion)\b)"
+    r"[A-Z][\w'\u2019-]*\.?,?)"
+)
+_JUDGE_NAME = _NAME_WORD + r"(?:\s+" + _NAME_WORD + r"){0,3}"
 _DOCKET_HEAD = re.compile(
     r"\s*(?:(?:amended|corrected|redacted|sealed|electronic|text|minute|paperless|endorsed)\s+)*"
     r"(?:(?:memorandum\s+)?(?:opinion\s+)?and\s+)?(?:memorandum\s+)?(?:order|opinion|ruling|decision)\b"
-    r"(?:\s*[:.,-])?\s*(?:adopting\s+[^;]{0,160}?\s+and\s+)?",
+    r"(?:\s*[:.,-])?\s*"
+    # The judge who signed it, where the clerk names one before the ruling
+    # ("ORDER by Judge Rita F. Lin granting 17 Motion to Dismiss").
+    r"(?:(?:signed\s+)?by\s+(?:(?:chief|senior|district|magistrate|u\.?s\.?|united\s+states|"
+    r"hon\.?|honorable)\s+)*judge\s+" + _JUDGE_NAME + r"\s+(?=" + _DOCKET_VERB.pattern + r"))?"
+    r"(?:adopting\s+[^;]{0,160}?\s+and\s+)?",
     re.I,
 )
 # Further rulings in the same text follow a semicolon, a comma or "and".
@@ -408,9 +463,167 @@ def read_docket_ruling(text: str, number: int) -> Reading:
         found.add(ruling)
         leave = read_leave(cleaned[verb.start() : end + len(run)])
     if not found:
-        return Reading(None, leave)
+        return _read_cited_ruling(cleaned, number)
     if len(found) > 1:
         return Reading(None, leave, "the docket text rules on the motion in more than one way")
+    (ruling,) = found
+    return Reading(ruling, leave)
+
+
+# --- rulings that cite the motion after naming it ------------------------------
+
+# Three further forms put the motion's number after its title, so the ruling
+# verb's object is the title and not the number. Each is read in the case the
+# court wrote it, because the ruling words are its capitals, and each reads
+# only its plain shape: a sentence that stands where a sentence starts, whose
+# title is one of the stage's motions and nothing else. A text that rules on
+# the cited number in any other shape is triage.
+#
+# These patterns run on text `_clean` has collapsed to single spaces.
+_CITE = r"\((?:D\.I\.|Doc\.|Dkt\.|ECF) ?(?:Nos?\.)? ?\[? ?(?P<cited>\d+) ?\]? ?\)"
+_VERB_1P = (
+    r"(?P<verb>GRANT IN PART AND DENY IN PART|DENY IN PART AND GRANT IN PART|GRANT IN PART|"
+    r"DENY IN PART|(?:DENY|DISMISS) AS MOOT|GRANT|DENY)"
+)
+# Where a sentence starts: the body's first word, or after a full stop that
+# closes a lower-case word or a citation (so not after "Inc." or "P.").
+_SENTENCE = r"(?:^|(?<=[a-z)]\. ))"
+# "I GRANT Plaintiffs' Motion for Summary Judgment on Fair Use (D.I. 672)."
+_FIRST_PERSON = re.compile(
+    _SENTENCE + r"(?:Because [^.;()]{0,160}, )?I " + _VERB_1P + r" "
+    r"(?P<title>[^()]{1,240}?(?:\(No\. ?\d+\)[^()]{0,80}?)?) ?" + _CITE + r" ?(?P<end>[.;]|$)"
+)
+_FIRST_PERSON_LOOSE = re.compile(r"\bI (?:GRANT|DENY|DISMISS)\b[^.;]{0,300}?" + _CITE)
+# "Defendant's Motion to Dismiss (Doc. No. 54) is GRANTED."
+_PASSIVE_CITED = re.compile(
+    _SENTENCE + r"(?P<title>[^()]{1,200}?) ?" + _CITE + r" (?:is|are) (?:hereby )?"
+    r"(?P<verb>GRANTED IN PART AND DENIED IN PART|DENIED IN PART AND GRANTED IN PART|"
+    r"GRANTED|DENIED)(?P<end> ?\.|$)"
+)
+_PASSIVE_LOOSE = re.compile(_CITE + r" (?:is|are) (?:hereby )?(?:not )?(?i:granted|denied)\b")
+# "ORDER GRANTING MOTION FOR PRELIMINARY INJUNCTION 6 ."
+_VERB_CAPS = (
+    r"(?P<verb>GRANTING IN PART AND DENYING IN PART|DENYING IN PART AND GRANTING IN PART|"
+    r"GRANTING IN PART|DENYING IN PART|DENYING AS MOOT|GRANTING|DENYING)"
+)
+_CAPS_TITLE = re.compile(
+    _VERB_CAPS + r" (?:(?:[A-Z.&]+ ){0,3}[A-Z.&]+['\u2019]S? )?MOTION (?:FOR|TO) "
+    r"(?:(?:PARTIAL )?SUMMARY JUDGMENT|DISMISS|CLASS CERTIFICATION|(?:A )?PRELIMINARY INJUNCTION)"
+    r" (?P<cited>\d+) ?(?P<end>[.;]|$)"
+)
+_CAPS_LOOSE = re.compile(
+    r"(?:GRANTING|DENYING)\b[A-Z'\u2019 ,.&-]{0,200}?\bMOTIONS?\b[A-Z'\u2019 ,.&-]{0,200}? "
+    r"(?P<numbers>\d+(?: \d+)*) ?(?:[.;]|$)"
+)
+# "ORDER ON 166 215 CROSS MOTIONS FOR SUMMARY JUDGMENT": the ruling is in the order.
+_ORDER_ON = re.compile(r"ON (?P<numbers>\d+(?: \d+)*) [A-Z'\u2019 -]{0,40}?MOTIONS?\b")
+# The title of one of the stage's motions and nothing else: the movant, the
+# motion, and at most what it is "on".
+_CITED_TITLE = re.compile(
+    r"(?:the )?(?:(?:[A-Z][\w.,&-]* ){0,4}[A-Z][\w.,&-]*(?:'s?|\u2019s?) )?"
+    r"(?i:(?:(?:renewed|partial|cross|joint|amended)[ -])*motion (?:for|to) "
+    r"(?:(?:partial )?summary judgment|dismiss|class certification|"
+    r"certify (?:a |the )?class|(?:a )?preliminary injunction))"
+    r"(?P<tail>(?: on [^()]{1,120}?(?: ?\(No\. ?\d+\)[^()]{0,80}?)?)?)"
+)
+_NAMES_MOTION = re.compile(r"\bmotions?\b", re.I)
+# A first-person ruling on a motion that is none of the stage's (to preclude,
+# to exclude, to seal): its ruling words are not about the cited motion.
+_OTHER_MOTION = re.compile(
+    _SENTENCE + r"(?:Because [^.;()]{0,160}, ?)?I " + _VERB_1P + r" "
+    r"(?:[A-Z][\w.&-]*['\u2019]?s?['\u2019]? ){0,4}Motions? (?:to|for|in) "
+    r"(?!(?i:(?:partial )?summary judgment|dismiss|class certification|certify|"
+    r"(?:a )?preliminary injunction)\b)"
+)
+# A ruling word in the court's capitals, or a word that limits a ruling, left
+# in the text once its plain rulings are taken out.
+_LEFT_OVER = re.compile(
+    r"\b(?:GRANT|DEN[YI])\w*|(?i:\bhowever\b|\botherwise\b|\bother respects\b|\bsurviv\w*|"
+    r"\bproceed\w*|\bexcept\b|\bas to\b|\breserv\w*|\bcounts? [IVX\d]+\b|\bin part\b)"
+)
+# A text that states a ruling it does not make.
+_NOT_A_RULING = re.compile(
+    r"\btentative\w*|\binclined\b|\brecommend\w*|\bshow cause\b|\bunless\b|\bif\b|"
+    r"\bpreviously\b|\breconsider\w*|\bvacat\w*",
+    re.I,
+)
+_PLAIN_RULING: Final[dict[str, MotionRuling]] = {
+    "GRANT": MotionRuling.granted,
+    "GRANTED": MotionRuling.granted,
+    "GRANTING": MotionRuling.granted,
+    "DENY": MotionRuling.denied,
+    "DENIED": MotionRuling.denied,
+    "DENYING": MotionRuling.denied,
+    "GRANT IN PART": MotionRuling.granted_in_part,
+    "GRANTING IN PART": MotionRuling.granted_in_part,
+    "DENY IN PART": MotionRuling.granted_in_part,
+    "DENYING IN PART": MotionRuling.granted_in_part,
+    "GRANT IN PART AND DENY IN PART": MotionRuling.granted_in_part,
+    "GRANTED IN PART AND DENIED IN PART": MotionRuling.granted_in_part,
+    "GRANTING IN PART AND DENYING IN PART": MotionRuling.granted_in_part,
+    "DENY IN PART AND GRANT IN PART": MotionRuling.granted_in_part,
+    "DENIED IN PART AND GRANTED IN PART": MotionRuling.granted_in_part,
+    "DENYING IN PART AND GRANTING IN PART": MotionRuling.granted_in_part,
+    "DENY AS MOOT": MotionRuling.mooted,
+    "DISMISS AS MOOT": MotionRuling.mooted,
+    "DENYING AS MOOT": MotionRuling.mooted,
+}
+_UNSETTLED = "the docket text names the motion in a ruling the rule will not settle"
+
+
+def _is_cited_title(title: str) -> bool:
+    """Whether ``title`` is one of the stage's motions and nothing else."""
+    match = _CITED_TITLE.fullmatch(title.strip())
+    if match is None:
+        return False
+    tail = match.group("tail")
+    return not (_QUALIFIER.search(tail) or _NAMES_MOTION.search(tail))
+
+
+def _read_cited_ruling(  # noqa: PLR0912 - one branch per form and per refusal
+    cleaned: str, number: int
+) -> Reading:
+    """Read the forms that cite motion ``number`` after its title."""
+    head = _DOCKET_HEAD.match(cleaned)
+    trailer = _TRAILER.search(cleaned)
+    body = cleaned[head.end() if head is not None else 0 : trailer.start() if trailer else None]
+    found: set[MotionRuling] = set()
+    unsettled = False
+    spans: list[tuple[int, int]] = []
+    for match in (*_FIRST_PERSON.finditer(body), *_PASSIVE_CITED.finditer(body)):
+        spans.append(match.span())
+        if int(match.group("cited")) != number:
+            continue
+        if _is_cited_title(match.group("title")):
+            found.add(_PLAIN_RULING[match.group("verb")])
+        else:
+            unsettled = True
+    if head is not None:
+        caps = _CAPS_TITLE.match(body)
+        if caps is not None:
+            spans.append(caps.span())
+            if int(caps.group("cited")) == number:
+                found.add(_PLAIN_RULING[caps.group("verb")])
+        else:
+            loose = _CAPS_LOOSE.match(body) or _ORDER_ON.match(body)
+            if loose is not None and number in {int(n) for n in loose.group("numbers").split()}:
+                unsettled = True
+    if not found:
+        # A ruling on the cited number in any other shape.
+        unsettled = unsettled or any(
+            int(match.group("cited")) == number
+            for match in (*_FIRST_PERSON_LOOSE.finditer(body), *_PASSIVE_LOOSE.finditer(body))
+        )
+        return Reading(None, Leave.unstated, _UNSETTLED if unsettled else None)
+    rest = body
+    spans.extend(match.span() for match in _OTHER_MOTION.finditer(body))
+    for start, end in spans:
+        rest = rest[:start] + " " * (end - start) + rest[end:]
+    if unsettled or len(found) > 1 or _LEFT_OVER.search(rest) or _NOT_A_RULING.search(body):
+        return Reading(None, Leave.unstated, _UNSETTLED)
+    leave = read_leave(body)
+    if len(spans) > 1 and leave is not Leave.unstated:
+        return Reading(None, leave, "the docket text grants or denies leave among several rulings")
     (ruling,) = found
     return Reading(ruling, leave)
 
@@ -809,6 +1022,7 @@ def resolve_motion(  # noqa: PLR0911 - each return is one way a motion resolves
     listed = list(entries)
     own = next((e for e in listed if _number(e) == event.entry_number), None)
     joint = own is not None and bool(_JOINT.search(_entry_text(own)))
+    combined = own is not None and bool(_NAMES_TRO.search(_entry_text(own)))
     for entry in _after(listed, event.entry_number):
         docket_text = _entry_text(entry)
         cited = cite(entry)
@@ -827,6 +1041,18 @@ def resolve_motion(  # noqa: PLR0911 - each return is one way a motion resolves
         if not _is_court_entry(docket_text):
             continue
         from_docket = read_docket_ruling(docket_text, event.entry_number)
+        if event.moment is TrialMoment.preliminary_injunction and (
+            from_docket.ruling is not None or from_docket.conflict is not None
+        ):
+            if _NAMES_TRO.search(docket_text):
+                # A ruling on the restraining order is not the injunction's.
+                continue
+            if combined and not _NAMES_INJUNCTION.search(docket_text):
+                return Unresolved(
+                    event.moment,
+                    "a ruling on a restraining-order-and-injunction motion names neither half",
+                    (cited,),
+                )
         if from_docket.conflict is not None:
             return Unresolved(event.moment, from_docket.conflict, (cited,))
         if from_docket.ruling is None:
