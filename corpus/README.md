@@ -100,7 +100,7 @@ source.
 | `predict_eligible`    | integer (0/1)   | derived mirror of the prediction scope (`court == scotus`); see below |
 | `predict_excluded`    | integer (0/1)   | out-of-scope latch, owned by the scope reconcile |
 | `originating_court`        | text       | lower court this docket came from (`appeal_from`) |
-| `originating_docket_number`| text       | docket number in the originating court (REST-only) |
+| `originating_docket_number`| text       | docket number in the originating court (REST and live channel; not in bulk) |
 | `date_cert_granted`   | date            | petition-stage cert grant date (SCOTUS)       |
 | `date_cert_denied`    | date            | petition-stage cert denial date (SCOTUS)      |
 | `last_live_polled`    | date            | tracking state: when the live channel last polled it |
