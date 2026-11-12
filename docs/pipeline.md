@@ -3801,6 +3801,13 @@ reordering: every misplaced directory under the same one of those two shapes,
 each holding an `evaluation.json`, none also present at the contract path, no
 link on the way, and nothing that would be left behind. Anything short of that
 is left exactly as written and the cell fails or lands nothing as it would have.
+A third shape is flat: one `evaluations/<evaluator>/<run_id>/<alias>.json` per
+candidate and a single `evaluation.md` for all of them beside those files. The
+step renames each file to that candidate's `evaluation.json` at the contract
+path and copies the shared write-up beside each one, on the same terms: no
+candidate written as a directory anywhere, the shared `evaluation.md` present,
+and no other alias-named entry in the cell's directory. Moving a file does not
+make it valid, so a grade that does not fit the schema still fails `validate`.
 When the step un-aliases nothing, or fails, it prints the untracked files under
 the event directory (paths only), so the log says where a cell that landed
 nothing put its output.

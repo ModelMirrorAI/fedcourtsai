@@ -24294,7 +24294,9 @@ def unblind_evaluations_cmd(
     (``<evaluator>/<run>/<alias>/`` or ``<alias>/<evaluator>/<run>/``) has them
     moved onto the contract path first
     (:func:`fedcourtsai.blinding.settle_candidate_layout`), with a harness note
-    in the cell's ``flags.json``. When nothing is un-aliased, or the step fails,
+    in the cell's ``flags.json``; so has one that wrote each grade as a flat
+    ``<evaluator>/<run>/<alias>.json`` beside one shared ``evaluation.md``.
+    When nothing is un-aliased, or the step fails,
     the untracked files under the event directory are printed, paths only, so
     the log says where the cell's output went.
 
@@ -24318,8 +24320,8 @@ def unblind_evaluations_cmd(
         )
         if settled.moved:
             typer.echo(
-                f"::warning::un-alias: {evaluator} wrote {len(settled.aliases)} candidate "
-                + f"director(ies) as {settled.layout}; moved to the contract path",
+                f"::warning::un-alias: {evaluator} wrote {len(settled.aliases)} candidate(s) "
+                + f"as {settled.layout}; moved to the contract path",
                 err=True,
             )
         elif settled.declined:
@@ -24375,10 +24377,16 @@ def _candidate_layout_note(settled: blinding.CandidateLayoutSettlement, event_id
         if settled.judge_files
         else ""
     )
+    did = (
+        f"renamed {len(settled.aliases)} file(s) to evaluation.json under the contract path "
+        + "and copied the one shared evaluation.md beside each before un-aliasing"
+        if settled.shared_notes
+        else f"renamed {len(settled.aliases)} director(ies) onto the contract path "
+        + "before un-aliasing"
+    )
     message = (
         f"{_CANDIDATE_LAYOUT_PREFIX} `{settled.layout}` rather than "
-        + "`evaluations/<evaluator>/<alias>/<run_id>/`. The harness renamed "
-        + f"{len(settled.aliases)} director(ies) onto the contract path before un-aliasing, "
+        + f"`evaluations/<evaluator>/<alias>/<run_id>/`. The harness {did}, "
         + f"with every file's contents as the judge wrote them.{files}"
     )
     return AgentFlag(
