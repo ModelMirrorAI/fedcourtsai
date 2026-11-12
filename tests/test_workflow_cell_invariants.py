@@ -3933,6 +3933,11 @@ def test_the_action_path_smoke_invokes_each_engine_the_way_the_cells_do() -> Non
         "the gemini settings literal drifted between the cell step and the "
         "integration workflow's — that file is part of the invocation surface"
     )
+    assert settings == _gemini_settings_literal("run-evaluate.yml"), (
+        "the evaluate cell's gemini settings literal differs from the predict "
+        "cell's — a judge refused the record files a predictor may read falls "
+        "back to shell reads its retrieval log does not show as file reads"
+    )
     assert (
         gemini["env"]["GEMINI_CLI_TRUST_WORKSPACE"]
         == (cell_gemini["env"]["GEMINI_CLI_TRUST_WORKSPACE"])

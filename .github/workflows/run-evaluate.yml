@@ -872,7 +872,14 @@ jobs:
               # tools.truncateToolOutputThreshold keeps a prompt template read whole
               # whole in context: the CLI default (40,000 characters) cuts older tool
               # results and drops the middle of the template (docs/pipeline.md).
-              printf '%s\n' '{"tools":{"truncateToolOutputThreshold":250000},"telemetry":{"enabled":true,"target":"local","outfile":".gemini/telemetry.log","logPrompts":true},"security":{"environmentVariableRedaction":{"allowed":["COURT_ID","DOCKET_ID","EVENT_ID","PREDICTOR_ID","EVALUATOR_ID","RUN_ID","MODEL_ID","DECIDED_BEFORE","FEDCOURTS_CORPUS_BACKEND","FEDCOURTS_CORPUS_SERVICE_URL"]}}}' > .gemini/settings.json
+              # context.fileFiltering.respectGitIgnore=false: the record and the
+              # blinded candidates are provisioned under the gitignored record/
+              # path, and read_file honours .gitignore by default, so without it
+              # the judge is refused the files the prompt names and falls back to
+              # shell reads. Same literal as run-predict.yml, which carries the
+              # fuller rationale; it widens nothing, since the shell and the
+              # tool's own per-call override already read those paths.
+              printf '%s\n' '{"tools":{"truncateToolOutputThreshold":250000},"context":{"fileFiltering":{"respectGitIgnore":false}},"telemetry":{"enabled":true,"target":"local","outfile":".gemini/telemetry.log","logPrompts":true},"security":{"environmentVariableRedaction":{"allowed":["COURT_ID","DOCKET_ID","EVENT_ID","PREDICTOR_ID","EVALUATOR_ID","RUN_ID","MODEL_ID","DECIDED_BEFORE","FEDCOURTS_CORPUS_BACKEND","FEDCOURTS_CORPUS_SERVICE_URL"]}}}' > .gemini/settings.json
               uv run fedcourts mcp-config --engine gemini \
                 --role evaluator --actor "$EVALUATOR_ID" \
                 --base-settings .gemini/settings.json \

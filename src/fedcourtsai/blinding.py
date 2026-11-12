@@ -1048,10 +1048,13 @@ class CandidateLayoutSettlement:
     #: The shape the judge wrote its candidate directories in, when it moved
     #: them; ``None`` when nothing moved.
     layout: str | None = None
-    #: The aliases whose directories moved to the contract path, in alias order.
+    #: The aliases whose output moved to the contract path, in alias order.
     aliases: tuple[str, ...] = ()
     #: The judge-level files moved up from the top of ``evaluations/``.
     judge_files: tuple[str, ...] = ()
+    #: Whether the judge's one shared ``evaluation.md`` was copied beside each
+    #: candidate's ``evaluation.json`` (the flat shape only).
+    shared_notes: bool = False
     #: Why a misplaced directory was left exactly as written, or ``""``.
     declined: str = ""
 
@@ -1064,6 +1067,10 @@ class CandidateLayoutSettlement:
 #: is known to write in place of ``<evaluator>/<alias>/<run_id>/``.
 _LAYOUT_UNDER_RUN: Final = "evaluations/<evaluator>/<run_id>/<alias>/"
 _LAYOUT_OVER_EVALUATOR: Final = "evaluations/<alias>/<evaluator>/<run_id>/"
+#: The flat shape: one ``<alias>.json`` per candidate in the cell's own
+#: directory, beside a single ``evaluation.md`` covering all of them.
+_LAYOUT_FLAT: Final = "evaluations/<evaluator>/<run_id>/<alias>.json"
+_NOTES_NAME: Final = "evaluation.md"
 
 
 def _plain_dir(path: Path, base: Path) -> bool:
@@ -1096,8 +1103,18 @@ def settle_candidate_layout(
     other cell. A judge-level file left at the top of ``evaluations/``
     (:data:`JUDGE_LEVEL_FILES`) moves to the cell's own directory with them.
 
+    A third shape is flat: the judge wrote each grade as
+    ``evaluations/<evaluator>/<run_id>/<alias>.json`` and one ``evaluation.md``
+    for all of them beside those files. Each file still names its candidate,
+    judge and run, so it is renamed to that candidate's ``evaluation.json`` at
+    the contract path, and the shared write-up, which is every candidate's, is
+    copied beside each one and then removed from the cell's directory. It is
+    settled only when no candidate is written as a directory anywhere, the
+    shared ``evaluation.md`` is there, and the cell's directory holds no other
+    alias-named entry.
+
     **All or nothing, and only a whole reordering.** Nothing moves unless every
-    directory found is one of the two shapes above, all of them the same one,
+    directory found is one of the two orderings, all of them the same one,
     each a real directory holding a regular ``evaluation.json``, and the move
     would leave no alias-shaped tree or loose file behind at the top of
     ``evaluations/``. So it declines, and says why, when any
@@ -1105,6 +1122,7 @@ def settle_candidate_layout(
     reordering, and choosing between its copies would speak for it), when an
     alias appears under both shapes, when a link stands anywhere on the way,
     when the misplaced tree holds anything besides the run's own directories,
+    when the cell's directory also holds an alias-named flat file,
     or when a judge-level file would land on one already written. Declining
     changes nothing: the cell reaches the un-aliasing exactly as the judge left
     it, which fails or lands nothing as before.
@@ -1125,6 +1143,10 @@ def settle_candidate_layout(
     cell_dir = event_paths.evaluation_cell_dir(evaluator_id, run_id)
     try:
         layout, found = _misplaced_candidates(event_paths, sorted(aliases), evaluator_id, run_id)
+        if found:
+            _require_no_flat_files(cell_dir)
+        else:
+            layout, found = _flat_candidates(event_paths, sorted(aliases), evaluator_id, run_id)
         if not found:
             return CandidateLayoutSettlement()
         emptied = set(found) if layout == _LAYOUT_OVER_EVALUATOR else set()
@@ -1136,11 +1158,18 @@ def settle_candidate_layout(
     try:
         for alias, path in found.items():
             dest = event_paths.evaluation_dir(evaluator_id, alias, run_id)
+            if layout == _LAYOUT_FLAT:
+                dest.mkdir(parents=True)
+                shutil.copyfile(cell_dir / _NOTES_NAME, dest / _NOTES_NAME)
+                path.rename(dest / "evaluation.json")
+                continue
             dest.parent.mkdir(parents=True, exist_ok=True)
             path.rename(dest)
             if layout == _LAYOUT_OVER_EVALUATOR:
                 path.parent.rmdir()
                 path.parent.parent.rmdir()
+        if layout == _LAYOUT_FLAT:
+            (cell_dir / _NOTES_NAME).unlink()
         for name in judge_files:
             cell_dir.mkdir(parents=True, exist_ok=True)
             (evaluations / name).rename(cell_dir / name)
@@ -1148,9 +1177,12 @@ def settle_candidate_layout(
         # Every precondition was checked above, so this is the filesystem
         # itself; the cell fails here rather than reaching a second pass that
         # would read a half-moved tree as the judge's own.
-        raise BlindingError(f"could not move a reordered candidate directory: {exc}") from exc
+        raise BlindingError(f"could not move a misplaced candidate: {exc}") from exc
     return CandidateLayoutSettlement(
-        layout=layout, aliases=tuple(found), judge_files=tuple(judge_files)
+        layout=layout,
+        aliases=tuple(found),
+        judge_files=tuple(judge_files),
+        shared_notes=layout == _LAYOUT_FLAT,
     )
 
 
@@ -1197,6 +1229,62 @@ def _misplaced_candidates(
     for alias, path in placed.items():
         _require_whole_directory(event_paths, alias, path, layout, evaluator_id, run_id)
     return layout, placed
+
+
+def _require_no_flat_files(cell_dir: Path) -> None:
+    """Raise :class:`_LayoutDeclined` where a reordered cell also holds an alias-named file.
+
+    A judge that wrote some candidates as directories and others as flat files
+    is not plainly either shape, and moving the directories would land part of
+    the cell with the rest left behind under an alias.
+    """
+    if not cell_dir.is_dir():
+        return
+    for child in sorted(cell_dir.iterdir()):
+        if child.name.lower().startswith(ALIAS_PREFIX) and (
+            child.is_symlink() or not child.is_dir()
+        ):
+            raise _LayoutDeclined(f"the cell's directory also holds a flat file, {child.name!r}")
+
+
+def _flat_candidates(
+    event_paths: EventPaths, aliases: Sequence[str], evaluator_id: str, run_id: str
+) -> tuple[str, dict[str, Path]]:
+    """Each alias's ``<alias>.json`` in the cell's own directory, when that is the whole cell.
+
+    Called only when no alias is written as a directory at either reordering.
+    Returns an empty mapping when the cell's directory holds no such file, and
+    raises :class:`_LayoutDeclined` when it holds some but the cell is not
+    plainly the flat shape and nothing else.
+    """
+    cell_dir = event_paths.evaluation_cell_dir(evaluator_id, run_id)
+    found = {
+        alias: cell_dir / f"{alias}.json"
+        for alias in aliases
+        if os.path.lexists(cell_dir / f"{alias}.json")
+    }
+    if not found:
+        return "", {}
+    if any(
+        os.path.lexists(event_paths.evaluation_dir(evaluator_id, alias, run_id))
+        for alias in aliases
+    ):
+        raise _LayoutDeclined("some candidates are at the contract path and some are flat files")
+    if not _plain_dir(cell_dir, event_paths.base):
+        raise _LayoutDeclined(f"{cell_dir.relative_to(event_paths.base)} is not a plain directory")
+    for alias, path in found.items():
+        if path.is_symlink() or not path.is_file():
+            raise _LayoutDeclined(f"{alias}.json is not a regular file")
+    notes = cell_dir / _NOTES_NAME
+    if notes.is_symlink() or not notes.is_file():
+        raise _LayoutDeclined(f"the flat files have no shared {_NOTES_NAME} beside them")
+    moving = {path.name for path in found.values()}
+    for child in sorted(cell_dir.iterdir()):
+        # Anything else named for an alias (a grade for one the map does not
+        # hold, a per-candidate write-up) would stay behind under that name.
+        if child.name.lower().startswith(ALIAS_PREFIX) and child.name not in moving:
+            raise _LayoutDeclined(f"the cell's directory also holds {child.name!r}")
+    return _LAYOUT_FLAT, found
 
 
 def _require_whole_directory(

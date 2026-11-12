@@ -1147,6 +1147,240 @@ def test_an_alias_tree_holding_another_run_is_not_emptied(ledger: Path) -> None:
     assert "more than this run's directory" in settled.declined
 
 
+def _flatten(data_root: Path, result: blinding.BlindingResult) -> None:
+    """Rewrite the fixture output as one ``<alias>.json`` each and one shared write-up."""
+    event_paths = CasePaths(data_root, COURT, DOCKET).event(EVENT)
+    cell_dir = event_paths.evaluation_cell_dir(EVALUATOR, EVALUATE_RUN)
+    for candidate in result.candidates:
+        source = event_paths.evaluation_dir(EVALUATOR, candidate.alias, EVALUATE_RUN)
+        (source / "evaluation.json").rename(cell_dir / f"{candidate.alias}.json")
+        (source / "evaluation.md").unlink()
+        source.rmdir()
+        source.parent.rmdir()
+    aliases = ", ".join(c.alias for c in result.candidates)
+    write_text(cell_dir / "evaluation.md", f"{aliases} were each sound on the base rate.\n")
+
+
+def test_flat_candidate_files_are_moved_to_the_contract_path(ledger: Path) -> None:
+    """One ``<alias>.json`` each and a shared write-up land as a pair per candidate."""
+    result = _blind(ledger)
+    _seed_evaluations(ledger, result)
+    event_paths = CasePaths(ledger, COURT, DOCKET).event(EVENT)
+    written = {
+        c.alias: event_paths.evaluation(EVALUATOR, c.alias, EVALUATE_RUN).read_bytes()
+        for c in result.candidates
+    }
+    _flatten(ledger, result)
+    cell_dir = event_paths.evaluation_cell_dir(EVALUATOR, EVALUATE_RUN)
+    shared = (cell_dir / "evaluation.md").read_bytes()
+
+    settled = _settle(ledger)
+
+    assert settled.layout == "evaluations/<evaluator>/<run_id>/<alias>.json"
+    assert settled.shared_notes
+    assert settled.aliases == tuple(sorted(c.alias for c in result.candidates))
+    for candidate in result.candidates:
+        landed = event_paths.evaluation_dir(EVALUATOR, candidate.alias, EVALUATE_RUN)
+        assert _file_bytes(landed) == {
+            "evaluation.json": written[candidate.alias],
+            "evaluation.md": shared,
+        }
+        assert not (cell_dir / f"{candidate.alias}.json").exists()
+    assert not (cell_dir / "evaluation.md").exists()
+    assert _settle(ledger) == blinding.CandidateLayoutSettlement()
+    assert dict(_unblind(ledger)) == {c.alias: c.predictor_id for c in result.candidates}
+    for candidate in result.candidates:
+        notes = event_paths.evaluation_notes(EVALUATOR, candidate.predictor_id, EVALUATE_RUN)
+        assert ALIAS_PREFIX not in notes.read_text()
+    verdict = validate_ledger(ledger)
+    assert verdict.ok, verdict.problems
+
+
+def _flat_no_notes(ledger: Path, result: blinding.BlindingResult) -> None:
+    event_paths = CasePaths(ledger, COURT, DOCKET).event(EVENT)
+    (event_paths.evaluation_cell_dir(EVALUATOR, EVALUATE_RUN) / "evaluation.md").unlink()
+
+
+def _flat_linked_file(ledger: Path, result: blinding.BlindingResult) -> None:
+    event_paths = CasePaths(ledger, COURT, DOCKET).event(EVENT)
+    cell_dir = event_paths.evaluation_cell_dir(EVALUATOR, EVALUATE_RUN)
+    flat = cell_dir / f"{result.candidates[0].alias}.json"
+    flat.rename(ledger / "elsewhere.json")
+    flat.symlink_to(ledger / "elsewhere.json")
+
+
+def _flat_unmapped_alias_file(ledger: Path, result: blinding.BlindingResult) -> None:
+    event_paths = CasePaths(ledger, COURT, DOCKET).event(EVENT)
+    cell_dir = event_paths.evaluation_cell_dir(EVALUATOR, EVALUATE_RUN)
+    write_text(cell_dir / f"{ALIAS_PREFIX}zz.json", "{}\n")
+
+
+def _flat_per_candidate_notes(ledger: Path, result: blinding.BlindingResult) -> None:
+    event_paths = CasePaths(ledger, COURT, DOCKET).event(EVENT)
+    cell_dir = event_paths.evaluation_cell_dir(EVALUATOR, EVALUATE_RUN)
+    write_text(cell_dir / f"{result.candidates[0].alias}.md", "notes\n")
+
+
+def _flat_beside_a_contract_directory(ledger: Path, result: blinding.BlindingResult) -> None:
+    event_paths = CasePaths(ledger, COURT, DOCKET).event(EVENT)
+    alias = result.candidates[0].alias
+    write_text(event_paths.evaluation(EVALUATOR, alias, EVALUATE_RUN), "{}\n")
+
+
+def _flat_stray_above(ledger: Path, result: blinding.BlindingResult) -> None:
+    event_paths = CasePaths(ledger, COURT, DOCKET).event(EVENT)
+    write_text(event_paths.evaluations_dir / "notes.txt", "stray\n")
+
+
+def _flat_linked_evaluator_directory(ledger: Path, result: blinding.BlindingResult) -> None:
+    event_paths = CasePaths(ledger, COURT, DOCKET).event(EVENT)
+    real = event_paths.evaluations_dir.parent / "elsewhere"
+    event_paths.evaluator_dir(EVALUATOR).rename(real)
+    event_paths.evaluator_dir(EVALUATOR).symlink_to(real, target_is_directory=True)
+
+
+@pytest.mark.parametrize(
+    "spoil",
+    [
+        _flat_no_notes,
+        _flat_linked_file,
+        _flat_unmapped_alias_file,
+        _flat_per_candidate_notes,
+        _flat_beside_a_contract_directory,
+        _flat_stray_above,
+        _flat_linked_evaluator_directory,
+    ],
+)
+def test_anything_short_of_a_whole_flat_cell_is_left_exactly_as_written(
+    ledger: Path, spoil: Callable[[Path, blinding.BlindingResult], None]
+) -> None:
+    result = _blind(ledger)
+    _seed_evaluations(ledger, result)
+    _flatten(ledger, result)
+    spoil(ledger, result)
+    before = _file_bytes(ledger)
+
+    settled = _settle(ledger)
+
+    assert not settled.moved
+    assert settled.declined
+    assert _file_bytes(ledger) == before
+
+
+def _flat_linked_notes(ledger: Path, result: blinding.BlindingResult) -> None:
+    event_paths = CasePaths(ledger, COURT, DOCKET).event(EVENT)
+    notes = event_paths.evaluation_cell_dir(EVALUATOR, EVALUATE_RUN) / "evaluation.md"
+    notes.rename(ledger / "elsewhere.md")
+    notes.symlink_to(ledger / "elsewhere.md")
+
+
+def _flat_linked_cell_directory(ledger: Path, result: blinding.BlindingResult) -> None:
+    event_paths = CasePaths(ledger, COURT, DOCKET).event(EVENT)
+    cell_dir = event_paths.evaluation_cell_dir(EVALUATOR, EVALUATE_RUN)
+    real = event_paths.evaluations_dir.parent / "elsewhere"
+    cell_dir.rename(real)
+    cell_dir.symlink_to(real, target_is_directory=True)
+
+
+@pytest.mark.parametrize("spoil", [_flat_linked_notes, _flat_linked_cell_directory])
+def test_a_flat_cell_with_a_link_in_it_is_left_exactly_as_written(
+    ledger: Path, spoil: Callable[[Path, blinding.BlindingResult], None]
+) -> None:
+    result = _blind(ledger)
+    _seed_evaluations(ledger, result)
+    _flatten(ledger, result)
+    spoil(ledger, result)
+    before = _file_bytes(ledger)
+
+    settled = _settle(ledger)
+
+    assert not settled.moved
+    assert settled.declined
+    assert _file_bytes(ledger) == before
+
+
+def test_a_cell_part_reordered_and_part_flat_is_left_exactly_as_written(ledger: Path) -> None:
+    """Directories for some candidates and a flat file for another is neither shape."""
+    result = _blind(ledger)
+    _seed_evaluations(ledger, result)
+    _reorder(ledger, result, "under-run")
+    event_paths = CasePaths(ledger, COURT, DOCKET).event(EVENT)
+    cell_dir = event_paths.evaluation_cell_dir(EVALUATOR, EVALUATE_RUN)
+    flat = result.candidates[0].alias
+    (cell_dir / flat / "evaluation.json").rename(cell_dir / f"{flat}.json")
+    (cell_dir / flat / "evaluation.md").rename(cell_dir / "evaluation.md")
+    (cell_dir / flat).rmdir()
+    before = _file_bytes(ledger)
+
+    settled = _settle(ledger)
+
+    assert not settled.moved
+    assert "flat file" in settled.declined
+    assert _file_bytes(ledger) == before
+
+
+def test_judge_level_files_above_a_flat_cell_move_with_it(ledger: Path) -> None:
+    result = _blind(ledger)
+    _seed_evaluations(ledger, result)
+    _flatten(ledger, result)
+    event_paths = CasePaths(ledger, COURT, DOCKET).event(EVENT)
+    write_text(event_paths.evaluations_dir / "retrieval.md", "nothing fetched\n")
+
+    settled = _settle(ledger)
+
+    assert settled.moved
+    assert settled.judge_files == ("retrieval.md",)
+    assert event_paths.evaluation_retrieval(EVALUATOR, EVALUATE_RUN).is_file()
+
+
+def test_a_flat_cell_missing_a_candidate_lands_the_rest(ledger: Path) -> None:
+    result = _blind(ledger)
+    _seed_evaluations(ledger, result)
+    _flatten(ledger, result)
+    event_paths = CasePaths(ledger, COURT, DOCKET).event(EVENT)
+    dropped = result.candidates[0].alias
+    (event_paths.evaluation_cell_dir(EVALUATOR, EVALUATE_RUN) / f"{dropped}.json").unlink()
+
+    settled = _settle(ledger)
+
+    assert dropped not in settled.aliases
+    assert len(settled.aliases) == len(result.candidates) - 1
+    assert len(_unblind(ledger)) == len(result.candidates) - 1
+    verdict = validate_ledger(ledger)
+    assert verdict.ok, verdict.problems
+
+
+def test_the_command_moves_a_flat_cell_and_says_so_in_its_flags(
+    ledger: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(ledger))
+    result = _blind(ledger)
+    _seed_evaluations(ledger, result)
+    _flatten(ledger, result)
+
+    done = runner.invoke(
+        app,
+        [
+            "unblind-evaluations",
+            *["--court", COURT, "--docket", str(DOCKET), "--event", EVENT],
+            *["--evaluator", EVALUATOR, "--run-id", EVALUATE_RUN],
+            *["--map-dir", str(_map_dir(ledger))],
+        ],
+    )
+
+    assert done.exit_code == 0, done.output
+    assert "un-aliased 3 evaluation(s)" in done.output
+    event_paths = CasePaths(ledger, COURT, DOCKET).event(EVENT)
+    flags = read_model(event_paths.evaluation_flags(EVALUATOR, EVALUATE_RUN), AgentFlags)
+    notes = [flag for flag in flags.flags if flag.source == "harness"]
+    assert len(notes) == 1
+    assert "evaluations/<evaluator>/<run_id>/<alias>.json" in notes[0].message
+    assert "copied the one shared evaluation.md" in notes[0].message
+    assert ALIAS_PREFIX not in notes[0].message
+    verdict = validate_ledger(ledger)
+    assert verdict.ok, verdict.problems
+
+
 def test_a_cell_at_the_contract_path_is_not_touched(ledger: Path) -> None:
     result = _blind(ledger)
     _seed_evaluations(ledger, result)
