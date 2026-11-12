@@ -77,7 +77,6 @@ snapshot or document text.
 
 from __future__ import annotations
 
-import json
 import re
 from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
@@ -88,7 +87,7 @@ from typing import Final, Literal
 
 from pydantic import BaseModel
 
-from .. import corpus
+from .. import alarm_issue, corpus
 from ..agent_feedback import GhRunner, _gh
 from ..matrix import event_has_predictions
 from ..paths import CasePaths
@@ -123,7 +122,13 @@ ISSUE_LABEL_COLOR: Final = "b60205"
 ISSUE_LABEL_DESCRIPTION: Final = "Long-lived order-list reconciliation alarm (run-analytics)"
 #: The login the ambient workflow token writes as. Only an issue it opened is
 #: the alarm: a clean report closes what it matches.
-ALARM_AUTHOR: Final = "github-actions[bot]"
+ALARM_AUTHOR: Final = alarm_issue.ALARM_AUTHOR
+ALARM_ISSUE: Final = alarm_issue.AlarmIssue(
+    title=ISSUE_TITLE,
+    label=ISSUE_LABEL,
+    label_description=ISSUE_LABEL_DESCRIPTION,
+    label_color=ISSUE_LABEL_COLOR,
+)
 #: The longest alarm body, in characters: under the size an issue body may
 #: have, with room for the note that says it was cut.
 ALARM_BODY_CHARS: Final = 60_000
@@ -677,28 +682,6 @@ def render_alarm(report: OrderReconciliation) -> str:
     )
 
 
-def _alarm_issues(repo: str, runner: GhRunner) -> list[int]:
-    """Every open alarm issue: this check's title, opened by the workflow token.
-
-    One in the ordinary case; a create re-sent after a cut response can leave
-    two, and a clean report closes each.
-    """
-    listing = json.loads(
-        runner(["gh", "api", f"repos/{repo}/issues?labels={ISSUE_LABEL}&state=open&per_page=100"])
-        or "[]"
-    )
-    found: list[int] = []
-    for issue in listing if isinstance(listing, list) else []:
-        if not isinstance(issue, dict) or "pull_request" in issue:
-            continue
-        user = issue.get("user")
-        login = user.get("login") if isinstance(user, dict) else None
-        number = issue.get("number")
-        if issue.get("title") == ISSUE_TITLE and login == ALARM_AUTHOR and isinstance(number, int):
-            found.append(number)
-    return sorted(found)
-
-
 def latch(
     repo: str, report: OrderReconciliation, body_path: Path, *, runner: GhRunner | None = None
 ) -> str:
@@ -710,63 +693,16 @@ def latch(
     nothing where none is open. A window the Court listed no document for is
     a clean report: the Court sits in recess for weeks at a time.
     """
-    runner = runner or _gh
-    runner(
-        [
-            "gh",
-            "label",
-            "create",
-            ISSUE_LABEL,
-            "--repo",
-            repo,
-            "--force",
-            "--color",
-            ISSUE_LABEL_COLOR,
-            "--description",
-            ISSUE_LABEL_DESCRIPTION,
-        ]
+    return alarm_issue.latch_issue(
+        repo,
+        ALARM_ISSUE,
+        alarming=bool(report.alarms),
+        body_path=body_path,
+        clear_comment="The order-list reconciliation has no alarm for "
+        + f"{report.since} through {report.until}, read at "
+        + f"{report.as_of:%Y-%m-%d %H:%M}Z: closing.",
+        runner=runner or _gh,
     )
-    numbers = _alarm_issues(repo, runner)
-    if report.alarms:
-        if not numbers:
-            url = runner(
-                [
-                    "gh",
-                    "issue",
-                    "create",
-                    "--repo",
-                    repo,
-                    "--title",
-                    ISSUE_TITLE,
-                    "--label",
-                    ISSUE_LABEL,
-                    "--body-file",
-                    str(body_path),
-                ]
-            )
-            return f"opened {url.strip()}"
-        number = numbers[0]
-        runner(["gh", "issue", "edit", str(number), "--repo", repo, "--body-file", str(body_path)])
-        return f"refreshed #{number}"
-    if not numbers:
-        return "no alarm, and no open issue"
-    for number in numbers:
-        runner(
-            [
-                "gh",
-                "issue",
-                "comment",
-                str(number),
-                "--repo",
-                repo,
-                "--body",
-                "The order-list reconciliation has no alarm for "
-                + f"{report.since} through {report.until}, read at "
-                + f"{report.as_of:%Y-%m-%d %H:%M}Z: closing.",
-            ]
-        )
-        runner(["gh", "issue", "close", str(number), "--repo", repo, "--reason", "completed"])
-    return "closed " + ", ".join(f"#{number}" for number in numbers)
 
 
 def render_markdown(report: OrderReconciliation, *, vintage: str | None = None) -> str:

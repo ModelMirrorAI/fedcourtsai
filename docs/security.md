@@ -790,9 +790,10 @@ carries `contents: write` and opens and merges the run PR. This mirrors `run-ops
 which posts its `data-validation` / `ai-watchlist` / `pipeline-health` / `daily-digest` issues with the same
 ambient token, `run-analytics`' ai-candidates and ai-follow-ons jobs, which
 comment the week's AI-case candidates and follow-on dockets on the long-lived
-`ai-candidates` issue with it, and its merits-coverage-alarm and
-order-reconcile-alarm jobs, which open, refresh and close the one
-`merits-coverage` and the one `order-reconcile` alarm issue with it —
+`ai-candidates` issue with it, and its merits-coverage-alarm,
+order-reconcile-alarm and coverage-verdict-alarm jobs, which open, refresh
+and close the one `merits-coverage`, the one `order-reconcile` and the one
+`forecast-coverage` alarm issue with it —
 each of those labels
 non-triggering, so a reporting job opening an issue can never start a spending
 run — and `run-pull`, whose failure-only
@@ -1858,6 +1859,8 @@ Access mirrors each workflow's role in the pipeline:
 | `run-analytics` — merits-coverage-alarm  | none          | reads that artifact only — no corpus, no `id-token`, no App token, no environment. Its runtime token adds `issues: write`, on the one step that opens, refreshes or closes the `merits-coverage` alarm issue, which only a `main`-ref run does |
 | `run-analytics` — order-reconcile        | read-only     | the rows the order-list reconciliation looks each listed docket up among (full `corpus-pull`), the content store's snapshot key listing for each listed application (no payload), the committed predictions and outcomes, and the Court's order lists, miscellaneous orders and opinions relating to orders off supremecourt.gov; the job fetches and parses those PDFs while holding the role, as the merits-coverage job does, and what it could reach through it is the read side only; it writes no corpus, mints no App token, holds no issue write, and hands its report (counts, docket numbers, case ids, headings, dispositions and dates) to the alarm job as a one-day artifact |
 | `run-analytics` — order-reconcile-alarm  | none          | reads that artifact only — no corpus, no `id-token`, no App token, no environment. Its runtime token adds `issues: write`, on the one step that opens, refreshes or closes the `order-reconcile` alarm issue, which only a `main`-ref run does |
+| `run-analytics` — coverage-verdict       | read-only     | the rows and events the forecast-coverage checks classify (full `corpus-pull`) and the committed predictions and outcomes; it fetches nothing from outside, writes no corpus, mints no App token, holds no issue write, and hands its verdict (counts, case ids, event ids, docket numbers, bands, reasons and dates) to the alarm job as a one-day artifact |
+| `run-analytics` — coverage-verdict-alarm | none          | reads that artifact only — no corpus, no `id-token`, no App token, no environment. Its runtime token adds `issues: write`, on the one step that opens, refreshes, comments on or closes the `forecast-coverage` alarm issue, which only a `main`-ref run does |
 | `run-analytics` — decision-below          | read-only     | the fill's rotation (full `corpus-pull`, then each case's newest snapshot from the content store), then CourtListener's REST API; a dry run, it writes nothing. It binds the branch-resolved environment for the CourtListener token, scoped to its dry-run step, and mints no App token |
 | `run-analytics` — alignment-fit           | read-only     | the merits judgments and lineups the fit reads (full `corpus-pull`); it writes no corpus, mints no App token, and hands the fits file to the publish job, which assumes no role, as a one-day artifact |
 | `run-analytics` — qp-topic-label          | none          | the agent job assumes no role, and its `id-token: write` serves the Claude sign-in under the Claude-only environment, whose subject no AWS role trusts: its whole *evidentiary* input is that artifact, and steps assert before the agent runs that the AWS variables are absent and that a token it mints names a `claude-` environment |

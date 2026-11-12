@@ -388,7 +388,8 @@ from .pipeline.cert_signals import (
 )
 from .pipeline.claims import score_claims
 from .pipeline.counsel import COUNSEL_RULES
-from .pipeline.coverage_verdict import coverage_verdict
+from .pipeline.coverage_verdict import CoverageVerdict, coverage_verdict
+from .pipeline.coverage_verdict import latch as latch_coverage_alarm
 from .pipeline.coverage_verdict import render_markdown as render_coverage_markdown
 from .pipeline.decision_dates import converge_decision_dates
 from .pipeline.decision_record import backfill_decision_record, decision_census
@@ -6545,6 +6546,41 @@ def coverage_verdict_cmd(
     typer.echo(payload)
     if not verdict.ok:
         raise typer.Exit(code=3)
+
+
+@app.command("coverage-verdict-alarm")
+def coverage_verdict_alarm_cmd(
+    repo: Annotated[str, typer.Option("--repo", help="owner/name of the repository.")],
+    verdict: Annotated[
+        Path, typer.Option("--verdict", help="The `coverage-verdict` JSON to latch.")
+    ],
+    report: Annotated[
+        Path, typer.Option("--report", help="The issue body `coverage-verdict` wrote.")
+    ],
+) -> None:
+    """Open, refresh or close the one forecast coverage alarm issue.
+
+    The issue side of `coverage-verdict`, run with a token that may write
+    issues and no corpus access. A verdict carrying an alarm opens the issue
+    titled "Forecast coverage failing" under the non-triggering
+    `forecast-coverage` label, or rewrites the open one's body with `--report`
+    and comments when the verdict names an alarm the issue did not already
+    carry; a verdict with none comments on the open issue and closes it, and
+    writes nothing where none is open. Only an issue the workflow token opened
+    under that title is the alarm. Refuses (exit 2) a verdict file that does
+    not parse or a report that cannot be read; a `gh` call that fails after
+    its retries fails the command.
+    """
+    if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo):
+        typer.echo(f"coverage-verdict-alarm: --repo must be owner/name, not {repo!r}", err=True)
+        raise typer.Exit(code=2)
+    try:
+        parsed = CoverageVerdict.model_validate_json(verdict.read_text(encoding="utf-8"))
+        report.read_text(encoding="utf-8")
+    except (OSError, ValueError) as exc:
+        typer.echo(f"coverage-verdict-alarm: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    typer.echo(f"coverage-verdict-alarm: {latch_coverage_alarm(repo, parsed, report)}")
 
 
 @app.command("authorship-tally")

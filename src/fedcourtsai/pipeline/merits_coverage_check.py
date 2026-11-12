@@ -34,7 +34,6 @@ Reads the corpus index and the committed predictions; writes nothing.
 
 from __future__ import annotations
 
-import json
 import re
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import date, timedelta
@@ -44,7 +43,7 @@ from typing import Final
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .. import corpus, ids
+from .. import alarm_issue, corpus, ids
 from ..agent_feedback import GhRunner, _gh
 from ..paths import CasePaths
 from ..schemas import Moment, Stage
@@ -78,7 +77,13 @@ ISSUE_LABEL_DESCRIPTION: Final = "Long-lived merits coverage alarm (run-analytic
 #: The login the ambient workflow token writes as. Only an issue it opened is
 #: the alarm: a green check closes what it matches, so matching on the label
 #: alone would close anyone's issue filed under it.
-ALARM_AUTHOR: Final = "github-actions[bot]"
+ALARM_AUTHOR: Final = alarm_issue.ALARM_AUTHOR
+ALARM_ISSUE: Final = alarm_issue.AlarmIssue(
+    title=ISSUE_TITLE,
+    label=ISSUE_LABEL,
+    label_description=ISSUE_LABEL_DESCRIPTION,
+    label_color=ISSUE_LABEL_COLOR,
+)
 
 _MERITS_EVENT_IDS: Final = frozenset(spec.event_id for spec in moments.moments_for(Stage.merits))
 _ARGUED_EVENT_IDS: Final = frozenset(
@@ -676,29 +681,6 @@ def _render_reported(check: MeritsCoverageCheck) -> list[str]:
     return out
 
 
-def _alarm_issues(repo: str, runner: GhRunner) -> list[int]:
-    """Every open alarm issue: this check's title, opened by the workflow token.
-
-    One in the ordinary case. A create that lands and is then cut at its
-    timeout is re-sent by the runner's retry, so there can be two, and a clean
-    check has to close both for an open issue to keep meaning a hole.
-    """
-    listing = json.loads(
-        runner(["gh", "api", f"repos/{repo}/issues?labels={ISSUE_LABEL}&state=open&per_page=100"])
-        or "[]"
-    )
-    found: list[int] = []
-    for issue in listing if isinstance(listing, list) else []:
-        if not isinstance(issue, dict) or "pull_request" in issue:
-            continue
-        user = issue.get("user")
-        login = user.get("login") if isinstance(user, dict) else None
-        number = issue.get("number")
-        if issue.get("title") == ISSUE_TITLE and login == ALARM_AUTHOR and isinstance(number, int):
-            found.append(number)
-    return sorted(found)
-
-
 def latch(
     repo: str, check: MeritsCoverageCheck, report_path: Path, *, runner: GhRunner = _gh
 ) -> str:
@@ -713,59 +695,11 @@ def latch(
     own = next((r for r in check.lists if r.term == check.term), None)
     if own is None or not own.read:
         raise ValueError(f"the check never read the OT{check.term} Granted & Noted list")
-    runner(
-        [
-            "gh",
-            "label",
-            "create",
-            ISSUE_LABEL,
-            "--repo",
-            repo,
-            "--force",
-            "--color",
-            ISSUE_LABEL_COLOR,
-            "--description",
-            ISSUE_LABEL_DESCRIPTION,
-        ]
+    return alarm_issue.latch_issue(
+        repo,
+        ALARM_ISSUE,
+        alarming=bool(check.alarms),
+        body_path=report_path,
+        clear_comment=f"Merits coverage has no alarm as of {check.as_of.isoformat()}: closing.",
+        runner=runner,
     )
-    numbers = _alarm_issues(repo, runner)
-    if check.alarms:
-        if not numbers:
-            url = runner(
-                [
-                    "gh",
-                    "issue",
-                    "create",
-                    "--repo",
-                    repo,
-                    "--title",
-                    ISSUE_TITLE,
-                    "--label",
-                    ISSUE_LABEL,
-                    "--body-file",
-                    str(report_path),
-                ]
-            )
-            return f"opened {url.strip()}"
-        number = numbers[0]
-        runner(
-            ["gh", "issue", "edit", str(number), "--repo", repo, "--body-file", str(report_path)]
-        )
-        return f"refreshed #{number}"
-    if not numbers:
-        return "no alarm, and no open issue"
-    for number in numbers:
-        runner(
-            [
-                "gh",
-                "issue",
-                "comment",
-                str(number),
-                "--repo",
-                repo,
-                "--body",
-                f"Merits coverage has no alarm as of {check.as_of.isoformat()}: closing.",
-            ]
-        )
-        runner(["gh", "issue", "close", str(number), "--repo", repo, "--reason", "completed"])
-    return "closed " + ", ".join(f"#{number}" for number in numbers)

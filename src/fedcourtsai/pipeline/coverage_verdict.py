@@ -27,20 +27,38 @@ period); and each alarm the two censuses raise. One event raises one alarm. The 
 recorded late is still seen.
 
 Reads the corpus index and the committed ledger; writes nothing itself.
+
+**The alarm issue.** :func:`latch` keeps one long-lived issue,
+:data:`ISSUE_TITLE` under the non-triggering :data:`ISSUE_LABEL` label, to
+match a verdict (:mod:`fedcourtsai.alarm_issue`). A missed forecast cannot be
+repaired once its event has resolved, so it stays an alarm until it ages out
+of the monitor's window and the issue is often open for weeks at a time.
+Rewriting an issue body notifies nobody, so a refresh that brings an alarm the
+issue did not already name also comments, naming the new ones.
 """
 
 from __future__ import annotations
 
 from datetime import date, timedelta
 from pathlib import Path
-from typing import Literal
+from typing import Final, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .. import corpus
+from .. import alarm_issue, corpus
+from ..agent_feedback import GhRunner, _gh
 from .federal_label import FederalLabelReport, federal_label_check
 from .missed import DateSource, DeclineReason, scan_predictionless_resolutions
 from .unforecast import UnforecastReport, unforecast_outcomes
+
+#: The alarm issue: one long-lived issue under a label that starts nothing.
+ISSUE_TITLE: Final = "Forecast coverage failing"
+ISSUE_LABEL: Final = "forecast-coverage"
+ALARM_ISSUE: Final = alarm_issue.AlarmIssue(
+    title=ISSUE_TITLE,
+    label=ISSUE_LABEL,
+    label_description="Long-lived forecast coverage alarm (run-analytics)",
+)
 
 #: How far back the verdict reads the missed-forecast monitor.
 MISSED_WINDOW_DAYS = 35
@@ -240,3 +258,50 @@ def render_markdown(verdict: CoverageVerdict) -> str:
         "",
     ]
     return "\n".join(lines).rstrip() + "\n"
+
+
+def latch(
+    repo: str, verdict: CoverageVerdict, body_path: Path, *, runner: GhRunner | None = None
+) -> str:
+    """Open, refresh or close the one alarm issue to match ``verdict``; what was done.
+
+    A verdict with an alarm opens the issue or rewrites the open one's body in
+    place from ``body_path``; a clean verdict comments on the open issue and
+    closes it, and writes nothing where none is open. A refresh also comments
+    when the verdict carries an alarm whose subject the issue's body did not
+    name before, because the body rewrite alone reaches no one.
+    """
+    runner = runner or _gh
+    before: str | None = None
+    if verdict.alarms:
+        numbers = alarm_issue.open_alarm_issues(repo, ALARM_ISSUE, runner)
+        if numbers:
+            before = runner(["gh", "api", f"repos/{repo}/issues/{numbers[0]}", "--jq", ".body"])
+    done = alarm_issue.latch_issue(
+        repo,
+        ALARM_ISSUE,
+        alarming=bool(verdict.alarms),
+        body_path=body_path,
+        clear_comment=f"Forecast coverage has no alarm as of {verdict.as_of.isoformat()}: closing.",
+        runner=runner,
+    )
+    if before is None or not done.startswith("refreshed #"):
+        return done
+    new = [a for a in verdict.alarms if f"`{a.subject}`" not in before]
+    if not new:
+        return done
+    number = done.removeprefix("refreshed #")
+    runner(
+        [
+            "gh",
+            "issue",
+            "comment",
+            number,
+            "--repo",
+            repo,
+            "--body",
+            f"New as of {verdict.as_of.isoformat()}:\n\n"
+            + "\n".join(f"- **{a.check}** `{a.subject}`: {a.detail}" for a in new),
+        ]
+    )
+    return f"{done}, {len(new)} new alarm(s) commented"
