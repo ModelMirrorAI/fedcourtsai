@@ -18,7 +18,7 @@ import httpx
 import pytest
 from typer.testing import CliRunner
 
-from fedcourtsai import corpus
+from fedcourtsai import alarm_issue, corpus
 from fedcourtsai.cli import app
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline import order_lineups, order_reconcile
@@ -850,7 +850,7 @@ class _Gh:
 _ALARM = {
     "number": 7,
     "title": order_reconcile.ISSUE_TITLE,
-    "user": {"login": order_reconcile.ALARM_AUTHOR},
+    "user": {"login": alarm_issue.ALARM_AUTHOR},
 }
 
 
@@ -899,7 +899,7 @@ def test_the_latch_touches_only_its_own_issue(tmp_path: Path) -> None:
     _failing, passing = _reports(tmp_path)
     others: list[dict[str, object]] = [
         {"number": 1, "title": order_reconcile.ISSUE_TITLE, "user": {"login": "someone"}},
-        {"number": 2, "title": "Another report", "user": {"login": order_reconcile.ALARM_AUTHOR}},
+        {"number": 2, "title": "Another report", "user": {"login": alarm_issue.ALARM_AUTHOR}},
         {**_ALARM, "number": 3, "pull_request": {}},
     ]
     gh = _Gh(others)

@@ -120,9 +120,6 @@ ISSUE_TITLE: Final = "Order-list reconciliation failing"
 ISSUE_LABEL: Final = "order-reconcile"
 ISSUE_LABEL_COLOR: Final = "b60205"
 ISSUE_LABEL_DESCRIPTION: Final = "Long-lived order-list reconciliation alarm (run-analytics)"
-#: The login the ambient workflow token writes as. Only an issue it opened is
-#: the alarm: a clean report closes what it matches.
-ALARM_AUTHOR: Final = alarm_issue.ALARM_AUTHOR
 ALARM_ISSUE: Final = alarm_issue.AlarmIssue(
     title=ISSUE_TITLE,
     label=ISSUE_LABEL,
