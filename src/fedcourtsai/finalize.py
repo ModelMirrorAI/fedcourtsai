@@ -229,6 +229,57 @@ def required_outputs(
     raise ValueError(f"required_outputs is for predict/evaluate, not {role.value}")
 
 
+def cell_outputs_complete(
+    role: FinalizeRole,
+    *,
+    data_root: Path,
+    court: str,
+    docket: int,
+    event: str,
+    actor: str,
+    run_id: str,
+) -> bool:
+    """Whether the cell holds every file it owes, each non-empty and each JSON one parsing.
+
+    The completion sentinel's own test (``outputs_complete`` in
+    ``scripts/engine-watchdog.sh``), asked once after the fact instead of polled:
+    the set is :func:`required_outputs`, an evaluate cell's candidates are the
+    staged aliases, and a JSON file counts only if it decodes. The in-step retry
+    asks it of an attempt that ended on an engine fault with a failing exit,
+    to tell a turn cut off mid-cell from one whose work was already whole.
+
+    An evaluate cell with no staged candidate has no completion set and is never
+    complete, as the sentinel never fires for one. The staged aliases are read
+    when this is asked, after the turn, where the sentinel's list is resolved
+    before the agent starts: a turn that removed a staged candidate is owed one
+    evaluation fewer here, as it is by every check the cell's tail runs.
+    """
+    candidates: list[str] = []
+    if role is FinalizeRole.evaluate:
+        candidates = blinded_candidates(data_root=data_root, court=court, docket=docket)
+        if not candidates:
+            return False
+    owed = required_outputs(
+        role,
+        data_root=data_root,
+        court=court,
+        docket=docket,
+        event=event,
+        actor=actor,
+        run_id=run_id,
+        candidates=candidates,
+    )
+    for path in owed:
+        try:
+            if not path.is_file() or path.is_symlink() or path.stat().st_size == 0:
+                return False
+            if path.suffix == ".json":
+                json.loads(path.read_text())
+        except Exception:
+            return False
+    return True
+
+
 # --- a clean slate between in-step engine attempts ------------------------------
 #
 # The cell workflows' gemini step retries a transient fault in place

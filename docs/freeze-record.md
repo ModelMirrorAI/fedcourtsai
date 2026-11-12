@@ -19200,3 +19200,62 @@ freeze commit is recorded here.
   partial cell's files reach no branch but its draft, so the artifact or the
   draft is where they are read); and `uv run pytest tests/test_gemini_cell.py
   tests/test_finalize.py` is green.
+
+- **A Gemini cell whose turn fails on an engine fault after its work is
+  whole concludes clean; recorded 2026-11-12.** A harness change under
+  unchanged digests. Carried to `main` by the promotion tagged
+  `<FILL: promotion tag>` (merge commit `<FILL: merge hash>`, merged
+  `<FILL: merged-at>`). No harness boundary is registered, since no scoring
+  rule and no cell's information set moves.
+
+  **What changes.** A Gemini cell's engine step took its exit status from its
+  last attempt, so a turn that exited non-zero failed the step whatever it
+  had written, and the cell's tail routed its output to a partial draft. From
+  the carrying promotion, a last attempt that exits non-zero on a fault the
+  engine itself reported (the error object in its result or on its stderr,
+  `fedcourts engine-attempt-reported`) and the classifier reads as transient
+  or permanent concludes the step clean where two checks both pass. A turn
+  ended from outside, which leaves no such object, a spent quota, an
+  unclassified fault and any step the watchdog has acted on stay failures.
+  The two checks: the cell holds every file it owes, each non-empty and each JSON
+  one parsing (`fedcourts finalize-complete`, the completion sentinel's
+  test), and every judgment artifact parses against its schema model
+  (`fedcourts finalize-validates`). A check that cannot run leaves the step
+  failed. The tail is unchanged and still validates the cell before collect
+  readies it. The back-test's `GeminiRunner` takes the same rule, so a
+  non-zero exit on a reported fault over complete, valid output keeps the output where
+  the entry of the retry's back-test half records it as an `engine-failed`
+  loss.
+
+  **Why.** Evaluate run `20261110T154355Z` left a `gemini-judge` cell on
+  `scotus/9526000560` `evt-brief-response-disposition` whose turn exited 144
+  on HTTP 400 `INVALID_ARGUMENT` after writing every evaluation, its notes
+  and the judge-level pair. The classifier read that exit as transient only
+  because an earlier, recovered `fetch failed` line sat in the same stderr;
+  the 400 alone reads permanent, which is why the rule admits both classes.
+  The files validated, the failed step skipped the
+  usage capture, and the cell went to a partial draft that was closed
+  unmerged. Run against the files that cell left in the draft, both checks
+  print `true`; against the same run's `scotus/73522552`
+  `evt-petition-disposition` cell both print `false`.
+
+  **What it means for a reader.** A landed Gemini judgment can now come from
+  a turn that ended on an API error. The rule reads the engine's own error
+  report, the presence of the owed files and the schema, never what a valid judgment
+  says. What it cannot see is a turn cut off between a file's first complete
+  write and a revision the agent meant to make: such a cell lands its earlier
+  draft. The watchdog's reap of a finished cell carries the same residual
+  and adds a quiescence wait this rule does not have. The rule is Gemini's
+  alone, since the claude and codex steps are pinned actions whose exit a
+  step cannot reread, so it moves the Gemini pair's cell-failure rate against
+  the other two pairs', and a comparison of failure rates across this
+  promotion reads the Gemini pair apart. A zero-exit fault over the same
+  output already concluded clean before this change.
+
+  The runnable effect check once it is live: after a full evaluate round on
+  `main`, every `gemini-judge` cell whose job log carries `the step concludes
+  clean` sits in the round's merged PR with a `usage.json`, and no
+  `gemini-judge` `attempt.json` of that run records a `partial` failure for
+  a cell whose artifact passes both `uv run fedcourts finalize-complete` and
+  `uv run fedcourts finalize-validates`; and `uv run pytest
+  tests/test_gemini_cell.py tests/test_finalize.py` is green.

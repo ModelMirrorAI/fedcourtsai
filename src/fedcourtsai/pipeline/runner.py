@@ -65,6 +65,7 @@ from ..finalize import (
     agent_output_validates,
     agent_produced_output,
     cell_output_root,
+    cell_outputs_complete,
     reset_output_root,
     snapshot_output_root,
 )
@@ -1297,6 +1298,19 @@ def _stderr_result_error(stderr: str) -> str | None:
     return None
 
 
+def engine_reported_error(stdout: str, stderr: str) -> bool:
+    """Whether the engine itself reported the error its attempt ended on.
+
+    True where the JSON result on stdout carries an ``error``, or the CLI left
+    the same object on stderr as it does on a failed exit. That object is the
+    engine's own account of a fault it met and gave up on, which a process
+    ended from outside (a deadline's signal, a crash) does not leave: the
+    classifier calls any unrecognized failing exit ``permanent``, so the class
+    alone cannot tell the two apart.
+    """
+    return engine_result_error(stdout) is not None or _stderr_result_error(stderr) is not None
+
+
 # A JavaScript stack frame: ``at fn (file.js:1:2)``, ``at async fn (…)`` or a bare
 # ``at file.js:1:2`` — a location at the end, not just a leading "at".
 _STACK_FRAME = re.compile(r"^\s*at\s.*(?:\(.*:\d+:\d+\)|:\d+:\d+)$")
@@ -1563,11 +1577,13 @@ class AgenticRunner:
           root could not be snapshotted or reset.
 
         A zero-exit attempt that is not retried keeps what it produced, as the
-        cell step does. One that produced nothing raises instead, so the caller
-        records a classified failure rather than a cell that silently wrote
-        nothing: :class:`EngineQuotaExhausted` for a spent quota,
-        :class:`EngineFailed` otherwise. A non-zero exit raises as the shared
-        loop does.
+        cell step does, and so does a failing exit on a fault the engine itself
+        reported (:func:`engine_reported_error`) after the cell's output was
+        complete (:func:`cell_outputs_complete`) and valid. A zero-exit attempt that
+        produced nothing raises instead, so the caller records a classified
+        failure rather than a cell that silently wrote nothing:
+        :class:`EngineQuotaExhausted` for a spent quota, :class:`EngineFailed`
+        otherwise. Any other non-zero exit raises as the shared loop does.
         """
         role = (
             FinalizeRole.predict if request.role == UsageRole.predictor else FinalizeRole.evaluate
@@ -1638,6 +1654,25 @@ class AgenticRunner:
                 continue
             if result.returncode == 0 and produced:
                 sys.stderr.write(f"{base}; not retried: {reason}; keeping its output\n")
+                return _produced_artifacts(request)
+            if (
+                verdict in {AttemptClass.transient, AttemptClass.permanent}
+                and engine_reported_error(result.stdout, result.stderr)
+                and keep
+                and cell_outputs_complete(
+                    role,
+                    data_root=request.data_root,
+                    court=request.court_id,
+                    docket=request.docket_id,
+                    event=request.event_id,
+                    actor=request.actor_id,
+                    run_id=request.run_id,
+                )
+            ):
+                sys.stderr.write(
+                    f"{base} on a fault the engine reported after the cell's output was complete "
+                    "and valid; keeping its output\n"
+                )
                 return _produced_artifacts(request)
             raise EngineFailed(f"{base} ({reason})" if verdict is AttemptClass.transient else base)
         raise AssertionError("retry loop exited without a result")  # pragma: no cover
