@@ -882,7 +882,9 @@ enrichment — the dispatched enrich job's step and, step-scoped, the live job's
 awaiting-grading enrichment step and its decision-below fill step, the only two
 steps of that job holding it; by
 `run-analytics`'s order-scan job, step-scoped to its scan step, in a job that
-assumes no cloud role and mints no App token; by its ai-candidates and
+assumes no cloud role and mints no App token; by its appeal-sample job,
+step-scoped to its sample step, in a job that likewise assumes no role and
+mints no App token; by its ai-candidates and
 ai-follow-ons jobs, each step-scoped to its search step, in jobs that likewise
 assume no role and mint no App token; by its decision-below job,
 step-scoped to its dry-run step, in a job that holds the read-only role for
@@ -1853,6 +1855,7 @@ Access mirrors each workflow's role in the pipeline:
 | `run-analytics` — big-cases               | none          | rolls the committed `data/` predictions into the big-case board — no corpus, no network, no `id-token`. It binds the branch-resolved environment (unlike tool-usage) because it publishes, and mints the PR token there; it assumes no role |
 | `run-analytics` — public-updates          | none          | adds the committed `data/` ledger's missing weeks to the update history — no corpus, no network, no `id-token`. It binds the branch-resolved environment, never `website`, because it publishes, and mints the PR token there; it assumes no role |
 | `run-analytics` — order-scan              | none          | reads CourtListener's REST API only — no corpus, no `id-token`, no App token. It binds the branch-resolved environment for the CourtListener token, scoped to its scan step. Its runtime token adds `actions: read`, to fetch the previous run's report artifact the scan resumes |
+| `run-analytics` — appeal-sample           | none          | reads CourtListener's docket search, dockets and docket entries only — no corpus, no `id-token`, no App token. It binds the branch-resolved environment for the CourtListener token, scoped to its sample step; its runtime token is `contents: read` alone, and it uploads no artifact |
 | `run-analytics` — ai-candidates          | none          | reads CourtListener's search index only — no corpus, no `id-token`, no App token. It binds the branch-resolved environment for the CourtListener token, scoped to its search step; its runtime token adds `issues: write`, on the steps that read the `ai-candidates` issue's raised set and post the week's comment, which only a `main`-ref run does |
 | `run-analytics` — ai-follow-ons          | none          | reads CourtListener's search index and, once per new circuit hit, that docket's own fields — no corpus, no `id-token`, no App token. It binds the branch-resolved environment for the CourtListener token, scoped to its search step; its runtime token adds `issues: write`, on the steps that read the `ai-candidates` issue's raised set and post the week's comment, which only a `main`-ref run does |
 | `run-analytics` — merits-coverage        | read-only     | the grants and merits events the coverage check classifies (full `corpus-pull`), with the committed predictions and the Court's Granted & Noted list off supremecourt.gov; the job fetches and parses those PDFs while holding the role, as `run-pull`'s live job parses upstream PDFs under its own, and what it could reach through it is the read side only; it writes no corpus, mints no App token, holds no issue write, and hands the check and its report (counts, docket numbers, case ids, statuses and dates) to the alarm job as a one-day artifact |

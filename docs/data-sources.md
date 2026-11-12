@@ -944,6 +944,7 @@ The automated consumer stays within CourtListener's published API limits by desi
   six entry pages per civil appeal, stopping at its lane's share (150). It
   reads only what CourtListener already holds, with no RECAP Fetch purchase,
   and stores nothing: its report carries court-record identifiers and counts.
+  It is dispatched as `run-analytics`'s `appeal-sample` mode, never scheduled.
 - **The adverse-order scan shares it too.** `order-scan` runs the RECAP
   searches `config/order-scan.yaml` configures — district dockets whose
   entries match an order phrase in a window of entry dates, one request a
