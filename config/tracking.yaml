@@ -795,6 +795,10 @@ courtlistener_budget:
     # enrich-opinions as a walk (run-pull mode=enrich-opinions): the default
     # 50 cases at about four requests each.
     opinion-walk: {per_run: 200, dispatched: true}
+    # appeal-sample: one court of appeals' draw of 25 civil appeals for the
+    # appeal reader's measurement, a search page per 20 drawn dockets, one read
+    # per drawn docket and up to six entry pages per civil appeal.
+    appeal-sample: {per_run: 150, dispatched: true}
     # decision-below and enrich-decision-below's dry run (run-analytics mode
     # decision-below): 25 cases, held to the same 150 as order-scan.
     decision-below: {per_run: 150, dispatched: true}

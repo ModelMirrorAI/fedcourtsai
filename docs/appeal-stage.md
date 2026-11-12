@@ -95,7 +95,7 @@ a text that cannot be read is an unrecorded outcome for the maintainer's
 triage, and every resolution cites the entry it read. The court's opinion is
 its own work and public domain ([data-sources.md](data-sources.md)). The
 stage does not register until that resolver exists and its triage rate has
-been measured on the listed appeals already decided.
+been measured on appeals already decided (*Measuring the reader*, below).
 
 ### The reader as built
 
@@ -156,6 +156,23 @@ against the opinion's own decretal line is not built.
   read. An entry the rule could not settle closes nothing.
 - **Entries with no date, or dated after the day of the reading, are not
   read.**
+
+### Measuring the reader
+
+The listed appeals already decided are too few to measure a triage rate on,
+so the measurement is a sample: `fedcourts appeal-sample` draws civil appeals
+from CourtListener, 25 from each of the Second, Third, Ninth and D.C.
+Circuits, filed in one fixed twelve-month window old enough that most have
+ended, in a seeded random order so each court's draw repeats. It reads each
+with the reader above and reports three counts: appeals with a disposition
+read, appeals with an entry sent to triage, and appeals on which nothing was
+read. The triage rate is the second over the first two together. The third is
+split by whether CourtListener records a termination date, because an ended
+appeal on which the reader read nothing is where a disposition in a form the
+rule does not know would be; those rows, and a hand check of the dispositions
+read, are what say whether the reader misses or misreads. The sample holds
+what RECAP holds: a docket with few stored entries reads as nothing read, and
+is not evidence about the rule.
 
 ## Documents
 
