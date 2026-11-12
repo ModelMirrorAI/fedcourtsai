@@ -24127,6 +24127,14 @@ def unblind_evaluations_cmd(
     join and reports an orphan loudly — so the cell's order is: un-alias, stamp,
     validate.
 
+    A judge that keyed its candidate directories in the wrong order
+    (``<evaluator>/<run>/<alias>/`` or ``<alias>/<evaluator>/<run>/``) has them
+    moved onto the contract path first
+    (:func:`fedcourtsai.blinding.settle_candidate_layout`), with a harness note
+    in the cell's ``flags.json``. When nothing is un-aliased, or the step fails,
+    the untracked files under the event directory are printed, paths only, so
+    the log says where the cell's output went.
+
     Idempotent over an already-un-aliased cell. Exits 1 on anything else — a
     missing or corrupt map, a map minted for another cell, an alias the map does
     not name, a destination that already exists, or an alias-shaped directory
@@ -24134,7 +24142,25 @@ def unblind_evaluations_cmd(
     into the ledger.
     """
     settings = get_settings()
+    event_paths = CasePaths(settings.data_root, court, docket).event(event)
     try:
+        settled = blinding.settle_candidate_layout(
+            data_root=settings.data_root,
+            court=court,
+            docket=docket,
+            event_id=event,
+            evaluator_id=evaluator,
+            run_id=run_id,
+            map_dir=map_dir,
+        )
+        if settled.moved:
+            typer.echo(
+                f"::warning::un-alias: {evaluator} wrote {len(settled.aliases)} candidate "
+                + f"director(ies) as {settled.layout}; moved to the contract path",
+                err=True,
+            )
+        elif settled.declined:
+            typer.echo(f"misplaced candidates left as written: {_one_line(settled.declined)}")
         moved = blinding.unblind_evaluations(
             data_root=settings.data_root,
             config_root=settings.config_root,
@@ -24147,10 +24173,77 @@ def unblind_evaluations_cmd(
         )
     except blinding.BlindingError as exc:
         typer.echo(f"un-aliasing failed: {exc}", err=True)
+        _trace_cell_files(event_paths)
         raise typer.Exit(code=1) from exc
+    if settled.moved:
+        where = CellCoordinates(
+            case_id=ids.case_id(court, docket),
+            run_id=run_id,
+            role=UsageRole.evaluator,
+            actor_id=evaluator,
+        )
+        _normalise_cell_flags(event_paths, where)
+        _append_harness_notes(
+            event_paths.evaluation_flags(evaluator, run_id),
+            where,
+            [_candidate_layout_note(settled, event)],
+            what="candidate-layout note",
+        )
     for alias, predictor_id in moved:
         typer.echo(f"{alias} -> {predictor_id}")
     typer.echo(f"un-aliased {len(moved)} evaluation(s) for {evaluator}")
+    if not moved and not any(
+        event_paths.evaluator_dir(evaluator).glob(f"*/{run_id}/evaluation.json")
+    ):
+        _trace_cell_files(event_paths)
+
+
+_CANDIDATE_LAYOUT_PREFIX = "Harness check: the judge wrote its candidate directories as"
+# How many untracked paths the trace prints, and how much of each.
+_TRACE_PATHS = 60
+_TRACE_PATH_CHARS = 200
+
+
+def _candidate_layout_note(settled: blinding.CandidateLayoutSettlement, event_id: str) -> AgentFlag:
+    """The harness note a cell carries when its candidate directories were moved."""
+    files = (
+        f" It also moved {', '.join(settled.judge_files)} from the top of evaluations/ "
+        + "to the cell's own directory."
+        if settled.judge_files
+        else ""
+    )
+    message = (
+        f"{_CANDIDATE_LAYOUT_PREFIX} `{settled.layout}` rather than "
+        + "`evaluations/<evaluator>/<alias>/<run_id>/`. The harness renamed "
+        + f"{len(settled.aliases)} director(ies) onto the contract path before un-aliasing, "
+        + f"with every file's contents as the judge wrote them.{files}"
+    )
+    return AgentFlag(
+        category=FlagCategory.other,
+        severity=FlagSeverity.info,
+        message=message[:_FLAG_MESSAGE_LIMIT],
+        event_id=event_id,
+        source=FlagSource.harness,
+    )
+
+
+def _trace_cell_files(event_paths: EventPaths) -> None:
+    """Print where an evaluate cell that landed nothing put its files.
+
+    The untracked files under the event directory, which after the committed
+    record is restored are what the turn and the harness captures added. Paths
+    only, each escaped and indented: a file name is agent-chosen bytes, and a
+    line that opened with ``::`` would be read by the runner as a command.
+    """
+    paths, total = blinding.untracked_files(event_paths.base, limit=_TRACE_PATHS)
+    if not total:
+        typer.echo("no untracked file under the event directory: the turn wrote nothing there")
+        return
+    typer.echo(f"{total} untracked file(s) under the event directory:")
+    for path in paths:
+        typer.echo(f"  {ascii(path)[:_TRACE_PATH_CHARS]}")
+    if total > len(paths):
+        typer.echo(f"  and {total - len(paths)} more")
 
 
 @app.command("hide-cell-record")
