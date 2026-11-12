@@ -62,6 +62,7 @@ from ..config import get_settings, load_runner_config
 from ..finalize import (
     FinalizeRole,
     OutputSnapshot,
+    agent_output_validates,
     agent_produced_output,
     cell_output_root,
     reset_output_root,
@@ -1556,7 +1557,9 @@ class AgenticRunner:
           read as the retry's output. An attempt that produced the cell's
           judgment artifact, or wrote its ``flags.json``, is never retried —
           the retry would discard the one or know nothing of the other — and
-          nor is one whose root could not be snapshotted or reset.
+          nor is one whose root could not be snapshotted or reset. The one
+          judgment artifact a retry does discard is one that fails its schema
+          (:func:`agent_output_validates`), which no reader would have kept.
 
         A zero-exit attempt that is not retried keeps what it produced, as the
         cell step does. One that produced nothing raises instead, so the caller
@@ -1613,8 +1616,17 @@ class AgenticRunner:
                     f"{base} (terminal quota: the engine's quota is exhausted "
                     "and no retry can clear it)"
                 )
+            keep = produced and agent_output_validates(
+                role,
+                data_root=request.data_root,
+                court=request.court_id,
+                docket=request.docket_id,
+                event=request.event_id,
+                actor=request.actor_id,
+                run_id=request.run_id,
+            )
             reason = self._retry_refusal(
-                verdict, attempt, produced=produced, snapshot=snapshot, flags=flags
+                verdict, attempt, produced=keep, snapshot=snapshot, flags=flags
             )
             if reason is None:
                 sleep(

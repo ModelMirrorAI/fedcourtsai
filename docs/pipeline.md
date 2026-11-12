@@ -4199,8 +4199,13 @@ no retry can carry the step past the deadline. Before the first attempt the
 cell's output root is snapshotted (`cell-output-snapshot`), and before each
 retry everything an attempt added under it is removed (`cell-output-reset`),
 so a half-written file from a failed turn is never read as the cell's output;
-an attempt that already wrote the cell's judgment artifact is never retried, and
-neither is one that wrote the cell's `flags.json` — a disclosure (in a replay
+an attempt that already wrote the cell's judgment artifact is not retried while
+that artifact holds to its schema (`finalize-validates`), since the retry would
+discard finished work; one whose `prediction.json` or `evaluation.json` its own
+model refuses is retried, since the cell's tail would refuse that output and
+the cell would otherwise wait for a later round. The check is the artifact's
+model alone, so a cell that is valid but incomplete is kept as it is. Nor is an
+attempt retried that wrote the cell's `flags.json` — a disclosure (in a replay
 cell, of outcome-revealing material) that a fresh session would know nothing
 of, so the reset declines rather than discard it. Files an attempt leaves
 outside the output root are not reset; the cell contract writes nothing there.
@@ -4225,7 +4230,7 @@ both, lane-prefixed, to the log live; the runner classifies every attempt with
 the same classifier, retries only a `transient` one under its own attempt cap
 (the `runner:` section of `config/tracking.yaml`), and resets the cell's
 output root to its pre-attempt snapshot before each retry, never past a
-written judgment artifact or `flags.json`. The reset covers only that root:
+written judgment artifact that validates, or a `flags.json`. The reset covers only that root:
 scratch an attempt wrote elsewhere under the work root survives a retry, as it
 does in the cells' in-place retry. These rules hold for a non-zero exit too,
 so unlike claude and codex — which retry a transient non-zero exit in place,

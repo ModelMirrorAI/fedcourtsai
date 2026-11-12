@@ -19,6 +19,9 @@ from pathlib import Path
 
 import pytest
 
+from fedcourtsai.pipeline.runner import RunRequest, StubRunner
+from fedcourtsai.schemas import UsageRole
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = REPO_ROOT / "scripts" / "gemini-cell.sh"
 
@@ -35,7 +38,10 @@ INVALID_STREAM = {
 #   ok-produce     a clean turn that writes the cell's judgment artifact
 #   invalid        INVALID_STREAM in the JSON result, zero exit — after writing
 #                  a half-finished reasoning.md, as a turn cut off mid-cell does
-#   invalid-produce  the same, after writing the judgment artifact too
+#   invalid-produce  the same, after writing a judgment artifact that holds to
+#                    its schema
+#   invalid-malformed  the same, after writing a judgment artifact its schema
+#                    refuses
 #   permanent      a non-zero exit whose stderr names a context-length fault
 #   quota          a non-zero exit with gemini's terminal-quota wording
 #   stderr-object  a non-zero exit leaving a stack and the error object on stderr
@@ -59,7 +65,10 @@ case "$turn" in
     echo "notes" > "$STUB_OUT/scratch/notes.txt"
     echo "$invalid" ;;
   invalid-produce)
-    mkdir -p "$STUB_OUT"; echo '{}' > "$STUB_OUT/$STUB_ARTIFACT"
+    mkdir -p "$STUB_OUT"; printf '%s' "$STUB_VALID_ARTIFACT" > "$STUB_OUT/$STUB_ARTIFACT"
+    echo "$invalid" ;;
+  invalid-malformed)
+    mkdir -p "$STUB_OUT"; echo '{"granted": "perhaps"}' > "$STUB_OUT/$STUB_ARTIFACT"
     echo "$invalid" ;;
   invalid-flags)
     mkdir -p "$STUB_OUT"; echo '{"flags": []}' > "$STUB_OUT/flags.json"
@@ -115,6 +124,24 @@ exec {sys.executable} -c '{CLI}' "$@"
 """
 
 
+def _valid_prediction(tmp_path: Path) -> str:
+    """A ``prediction.json`` that holds to its schema, as the offline stub writes one."""
+    scratch = tmp_path / "valid-artifact"
+    request = RunRequest(
+        role=UsageRole.predictor,
+        court_id=COURT,
+        docket_id=int(DOCKET),
+        event_id=EVENT,
+        actor_id=PREDICTOR,
+        run_id=RUN_ID,
+        prompt=Path(".github/prompts/predict.md"),
+        data_root=scratch,
+    )
+    StubRunner().run(request)
+    (written,) = scratch.rglob("prediction.json")
+    return written.read_text()
+
+
 def _run(
     tmp_path: Path,
     plan: list[str],
@@ -164,6 +191,7 @@ def _run(
         "STUB_COUNT": str(tmp_path / "count"),
         "STUB_OUT": str(out),
         "STUB_ARTIFACT": artifact,
+        "STUB_VALID_ARTIFACT": _valid_prediction(tmp_path),
         "STUB_TELEMETRY": str(tmp_path / ".gemini" / "telemetry.log"),
         "STUB_TELEMETRY_RECORD": TELEMETRY_RECORD,
         "STUB_INVALID_RESULT": INVALID_RESULT,
@@ -285,6 +313,28 @@ def test_the_backoff_counts_against_the_deadline(tmp_path: Path) -> None:
 
 def test_an_attempt_that_produced_the_cells_output_is_kept(tmp_path: Path) -> None:
     result, root = _run(tmp_path, ["invalid-produce", "ok"])
+    assert _attempts(tmp_path) == 1
+    assert (root / "prediction.json").is_file()
+    (warning,) = _warnings(result)
+    assert "the attempt produced the cell's output, which a retry would discard" in warning
+
+
+def test_an_attempt_whose_output_fails_its_schema_is_retried(tmp_path: Path) -> None:
+    # The tail would refuse a prediction its own model refuses, so nothing is
+    # lost by retrying over it; the retry starts from a root without it.
+    result, root = _run(tmp_path, ["invalid-malformed", "ok"])
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert _attempts(tmp_path) == 2
+    assert not root.exists()
+    (warning,) = _warnings(result)
+    assert "retrying from a clean output root" in warning
+
+
+def test_malformed_output_is_kept_when_its_schema_check_cannot_run(tmp_path: Path) -> None:
+    # Only a clear verdict against the output discards it.
+    result, root = _run(
+        tmp_path, ["invalid-malformed", "ok"], knobs={"STUB_FAIL_COMMAND": "finalize-validates"}
+    )
     assert _attempts(tmp_path) == 1
     assert (root / "prediction.json").is_file()
     (warning,) = _warnings(result)

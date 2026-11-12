@@ -20,6 +20,7 @@ from fedcourtsai.finalize import (
     JudgeFileOutcome,
     JudgeFileSettlement,
     OutputSnapshot,
+    agent_output_validates,
     agent_produced_output,
     reset_output_root,
     settle_judge_level_outputs,
@@ -327,3 +328,54 @@ def test_json_copies_that_differ_in_type_are_not_the_same_answer(tmp_path: Path)
         '{"used_corpus_query": 1}'
     )
     assert _settle(events)["tooling.json"].outcome is JudgeFileOutcome.ambiguous
+
+
+# --- does the judgment artifact hold to its schema ------------------------------
+
+
+def _validates(role: FinalizeRole, data_root: Path, actor: str) -> bool:
+    return agent_output_validates(
+        role, data_root=data_root, court="ca9", docket=1, event="evt-x", actor=actor, run_id="R"
+    )
+
+
+def test_a_cell_with_no_judgment_artifact_has_nothing_to_refuse(tmp_path: Path) -> None:
+    assert _validates(FinalizeRole.predict, tmp_path, "claude-baseline")
+    assert _validates(FinalizeRole.evaluate, tmp_path, "claude-judge")
+
+
+def test_a_prediction_its_model_refuses_does_not_validate(tmp_path: Path) -> None:
+    prediction = CasePaths(tmp_path, "ca9", 1).event("evt-x").prediction("claude-baseline", "R")
+    prediction.parent.mkdir(parents=True)
+    prediction.write_text('{"granted": "perhaps"}')
+    assert not _validates(FinalizeRole.predict, tmp_path, "claude-baseline")
+    prediction.write_text("{ not json")
+    assert not _validates(FinalizeRole.predict, tmp_path, "claude-baseline")
+
+
+def test_one_refused_evaluation_fails_the_cell_and_other_runs_are_not_read(
+    tmp_path: Path,
+) -> None:
+    events = CasePaths(tmp_path, "ca9", 1).event("evt-x")
+    # Another run's file is not this cell's output, whatever it holds.
+    earlier = events.evaluation("claude-judge", "alias-a", "EARLIER")
+    earlier.parent.mkdir(parents=True)
+    earlier.write_text('{"leakage": {"confirmed": true}}')
+    assert _validates(FinalizeRole.evaluate, tmp_path, "claude-judge")
+    current = events.evaluation("claude-judge", "alias-a", "R")
+    current.parent.mkdir(parents=True)
+    current.write_text('{"leakage": {"confirmed": true}}')
+    assert not _validates(FinalizeRole.evaluate, tmp_path, "claude-judge")
+
+
+def test_finalize_validates_prints_the_verdict(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(tmp_path))
+    args = ["finalize-validates", "--role", "predict", "--court", "ca9", "--docket", "1"]
+    args += ["--event", "evt-x", "--actor", "claude-baseline", "--run-id", "R"]
+    assert CliRunner().invoke(app, args).stdout.strip() == "true"
+    prediction = CasePaths(tmp_path, "ca9", 1).event("evt-x").prediction("claude-baseline", "R")
+    prediction.parent.mkdir(parents=True)
+    prediction.write_text("{}")
+    assert CliRunner().invoke(app, args).stdout.strip() == "false"

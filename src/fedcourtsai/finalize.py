@@ -8,6 +8,9 @@ cell still needs before it uploads: the role enum, and the check for whether the
 agent actually wrote its own judgment artifact (so a cell that only has the
 materialized ``event.yaml`` scaffold is reported as "produced nothing" rather than
 committed). The ``finalize-produced`` CLI command wraps it.
+:func:`agent_output_validates` asks the next question of that artifact — does
+it hold to its schema — for the one caller that has to choose between keeping
+an attempt's output and retrying over it (``finalize-validates``).
 
 Beside it sits the same question asked *forward* rather than backward:
 :func:`required_outputs` names every file a finished cell of this role owes,
@@ -32,7 +35,10 @@ from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 
+from pydantic import ValidationError
+
 from .paths import CasePaths, EventPaths
+from .schemas import Evaluation, Prediction
 
 
 class FinalizeRole(StrEnum):
@@ -68,6 +74,51 @@ def agent_produced_output(
     if role is FinalizeRole.evaluate:
         return any(events.evaluator_dir(actor).glob(f"*/{run_id}/evaluation.json"))
     raise ValueError(f"agent_produced_output is for predict/evaluate, not {role.value}")
+
+
+def agent_output_validates(
+    role: FinalizeRole,
+    *,
+    data_root: Path,
+    court: str,
+    docket: int,
+    event: str,
+    actor: str,
+    run_id: str,
+) -> bool:
+    """Whether every judgment artifact the agent wrote for this cell holds to its schema.
+
+    The in-step retry's question about an attempt that ended on a transient
+    fault: output that validates is the cell's work and is kept, while a
+    ``prediction.json`` or ``evaluation.json`` its own model refuses is one the
+    cell's tail would refuse too, so nothing is lost by retrying over it. The
+    check is the model alone, the same parse ``validate`` gives the file by its
+    name, and deliberately nothing more: the cross-file rules read a cell after
+    its tail has un-aliased, settled and stamped it, and an attempt judged
+    before that would fail them for what the tail was about to supply. A cell
+    that is merely incomplete therefore validates here.
+
+    ``False`` only where an artifact exists and fails; a cell with no judgment
+    artifact has nothing to refuse, and :func:`agent_produced_output` is the
+    check that says so.
+    """
+    events = CasePaths(data_root, court, docket).event(event)
+    model: type[Prediction] | type[Evaluation]
+    if role is FinalizeRole.predict:
+        model, artifacts = Prediction, [events.prediction(actor, run_id)]
+    elif role is FinalizeRole.evaluate:
+        model = Evaluation
+        artifacts = sorted(events.evaluator_dir(actor).glob(f"*/{run_id}/evaluation.json"))
+    else:
+        raise ValueError(f"agent_output_validates is for predict/evaluate, not {role.value}")
+    for artifact in artifacts:
+        if not artifact.is_file():
+            continue
+        try:
+            model.model_validate_json(artifact.read_bytes())
+        except (ValidationError, OSError):
+            return False
+    return True
 
 
 def cell_output_root(
