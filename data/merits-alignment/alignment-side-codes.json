@@ -2605,6 +2605,20 @@
       "valence": "none"
     },
     {
+      "case_id": "scotus/69979990",
+      "coded_at": "2026-11-12",
+      "conservative_side": "respondent",
+      "contamination_risk": true,
+      "docket_number": "24-362",
+      "granted": "2025-01-27",
+      "mode": "replay",
+      "model": "claude-opus-5-5",
+      "note": "Federalism, jurisdiction and remedies: the United States, as respondent, defends sovereign immunity and the discretionary-function exception, the position narrowing the tort remedy the petitioners seek.",
+      "run_id": "43270420658",
+      "score": 0.27,
+      "valence": "clear"
+    },
+    {
       "case_id": "scotus/69981163",
       "coded_at": "2026-11-02",
       "conservative_side": "petitioner",
@@ -4199,6 +4213,20 @@
       "run_id": "41515227262",
       "score": 0.4,
       "valence": "none"
+    },
+    {
+      "case_id": "scotus/73520108",
+      "coded_at": "2026-11-12",
+      "conservative_side": "petitioner",
+      "contamination_risk": false,
+      "docket_number": "25-1408",
+      "granted": "2026-11-06",
+      "mode": "forward",
+      "model": "claude-opus-5-5",
+      "note": "Economic activity and regulation: Goldman Sachs, as petitioner, is the business seeking to enforce an arbitration agreement against the consumer's Bankruptcy Code stay-violation claims.",
+      "run_id": "43270420658",
+      "score": 0.8,
+      "valence": "clear"
     },
     {
       "case_id": "scotus/9026000012",
