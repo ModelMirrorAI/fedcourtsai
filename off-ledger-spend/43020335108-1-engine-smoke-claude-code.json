@@ -1,0 +1,28 @@
+{
+  "conclusion": "success",
+  "environment": "staging",
+  "estimated_cost_usd": 0.675378,
+  "lane": "engine-smoke",
+  "leg": "engine-smoke-claude-code",
+  "lines": [
+    {
+      "cache_creation_input_tokens": 76588,
+      "cache_read_input_tokens": 743730,
+      "engine": "claude-code",
+      "estimated_cost_usd": 0.675378,
+      "input_tokens": 28,
+      "model": "claude-opus-5-5",
+      "output_tokens": 7179,
+      "priced_as": null,
+      "records": null,
+      "source": "claude-transcripts"
+    }
+  ],
+  "recorded_at": "2026-11-11T12:29:41.243333Z",
+  "ref": "promote/2026-11-11",
+  "run_attempt": 1,
+  "run_id": "43020335108",
+  "schema_version": "1.0",
+  "selection": "gate",
+  "workflow": "integration-test"
+}
