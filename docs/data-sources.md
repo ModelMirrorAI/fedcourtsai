@@ -938,6 +938,12 @@ The automated consumer stays within CourtListener's published API limits by desi
   opinion; the record keeps upstream's panel and judges strings, which a
   staged copy carries only into a cell's gitignored record. No RECAP Fetch
   request is made ([cli.md](cli.md)).
+- **The appeal reader's sample shares it too.** `appeal-sample` draws one
+  court of appeals' civil appeals a run through the same client: a docket
+  search page per twenty drawn dockets, one read per drawn docket and up to
+  six entry pages per civil appeal, stopping at its lane's share (150). It
+  reads only what CourtListener already holds, with no RECAP Fetch purchase,
+  and stores nothing: its report carries court-record identifiers and counts.
 - **The adverse-order scan shares it too.** `order-scan` runs the RECAP
   searches `config/order-scan.yaml` configures — district dockets whose
   entries match an order phrase in a window of entry dates, one request a

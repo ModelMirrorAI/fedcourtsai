@@ -318,6 +318,7 @@ from .pipeline import (
     alignment_score,
     alignment_side,
     appeal_resolver,
+    appeal_sample,
     application_backfill,
     argument_features,
     authorship,
@@ -20012,6 +20013,79 @@ def appeal_events_command(
     typer.echo(json.dumps({"counts": result.counts(), **result.model_dump(mode="json")}, indent=2))
     for line in appeal_resolver.summary_lines(result):
         typer.echo(line, err=True)
+
+
+@app.command("appeal-sample")
+def appeal_sample_command(
+    court: Annotated[
+        str,
+        typer.Option(help="The court of appeals to sample: ca2, ca3, ca9 or cadc."),
+    ],
+    take: Annotated[
+        int,
+        typer.Option(min=1, max=appeal_sample.TAKE, help="Civil appeals to sample."),
+    ] = appeal_sample.TAKE,
+    max_requests: Annotated[
+        int | None,
+        typer.Option(
+            help="Requests this run may spend; defaults to the lane's share, and "
+            "may only lower it.",
+        ),
+    ] = None,
+    plan: Annotated[
+        bool,
+        typer.Option("--plan", help="Print the search, sending no request."),
+    ] = False,
+) -> None:
+    """Measure the appeal stage's disposition reader on a sample of civil appeals.
+
+    Draws one court of appeals' dockets filed in a fixed past window from
+    CourtListener in a seeded random order, passes over every appeal whose
+    case type is not civil, and reads each of the first `--take` civil
+    appeals' entries with the appeal stage's reader
+    (`pipeline/appeal_resolver.py`): a disposition, an entry for triage, or
+    nothing. Prints the report as JSON on stdout (court-record identifiers,
+    counts and the reader's reason strings; no caption or entry text) and a
+    reading in counts on stderr. The four courts' reports together are the
+    measurement the appeal stage's registration waits on
+    (`docs/appeal-stage.md`).
+
+    Read-only: no corpus, content-store, ledger or `data/` write, no RECAP
+    Fetch purchase, no GitHub call. It spends one request per search page and
+    per drawn docket and up to six per civil appeal's entries, from the
+    `appeal-sample` lane's share; `--plan` shows the search first and needs no
+    token. Exits 1 after printing the report when the credential was refused
+    or the run stopped before any appeal was read, and 2 on a court outside
+    the sample or with no token.
+    """
+    if court not in appeal_sample.SAMPLE_COURTS:
+        typer.echo(
+            f"appeal-sample: --court must be one of {', '.join(appeal_sample.SAMPLE_COURTS)}",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    cap = appeal_sample.MAX_REQUESTS
+    if max_requests is not None:
+        if not 0 < max_requests <= cap:
+            typer.echo(f"appeal-sample: --max-requests must be between 1 and {cap}", err=True)
+            raise typer.Exit(code=2)
+        cap = max_requests
+    if plan:
+        for line in appeal_sample.plan_lines(court, take=take, max_requests=cap):
+            typer.echo(line)
+        return
+    if not get_settings().courtlistener_api_token:
+        typer.echo("appeal-sample: no CourtListener API token is configured", err=True)
+        raise typer.Exit(code=2)
+    with _client("appeal-sample") as client:
+        report = appeal_sample.sample(client, court, take=take, max_requests=cap)
+    typer.echo(json.dumps({"counts": report.counts(), **report.model_dump(mode="json")}, indent=2))
+    for line in appeal_sample.summary_lines(report):
+        typer.echo(line, err=True)
+    failed = appeal_sample.failure(report)
+    if failed is not None:
+        typer.echo(f"appeal-sample: failed: {failed}", err=True)
+        raise typer.Exit(code=1)
 
 
 @app.command("order-notations")
