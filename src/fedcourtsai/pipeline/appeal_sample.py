@@ -23,9 +23,21 @@ terminated on which the reader read nothing is counted apart, because that is
 where a disposition the rule did not see would be.
 
 **What it measures.** How often the reader settles a disposition, how often
-it hands one to triage, and how often it is silent on an ended appeal. It does
-not measure whether a disposition it read is the right one: that takes a hand
-check of the rows, which the report names by docket and entry number.
+it hands one to triage, and how often it is silent on an ended appeal, over
+every sampled appeal and again over the ones the stage would have opened an
+event on (the reply brief read before any disposition). It does not measure
+whether a disposition it read is the right one: that takes a hand check of
+the rows, which the report names by docket and entry number.
+
+**What the sample is not.** It is the dockets RECAP holds with a case type
+recorded, not a court's civil appeals: a docket with no case type is passed
+over, one too long to read takes a place in the sample and enters no rate,
+and one whose read failed is listed as an error and enters none either.
+Upstream records a termination date for some courts' dockets and not others,
+so the ended-and-silent count is a floor. The run cap may end a run short of
+:data:`TAKE`; a second run walks the same draw, so the cap, not a re-run, is
+what a fuller sample would change. The request count is of requests asked,
+before the client's retries, which the rate governor counts as well.
 
 **What the report carries.** Court-record identifiers, counts and the
 reader's own fixed reason strings: court, docket id and number, entry numbers
@@ -80,8 +92,11 @@ class SampleRow(BaseModel):
     #: The entry the disposition was read from, or the entries sent to triage.
     entry_numbers: list[int] = Field(default_factory=list)
     reason: str | None = None
-    #: The appellant's reply brief was read, so the event would have opened.
+    #: The appellant's reply brief was read.
     reply_read: bool = False
+    #: The reply was read before any disposition the rule read, so the stage
+    #: would have opened an event on this appeal.
+    event: bool = False
 
 
 class SampleReport(BaseModel):
@@ -120,6 +135,9 @@ class SampleReport(BaseModel):
             "open": found["open"],
             "open_terminated": sum(row.reading == "open" and row.terminated for row in self.rows),
             "too_long": found["too-long"],
+            "events": sum(row.event for row in self.rows),
+            "event_resolved": sum(row.event and row.reading == "resolved" for row in self.rows),
+            "event_triage": sum(row.event and row.reading == "triage" for row in self.rows),
         }
 
 
@@ -127,13 +145,18 @@ class _RunCapReached(Exception):
     """The next request would pass the run's request cap."""
 
 
+def _line(exc: Exception) -> str:
+    """The first line of an exception's message: httpx appends a second."""
+    return (str(exc).splitlines() or [""])[0]
+
+
 def _stop_reason(exc: Exception) -> str | None:
     if isinstance(exc, _RunCapReached):
         return str(exc)
     if isinstance(exc, RateBudgetExceeded):
-        return f"API budget exhausted ({exc})"
+        return f"API budget exhausted ({_line(exc)})"
     if is_throttled(exc):
-        return f"CourtListener throttling persisted ({exc})"
+        return f"CourtListener throttling persisted ({_line(exc)})"
     if isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code == 401:
         return "CourtListener refused the credential (HTTP 401)"
     return None
@@ -195,6 +218,7 @@ def _read(
         return row
     opening = appeal_resolver.read_appeal(read.entries, today=today)
     row.reply_read = opening.reply is not None
+    row.event = opening.is_event
     resolution = opening.resolution
     if isinstance(resolution, Disposition):
         row.reading = "resolved"
@@ -271,12 +295,14 @@ def sample(
                 except (RateBudgetExceeded, httpx.HTTPError, ValueError) as exc:
                     if _stop_reason(exc) is not None:
                         raise
-                    report.errors.append(f"docket {docket_id}: {type(exc).__name__}: {exc}")
+                    report.errors.append(f"docket {docket_id}: {type(exc).__name__}: {_line(exc)}")
                     continue
                 if row is not None:
                     report.rows.append(row)
     except (_RunCapReached, RateBudgetExceeded, httpx.HTTPError, ValueError) as exc:
-        report.stopped = _stop_reason(exc) or f"the search failed ({type(exc).__name__}: {exc})"
+        report.stopped = (
+            _stop_reason(exc) or f"the search failed ({type(exc).__name__}: {_line(exc)})"
+        )
     return report
 
 
@@ -290,10 +316,13 @@ def failure(report: SampleReport) -> str | None:
 def plan_lines(court: str, *, take: int, max_requests: int) -> list[str]:
     """What a run would ask, sending no request."""
     params = " ".join(f"{key}={value}" for key, value in search_params(court).items())
+    worst = take * (1 + MAX_ENTRY_PAGES)
     return [
         f"appeal-sample {court}: the first {take} civil appeals of the search {params}",
         f"  one request a search page and a drawn docket, up to {MAX_ENTRY_PAGES} entry pages "
         + f"a civil appeal, at most {max_requests} requests",
+        f"  the civil appeals alone cost up to {worst} requests, before search pages and the "
+        + "dockets passed over: a run that reaches its cap reports the appeals read before it",
     ]
 
 
@@ -314,6 +343,8 @@ def summary_lines(report: SampleReport) -> list[str]:
         f"  triage: {counts['triage']} of the {acted} appeals with a disposition entry{rate}",
         f"  nothing read: {counts['open']}, of which {counts['open_terminated']} "
         + "upstream marks terminated",
+        f"  would have opened an event: {counts['events']} "
+        + f"({counts['event_resolved']} disposition read, {counts['event_triage']} triage)",
         f"  rule {report.rule}",
     ]
     if report.exhausted:

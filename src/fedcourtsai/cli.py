@@ -20056,7 +20056,7 @@ def appeal_sample_command(
     `appeal-sample` lane's share; `--plan` shows the search first and needs no
     token. Exits 1 after printing the report when the credential was refused
     or the run stopped before any appeal was read, and 2 on a court outside
-    the sample.
+    the sample or with no token.
     """
     if court not in appeal_sample.SAMPLE_COURTS:
         typer.echo(

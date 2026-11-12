@@ -155,7 +155,8 @@ def test_sample_screens_reads_and_counts_each_reading() -> None:
         "affirmed",
         [30],
     )
-    assert by_id[1].reply_read and by_id[1].entries == 2
+    assert by_id[1].reply_read and by_id[1].event and by_id[1].entries == 2
+    assert not by_id[4].event and by_id[6].event
     assert (by_id[4].reading, by_id[4].entry_numbers) == ("triage", [31])
     assert by_id[4].reason == "an order that dismisses less than the whole appeal"
     assert (by_id[5].reading, by_id[5].terminated) == ("open", True)
@@ -167,12 +168,16 @@ def test_sample_screens_reads_and_counts_each_reading() -> None:
         "open": 2,
         "open_terminated": 1,
         "too_long": 0,
+        "events": 2,
+        "event_resolved": 1,
+        "event_triage": 0,
     }
     lines = "\n".join(summary_lines(report))
     assert "4 of 25 civil appeals read" in lines
     assert "disposition read: 1 (affirmed 1)" in lines
     assert "triage: 1 of the 2 appeals with a disposition entry (0.50)" in lines
     assert "nothing read: 2, of which 1 upstream marks terminated" in lines
+    assert "would have opened an event: 2 (1 disposition read, 0 triage)" in lines
     assert failure(report) is None
 
 
@@ -233,6 +238,26 @@ def test_one_dockets_failed_read_is_recorded_and_passed_over() -> None:
         report = sample(client, "ca9", now=_NOW)
     assert sorted(row.docket_id for row in report.rows) == [1, 5, 6]
     assert len(report.errors) == 1 and report.errors[0].startswith("docket 4: ")
+
+
+def test_a_failed_entry_read_is_an_error_and_not_a_screened_out_docket() -> None:
+    upstream = _upstream()
+    upstream.fail["docket-entries/?docket=4"] = 404
+    with _client(upstream) as client:
+        report = sample(client, "ca9", now=_NOW)
+    assert sorted(row.docket_id for row in report.rows) == [1, 5, 6]
+    assert (report.not_civil, report.no_case_type, len(report.errors)) == (1, 1, 1)
+    assert all("\n" not in error for error in report.errors)
+
+
+def test_persistent_throttling_stops_the_run_and_keeps_the_rows_read() -> None:
+    upstream = _upstream()
+    upstream.fail["dockets/4/"] = 429
+    with _client(upstream) as client:
+        report = sample(client, "ca9", now=_NOW)
+    assert [row.docket_id for row in report.rows] == [1]
+    assert report.stopped is not None and report.stopped.startswith("CourtListener throttling")
+    assert "\n" not in report.stopped and failure(report) is None
 
 
 def test_a_court_outside_the_sample_is_refused() -> None:
