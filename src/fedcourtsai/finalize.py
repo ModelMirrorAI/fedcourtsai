@@ -35,8 +35,6 @@ from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 
-from pydantic import ValidationError
-
 from .paths import CasePaths, EventPaths
 from .schemas import Evaluation, Prediction
 
@@ -92,11 +90,15 @@ def agent_output_validates(
     fault: output that validates is the cell's work and is kept, while a
     ``prediction.json`` or ``evaluation.json`` its own model refuses is one the
     cell's tail would refuse too, so nothing is lost by retrying over it. The
-    check is the model alone, the same parse ``validate`` gives the file by its
-    name, and deliberately nothing more: the cross-file rules read a cell after
-    its tail has un-aliased, settled and stamped it, and an attempt judged
-    before that would fail them for what the tail was about to supply. A cell
-    that is merely incomplete therefore validates here.
+    check is the model alone, read the way ``validate`` reads the file by its
+    name (decoded, then validated), and deliberately nothing more: the
+    cross-file rules read a cell after its tail has un-aliased, settled and
+    stamped it, and an attempt judged before that would fail them for what the
+    tail was about to supply. A cell that is merely incomplete therefore
+    validates here. One field is the tail's on the same footing: un-aliasing
+    writes each evaluation's ``predictor_id`` from the directory it sits in,
+    whatever the judge put there, so the check reads the field as that
+    directory's name and never refuses an evaluation for it.
 
     ``False`` only where an artifact exists and fails; a cell with no judgment
     artifact has nothing to refuse, and :func:`agent_produced_output` is the
@@ -115,8 +117,11 @@ def agent_output_validates(
         if not artifact.is_file():
             continue
         try:
-            model.model_validate_json(artifact.read_bytes())
-        except (ValidationError, OSError):
+            data = json.loads(artifact.read_text())
+            if role is FinalizeRole.evaluate and isinstance(data, dict):
+                data["predictor_id"] = artifact.parent.parent.name
+            model.model_validate(data)
+        except Exception:
             return False
     return True
 

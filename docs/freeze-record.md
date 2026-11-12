@@ -19149,7 +19149,7 @@ freeze commit is recorded here.
   recorded 2026-11-12.** A harness change under unchanged digests. Carried to
   `main` by the promotion tagged `<FILL: promotion tag>` (merge commit
   `<FILL: merge hash>`, merged `<FILL: merged-at>`). No harness boundary is
-  registered, since no cell's information set and no scored number moves.
+  registered, since no scoring rule and no cell's information set moves.
 
   **What changes.** The in-place retry of a Gemini cell (the entry *Gemini
   cells retry a transient engine fault in place*, above) never retried an
@@ -19165,28 +19165,38 @@ freeze commit is recorded here.
   still kept and still not retried.
 
   **Why.** Evaluate run `20261110T154355Z` left a `gemini-judge` cell on
-  `scotus/73522552` whose turn ended on `INVALID_STREAM` after writing three
+  `scotus/73522552` `evt-petition-disposition` whose turn ended on
+  `INVALID_STREAM` after writing three
   `evaluation.json` files carrying 13 schema errors between them. The retry
   declined to discard that output, the cell's tail refused it, and the cell
   went to a partial draft that was closed unmerged and was owed again on a
   later round. The output the rule protected was output no reader would
   keep. Run against the files that cell left in the partial draft, the new check
-  prints `false`; against the same run's `scotus/9526000560` cell, whose
-  files validate, it prints `true`.
+  prints `false`; against the same run's `scotus/9526000560`
+  `evt-brief-response-disposition` cell, whose files validate, it prints
+  `true`.
 
   **What it means for a reader.** A Gemini cell's landed judgment can now be
   the second or third turn's where an earlier turn of the same step wrote a
   judgment the schema refused. Which turn is retried depends on the fault
-  class and the schema alone, never on what a valid judgment says, and before
+  class and the schema alone, never on what a valid judgment says. Before
   this change the same cell was run again on a later round under the attempt
-  cap, so the population of landed judgments is drawn the same way, sooner.
+  cap, so the landed set holds the same cells or more: a forward predict cell
+  owed again later reads a later snapshot, and is lost if its event resolves
+  first, where the retry lands it on the opening round's snapshot. The rule
+  is Gemini's alone, since the claude and codex steps have no in-place retry,
+  so it moves the Gemini pair's cell-failure rate against the other two
+  pairs', and a comparison of failure rates across this promotion reads the
+  Gemini pair apart.
   The discarded turn's tokens and tool calls stay in the cell's `usage.json`
   and `retrieval_log.json`, as every failed turn's do. For a forward predict
   cell the difference is timing: the forecast lands in the round that opened
   it instead of a later one.
 
   The runnable effect check once it is live: after a full evaluate round on
-  `main`, no `gemini-judge` cell's job log carries `not retried: the attempt
-  produced the cell's output` beside a `partial` failure record whose
-  `evaluation.json` files fail `uv run fedcourts validate data`; and
-  `uv run pytest tests/test_gemini_cell.py tests/test_finalize.py` is green.
+  `main`, for every `gemini-judge` cell whose job log carries `not retried:
+  the attempt produced the cell's output`, `uv run fedcourts
+  finalize-validates` over the cell's uploaded artifact prints `true` (a
+  partial cell's files reach no branch but its draft, so the artifact or the
+  draft is where they are read); and `uv run pytest tests/test_gemini_cell.py
+  tests/test_finalize.py` is green.

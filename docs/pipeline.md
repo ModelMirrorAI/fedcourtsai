@@ -4230,9 +4230,9 @@ both, lane-prefixed, to the log live; the runner classifies every attempt with
 the same classifier, retries only a `transient` one under its own attempt cap
 (the `runner:` section of `config/tracking.yaml`), and resets the cell's
 output root to its pre-attempt snapshot before each retry, never past a
-written judgment artifact that validates, or a `flags.json`. The reset covers only that root:
-scratch an attempt wrote elsewhere under the work root survives a retry, as it
-does in the cells' in-place retry. These rules hold for a non-zero exit too,
+written judgment artifact that validates, or a `flags.json`. The reset covers
+only that root: scratch an attempt wrote elsewhere under the work root
+survives a retry, as it does in the cells' in-place retry. These rules hold for a non-zero exit too,
 so unlike claude and codex — which retry a transient non-zero exit in place,
 without a reset — a Gemini cell that already wrote its judgment is not
 retried. A zero-exit turn that is not retried keeps whatever it produced; one

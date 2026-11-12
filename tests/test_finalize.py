@@ -368,6 +368,42 @@ def test_one_refused_evaluation_fails_the_cell_and_other_runs_are_not_read(
     assert not _validates(FinalizeRole.evaluate, tmp_path, "claude-judge")
 
 
+def _committed(name: str) -> Path:
+    """One committed, landed artifact of this name: a file the tail accepted."""
+    return next(iter(sorted(Path("data/cases").glob(f"scotus/*/events/*/*/*/**/{name}"))))
+
+
+@pytest.mark.reads_data
+def test_output_the_tail_would_land_validates(tmp_path: Path) -> None:
+    events = CasePaths(tmp_path, "ca9", 1).event("evt-x")
+    prediction = events.prediction("claude-baseline", "R")
+    prediction.parent.mkdir(parents=True)
+    prediction.write_text(_committed("prediction.json").read_text())
+    assert _validates(FinalizeRole.predict, tmp_path, "claude-baseline")
+
+    # A judge's `predictor_id` is un-aliasing's to write, from the directory:
+    # an evaluation that omits or nulls it lands, so it validates here.
+    graded = json.loads(_committed("evaluation.json").read_text())
+    evaluation = events.evaluation("claude-judge", "alias-a", "R")
+    evaluation.parent.mkdir(parents=True)
+    for predictor_id in ("alias-a", None, ...):
+        written = dict(graded)
+        if predictor_id is ...:
+            del written["predictor_id"]
+        else:
+            written["predictor_id"] = predictor_id
+        evaluation.write_text(json.dumps(written))
+        assert _validates(FinalizeRole.evaluate, tmp_path, "claude-judge")
+
+    # `validate` and the stamp decode with `json.loads`, which accepts the lone
+    # surrogate escape a truncated emoji leaves; a stricter decode here would
+    # discard output the tail lands.
+    text = json.dumps(graded)
+    assert '"case_id": "' in text
+    evaluation.write_text(text.replace('"case_id": "', '"case_id": "\\ud83d', 1))
+    assert _validates(FinalizeRole.evaluate, tmp_path, "claude-judge")
+
+
 def test_finalize_validates_prints_the_verdict(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
