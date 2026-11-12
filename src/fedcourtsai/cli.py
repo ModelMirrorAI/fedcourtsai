@@ -20130,6 +20130,13 @@ def order_reconcile_command(
             "read without host scoping, so never for a publishing lane)."
         ),
     ] = None,
+    out: Annotated[
+        Path | None,
+        typer.Option(
+            help="Write the report to publish here: every count, and only the "
+            "entries that need a look."
+        ),
+    ] = None,
 ) -> None:
     """Reconcile the corpus with the Court's order lists, docket by docket. Read-only.
 
@@ -20149,8 +20156,11 @@ def order_reconcile_command(
 
     Reads the corpus index, the content store's snapshot key listing for each
     listed application, and the committed predictions and outcomes under the
-    data root; writes nothing but the optional summary and PDF cache.
+    data root; writes nothing but the optional summary, report and PDF cache.
     supremecourt.gov only: no token, no budget.
+
+    `--out` writes the report a lane hands on: every count, and only the
+    entries that need a look.
     """
     if throttle <= 0:
         typer.echo("--throttle must be positive", err=True)
@@ -20197,6 +20207,7 @@ def order_reconcile_command(
             data_root=settings.data_root,
             first_observed=casestore.earliest_stored_snapshot_date,
         )
+    report.corpus_pulled = pulled
     vintage = f"latest pull {pulled.isoformat()}" if pulled else "never pulled"
     for line in order_reconcile.digest_lines(report):
         typer.echo(line, err=True)
@@ -20211,9 +20222,45 @@ def order_reconcile_command(
     if summary_out is not None:
         with summary_out.open("a", encoding="utf-8") as handle:
             handle.write(order_reconcile.render_markdown(report, vintage=vintage) + "\n")
+    if out is not None:
+        write_text(out, order_reconcile.stored(report).model_dump_json(indent=2) + "\n")
     typer.echo(report.model_dump_json())
     if report.alarms:
         raise typer.Exit(code=3)
+
+
+@app.command("order-reconcile-alarm")
+def order_reconcile_alarm_cmd(
+    repo: Annotated[str, typer.Option("--repo", help="owner/name of the repository.")],
+    report: Annotated[
+        Path, typer.Option("--report", help="The report `order-reconcile --out` wrote.")
+    ],
+) -> None:
+    """Open, refresh or close the one order-list reconciliation alarm issue.
+
+    The issue side of `order-reconcile`, run with a token that may write
+    issues and no corpus access. A report carrying an alarm opens the issue
+    titled "Order-list reconciliation failing" under the non-triggering
+    `order-reconcile` label, or rewrites the open one's body with the report's
+    verdict (each alarm by list date and docket number, then one line per
+    document); a report with none comments on the open issue and closes it,
+    and writes nothing where none is open. Only an issue the workflow token
+    opened under that title is the alarm. Refuses (exit 2) a file that is not
+    a report; a `gh` call that fails after its retries fails the command.
+    """
+    if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo):
+        typer.echo(f"order-reconcile-alarm: --repo must be owner/name, not {repo!r}", err=True)
+        raise typer.Exit(code=2)
+    try:
+        parsed = order_reconcile.read_back(report.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        typer.echo(f"order-reconcile-alarm: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    with tempfile.TemporaryDirectory() as scratch:
+        body = Path(scratch) / "alarm.md"
+        body.write_text(order_reconcile.render_alarm(parsed) + "\n", encoding="utf-8")
+        done = order_reconcile.latch(repo, parsed, body)
+    typer.echo(f"order-reconcile-alarm: {done}")
 
 
 def _granted_noted_text(fetcher: opinion_lineups.OpinionFetcher, term: int) -> str | None:

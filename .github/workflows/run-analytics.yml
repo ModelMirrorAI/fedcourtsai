@@ -4,7 +4,7 @@ name: run-analytics
 # same mode at a glance, or a rehearsal reads as production history. Both
 # components are server-validated vocabulary: `mode` is a closed choice, and
 # the environment half is the same branch resolution the jobs bind.
-run-name: "run-analytics: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || (startsWith(github.event.schedule, '41 ') && 'metrics-refresh (schedule)' || startsWith(github.event.schedule, '59 ') && 'public-updates (schedule)' || startsWith(github.event.schedule, '8 ') && 'qp-topic-label (schedule)' || startsWith(github.event.schedule, '4 ') && 'qp-topic-label-applications (schedule)' || startsWith(github.event.schedule, '14 ') && 'alignment-side-code (schedule)' || startsWith(github.event.schedule, '11 ') && 'ai-candidates (schedule)' || startsWith(github.event.schedule, '21 ') && 'ai-follow-ons (schedule)' || startsWith(github.event.schedule, '22 ') && 'merits-coverage (schedule)' || 'big-cases (schedule)') }} @ ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}"
+run-name: "run-analytics: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || (startsWith(github.event.schedule, '41 ') && 'metrics-refresh (schedule)' || startsWith(github.event.schedule, '59 ') && 'public-updates (schedule)' || startsWith(github.event.schedule, '8 ') && 'qp-topic-label (schedule)' || startsWith(github.event.schedule, '4 ') && 'qp-topic-label-applications (schedule)' || startsWith(github.event.schedule, '14 ') && 'alignment-side-code (schedule)' || startsWith(github.event.schedule, '11 ') && 'ai-candidates (schedule)' || startsWith(github.event.schedule, '21 ') && 'ai-follow-ons (schedule)' || startsWith(github.event.schedule, '22 ') && 'merits-coverage (schedule)' || startsWith(github.event.schedule, '33 ') && 'order-reconcile (schedule)' || 'big-cases (schedule)') }} @ ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}"
 
 # Corpus analysis & derived metrics. One surface for every task that reads the
 # corpus and answers a question or refreshes a derived artifact, selected by
@@ -140,6 +140,19 @@ run-name: "run-analytics: ${{ github.event_name == 'workflow_dispatch' && inputs
 #                      token opens, refreshes or closes the one `merits-coverage`
 #                      alarm issue from it. A run with no alarm and no open
 #                      issue posts nothing.
+#   - order-reconcile: reconcile the corpus with the Court's order lists of the
+#                      last 14 days, docket by docket (`fedcourts
+#                      order-reconcile`): each listed number has a corpus row,
+#                      the row records the list's disposition and date, and a
+#                      selected or predicted event has its outcome record.
+#                      Also a daily cron's job. It reads the corpus (a full
+#                      pull, the read-only role), the committed predictions
+#                      and outcomes, and the order documents off
+#                      supremecourt.gov, and leaves its report as a run
+#                      artifact; a second job with no role and the ambient
+#                      token opens, refreshes or closes the one
+#                      `order-reconcile` alarm issue from it. A run with no
+#                      alarm and no open issue posts nothing.
 #   - decision-below:  dry-run the decision-below fill over the next 25 cases
 #                      of its rotation (`fedcourts enrich-decision-below
 #                      --max-cases 25`): what a writer window would store, and
@@ -177,9 +190,9 @@ run-name: "run-analytics: ${{ github.event_name == 'workflow_dispatch' && inputs
 # frozen fit and a side-coding batch are reviewed.
 # GitHub scopes permissions and tokens per **job**, so each mode runs as its own
 # least-privilege job gated on `mode` and none is ever granted another's credential:
-# corpus-stats, text-coverage, merits-coverage and qp-topic-extract hold only
-# the read-only S3 role (merits-coverage-alarm, which writes the alarm issue,
-# holds no role and reads only the artifact that job leaves); decision-below holds that role and the CourtListener token, on its one
+# corpus-stats, text-coverage, merits-coverage, order-reconcile and qp-topic-extract hold only
+# the read-only S3 role (merits-coverage-alarm and order-reconcile-alarm, which write the alarm issues,
+# hold no role and read only the artifact the job before them leaves); decision-below holds that role and the CourtListener token, on its one
 # measuring step; metrics-refresh holds that role *and* mints the dev App token (contents + PR
 # write) for its refresh PR; qp-topic-label, big-cases and public-updates mint the
 # same token but assume no role at all — the first because it is the one job here
@@ -212,7 +225,7 @@ run-name: "run-analytics: ${{ github.event_name == 'workflow_dispatch' && inputs
 # run belongs on a staging ref.
 on:
   schedule:
-    # Nine crons, and every scheduled job gates on **which** one fired
+    # Ten crons, and every scheduled job gates on **which** one fired
     # (`github.event.schedule`): an `event_name == 'schedule'` gate is fail-open
     # on any cron it does not name, so a second entry would otherwise run the
     # weekly refresh daily. The mode-gated jobs stay skipped either way — a
@@ -273,6 +286,11 @@ on:
     # own minute on the repo's grid. The check reads state, not a window, so a
     # dropped tick is caught up by the next Wednesday's.
     - cron: "22 9 * * 3"
+    # Daily order-list reconciliation (15:33 UTC): after the Court's morning
+    # orders are posted and the 14:47 live window has polled them. Its own minute on
+    # the repo's grid. It re-reads a 14-day window each day, so a dropped tick
+    # is caught up by the next day's.
+    - cron: "33 15 * * *"
   workflow_dispatch:
     inputs:
       mode:
@@ -294,6 +312,7 @@ on:
           - ai-candidates
           - ai-follow-ons
           - merits-coverage
+          - order-reconcile
           - decision-below
           - alignment-fit
         default: corpus-stats
@@ -4134,6 +4153,175 @@ jobs:
           echo "merits-coverage rehearsal: the alarm issue is fenced to main-branch runs; nothing was opened, refreshed or closed. The check's report is on the merits-coverage job's summary." \
             | tee -a "$GITHUB_STEP_SUMMARY"
 
+  order-reconcile:
+    needs: [authorize]
+    # The order-list reconciliation (`fedcourts order-reconcile`): every docket
+    # the Court's order lists, miscellaneous orders and opinions relating to
+    # orders name over the last 14 days, checked against the corpus and the
+    # committed ledger. The lists are the Court's own record of what it ruled
+    # on, read apart from the docket pages the pipeline polls, so a ruling the
+    # corpus never recorded is visible here.
+    #
+    # Read-only on merits-coverage's terms: the read-only role, no
+    # contents:write, no App token, no issue write. It reads the corpus index,
+    # the content store's snapshot key listing for each listed application,
+    # the committed predictions and outcomes in this checkout and the order
+    # PDFs from supremecourt.gov, which it fetches and parses while holding
+    # that role, and leaves its report as a run artifact for the alarm job
+    # below, which is the one that writes. What it reports is counts, docket
+    # numbers, case ids, headings, dispositions and dates: no order text and
+    # no stored document text.
+    #
+    # An alarm is not a failed job: the command's exit 3 says the
+    # reconciliation ran and found something, which the alarm issue carries.
+    # Any other non-zero exit (an unserved listing, a missing corpus) fails
+    # the job, uploads nothing, and so leaves the alarm issue as it stood.
+    if: >-
+      ${{ ((github.event_name == 'schedule' && startsWith(github.event.schedule, '33 ')) ||
+      inputs.mode == 'order-reconcile')
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 25
+    environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
+    # Its own group, never cancelled: a cancelled reconciliation uploads
+    # nothing and the alarm job then skips. Read-only, so overlap with a
+    # sibling mode is harmless.
+    concurrency:
+      group: run-analytics-order-reconcile-${{ github.ref_name }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write # assume the read-only AWS role to pull the corpus
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
+
+      # The reconciliation looks each listed docket up among the corpus rows,
+      # so the corpus must be on disk. No contents:write, no App token: this
+      # job cannot touch git or the corpus.
+      - uses: ./.github/actions/corpus-readonly
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
+          aws-region: ${{ vars.AWS_REGION }}
+          corpus-base-url: ${{ vars.CORPUS_BASE_URL }}
+          # The out-of-band staging index pointer, forwarded only off `main`,
+          # as corpus-stats forwards it and for the reason stated there.
+          corpus-pointer: ${{ github.ref_name != 'main' && vars.FEDCOURTS_CORPUS_POINTER || '' }}
+
+      - name: Reconcile the corpus with the Court's order lists
+        # A window is a few order documents at one request a second; a long
+        # conference list is the slow case and still reads in minutes.
+        timeout-minutes: 15
+        env:
+          # The corpus estate's base URL, as corpus-stats sets it: dating an
+          # application's first stored snapshot lists keys in the content
+          # store.
+          FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/order-reconcile"
+          mkdir -p "$out"
+          status=0
+          uv run fedcourts order-reconcile --out "$out/report.json" \
+            --summary-out "$out/report.md" > /dev/null 2> "$out/summary.txt" || status=$?
+          cat "$out/summary.txt"
+          # Exit 3 is an alarm the reconciliation found, carried by the
+          # report; anything else non-zero is a reconciliation that did not
+          # run.
+          if [ "$status" -ne 0 ] && [ "$status" -ne 3 ]; then
+            exit "$status"
+          fi
+          cat "$out/report.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish the report
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: order-reconcile
+          path: ${{ runner.temp }}/order-reconcile/report.json
+          if-no-files-found: error
+          # The one-day window every analytics run artifact rides. The alarm
+          # job reads it within the run; the issue is the durable record.
+          retention-days: 1
+
+  order-reconcile-alarm:
+    needs: [authorize, order-reconcile]
+    # The issue side of the order-list reconciliation (`fedcourts
+    # order-reconcile-alarm`): one long-lived issue under the non-triggering
+    # `order-reconcile` label, opened on an alarm, rewritten in place while an
+    # alarm stands, and closed with a comment when a report comes back clean.
+    #
+    # Its own job because permissions are per job: this one holds the ambient
+    # token with `issues: write` and nothing else. No environment, no cloud
+    # role, no corpus: it reads the artifact the reconciliation left, which
+    # carries counts and identifiers only. It runs only when that job
+    # succeeded, so a reconciliation that could not run neither raises nor
+    # clears the alarm.
+    #
+    # Only a run on the `main` branch ref writes the issue (`github.ref`, as
+    # the publishing jobs fence it). A staging rehearsal reads the staging
+    # corpus pair, which is not production's, and says in the step summary
+    # what it left alone.
+    if: >-
+      ${{ needs.order-reconcile.result == 'success'
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
+    runs-on: ubuntu-26.04
+    # Setup plus at most a handful of bounded `gh` calls, each worth up to
+    # 105s against a degraded API.
+    timeout-minutes: 15
+    # Never cancelled: a cancel between the comment and the close would leave
+    # a closed-sounding issue open.
+    concurrency:
+      group: run-analytics-order-reconcile-alarm-${{ github.ref_name }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      issues: write # the order-reconcile alarm: its label, the issue, and the closing comment (ambient)
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
+
+      - name: Download the report
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: order-reconcile
+          path: ${{ runner.temp }}/order-reconcile
+
+      - name: Latch the alarm issue
+        if: ${{ github.ref == 'refs/heads/main' }}
+        timeout-minutes: 10
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # The find-or-create, the in-place refresh, the close and the bounded
+          # gh retry all live in tested Python, so this step has no `gh` of its
+          # own. `order-reconcile` is a NON-triggering label by design: no
+          # workflow keys on `issues: labeled`.
+          uv run fedcourts order-reconcile-alarm --repo "$REPO" \
+            --report "$RUNNER_TEMP/order-reconcile/report.json" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Note the rehearsal boundary (the alarm issue is fenced off this ref)
+        if: ${{ github.ref != 'refs/heads/main' }}
+        run: |
+          set -euo pipefail
+          echo "order-reconcile rehearsal: the alarm issue is fenced to main-branch runs; nothing was opened, refreshed or closed. The verdict is on the order-reconcile job's summary." \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+
   decision-below:
     needs: [authorize]
     # The decision-below fill's dry run: for the next 25 cases of its rotation
@@ -4477,7 +4665,7 @@ jobs:
   # not pass or this attempt is neither the one the gate judged nor a re-run by
   # a login the gate published. No checkout, no token, no environment.
   run-gate:
-    needs: [authorize, corpus-stats, tool-usage, text-coverage, metrics-refresh, big-cases, public-updates, qp-topic-resolve, qp-topic-extract, qp-topic-approval, qp-topic-rejected, qp-topic-label, qp-topic-publish, order-scan, ai-candidates, ai-follow-ons, merits-coverage, merits-coverage-alarm, decision-below, alignment-fit, alignment-fit-publish]
+    needs: [authorize, corpus-stats, tool-usage, text-coverage, metrics-refresh, big-cases, public-updates, qp-topic-resolve, qp-topic-extract, qp-topic-approval, qp-topic-rejected, qp-topic-label, qp-topic-publish, order-scan, ai-candidates, ai-follow-ons, merits-coverage, merits-coverage-alarm, order-reconcile, order-reconcile-alarm, decision-below, alignment-fit, alignment-fit-publish]
     if: always()
     runs-on: ubuntu-26.04
     timeout-minutes: 5
