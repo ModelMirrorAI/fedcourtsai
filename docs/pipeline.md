@@ -3736,6 +3736,17 @@ an event first materialized this run, would reach the run PR. It runs under
 back. The scope is `data/` alone: the engine state, sidecar logs and watchdog
 bundle the harness writes at the workspace root are outside it.
 
+One stray is the cell's whole output. A predictor that names its run directory
+as one joined component, `predictions/<predictor_id>__<run_id>/` (underscores,
+hyphens or dots between the two ids), has written every file it owes one level
+too high, where the confinement would remove them and the cell would land
+nothing. Before the comparison the step renames that directory onto
+`predictions/<predictor_id>/<run_id>/`, contents untouched, and leaves an
+`info` harness note in the cell's `flags.json`. It does so only for exactly one
+such directory the baseline did not hold, a real directory with a
+`prediction.json`, with the run directory absent or empty and no link on the
+way; anything else is put back as any other stray is.
+
 The same step in both cells, and a step of its own in every other job that
 starts an engine in a checkout (the back-test, the qp-topic labeler and the
 integration-test jobs), takes `AGENTS.md`, `CLAUDE.md` and `.claude/` out of

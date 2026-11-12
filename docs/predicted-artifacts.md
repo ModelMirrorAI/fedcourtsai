@@ -606,6 +606,9 @@ link or directory is removed, a changed or deleted one is restored — before
 the hidden trees come back and before anything else reads the tree
 (`fedcourtsai.write_confinement`). So a stray write it puts back never reaches
 the stamp, `validate`, the cell artifact or the ledger, whatever tool made it.
+A run directory named as one joined component (`predictions/<predictor_id>__<run_id>/`) is
+the one stray it renames onto the contract path instead of removing, with an
+`info` harness note saying so.
 Anything put back is one harness note in the cell's `flags.json`, a `warning` listing what
 was removed and restored, or a `blocker` naming what could not be put back, in
 which case the step fails. The note says what changed, not which call changed

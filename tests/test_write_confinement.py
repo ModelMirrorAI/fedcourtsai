@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -16,6 +17,7 @@ from fedcourtsai.write_confinement import (
     ConfinementError,
     confine_writes,
     record_baseline,
+    settle_run_directory,
 )
 
 runner = CliRunner()
@@ -319,3 +321,207 @@ def test_the_confine_command_exits_non_zero_with_no_baseline(
     result = runner.invoke(app, _cli("confine-cell-writes", "--stash-dir", str(_stash(tmp_path))))
     assert result.exit_code == 1
     assert "write confinement failed" in result.output
+
+
+# --- a run directory named in one joined component ----------------------------
+
+JOINED = f"{EVENT_DIR}/predictions/{ACTOR}__{RUN}"
+
+
+def _write_joined(data_root: Path, joined: str = JOINED) -> None:
+    (data_root / joined).mkdir(parents=True)
+    (data_root / joined / "prediction.json").write_text('{"p": 0.1}', encoding="utf-8")
+    (data_root / joined / "reasoning.md").write_text("because\n", encoding="utf-8")
+
+
+@pytest.mark.parametrize("separator", ["__", "_", "-", "."])
+def test_a_joined_run_directory_is_moved_onto_the_contract_path(
+    data_root: Path, tmp_path: Path, separator: str
+) -> None:
+    record_baseline(data_root, _stash(tmp_path))
+    joined = f"{EVENT_DIR}/predictions/{ACTOR}{separator}{RUN}"
+    _write_joined(data_root, joined)
+
+    moved = settle_run_directory(data_root, _stash(tmp_path), data_root / OWN)
+    report = confine_writes(data_root, _stash(tmp_path), data_root / OWN)
+
+    assert moved == joined
+    assert not report.changed
+    assert not (data_root / joined).exists()
+    assert (data_root / OWN / "prediction.json").read_text("utf-8") == '{"p": 0.1}'
+    assert (data_root / OWN / "reasoning.md").read_text("utf-8") == "because\n"
+    assert settle_run_directory(data_root, _stash(tmp_path), data_root / OWN) is None
+
+
+def test_a_joined_run_directory_is_moved_when_no_run_directory_was_made(
+    data_root: Path, tmp_path: Path
+) -> None:
+    (data_root / OWN).rmdir()
+    (data_root / OWN).parent.rmdir()
+    record_baseline(data_root, _stash(tmp_path))
+    _write_joined(data_root)
+
+    assert settle_run_directory(data_root, _stash(tmp_path), data_root / OWN) == JOINED
+    assert (data_root / OWN / "prediction.json").is_file()
+
+
+def _spoil_run_directory_holds_output(data_root: Path) -> None:
+    (data_root / OWN / "prediction.json").write_text("{}", encoding="utf-8")
+
+
+def _spoil_no_prediction(data_root: Path) -> None:
+    (data_root / JOINED / "prediction.json").unlink()
+
+
+def _spoil_two_joined(data_root: Path) -> None:
+    _write_joined(data_root, f"{EVENT_DIR}/predictions/{ACTOR}-{RUN}")
+
+
+def _spoil_joined_is_a_link(data_root: Path) -> None:
+    real = data_root / EVENT_DIR / "elsewhere"
+    (data_root / JOINED).rename(real)
+    (data_root / JOINED).symlink_to(real, target_is_directory=True)
+
+
+def _spoil_run_directory_is_a_link(data_root: Path) -> None:
+    (data_root / OWN).rmdir()
+    (data_root / OWN).symlink_to(data_root / "schedule", target_is_directory=True)
+
+
+def _spoil_actor_directory_is_a_link(data_root: Path) -> None:
+    (data_root / OWN).rmdir()
+    (data_root / OWN).parent.rmdir()
+    (data_root / OWN).parent.symlink_to(data_root / "schedule", target_is_directory=True)
+
+
+def _spoil_run_directory_is_a_file(data_root: Path) -> None:
+    (data_root / OWN).rmdir()
+    (data_root / OWN).write_text("not a directory\n", encoding="utf-8")
+
+
+def _spoil_joined_names_another_predictor(data_root: Path) -> None:
+    (data_root / JOINED).rename(data_root / f"{EVENT_DIR}/predictions/gemini__{RUN}")
+
+
+@pytest.mark.parametrize(
+    "spoil",
+    [
+        _spoil_run_directory_is_a_file,
+        _spoil_joined_names_another_predictor,
+        _spoil_run_directory_holds_output,
+        _spoil_no_prediction,
+        _spoil_two_joined,
+        _spoil_joined_is_a_link,
+        _spoil_run_directory_is_a_link,
+        _spoil_actor_directory_is_a_link,
+    ],
+)
+def test_anything_but_one_whole_joined_run_directory_is_left_for_the_confinement(
+    data_root: Path, tmp_path: Path, spoil: Callable[[Path], None]
+) -> None:
+    record_baseline(data_root, _stash(tmp_path))
+    _write_joined(data_root)
+    spoil(data_root)
+    before = _tree(data_root)
+
+    assert settle_run_directory(data_root, _stash(tmp_path), data_root / OWN) is None
+
+    assert _tree(data_root) == before
+    assert _tree(data_root / "schedule") == {"schedule.json": "{}\n"}
+
+
+def test_a_joined_directory_the_baseline_held_is_not_the_cells(
+    data_root: Path, tmp_path: Path
+) -> None:
+    _write_joined(data_root)
+    record_baseline(data_root, _stash(tmp_path))
+
+    assert settle_run_directory(data_root, _stash(tmp_path), data_root / OWN) is None
+    assert (data_root / JOINED / "prediction.json").is_file()
+
+
+def test_the_command_moves_a_joined_run_directory_and_notes_it(
+    data_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(data_root))
+    stash = ["--stash-dir", str(_stash(tmp_path))]
+    assert runner.invoke(app, ["record-write-baseline", *stash]).exit_code == 0
+    _write_joined(data_root)
+
+    result = runner.invoke(app, _cli("confine-cell-writes", *stash))
+
+    assert result.exit_code == 0, result.output
+    assert "moved to the contract path" in result.output
+    assert (data_root / OWN / "prediction.json").is_file()
+    assert not (data_root / JOINED).exists()
+    flags_path = CasePaths(data_root, COURT, DOCKET).event(EVENT).prediction_flags(ACTOR, RUN)
+    (note,) = AgentFlags.model_validate_json(flags_path.read_text("utf-8")).flags
+    assert note.source == FlagSource.harness
+    assert note.severity == FlagSeverity.info
+    assert f"{ACTOR}__{RUN}" in note.message
+
+
+def _refuse_the_move(monkeypatch: pytest.MonkeyPatch) -> None:
+    rename = Path.rename
+
+    def refusing(self: Path, target: str | os.PathLike[str]) -> Path:
+        if self.name == f"{ACTOR}__{RUN}":
+            raise PermissionError(13, "Permission denied", str(self))
+        return rename(self, target)
+
+    monkeypatch.setattr(Path, "rename", refusing)
+
+
+def test_a_move_that_fails_leaves_both_names_as_they_were(
+    data_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    record_baseline(data_root, _stash(tmp_path))
+    _write_joined(data_root)
+    before = _tree(data_root)
+    _refuse_the_move(monkeypatch)
+
+    with pytest.raises(PermissionError):
+        settle_run_directory(data_root, _stash(tmp_path), data_root / OWN)
+
+    assert _tree(data_root) == before
+    assert (data_root / OWN).is_dir()
+
+
+def test_the_command_still_puts_the_tree_back_when_the_move_fails(
+    data_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(data_root))
+    stash = ["--stash-dir", str(_stash(tmp_path))]
+    assert runner.invoke(app, ["record-write-baseline", *stash]).exit_code == 0
+    _write_joined(data_root)
+    stray = data_root / EVENT_DIR / "notes.md"
+    stray.write_text("stray\n", encoding="utf-8")
+    _refuse_the_move(monkeypatch)
+
+    result = runner.invoke(app, _cli("confine-cell-writes", *stash))
+
+    assert result.exit_code == 0, result.output
+    assert "could not move a misnamed run directory" in result.output
+    assert not stray.exists()
+    assert not (data_root / JOINED).exists()
+    assert not (data_root / OWN / "prediction.json").exists()
+
+
+def test_the_command_moves_the_run_directory_and_removes_a_stray_beside_it(
+    data_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(data_root))
+    stash = ["--stash-dir", str(_stash(tmp_path))]
+    assert runner.invoke(app, ["record-write-baseline", *stash]).exit_code == 0
+    _write_joined(data_root)
+    stray = data_root / EVENT_DIR / "notes.md"
+    stray.write_text("stray\n", encoding="utf-8")
+
+    result = runner.invoke(app, _cli("confine-cell-writes", *stash))
+
+    assert result.exit_code == 0, result.output
+    assert not stray.exists()
+    assert (data_root / OWN / "prediction.json").is_file()
+    flags_path = CasePaths(data_root, COURT, DOCKET).event(EVENT).prediction_flags(ACTOR, RUN)
+    messages = [f.message for f in AgentFlags.model_validate_json(flags_path.read_text()).flags]
+    assert len(messages) == 2
