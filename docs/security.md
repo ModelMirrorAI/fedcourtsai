@@ -2199,7 +2199,15 @@ case id, no text), whose property holds for today's messages rather than by a
 stripping mechanism, since the summary tees the command's stderr verbatim; and
 the labeling job's label-line count, which is arithmetic computed from the
 file rather than anything read out of it, and is therefore the one record that
-needs no scan ahead of it. A fourth run artifact rides the same one-day
+needs no scan ahead of it. A third summary is durable and is not counts-only:
+the `appeal-sample` job's, which carries its whole report, because the hand
+check of the reader works from its rows. It names appellate dockets the corpus
+does not hold, drawn at random from CourtListener, by court, docket id and
+number, with the numbers of the entries the reader cited, the reader's fixed
+reason strings and counts. It copies no caption, party, case type or entry
+text; what it adds to public court records is which dockets a seeded draw
+selected, and nothing in it is conditioned on this project's selection or
+forecasts. A fourth run artifact rides the same one-day
 window: the `text-coverage` report,
 which also republishes no document text — counts, kinds, and three untruncated
 case-id ledgers, the empty-text documents (fetch-conditioned membership whose

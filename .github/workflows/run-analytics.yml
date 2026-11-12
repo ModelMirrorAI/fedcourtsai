@@ -198,7 +198,8 @@ run-name: "run-analytics: ${{ github.event_name == 'workflow_dispatch' && inputs
 # corpus, `data/`, the corpus remote, nor git, open no PR, and file no issue — every
 # result goes to the Actions step summary and the run log, and text-coverage's ledgers
 # additionally to a run artifact, because a worklist has to outlive the summary page
-# it is read beside — as do order-scan's and decision-below's reports. The six committing modes write only under their own
+# it is read beside — as do order-scan's and decision-below's reports; appeal-sample's
+# report is on its summary page alone. The six committing modes write only under their own
 # paths — metrics-refresh under `metrics/` + `data/scope/`, big-cases under
 # `metrics/big-cases.*`, public-updates under `metrics/updates/`, qp-topic-label
 # under `data/qp-topics/` (the labels file and the run's spend record under
@@ -358,8 +359,9 @@ on:
           - claude-fable-5
           - claude-opus-5-5
         default: claude-opus-5-5
-      # corpus-stats inputs (ignored by every other mode). All are optional; an
-      # empty value means "no filter" / "no grouping".
+      # corpus-stats inputs, optional there: an empty value means "no filter" /
+      # "no grouping". Every other mode ignores them, except appeal-sample, which
+      # reads `court` and requires it.
       court:
         description: "corpus-stats: restrict to one court id (e.g. scotus). Empty = all courts. appeal-sample: the court of appeals to sample (ca2, ca3, ca9 or cadc), required."
         type: string
@@ -3772,9 +3774,10 @@ jobs:
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-26.04
-    # At most 150 requests at 10 a minute is fifteen minutes, plus setup; the
-    # cap frees the runner if a request hangs.
-    timeout-minutes: 35
+    # At most 150 requests at 10 a minute is fifteen minutes, plus setup. The
+    # report prints only when the command ends, so the caps leave a slow
+    # upstream room to finish rather than lose the run's spend.
+    timeout-minutes: 40
     environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
     # Its own group, never cancelled: the requests a cancelled run spent are
     # gone, and its report with them. The group keeps two samples of one ref
@@ -3794,7 +3797,7 @@ jobs:
           restore-cache: "false"
 
       - name: Sample the court's civil appeals
-        timeout-minutes: 25
+        timeout-minutes: 30
         env:
           FEDCOURTS_COURTLISTENER_API_TOKEN: ${{ secrets.COURTLISTENER_API_TOKEN }}
           # The per-day window is the account's tier, as run-pull reads it.
