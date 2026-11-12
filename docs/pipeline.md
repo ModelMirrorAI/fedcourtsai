@@ -522,6 +522,21 @@ queues behind the production run of the same mode. The modes:
   credential is refused, the run stopped before its first request, or every
   search failed; the step summary carries the per-search counts and the
   spend.
+- **`appeal-sample`** (dispatch) runs `fedcourts appeal-sample` for the court
+  of appeals the `court` input names (`ca2`, `ca3`, `ca9` or `cadc`): the
+  measurement of the appeal stage's disposition reader on a draw of civil
+  appeals ([appeal-stage.md](appeal-stage.md), *Measuring the reader*). One
+  court a run, and the four runs together are the measurement. Like
+  `order-scan` it reads CourtListener and not the corpus, holds the
+  CourtListener token on its one sample step and no cloud role, and runs the
+  governor with its lane's share (150) as the hourly limit, at 10 requests a
+  minute. It is one of the dispatched lanes that share a day's slot, so run
+  one court a day, in the quiet odd hours `run-pull`'s enrich job names. It
+  writes nothing and uploads no artifact: the report (court-record
+  identifiers, counts and the reader's reason strings) goes on the run's
+  summary page. A staging dispatch runs the same read against the same
+  account where the staging environment holds a token, and refuses before
+  any request where it does not.
 - **`ai-follow-ons`** (weekly, Tuesday 21:21 UTC, or dispatch) runs the
   follow-on check: `fedcourts ai-candidates-issue` reads the same raised set,
   and `fedcourts ai-follow-ons` searches the courts of appeals and the JPML

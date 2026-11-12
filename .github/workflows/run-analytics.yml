@@ -108,6 +108,14 @@ run-name: "run-analytics: ${{ github.event_name == 'workflow_dispatch' && inputs
 #                      than the corpus: it holds the CourtListener token and
 #                      no cloud role, spends a capped slice of the account's
 #                      REST budget, and leaves its report as a run artifact.
+#   - appeal-sample:   measure the appeal stage's disposition reader on one
+#                      court of appeals' draw of civil appeals (`fedcourts
+#                      appeal-sample`, `docs/appeal-stage.md`); the `court`
+#                      input names the court. Dispatch only. It reads
+#                      CourtListener like order-scan, within its own lane
+#                      share (150 requests), holds the CourtListener token
+#                      and no cloud role, writes nothing, and leaves its
+#                      report (identifiers and counts) on the summary page.
 #   - ai-candidates:   search CourtListener for newly filed federal cases the
 #                      AI watchlist may want (`fedcourts ai-candidates`,
 #                      `config/ai-candidates.yaml`) and comment the new ones on
@@ -186,11 +194,12 @@ run-name: "run-analytics: ${{ github.event_name == 'workflow_dispatch' && inputs
 #                      reviewed PR on its own fixed branch. Dispatched once a
 #                      Term, before its first merits decision.
 #
-# The read-only analysis modes (corpus-stats, text-coverage, tool-usage, order-scan, decision-below) write neither the
+# The read-only analysis modes (corpus-stats, text-coverage, tool-usage, order-scan, appeal-sample, decision-below) write neither the
 # corpus, `data/`, the corpus remote, nor git, open no PR, and file no issue — every
 # result goes to the Actions step summary and the run log, and text-coverage's ledgers
 # additionally to a run artifact, because a worklist has to outlive the summary page
-# it is read beside — as do order-scan's and decision-below's reports. The six committing modes write only under their own
+# it is read beside — as do order-scan's and decision-below's reports; appeal-sample's
+# report is on its summary page alone. The six committing modes write only under their own
 # paths — metrics-refresh under `metrics/` + `data/scope/`, big-cases under
 # `metrics/big-cases.*`, public-updates under `metrics/updates/`, qp-topic-label
 # under `data/qp-topics/` (the labels file and the run's spend record under
@@ -327,6 +336,7 @@ on:
           - qp-topic-replicate-applications
           - alignment-side-code
           - order-scan
+          - appeal-sample
           - ai-candidates
           - ai-follow-ons
           - merits-coverage
@@ -349,10 +359,11 @@ on:
           - claude-fable-5
           - claude-opus-5-5
         default: claude-opus-5-5
-      # corpus-stats inputs (ignored by every other mode). All are optional; an
-      # empty value means "no filter" / "no grouping".
+      # corpus-stats inputs, optional there: an empty value means "no filter" /
+      # "no grouping". Every other mode ignores them, except appeal-sample, which
+      # reads `court` and requires it.
       court:
-        description: "corpus-stats: restrict to one court id (e.g. scotus). Empty = all courts."
+        description: "corpus-stats: restrict to one court id (e.g. scotus). Empty = all courts. appeal-sample: the court of appeals to sample (ca2, ca3, ca9 or cadc), required."
         type: string
         default: ""
       topic:
@@ -382,7 +393,8 @@ permissions: {}
 # cancelled job runs no upload step, and the artifact is what those modes exist
 # to produce. The corpus analysis jobs are read-only, so their overlap costs
 # nothing; order-scan's costs CourtListener requests on the one account every
-# environment's token belongs to, which its job's own note covers.
+# environment's token belongs to, which its job's own note covers, and
+# appeal-sample takes a never-cancelled group for the same spend.
 # The labeling mode's two jobs take separate groups: they are already sequenced
 # by `needs`, and a shared group would let a second dispatch's extract slip
 # between the first dispatch's extract and its labeler.
@@ -3733,6 +3745,99 @@ jobs:
           # resumes from it inside the same day.
           retention-days: 1
 
+  appeal-sample:
+    needs: [authorize]
+    # The appeal reader's sample (`fedcourts appeal-sample`,
+    # `docs/appeal-stage.md`): one court of appeals' draw of civil appeals,
+    # each read with the appeal stage's disposition reader, reported as
+    # identifiers and counts. It reads CourtListener's REST API and nothing
+    # else (no corpus, no cloud role, no App token), so the CourtListener
+    # token is the job's one secret, scoped to the sample step. It writes
+    # nothing and uploads nothing: the report goes on the run's summary page.
+    #
+    # The court is the `court` dispatch input, checked by the command against
+    # its closed list of four; any other value, or none, refuses before a
+    # request. Each court is one run, and the four runs are the measurement.
+    #
+    # Its spend is the `appeal-sample` lane share in config/tracking.yaml (150
+    # requests), one of the dispatched lanes that share a single slot a day.
+    # The account is shared with run-pull's windows and the governor counts
+    # per process, so the step runs under an hourly ceiling equal to the cap,
+    # as order-scan does, and a dispatch belongs in the quiet odd hours
+    # run-pull's enrich job names. A staging rehearsal spends on the same
+    # account as a production run: the staging environment's token, where it
+    # holds one, is a credential for that one account too, and without one the
+    # command refuses before any request.
+    if: >-
+      ${{ inputs.mode == 'appeal-sample'
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
+    runs-on: ubuntu-26.04
+    # At most 150 requests at 10 a minute is fifteen minutes, plus setup. The
+    # report prints only when the command ends, so the caps leave a slow
+    # upstream room to finish rather than lose the run's spend.
+    timeout-minutes: 40
+    environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
+    # Its own group, never cancelled: the requests a cancelled run spent are
+    # gone, and its report with them. The group keeps two samples of one ref
+    # from overlapping, not from sharing a day; that is the dispatcher's job.
+    concurrency:
+      group: run-analytics-appeal-sample-${{ github.ref_name }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
+
+      - name: Sample the court's civil appeals
+        timeout-minutes: 30
+        env:
+          FEDCOURTS_COURTLISTENER_API_TOKEN: ${{ secrets.COURTLISTENER_API_TOKEN }}
+          # The per-day window is the account's tier, as run-pull reads it.
+          # The hourly window is the lane's run cap, so the governor counts
+          # every request this process sends, retries included, and the job
+          # finishes inside the hour. The sample reads dockets and entries far
+          # more than it searches, so it paces at 10 a minute, as the
+          # decision-below dry run does.
+          FEDCOURTS_COURTLISTENER_RPM: "10"
+          FEDCOURTS_COURTLISTENER_RPH: "150"
+          FEDCOURTS_COURTLISTENER_RPD: ${{ vars.COURTLISTENER_RPD || '1400' }}
+          COURT: ${{ inputs.court }}
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/appeal-sample.json"
+          summary="$RUNNER_TEMP/appeal-sample-summary.txt"
+          # The report JSON (court-record identifiers, counts and the
+          # reader's fixed reason strings; no caption, case type or entry
+          # text) and the reading in counts both go on the summary page. A
+          # run that fails after printing its report still shows it, and the
+          # step then fails with the command's own status.
+          status=0
+          uv run fedcourts appeal-sample --court "$COURT" > "$out" 2> "$summary" || status=$?
+          {
+            echo "## appeal-sample — $(date -u +%Y-%m-%d)"
+            echo '```'
+            cat "$summary"
+            echo '```'
+            if [ -s "$out" ]; then
+              echo '<details><summary>Report</summary>'
+              echo
+              echo '```json'
+              cat "$out"
+              echo '```'
+              echo '</details>'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          cat "$summary"
+          exit "$status"
+
   ai-candidates:
     needs: [authorize]
     # The AI-case candidate check (`fedcourts ai-candidates`): the saved
@@ -4853,7 +4958,7 @@ jobs:
   # not pass or this attempt is neither the one the gate judged nor a re-run by
   # a login the gate published. No checkout, no token, no environment.
   run-gate:
-    needs: [authorize, corpus-stats, tool-usage, text-coverage, metrics-refresh, big-cases, public-updates, qp-topic-resolve, qp-topic-extract, qp-topic-approval, qp-topic-rejected, qp-topic-label, qp-topic-publish, order-scan, ai-candidates, ai-follow-ons, merits-coverage, merits-coverage-alarm, order-reconcile, order-reconcile-alarm, coverage-verdict, coverage-verdict-alarm, decision-below, alignment-fit, alignment-fit-publish]
+    needs: [authorize, corpus-stats, tool-usage, text-coverage, metrics-refresh, big-cases, public-updates, qp-topic-resolve, qp-topic-extract, qp-topic-approval, qp-topic-rejected, qp-topic-label, qp-topic-publish, order-scan, appeal-sample, ai-candidates, ai-follow-ons, merits-coverage, merits-coverage-alarm, order-reconcile, order-reconcile-alarm, coverage-verdict, coverage-verdict-alarm, decision-below, alignment-fit, alignment-fit-publish]
     if: always()
     runs-on: ubuntu-26.04
     timeout-minutes: 5
