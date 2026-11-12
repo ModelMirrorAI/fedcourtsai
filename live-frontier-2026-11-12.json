@@ -286,14 +286,22 @@
     },
     {
       "conference": "2021-09-27",
-      "petitions": 4
+      "petitions": 6
     },
     {
       "conference": "2021-10-08",
       "petitions": 1
     },
     {
+      "conference": "2021-10-15",
+      "petitions": 2
+    },
+    {
       "conference": "2021-10-29",
+      "petitions": 2
+    },
+    {
+      "conference": "2021-11-12",
       "petitions": 1
     },
     {
@@ -301,7 +309,43 @@
       "petitions": 1
     },
     {
+      "conference": "2021-12-03",
+      "petitions": 2
+    },
+    {
       "conference": "2022-01-07",
+      "petitions": 1
+    },
+    {
+      "conference": "2022-02-18",
+      "petitions": 3
+    },
+    {
+      "conference": "2022-02-25",
+      "petitions": 2
+    },
+    {
+      "conference": "2022-03-04",
+      "petitions": 1
+    },
+    {
+      "conference": "2022-03-18",
+      "petitions": 1
+    },
+    {
+      "conference": "2022-05-12",
+      "petitions": 4
+    },
+    {
+      "conference": "2022-05-19",
+      "petitions": 1
+    },
+    {
+      "conference": "2022-05-26",
+      "petitions": 1
+    },
+    {
+      "conference": "2022-06-16",
       "petitions": 1
     },
     {
@@ -431,5 +475,5 @@
   "next_conference_petitions": 153,
   "schema_version": "1.0",
   "skipped": false,
-  "watchlist": 626
+  "watchlist": 648
 }
