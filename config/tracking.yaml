@@ -188,11 +188,14 @@ live:
   # at the pacing above: the order listing page, the Granted & Noted list, the
   # newest `outside_documents` order documents, and per stream `lookahead`
   # serials past the cursor plus `hole_reprobes_per_stream` skipped serials,
-  # about 70 requests a day. It reads and records; it never moves a cursor.
+  # about 70 requests a day, plus the re-probes and document fetches of a
+  # skipped serial it onboards. It moves no cursor.
   frontier_check:
     enabled: true
     lookahead: 10
     hole_reprobes_per_stream: 10
+    # A skipped serial the re-probe finds serving is onboarded on the spot.
+    onboard_serving_holes: true
     outside_documents: 5
     # Alarm thresholds, read by the readiness snapshot the ops report latches
     # on: more than this many skipped serials now serving; a stream whose

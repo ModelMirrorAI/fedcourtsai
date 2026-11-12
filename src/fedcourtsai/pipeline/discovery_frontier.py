@@ -13,7 +13,8 @@ nor forecast. This module asks the question from outside the walk, four ways:
 - **Movement.** How many business days old the stream's newest held docket is.
 - **Holes.** Serials below the cursor with no corpus row. Sequential probing
   steps over an unserved number and never returns to it; a bounded sample is
-  re-probed and the ones that now serve are counted.
+  re-probed, and one that now serves is onboarded through the walk's own step
+  (or, with that switched off, counted).
 - **Look-ahead.** A fixed run of serials past the cursor is probed, so a short
   run of unserved numbers cannot pin the stream unnoticed.
 
@@ -24,8 +25,10 @@ at the live client's pacing, and stores one reading per stream
 half: it sets the stored reading beside the corpus as it stands and applies the
 thresholds, wherever the corpus is pulled.
 
-Monitoring only. The check never moves a cursor and onboards nothing, and none
-of its counts is a scored figure.
+The check never moves a cursor, and none of its counts is a scored figure. Its
+one write beyond its own readings is the onboarding of a skipped number it
+finds serving: the Court posts some dockets after the cursor has passed their
+numbers, and the walk has no step that goes back for them.
 """
 
 from __future__ import annotations
@@ -35,7 +38,7 @@ from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 import httpx
 
@@ -44,6 +47,7 @@ from ..config import FrontierCheckConfig
 from ..schemas import DiscoveryFrontier, DiscoveryFrontierStream
 from ..supremecourt import (
     IFP_SERIAL_BASE,
+    DeadlineExceeded,
     SupremeCourtClient,
     parse_scotus_application_number,
     parse_scotus_docket_number,
@@ -288,9 +292,16 @@ def read_outside_frontier(
 
 
 def _probe(
-    client: SupremeCourtClient, term: int, stream: StreamName, serials: Sequence[int]
+    client: SupremeCourtClient,
+    term: int,
+    stream: StreamName,
+    serials: Sequence[int],
+    on_served: Callable[[int, dict[str, Any]], None] | None = None,
 ) -> tuple[list[int], list[int], str | None]:
-    """Probe ``serials`` in order: ``(probed, served, problem)``, stopping at an upstream error."""
+    """Probe ``serials`` in order: ``(probed, served, problem)``, stopping at an upstream error.
+
+    ``on_served`` is handed each served record as it is read.
+    """
     probed: list[int] = []
     served: list[int] = []
     for serial in serials:
@@ -299,12 +310,73 @@ def _probe(
         except httpx.HTTPError as exc:
             return probed, served, f"{_slug(term, stream, serial)}: {type(exc).__name__}"
         probed.append(serial)
-        if payload is not None:
-            served.append(serial)
+        if payload is None:
+            continue
+        served.append(serial)
+        if on_served is not None:
+            on_served(serial, payload)
     return probed, served, None
 
 
-def run_frontier_check(
+def owed_onboardings(sample: Sequence[int], known_serving: Iterable[int], size: int) -> list[int]:
+    """Up to ``size`` holes a past reading found serving that today's sample leaves out.
+
+    An onboarding owes them, so they are re-probed beside the day's sample
+    instead of waiting for the rotation to come round; the sample itself is
+    untouched, so one that will not onboard never holds the rotation back.
+    """
+    return sorted(set(known_serving) - set(sample))[: max(size, 0)]
+
+
+def _reprobe_holes(  # noqa: PLR0913 - one stream's re-probe plus the reading's settings
+    client: SupremeCourtClient,
+    term: int,
+    stream: StreamName,
+    holes: Sequence[int],
+    prior: corpus.FrontierCheck | None,
+    config: FrontierCheckConfig,
+    *,
+    today: date,
+    onboard: Callable[[StreamName, int, dict[str, Any]], None] | None,
+    problems: list[str],
+) -> tuple[int, list[int], list[int]]:
+    """Re-probe one stream's holes: ``(probed, still serving, onboarded)``.
+
+    A hole that serves is onboarded where ``onboard`` is given and the config
+    allows it; one that serves and is not onboarded is reported as serving.
+    Anything that went wrong is appended to ``problems``.
+    """
+    # Carried while still a hole, unless today's own re-probe found it unserved.
+    carried = set(prior.holes_serving) & set(holes) if prior is not None else set()
+    sample = hole_sample(holes, config.hole_reprobes_per_stream, today)
+    onboarded: list[int] = []
+    on_served: Callable[[int, dict[str, Any]], None] | None = None
+    if onboard is not None and config.onboard_serving_holes:
+        sample = [*owed_onboardings(sample, carried, config.hole_reprobes_per_stream), *sample]
+
+        def on_served(serial: int, payload: dict[str, Any]) -> None:
+            # One docket that will not onboard costs only itself: it stays
+            # reported as serving and the re-probe goes on to the next.
+            try:
+                onboard(stream, serial, payload)
+            except DeadlineExceeded:
+                raise
+            except Exception as exc:
+                problems.append(
+                    f"onboarding {_slug(term, stream, serial)} failed: {type(exc).__name__}"
+                )
+            else:
+                onboarded.append(serial)
+
+    reprobed, now_serving, problem = _probe(client, term, stream, sample, on_served)
+    if problem is not None:
+        problems.append(f"hole re-probe stopped at {problem}")
+    # An onboarded number is a corpus row now, so it is no longer a hole.
+    serving = sorted(((carried - set(reprobed)) | set(now_serving)) - set(onboarded))
+    return len(reprobed), serving, onboarded
+
+
+def run_frontier_check(  # noqa: PLR0913 - soft-budget deadline + injected clock + the onboarding step
     client: SupremeCourtClient,
     corpus_db_path: Path,
     term: int,
@@ -314,8 +386,15 @@ def run_frontier_check(
     today: date,
     deadline: float | None = None,
     time_fn: Callable[[], float] = time.monotonic,
+    onboard: Callable[[StreamName, int, dict[str, Any]], None] | None = None,
 ) -> dict[str, object]:
     """Take today's frontier reading for every stream that has none, and store it.
+
+    ``onboard`` is the live lane's own onboarding step. Where it is given and
+    ``onboard_serving_holes`` is set, a skipped number the re-probe finds
+    serving is onboarded on the spot, so a docket the Court posted after the
+    cursor passed it enters the corpus within a rotation of the sample; without
+    it the reading only reports such numbers.
 
     Runs after the live cycle's own work. No stream is started once the soft
     budget is spent, and the caller's client carries the request deadline that
@@ -352,6 +431,7 @@ def run_frontier_check(
     outside_ahead = 0
     pinned_total = 0
     serving_total = 0
+    onboarded_total = 0
     deferred = 0
     for stream, base in due:
         if expired():
@@ -366,14 +446,25 @@ def run_frontier_check(
             problems.append(f"look-ahead stopped at {problem}")
         pinned = unreachable_hits(cursor, probed, served, frontier_misses)
         holes = stream_holes(held[stream], base, cursor)
-        sample = hole_sample(holes, config.hole_reprobes_per_stream, today)
-        reprobed, now_serving, problem = _probe(client, term, stream, sample)
-        if problem is not None:
-            problems.append(f"hole re-probe stopped at {problem}")
-        prior = stored.get(stream)
-        # Carried while still a hole, unless today's own re-probe found it unserved.
-        carried = set(prior.holes_serving) & set(holes) if prior is not None else set()
-        serving = sorted((carried - set(reprobed)) | set(now_serving))
+        reprobed, serving, onboarded = _reprobe_holes(
+            client,
+            term,
+            stream,
+            holes,
+            stored.get(stream),
+            config,
+            today=today,
+            onboard=onboard,
+            problems=problems,
+        )
+        if onboarded:
+            # A record filed under another number enriches that row and leaves
+            # this serial a hole: it is still reported, not counted onboarded.
+            with corpus.connect(corpus_db_path) as conn:
+                now_held = held_serials(conn, term)[stream]
+            unheld = [serial for serial in onboarded if serial not in now_held]
+            onboarded = [serial for serial in onboarded if serial in now_held]
+            serving = sorted({*serving, *unheld})
         named = outside.highest.get(stream)
         with corpus.connect(corpus_db_path) as conn:
             corpus.set_live_frontier_check(
@@ -387,7 +478,7 @@ def run_frontier_check(
                     outside_source=named[1] if named is not None else None,
                     lookahead_probed=len(probed),
                     lookahead_hits=tuple(pinned),
-                    holes_reprobed=len(reprobed),
+                    holes_reprobed=reprobed,
                     holes_serving=tuple(serving),
                     problems=tuple(problems),
                 ),
@@ -396,12 +487,14 @@ def run_frontier_check(
         outside_ahead += int(named is not None and named[0] > cursor)
         pinned_total += len(pinned)
         serving_total += len(serving)
+        onboarded_total += len(onboarded)
     return {
         "due": len(due),
         "checked": checked,
         "outside_ahead": outside_ahead,
         "lookahead_hits": pinned_total,
         "holes_serving": serving_total,
+        "holes_onboarded": onboarded_total,
         "deferred": deferred,
         "unread": len(outside.problems),
     }

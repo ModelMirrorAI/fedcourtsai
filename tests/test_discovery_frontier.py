@@ -115,6 +115,13 @@ def test_the_hole_sample_rotates_through_every_hole() -> None:
     assert df.hole_sample(holes, 0, TODAY) == []
 
 
+def test_owed_onboardings_are_the_known_serving_holes_outside_the_sample() -> None:
+    assert df.owed_onboardings([4, 5], {2, 5, 9}, 10) == [2, 9]
+    assert df.owed_onboardings([4, 5], {2, 5, 9}, 1) == [2]
+    assert df.owed_onboardings([4, 5], set(), 10) == []
+    assert df.owed_onboardings([4, 5], {2}, 0) == []
+
+
 def test_a_served_number_is_unreachable_only_past_the_unserved_run() -> None:
     probed = list(range(11, 21))
     # 11 serves: ordinary new intake the next cycle onboards, and the walk goes on.
@@ -176,6 +183,7 @@ def test_a_reading_stores_the_pinned_hit_the_serving_hole_and_the_outside_number
         "outside_ahead": 1,
         "lookahead_hits": 1,
         "holes_serving": 1,
+        "holes_onboarded": 0,
         "deferred": 0,
         "unread": 0,
     }
@@ -266,6 +274,142 @@ def test_a_hole_that_stops_serving_is_dropped_and_a_cut_off_stream_stores_nothin
         df.run_frontier_check(spent, db, 26, config, frontier_misses=2, today=date(2026, 11, 12))
     with corpus.connect(db) as conn:
         assert corpus.live_frontier_checks(conn, 26)["paid"].checked_on == TODAY
+
+
+def test_a_serving_hole_is_onboarded_and_stops_being_reported(
+    tmp_path: Path, no_lists: df.OutsideFrontier
+) -> None:
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    _seed(db, dict.fromkeys(["26-1", "26-6", "26A1"], "2026-11-10"), {"paid": 6, "application": 3})
+    with corpus.connect(db) as conn:
+        corpus.set_live_frontier_check(
+            conn,
+            corpus.FrontierCheck(
+                term=26,
+                stream="paid",
+                checked_on=date(2026, 11, 10),
+                cursor_serial=6,
+                holes_serving=(5,),
+            ),
+        )
+    config = CONFIG.model_copy(update={"hole_reprobes_per_stream": 4, "lookahead": 0})
+    calls: list[tuple[str, int, str]] = []
+
+    def onboard(stream: str, serial: int, payload: dict[str, object]) -> None:
+        calls.append((stream, serial, str(payload["CaseNumber"])))
+        if serial == 3 and stream == "paid":
+            raise ValueError("a record the ingest refuses")
+        with corpus.connect(db) as conn:
+            corpus.upsert_rows(
+                conn,
+                [
+                    corpus.CorpusRow(
+                        case_id=f"scotus/{stream}-{serial}",
+                        court="scotus",
+                        docket_number=str(payload["CaseNumber"]),
+                    )
+                ],
+            )
+
+    # Paid holes are 2, 3, 4, 5, all inside the day's sample. 26-4 is still unserved.
+    with _client({"26-2", "26-3", "26-5", "26A2"}) as client:
+        ledger = df.run_frontier_check(
+            client, db, 26, config, frontier_misses=2, today=TODAY, onboard=onboard
+        )
+    assert sorted(calls) == [
+        ("application", 2, "26A2"),
+        ("paid", 2, "26-2"),
+        ("paid", 3, "26-3"),
+        ("paid", 5, "26-5"),
+    ]
+    assert ledger["holes_onboarded"] == 3
+    assert ledger["holes_serving"] == 1
+    with corpus.connect(db) as conn:
+        stored = corpus.live_frontier_checks(conn, 26)
+        held = df.held_serials(conn, 26)
+    # The one that would not onboard stays reported, and costs only itself.
+    assert stored["paid"].holes_serving == (3,)
+    assert stored["paid"].problems == ("onboarding 26-3 failed: ValueError",)
+    assert stored["application"].holes_serving == ()
+    assert {2, 5} <= set(held["paid"]) and 2 in held["application"]
+
+    # Switched off, the reading reports a serving hole and onboards nothing.
+    calls.clear()
+    off = config.model_copy(update={"onboard_serving_holes": False})
+    with _client({"26-3"}) as client:
+        df.run_frontier_check(
+            client, db, 26, off, frontier_misses=2, today=date(2026, 11, 12), onboard=onboard
+        )
+    assert calls == []
+    with corpus.connect(db) as conn:
+        assert corpus.live_frontier_checks(conn, 26)["paid"].holes_serving == (3,)
+
+
+def test_a_known_serving_hole_outside_the_sample_is_re_probed_only_to_onboard_it(
+    tmp_path: Path, no_lists: df.OutsideFrontier
+) -> None:
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    _seed(db, dict.fromkeys(["26-1", "26-9"], "2026-11-10"), {"paid": 9})
+    holes = list(range(2, 9))
+    config = CONFIG.model_copy(update={"hole_reprobes_per_stream": 1, "lookahead": 0})
+    (sampled,) = df.hole_sample(holes, 1, TODAY)
+    known = next(serial for serial in holes if serial != sampled)
+    reading = corpus.FrontierCheck(
+        term=26,
+        stream="paid",
+        checked_on=date(2026, 11, 10),
+        cursor_serial=9,
+        holes_serving=(known,),
+    )
+    with corpus.connect(db) as conn:
+        corpus.set_live_frontier_check(conn, reading)
+    # Switched off: only the day's sample is probed, and the known one is carried.
+    off = config.model_copy(update={"onboard_serving_holes": False})
+    with _client({f"26-{known}"}) as client:
+        df.run_frontier_check(
+            client, db, 26, off, frontier_misses=2, today=TODAY, onboard=lambda *_a: None
+        )
+    with corpus.connect(db) as conn:
+        stored = corpus.live_frontier_checks(conn, 26)["paid"]
+        assert (stored.holes_reprobed, stored.holes_serving) == (1, (known,))
+        corpus.set_live_frontier_check(conn, reading)
+
+    # Switched on: it is probed beside the sample. Here the record is filed under
+    # another number, so no row holds the serial and it stays reported.
+    seen: list[int] = []
+    with _client({f"26-{known}"}) as client:
+        ledger = df.run_frontier_check(
+            client,
+            db,
+            26,
+            config,
+            frontier_misses=2,
+            today=TODAY,
+            onboard=lambda _stream, serial, _payload: seen.append(serial),
+        )
+    assert seen == [known]
+    assert (ledger["holes_onboarded"], ledger["holes_serving"]) == (0, 1)
+    with corpus.connect(db) as conn:
+        stored = corpus.live_frontier_checks(conn, 26)["paid"]
+    assert (stored.holes_reprobed, stored.holes_serving) == (2, (known,))
+
+
+def test_a_spent_deadline_inside_an_onboarding_raises_through(
+    tmp_path: Path, no_lists: df.OutsideFrontier
+) -> None:
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    _seed(db, dict.fromkeys(["26-1", "26-3"], "2026-11-10"), {"paid": 3})
+    config = CONFIG.model_copy(update={"lookahead": 0})
+
+    def onboard(_stream: str, _serial: int, _payload: dict[str, object]) -> None:
+        raise supremecourt.DeadlineExceeded("https://www.supremecourt.gov/x")
+
+    with _client({"26-2"}) as client, pytest.raises(supremecourt.DeadlineExceeded):
+        df.run_frontier_check(
+            client, db, 26, config, frontier_misses=2, today=TODAY, onboard=onboard
+        )
+    with corpus.connect(db) as conn:
+        assert corpus.live_frontier_checks(conn, 26) == {}
 
 
 def test_an_expired_budget_defers_the_reading_to_the_next_cycle(

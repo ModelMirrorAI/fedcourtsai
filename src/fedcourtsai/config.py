@@ -483,9 +483,9 @@ class FrontierCheckConfig(BaseModel):
     of the current Term's numbering streams reached the Court's real frontier:
     it reads the Court's newest published lists, probes a fixed run of serials
     past the cursor, and re-probes serials the cursor skipped
-    (`pipeline.discovery_frontier`). Every request is a supremecourt.gov read at
-    the live client's own pacing. Off by default, so a config that does not name
-    the section spends nothing.
+    (`pipeline.discovery_frontier`), onboarding one that now serves. Every
+    request is a supremecourt.gov read at the live client's own pacing. Off by
+    default, so a config that does not name the section spends nothing.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -498,6 +498,10 @@ class FrontierCheckConfig(BaseModel):
     # Skipped serials (below the cursor, no corpus row) re-probed per stream per
     # reading, rotating through the stream's holes by day. 0 skips the re-probe.
     hole_reprobes_per_stream: int = Field(default=10, ge=0, le=50)
+    # Onboard a skipped serial the re-probe finds serving, through the live
+    # lane's own onboarding step, so a docket posted after the cursor passed its
+    # number still enters the corpus. Off, the reading only reports it.
+    onboard_serving_holes: bool = True
     # The Court's newest order lists and miscellaneous orders read for the
     # docket numbers they name. 0 reads no list, the Granted & Noted list
     # included.

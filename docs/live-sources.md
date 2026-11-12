@@ -116,9 +116,18 @@ applications):
   reads as a quiet day.
 - **Holes.** Serials at or below the cursor with no corpus row: numbers the
   walk stepped over inside the `frontier_misses` tolerance and never returned
-  to. A rotating sample of `hole_reprobes_per_stream` is re-probed, and the
-  ones that now serve are carried from reading to reading until a row holds
-  them.
+  to. The Court posts some dockets after the cursor has passed their numbers,
+  so a rotating sample of `hole_reprobes_per_stream` is re-probed, and one that
+  now serves is onboarded on the spot through the walk's own onboarding step
+  (`onboard_serving_holes`): identity reconciled, snapshot stored, events
+  defined, and for an already-distributed petition the gate would queue,
+  documents provisioned. The check queues nothing itself: the row joins the
+  poll rotation from the next cycle, a later distribution or relist queues it
+  as for any row, and one already distributed reaches predict through the
+  selection sweep. One that serves and whose onboarding failed is carried from
+  reading to reading and re-probed beside each day's sample until a row holds
+  it; with onboarding switched off a serving hole is carried and re-probed
+  when the rotation returns to it.
 - **Look-ahead.** `lookahead` serials past the cursor are probed. A served
   number before the walk's own stopping point is ordinary new intake the next
   cycle onboards; one past a run of `frontier_misses` unserved numbers is a
@@ -129,7 +138,8 @@ left of its soft budget (the client's request deadline is that remainder,
 capped at five minutes), at most once a UTC day: `live-poll` stores one reading
 per stream in the corpus (`live_frontier_checks`), and a stream the budget cuts
 off stores nothing and is due again next cycle. Every request is a supremecourt.gov read at the live client's pacing,
-about 70 a day. The reading is then judged where the
+about 70 a day, plus up to `hole_reprobes_per_stream` owed re-probes per
+stream and the document fetches of a docket it onboards. The reading is then judged where the
 corpus is pulled: `fedcourts live-frontier` sets it beside the corpus as it
 stands and publishes the verdict in the readiness snapshot, which the ops
 report renders one line per stream.
@@ -139,7 +149,7 @@ report renders one line per stream.
 | Outside number above the cursor | a list read names a number the cursor has not reached | the cursor passes it |
 | Stalled stream | `stall_business_days` quiet business days have passed since the newest held docket was filed (`ifp_stall_business_days` for IFP, `recess_stall_business_days` for every stream July through September) | a newer docket is onboarded |
 | Look-ahead hit | a served number sits past an unserved run the walk stops at | the cursor passes it (a raised `frontier_misses` lets the walk cross the run) |
-| Holes now serving | more than `hole_alarm_over` skipped numbers of one stream serve | a row holds them |
+| Holes now serving | more than `hole_alarm_over` skipped numbers of one stream serve and were not onboarded | a row holds them |
 | Stale reading | the stored reading is more than `stale_check_days` old | the probes run again |
 
 A stream never probed raises no stale-reading alarm (the report line says
@@ -149,10 +159,11 @@ snapshot itself is fresh.
 
 An alarm opens the latched **Discovery frontier behind** issue under
 `pipeline-health` ([pipeline.md](pipeline.md), *run-ops*), refreshed each ops
-run and closed when every stream is clean. The check reads and records only: it
-moves no cursor and onboards nothing, so a number it finds stays missing until
-discovery reaches it or a maintainer acts. It is monitoring, not a scored
-figure; none of its counts enters a board or a base rate. The historical
+run and closed when every stream is clean. The check moves no cursor, and the
+one docket it adds is a skipped number it finds serving; a number past the
+cursor stays missing until discovery reaches it or a maintainer acts. It is
+monitoring, not a scored figure; none of its counts enters a board or a base
+rate. The historical
 walker's cursors are outside it.
 
 ## Architecture: a third channel, the same corpus

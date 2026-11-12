@@ -457,7 +457,7 @@ from .pipeline.filing_simulation import filing_simulation
 from .pipeline.interim_reading_census import interim_reading_census
 from .pipeline.judgment import backfill_merits_judgments
 from .pipeline.lineup import WritingKind
-from .pipeline.live import live_poll_all
+from .pipeline.live import live_poll_all, onboard_served
 from .pipeline.merits_coverage import merits_coverage
 from .pipeline.missed import (
     MISSED_LOOKBACK_DAYS,
@@ -8826,12 +8826,22 @@ def _refresh_term_calendar(data_root: Path, *, today: date, throttle_seconds: fl
 
 
 def _run_frontier_check(
-    db: Path, term: int, live_cfg: LiveConfig, *, today: date, deadline: float | None
+    db: Path,
+    data_root: Path,
+    term: int,
+    live_cfg: LiveConfig,
+    *,
+    gated: bool,
+    today: date,
+    deadline: float | None,
 ) -> None:
     """The live poll's once-a-day discovery frontier reading, which only ever warns.
 
-    Monitoring: it runs after the cycle's own work and a failure costs one
-    cycle's reading, never the poll's facts or queues. The client's request
+    It runs after the cycle's own work and a failure costs one cycle's reading,
+    never the poll's facts or queues. A skipped number it finds serving is
+    onboarded through the walk's own step, with the cycle's gate. It queues
+    nothing itself: the row joins the poll rotation, and an already-distributed
+    petition reaches predict through the selection sweep. The client's request
     deadline is what is left of the cycle's soft budget, capped at the reading's
     own, so the reading cannot outrun either; a stream the deadline cuts off
     stores nothing and is due again next cycle.
@@ -8843,6 +8853,21 @@ def _run_frontier_check(
         with SupremeCourtClient(
             throttle_seconds=live_cfg.throttle_seconds, deadline_seconds=budget
         ) as client:
+
+            def onboard(stream: str, serial: int, payload: dict[str, Any]) -> None:
+                onboard_served(
+                    client,
+                    db,
+                    data_root,
+                    payload,
+                    term,
+                    serial,
+                    form="application" if stream == "application" else "cert",
+                    document_text_cap=live_cfg.document_text_cap,
+                    gated=gated,
+                    today=today,
+                )
+
             ledger = discovery_frontier.run_frontier_check(
                 client,
                 db,
@@ -8851,6 +8876,7 @@ def _run_frontier_check(
                 frontier_misses=live_cfg.frontier_misses,
                 today=today,
                 deadline=deadline,
+                onboard=onboard,
             )
     except DeadlineExceeded:
         typer.echo("Frontier check: cut off by the cycle's budget; due again next cycle")
@@ -25777,7 +25803,8 @@ def live_poll(
     day after a good read, then rebuilds ``data/schedule/schedule.json`` from
     the refreshed corpus (warning, never failing, if either breaks). At most
     once a UTC day the cycle also takes the discovery frontier check's reading
-    for each numbering stream and stores it in the corpus, warning on a failure.
+    for each numbering stream and stores it in the corpus, onboarding a skipped
+    serial that now serves and warning on a failure.
     """
     settings = get_settings()
     live_cfg = load_live_config(settings.config_root)
@@ -25818,7 +25845,15 @@ def live_poll(
     )
     # The frontier reading is the cycle's last corpus write, ahead of the layout
     # check every writer ends on.
-    _run_frontier_check(db, probe_term, live_cfg, today=today, deadline=deadline)
+    _run_frontier_check(
+        db,
+        settings.data_root,
+        probe_term,
+        live_cfg,
+        gated=scope == PredictScope.scotus_docket,
+        today=today,
+        deadline=deadline,
+    )
     _ensure_corpus_layout(db)
     out.write_text(json.dumps(queues.predict) + "\n")
     evaluate_out.write_text(json.dumps(queues.evaluate) + "\n")
