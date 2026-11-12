@@ -18754,8 +18754,8 @@ freeze commit is recorded here.
   label and the six digests it printed before this entry. No base rate
   re-prices, no membership rule moves and no scored figure moves.
 
-  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
-  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by the promotion tagged `promotion/2026-11-12` (merge
+  commit `b1cdb7c5805de5507155a573fb51210c31b97746`, merged `2026-11-12T19:49:39Z`).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_backtest_comparison.py` is green;
@@ -18838,8 +18838,8 @@ freeze commit is recorded here.
   ranks are unchanged, and a committed board parses and re-serializes byte
   for byte until the metrics refresh next rebuilds it.
 
-  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
-  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by the promotion tagged `promotion/2026-11-12` (merge
+  commit `b1cdb7c5805de5507155a573fb51210c31b97746`, merged `2026-11-12T19:49:39Z`).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_leaderboard.py -k "reliability or
@@ -18894,8 +18894,8 @@ freeze commit is recorded here.
   **What does not move.** No digest, no base rate, no membership rule, no
   rank and no scored figure.
 
-  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
-  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by the promotion tagged `promotion/2026-11-12` (merge
+  commit `b1cdb7c5805de5507155a573fb51210c31b97746`, merged `2026-11-12T19:49:39Z`).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_leaderboard.py -k engine_mean` is green;
@@ -18981,8 +18981,8 @@ freeze commit is recorded here.
   **What does not move.** No digest, no base rate, no membership rule, no
   rank and no scored figure. No prompt changes, so no evaluate digest moves.
 
-  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
-  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by the promotion tagged `promotion/2026-11-12` (merge
+  commit `b1cdb7c5805de5507155a573fb51210c31b97746`, merged `2026-11-12T19:49:39Z`).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_forecast_document_grades.py` is green;
@@ -18994,8 +18994,8 @@ freeze commit is recorded here.
 
 - **`proc-v21`, a cell forecasts independently, the Claude pair moves to
   `claude-fable-5-2` and the Gemini pair to `gemini-4-carbon`; recorded
-  2026-11-11.** Carried to `main` by the promotion tagged `<FILL: promotion tag>`
-  (merge commit `<FILL: merge hash>`, merged `<FILL: merged-at>`), to be tagged
+  2026-11-11.** Carried to `main` by the promotion tagged `promotion/2026-11-12`
+  (merge commit `b1cdb7c5805de5507155a573fb51210c31b97746`, merged `2026-11-12T19:49:39Z`), to be tagged
   **`prereg/proc-v21`**. Registered under the merge-stamped rule, so its
   counting instant, its bless moments and every window edge it moves are the
   carrying merge's committer time. The predict prompt changes and two
@@ -19147,8 +19147,8 @@ freeze commit is recorded here.
 
 - **A Gemini cell retries over a judgment artifact that fails its schema;
   recorded 2026-11-12.** A harness change under unchanged digests. Carried to
-  `main` by the promotion tagged `<FILL: promotion tag>` (merge commit
-  `<FILL: merge hash>`, merged `<FILL: merged-at>`). No harness boundary is
+  `main` by the promotion tagged `promotion/2026-11-12` (merge commit
+  `b1cdb7c5805de5507155a573fb51210c31b97746`, merged `2026-11-12T19:49:39Z`). No harness boundary is
   registered, since no scoring rule and no cell's information set moves.
 
   **What changes.** The in-place retry of a Gemini cell (the entry *Gemini
@@ -19204,8 +19204,8 @@ freeze commit is recorded here.
 - **A Gemini cell whose turn fails on an engine fault after its work is
   whole concludes clean; recorded 2026-11-12.** A harness change under
   unchanged digests. Carried to `main` by the promotion tagged
-  `<FILL: promotion tag>` (merge commit `<FILL: merge hash>`, merged
-  `<FILL: merged-at>`). No harness boundary is registered, since no scoring
+  `promotion/2026-11-12` (merge commit `b1cdb7c5805de5507155a573fb51210c31b97746`, merged
+  `2026-11-12T19:49:39Z`). No harness boundary is registered, since no scoring
   rule and no cell's information set moves.
 
   **What changes.** A Gemini cell's engine step took its exit status from its
