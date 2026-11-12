@@ -114,7 +114,7 @@ OUTCOME_GRACE: Final = timedelta(days=3)
 #: well inside it, so a finding is re-reported for days after it first alarms.
 DEFAULT_LOOKBACK_DAYS: Final = 14
 
-_CORPUS_DOCKET_RE = re.compile(r"^\d{2}-\d{1,5}$|^\d{2}A\d{1,5}$")
+_CORPUS_DOCKET_RE = re.compile(r"^(?:\d{2}-\d{1,5}|\d{2}A\d{1,5})$")
 _CVSG_RE = re.compile(r"\bSolicitor General is invited to file\b", re.I)
 # An in forma pauperis denial that gives the petitioner time to pay: the
 # petition stays pending whatever heading the entry is printed under.

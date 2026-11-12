@@ -364,7 +364,8 @@ def test_a_corpus_that_agrees_raises_nothing(tmp_path: Path) -> None:
 
     assert report.alarms == []
     statuses = {docket: f.status for docket, f in _by_docket(report).items()}
-    assert statuses.pop("26M23") == EntryStatus.out_of_frame
+    motion_number = statuses.pop("26M23")
+    assert motion_number == EntryStatus.out_of_frame
     presence = {d for d, s in statuses.items() if s == EntryStatus.presence_only}
     assert presence == {"25-842", "25-7598", "26-5011", "25-7382"}
     assert {s for d, s in statuses.items() if d not in presence} == {EntryStatus.matched}
