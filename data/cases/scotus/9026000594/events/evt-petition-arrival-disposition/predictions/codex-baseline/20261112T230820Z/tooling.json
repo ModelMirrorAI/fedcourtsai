@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000594",
+  "run_id": "20261112T230820Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "CourtListener MCP search",
+    "CourtListener MCP read_document",
+    "web.run",
+    "fedcourts validate"
+  ],
+  "helpful": [
+    "Frozen caption-class arrival anchor",
+    "Official Vide companion snapshot",
+    "Provisioned en banc judgment and petition text",
+    "Independent Supreme Court precedent through MCP"
+  ],
+  "gaps": [
+    "Web attempts returned no visible source content",
+    "Sparse corpus reporter-citation coverage",
+    "No MCP match for the petition's NIH citation",
+    "Truncated appendix omits much of the district-court reasoning"
+  ],
+  "notes": "UV_NO_CACHE=1 resolved the default uv cache permission failure. No installs or direct CourtListener REST calls. No BIO was provisioned at this arrival moment; the response deadline remains in the future. Corpus examples were used as route context, not as a representative grant-rate sample."
+}
