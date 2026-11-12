@@ -3744,6 +3744,23 @@ log → **un-alias** → stamp → validate.
 Wiring the un-aliasing and the stamp anywhere else in that sequence produces a
 run that looks green and quietly drops a scoring block.
 
+**A judge that keys its candidate directories in the wrong order still lands.**
+The contract path is `evaluations/<evaluator>/<alias>/<run_id>/`. A judge
+sometimes writes the same three components as
+`evaluations/<evaluator>/<run_id>/<alias>/` or as
+`evaluations/<alias>/<evaluator>/<run_id>/`: every file the cell owes exists,
+under a path nothing downstream reads, so the cell would land nothing and be
+owed again at full cost. `unblind-evaluations` first renames such directories
+onto the contract path, contents untouched, and leaves a `harness` note in the
+cell's `flags.json` naming the ordering it found. It does so only for a whole
+reordering: every misplaced directory under the same one of those two shapes,
+each holding an `evaluation.json`, none also present at the contract path, no
+link on the way, and nothing that would be left behind. Anything short of that
+is left exactly as written and the cell fails or lands nothing as it would have.
+When the step un-aliases nothing, or fails, it prints the untracked files under
+the event directory (paths only), so the log says where a cell that landed
+nothing put its output.
+
 How a cell's output becomes a PR is the same across **run-predict** and
 **run-evaluate**: each cell validates its own output and
 uploads it (plus a status file) as an artifact rather than opening a PR, and a

@@ -44,6 +44,12 @@ self-check is ``validate data``'s ``check_evaluation_targets``, which resolves
 the same join and reports an orphan loudly — so an alias that survives to the
 gate fails it rather than shipping.
 
+**A reordered path.** A judge sometimes keys its candidate directories
+``<evaluator>/<run_id>/<alias>/`` or ``<alias>/<evaluator>/<run_id>/`` instead
+of ``<evaluator>/<alias>/<run_id>/``. :func:`settle_candidate_layout` renames a
+whole reordering onto the contract path before the un-aliasing, and declines
+anything it cannot place without choosing between the judge's own files.
+
 **What this is, and what it is not.** It is an *anti-anchoring* measure enforced
 by a prompt contract, not a sandbox. It removes every route by which identity
 reaches the grader incidentally: no predictor id, evaluator id, engine name, or
@@ -123,8 +129,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import shutil
+import subprocess
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -1027,6 +1035,268 @@ def restore_committed_cells(*, data_root: Path, stash_dir: Path) -> int:
 # --- un-aliasing --------------------------------------------------------------
 
 
+#: The judge-level files a cell that dropped its own id from the path leaves at
+#: the top of ``evaluations/``. Each is keyed by evaluator and run in the
+#: contract, so a copy found there is moved with the candidates or not at all.
+JUDGE_LEVEL_FILES: Final[tuple[str, ...]] = ("flags.json", "retrieval.md", "tooling.json")
+
+
+@dataclass(frozen=True)
+class CandidateLayoutSettlement:
+    """What :func:`settle_candidate_layout` found and did for one evaluate cell."""
+
+    #: The shape the judge wrote its candidate directories in, when it moved
+    #: them; ``None`` when nothing moved.
+    layout: str | None = None
+    #: The aliases whose directories moved to the contract path, in alias order.
+    aliases: tuple[str, ...] = ()
+    #: The judge-level files moved up from the top of ``evaluations/``.
+    judge_files: tuple[str, ...] = ()
+    #: Why a misplaced directory was left exactly as written, or ``""``.
+    declined: str = ""
+
+    @property
+    def moved(self) -> bool:
+        return bool(self.aliases)
+
+
+#: The two orderings of a candidate directory's three path components a judge
+#: is known to write in place of ``<evaluator>/<alias>/<run_id>/``.
+_LAYOUT_UNDER_RUN: Final = "evaluations/<evaluator>/<run_id>/<alias>/"
+_LAYOUT_OVER_EVALUATOR: Final = "evaluations/<alias>/<evaluator>/<run_id>/"
+
+
+def _plain_dir(path: Path, base: Path) -> bool:
+    """A real directory reached without a link, inside ``base``."""
+    if path.is_symlink() or not path.is_dir():
+        return False
+    return path.resolve() == base.resolve() / path.relative_to(base)
+
+
+def settle_candidate_layout(
+    *,
+    data_root: Path,
+    court: str,
+    docket: int,
+    event_id: str,
+    evaluator_id: str,
+    run_id: str,
+    map_dir: Path = DEFAULT_MAP_DIR,
+) -> CandidateLayoutSettlement:
+    """Move candidate directories a judge keyed in the wrong order onto the contract path.
+
+    The contract keys a grade ``evaluations/<evaluator>/<alias>/<run_id>/``. A
+    judge that writes the same three components in another order, either
+    ``evaluations/<evaluator>/<run_id>/<alias>/`` or
+    ``evaluations/<alias>/<evaluator>/<run_id>/``, has produced every file the
+    cell owes under a path nothing downstream reads, so the cell lands nothing
+    and is owed again. Each such directory names its candidate, its judge and
+    its run unambiguously, so this renames it, contents untouched, to where the
+    contract puts it; :func:`unblind_evaluations` then proceeds as over any
+    other cell. A judge-level file left at the top of ``evaluations/``
+    (:data:`JUDGE_LEVEL_FILES`) moves to the cell's own directory with them.
+
+    **All or nothing, and only a whole reordering.** Nothing moves unless every
+    directory found is one of the two shapes above, all of them the same one,
+    each a real directory holding a regular ``evaluation.json``, and the move
+    would leave no alias-shaped tree or loose file behind at the top of
+    ``evaluations/``. So it declines, and says why, when any
+    candidate already sits at the contract path (a judge that wrote both is not
+    reordering, and choosing between its copies would speak for it), when an
+    alias appears under both shapes, when a link stands anywhere on the way,
+    when the misplaced tree holds anything besides the run's own directories,
+    or when a judge-level file would land on one already written. Declining
+    changes nothing: the cell reaches the un-aliasing exactly as the judge left
+    it, which fails or lands nothing as before.
+
+    Only the aliases the cell's own map names are looked for, and only under
+    this event, evaluator and run, so no committed run is touched. Idempotent:
+    a settled cell has its candidates at the contract path and returns an
+    empty settlement.
+    """
+    event_paths = CasePaths(data_root, court, docket).event(event_id)
+    aliases = read_blinding_map(
+        map_path_for(map_dir, court=court, docket=docket, event_id=event_id, run_id=run_id),
+        case_id=ids.case_id(court, docket),
+        event_id=event_id,
+        run_id=run_id,
+    )
+    evaluations = event_paths.evaluations_dir
+    cell_dir = event_paths.evaluation_cell_dir(evaluator_id, run_id)
+    try:
+        layout, found = _misplaced_candidates(event_paths, sorted(aliases), evaluator_id, run_id)
+        if not found:
+            return CandidateLayoutSettlement()
+        emptied = set(found) if layout == _LAYOUT_OVER_EVALUATOR else set()
+        judge_files = _judge_files_above(event_paths, evaluator_id, run_id, emptied)
+        _require_plain_destinations(event_paths, found, evaluator_id, run_id)
+    except _LayoutDeclined as exc:
+        return CandidateLayoutSettlement(declined=str(exc))
+
+    try:
+        for alias, path in found.items():
+            dest = event_paths.evaluation_dir(evaluator_id, alias, run_id)
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            path.rename(dest)
+            if layout == _LAYOUT_OVER_EVALUATOR:
+                path.parent.rmdir()
+                path.parent.parent.rmdir()
+        for name in judge_files:
+            cell_dir.mkdir(parents=True, exist_ok=True)
+            (evaluations / name).rename(cell_dir / name)
+    except OSError as exc:
+        # Every precondition was checked above, so this is the filesystem
+        # itself; the cell fails here rather than reaching a second pass that
+        # would read a half-moved tree as the judge's own.
+        raise BlindingError(f"could not move a reordered candidate directory: {exc}") from exc
+    return CandidateLayoutSettlement(
+        layout=layout, aliases=tuple(found), judge_files=tuple(judge_files)
+    )
+
+
+class _LayoutDeclined(Exception):
+    """Why :func:`settle_candidate_layout` leaves a cell as the judge wrote it."""
+
+
+def _misplaced_candidates(
+    event_paths: EventPaths, aliases: Sequence[str], evaluator_id: str, run_id: str
+) -> tuple[str, dict[str, Path]]:
+    """The one ordering the judge wrote and each alias's directory under it.
+
+    Returns an empty mapping when no alias sits at either known ordering, and
+    raises :class:`_LayoutDeclined` on anything short of a whole reordering.
+    """
+    evaluations = event_paths.evaluations_dir
+    cell_dir = event_paths.evaluation_cell_dir(evaluator_id, run_id)
+    found: dict[str, tuple[str, Path]] = {}
+    for alias in aliases:
+        over = evaluations / alias / evaluator_id / run_id
+        present = {}
+        if os.path.lexists(cell_dir / alias):
+            present[_LAYOUT_UNDER_RUN] = cell_dir / alias
+        # The top of the alias-first shape counts on its own: an
+        # `evaluations/<alias>/` holding anything is a tree the move must empty.
+        if os.path.lexists(evaluations / alias):
+            present[_LAYOUT_OVER_EVALUATOR] = over
+        if len(present) > 1:
+            raise _LayoutDeclined(f"{alias} is written under both orderings")
+        for item in present.items():
+            found[alias] = item
+    if not found:
+        return "", {}
+    if any(
+        os.path.lexists(event_paths.evaluation_dir(evaluator_id, alias, run_id))
+        for alias in aliases
+    ):
+        raise _LayoutDeclined("some candidates are at the contract path and some are not")
+    layouts = {shape for shape, _ in found.values()}
+    if len(layouts) > 1:
+        raise _LayoutDeclined("the candidates are written under more than one ordering")
+    (layout,) = layouts
+    placed = {alias: path for alias, (_, path) in found.items()}
+    for alias, path in placed.items():
+        _require_whole_directory(event_paths, alias, path, layout, evaluator_id, run_id)
+    return layout, placed
+
+
+def _require_whole_directory(
+    event_paths: EventPaths, alias: str, path: Path, layout: str, evaluator_id: str, run_id: str
+) -> None:
+    """Raise :class:`_LayoutDeclined` unless ``path`` is one candidate's whole output."""
+    if not _plain_dir(path, event_paths.base):
+        raise _LayoutDeclined(
+            f"{alias} is not a plain directory at {path.relative_to(event_paths.base)}"
+        )
+    report = path / "evaluation.json"
+    if report.is_symlink() or not report.is_file():
+        raise _LayoutDeclined(f"{alias} carries no evaluation.json")
+    if layout == _LAYOUT_OVER_EVALUATOR:
+        # `<alias>/` may hold only `<evaluator>/`, and that only `<run_id>/`:
+        # anything else would stay behind under a name no predictor answers to.
+        top = event_paths.evaluations_dir / alias
+        if [child.name for child in top.iterdir()] != [evaluator_id] or [
+            child.name for child in (top / evaluator_id).iterdir()
+        ] != [run_id]:
+            raise _LayoutDeclined(f"evaluations/{alias}/ holds more than this run's directory")
+
+
+def _judge_files_above(
+    event_paths: EventPaths, evaluator_id: str, run_id: str, emptied: Iterable[str]
+) -> list[str]:
+    """The judge-level files at the top of ``evaluations/`` that can move down.
+
+    Raises :class:`_LayoutDeclined` when that directory holds any other loose
+    entry, an alias-shaped directory outside ``emptied`` (the alias trees the
+    move removes), or a file that would land on one the judge also wrote in
+    place.
+    """
+    evaluations = event_paths.evaluations_dir
+    cell_dir = event_paths.evaluation_cell_dir(evaluator_id, run_id)
+    names: list[str] = []
+    for child in sorted(evaluations.iterdir()):
+        if child.is_dir() and not child.is_symlink():
+            # An alias-shaped tree the move does not empty would ship beside
+            # the landed cell, under a name no predictor answers to.
+            if child.name.lower().startswith(ALIAS_PREFIX) and child.name not in emptied:
+                raise _LayoutDeclined(f"evaluations/{child.name}/ is not a tree the move empties")
+            continue
+        if child.name not in JUDGE_LEVEL_FILES or child.is_symlink() or not child.is_file():
+            raise _LayoutDeclined(f"evaluations/ holds a stray entry, {child.name!r}")
+        if os.path.lexists(cell_dir / child.name):
+            raise _LayoutDeclined(f"{child.name} is at the judge level and above it")
+        names.append(child.name)
+    return names
+
+
+def _require_plain_destinations(
+    event_paths: EventPaths, aliases: Iterable[str], evaluator_id: str, run_id: str
+) -> None:
+    """Raise :class:`_LayoutDeclined` where a link stands on the way to a destination.
+
+    Every directory a rename lands under is the judge's to have written: its
+    own evaluator directory, the cell's run directory, and each alias's
+    directory at the contract path. One that is a link would carry the rename
+    out of the event's tree.
+    """
+    base = event_paths.base
+    owned = [
+        event_paths.evaluations_dir,
+        event_paths.evaluator_dir(evaluator_id),
+        event_paths.evaluation_cell_dir(evaluator_id, run_id),
+        *(event_paths.evaluation_dir(evaluator_id, alias, run_id).parent for alias in aliases),
+    ]
+    for own in owned:
+        if os.path.lexists(own) and not _plain_dir(own, base):
+            raise _LayoutDeclined(f"{own.relative_to(base)} is not a plain directory")
+
+
+def untracked_files(root: Path, *, limit: int = 60) -> tuple[list[str], int]:
+    """The files under ``root`` that git does not track, relative to it, and how many in all.
+
+    What an agent's turn added to a directory of a checkout, read for a log
+    line when a cell landed nothing: the listing is where the files went. At
+    most ``limit`` paths are returned beside the full count. Ignored files are
+    left out, and so is everything when ``root`` is not inside a work tree or
+    git cannot be run, since this is a diagnostic and never a gate.
+    """
+    if not root.is_dir():
+        return [], 0
+    # The checkout is one an agent had a shell in, so nothing it could have
+    # configured is honoured: no user or system config, no hooks, no fsmonitor.
+    env = os.environ | {"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1"}
+    command = ["git", "-c", f"safe.directory={root.resolve()}"]
+    command += ["-c", "core.fsmonitor=false", "-c", "core.hooksPath=" + os.devnull]
+    command += ["ls-files", "--others", "--exclude-standard", "-z", "--", "."]
+    try:
+        listed = subprocess.run(
+            command, cwd=root, capture_output=True, check=True, timeout=30, env=env
+        )
+    except (OSError, subprocess.SubprocessError):
+        return [], 0
+    paths = sorted(os.fsdecode(raw) for raw in listed.stdout.split(b"\0") if raw)
+    return paths[:limit], len(paths)
+
+
 def read_blinding_map(
     map_path: Path, *, case_id: str, event_id: str, run_id: str
 ) -> dict[str, str]:
@@ -1366,22 +1636,25 @@ def _term_counts(file: str, terms: Iterable[str]) -> list[BlindingCount]:
 
 
 def _assert_no_alias_survives(evaluator_dir: Path, cell_dir: Path) -> None:
-    """Fail if any alias-shaped directory is left under the evaluator or the cell.
+    """Fail if any alias-shaped directory is left beside or under the evaluator.
 
     Catches the case the map cannot: an evaluator that invented an alias it was
-    never given, wrote one under a run id other than its own, or nested its
-    candidates the other way round, under its own run's cell directory
-    (``<evaluator>/<run_id>/<alias>/``). Any of these would reach the ledger
-    keyed on a name no predictor answers to.
+    never given, wrote one under a run id other than its own, nested its
+    candidates under its own run's cell directory
+    (``<evaluator>/<run_id>/<alias>/``) or put the alias above its own id
+    (``evaluations/<alias>/...``), in a way :func:`settle_candidate_layout`
+    declined to move. Any of these would reach the ledger keyed on a name no
+    predictor answers to.
     """
+    evaluations = evaluator_dir.parent
     stray = sorted(
-        str(child.relative_to(evaluator_dir))
-        for parent in (evaluator_dir, cell_dir)
+        str(child.relative_to(evaluations))
+        for parent in (evaluations, evaluator_dir, cell_dir)
         if parent.is_dir()
         for child in parent.iterdir()
         if child.is_dir() and child.name.lower().startswith(ALIAS_PREFIX)
     )
     if stray:
         raise BlindingError(
-            f"alias directories survive un-aliasing under {evaluator_dir}: {', '.join(stray)}"
+            f"alias directories survive un-aliasing under {evaluations}: {', '.join(stray)}"
         )

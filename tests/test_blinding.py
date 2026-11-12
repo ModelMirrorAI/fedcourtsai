@@ -19,6 +19,8 @@ from __future__ import annotations
 import json
 import re
 import shutil
+import subprocess
+from collections.abc import Callable
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
@@ -860,6 +862,372 @@ def test_unblinding_hard_fails_on_an_alias_nested_under_the_cell(ledger: Path) -
         event_paths.evaluation_cell_dir(EVALUATOR, EVALUATE_RUN) / alias / "evaluation.json",
         "{}\n",
     )
+    with pytest.raises(BlindingError, match="alias directories survive"):
+        _unblind(ledger)
+
+
+# --- a judge that reordered the path ------------------------------------------
+
+
+def _settle(data_root: Path) -> blinding.CandidateLayoutSettlement:
+    return blinding.settle_candidate_layout(
+        data_root=data_root,
+        court=COURT,
+        docket=DOCKET,
+        event_id=EVENT,
+        evaluator_id=EVALUATOR,
+        run_id=EVALUATE_RUN,
+        map_dir=_map_dir(data_root),
+    )
+
+
+def _reorder(data_root: Path, result: blinding.BlindingResult, layout: str) -> None:
+    """Move the contract-keyed fixture output to where a reordering judge writes it."""
+    event_paths = CasePaths(data_root, COURT, DOCKET).event(EVENT)
+    for candidate in result.candidates:
+        source = event_paths.evaluation_dir(EVALUATOR, candidate.alias, EVALUATE_RUN)
+        if layout == "under-run":
+            dest = event_paths.evaluation_cell_dir(EVALUATOR, EVALUATE_RUN) / candidate.alias
+        else:
+            dest = event_paths.evaluations_dir / candidate.alias / EVALUATOR / EVALUATE_RUN
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        source.rename(dest)
+        source.parent.rmdir()
+
+
+def _file_bytes(root: Path) -> dict[str, bytes]:
+    return {
+        str(path.relative_to(root)): path.read_bytes()
+        for path in sorted(root.rglob("*"))
+        if path.is_file()
+    }
+
+
+@pytest.mark.parametrize(
+    ("layout", "shape"),
+    [
+        ("under-run", "evaluations/<evaluator>/<run_id>/<alias>/"),
+        ("over-evaluator", "evaluations/<alias>/<evaluator>/<run_id>/"),
+    ],
+)
+def test_a_reordered_candidate_path_is_moved_to_the_contract_path(
+    ledger: Path, layout: str, shape: str
+) -> None:
+    """Both orderings a judge is known to write land the cell, bytes untouched."""
+    result = _blind(ledger)
+    _seed_evaluations(ledger, result)
+    event_paths = CasePaths(ledger, COURT, DOCKET).event(EVENT)
+    written = {
+        c.alias: _file_bytes(event_paths.evaluation_dir(EVALUATOR, c.alias, EVALUATE_RUN))
+        for c in result.candidates
+    }
+    _reorder(ledger, result, layout)
+
+    settled = _settle(ledger)
+
+    assert settled.layout == shape
+    assert settled.aliases == tuple(sorted(c.alias for c in result.candidates))
+    for candidate in result.candidates:
+        landed = event_paths.evaluation_dir(EVALUATOR, candidate.alias, EVALUATE_RUN)
+        assert _file_bytes(landed) == written[candidate.alias]
+        assert not (event_paths.evaluations_dir / candidate.alias).exists()
+    assert _settle(ledger) == blinding.CandidateLayoutSettlement()
+    assert dict(_unblind(ledger)) == {c.alias: c.predictor_id for c in result.candidates}
+    verdict = validate_ledger(ledger)
+    assert verdict.ok, verdict.problems
+
+
+def test_judge_level_files_left_above_the_evaluator_move_with_the_candidates(
+    ledger: Path,
+) -> None:
+    result = _blind(ledger)
+    _seed_evaluations(ledger, result)
+    event_paths = CasePaths(ledger, COURT, DOCKET).event(EVENT)
+    _reorder(ledger, result, "over-evaluator")
+    event_paths.evaluation_flags(EVALUATOR, EVALUATE_RUN).unlink()
+    write_text(event_paths.evaluations_dir / "retrieval.md", "nothing fetched\n")
+
+    settled = _settle(ledger)
+
+    assert settled.judge_files == ("retrieval.md",)
+    moved = event_paths.evaluation_retrieval(EVALUATOR, EVALUATE_RUN)
+    assert moved.read_text() == "nothing fetched\n"
+    assert not (event_paths.evaluations_dir / "retrieval.md").exists()
+
+
+def _decline_mixed(ledger: Path, result: blinding.BlindingResult) -> None:
+    """One candidate back at the contract path, beside the reordered rest."""
+    event_paths = CasePaths(ledger, COURT, DOCKET).event(EVENT)
+    alias = result.candidates[0].alias
+    write_text(
+        event_paths.evaluation_dir(EVALUATOR, alias, EVALUATE_RUN) / "evaluation.json", "{}\n"
+    )
+
+
+def _decline_both_orderings(ledger: Path, result: blinding.BlindingResult) -> None:
+    event_paths = CasePaths(ledger, COURT, DOCKET).event(EVENT)
+    alias = result.candidates[0].alias
+    write_text(
+        event_paths.evaluations_dir / alias / EVALUATOR / EVALUATE_RUN / "evaluation.json",
+        "{}\n",
+    )
+
+
+def _decline_missing_report(ledger: Path, result: blinding.BlindingResult) -> None:
+    event_paths = CasePaths(ledger, COURT, DOCKET).event(EVENT)
+    cell = event_paths.evaluation_cell_dir(EVALUATOR, EVALUATE_RUN)
+    (cell / result.candidates[0].alias / "evaluation.json").unlink()
+
+
+def _decline_linked_directory(ledger: Path, result: blinding.BlindingResult) -> None:
+    event_paths = CasePaths(ledger, COURT, DOCKET).event(EVENT)
+    cell = event_paths.evaluation_cell_dir(EVALUATOR, EVALUATE_RUN)
+    first, second = result.candidates[0].alias, result.candidates[1].alias
+    shutil.rmtree(cell / first)
+    (cell / first).symlink_to(cell / second, target_is_directory=True)
+
+
+def _decline_linked_destination(ledger: Path, result: blinding.BlindingResult) -> None:
+    """A link planted where a candidate's contract directory will be made."""
+    event_paths = CasePaths(ledger, COURT, DOCKET).event(EVENT)
+    outside = ledger.parent / "outside"
+    outside.mkdir()
+    alias = result.candidates[0].alias
+    (event_paths.evaluator_dir(EVALUATOR) / alias).symlink_to(outside, target_is_directory=True)
+
+
+def _decline_file_at_destination(ledger: Path, result: blinding.BlindingResult) -> None:
+    """A regular file where the last candidate's contract directory will be made."""
+    event_paths = CasePaths(ledger, COURT, DOCKET).event(EVENT)
+    alias = sorted(c.alias for c in result.candidates)[-1]
+    write_text(event_paths.evaluator_dir(EVALUATOR) / alias, "in the way\n")
+
+
+def _decline_unmapped_alias_tree(ledger: Path, result: blinding.BlindingResult) -> None:
+    event_paths = CasePaths(ledger, COURT, DOCKET).event(EVENT)
+    write_text(
+        event_paths.evaluations_dir
+        / f"{ALIAS_PREFIX}zz"
+        / EVALUATOR
+        / EVALUATE_RUN
+        / "evaluation.json",
+        "{}\n",
+    )
+
+
+def _decline_stray_file(ledger: Path, result: blinding.BlindingResult) -> None:
+    event_paths = CasePaths(ledger, COURT, DOCKET).event(EVENT)
+    write_text(event_paths.evaluations_dir / "notes.txt", "scratch\n")
+
+
+def _decline_judge_file_collision(ledger: Path, result: blinding.BlindingResult) -> None:
+    event_paths = CasePaths(ledger, COURT, DOCKET).event(EVENT)
+    write_text(event_paths.evaluations_dir / "flags.json", "{}\n")
+
+
+@pytest.mark.parametrize(
+    ("spoil", "reason"),
+    [
+        (_decline_mixed, "some candidates are at the contract path"),
+        (_decline_both_orderings, "under both orderings"),
+        (_decline_missing_report, "no evaluation.json"),
+        (_decline_linked_directory, "not a plain directory"),
+        (_decline_linked_destination, "not a plain directory"),
+        (_decline_file_at_destination, "not a plain directory"),
+        (_decline_unmapped_alias_tree, "not a tree the move empties"),
+        (_decline_stray_file, "stray entry"),
+        (_decline_judge_file_collision, "at the judge level and above it"),
+    ],
+)
+def test_anything_short_of_a_whole_reordering_is_left_exactly_as_written(
+    ledger: Path,
+    spoil: Callable[[Path, blinding.BlindingResult], None],
+    reason: str,
+) -> None:
+    """Declining changes nothing, so the un-aliasing meets the judge's own tree."""
+    result = _blind(ledger)
+    _seed_evaluations(ledger, result)
+    _reorder(ledger, result, "under-run")
+    spoil(ledger, result)
+    event_dir = CasePaths(ledger, COURT, DOCKET).event(EVENT).base
+    before = _file_bytes(event_dir)
+    links = sorted(str(p) for p in event_dir.rglob("*") if p.is_symlink())
+
+    settled = _settle(ledger)
+
+    assert not settled.moved
+    assert reason in settled.declined
+    assert _file_bytes(event_dir) == before
+    assert sorted(str(p) for p in event_dir.rglob("*") if p.is_symlink()) == links
+    outside = ledger.parent / "outside"
+    assert not outside.exists() or not any(outside.iterdir())
+
+
+@pytest.mark.parametrize(
+    "spoil",
+    [
+        _decline_mixed,
+        _decline_linked_destination,
+        _decline_file_at_destination,
+        _decline_unmapped_alias_tree,
+        _decline_stray_file,
+        _decline_judge_file_collision,
+    ],
+)
+def test_the_alias_first_ordering_declines_on_the_same_terms(
+    ledger: Path, spoil: Callable[[Path, blinding.BlindingResult], None]
+) -> None:
+    result = _blind(ledger)
+    _seed_evaluations(ledger, result)
+    _reorder(ledger, result, "over-evaluator")
+    spoil(ledger, result)
+    event_dir = CasePaths(ledger, COURT, DOCKET).event(EVENT).base
+    before = _file_bytes(event_dir)
+
+    settled = _settle(ledger)
+
+    assert not settled.moved and settled.declined
+    assert _file_bytes(event_dir) == before
+
+
+def test_a_reordered_cell_missing_a_candidate_lands_the_rest(ledger: Path) -> None:
+    """The same as a contract-path cell that graded only some candidates."""
+    result = _blind(ledger)
+    _seed_evaluations(ledger, result)
+    _reorder(ledger, result, "under-run")
+    event_paths = CasePaths(ledger, COURT, DOCKET).event(EVENT)
+    skipped = sorted(c.alias for c in result.candidates)[-1]
+    shutil.rmtree(event_paths.evaluation_cell_dir(EVALUATOR, EVALUATE_RUN) / skipped)
+
+    assert skipped not in _settle(ledger).aliases
+    assert len(_unblind(ledger)) == len(result.candidates) - 1
+
+
+def test_the_command_says_why_it_left_a_cell_and_lists_its_files_on_failure(
+    ledger: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(ledger))
+    result = _blind(ledger)
+    _seed_evaluations(ledger, result)
+    _reorder(ledger, result, "under-run")
+    _decline_stray_file(ledger, result)
+    git = ["git", "-c", "user.name=t", "-c", "user.email=t@users.noreply.github.com"]
+    subprocess.run([*git, "init", "--quiet", str(ledger)], check=True)
+
+    done = runner.invoke(
+        app,
+        [
+            "unblind-evaluations",
+            *["--court", COURT, "--docket", str(DOCKET), "--event", EVENT],
+            *["--evaluator", EVALUATOR, "--run-id", EVALUATE_RUN],
+            *["--map-dir", str(_map_dir(ledger))],
+        ],
+    )
+
+    assert done.exit_code == 1
+    assert "misplaced candidates left as written" in done.output
+    assert "alias directories survive" in done.output
+    assert "evaluations/notes.txt" in done.output
+
+
+def test_an_alias_tree_holding_another_run_is_not_emptied(ledger: Path) -> None:
+    result = _blind(ledger)
+    _seed_evaluations(ledger, result)
+    _reorder(ledger, result, "over-evaluator")
+    event_paths = CasePaths(ledger, COURT, DOCKET).event(EVENT)
+    alias = result.candidates[0].alias
+    write_text(
+        event_paths.evaluations_dir / alias / EVALUATOR / "20260101T000000Z" / "evaluation.md",
+        "another run\n",
+    )
+
+    settled = _settle(ledger)
+
+    assert not settled.moved
+    assert "more than this run's directory" in settled.declined
+
+
+def test_a_cell_at_the_contract_path_is_not_touched(ledger: Path) -> None:
+    result = _blind(ledger)
+    _seed_evaluations(ledger, result)
+    assert _settle(ledger) == blinding.CandidateLayoutSettlement()
+
+
+def test_the_command_moves_a_reordered_cell_and_says_so_in_its_flags(
+    ledger: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(ledger))
+    result = _blind(ledger)
+    _seed_evaluations(ledger, result)
+    _reorder(ledger, result, "over-evaluator")
+
+    done = runner.invoke(
+        app,
+        [
+            "unblind-evaluations",
+            *["--court", COURT, "--docket", str(DOCKET), "--event", EVENT],
+            *["--evaluator", EVALUATOR, "--run-id", EVALUATE_RUN],
+            *["--map-dir", str(_map_dir(ledger))],
+        ],
+    )
+
+    assert done.exit_code == 0, done.output
+    assert "un-aliased 3 evaluation(s)" in done.output
+    assert "moved to the contract path" in done.output
+    event_paths = CasePaths(ledger, COURT, DOCKET).event(EVENT)
+    flags = read_model(event_paths.evaluation_flags(EVALUATOR, EVALUATE_RUN), AgentFlags)
+    notes = [flag for flag in flags.flags if flag.source == "harness"]
+    assert len(notes) == 1
+    assert "evaluations/<alias>/<evaluator>/<run_id>/" in notes[0].message
+    assert ALIAS_PREFIX not in notes[0].message
+    verdict = validate_ledger(ledger)
+    assert verdict.ok, verdict.problems
+
+
+def test_the_command_lists_where_the_files_went_when_nothing_lands(
+    ledger: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A layout the harness does not move is at least named in the log."""
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(ledger))
+    result = _blind(ledger)
+    event_paths = CasePaths(ledger, COURT, DOCKET).event(EVENT)
+    cell = event_paths.evaluation_cell_dir(EVALUATOR, EVALUATE_RUN)
+    flat = f"{result.candidates[0].alias}.json"
+    write_text(cell / flat, "{}\n")
+    write_text(cell / "::error::forged\nline.md", "x\n")
+    write_text(cell / "##[stop-commands]x.md", "x\n")
+    git = ["git", "-c", "user.name=t", "-c", "user.email=t@users.noreply.github.com"]
+    subprocess.run([*git, "init", "--quiet", str(ledger)], check=True)
+
+    done = runner.invoke(
+        app,
+        [
+            "unblind-evaluations",
+            *["--court", COURT, "--docket", str(DOCKET), "--event", EVENT],
+            *["--evaluator", EVALUATOR, "--run-id", EVALUATE_RUN],
+            *["--map-dir", str(_map_dir(ledger))],
+        ],
+    )
+
+    assert done.exit_code == 0, done.output
+    assert "un-aliased 0 evaluation(s)" in done.output
+    assert f"evaluations/{EVALUATOR}/{EVALUATE_RUN}/{flat}" in done.output
+    assert not any(line.startswith("::error::") for line in done.output.splitlines())
+    assert "##[" not in done.output
+
+
+def test_untracked_files_is_silent_outside_a_work_tree(tmp_path: Path) -> None:
+    (tmp_path / "a.txt").write_text("x")
+    assert blinding.untracked_files(tmp_path / "missing") == ([], 0)
+    assert blinding.untracked_files(tmp_path) == ([], 0)
+
+
+def test_unblinding_hard_fails_on_an_alias_tree_above_the_evaluator(ledger: Path) -> None:
+    """A stale `evaluations/<alias>/...` beside good output must not ship with it."""
+    result = _blind(ledger)
+    _seed_evaluations(ledger, result)
+    _decline_both_orderings(ledger, result)
+    assert not _settle(ledger).moved
     with pytest.raises(BlindingError, match="alias directories survive"):
         _unblind(ledger)
 
