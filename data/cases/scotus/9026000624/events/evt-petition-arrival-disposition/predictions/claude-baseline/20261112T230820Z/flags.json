@@ -1,0 +1,13 @@
+{
+  "case_id": "scotus/9026000624",
+  "run_id": "20261112T230820Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "provisioning",
+      "severity": "info",
+      "message": "record/documents/petition.txt carries the questions presented, tables of contents and authorities, and the appendix, but not the petition's body (introduction, statement, reasons for granting, pp. 1-29). documents.json reports truncated: false and the text has no pipeline note marking a cut. The forecast read the argument from the headings and the appendix only."
+    }
+  ]
+}

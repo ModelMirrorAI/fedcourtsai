@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000624",
+  "run_id": "20261112T230820Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "provisioning",
+      "severity": "warning",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "petition.txt has front matter and an extensive appendix but no readable numbered petition body pp. 1–29: it moves from appendix contents to appendix A. documents.json nevertheless marks it nonempty and untruncated. The official PDF open failed. Forecast uses the QP, contents headings, decision below and appendix, not the absent substantive argument. Consider checking page-level extraction or adding OCR for the missing body."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "lower-court-docket.txt reports no rehearing petition found and no disposition found in its four-entry read, but petition appendix A contains the August 11, 2026 order denying rehearing and rehearing en banc, with no judge requesting a poll. Forecast follows the appendix rather than interpreting the summary as absence of rehearing."
+    }
+  ]
+}
