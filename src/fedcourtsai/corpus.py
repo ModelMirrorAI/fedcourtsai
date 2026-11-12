@@ -706,9 +706,10 @@ class CorpusRow(BaseModel):
     originating_docket_number: str | None = Field(
         default=None,
         description="Lower-court linkage: the docket-number string in the originating "
-        "court (CourtListener `originating_court_information.docket_number`). With "
+        "court (CourtListener `original_court_info.docket_number`). With "
         "`originating_court` this is the (court + number) join key onto the lower-court "
-        "docket; only the REST path can populate it (bulk omits the table).",
+        "docket; the REST pull and the SCOTUS live channel populate it (bulk omits "
+        "the table).",
     )
     has_opinion: bool = Field(
         default=False,

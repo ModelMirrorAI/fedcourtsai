@@ -396,7 +396,8 @@ class CorpusRow(BaseModel):
         default=None, description="Lower court this docket came from (`appeal_from`)"
     )
     originating_docket_number: str | None = Field(
-        default=None, description="Docket number in the originating court (REST-only)"
+        default=None,
+        description="Docket number in the originating court (REST and live channel; not in bulk)",
     )
     source: CorpusSource
 
@@ -447,14 +448,20 @@ def _originating_court(record: Mapping[str, Any]) -> str | None:
 def _originating_docket_number(record: Mapping[str, Any]) -> str | None:
     """The docket number in the originating court for an appellate / SCOTUS docket.
 
-    The REST docket nests it under ``originating_court_information.docket_number``.
-    CourtListener does not export the originating-court-information table in bulk,
-    so a bulk-shaped row leaves this blank — only the originating *court* is
-    recoverable there — and the precise lower-court link is REST (pull) driven.
+    The REST docket nests it under ``original_court_info.docket_number``. The
+    live channel's mapped record carries the same fact under
+    ``originating_court_information.docket_number``, read where the REST key
+    holds no number. CourtListener does not export the originating-court-information
+    table in bulk, so a bulk-shaped row leaves this blank — only the originating
+    *court* is recoverable there — and the precise lower-court link is REST
+    (pull) or live-channel driven.
     """
-    info = record.get("originating_court_information")
-    if isinstance(info, Mapping):
-        return _clean(info.get("docket_number"))
+    for key in ("original_court_info", "originating_court_information"):
+        info = record.get(key)
+        if isinstance(info, Mapping):
+            number = _clean(info.get("docket_number"))
+            if number is not None:
+                return number
     return None
 
 
