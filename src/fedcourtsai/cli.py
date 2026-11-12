@@ -24160,7 +24160,7 @@ def unblind_evaluations_cmd(
                 err=True,
             )
         elif settled.declined:
-            typer.echo(f"misplaced candidates left as written: {_one_line(settled.declined)}")
+            typer.echo(f"misplaced candidates left as written: {_log_safe(settled.declined)}")
         moved = blinding.unblind_evaluations(
             data_root=settings.data_root,
             config_root=settings.config_root,
@@ -24227,6 +24227,16 @@ def _candidate_layout_note(settled: blinding.CandidateLayoutSettlement, event_id
     )
 
 
+def _log_safe(value: str) -> str:
+    """Agent-chosen text as one escaped log token the runner reads no command in.
+
+    ``ascii`` escapes a newline and quotes the value, so no line opens with
+    ``::``; the older ``##[command]`` form is matched anywhere in a line, so
+    its opener is broken as well.
+    """
+    return ascii(value).replace("##[", "## [")
+
+
 def _trace_cell_files(event_paths: EventPaths) -> None:
     """Print where an evaluate cell that landed nothing put its files.
 
@@ -24241,7 +24251,7 @@ def _trace_cell_files(event_paths: EventPaths) -> None:
         return
     typer.echo(f"{total} untracked file(s) under the event directory:")
     for path in paths:
-        typer.echo(f"  {ascii(path)[:_TRACE_PATH_CHARS]}")
+        typer.echo(f"  {_log_safe(path)[:_TRACE_PATH_CHARS]}")
     if total > len(paths):
         typer.echo(f"  and {total - len(paths)} more")
 

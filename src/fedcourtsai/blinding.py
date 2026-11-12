@@ -1099,7 +1099,8 @@ def settle_candidate_layout(
     **All or nothing, and only a whole reordering.** Nothing moves unless every
     directory found is one of the two shapes above, all of them the same one,
     each a real directory holding a regular ``evaluation.json``, and the move
-    would leave no stray behind. So it declines, and says why, when any
+    would leave no alias-shaped tree or loose file behind at the top of
+    ``evaluations/``. So it declines, and says why, when any
     candidate already sits at the contract path (a judge that wrote both is not
     reordering, and choosing between its copies would speak for it), when an
     alias appears under both shapes, when a link stands anywhere on the way,
@@ -1126,20 +1127,28 @@ def settle_candidate_layout(
         layout, found = _misplaced_candidates(event_paths, sorted(aliases), evaluator_id, run_id)
         if not found:
             return CandidateLayoutSettlement()
-        judge_files = _judge_files_above(event_paths, evaluator_id, run_id)
+        emptied = set(found) if layout == _LAYOUT_OVER_EVALUATOR else set()
+        judge_files = _judge_files_above(event_paths, evaluator_id, run_id, emptied)
+        _require_plain_destinations(event_paths, found, evaluator_id, run_id)
     except _LayoutDeclined as exc:
         return CandidateLayoutSettlement(declined=str(exc))
 
-    for alias, path in found.items():
-        dest = event_paths.evaluation_dir(evaluator_id, alias, run_id)
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        path.rename(dest)
-        if layout == _LAYOUT_OVER_EVALUATOR:
-            path.parent.rmdir()
-            path.parent.parent.rmdir()
-    for name in judge_files:
-        cell_dir.mkdir(parents=True, exist_ok=True)
-        (evaluations / name).rename(cell_dir / name)
+    try:
+        for alias, path in found.items():
+            dest = event_paths.evaluation_dir(evaluator_id, alias, run_id)
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            path.rename(dest)
+            if layout == _LAYOUT_OVER_EVALUATOR:
+                path.parent.rmdir()
+                path.parent.parent.rmdir()
+        for name in judge_files:
+            cell_dir.mkdir(parents=True, exist_ok=True)
+            (evaluations / name).rename(cell_dir / name)
+    except OSError as exc:
+        # Every precondition was checked above, so this is the filesystem
+        # itself; the cell fails here rather than reaching a second pass that
+        # would read a half-moved tree as the judge's own.
+        raise BlindingError(f"could not move a reordered candidate directory: {exc}") from exc
     return CandidateLayoutSettlement(
         layout=layout, aliases=tuple(found), judge_files=tuple(judge_files)
     )
@@ -1211,29 +1220,54 @@ def _require_whole_directory(
             raise _LayoutDeclined(f"evaluations/{alias}/ holds more than this run's directory")
 
 
-def _judge_files_above(event_paths: EventPaths, evaluator_id: str, run_id: str) -> list[str]:
+def _judge_files_above(
+    event_paths: EventPaths, evaluator_id: str, run_id: str, emptied: Iterable[str]
+) -> list[str]:
     """The judge-level files at the top of ``evaluations/`` that can move down.
 
     Raises :class:`_LayoutDeclined` when that directory holds any other loose
-    entry, when a file would land on one the judge also wrote in place, or when
-    a link stands where the cell's own directories should be.
+    entry, an alias-shaped directory outside ``emptied`` (the alias trees the
+    move removes), or a file that would land on one the judge also wrote in
+    place.
     """
-    base = event_paths.base
     evaluations = event_paths.evaluations_dir
     cell_dir = event_paths.evaluation_cell_dir(evaluator_id, run_id)
     names: list[str] = []
     for child in sorted(evaluations.iterdir()):
         if child.is_dir() and not child.is_symlink():
+            # An alias-shaped tree the move does not empty would ship beside
+            # the landed cell, under a name no predictor answers to.
+            if child.name.lower().startswith(ALIAS_PREFIX) and child.name not in emptied:
+                raise _LayoutDeclined(f"evaluations/{child.name}/ is not a tree the move empties")
             continue
-        if child.name not in JUDGE_LEVEL_FILES or child.is_symlink():
+        if child.name not in JUDGE_LEVEL_FILES or child.is_symlink() or not child.is_file():
             raise _LayoutDeclined(f"evaluations/ holds a stray entry, {child.name!r}")
         if os.path.lexists(cell_dir / child.name):
             raise _LayoutDeclined(f"{child.name} is at the judge level and above it")
         names.append(child.name)
-    for own in (event_paths.evaluator_dir(evaluator_id), cell_dir):
+    return names
+
+
+def _require_plain_destinations(
+    event_paths: EventPaths, aliases: Iterable[str], evaluator_id: str, run_id: str
+) -> None:
+    """Raise :class:`_LayoutDeclined` where a link stands on the way to a destination.
+
+    Every directory a rename lands under is the judge's to have written: its
+    own evaluator directory, the cell's run directory, and each alias's
+    directory at the contract path. One that is a link would carry the rename
+    out of the event's tree.
+    """
+    base = event_paths.base
+    owned = [
+        event_paths.evaluations_dir,
+        event_paths.evaluator_dir(evaluator_id),
+        event_paths.evaluation_cell_dir(evaluator_id, run_id),
+        *(event_paths.evaluation_dir(evaluator_id, alias, run_id).parent for alias in aliases),
+    ]
+    for own in owned:
         if os.path.lexists(own) and not _plain_dir(own, base):
             raise _LayoutDeclined(f"{own.relative_to(base)} is not a plain directory")
-    return names
 
 
 def untracked_files(root: Path, *, limit: int = 60) -> tuple[list[str], int]:
@@ -1247,13 +1281,15 @@ def untracked_files(root: Path, *, limit: int = 60) -> tuple[list[str], int]:
     """
     if not root.is_dir():
         return [], 0
+    # The checkout is one an agent had a shell in, so nothing it could have
+    # configured is honoured: no user or system config, no hooks, no fsmonitor.
+    env = os.environ | {"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1"}
+    command = ["git", "-c", f"safe.directory={root.resolve()}"]
+    command += ["-c", "core.fsmonitor=false", "-c", "core.hooksPath=" + os.devnull]
+    command += ["ls-files", "--others", "--exclude-standard", "-z", "--", "."]
     try:
         listed = subprocess.run(
-            ["git", "ls-files", "--others", "--exclude-standard", "-z", "--", "."],
-            cwd=root,
-            capture_output=True,
-            check=True,
-            timeout=30,
+            command, cwd=root, capture_output=True, check=True, timeout=30, env=env
         )
     except (OSError, subprocess.SubprocessError):
         return [], 0
@@ -1605,7 +1641,8 @@ def _assert_no_alias_survives(evaluator_dir: Path, cell_dir: Path) -> None:
     Catches the case the map cannot: an evaluator that invented an alias it was
     never given, wrote one under a run id other than its own, or nested its
     candidates the other way round, under its own run's cell directory
-    (``<evaluator>/<run_id>/<alias>/``). Any of these would reach the ledger
+    (``<evaluator>/<run_id>/<alias>/``), in a way
+    :func:`settle_candidate_layout` declined to move. Any of these would reach the ledger
     keyed on a name no predictor answers to.
     """
     stray = sorted(
