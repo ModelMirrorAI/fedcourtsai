@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from collections.abc import Sequence
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
@@ -801,3 +802,160 @@ def test_a_store_fault_leaves_the_application_undated(tmp_path: Path) -> None:
         )
 
     assert report.alarms == [] and report.undated_applications == ["26A36"]
+
+
+# --- the published report -------------------------------------------------------
+
+
+def test_a_stored_report_keeps_every_count_and_only_the_entries_to_look_at(
+    tmp_path: Path,
+) -> None:
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        _seed_everything(conn)
+        conn.execute("DELETE FROM cases WHERE case_id = 'scotus/10'")
+        conn.commit()
+    report = _reconcile(db, tmp_path / "data")
+
+    kept = order_reconcile.stored(report)
+
+    assert [f.docket for d in kept.documents for f in d.entries] == ["25-882"]
+    assert kept.counts == report.counts and kept.alarms == report.alarms
+    assert order_reconcile.digest_lines(kept) == order_reconcile.digest_lines(report)
+    assert order_reconcile.render_markdown(kept) == order_reconcile.render_markdown(report)
+
+
+class _Gh:
+    """A recorded `gh`: canned issue listing, every call kept."""
+
+    def __init__(self, issues: list[dict[str, object]]) -> None:
+        self.issues = issues
+        self.calls: list[list[str]] = []
+        self.body: str | None = None
+
+    def __call__(self, argv: Sequence[str]) -> str:
+        self.calls.append(list(argv))
+        if "--body-file" in argv:
+            self.body = Path(argv[argv.index("--body-file") + 1]).read_text(encoding="utf-8")
+        if argv[:2] == ["gh", "api"]:
+            return json.dumps(self.issues)
+        if argv[1:3] == ["issue", "create"]:
+            return "https://github.com/o/r/issues/7\n"
+        return ""
+
+    def verbs(self) -> list[str]:
+        return [" ".join(call[1:3]) for call in self.calls]
+
+
+_ALARM = {
+    "number": 7,
+    "title": order_reconcile.ISSUE_TITLE,
+    "user": {"login": order_reconcile.ALARM_AUTHOR},
+}
+
+
+def _reports(tmp_path: Path) -> tuple[OrderReconciliation, OrderReconciliation]:
+    """A report with one alarm (a listed docket with no row) and a clean one."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        _seed_everything(conn)
+    passing = _reconcile(db, tmp_path / "data")
+    with corpus.connect(db) as conn:
+        conn.execute("DELETE FROM cases WHERE case_id = 'scotus/10'")
+        conn.commit()
+    return _reconcile(db, tmp_path / "data"), passing
+
+
+def test_the_latch_opens_refreshes_and_closes_one_issue(tmp_path: Path) -> None:
+    failing, passing = _reports(tmp_path)
+    body = tmp_path / "alarm.md"
+    body.write_text(order_reconcile.render_alarm(failing), encoding="utf-8")
+
+    gh = _Gh([])
+    opened = order_reconcile.latch("o/r", failing, body, runner=gh)
+    assert opened == "opened https://github.com/o/r/issues/7"
+    assert gh.verbs() == [
+        "label create",
+        "api repos/o/r/issues?labels=order-reconcile&state=open&per_page=100",
+        "issue create",
+    ]
+    assert "Order-list reconciliation failing" in gh.calls[-1]
+    assert gh.body is not None and "- 2026-10-13 25-882: no corpus row" in gh.body
+
+    gh = _Gh([_ALARM])
+    assert order_reconcile.latch("o/r", failing, body, runner=gh) == "refreshed #7"
+    assert gh.verbs()[-1] == "issue edit"
+
+    gh = _Gh([_ALARM, {**_ALARM, "number": 9}])
+    assert order_reconcile.latch("o/r", passing, body, runner=gh) == "closed #7, #9"
+    assert gh.verbs().count("issue close") == 2
+
+    gh = _Gh([])
+    assert order_reconcile.latch("o/r", passing, body, runner=gh) == "no alarm, and no open issue"
+    assert gh.verbs()[-1].startswith("api ")
+
+
+def test_the_latch_touches_only_its_own_issue(tmp_path: Path) -> None:
+    _failing, passing = _reports(tmp_path)
+    others: list[dict[str, object]] = [
+        {"number": 1, "title": order_reconcile.ISSUE_TITLE, "user": {"login": "someone"}},
+        {"number": 2, "title": "Another report", "user": {"login": order_reconcile.ALARM_AUTHOR}},
+        {**_ALARM, "number": 3, "pull_request": {}},
+    ]
+    gh = _Gh(others)
+
+    done = order_reconcile.latch("o/r", passing, tmp_path / "alarm.md", runner=gh)
+
+    assert done == "no alarm, and no open issue"
+    assert not any(call[1:3] == ["issue", "close"] for call in gh.calls)
+
+
+def test_the_alarm_body_is_cut_to_fit_an_issue(tmp_path: Path) -> None:
+    failing, _passing = _reports(tmp_path)
+    many = failing.model_copy(
+        update={"alarms": [f"2026-10-13 25-{n}: no corpus row" for n in range(1000, 4000)]}
+    )
+
+    body = order_reconcile.render_alarm(many)
+
+    assert len(body) < 65_536 and len(order_reconcile.render_markdown(many)) > 65_536
+    assert body.startswith("## Order-list reconciliation: failing")
+    assert "- 2026-10-13 25-1000: no corpus row" in body
+    assert body.endswith(
+        "Cut here to fit an issue: 3000 alarms stand in all, and "
+        + "the run's summary carries the whole verdict."
+    )
+    assert order_reconcile.render_alarm(failing) == order_reconcile.render_markdown(failing)
+
+
+def test_the_alarm_command_latches_the_report_the_reconciliation_wrote(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _stub_site(monkeypatch)
+    db = _point_at(monkeypatch, tmp_path)
+    with corpus.connect(db) as conn:
+        _seed_everything(conn)
+        conn.execute("DELETE FROM cases WHERE case_id = 'scotus/10'")
+        conn.commit()
+    out = tmp_path / "report.json"
+    gh = _Gh([])
+    monkeypatch.setattr(order_reconcile, "_gh", gh)
+    runner = CliRunner()
+
+    made = runner.invoke(
+        app,
+        ["order-reconcile", "--since", "2026-10-13", "--until", "2026-10-13", "--out", str(out)],
+    )
+    latched = runner.invoke(app, ["order-reconcile-alarm", "--repo", "o/r", "--report", str(out)])
+
+    assert made.exit_code == 3, made.output
+    stored = json.loads(out.read_text())
+    assert [f["docket"] for d in stored["documents"] for f in d["entries"]] == ["25-882"]
+    assert stored["corpus_pulled"] is None  # the fixture rows carry no pull stamp
+    assert latched.exit_code == 0, latched.output
+    assert "opened https://github.com/o/r/issues/7" in latched.stdout
+    assert gh.body is not None and "## Order-list reconciliation: failing" in gh.body
+    out.write_text("not a report")
+    args = ["--report", str(out)]
+    assert runner.invoke(app, ["order-reconcile-alarm", "--repo", "o/r", *args]).exit_code == 2
+    assert runner.invoke(app, ["order-reconcile-alarm", "--repo", "no", *args]).exit_code == 2

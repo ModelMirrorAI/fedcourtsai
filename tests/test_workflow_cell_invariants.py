@@ -4534,9 +4534,9 @@ def test_run_analytics_environments_resolve_from_the_dispatching_branch() -> Non
     literal `test_workflow_auth_gate.py` pins as BRANCH_RESOLVED_ENVIRONMENT),
     `tool-usage`
     must stay environment-free (it reads committed `data/` only), as must
-    `merits-coverage-alarm` (it reads one run artifact and writes an issue with
-    the ambient token, so an environment would only hand it secrets it has no
-    use for), and every
+    `merits-coverage-alarm` and `order-reconcile-alarm` (each reads one run
+    artifact and writes an issue with the ambient token, so an environment
+    would only hand it secrets it has no use for), and every
     concurrency group must carry the ref, because two refs are two
     environments reading two corpus pairs and one must never cancel — or
     queue behind — the other."""
@@ -4556,7 +4556,7 @@ def test_run_analytics_environments_resolve_from_the_dispatching_branch() -> Non
             if job_id != "qp-topic-approval":
                 assert "environment" not in job, f"{job_id} reaches nothing; no environment"
             continue
-        if job_id in {"tool-usage", "merits-coverage-alarm"}:
+        if job_id in {"tool-usage", "merits-coverage-alarm", "order-reconcile-alarm"}:
             assert "environment" not in job, f"{job_id} reaches nothing; no environment"
         elif job_id == "qp-topic-label":
             # The labeler binds the Claude-only counterpart of the same
@@ -5962,3 +5962,32 @@ def test_the_merits_coverage_check_and_its_alarm_split_their_credentials() -> No
     writers = [s for s in alarm["steps"] if "GH_TOKEN" in (s.get("env") or {})]
     assert [s["if"] for s in writers] == ["${{ github.ref == 'refs/heads/main' }}"]
     assert "merits-coverage-alarm" in writers[0]["run"]
+
+
+def test_the_order_reconciliation_splits_its_read_from_its_issue_write() -> None:
+    """The order-list reconciliation never holds a corpus role and an issue write together.
+
+    The reconciling job fetches and parses the Court's PDFs, so the only role
+    it holds is the read-only one, with no issue write; the alarm job holds
+    the ambient issue write, no `id-token`, no environment and no corpus step,
+    and sees only the artifact. The alarm needs the reconciliation to have
+    succeeded, so one that could not run leaves the issue as it stood, and it
+    writes only on the `main` ref.
+    """
+    jobs = _load("run-analytics.yml")["jobs"]
+    check, alarm = jobs["order-reconcile"], jobs["order-reconcile-alarm"]
+
+    assert check["permissions"] == {"contents": "read", "id-token": "write"}
+    assert any("corpus-readonly" in str(s.get("uses") or "") for s in check["steps"])
+    run = next(s["run"] for s in check["steps"] if "fedcourts order-reconcile" in str(s.get("run")))
+    assert '[ "$status" -ne 0 ] && [ "$status" -ne 3 ]' in run, (
+        "an alarm (exit 3) must reach the alarm job; any other failure must not"
+    )
+
+    assert alarm["permissions"] == {"contents": "read", "issues": "write"}
+    assert "order-reconcile" in alarm["needs"]
+    assert "needs.order-reconcile.result == 'success'" in _norm(alarm["if"])
+    assert not any("corpus" in str(s.get("uses") or "") for s in alarm["steps"])
+    writers = [s for s in alarm["steps"] if "GH_TOKEN" in (s.get("env") or {})]
+    assert [s["if"] for s in writers] == ["${{ github.ref == 'refs/heads/main' }}"]
+    assert "order-reconcile-alarm" in writers[0]["run"]
