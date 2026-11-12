@@ -1222,6 +1222,16 @@ def test_untracked_files_is_silent_outside_a_work_tree(tmp_path: Path) -> None:
     assert blinding.untracked_files(tmp_path) == ([], 0)
 
 
+def test_unblinding_hard_fails_on_an_alias_tree_above_the_evaluator(ledger: Path) -> None:
+    """A stale `evaluations/<alias>/...` beside good output must not ship with it."""
+    result = _blind(ledger)
+    _seed_evaluations(ledger, result)
+    _decline_both_orderings(ledger, result)
+    assert not _settle(ledger).moved
+    with pytest.raises(BlindingError, match="alias directories survive"):
+        _unblind(ledger)
+
+
 def test_a_partial_cell_fails_before_anything_moves(ledger: Path) -> None:
     """Mutate-then-check would let a retry sweep the wreckage clean and call it a success."""
     result = _blind(ledger)

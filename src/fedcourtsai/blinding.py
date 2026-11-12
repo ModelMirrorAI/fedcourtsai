@@ -1636,23 +1636,25 @@ def _term_counts(file: str, terms: Iterable[str]) -> list[BlindingCount]:
 
 
 def _assert_no_alias_survives(evaluator_dir: Path, cell_dir: Path) -> None:
-    """Fail if any alias-shaped directory is left under the evaluator or the cell.
+    """Fail if any alias-shaped directory is left beside or under the evaluator.
 
     Catches the case the map cannot: an evaluator that invented an alias it was
-    never given, wrote one under a run id other than its own, or nested its
-    candidates the other way round, under its own run's cell directory
-    (``<evaluator>/<run_id>/<alias>/``), in a way
-    :func:`settle_candidate_layout` declined to move. Any of these would reach the ledger
-    keyed on a name no predictor answers to.
+    never given, wrote one under a run id other than its own, nested its
+    candidates under its own run's cell directory
+    (``<evaluator>/<run_id>/<alias>/``) or put the alias above its own id
+    (``evaluations/<alias>/...``), in a way :func:`settle_candidate_layout`
+    declined to move. Any of these would reach the ledger keyed on a name no
+    predictor answers to.
     """
+    evaluations = evaluator_dir.parent
     stray = sorted(
-        str(child.relative_to(evaluator_dir))
-        for parent in (evaluator_dir, cell_dir)
+        str(child.relative_to(evaluations))
+        for parent in (evaluations, evaluator_dir, cell_dir)
         if parent.is_dir()
         for child in parent.iterdir()
         if child.is_dir() and child.name.lower().startswith(ALIAS_PREFIX)
     )
     if stray:
         raise BlindingError(
-            f"alias directories survive un-aliasing under {evaluator_dir}: {', '.join(stray)}"
+            f"alias directories survive un-aliasing under {evaluations}: {', '.join(stray)}"
         )
