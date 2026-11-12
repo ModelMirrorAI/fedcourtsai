@@ -1298,6 +1298,19 @@ def _stderr_result_error(stderr: str) -> str | None:
     return None
 
 
+def engine_reported_error(stdout: str, stderr: str) -> bool:
+    """Whether the engine itself reported the error its attempt ended on.
+
+    True where the JSON result on stdout carries an ``error``, or the CLI left
+    the same object on stderr as it does on a failed exit. That object is the
+    engine's own account of a fault it met and gave up on, which a process
+    ended from outside (a deadline's signal, a crash) does not leave: the
+    classifier calls any unrecognized failing exit ``permanent``, so the class
+    alone cannot tell the two apart.
+    """
+    return engine_result_error(stdout) is not None or _stderr_result_error(stderr) is not None
+
+
 # A JavaScript stack frame: ``at fn (file.js:1:2)``, ``at async fn (…)`` or a bare
 # ``at file.js:1:2`` — a location at the end, not just a leading "at".
 _STACK_FRAME = re.compile(r"^\s*at\s.*(?:\(.*:\d+:\d+\)|:\d+:\d+)$")
@@ -1564,9 +1577,9 @@ class AgenticRunner:
           root could not be snapshotted or reset.
 
         A zero-exit attempt that is not retried keeps what it produced, as the
-        cell step does, and so does a failing exit on a transient or permanent
-        fault that arrived after the cell's output was complete
-        (:func:`cell_outputs_complete`) and valid. A zero-exit attempt that
+        cell step does, and so does a failing exit on a fault the engine itself
+        reported (:func:`engine_reported_error`) after the cell's output was
+        complete (:func:`cell_outputs_complete`) and valid. A zero-exit attempt that
         produced nothing raises instead, so the caller records a classified
         failure rather than a cell that silently wrote nothing:
         :class:`EngineQuotaExhausted` for a spent quota, :class:`EngineFailed`
@@ -1644,6 +1657,7 @@ class AgenticRunner:
                 return _produced_artifacts(request)
             if (
                 verdict in {AttemptClass.transient, AttemptClass.permanent}
+                and engine_reported_error(result.stdout, result.stderr)
                 and keep
                 and cell_outputs_complete(
                     role,
@@ -1656,7 +1670,7 @@ class AgenticRunner:
                 )
             ):
                 sys.stderr.write(
-                    f"{base} on a {verdict.value} fault after the cell's output was complete "
+                    f"{base} on a fault the engine reported after the cell's output was complete "
                     "and valid; keeping its output\n"
                 )
                 return _produced_artifacts(request)

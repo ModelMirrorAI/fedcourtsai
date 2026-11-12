@@ -516,6 +516,7 @@ from .pipeline.runner import (
     available_backends,
     classify_engine_attempt,
     engine_attempt_fault,
+    engine_reported_error,
 )
 from .pipeline.salience import (
     SALIENCE_VERSION,
@@ -30849,7 +30850,7 @@ def finalize_complete_cmd(
 
     The completion sentinel's test, asked once: the cells' gemini step
     (``scripts/gemini-cell.sh``) reads it for a last attempt that ended on a
-    transient or permanent fault with a failing exit, and concludes the step clean only where
+    fault the engine reported with a failing exit, and concludes the step clean only where
     the cell's work was already whole and its judgment artifacts validate
     (``finalize-validates``).
     """
@@ -30894,6 +30895,32 @@ def engine_attempt_class_cmd(
 
     verdict = classify_engine_attempt(exit_code, _read(stdout_file), _read(stderr_file))
     typer.echo(verdict.value)
+
+
+@app.command("engine-attempt-reported")
+def engine_attempt_reported_cmd(
+    stdout_file: Annotated[
+        Path, typer.Option(help="The invocation's captured stdout (its JSON result).")
+    ],
+    stderr_file: Annotated[Path, typer.Option(help="The invocation's captured stderr.")],
+) -> None:
+    """Print 'true' if the engine itself reported the error its attempt ended on, else 'false'.
+
+    The error object in the JSON result, or the same object where the CLI left
+    it on stderr. The cells' gemini step (``scripts/gemini-cell.sh``) requires it
+    before concluding clean over a failing exit, since a turn ended from outside
+    (the deadline's signal, a crash) leaves none and is no finished cell. A
+    capture file that cannot be read counts as empty.
+    """
+
+    def _read(path: Path) -> str:
+        try:
+            return path.read_text(errors="replace")
+        except OSError:
+            return ""
+
+    reported = engine_reported_error(_read(stdout_file), _read(stderr_file))
+    typer.echo("true" if reported else "false")
 
 
 @app.command("engine-attempt-fault")

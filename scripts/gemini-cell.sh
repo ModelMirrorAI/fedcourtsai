@@ -49,11 +49,11 @@
 #
 # The step's exit status is the last attempt's, so the cell's tail reads it as
 # the outcome of the turn that counted, with one exception: a last attempt that
-# exited non-zero on a transient or permanent fault after the cell's output was complete
-# (`fedcourts finalize-complete`, the completion sentinel's test) and valid
-# (`fedcourts finalize-validates`) concludes the step clean, since the fault
-# arrived after the work. Each attempt's stdout (the JSON result)
-# and stderr stream into the job log as they are written, and are also kept
+# exited non-zero on a fault the engine itself reported, after the cell's
+# output was complete (`fedcourts finalize-complete`, the completion sentinel's
+# test) and valid (`fedcourts finalize-validates`), concludes the step clean,
+# since the fault arrived after the work. Each attempt's stdout (the JSON
+# result) and stderr stream into the job log as they are written, and are also kept
 # under the runner temp dir, outside the workspace and the cell artifact.
 #
 # Usage: gemini-cell.sh <predict|evaluate> <actor>
@@ -206,19 +206,33 @@ done
 # work was whole: every file the cell owes is there and parses, and its
 # judgment artifacts hold to their schema. The fault cost the cell nothing, so
 # the step concludes clean, as a zero-exit fault over the same output already
-# does and as the watchdog's reap of a finished cell does. The fault's class
-# does not enter beyond two exclusions: a transient or a permanent fault both
-# qualify, since a finished cell is finished whichever ended its turn (and the
-# classifier reads a whole stderr, so a 400 after a recovered network error
-# reads transient and a bare one permanent); a spent quota stays a failure,
-# which the collect job accounts for as one, and so does a fault that could not
-# be classified. Each check must say "true" outright; a check that could not
-# run leaves the failure as it is. The tail still validates the cell, so
-# nothing malformed is readied here.
+# does and as the watchdog's reap of a finished cell does. Four things must
+# hold, each said outright (a check that could not run leaves the failure):
+#
+#   * The engine itself reported the error (`fedcourts engine-attempt-reported`:
+#     the error object in its result or on its stderr). A turn ended from
+#     outside, by the deadline's signal or a crash, leaves none; the classifier
+#     calls any unrecognized failing exit `permanent`, so the class alone would
+#     admit those.
+#   * The verdict is `transient` or `permanent`. Both qualify because the
+#     classifier reads a whole stderr: a 400 after a recovered network error
+#     reads transient and a bare one permanent, and a finished cell is finished
+#     either way. A spent quota stays a failure, which the collect job accounts
+#     for as one, and so does a fault that could not be classified.
+#   * The watchdog has not acted. Any of its markers means the step was ended
+#     for the deadline or reaped, and the disarm step owns that outcome.
+#   * The cell is complete (`finalize-complete`) and valid
+#     (`finalize-validates`).
+#
+# The tail still validates the cell, so nothing malformed is readied here.
+watchdog_dir="${RUNNER_TEMP}/engine-watchdog"
 if [ "$status" -ne 0 ] && { [ "$verdict" = transient ] || [ "$verdict" = permanent ]; } &&
+  [ ! -e "$watchdog_dir/FIRED" ] && [ ! -e "$watchdog_dir/STOOD_DOWN" ] &&
+  [ ! -e "$watchdog_dir/REAPED" ] &&
+  [ "$(harness engine-attempt-reported --stdout-file "$out" --stderr-file "$err" 2> /dev/null)" = "true" ] &&
   [ "$(harness finalize-complete "${coords[@]}" 2> /dev/null)" = "true" ] &&
   [ "$(harness finalize-validates "${coords[@]}" 2> /dev/null)" = "true" ]; then
-  echo "::warning::gemini (${cell}): attempt ${attempt}/${max_attempts} exited ${status} on a ${verdict} fault after the cell's output was complete and valid; the step concludes clean"
+  echo "::warning::gemini (${cell}): attempt ${attempt}/${max_attempts} exited ${status} on a ${verdict} fault the engine reported, after the cell's output was complete and valid; the step concludes clean"
   status=0
 fi
 

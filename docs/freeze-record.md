@@ -19212,15 +19212,18 @@ freeze commit is recorded here.
   last attempt, so a turn that exited non-zero failed the step whatever it
   had written, and the cell's tail routed its output to a partial draft. From
   the carrying promotion, a last attempt that exits non-zero on a fault the
-  classifier reads as transient or permanent concludes the step clean where
-  two checks both pass (a spent quota and an unclassified fault stay
-  failures): the cell holds every file it owes, each non-empty and each JSON
+  engine itself reported (the error object in its result or on its stderr,
+  `fedcourts engine-attempt-reported`) and the classifier reads as transient
+  or permanent concludes the step clean where two checks both pass. A turn
+  ended from outside, which leaves no such object, a spent quota, an
+  unclassified fault and any step the watchdog has acted on stay failures.
+  The two checks: the cell holds every file it owes, each non-empty and each JSON
   one parsing (`fedcourts finalize-complete`, the completion sentinel's
   test), and every judgment artifact parses against its schema model
   (`fedcourts finalize-validates`). A check that cannot run leaves the step
   failed. The tail is unchanged and still validates the cell before collect
   readies it. The back-test's `GeminiRunner` takes the same rule, so a
-  transient or permanent non-zero exit over complete, valid output keeps the output where
+  non-zero exit on a reported fault over complete, valid output keeps the output where
   the entry of the retry's back-test half records it as an `engine-failed`
   loss.
 
@@ -19237,8 +19240,8 @@ freeze commit is recorded here.
   `evt-petition-disposition` cell both print `false`.
 
   **What it means for a reader.** A landed Gemini judgment can now come from
-  a turn that ended on an API error. The rule reads the presence of the owed
-  files and the schema, never what a valid judgment
+  a turn that ended on an API error. The rule reads the engine's own error
+  report, the presence of the owed files and the schema, never what a valid judgment
   says. What it cannot see is a turn cut off between a file's first complete
   write and a revision the agent meant to make: such a cell lands its earlier
   draft. The watchdog's reap of a finished cell carries the same residual

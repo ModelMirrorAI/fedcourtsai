@@ -42,9 +42,15 @@ INVALID_STREAM = {
 #                    its schema
 #   invalid-malformed  the same, after writing a judgment artifact its schema
 #                    refuses
-#   transient-exit-produce   a non-zero exit on a transient fault, after
-#                  writing a valid judgment artifact and nothing else
+#   transient-exit-produce   a non-zero exit on a transient fault the engine
+#                  reported, after writing a valid judgment artifact and
+#                  nothing else
 #   transient-exit-complete  the same, after writing every file the cell owes
+#   permanent-exit-complete  a whole cell, then a non-zero exit on a reported
+#                  400, which the classifier reads as permanent
+#   killed-complete  a whole cell, then a signal-style exit with nothing on
+#                  stderr, as a turn ended from outside leaves
+#   quota-exit-complete  a whole cell, then a spent quota
 #   permanent      a non-zero exit whose stderr names a context-length fault
 #   quota          a non-zero exit with gemini's terminal-quota wording
 #   stderr-object  a non-zero exit leaving a stack and the error object on stderr
@@ -78,21 +84,28 @@ case "$turn" in
     echo "$invalid" ;;
   transient-exit-produce)
     mkdir -p "$STUB_OUT"; printf '%s' "$STUB_VALID_ARTIFACT" > "$STUB_OUT/$STUB_ARTIFACT"
-    echo "503 Service Unavailable" >&2; exit 144 ;;
+    echo "$STUB_STDERR_OBJECT" >&2; exit 144 ;;
   transient-exit-complete)
     mkdir -p "$STUB_OUT"; printf '%s' "$STUB_VALID_ARTIFACT" > "$STUB_OUT/$STUB_ARTIFACT"
     for doc in reasoning.md predicted_reasoning.md retrieval.md; do
       echo "prose" > "$STUB_OUT/$doc"
     done
     echo '{}' > "$STUB_OUT/tooling.json"
-    echo "503 Service Unavailable" >&2; exit 144 ;;
+    echo "$STUB_STDERR_OBJECT" >&2; exit 144 ;;
   permanent-exit-complete)
     mkdir -p "$STUB_OUT"; printf '%s' "$STUB_VALID_ARTIFACT" > "$STUB_OUT/$STUB_ARTIFACT"
     for doc in reasoning.md predicted_reasoning.md retrieval.md; do
       echo "prose" > "$STUB_OUT/$doc"
     done
     echo '{}' > "$STUB_OUT/tooling.json"
-    echo '_ApiError: {"error":{"code":400,"status":"INVALID_ARGUMENT"}}' >&2; exit 144 ;;
+    echo "$STUB_BAD_REQUEST_OBJECT" >&2; exit 144 ;;
+  killed-complete)
+    mkdir -p "$STUB_OUT"; printf '%s' "$STUB_VALID_ARTIFACT" > "$STUB_OUT/$STUB_ARTIFACT"
+    for doc in reasoning.md predicted_reasoning.md retrieval.md; do
+      echo "prose" > "$STUB_OUT/$doc"
+    done
+    echo '{}' > "$STUB_OUT/tooling.json"
+    exit 143 ;;
   quota-exit-complete)
     mkdir -p "$STUB_OUT"; printf '%s' "$STUB_VALID_ARTIFACT" > "$STUB_OUT/$STUB_ARTIFACT"
     for doc in reasoning.md predicted_reasoning.md retrieval.md; do
@@ -131,6 +144,19 @@ STDERR_OBJECT = json.dumps(
             + "AIza"
             + "Sy"
             + "0" * 33,
+            "code": 1,
+        },
+    },
+    indent=2,
+)
+# A bare HTTP 400 as gemini-cli leaves it on a failed exit: no transient
+# signature anywhere in it, so the classifier reads the exit as permanent.
+BAD_REQUEST_OBJECT = json.dumps(
+    {
+        "session_id": "s",
+        "error": {
+            "type": "Error",
+            "message": '{"error": {"code": 400, "status": "INVALID_ARGUMENT"}}',
             "code": 1,
         },
     },
@@ -224,6 +250,7 @@ def _run(
         "STUB_TELEMETRY_RECORD": TELEMETRY_RECORD,
         "STUB_INVALID_RESULT": INVALID_RESULT,
         "STUB_STDERR_OBJECT": STDERR_OBJECT,
+        "STUB_BAD_REQUEST_OBJECT": BAD_REQUEST_OBJECT,
         # No waiting between attempts unless a test asks for it.
         "GEMINI_RETRY_BACKOFF_S": "0",
         **(knobs or {}),
@@ -395,7 +422,28 @@ def test_a_spent_quota_over_a_whole_cell_stays_failed(tmp_path: Path) -> None:
     assert not any("concludes clean" in w for w in _warnings(result))
 
 
-@pytest.mark.parametrize("failing", ["finalize-complete", "finalize-validates"])
+def test_a_turn_ended_from_outside_over_a_whole_cell_stays_failed(tmp_path: Path) -> None:
+    # A signal-style exit with no error object is a turn something else ended
+    # (the deadline, a crash); the classifier's catch-all calls it permanent,
+    # and the engine's own report is what keeps it from reading as finished.
+    result, _ = _run(tmp_path, ["killed-complete", "ok"])
+    assert result.returncode == 143
+    assert not any("concludes clean" in w for w in _warnings(result))
+
+
+@pytest.mark.parametrize("marker", ["FIRED", "STOOD_DOWN", "REAPED"])
+def test_a_whole_cell_stays_failed_once_the_watchdog_has_acted(tmp_path: Path, marker: str) -> None:
+    bundle = tmp_path / "runner-temp" / "engine-watchdog"
+    bundle.mkdir(parents=True)
+    (bundle / marker).write_text("the watchdog acted\n")
+    result, _ = _run(tmp_path, ["transient-exit-complete", "ok"])
+    assert result.returncode == 144
+    assert not any("concludes clean" in w for w in _warnings(result))
+
+
+@pytest.mark.parametrize(
+    "failing", ["finalize-complete", "finalize-validates", "engine-attempt-reported"]
+)
 def test_a_whole_cell_stays_failed_when_a_check_cannot_run(tmp_path: Path, failing: str) -> None:
     result, _ = _run(
         tmp_path, ["transient-exit-complete", "ok"], knobs={"STUB_FAIL_COMMAND": failing}

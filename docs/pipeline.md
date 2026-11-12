@@ -4334,9 +4334,13 @@ outside the output root are not reset; the cell contract writes nothing there.
 The telemetry log stays in place across attempts — gemini-cli opens it for
 append — so `usage.json` and `retrieval_log.json` count every attempt's tokens
 and tool calls, failed turns included. The step's exit status is its last
-attempt's, with one exception: a last attempt that exited non-zero on a
-transient or permanent fault after the cell's work was whole concludes the
-step clean (a spent quota or an unclassified fault does not). Whole
+attempt's, with one exception: a last attempt that exited non-zero on a fault
+the engine itself reported, after the cell's work was whole, concludes the
+step clean. Reported means the error object in the engine's result or on its
+stderr (`engine-attempt-reported`), under a `transient` or `permanent`
+verdict; a turn ended from outside (the deadline's signal, a crash) leaves no
+such object and stays failed, as does a spent quota, an unclassified fault,
+and any step the watchdog has acted on. Whole
 means every file the cell owes is present, non-empty and, where JSON, parsing
 (`finalize-complete`, the completion sentinel's own test) and every judgment
 artifact holds to its schema (`finalize-validates`); the fault then cost the
@@ -4366,7 +4370,7 @@ survives a retry, as it does in the cells' in-place retry. These rules hold
 for a non-zero exit too, so unlike claude and codex — which retry a transient
 non-zero exit in place, without a reset — a Gemini cell that already wrote its
 judgment is not retried, and its non-zero exit is an `engine-failed` lost cell
-unless the fault was transient or permanent and the cell's output was already
+unless the engine itself reported the fault and the cell's output was already
 complete and valid, which keeps the output as the cell step does. A zero-exit turn that is
 not retried keeps whatever it produced; one
 that produced nothing is a classified failure — an `engine-failed` lost cell,

@@ -249,7 +249,10 @@ def cell_outputs_complete(
     to tell a turn cut off mid-cell from one whose work was already whole.
 
     An evaluate cell with no staged candidate has no completion set and is never
-    complete, as the sentinel never fires for one.
+    complete, as the sentinel never fires for one. The staged aliases are read
+    when this is asked, after the turn, where the sentinel's list is resolved
+    before the agent starts: a turn that removed a staged candidate is owed one
+    evaluation fewer here, as it is by every check the cell's tail runs.
     """
     candidates: list[str] = []
     if role is FinalizeRole.evaluate:

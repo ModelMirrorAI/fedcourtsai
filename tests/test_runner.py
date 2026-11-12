@@ -1230,25 +1230,50 @@ def test_a_gemini_attempt_whose_judgment_fails_its_schema_is_retried(tmp_path: P
     read_model(events.prediction(PREDICTOR, RUN), Prediction)
 
 
-def test_a_gemini_transient_nonzero_exit_over_a_whole_cell_keeps_its_output(
-    tmp_path: Path,
-) -> None:
-    # The fault arrived after the work: every owed file is there and the
-    # prediction validates, so the cell is not an engine-failed loss.
-    request = _predict_request(tmp_path / "data")
-    events = CasePaths(tmp_path / "data", COURT, DOCKET).event(EVENT)
+_REPORTED_UNAVAILABLE = json.dumps({"error": {"type": "Error", "message": "503 unavailable"}})
+_REPORTED_BAD_REQUEST = json.dumps(
+    {"error": {"type": "Error", "message": "code 400 INVALID_ARGUMENT"}}
+)
 
-    def whole_cell() -> None:
+
+def _whole_cell(request: RunRequest, events: EventPaths) -> Callable[[], None]:
+    def write() -> None:
         StubRunner().run(request)
         events.prediction_retrieval(PREDICTOR, RUN).write_text("what was read\n")
         events.prediction_tooling(PREDICTOR, RUN).write_text("{}\n")
 
-    seq = _AttemptRunner([(whole_cell, CommandResult(1, "503 Service Unavailable"))] * 3)
+    return write
+
+
+@pytest.mark.parametrize("stderr", [_REPORTED_UNAVAILABLE, _REPORTED_BAD_REQUEST])
+def test_a_gemini_reported_fault_over_a_whole_cell_keeps_its_output(
+    tmp_path: Path, stderr: str
+) -> None:
+    # The fault arrived after the work: every owed file is there and the
+    # prediction validates, so the cell is not an engine-failed loss, whether
+    # the classifier reads the reported fault as transient or as permanent.
+    request = _predict_request(tmp_path / "data")
+    events = CasePaths(tmp_path / "data", COURT, DOCKET).event(EVENT)
+    seq = _AttemptRunner([(_whole_cell(request, events), CommandResult(1, stderr))] * 3)
 
     written = _gemini(seq, []).run(request)
 
     assert seq.calls == 1
     assert events.prediction(PREDICTOR, RUN) in written
+
+
+def test_a_gemini_turn_ended_from_outside_over_a_whole_cell_is_a_failed_cell(
+    tmp_path: Path,
+) -> None:
+    # No error object: something else ended the turn, so it is no finished cell.
+    request = _predict_request(tmp_path / "data")
+    events = CasePaths(tmp_path / "data", COURT, DOCKET).event(EVENT)
+    seq = _AttemptRunner([(_whole_cell(request, events), CommandResult(143, ""))] * 3)
+
+    with pytest.raises(EngineFailed):
+        _gemini(seq, []).run(request)
+
+    assert seq.calls == 1
 
 
 def test_claude_and_codex_never_read_stdout(tmp_path: Path) -> None:
