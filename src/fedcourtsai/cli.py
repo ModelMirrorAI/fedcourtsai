@@ -333,6 +333,7 @@ from .pipeline import (
     opinion_lineups,
     opinion_record,
     order_lineups,
+    order_reconcile,
     order_scan,
     osg_urls,
     pre_mint,
@@ -20099,6 +20100,120 @@ def order_notations_command(
         f"{sum(1 for d in dockets if d.problems)} with problems",
         err=True,
     )
+
+
+@app.command("order-reconcile")
+def order_reconcile_command(
+    since: Annotated[
+        str | None,
+        typer.Option(
+            help="First order date to read (YYYY-MM-DD). Default: "
+            f"{order_reconcile.DEFAULT_LOOKBACK_DAYS} days before --until."
+        ),
+    ] = None,
+    until: Annotated[
+        str | None, typer.Option(help="Last order date to read (YYYY-MM-DD). Default: today.")
+    ] = None,
+    corpus_backend: CorpusBackendOption = "",
+    summary_out: Annotated[
+        Path | None,
+        typer.Option(help="Append the Markdown verdict here (e.g. $GITHUB_STEP_SUMMARY)."),
+    ] = None,
+    throttle: Annotated[
+        float,
+        typer.Option(help="Seconds to sleep between requests (polite-client pacing)."),
+    ] = 1.0,
+    cache_dir: Annotated[
+        Path | None,
+        typer.Option(
+            help="Keep fetched PDFs here and re-read them from here (a dev cache: "
+            "read without host scoping, so never for a publishing lane)."
+        ),
+    ] = None,
+) -> None:
+    """Reconcile the corpus with the Court's order lists, docket by docket. Read-only.
+
+    Fetches every order list, miscellaneous order and opinion relating to
+    orders the Court lists for the window, splits each into one entry per
+    docket, and checks each against the corpus (`pipeline/order_reconcile.py`):
+    the number has a row, the row records the disposition and date the list
+    states, a selected or predicted event of that stage has its outcome record
+    in the ledger, and an application was first stored no later than the day
+    it was ruled on. A monitoring readout, never a scored figure.
+    Prints one line per document to stderr and an `OrderReconciliation` as
+    JSON to stdout; `--summary-out` appends the verdict as Markdown. Exits 3
+    when anything alarms: a listed docket with no row
+    48 hours on, a mismatch 12 hours on, an outcome record missing three days
+    on, or a document the reader could not read whole. Exits 1 when a
+    listing or the corpus cannot be read, 2 on a bad window.
+
+    Reads the corpus index, the content store's snapshot key listing for each
+    listed application, and the committed predictions and outcomes under the
+    data root; writes nothing but the optional summary and PDF cache.
+    supremecourt.gov only: no token, no budget.
+    """
+    if throttle <= 0:
+        typer.echo("--throttle must be positive", err=True)
+        raise typer.Exit(code=2)
+    now = datetime.now(UTC)
+    try:
+        last = date.fromisoformat(until) if until is not None else now.date()
+        first = (
+            date.fromisoformat(since)
+            if since is not None
+            else last - timedelta(days=order_reconcile.DEFAULT_LOOKBACK_DAYS)
+        )
+    except ValueError as exc:
+        typer.echo(f"--since and --until must be YYYY-MM-DD: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    if first > last:
+        typer.echo("order-reconcile: --since must not follow --until.", err=True)
+        raise typer.Exit(code=2)
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    backend = corpus.resolve_backend(_corpus_backend(corpus_backend))
+    if backend == "local" and not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before reconciling the order lists.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with SupremeCourtClient(throttle_seconds=throttle) as client:
+        fetcher = order_lineups.OrderFetcher(client, cache_dir=cache_dir)
+        try:
+            documents = order_reconcile.fetch_window(fetcher, first, last)
+        except httpx.HTTPError as exc:
+            typer.echo(f"the orders listings could not be fetched: {exc}", err=True)
+            raise typer.Exit(code=1) from exc
+    with corpus.connect_readonly(db_path, backend=backend) as conn:
+        pulled = corpus.latest_pull_date(conn)
+        report = order_reconcile.reconcile(
+            documents,
+            since=first,
+            until=last,
+            now=now,
+            conn=conn,
+            data_root=settings.data_root,
+            first_observed=casestore.earliest_stored_snapshot_date,
+        )
+    vintage = f"latest pull {pulled.isoformat()}" if pulled else "never pulled"
+    for line in order_reconcile.digest_lines(report):
+        typer.echo(line, err=True)
+    typer.echo(
+        f"{first} to {last}: {len(report.documents)} documents, "
+        f"{report.counts.get('entries', 0)} entries, {len(report.alarms)} alarms, "
+        f"{len(report.late_applications)} applications first stored after their order's day, "
+        f"{len(report.undated_applications)} with no stored snapshot "
+        f"(corpus {vintage})",
+        err=True,
+    )
+    if summary_out is not None:
+        with summary_out.open("a", encoding="utf-8") as handle:
+            handle.write(order_reconcile.render_markdown(report, vintage=vintage) + "\n")
+    typer.echo(report.model_dump_json())
+    if report.alarms:
+        raise typer.Exit(code=3)
 
 
 def _granted_noted_text(fetcher: opinion_lineups.OpinionFetcher, term: int) -> str | None:

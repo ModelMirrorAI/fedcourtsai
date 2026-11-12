@@ -2986,6 +2986,22 @@ are to outlive it. No workflow runs `unforecast-outcomes`,
 `federal-label-check` or `coverage-verdict`: each is a dry run a maintainer or
 a session reads by hand.
 
+Every check above starts from the corpus, so none can see a ruling the
+corpus never recorded. `fedcourts order-reconcile` starts from the Court's side: it
+reads the order lists and miscellaneous orders `supremecourt.gov` lists for a
+window, one entry per docket, and checks that each number has a corpus row,
+that the row records the disposition and date the list states, that a
+selected or predicted event of that stage has its outcome record, and that an
+application was first stored no later than the day it was ruled on
+(`pipeline/order_reconcile.py`). It alarms, by exit code 3, on a listed
+docket with no row 48 hours after its list, a mismatch 12 hours on, an
+outcome record missing three days on, and any document it could not read
+whole; it counts, and never alarms on, the entries it took no disposition from and
+the applications first stored after their order's day. It is a monitoring
+readout and feeds no scored figure. The command and its
+Markdown verdict exist; no workflow runs it on a schedule and no issue is
+latched from it.
+
 That is the shape both workflows invoke, on every round. The commands
 still accept an explicit case list — a ` ```json ``` ` block by `--body-file`, or
 `--court`/`--docket` — which is what a local dry run of one case uses; no

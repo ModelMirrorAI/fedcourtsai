@@ -46,6 +46,12 @@ grammar, and a writing's body is skipped — except the lines after the
 Court's own ``It is so ordered.``, where notations on a summary disposition
 are printed.
 
+**The list by docket.** :func:`list_entries` cuts the list proper a second
+way, for a reader asking what the Court did with each docket rather than what
+each Justice noted: one entry per caption, bare captions included, each under
+the section heading it is printed below. It reads line shapes as the split
+does and feeds neither grammar, so it carries no grammar version.
+
 **Cross-checks.** Every writing prints its author in its running head
 (``ALITO, J., dissenting``, ``Statement of SOTOMAYOR, J.``), so the check
 runs both ways within each section: a running head naming a Justice for
@@ -555,6 +561,123 @@ def _split_list(  # noqa: PLR0912 - one branch per line shape the list prints
     if _TRIGGER_RE.search(orphan_text):
         problems.append(f"text outside any entry reads like a notation: {orphan_text[:160]!r}")
     return pieces, problems
+
+
+# A heading the list prints over a run of entries: every section the Court
+# uses closes on one of these words. A wrapped capitals caption can end on
+# none of them but ``CASES`` or ``CASE``, which only a heading opening on
+# ``ORDER`` is read for.
+_SECTION_HEADING_RE = re.compile(
+    r"^(?:ORDERS? IN PENDING CASES?"
+    + r"|[A-Z][A-Z ,'&\-]* (?:GRANTED|DENIED|DISMISSED|NOTED|DISPOSITIONS?|DISCIPLINE))$"
+)
+# A heading in wording the vocabulary above does not hold: two or more
+# capitals words and no sentence punctuation, which no wrapped line of order
+# text is.
+_UNKNOWN_HEADING_RE = re.compile(r"^(?=.{12,}$)[A-Z]{3,}(?:,? (?:-- )?[A-Z'&\-]{2,})+$")
+_TEXT_OPENS_ON_DOCKET_RE = re.compile(r"^(?:\d{2}-\d{1,5}|\d{2}[AMO]\d{1,5})\s+\S")
+
+
+@dataclass(frozen=True)
+class ListEntry:
+    """One docket's entry in the list proper: its heading and its order text.
+
+    ``section`` is the heading the entry is printed under (``CERTIORARI
+    DENIED``), ``None`` in a document that prints none. ``text`` is the order
+    text printed below the entry's caption, shared by every docket of a run of
+    captions it follows, and empty where the entry is a bare caption.
+    ``closes_run`` marks the caption the order text directly follows, the one
+    docket the text certainly speaks of.
+    """
+
+    docket: str
+    section: str | None
+    text: str
+    closes_run: bool
+
+
+def list_entries(  # noqa: PLR0912 - one branch per line shape the list prints
+    text: str,
+) -> tuple[list[ListEntry], list[str]]:
+    """Every docket the list proper names, with its section heading, and the cut's problems.
+
+    The docket-by-docket reading :func:`split_document` does not give: that
+    cut keeps only entries carrying order text and drops the headings, which
+    is all the notation grammar needs, while a reader asking what the Court did
+    with each docket needs the bare captions under ``CERTIORARI DENIED`` and
+    the heading itself. Line shapes are read exactly as the cut reads them
+    (captions, bare docket numbers, parenthesized application numbers, lifted
+    serials, page furniture); the differences are that a section heading
+    always closes the entries above it and that every caption is an entry.
+    A caption whose docket could not be read takes its order text with it, and
+    a line of order text shaped like a caption the cut did not recognise is a
+    problem, so a docket the cut lost is never silent.
+    Appended writings are not read. A docket named twice is two entries.
+    """
+    lines = [normalize_order_text(line) for line in text.splitlines()]
+    captions = [i for i, line in enumerate(lines) if _COURT_CAPTION_RE.match(line)]
+    lines = lines[: _heads_before(lines, captions[0], 0) if captions else len(lines)]
+    rejoined, dropped, problems = _rejoin_lifted_serials(lines)
+    entries: list[ListEntry] = []
+    section: str | None = None
+    run: list[str] = []
+    body: list[str] = []
+    unnumbered = False
+
+    def close() -> None:
+        order_text = "\n".join(body)
+        entries.extend(
+            ListEntry(docket, section, order_text, closes_run=position == len(run) - 1)
+            for position, docket in enumerate(run)
+        )
+        run.clear()
+        body.clear()
+
+    for index, line in enumerate(lines):
+        if not line or _LIST_TOP_RE.match(line) or _DAY_LINE_RE.match(line):
+            continue
+        if index in dropped or _is_page_furniture(line) or _BRACKET_LINE_RE.match(line):
+            continue
+        docket: str | None = None
+        if (caption := _CAPTION_RE.match(line)) is not None:
+            docket = _docket(caption.group("docket"))
+        elif (bare := _BARE_DOCKET_RE.match(line)) is not None and _opens_bare_caption(
+            lines, index
+        ):
+            docket = _docket(bare.group("docket"))
+        if docket is not None or index in rejoined or _LIFTED_CAPTION_RE.match(line):
+            if body:
+                close()
+            if (docket := docket or rejoined.get(index)) is not None:
+                run.append(docket)
+                unnumbered = False
+            else:
+                # A lifted caption whose serial was not rejoined: its docket is
+                # unknown (the problem is already recorded), and the text
+                # below it is its own, never the captions' above it.
+                close()
+                unnumbered = True
+            continue
+        if (application := _APPLICATION_LINE_RE.match(line)) is not None and run and not body:
+            run.append(_docket(application.group("docket")))
+            continue
+        if _SECTION_HEADING_RE.match(line) or (body and _UNKNOWN_HEADING_RE.match(line)):
+            # Capitals after order text are a heading whether or not its
+            # wording is one this reader knows; a reader of the entries
+            # decides what an unknown one means.
+            close()
+            section, unnumbered = line, False
+            continue
+        if _HEADING_RE.match(line) and not body:
+            # A caption wrapped onto a second line.
+            continue
+        if unnumbered or not run:
+            continue
+        if _TEXT_OPENS_ON_DOCKET_RE.match(line):
+            problems.append(f"a line of order text opens on a docket number: {line[:80]!r}")
+        body.append(line)
+    close()
+    return entries, problems
 
 
 def _heads_before(lines: Sequence[str], index: int, floor: int) -> int:
