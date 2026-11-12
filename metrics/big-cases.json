@@ -1,14 +1,14 @@
 {
-  "cases": 399,
+  "cases": 400,
   "cases_out_of_scope": 0,
   "cases_without_score": 1,
   "coverage": [
     {
-      "cases": 359,
+      "cases": 362,
       "n": 3
     },
     {
-      "cases": 38,
+      "cases": 36,
       "n": 2
     },
     {
@@ -16,7 +16,7 @@
       "n": 1
     }
   ],
-  "current_reads": 1193,
+  "current_reads": 1198,
   "declared_no_view": 28,
   "frozen_process": {
     "digests": [
@@ -2798,9 +2798,9 @@
         }
       ],
       "docket_id": 73500235,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1335",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1335.html",
       "events": [
         {
           "actual_disposition": "denied",
@@ -3045,159 +3045,6 @@
       "score_min": 0.8,
       "score_range": 0.15,
       "short_caption": "Bird v. Iowa Migrant Movement for Justice",
-      "status": "pending"
-    },
-    {
-      "asking_declined": null,
-      "asking_party": "Allen",
-      "caption": "Wes Allen, Alabama Secretary of State, et al. v. Evan Milligan, et al.",
-      "caption_event_id": "evt-order-relist-disposition",
-      "case_id": "scotus/9026000117",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "Alabama congressional map under VRA \u00a72 and the Fourteenth Amendment, the first major application of Louisiana v. Callais; it decides a likely second Black-opportunity district and how far courts may find intentional discrimination.",
-          "big_case_score": 0.85,
-          "event_id": "evt-order-relist-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20261109T171058Z"
-        },
-        {
-          "big_case_rationale": "Alabama congressional representation and the nationwide interaction of Voting Rights Act vote-dilution protections, partisan districting objectives, and intentional-discrimination claims are at stake.",
-          "big_case_score": 0.9,
-          "event_id": "evt-order-relist-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20261109T171058Z"
-        }
-      ],
-      "docket_id": 9026000117,
-      "docket_number": "26-117",
-      "docket_number_source": "case_id",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-117.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-order-relist-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "Alabama congressional map under VRA \u00a72 and the Fourteenth Amendment, the first major application of Louisiana v. Callais; it decides a likely second Black-opportunity district and how far courts may find intentional discrimination.",
-              "big_case_score": 0.85,
-              "cell_path": "data/cases/scotus/9026000117/events/evt-order-relist-disposition/predictions/claude-baseline/20261109T171058Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000117/events/evt-order-relist-disposition/predictions/claude-baseline/20261109T171058Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "summary-reversal",
-              "predictor_id": "claude-baseline",
-              "probability": 0.9,
-              "run_id": "20261109T171058Z"
-            },
-            {
-              "big_case_rationale": "Alabama congressional representation and the nationwide interaction of Voting Rights Act vote-dilution protections, partisan districting objectives, and intentional-discrimination claims are at stake.",
-              "big_case_score": 0.9,
-              "cell_path": "data/cases/scotus/9026000117/events/evt-order-relist-disposition/predictions/codex-baseline/20261109T171058Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000117/events/evt-order-relist-disposition/predictions/codex-baseline/20261109T171058Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "summary-reversal",
-              "predictor_id": "codex-baseline",
-              "probability": 0.84,
-              "run_id": "20261109T171058Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Wes Allen, Alabama Secretary of State, et al. v. Evan Milligan, et al."
-        },
-        {
-          "actual_disposition": null,
-          "event_id": "evt-petition-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "Post-Callais Alabama congressional map; second VRA/intentional-discrimination appeal in a nationally watched redistricting saga, though the vehicle is an expired preliminary injunction.",
-              "big_case_score": 0.75,
-              "cell_path": "data/cases/scotus/9026000117/events/evt-petition-disposition/predictions/claude-baseline/20261109T171058Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000117/events/evt-petition-disposition/predictions/claude-baseline/20261109T171058Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "gvr",
-              "predictor_id": "claude-baseline",
-              "probability": 0.85,
-              "run_id": "20261109T171058Z"
-            },
-            {
-              "big_case_rationale": "Alabama congressional representation and the nationwide interaction of Voting Rights Act remedies, race-neutral districting criteria, and intentional-discrimination claims are at stake.",
-              "big_case_score": 0.95,
-              "cell_path": "data/cases/scotus/9026000117/events/evt-petition-disposition/predictions/codex-baseline/20261109T171058Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000117/events/evt-petition-disposition/predictions/codex-baseline/20261109T171058Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "summary-reversal",
-              "predictor_id": "codex-baseline",
-              "probability": 0.86,
-              "run_id": "20261109T171058Z"
-            },
-            {
-              "big_case_rationale": "High-profile Alabama congressional redistricting appeal testing the post-Callais VRA Section 2 and Fourteenth Amendment intentional vote-dilution standards, though arising in an interlocutory posture from a stayed 2026-election preliminary injunction.",
-              "big_case_score": 0.72,
-              "cell_path": "data/cases/scotus/9026000117/events/evt-petition-disposition/predictions/gemini-baseline/20261109T171058Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000117/events/evt-petition-disposition/predictions/gemini-baseline/20261109T171058Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "gvr",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.85,
-              "run_id": "20261109T171058Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Wes Allen, Alabama Secretary of State, et al. v. Evan Milligan, et al."
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.875,
-      "moment": "evt-order-relist-disposition",
-      "moment_opened_at": "2026-11-09",
-      "n": 2,
-      "other_party": "Milligan",
-      "outcome_lines": [
-        {
-          "action": "granted",
-          "line": "The Court takes up Allen's case. A grant alone decides nothing yet about who is right.",
-          "side": "granted"
-        },
-        {
-          "action": "denied",
-          "line": "Allen's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
-          "side": "not-granted"
-        }
-      ],
-      "schedule": [
-        {
-          "date": "2026-11-13",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-13",
-        "kind": "conference"
-      },
-      "score_max": 0.9,
-      "score_min": 0.85,
-      "score_range": 0.05,
-      "short_caption": "Allen v. Milligan",
       "status": "pending"
     },
     {
@@ -4404,12 +4251,196 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [],
-      "scheduled": null,
+      "schedule": [
+        {
+          "date": "2026-12-04",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-12-04",
+        "kind": "conference"
+      },
       "score_max": 0.88,
       "score_min": 0.8,
       "score_range": 0.08,
       "short_caption": "Brumley v. Roake",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Allen",
+      "caption": "Wes Allen, Alabama Secretary of State, et al. v. Evan Milligan, et al.",
+      "caption_event_id": "evt-order-relist-disposition",
+      "case_id": "scotus/9026000117",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Alabama congressional map under VRA \u00a72 and the Fourteenth Amendment, the first major application of Louisiana v. Callais; it decides a likely second Black-opportunity district and how far courts may find intentional discrimination.",
+          "big_case_score": 0.85,
+          "event_id": "evt-order-relist-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261109T171058Z"
+        },
+        {
+          "big_case_rationale": "Alabama congressional representation and the nationwide interaction of Voting Rights Act vote-dilution protections, partisan districting objectives, and intentional-discrimination claims are at stake.",
+          "big_case_score": 0.9,
+          "event_id": "evt-order-relist-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261109T171058Z"
+        },
+        {
+          "big_case_rationale": "Major Voting Rights Act Section 2 and Fourteenth Amendment congressional redistricting appeal returning to the Supreme Court after Allen v. Milligan (2023) and Louisiana v. Callais (2026).",
+          "big_case_score": 0.78,
+          "event_id": "evt-order-relist-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261110T141746Z"
+        }
+      ],
+      "docket_id": 9026000117,
+      "docket_number": "26-117",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-117.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-relist-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Alabama congressional map under VRA \u00a72 and the Fourteenth Amendment, the first major application of Louisiana v. Callais; it decides a likely second Black-opportunity district and how far courts may find intentional discrimination.",
+              "big_case_score": 0.85,
+              "cell_path": "data/cases/scotus/9026000117/events/evt-order-relist-disposition/predictions/claude-baseline/20261109T171058Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000117/events/evt-order-relist-disposition/predictions/claude-baseline/20261109T171058Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "summary-reversal",
+              "predictor_id": "claude-baseline",
+              "probability": 0.9,
+              "run_id": "20261109T171058Z"
+            },
+            {
+              "big_case_rationale": "Alabama congressional representation and the nationwide interaction of Voting Rights Act vote-dilution protections, partisan districting objectives, and intentional-discrimination claims are at stake.",
+              "big_case_score": 0.9,
+              "cell_path": "data/cases/scotus/9026000117/events/evt-order-relist-disposition/predictions/codex-baseline/20261109T171058Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000117/events/evt-order-relist-disposition/predictions/codex-baseline/20261109T171058Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "summary-reversal",
+              "predictor_id": "codex-baseline",
+              "probability": 0.84,
+              "run_id": "20261109T171058Z"
+            },
+            {
+              "big_case_rationale": "Major Voting Rights Act Section 2 and Fourteenth Amendment congressional redistricting appeal returning to the Supreme Court after Allen v. Milligan (2023) and Louisiana v. Callais (2026).",
+              "big_case_score": 0.78,
+              "cell_path": "data/cases/scotus/9026000117/events/evt-order-relist-disposition/predictions/gemini-baseline/20261110T141746Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000117/events/evt-order-relist-disposition/predictions/gemini-baseline/20261110T141746Z",
+              "confidence": 0.85,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "gvr",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.88,
+              "run_id": "20261110T141746Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Wes Allen, Alabama Secretary of State, et al. v. Evan Milligan, et al."
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Post-Callais Alabama congressional map; second VRA/intentional-discrimination appeal in a nationally watched redistricting saga, though the vehicle is an expired preliminary injunction.",
+              "big_case_score": 0.75,
+              "cell_path": "data/cases/scotus/9026000117/events/evt-petition-disposition/predictions/claude-baseline/20261109T171058Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000117/events/evt-petition-disposition/predictions/claude-baseline/20261109T171058Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "gvr",
+              "predictor_id": "claude-baseline",
+              "probability": 0.85,
+              "run_id": "20261109T171058Z"
+            },
+            {
+              "big_case_rationale": "Alabama congressional representation and the nationwide interaction of Voting Rights Act remedies, race-neutral districting criteria, and intentional-discrimination claims are at stake.",
+              "big_case_score": 0.95,
+              "cell_path": "data/cases/scotus/9026000117/events/evt-petition-disposition/predictions/codex-baseline/20261109T171058Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000117/events/evt-petition-disposition/predictions/codex-baseline/20261109T171058Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "summary-reversal",
+              "predictor_id": "codex-baseline",
+              "probability": 0.86,
+              "run_id": "20261109T171058Z"
+            },
+            {
+              "big_case_rationale": "High-profile Alabama congressional redistricting appeal testing the post-Callais VRA Section 2 and Fourteenth Amendment intentional vote-dilution standards, though arising in an interlocutory posture from a stayed 2026-election preliminary injunction.",
+              "big_case_score": 0.72,
+              "cell_path": "data/cases/scotus/9026000117/events/evt-petition-disposition/predictions/gemini-baseline/20261109T171058Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000117/events/evt-petition-disposition/predictions/gemini-baseline/20261109T171058Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "gvr",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.85,
+              "run_id": "20261109T171058Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Wes Allen, Alabama Secretary of State, et al. v. Evan Milligan, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.8433,
+      "moment": "evt-order-relist-disposition",
+      "moment_opened_at": "2026-11-09",
+      "n": 3,
+      "other_party": "Milligan",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Allen's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Allen's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-11-13",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-11-13",
+        "kind": "conference"
+      },
+      "score_max": 0.9,
+      "score_min": 0.78,
+      "score_range": 0.12,
+      "short_caption": "Allen v. Milligan",
       "status": "pending"
     },
     {
@@ -6045,12 +6076,7 @@
           "side": "disturbed"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-10",
-          "kind": "argument"
-        }
-      ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.82,
       "score_min": 0.8,
@@ -7487,8 +7513,16 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [],
-      "scheduled": null,
+      "schedule": [
+        {
+          "date": "2026-12-04",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-12-04",
+        "kind": "conference"
+      },
       "score_max": 0.9,
       "score_min": 0.72,
       "score_range": 0.18,
@@ -9575,6 +9609,124 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Michael James Jackson",
+      "caption": "Michael James Jackson v. Florida",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000076",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Whether the Sixth/Eighth Amendment requires a unanimous jury death recommendation; Florida's 8-4 rule governs one of the nation's most active death-penalty states.",
+          "big_case_score": 0.7,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261111T033130Z"
+        },
+        {
+          "big_case_rationale": "The constitutionality of nonunanimous capital-sentencing determinations has immediate life-or-death consequences and substantial implications for jury authority in Florida and Alabama.",
+          "big_case_score": 0.82,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261111T033130Z"
+        },
+        {
+          "big_case_rationale": "First direct-review constitutional challenge to Florida's 2023 nonunanimous (8-4) capital sentencing statute, raising major Sixth and Eighth Amendment questions over jury unanimity in death penalty sentencing.",
+          "big_case_score": 0.72,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261111T033130Z"
+        }
+      ],
+      "docket_id": 9026000076,
+      "docket_number": "26-76",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-76.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Whether the Sixth/Eighth Amendment requires a unanimous jury death recommendation; Florida's 8-4 rule governs one of the nation's most active death-penalty states.",
+              "big_case_score": 0.7,
+              "cell_path": "data/cases/scotus/9026000076/events/evt-petition-disposition/predictions/claude-baseline/20261111T033130Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000076/events/evt-petition-disposition/predictions/claude-baseline/20261111T033130Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.16,
+              "run_id": "20261111T033130Z"
+            },
+            {
+              "big_case_rationale": "The constitutionality of nonunanimous capital-sentencing determinations has immediate life-or-death consequences and substantial implications for jury authority in Florida and Alabama.",
+              "big_case_score": 0.82,
+              "cell_path": "data/cases/scotus/9026000076/events/evt-petition-disposition/predictions/codex-baseline/20261111T033130Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000076/events/evt-petition-disposition/predictions/codex-baseline/20261111T033130Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.24,
+              "run_id": "20261111T033130Z"
+            },
+            {
+              "big_case_rationale": "First direct-review constitutional challenge to Florida's 2023 nonunanimous (8-4) capital sentencing statute, raising major Sixth and Eighth Amendment questions over jury unanimity in death penalty sentencing.",
+              "big_case_score": 0.72,
+              "cell_path": "data/cases/scotus/9026000076/events/evt-petition-disposition/predictions/gemini-baseline/20261111T033130Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000076/events/evt-petition-disposition/predictions/gemini-baseline/20261111T033130Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.14,
+              "run_id": "20261111T033130Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Michael James Jackson v. Florida"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.7467,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-07-16",
+      "n": 3,
+      "other_party": "Florida",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Michael James Jackson's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Michael James Jackson's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [],
+      "scheduled": null,
+      "score_max": 0.82,
+      "score_min": 0.7,
+      "score_range": 0.12,
+      "short_caption": "Michael James Jackson v. Florida",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Owens",
       "caption": "James Owens, et al. v. The Taliban, et al.",
       "caption_event_id": "evt-order-relist-disposition",
@@ -10879,8 +11031,16 @@
       "n": 3,
       "other_party": null,
       "outcome_lines": null,
-      "schedule": [],
-      "scheduled": null,
+      "schedule": [
+        {
+          "date": "2026-12-04",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-12-04",
+        "kind": "conference"
+      },
       "score_max": 0.78,
       "score_min": 0.62,
       "score_range": 0.16,
@@ -14634,9 +14794,9 @@
         }
       ],
       "docket_id": 73500293,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1391",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1391.html",
       "events": [
         {
           "actual_disposition": null,
@@ -16160,7 +16320,12 @@
           "side": "disturbed"
         }
       ],
-      "schedule": [],
+      "schedule": [
+        {
+          "date": "2027-01-20",
+          "kind": "argument"
+        }
+      ],
       "scheduled": null,
       "score_max": 0.7,
       "score_min": 0.6,
@@ -17396,12 +17561,7 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-10",
-          "kind": "response_due"
-        }
-      ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.7,
       "score_min": 0.55,
@@ -22991,9 +23151,9 @@
         }
       ],
       "docket_id": 73500290,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1388",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1388.html",
       "events": [
         {
           "actual_disposition": null,
@@ -27332,6 +27492,132 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Gays Against Groomers",
+      "caption": "Gays Against Groomers, et al. v. Lorena Garcia, Individually and as a Colorado State Representative, et al.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000120",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Scope of state legislative immunity against official-capacity equitable claims plus a viewpoint-based public-comment rule on transgender speech; doctrinally meaningful and politically salient, but confined to legislative hearing procedure.",
+          "big_case_score": 0.35,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261109T171058Z"
+        },
+        {
+          "big_case_rationale": "The scope of immunity for restrictions on public testimony has substantial nationwide free-speech implications, but the immediate dispute concerns state legislative committee procedures.",
+          "big_case_score": 0.64,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261109T171058Z"
+        },
+        {
+          "big_case_rationale": "If decided on the merits, the case would define whether federal courts may enjoin state legislative committee chairs' enforcement of public-comment speech and pronoun rules under the First Amendment and Ex parte Young.",
+          "big_case_score": 0.55,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261110T141746Z"
+        }
+      ],
+      "docket_id": 9026000120,
+      "docket_number": "26-120",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-120.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Scope of state legislative immunity against official-capacity equitable claims plus a viewpoint-based public-comment rule on transgender speech; doctrinally meaningful and politically salient, but confined to legislative hearing procedure.",
+              "big_case_score": 0.35,
+              "cell_path": "data/cases/scotus/9026000120/events/evt-petition-disposition/predictions/claude-baseline/20261109T171058Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000120/events/evt-petition-disposition/predictions/claude-baseline/20261109T171058Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.12,
+              "run_id": "20261109T171058Z"
+            },
+            {
+              "big_case_rationale": "The scope of immunity for restrictions on public testimony has substantial nationwide free-speech implications, but the immediate dispute concerns state legislative committee procedures.",
+              "big_case_score": 0.64,
+              "cell_path": "data/cases/scotus/9026000120/events/evt-petition-disposition/predictions/codex-baseline/20261109T171058Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000120/events/evt-petition-disposition/predictions/codex-baseline/20261109T171058Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.22,
+              "run_id": "20261109T171058Z"
+            },
+            {
+              "big_case_rationale": "If decided on the merits, the case would define whether federal courts may enjoin state legislative committee chairs' enforcement of public-comment speech and pronoun rules under the First Amendment and Ex parte Young.",
+              "big_case_score": 0.55,
+              "cell_path": "data/cases/scotus/9026000120/events/evt-petition-disposition/predictions/gemini-baseline/20261110T141746Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000120/events/evt-petition-disposition/predictions/gemini-baseline/20261110T141746Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.1,
+              "run_id": "20261110T141746Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Gays Against Groomers, et al. v. Lorena Garcia, Individually and as a Colorado State Representative, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.5133,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-07-27",
+      "n": 3,
+      "other_party": "Garcia",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Gays Against Groomers' case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Gays Against Groomers' petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-11-13",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-11-13",
+        "kind": "conference"
+      },
+      "score_max": 0.64,
+      "score_min": 0.35,
+      "score_range": 0.29,
+      "short_caption": "Gays Against Groomers v. Garcia",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Scanlan",
       "caption": "David M. Scanlan, Secretary of State of New Hampshire, et al. v. Coalition for Open Democracy",
       "caption_event_id": "evt-brief-response-disposition",
@@ -28538,109 +28824,6 @@
       "score_range": 0.16,
       "short_caption": "Blanche v. Ozurumba",
       "status": "partly_resolved"
-    },
-    {
-      "asking_declined": null,
-      "asking_party": "Gays Against Groomers",
-      "caption": "Gays Against Groomers, et al. v. Lorena Garcia, Individually and as a Colorado State Representative, et al.",
-      "caption_event_id": "evt-petition-disposition",
-      "case_id": "scotus/9026000120",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "Scope of state legislative immunity against official-capacity equitable claims plus a viewpoint-based public-comment rule on transgender speech; doctrinally meaningful and politically salient, but confined to legislative hearing procedure.",
-          "big_case_score": 0.35,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20261109T171058Z"
-        },
-        {
-          "big_case_rationale": "The scope of immunity for restrictions on public testimony has substantial nationwide free-speech implications, but the immediate dispute concerns state legislative committee procedures.",
-          "big_case_score": 0.64,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20261109T171058Z"
-        }
-      ],
-      "docket_id": 9026000120,
-      "docket_number": "26-120",
-      "docket_number_source": "case_id",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-120.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-petition-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "Scope of state legislative immunity against official-capacity equitable claims plus a viewpoint-based public-comment rule on transgender speech; doctrinally meaningful and politically salient, but confined to legislative hearing procedure.",
-              "big_case_score": 0.35,
-              "cell_path": "data/cases/scotus/9026000120/events/evt-petition-disposition/predictions/claude-baseline/20261109T171058Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000120/events/evt-petition-disposition/predictions/claude-baseline/20261109T171058Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "claude-baseline",
-              "probability": 0.12,
-              "run_id": "20261109T171058Z"
-            },
-            {
-              "big_case_rationale": "The scope of immunity for restrictions on public testimony has substantial nationwide free-speech implications, but the immediate dispute concerns state legislative committee procedures.",
-              "big_case_score": 0.64,
-              "cell_path": "data/cases/scotus/9026000120/events/evt-petition-disposition/predictions/codex-baseline/20261109T171058Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000120/events/evt-petition-disposition/predictions/codex-baseline/20261109T171058Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.22,
-              "run_id": "20261109T171058Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Gays Against Groomers, et al. v. Lorena Garcia, Individually and as a Colorado State Representative, et al."
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.495,
-      "moment": "evt-petition-disposition",
-      "moment_opened_at": "2026-07-27",
-      "n": 2,
-      "other_party": "Garcia",
-      "outcome_lines": [
-        {
-          "action": "granted",
-          "line": "The Court takes up Gays Against Groomers' case. A grant alone decides nothing yet about who is right.",
-          "side": "granted"
-        },
-        {
-          "action": "denied",
-          "line": "Gays Against Groomers' petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
-          "side": "not-granted"
-        }
-      ],
-      "schedule": [
-        {
-          "date": "2026-11-13",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-13",
-        "kind": "conference"
-      },
-      "score_max": 0.64,
-      "score_min": 0.35,
-      "score_range": 0.29,
-      "short_caption": "Gays Against Groomers v. Garcia",
-      "status": "pending"
     },
     {
       "asking_declined": null,
@@ -37857,6 +38040,20 @@
               "predictor_id": "codex-baseline",
               "probability": 0.28,
               "run_id": "20261109T171058Z"
+            },
+            {
+              "big_case_rationale": "Fact-bound direct criminal appeal challenging whether a federal appellate court may affirm a Batson step-three ruling on the existing record after the trial judge questioned a prospective juror sua sponte.",
+              "big_case_score": 0.15,
+              "cell_path": "data/cases/scotus/9026000459/events/evt-petition-disposition/predictions/gemini-baseline/20261110T141746Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000459/events/evt-petition-disposition/predictions/gemini-baseline/20261110T141746Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.035,
+              "run_id": "20261110T141746Z"
             }
           ],
           "resolved_at": null,
@@ -58103,5 +58300,5 @@
   ],
   "rows_with_leakage_flag": 4,
   "schema_version": "1.4",
-  "scored_reads": 1155
+  "scored_reads": 1160
 }

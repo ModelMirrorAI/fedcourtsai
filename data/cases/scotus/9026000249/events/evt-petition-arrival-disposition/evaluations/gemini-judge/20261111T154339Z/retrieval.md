@@ -1,0 +1,6 @@
+# Retrieval Log
+
+- `uv run fedcourts statpack-at data/cases/scotus/9026000249/record/blinded/gemini-baseline/ --ref origin/main --out-dir /tmp/statpack-at/gemini-baseline` -> reconstructed statpack build `061c238147aa000fa108f3b389e44f43cca52e87` (`sha256:0d05c670da5896c5e3078e0f81cbb775a2045fc05432d8d957b929849c02f891`, landed `2026-08-25T13:24:29-04:00`).
+- `uv run fedcourts statpack-at data/cases/scotus/9026000249/record/blinded/claude-baseline/ --ref origin/main --out-dir /tmp/statpack-at/claude-baseline` -> reconstructed statpack build `061c238147aa000fa108f3b389e44f43cca52e87` (`sha256:0d05c670da5896c5e3078e0f81cbb775a2045fc05432d8d957b929849c02f891`, landed `2026-08-25T13:24:29-04:00`).
+- `uv run fedcourts statpack-at data/cases/scotus/9026000249/record/blinded/codex-baseline/ --ref origin/main --out-dir /tmp/statpack-at/codex-baseline` -> reconstructed statpack build `061c238147aa000fa108f3b389e44f43cca52e87` (`sha256:0d05c670da5896c5e3078e0f81cbb775a2045fc05432d8d957b929849c02f891`, landed `2026-08-25T13:24:29-04:00`).
+- No `fedcourts query` or `open-events` corpus lookups, CourtListener MCP lookups, or web searches were performed beyond reading the provisioned case inputs, `metrics/statpack.md`, and the `statpack-at` builds above.
