@@ -13,7 +13,13 @@ from typer.testing import CliRunner
 
 from fedcourtsai import cli as cli_module
 from fedcourtsai import corpus, supremecourt
-from fedcourtsai.config import LiveConfig, PredictScope, SalienceConfig, load_live_config
+from fedcourtsai.config import (
+    FrontierCheckConfig,
+    LiveConfig,
+    PredictScope,
+    SalienceConfig,
+    load_live_config,
+)
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline import discovery_frontier
 from fedcourtsai.pipeline import live as live_module
@@ -33,6 +39,7 @@ from fedcourtsai.pipeline.live import (
     discover_live,
     ingest_live_payload,
     live_poll_all,
+    onboard_served,
     poll_live_cases,
     salience_sweep,
 )
@@ -221,6 +228,18 @@ def test_live_poll_cli_takes_the_frontier_reading_and_survives_its_failure(
     assert result.exit_code == 0, result.output
     assert "Frontier check: due=3, checked=3, lookahead_hits=0" in result.output
     assert (seen["term"], seen["enabled"], seen["frontier_misses"]) == (26, True, 2)
+    # The reading is handed the walk's own onboarding step, with the cycle's gate.
+    onboarded: list[tuple[int, str, bool]] = []
+    monkeypatch.setattr(
+        cli_module,
+        "onboard_served",
+        lambda _c, _db, _root, _payload, _term, serial, **kwargs: onboarded.append(
+            (serial, kwargs["form"], kwargs["gated"])
+        ),
+    )
+    seen["onboard"]("application", 7, {})
+    seen["onboard"]("ifp", 5009, {})
+    assert onboarded == [(7, "application", True), (5009, "cert", True)]
 
     result = CliRunner().invoke(cli_module.app, args)
     assert result.exit_code == 0, result.output
@@ -1514,6 +1533,40 @@ def test_discover_live_onboards_to_the_frontier_and_persists_cursors(tmp_path: P
             client, db, tmp_path / "data", 25, max_new=10, today=date(2026, 7, 11)
         )
     assert again.case_ids == []
+
+
+def test_the_frontier_check_onboards_a_number_posted_after_the_walk_passed_it(
+    tmp_path: Path,
+) -> None:
+    """A serial unserved when the walk stepped over it is onboarded by the check's
+    re-probe through the walk's own step, and no cursor moves."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    served = {"26-1": _payload("26-1"), "26-3": _payload("26-3")}
+    with _frontier_client(served) as client:
+        discover_live(client, db, tmp_path / "data", 26, max_new=10, today=date(2026, 11, 10))
+    with corpus.connect(db) as conn:
+        assert corpus.get_live_cursor(conn, 26, "paid") == 3
+        assert 2 not in discovery_frontier.held_serials(conn, 26)["paid"]
+
+    served["26-2"] = _payload("26-2")
+    config = FrontierCheckConfig(enabled=True, lookahead=0, outside_documents=0)
+    today = date(2026, 11, 11)
+    with _frontier_client(served) as client:
+
+        def onboard(stream: str, serial: int, payload: dict[str, Any]) -> None:
+            onboard_served(
+                client, db, tmp_path / "data", payload, 26, serial, form="cert", today=today
+            )
+
+        ledger = discovery_frontier.run_frontier_check(
+            client, db, 26, config, frontier_misses=2, today=today, onboard=onboard
+        )
+    assert (ledger["holes_onboarded"], ledger["holes_serving"]) == (1, 0)
+    with corpus.connect(db) as conn:
+        assert corpus.get_live_cursor(conn, 26, "paid") == 3
+        events = corpus.events_for_case(conn, "scotus/9026000002")
+        assert corpus.live_frontier_checks(conn, 26)["paid"].holes_serving == ()
+    assert [e.event_id for e in events] == ["evt-petition-disposition"]
 
 
 def test_discover_live_enriches_an_existing_courtlistener_row(tmp_path: Path) -> None:
