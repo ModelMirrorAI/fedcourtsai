@@ -95,6 +95,66 @@ JSON: all of OT2015's and most of OT2016's below `16A1051` (*Maintenance
 passes* in [data-pipeline.md](data-pipeline.md)).
 No poll or rotation reads it, so the live channel's reach is unchanged.
 
+## The discovery frontier check
+
+Sequential probing cannot tell "the Court has assigned no further number" from
+"the next numbers are withheld or not yet posted", and a docket discovery never
+reaches can be neither selected nor forecast, with no downstream check to name
+it. The check (`pipeline.discovery_frontier`) asks the question from outside
+the walk, per numbering stream of the current docket Term (paid, IFP,
+applications):
+
+- **Outside frontier.** The highest number of the stream on lists the cursor
+  does not drive: the Court's newest order lists and miscellaneous orders
+  (`live.frontier_check.outside_documents` of them, read through the order
+  grammars), and the Granted & Noted list. Order lists name petitions weeks or
+  months after filing, so for the paid and IFP streams this is a floor that
+  only a long stall crosses; a miscellaneous order can name an application
+  within days of its filing, which is where the comparison is sharpest.
+- **Movement.** The business days since the stream's newest held docket was
+  filed. Weekdays are counted and Court holidays are not modelled, so a holiday
+  reads as a quiet day.
+- **Holes.** Serials at or below the cursor with no corpus row: numbers the
+  walk stepped over inside the `frontier_misses` tolerance and never returned
+  to. A rotating sample of `hole_reprobes_per_stream` is re-probed, and the
+  ones that now serve are carried from reading to reading until a row holds
+  them.
+- **Look-ahead.** `lookahead` serials past the cursor are probed. A served
+  number before the walk's own stopping point is ordinary new intake the next
+  cycle onboards; one past a run of `frontier_misses` unserved numbers is a
+  docket the walk cannot reach.
+
+The probes run inside the live cycle, after its own work and inside what is
+left of its soft budget (the client's request deadline is that remainder,
+capped at five minutes), at most once a UTC day: `live-poll` stores one reading
+per stream in the corpus (`live_frontier_checks`), and a stream the budget cuts
+off stores nothing and is due again next cycle. Every request is a supremecourt.gov read at the live client's pacing,
+about 70 a day. The reading is then judged where the
+corpus is pulled: `fedcourts live-frontier` sets it beside the corpus as it
+stands and publishes the verdict in the readiness snapshot, which the ops
+report renders one line per stream.
+
+| Alarm | Trips when | Clears when |
+| --- | --- | --- |
+| Outside number above the cursor | a list read names a number the cursor has not reached | the cursor passes it |
+| Stalled stream | `stall_business_days` quiet business days have passed since the newest held docket was filed (`ifp_stall_business_days` for IFP, `recess_stall_business_days` for every stream July through September) | a newer docket is onboarded |
+| Look-ahead hit | a served number sits past an unserved run the walk stops at | the cursor passes it (a raised `frontier_misses` lets the walk cross the run) |
+| Holes now serving | more than `hole_alarm_over` skipped numbers of one stream serve | a row holds them |
+| Stale reading | the stored reading is more than `stale_check_days` old | the probes run again |
+
+A stream never probed raises no stale-reading alarm (the report line says
+"not yet probed"), a check switched off leaves an open alarm as it is, and staleness is judged
+when the snapshot is written, so a quiet check is evidence only while the
+snapshot itself is fresh.
+
+An alarm opens the latched **Discovery frontier behind** issue under
+`pipeline-health` ([pipeline.md](pipeline.md), *run-ops*), refreshed each ops
+run and closed when every stream is clean. The check reads and records only: it
+moves no cursor and onboards nothing, so a number it finds stays missing until
+discovery reaches it or a maintainer acts. It is monitoring, not a scored
+figure; none of its counts enters a board or a base rate. The historical
+walker's cursors are outside it.
+
 ## Architecture: a third channel, the same corpus
 
 The live source follows the replica guardrails exactly

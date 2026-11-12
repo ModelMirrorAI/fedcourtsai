@@ -1288,6 +1288,32 @@ CREATE TABLE IF NOT EXISTS live_discovery_cursors (
     PRIMARY KEY (term, stream)
 );
 
+-- The discovery frontier check's last reading per (Term, stream) of the forward
+-- poller: what a probe past the cursor, a re-probe of skipped serials and the
+-- Court's own published lists said on `checked_on`. Monitoring state, written
+-- by the live lane at most once a UTC day and read by the readiness snapshot;
+-- nothing in discovery reads it back, so it never moves a cursor.
+CREATE TABLE IF NOT EXISTS live_frontier_checks (
+    term             INTEGER NOT NULL,
+    stream           TEXT NOT NULL,
+    checked_on       TEXT NOT NULL,
+    -- The cursor the reading was taken against.
+    cursor_serial    INTEGER NOT NULL,
+    -- The highest serial of this stream named on a list the cursor does not
+    -- drive, and which list; NULL when no list read named one.
+    outside_serial   INTEGER,
+    outside_source   TEXT,
+    lookahead_probed INTEGER NOT NULL DEFAULT 0,
+    -- Served serials past the cursor that sequential probing cannot reach.
+    lookahead_hits   TEXT NOT NULL DEFAULT '[]',
+    holes_reprobed   INTEGER NOT NULL DEFAULT 0,
+    -- Serials below the cursor with no corpus row that served on a re-probe,
+    -- carried from reading to reading until a row holds them.
+    holes_serving    TEXT NOT NULL DEFAULT '[]',
+    problems         TEXT NOT NULL DEFAULT '[]',
+    PRIMARY KEY (term, stream)
+);
+
 -- Per-case filed-document text: a raw fact fetched pipeline-side by the
 -- live poller on the distribution transition. Keyed (case_id, kind) — the
 -- latest fetch of a kind wins. Text stays in the access-gated corpus,
@@ -2991,9 +3017,7 @@ def scotus_case_ids_by_docket_numbers(
     return _scotus_docket_number_matches(conn, f"norm_dn(docket_number) IN ({marks})", wanted)
 
 
-def scotus_case_ids_by_docket_number_prefix(
-    conn: sqlite3.Connection, prefix: str
-) -> dict[str, str]:
+def scotus_case_ids_by_docket_number_prefix(conn: ReadConnection, prefix: str) -> dict[str, str]:
     """:func:`scotus_case_id_by_docket_number` for every number under ``prefix``, in one read.
 
     Keyed by the normalized number, with the same lowest-docket-id rule. The
@@ -6846,7 +6870,75 @@ def set_live_frontier(conn: sqlite3.Connection, term: int, stream: str, serial: 
         )
 
 
-def live_cursor_rows(conn: sqlite3.Connection) -> list[tuple[int, str, int, int | None]]:
+@dataclass(frozen=True)
+class FrontierCheck:
+    """One (Term, stream)'s stored discovery frontier reading (`live_frontier_checks`)."""
+
+    term: int
+    stream: str
+    checked_on: date
+    cursor_serial: int
+    outside_serial: int | None = None
+    outside_source: str | None = None
+    lookahead_probed: int = 0
+    lookahead_hits: tuple[int, ...] = ()
+    holes_reprobed: int = 0
+    holes_serving: tuple[int, ...] = ()
+    problems: tuple[str, ...] = ()
+
+
+def set_live_frontier_check(conn: sqlite3.Connection, check: FrontierCheck) -> None:
+    """Store a (Term, stream)'s frontier reading, replacing the one before it."""
+    with conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO live_frontier_checks (term, stream, checked_on, "
+            "cursor_serial, outside_serial, outside_source, lookahead_probed, lookahead_hits, "
+            "holes_reprobed, holes_serving, problems) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                check.term,
+                check.stream,
+                check.checked_on.isoformat(),
+                check.cursor_serial,
+                check.outside_serial,
+                check.outside_source,
+                check.lookahead_probed,
+                json.dumps(list(check.lookahead_hits)),
+                check.holes_reprobed,
+                json.dumps(list(check.holes_serving)),
+                json.dumps(list(check.problems)),
+            ),
+        )
+
+
+def live_frontier_checks(conn: ReadConnection, term: int) -> dict[str, FrontierCheck]:
+    """One Term's stored frontier readings, by stream."""
+    cur = conn.execute(
+        "SELECT term, stream, checked_on, cursor_serial, outside_serial, outside_source, "
+        "lookahead_probed, lookahead_hits, holes_reprobed, holes_serving, problems "
+        "FROM live_frontier_checks WHERE term = ?",
+        (term,),
+    )
+    return {
+        str(row["stream"]): FrontierCheck(
+            term=int(row["term"]),
+            stream=str(row["stream"]),
+            checked_on=date.fromisoformat(row["checked_on"]),
+            cursor_serial=int(row["cursor_serial"]),
+            outside_serial=(
+                int(row["outside_serial"]) if row["outside_serial"] is not None else None
+            ),
+            outside_source=row["outside_source"],
+            lookahead_probed=int(row["lookahead_probed"]),
+            lookahead_hits=tuple(int(s) for s in json.loads(row["lookahead_hits"])),
+            holes_reprobed=int(row["holes_reprobed"]),
+            holes_serving=tuple(int(s) for s in json.loads(row["holes_serving"])),
+            problems=tuple(str(p) for p in json.loads(row["problems"])),
+        )
+        for row in cur
+    }
+
+
+def live_cursor_rows(conn: ReadConnection) -> list[tuple[int, str, int, int | None]]:
     """Every live-discovery cursor as ``(term, stream, last_serial, frontier_serial)``.
 
     The statpack's census/completeness read: one query over the whole (small)

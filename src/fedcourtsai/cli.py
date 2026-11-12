@@ -174,6 +174,8 @@ from .collect import (
 )
 from .config import (
     CorpusBackend,
+    FrontierCheckConfig,
+    LiveConfig,
     PredictScope,
     Settings,
     get_settings,
@@ -319,6 +321,7 @@ from .pipeline import (
     argument_features,
     authorship,
     decision_below,
+    discovery_frontier,
     granted_noted,
     historical,
     justice_priors,
@@ -604,6 +607,7 @@ from .schemas import (
     CorpusValidation,
     CountedConferenceTotal,
     DataHealth,
+    DiscoveryFrontier,
     Disposition,
     DocketPollRecord,
     Engine,
@@ -8780,6 +8784,46 @@ def _refresh_term_calendar(data_root: Path, *, today: date, throttle_seconds: fl
         typer.echo(f"::warning::term-calendar: not refreshed ({type(exc).__name__}: {reason})")
         return
     typer.echo(line)
+
+
+def _run_frontier_check(
+    db: Path, term: int, live_cfg: LiveConfig, *, today: date, deadline: float | None
+) -> None:
+    """The live poll's once-a-day discovery frontier reading, which only ever warns.
+
+    Monitoring: it runs after the cycle's own work and a failure costs one
+    cycle's reading, never the poll's facts or queues. The client's request
+    deadline is what is left of the cycle's soft budget, capped at the reading's
+    own, so the reading cannot outrun either; a stream the deadline cuts off
+    stores nothing and is due again next cycle.
+    """
+    budget = discovery_frontier.READING_DEADLINE_SECONDS
+    if deadline is not None:
+        budget = min(budget, max(deadline - time.monotonic(), 0.0))
+    try:
+        with SupremeCourtClient(
+            throttle_seconds=live_cfg.throttle_seconds, deadline_seconds=budget
+        ) as client:
+            ledger = discovery_frontier.run_frontier_check(
+                client,
+                db,
+                term,
+                live_cfg.frontier_check,
+                frontier_misses=live_cfg.frontier_misses,
+                today=today,
+                deadline=deadline,
+            )
+    except DeadlineExceeded:
+        typer.echo("Frontier check: cut off by the cycle's budget; due again next cycle")
+        return
+    except Exception as exc:  # any failure degrades to a warning
+        reason = " ".join(str(exc).split())
+        typer.echo(f"::warning::frontier check: not read ({type(exc).__name__}: {reason})")
+        return
+    if ledger.get("checked"):
+        typer.echo(
+            "Frontier check: " + ", ".join(f"{key}={value}" for key, value in ledger.items())
+        )
 
 
 def _work_tree_root() -> Path | None:
@@ -17493,6 +17537,12 @@ def _weekly_production(data_root: Path, config_root: Path, when: datetime) -> We
     )
 
 
+def _write_discovery_alarm(out: Path | None, frontier: LiveFrontier | None) -> None:
+    """Write the discovery frontier alarm body when the snapshot carries the check's verdict."""
+    if out is not None and frontier is not None and frontier.discovery is not None:
+        write_text(out, discovery_frontier.render_alarm(frontier.discovery))
+
+
 @app.command("ops-report")
 def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
     *,
@@ -17526,6 +17576,13 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
         typer.Option(
             help="Latest `live-frontier` JSON (e.g. from the ops-metrics branch) for the "
             "substance section's watchlist-readiness view. Ignored if missing or unreadable."
+        ),
+    ] = None,
+    discovery_frontier_out: Annotated[
+        Path | None,
+        typer.Option(
+            help="Write the discovery frontier check's alarm body Markdown here (the "
+            "escalation body). Written only when --live-frontier carries the check's verdict."
         ),
     ] = None,
     previous: Annotated[
@@ -17699,6 +17756,7 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
     if data_health_out is not None:
         data_health_out.parent.mkdir(parents=True, exist_ok=True)
         data_health_out.write_text(render_data_health(data_health))
+    _write_discovery_alarm(discovery_frontier_out, frontier)
     analytics = _weekly_analytics(settings.metrics_root)
     production = _weekly_production(settings.data_root, settings.config_root, _parse_when(when))
     if digest_out is not None:
@@ -25286,7 +25344,9 @@ def live_poll(
     ``outcome.json`` deterministically. Writes the same three queue files
     as ``pull-all``, refreshes ``data/schedule/term-calendar.json`` once a UTC
     day after a good read, then rebuilds ``data/schedule/schedule.json`` from
-    the refreshed corpus (warning, never failing, if either breaks).
+    the refreshed corpus (warning, never failing, if either breaks). At most
+    once a UTC day the cycle also takes the discovery frontier check's reading
+    for each numbering stream and stores it in the corpus, warning on a failure.
     """
     settings = get_settings()
     live_cfg = load_live_config(settings.config_root)
@@ -25325,6 +25385,9 @@ def live_poll(
         already_queued={f"{e['court']}/{e['docket']}" for e in queues.evaluate},
         today=today,
     )
+    # The frontier reading is the cycle's last corpus write, ahead of the layout
+    # check every writer ends on.
+    _run_frontier_check(db, probe_term, live_cfg, today=today, deadline=deadline)
     _ensure_corpus_layout(db)
     out.write_text(json.dumps(queues.predict) + "\n")
     evaluate_out.write_text(json.dumps(queues.evaluate) + "\n")
@@ -25548,6 +25611,25 @@ def _conference_set_counted(
     typer.echo(cut.model_dump_json())
 
 
+def _discovery_verdict(
+    conn: corpus.ReadConnection, config: FrontierCheckConfig, as_of: date
+) -> DiscoveryFrontier | None:
+    """The discovery frontier check's verdict, or ``None`` with a warning if it cannot be read.
+
+    The snapshot is published beside the corpus verdict by one step, so a
+    failure here must cost only this field: no verdict leaves the latched alarm
+    as it stands, where a missing snapshot would drop the readiness view too.
+    """
+    try:
+        return discovery_frontier.read_discovery_frontier(
+            conn, current_docket_term(as_of), today=as_of, config=config
+        )
+    except Exception as exc:  # monitoring must not cost the snapshot it rides
+        reason = " ".join(str(exc).split())
+        typer.echo(f"::warning::discovery frontier: not read ({type(exc).__name__}: {reason})")
+        return None
+
+
 @app.command("live-frontier")
 def live_frontier_cmd(
     out: Annotated[
@@ -25566,7 +25648,9 @@ def live_frontier_cmd(
     Read-only over the corpus: the pending-before-conference watchlist
     (``conference-set``'s population), its distribution calendar with the next
     conference relative to ``--today``, and how many watchlist petitions carry
-    provisioned filed-document text. Produced where the corpus is already
+    provisioned filed-document text, and the discovery frontier check's verdict
+    over the current docket Term's numbering streams
+    (``pipeline.discovery_frontier``). Produced where the corpus is already
     pulled and published to the ``ops-metrics`` branch (the corpus-writer
     path), so the corpus-free ``run-ops`` presenter can render live-frontier
     readiness. Graceful when the corpus is absent: writes a skipped snapshot
@@ -25580,9 +25664,11 @@ def live_frontier_cmd(
         write_json(destination, LiveFrontier(skipped=True, generated_on=as_of))
         typer.echo(f"live-frontier: skipped (no corpus at {db}) -> {destination}")
         return
+    check_cfg = load_live_config(settings.config_root).frontier_check
     with corpus.connect_readonly(db) as conn:
         rows = corpus.conference_watchlist(conn)
         provisioned = sum(1 for row in rows if holds_docket_documents(conn, row.case_id))
+        discovery = _discovery_verdict(conn, check_cfg, as_of) if check_cfg.enabled else None
     by_conference: dict[date, int] = {}
     for row in rows:
         assert row.distributed_for_conference is not None  # the query guarantees it
@@ -25600,6 +25686,7 @@ def live_frontier_cmd(
             for day, count in sorted(by_conference.items())
         ],
         documents_provisioned=provisioned,
+        discovery=discovery,
     )
     write_json(destination, frontier)
     typer.echo(
@@ -25607,6 +25694,8 @@ def live_frontier_cmd(
         f"next conference {frontier.next_conference or 'none scheduled'}, "
         f"documents on {frontier.documents_provisioned} -> {destination}"
     )
+    if discovery is not None:
+        typer.echo("\n".join(discovery_frontier.render_lines(discovery)))
 
 
 @app.command()

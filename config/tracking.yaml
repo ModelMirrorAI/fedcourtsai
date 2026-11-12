@@ -182,6 +182,31 @@ live:
   # a late filing onto the old prefix is caught before the historical walker
   # reaches it (docs/live-sources.md). 0 disables the grace probe.
   outgoing_term_grace_days: 60
+  # The discovery frontier check (docs/live-sources.md): at most once a UTC
+  # day, after the cycle's own work, confirm each current-Term numbering stream
+  # reached the Court's real frontier. Every request is a supremecourt.gov read
+  # at the pacing above: the order listing page, the Granted & Noted list, the
+  # newest `outside_documents` order documents, and per stream `lookahead`
+  # serials past the cursor plus `hole_reprobes_per_stream` skipped serials,
+  # about 70 requests a day. It reads and records; it never moves a cursor.
+  frontier_check:
+    enabled: true
+    lookahead: 10
+    hole_reprobes_per_stream: 10
+    outside_documents: 5
+    # Alarm thresholds, read by the readiness snapshot the ops report latches
+    # on: more than this many skipped serials now serving; a stream whose
+    # newest held docket is this many business days old (IFP and the July to
+    # September recess run slower); a stored reading older than
+    # `stale_check_days`. A number on the Court's lists above the cursor, and a
+    # served serial the sequential probe cannot reach, alarm at one.
+    # The stall thresholds assume a docket is served within a business day of
+    # its filing date; a holiday counts as a quiet day.
+    hole_alarm_over: 5
+    stall_business_days: 3
+    ifp_stall_business_days: 7
+    recess_stall_business_days: 10
+    stale_check_days: 3
   # Per-document cap on extracted text stored in the corpus: ~40 dense
   # pages, one cap per stored row. The selected filed documents
   # (docs/live-sources.md) are fetched on the transitions that queue predict,

@@ -13,7 +13,7 @@ App installation token** (`actions/create-github-app-token`), never the default
 `GITHUB_TOKEN`: events created with `GITHUB_TOKEN` do not trigger other
 workflows (GitHub's loop-prevention), so an agent PR opened with it would never
 start CI. The inverse is the rule for every issue write in this repository —
-the run-log and data-validation alarms, the daily digest, flag latching — which must
+the run-log, data-validation and pipeline-health alarms, the daily digest, flag latching — which must
 trigger nothing and so rides the ambient token instead.
 
 The token comes from one of **three Apps in use, matched to the lane's
@@ -787,7 +787,7 @@ in this repository keys on `issues: labeled` at all, so labeling triggers
 nothing), which is the only reason a workflow here ever reaches for the App
 token — so issue-write deliberately stays **off** the App token that
 carries `contents: write` and opens and merges the run PR. This mirrors `run-ops`,
-which posts its `data-validation` / `ai-watchlist` / `daily-digest` issues with the same
+which posts its `data-validation` / `ai-watchlist` / `pipeline-health` / `daily-digest` issues with the same
 ambient token, `run-analytics`' ai-candidates and ai-follow-ons jobs, which
 comment the week's AI-case candidates and follow-on dockets on the long-lived
 `ai-candidates` issue with it, and its merits-coverage-alarm job, which opens,

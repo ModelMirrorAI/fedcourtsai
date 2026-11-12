@@ -34,6 +34,8 @@ from fedcourtsai.schemas import (
     CorpusCheck,
     CorpusValidation,
     DataHealth,
+    DiscoveryFrontier,
+    DiscoveryFrontierStream,
     Disposition,
     DispositionShare,
     Engine,
@@ -1488,6 +1490,54 @@ def test_ops_report_writes_the_digest_and_reads_the_frontier(tmp_path: Path) -> 
     assert body.startswith("<!-- weekly-digest: ")
     assert "# Weekly performance digest" in body
     assert "## Produced this week (2026-07-04 to 2026-07-11, the 7d before this digest)" in body
+
+
+def test_ops_report_prints_the_discovery_frontier_and_writes_its_alarm(tmp_path: Path) -> None:
+    """The verdict in the published snapshot reaches the report, the JSON bit the
+    latch reads, and the alarm body; a snapshot without one writes no body."""
+    discovery = DiscoveryFrontier(
+        term=26,
+        ok=False,
+        streams=[
+            DiscoveryFrontierStream(
+                stream="application",
+                cursor=669,
+                frontier=669,
+                stall_threshold=3,
+                checked_on=date(2026, 11, 11),
+                outside_serial=672,
+                outside_source="miscellaneous-order 2026-11-10",
+                alarms=["miscellaneous-order 2026-11-10 names 26A672, above the cursor at 26A669"],
+            )
+        ],
+    )
+    frontier_path = tmp_path / "live-frontier.json"
+    json_out = tmp_path / "ops.json"
+    alarm_out = tmp_path / "discovery-frontier.md"
+    args = [
+        "ops-report",
+        *("--live-frontier", str(frontier_path)),
+        *("--json", str(json_out)),
+        *("--discovery-frontier-out", str(alarm_out)),
+        *("--generated-at", "2026-11-11T08:00:00+00:00"),
+    ]
+
+    frontier_path.write_text(LiveFrontier(watchlist=1).model_dump_json())
+    result = runner.invoke(app, args, env=_ops_env(tmp_path))
+    assert result.exit_code == 0, result.output
+    assert "Discovery frontier" not in result.output
+    assert not alarm_out.exists()
+    assert json.loads(json_out.read_text())["substance"]["live_frontier"]["discovery"] is None
+
+    frontier_path.write_text(LiveFrontier(watchlist=1, discovery=discovery).model_dump_json())
+    result = runner.invoke(app, args, env=_ops_env(tmp_path))
+    assert result.exit_code == 0, result.output
+    assert "**Discovery frontier** (OT26): **behind**" in result.output
+    assert "- **application**: cursor 26A669, frontier stamped there" in result.output
+    assert "names 26A672, above the cursor at 26A669" in alarm_out.read_text()
+    assert (
+        json.loads(json_out.read_text())["substance"]["live_frontier"]["discovery"]["ok"] is False
+    )
 
 
 # --- the live-frontier snapshot CLI ------------------------------------------------

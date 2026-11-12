@@ -15,6 +15,7 @@ from fedcourtsai import cli as cli_module
 from fedcourtsai import corpus, supremecourt
 from fedcourtsai.config import LiveConfig, PredictScope, SalienceConfig, load_live_config
 from fedcourtsai.paths import CasePaths
+from fedcourtsai.pipeline import discovery_frontier
 from fedcourtsai.pipeline import live as live_module
 from fedcourtsai.pipeline import salience as salience_module
 from fedcourtsai.pipeline.ingest import (
@@ -185,6 +186,45 @@ def test_live_poll_cli_defaults_the_probe_to_the_docket_term(
     )
     assert result.exit_code == 0, result.output
     assert captured["term"] == 26
+
+
+def test_live_poll_cli_takes_the_frontier_reading_and_survives_its_failure(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The frontier check runs after the cycle with the cycle's Term and the
+    configured tolerance, and a raise inside it is a warning, never a failed poll."""
+    seen: dict[str, Any] = {}
+
+    def _fake_check(_client: Any, _db: Path, term: int, config: Any, **kwargs: Any) -> Any:
+        seen.update(term=term, enabled=config.enabled, **kwargs)
+        if len(seen.setdefault("calls", [])) == 1:
+            raise RuntimeError("upstream\nwent away")
+        seen["calls"].append(1)
+        return {"due": 3, "checked": 3, "lookahead_hits": 0}
+
+    monkeypatch.setattr(
+        cli_module, "live_poll_all", lambda *a, **k: (PullQueues(), LiveDiscovery())
+    )
+    monkeypatch.setattr(cli_module, "evaluate_backlog", lambda *a, **k: None)
+    monkeypatch.setattr(cli_module, "_refresh_term_calendar", lambda *a, **k: None)
+    monkeypatch.setattr(discovery_frontier, "run_frontier_check", _fake_check)
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(tmp_path / "data"))
+    args = [
+        "live-poll",
+        *("--term", "26"),
+        *("--out", str(tmp_path / "p.json")),
+        *("--evaluate-out", str(tmp_path / "e.json")),
+        *("--unrecorded-out", str(tmp_path / "u.json")),
+    ]
+    result = CliRunner().invoke(cli_module.app, args)
+    assert result.exit_code == 0, result.output
+    assert "Frontier check: due=3, checked=3, lookahead_hits=0" in result.output
+    assert (seen["term"], seen["enabled"], seen["frontier_misses"]) == (26, True, 2)
+
+    result = CliRunner().invoke(cli_module.app, args)
+    assert result.exit_code == 0, result.output
+    assert "::warning::frontier check: not read (RuntimeError: upstream went away)" in result.output
 
 
 def test_current_docket_term_rolls_in_july() -> None:

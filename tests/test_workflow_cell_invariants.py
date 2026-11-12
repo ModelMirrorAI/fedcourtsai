@@ -2073,6 +2073,7 @@ SOURCING_OPS_STEPS = (
     "Collect issues wearing a stale fan-out label",
     "Escalate a failing data-validation verdict",
     "Escalate a failing AI watchlist check",
+    "Escalate a discovery frontier that is behind",
     "Sweep the off-ledger spend records",
 )
 # `(workflow, job, step name)` for the record-keeping writes that source the
@@ -2656,6 +2657,12 @@ SELF_CLEARING_ALARM_STEPS = (
         "ops",
         "Escalate a failing data-validation verdict",
         "Data validation failing",
+    ),
+    (
+        "run-ops.yml",
+        "ops",
+        "Escalate a discovery frontier that is behind",
+        "Discovery frontier behind",
     ),
 )
 

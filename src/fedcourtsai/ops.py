@@ -34,6 +34,7 @@ from .collect import flags_table, flags_tally
 from .integrity import FORWARD, RETROSPECTIVE
 from .metrics_refresh import arm_mix_text, arm_score_text, outcome_mix
 from .performance_history import MIN_EVENTS_FOR_LEVEL_FLAGS, board_points, movements
+from .pipeline import discovery_frontier
 from .process_version import (
     Series,
     composition_of,
@@ -666,6 +667,7 @@ def render_substance(digest: SubstanceDigest) -> str:
             f"Watchlist **{frontier.watchlist}** petition(s) · {upcoming} · "
             f"documents provisioned on **{frontier.documents_provisioned}/{frontier.watchlist}**",
         ]
+        lines += discovery_frontier.render_block(frontier.discovery)
     return "\n".join(lines) + "\n"
 
 
