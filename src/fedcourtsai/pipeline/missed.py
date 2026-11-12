@@ -12,7 +12,8 @@ committed predictions do not cover every predictor owed it, is classified once:
 
 - **declined** — the pipeline chose not to forecast it, with the reason:
   ``out_of_scope``, ``non_forecastable_moment``, ``not_funded``,
-  ``predictor_not_enabled``, or ``resolved_before_a_round``;
+  ``predictor_not_enabled``, ``resolved_before_a_round``, or
+  ``moment_window_closed``;
 - **missed** — the pipeline owed it and did not deliver, with the reason:
   ``not_scored`` (in scope and open, but the salience pass never scored the
   case, so no funding decision was ever taken — a pipeline failure, not a
@@ -65,6 +66,15 @@ than patched:
 - ``opened_at`` is the docket date of the transition, not the day the pipeline
   first observed it, so ingestion lag makes the round rule *over*-report (a
   miss that no round could have reached) — the safe direction for an alarm.
+- An event is reachable from the later of its ``opened_at`` and the row's
+  ``date_filed``. An application's first entry is dated when the papers were
+  submitted, days before the Court dockets it, and no docket exists to poll
+  until then. A ``date_filed`` later than the real docketing would hide a miss.
+- A moment's window can be shorter than the event's open span, at both ends
+  (:func:`_forecast_window`). The start is read from a table of instants,
+  the end from the docket as stored **now**; where the stored docket cannot
+  show the conference that closed a moment, no end is read and the event is
+  judged on its resolution date, the over-report direction.
 - Events are dated to the day, so merits funding counts a merits event only
   if it opened *before* the resolution day — the one a cert grant mints opens
   on the day the petition resolves. An unrelated event resolving the same day
@@ -84,18 +94,25 @@ from __future__ import annotations
 
 import json
 import os
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from enum import StrEnum
 from pathlib import Path
+from types import MappingProxyType
 
 from .. import corpus, ids
 from ..matrix import cell_failure_count, event_has_predictions
 from ..paths import CasePaths
 from ..registry import enabled_predictors
-from ..schemas import Stage
-from ..store import event_has_claimable_prediction, is_forecastable_moment
+from ..schemas import Moment, Stage
+from ..store import (
+    PayloadReader,
+    conference_bound_closed_on,
+    event_has_claimable_prediction,
+    is_forecastable_moment,
+    live_payload_reader,
+)
 from . import moments
 
 #: The UTC times of the scheduled predict rounds — ``run-predict.yml``'s two
@@ -111,6 +128,23 @@ PREDICT_ROUND_TIMES_UTC: tuple[time, ...] = (time(14, 12), time(17, 32))
 MISSED_LOOKBACK_DAYS = 7
 
 
+#: The UTC instant the predict fan-out first admitted each moment that was
+#: declared, and its events minted, before any cell could be placed on it: the
+#: committer time of the merge that carried the moment's process label to
+#: ``main`` (``docs/freeze-record.md``, which a test binds each instant to). An
+#: event of such a moment could not be forecast earlier, however long it had
+#: been open, so the round rule counts no round before it. A moment absent
+#: here has been forecast for as long as its events have existed.
+MOMENT_FIRST_FORECAST_UTC: Mapping[tuple[Stage, Moment], datetime] = MappingProxyType(
+    {
+        (Stage.cert, Moment.sg_brief): datetime(2026, 10, 23, 2, 37, 11),
+        (Stage.cert, Moment.relist): datetime(2026, 10, 23, 2, 37, 11),
+        (Stage.merits, Moment.argued): datetime(2026, 10, 23, 2, 37, 11),
+        (Stage.cert, Moment.response_requested): datetime(2026, 10, 29, 14, 16, 26),
+    }
+)
+
+
 class Verdict(StrEnum):
     declined = "declined"
     missed = "missed"
@@ -124,6 +158,7 @@ class DeclineReason(StrEnum):
     not_funded = "not_funded"
     predictor_not_enabled = "predictor_not_enabled"
     resolved_before_a_round = "resolved_before_a_round"
+    moment_window_closed = "moment_window_closed"
 
 
 class MissReason(StrEnum):
@@ -275,7 +310,9 @@ class PredictionlessReport:
         }
 
 
-def had_a_scheduled_round(opened: date, resolved: date) -> bool:
+def had_a_scheduled_round(
+    opened: date, resolved: date, *, not_before: datetime | None = None
+) -> bool:
     """Whether a scheduled predict round fell certainly inside the event's open span.
 
     Both dates are days, not instants, so the span is read at its narrowest: the
@@ -283,8 +320,13 @@ def had_a_scheduled_round(opened: date, resolved: date) -> bool:
     first of ``resolved``. A round counts only if it falls between those two
     instants — so a same-day or next-day resolution is never flagged on the
     round schedule's account, which is the conservative side for an alarm.
+
+    ``not_before`` is a UTC instant no earlier round counts from: the moment
+    was not forecast until then (:data:`MOMENT_FIRST_FORECAST_UTC`).
     """
     earliest = datetime.combine(opened + timedelta(days=1), time.min)
+    if not_before is not None and not_before > earliest:
+        earliest = not_before
     latest = datetime.combine(resolved, time.min)
     day = earliest.date()
     while day < resolved:
@@ -369,6 +411,63 @@ def _merits_funded(events: list[corpus.CorpusEvent], resolved_at: date) -> bool:
     )
 
 
+def _forecast_window(
+    event: corpus.CorpusEvent,
+    row: corpus.CorpusRow,
+    resolved_at: date,
+    payloads: PayloadReader,
+) -> tuple[DeclineReason, str] | None:
+    """The decline a full gap earns because no round could reach it, or ``None``.
+
+    Two rules, the plain one first. ``resolved_before_a_round``: no scheduled
+    round fell certainly between the day the event could first be polled (the
+    later of its ``opened_at`` and the docket's ``date_filed``) and the day it
+    resolved. ``moment_window_closed``: rounds ran in that span, but none
+    inside the part of it the moment was forecastable for. A moment's window
+    opens no earlier than the instant its cells were first admitted
+    (:data:`MOMENT_FIRST_FORECAST_UTC`), and a conference-bounded cert moment's
+    closes on the first conference that considers the petition after the
+    trigger (:func:`fedcourtsai.store.conference_bound_closed_on`): a relist
+    forecasts the conference it was relisted for, and the petition's later
+    relists and eventual disposition belong to no cell the fan-out would place.
+    """
+    assert event.opened_at is not None
+    opened = event.opened_at
+    filed = row.date_filed
+    if filed is not None and filed > opened:
+        opened = filed
+    if not had_a_scheduled_round(opened, resolved_at):
+        since = (
+            f"opened {event.opened_at.isoformat()}"
+            if opened == event.opened_at
+            else f"opened {event.opened_at.isoformat()} on a docket filed {opened.isoformat()}"
+        )
+        return (
+            DeclineReason.resolved_before_a_round,
+            f"{since}, resolved {resolved_at.isoformat()}: "
+            "no scheduled predict round fell certainly between",
+        )
+    spec = moments.spec_for(event.event_id)
+    first_forecast = (
+        MOMENT_FIRST_FORECAST_UTC.get((spec.stage, spec.moment)) if spec is not None else None
+    )
+    conference = conference_bound_closed_on(event, through=resolved_at, payloads=payloads)
+    closed = conference if conference is not None else resolved_at
+    if had_a_scheduled_round(opened, closed, not_before=first_forecast):
+        return None
+    bounds = []
+    if first_forecast is not None and first_forecast > datetime.combine(opened, time.min):
+        bounds.append(f"the moment was first forecast {first_forecast:%Y-%m-%d %H:%M}Z")
+    if conference is not None:
+        bounds.append(f"the conference of {conference.isoformat()} closed it")
+    return (
+        DeclineReason.moment_window_closed,
+        f"opened {opened.isoformat()}, resolved {resolved_at.isoformat()}; "
+        + " and ".join(bounds)
+        + ": no scheduled predict round fell certainly inside the moment's window",
+    )
+
+
 def _classify(  # noqa: PLR0911 - one early return per declared rule
     conn: corpus.ReadConnection,
     data_root: Path,
@@ -378,6 +477,7 @@ def _classify(  # noqa: PLR0911 - one early return per declared rule
     partial: bool,
     owed_missing: tuple[str, ...],
     resolved_at: date,
+    payloads: PayloadReader,
 ) -> tuple[Verdict, str, str]:
     """``(verdict, reason, detail)`` for one predictionless or partial event, first match."""
     if row is None or row.court != "scotus" or row.predict_excluded:
@@ -430,17 +530,10 @@ def _classify(  # noqa: PLR0911 - one early return per declared rule
     # some engine's cell on it was minted and landed. So the round rule, which
     # only guards against flagging an event no round could have reached, is
     # asked of full gaps alone.
-    if (
-        not partial
-        and event.opened_at is not None
-        and not had_a_scheduled_round(event.opened_at, resolved_at)
-    ):
-        return (
-            Verdict.declined,
-            DeclineReason.resolved_before_a_round,
-            f"opened {event.opened_at.isoformat()}, resolved {resolved_at.isoformat()}: "
-            "no scheduled predict round fell certainly between",
-        )
+    if not partial and event.opened_at is not None:
+        unreachable = _forecast_window(event, row, resolved_at, payloads)
+        if unreachable is not None:
+            return Verdict.declined, unreachable[0], unreachable[1]
     return Verdict.missed, MissReason.owed_and_unforecast, ""
 
 
@@ -514,6 +607,7 @@ def scan_predictionless_resolutions(  # noqa: PLR0912, PLR0915 - one pass, many 
     undated_all_time = 0
     undated_selected: list[UnrecordedResolution] = []
     rows: dict[str, corpus.CorpusRow | None] = {}
+    payloads = live_payload_reader(conn)
 
     def row_for(case_id: str) -> corpus.CorpusRow | None:
         if case_id not in rows:
@@ -580,6 +674,7 @@ def scan_predictionless_resolutions(  # noqa: PLR0912, PLR0915 - one pass, many 
             partial=partial,
             owed_missing=owed_missing,
             resolved_at=resolved_at,
+            payloads=payloads,
         )
         reported_missing = owed_missing if verdict is Verdict.missed else missing
         if verdict is Verdict.missed and reason == MissReason.owed_and_unforecast:

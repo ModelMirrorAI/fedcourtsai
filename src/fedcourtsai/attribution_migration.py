@@ -22,6 +22,13 @@ rely on date ordering — an outcome resolving before its own event opened is a
 faithful upstream shape on this docket source, not evidence of fabrication, so
 it is deliberately not the discriminator.
 
+A **declared moment** of the petition's stage is never such a record. The
+attribution rule fans one disposition across every declared moment of a stage
+(:mod:`fedcourtsai.pipeline.moments`), so a relist, call-for-response, CVSG,
+sg-brief or arrival event carries the baseline's outcome exactly, by design,
+whether or not a cell was ever placed on it. Reopening one would not converge:
+the next resolution pass attributes the same disposition to it again.
+
 Only a **non-case-baseline** event is repaired, because only there does the
 repair converge. Reopening a case-baseline event hands it straight back to the
 stage-less fallback — a reopened lone baseline is exactly that rule's target, so
@@ -226,6 +233,21 @@ class _Recorded:
         return spec is None or spec.ordinal == 0
 
     @property
+    def is_declared_moment(self) -> bool:
+        """A declared moment of the stage the corpus row carries for it.
+
+        The predicate outcome attribution fans a stage's disposition out on
+        (:func:`fedcourtsai.pipeline.moments.declares`): a petition's relist,
+        call-for-response, CVSG or sg-brief moment resolves with the
+        baseline's outcome by design, so the duplicate is the rule working
+        rather than a copy. Reopening one never converges, because the next
+        resolution pass attributes the same disposition to it again. Both
+        halves are asked: an undeclared id is not a moment, and a declared id
+        on a row of another stage has no claim on this stage's disposition.
+        """
+        return self.stage is not None and moments.declares(self.event.event_id, self.stage)
+
+    @property
     def fingerprint(self) -> tuple[str, str, int]:
         """The outcome triple a copy reproduces exactly."""
         return (
@@ -289,6 +311,7 @@ def _misattributed(recorded: list[_Recorded]) -> tuple[list[_Recorded], list[tup
         for entry in recorded
         if not entry.is_baseline
         and entry.stage not in _SELF_RESOLVING_STAGES
+        and not entry.is_declared_moment
         and entry.fingerprint in fingerprints
     ]
     skipped = [

@@ -258,6 +258,62 @@ def test_an_interim_staged_event_keeps_its_own_outcome(tmp_path: Path) -> None:
     assert motion.outcome.is_file()
 
 
+@pytest.mark.parametrize(
+    ("event_id", "kind"),
+    [
+        ("evt-order-relist-disposition", EventKind.order),
+        ("evt-order-call-for-response-disposition", EventKind.order),
+        ("evt-order-cvsg-disposition", EventKind.order),
+        ("evt-brief-sg-disposition", EventKind.brief),
+    ],
+)
+def test_a_declared_cert_moment_keeps_the_outcome_it_shares(
+    tmp_path: Path, event_id: str, kind: EventKind
+) -> None:
+    """A later cert moment resolves with the baseline's outcome by design.
+
+    One with no cell under it has nothing but the stage to tell it from a copy,
+    and reopening it would be undone by the next resolution pass.
+    """
+    root = _data_root(tmp_path)
+    _write_event(
+        root, _BASELINE, EventKind.petition, opened_at=date(2026, 6, 23), resolved_at=_RESOLVED_AT
+    )
+    moment = _write_event(
+        root, event_id, kind, opened_at=date(2026, 10, 5), resolved_at=_RESOLVED_AT
+    )
+    events = [
+        _event_row(_BASELINE, EventKind.petition, resolved=True, stage=Stage.cert),
+        _event_row(event_id, kind, resolved=True, stage=Stage.cert),
+    ]
+    with _seeded(tmp_path, events) as conn:
+        result = reopen_misattributed_outcomes(conn, root, apply=True)
+        still_resolved = {e.event_id for e in corpus.events_for_case(conn, _CASE) if e.resolved}
+    assert event_id in still_resolved
+    assert result.reopened == []
+    assert result.skipped == []
+    assert moment.outcome.is_file()
+
+
+def test_a_declared_moment_id_on_another_stage_is_still_a_copy(tmp_path: Path) -> None:
+    """The exemption is the moment **of its stage**: the id alone earns nothing."""
+    root = _data_root(tmp_path)
+    event_id = "evt-order-relist-disposition"
+    _write_event(
+        root, _BASELINE, EventKind.petition, opened_at=date(2026, 6, 23), resolved_at=_RESOLVED_AT
+    )
+    _write_event(
+        root, event_id, EventKind.order, opened_at=date(2026, 10, 5), resolved_at=_RESOLVED_AT
+    )
+    events = [
+        _event_row(_BASELINE, EventKind.petition, resolved=True),
+        _event_row(event_id, EventKind.order, resolved=True),
+    ]
+    with _seeded(tmp_path, events) as conn:
+        result = reopen_misattributed_outcomes(conn, root, apply=False)
+    assert result.reopened == [f"{_CASE}/{event_id}"]
+
+
 def test_a_baseline_pair_is_reported_not_repaired(tmp_path: Path) -> None:
     """Reopening a lone baseline re-arms the stage-less fallback, so it is triage."""
     root = _data_root(tmp_path)
