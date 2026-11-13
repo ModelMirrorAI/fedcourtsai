@@ -1,0 +1,40 @@
+{
+  "conclusion": "success",
+  "environment": "prod",
+  "estimated_cost_usd": 31.789151599999997,
+  "lane": "cert-replay",
+  "leg": "cert-compare-replay",
+  "lines": [
+    {
+      "cache_creation_input_tokens": 1272126,
+      "cache_read_input_tokens": 9329500,
+      "engine": "claude-code",
+      "estimated_cost_usd": 20.379464,
+      "input_tokens": 348,
+      "model": "claude-fable-5-2",
+      "output_tokens": 144738,
+      "priced_as": null,
+      "records": null,
+      "source": "claude-transcripts"
+    },
+    {
+      "cache_creation_input_tokens": 1147574,
+      "cache_read_input_tokens": 13463368,
+      "engine": "claude-code",
+      "estimated_cost_usd": 11.4096876,
+      "input_tokens": 586,
+      "model": "claude-opus-5-5",
+      "output_tokens": 148840,
+      "priced_as": null,
+      "records": null,
+      "source": "claude-transcripts"
+    }
+  ],
+  "recorded_at": "2026-11-12T21:33:16.834767Z",
+  "ref": "main",
+  "run_attempt": 1,
+  "run_id": "43300602252",
+  "schema_version": "1.0",
+  "selection": "cert-compare",
+  "workflow": "run-backtest"
+}
