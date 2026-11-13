@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000657",
+  "run_id": "20261113T154407Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell",
+    "file-read",
+    "fedcourts statpack-at"
+  ],
+  "helpful": [
+    "statpack-at rebuilt the exact statpack build the candidates recorded, which settled a disagreement between candidates over the interim pool figures",
+    "result_capture markers in the staged retrieval logs",
+    "the staged application text, readable in the evaluator's record though blank for the predictors"
+  ],
+  "gaps": [
+    "No way to see which pack figures a candidate's shell output actually displayed when its log is outcome_only"
+  ],
+  "notes": "Straightforward interim denial cell; all three candidates predicted denial."
+}

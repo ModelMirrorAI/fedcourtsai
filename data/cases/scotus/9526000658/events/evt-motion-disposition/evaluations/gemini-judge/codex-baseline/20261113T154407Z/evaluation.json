@@ -1,0 +1,125 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.03,
+    "notes": "Routine pro se emergency stay application arising from personal/entity Chapter 7 bankruptcy litigation in E.D. Va. and an unpublished Fourth Circuit mandamus denial of a judicial-recusal motion (No. 26-2404), summarily denied in chambers by the Chief Justice without a response request, referral, amicus filings, or broader legal reach."
+  },
+  "brier_score": 0.0036,
+  "brier_skill_score": 0.7355667159763314,
+  "case_id": "scotus/9526000658",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.06,
+        "score": 0.010014019934335403
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.1,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.25,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.015,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.004,
+          "Barrett": 0.003,
+          "Gorsuch": 0.004,
+          "Jackson": 0.003,
+          "Kagan": 0.003,
+          "Kavanaugh": 0.003,
+          "Roberts": 0.003,
+          "Sotomayor": 0.003,
+          "Thomas": 0.005
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.010014019934335403,
+    "total": 0.010014019934335403
+  },
+  "correct": 1,
+  "created_at": "2026-11-13T15:53:37.657129Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction placed on 2026-11-09T03:27-03:32Z, two days before the event resolved on 2026-11-11. All 31 logged tool calls in retrieval_log.json (result_capture_coverage = 0.9355) were local file reads, fedcourts CLI calls, and schema checks; no post-resolution material existed or was retrieved, and data/qp-topics/ was not touched.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-carbon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.58,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records actual_disposition = 'denied' and interim_reading = 'denied' on 2026-11-11, with referred_to_court = false and writing_roles = null; snapshot 2026-11-12.json records 'Application (26A658) denied by The Chief Justice.'",
+        "claim": "The Chief Justice will most likely deny the stay application in a short order without an explanatory opinion.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json interim_signals records response_requested = false and referred_to_court = false.",
+        "claim": "The application will be resolved without a call for a response and without referral to the full Court.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records interim_signals.amicus_briefs = 0, noted_dissent_from_denial = null, votes = [], and writing_roles = null.",
+        "claim": "Amicus participation and separate writings or noted dissents are very unlikely on an unreferred Circuit Justice denial.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Conditional on an explanatory writing that never occurred; the Chief Justice entered a standard summary denial order with no opinion.",
+        "claim": "If any explanation were offered, the threshold obstacle would be the prerequisites for emergency stay relief rather than a definitive ruling on the underlying bankruptcy dispute.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261109T032540Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:93dfd6b52d95a78cbc7ce722aa2230f0e8ce09716d6219c95036ca071419fee9",
+    "label": "proc-v21",
+    "pipeline_sha": "db110b5849c5c90c07c307a3a3ae81ece2ae563e",
+    "stamped_at": "2026-11-13T15:53:37.657129Z"
+  },
+  "reasoning_quality": 0.62,
+  "run_id": "20261113T154407Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

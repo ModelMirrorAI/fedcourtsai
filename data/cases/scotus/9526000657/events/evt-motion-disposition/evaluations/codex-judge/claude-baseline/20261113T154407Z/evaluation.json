@@ -1,0 +1,127 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": null,
+  "brier_score": 0.000225,
+  "brier_skill_score": 0.9834729197485207,
+  "case_id": "scotus/9526000657",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.015,
+        "score": 0.013389019934335404
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.15,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.002,
+          "Barrett": 0.002,
+          "Gorsuch": 0.003,
+          "Jackson": 0.003,
+          "Kagan": 0.002,
+          "Kavanaugh": 0.002,
+          "Roberts": 0.003,
+          "Sotomayor": 0.003,
+          "Thomas": 0.002
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.013389019934335404,
+    "total": 0.013389019934335404
+  },
+  "correct": 1,
+  "created_at": "2026-11-13T15:51:53.402101Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "All 18 logged calls have captured results. Retrieval on November 9 preceded the November 10 resolution. The live docket and own-case corpus lookup are disclosed as showing only submission and no disposition. The November 6 result date concerns a pre-resolution corpus lookup, not this application's denial. No logged query or prose shows this event already decided. Later-than-baseline retrieval was permitted in forward mode.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.8,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The November 10, 2026 docket entry says application 26A657 was denied by The Chief Justice; outcome.json records denied.",
+        "claim": "The Chief Justice will deny the stay application.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The outcome's response_requested and referred_to_court signals are both false; the staged docket runs directly from submission to denial.",
+        "claim": "There will be no response request and no referral to the full Court before disposition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The outcome records amicus_briefs = 0 and the staged docket lists no amicus entry.",
+        "claim": "No amicus participation is expected.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Denial occurred November 10. The separate one-to-three-week horizon was met, but this later calendar characterization was not.",
+        "claim": "Denial will occur in mid-to-late November 2026.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "No writing is listed on the staged docket, but outcome.json leaves writing_roles and noted_dissent_from_denial null and no order or writings text is staged; categorical absence cannot be verified.",
+        "claim": "There will be no noted dissent or separate writing.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261109T032540Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v21",
+    "pipeline_sha": "db110b5849c5c90c07c307a3a3ae81ece2ae563e",
+    "stamped_at": "2026-11-13T15:51:53.402101Z"
+  },
+  "reasoning_quality": 0.76,
+  "run_id": "20261113T154407Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

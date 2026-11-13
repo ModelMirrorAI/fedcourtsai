@@ -1,0 +1,130 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.18,
+    "notes": "While every scheduled execution carries grave life-or-death stakes for the applicant and the underlying 2001 Rob Andrew murder had prior capital-litigation visibility through co-defendant Brenda Andrew's case, this third successive state post-conviction stay application was procedurally barred below under Okla. Stat. tit. 22, section 1089(D)(8) and ended in a routine, unexplained two-sentence denial of both the stay and certiorari with no noted dissents, no separate writings, and no doctrinal or institutional impact."
+  },
+  "brier_score": 0.0009,
+  "brier_skill_score": 0.9338916789940829,
+  "case_id": "scotus/9526000661",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": 0.012714019934335404
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.15,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.88,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.01,
+          "Barrett": 0.005,
+          "Gorsuch": 0.02,
+          "Jackson": 0.04,
+          "Kagan": 0.02,
+          "Kavanaugh": 0.005,
+          "Roberts": 0.005,
+          "Sotomayor": 0.06,
+          "Thomas": 0.01
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.012714019934335404,
+    "total": 0.012714019934335404
+  },
+  "correct": 1,
+  "created_at": "2026-11-13T16:01:51.657078Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction placed on 2026-11-09 (~22:48-23:00 UTC) while the application was genuinely unresolved ahead of the 2026-11-12 denial. All 47 logged tool calls carry result_capture = 'outcome_only' (result_capture_coverage = 0.0); queries inspected only the provisioned arrival snapshot and application, prior SCOTUS dockets, and pre-existing CourtListener records (Pavatt's 2007/2019/2020 appeals, co-defendant Brenda Andrew's 2025/Jan. 2026 decisions, and an Oct. 23, 2026 D.D.C. complaint). No post-resolution material or qp-topics files were accessed.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-carbon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.92,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Snapshot 2026-11-12.json shows Oklahoma filed its response on Nov. 9, 2026 with no response-requested entry on the docket, and outcome.json records interim_signals.response_requested = false.",
+        "claim": "No formal docketed call for a response will issue because Oklahoma routinely files its opposition brief immediately under capital execution-week protocol without awaiting a request.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Snapshot 2026-11-12.json records 'Application (26A661) referred to the Court.' on Nov. 12, 2026, and outcome.json records interim_signals.referred_to_court = true.",
+        "claim": "Justice Gorsuch will refer the stay application to the full Court rather than disposing of an execution stay in chambers.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Snapshot 2026-11-12.json records a two-sentence unsigned order on Nov. 12, 2026 denying both stay application 26A661 and the linked petition for a writ of certiorari, matching outcome.json's actual_disposition = 'denied' and interim_reading = 'denied'.",
+        "claim": "On Nov. 11 or the morning of Nov. 12, 2026 before the 10:00 a.m. CST execution, the Court will issue a single-paragraph unsigned order denying the referred stay application simultaneously with denying certiorari in No. 26-6095.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Snapshot 2026-11-12.json contains only the two-sentence unsigned denial order with no separate writings or noted dissents, and outcome.json records writing_roles = null and noted_dissent_from_denial = null.",
+        "claim": "The order denying a stay will issue as an unsigned summary denial with no separate writing and no dissents noted.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The Court's Nov. 12, 2026 summary order gave no explanation, and no opinion exists in record/opinion/ to establish whether the denial turned on Pena-Rodriguez's doctrinal scope or on the OCCA's Okla. Stat. tit. 22, section 1089(D)(8) procedural bar.",
+        "claim": "The Court will conclude Pavatt fails the Barefoot/Nken stay standard because Pena-Rodriguez is confined to racial animus rather than subjective juror reliance on prosecutorial sentencing arguments.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261109T212928Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:93dfd6b52d95a78cbc7ce722aa2230f0e8ce09716d6219c95036ca071419fee9",
+    "label": "proc-v21",
+    "pipeline_sha": "db110b5849c5c90c07c307a3a3ae81ece2ae563e",
+    "stamped_at": "2026-11-13T16:01:51.657078Z"
+  },
+  "reasoning_quality": 0.8,
+  "run_id": "20261113T154407Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

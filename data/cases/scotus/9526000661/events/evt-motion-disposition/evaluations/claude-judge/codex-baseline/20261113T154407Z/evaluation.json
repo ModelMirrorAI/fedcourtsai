@@ -1,0 +1,130 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.2,
+    "notes": "A single capital stay application on the eve of an Oklahoma execution, from a successive state post-conviction proceeding the state court resolved on a procedural bar. The question (extending the Pena-Rodriguez juror-impeachment exception to alleged false prosecutorial argument) is novel but drew no amicus, no noted dissent and no separate writing; the Court denied the stay and certiorari in a two-sentence order. Grave for the applicant, low systemic significance."
+  },
+  "brier_score": 0.0036,
+  "brier_skill_score": 0.7355667159763314,
+  "case_id": "scotus/9526000661",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.06,
+        "score": 0.010014019934335403
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.88,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.95,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.12,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.01,
+          "Barrett": 0.01,
+          "Gorsuch": 0.02,
+          "Jackson": 0.1,
+          "Kagan": 0.035,
+          "Kavanaugh": 0.01,
+          "Roberts": 0.005,
+          "Sotomayor": 0.22,
+          "Thomas": 0.015
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.010014019934335403,
+    "total": 0.010014019934335403
+  },
+  "correct": 1,
+  "created_at": "2026-11-13T15:51:22.792215Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell run 2026-11-09, before the 2026-11-12 resolution. Captured log (coverage 0.93): provisioned inputs, statpack, two corpus queries returning unrelated priors (one doc date 2026-06-03), CourtListener lookup of Pena-Rodriguez (2017-03-06), and two unobserved web searches whose queries target the Pena-Rodriguez opinion, not this case. No own-case disposition query; the reasoning says so and treats the outcome as open.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-2",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.6,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Docket entries of Nov 12 2026: 'Application (26A661) referred to the Court.' and 'Application (26A661) for stay of execution of sentence of death presented to Justice Gorsuch and by him referred to the Court is denied. The petition for a writ of certiorari is denied.'",
+        "claim": "The Court will most likely deny the application for a stay of execution, by a brief order giving no majority explanation.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Outcome response_requested false; Oklahoma's response was filed Nov 09 with no docket entry requesting it.",
+        "claim": "A response will be called for promptly, probably on November 9 or 10 (88%).",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "Outcome referred_to_court true; referral and denial entries dated Nov 12 2026.",
+        "claim": "The application will then be referred to the full Court (95%), with disposition on November 11 or the morning of November 12.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Outcome interim_signals.amicus_briefs 0.",
+        "claim": "Zero additional amicus entries are expected (12% for any).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Disposing entry notes no writing or dissent; outcome writing_roles null.",
+        "claim": "The modal order has no separately authored writing.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261109T212928Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:c1b452dea2e2f9a5c263428a31ed4c11f562c6ca10765b1dcfe66ff54daa733d",
+    "label": "proc-v21",
+    "pipeline_sha": "db110b5849c5c90c07c307a3a3ae81ece2ae563e",
+    "stamped_at": "2026-11-13T15:51:22.792215Z"
+  },
+  "reasoning_quality": 0.75,
+  "run_id": "20261113T154407Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}
