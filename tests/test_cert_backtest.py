@@ -75,6 +75,19 @@ from tests.conftest import FixtureCorpus
 runner = CliRunner()
 
 
+@pytest.fixture(autouse=True)
+def _scratch_metrics_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Point the metrics root at a scratch directory for every test in this file.
+
+    A replay command moves the pooled record and the comparison reports under
+    the metrics root out of the tree while its cells run and back afterwards.
+    Left on the default, that is the checkout's own ``metrics/``, which every
+    xdist worker shares: two workers moving the same directories collide, and
+    a loser can leave a committed file deleted from the working tree.
+    """
+    monkeypatch.setenv("FEDCOURTS_METRICS_ROOT", str(tmp_path / "metrics"))
+
+
 def _item(case_id: str, actual: Disposition) -> BacktestItem:
     return BacktestItem(
         BacktestFeatures(
@@ -3016,7 +3029,8 @@ def test_a_harness_fault_is_annotated_and_the_report_still_written(
         app,
         ["cert-backtest", "--out", str(out), "--engine", "auto", "--work-dir", str(tmp_path / "w")],
     )
-    assert result.exit_code == 0, result.output
+    # An escaped exception leaves the output empty, so show the exception itself.
+    assert result.exit_code == 0, (result.output, result.exception)
     assert "::error::cert-backtest: 1 cell(s) lost to a harness fault" in result.stdout
     report = read_model(out, CertBacktest)
     assert report.provenance is not None

@@ -436,8 +436,15 @@ def test_the_configuration_digest_is_the_actors_own_until_something_changes() ->
 # ----------------------------------------------------------- the commands, offline
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def metrics_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """A scratch metrics root, for every test in this file whether it names it or not.
+
+    A replay command moves the pooled record and the comparison reports under
+    the metrics root out of the tree while its cells run. On the default root
+    that is the checkout's own ``metrics/``, which every xdist worker shares,
+    and two workers moving the same directories collide.
+    """
     root = tmp_path / "metrics"
     monkeypatch.setenv("FEDCOURTS_METRICS_ROOT", str(root))
     return root
