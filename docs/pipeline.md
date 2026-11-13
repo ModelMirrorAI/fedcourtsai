@@ -3432,7 +3432,11 @@ candidate's campaign first. The draw is capped at 20 petitions or 10 cases,
 40 cells of one engine either way, since a dispatch has no `review` hold. The
 report, `metrics/backtest-comparisons/<kind>-<predictor>-<run id>.json`,
 lands on its own `metrics/backtest-comparison-<run id>` branch, so one
-unmerged comparison is never overwritten by the next. A prompt candidate is
+unmerged comparison is never overwritten by the next. An `engine: stub`
+dispatch is the lane's free rehearsal: its pull request shows the `publish` job
+working end to end and is closed unmerged, and a test fails any committed
+comparison report whose dispatch or arms ran the stub, so that pull request
+cannot pass the gate. A prompt candidate is
 not dispatchable, its template having to be in the commit's tree: that
 comparison runs by command where the corpus is pulled.
 
@@ -4311,7 +4315,12 @@ three turns, each a fresh CLI process, under four rules the script states and
 classified by `fedcourts engine-attempt-class` — the local runner's own
 classifier over its own signature sets — and only a `transient` verdict
 retries: a content-filter or context-length fault, a spent quota, or anything
-unrecognized ends the step on that attempt. A retry starts only while 20
+unrecognized ends the step on that attempt. A failing exit is classified on
+the error the engine itself reported, in its result or as the same object on
+stderr, and not on the rest of stderr, so a model call the CLI retried and
+recovered from does not buy a retry for the client error the turn ended on;
+only where the engine reported nothing is the whole of stderr read. A retry
+starts only while 20
 minutes of the deadline would remain after its backoff (the backoff is 15
 seconds per attempt so far, plus up to 15 of jitter): past the watchdog's
 three-minute margin by more than the longest cell observed, so a retry is a
@@ -4548,8 +4557,13 @@ spawned since. The bundle rides the cell's
 artifact under `engine-watchdog/`, which every logged-in GitHub user can
 download for its retention window, so it carries shapes and metadata only: the
 session rollout stays on the runner and the disarm step distils its item shapes
-(`codex-item-shapes`) in its place. Now that the bracket is every engine's, that
-exposure is too — a claude or gemini cell uploads the watchdog's own log always,
+(`codex-item-shapes`) in its place, and a gemini cell's client-error report —
+the request a model call was refused over, which is the cell's prompt, record
+text and retrievals — stays there too, with the refused request's shape
+(`gemini-error-shapes`: turn order, part kinds and sizes, function names, HTTP
+codes and status names) joining the bundle as `gemini-error-shapes.json`
+whenever a report or a telemetry `api_error` record exists. Now that the bracket is every engine's, the
+bundle's exposure is too — a claude or gemini cell uploads the watchdog's own log always,
 and the process forest whenever the watchdog acts. It is the same class of
 publication the codex cells already accepted, widened from one engine to three:
 argv and kernel state for this runner user, never a file's contents, and a

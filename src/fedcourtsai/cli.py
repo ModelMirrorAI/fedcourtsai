@@ -51,6 +51,7 @@ from typer.core import TyperCommand
 from . import (
     ai_activity,
     ai_rulings,
+    amicus_line,
     analytics,
     backtest_comparison,
     blinding,
@@ -323,6 +324,7 @@ from .pipeline import (
     application_backfill,
     argument_features,
     authorship,
+    cell_context,
     decision_below,
     discovery_frontier,
     granted_noted,
@@ -3333,6 +3335,8 @@ def _ocr_sweep(  # noqa: PLR0912, PLR0913, PLR0915 - keyword-only; one flag per 
     _echo_by_kind("class", selection.class_by_kind)
     if selection.thin_size:
         typer.echo(f"  {selection.thin_size} of the class hold thin text rather than none")
+    if selection.unread_size:
+        typer.echo(f"  {selection.unread_size} of the class hold a marked run of unread pages")
     if backlog_held:
         typer.echo(
             f"::warning::{command} --sweep: backlog held — the class holds {found} rows, "
@@ -3573,6 +3577,7 @@ def _ocr_dispatched_write(
         documents_seen=scan.documents_seen,
         candidates=len(scan.candidates),
         thin_text=class_reading(scan).thin_text,
+        unread_runs=class_reading(scan).unread_runs,
         candidates_by_kind=class_reading(scan).candidates_by_kind,
         set_keyed=scan.set_keyed,
         bound=max_cases,
@@ -3688,6 +3693,8 @@ def _echo_ocr_recovery(result: OcrRecoveryResult, db_path: Path, *, apply: bool)
     _echo_by_kind("class", result.candidates_by_kind)
     if result.thin_text:
         typer.echo(f"  {result.thin_text} of the class hold thin text rather than none")
+    if result.unread_runs:
+        typer.echo(f"  {result.unread_runs} of the class hold a marked run of unread pages")
     if result.set_keyed:
         _echo_by_kind("left out (stored URL is a set key, not one link)", result.set_keyed)
     if apply:
@@ -3834,7 +3841,9 @@ def ocr_recover_petitions_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; opt
     reply, the invited brief, the four merits filings — whose text is empty,
     whitespace-only or thin (under 200 characters a page on average, on a row
     that is not truncated, not under a per-filing header and that OCR has not
-    read), whose page count is above zero (a zero-page row is a PDF
+    read), or that carries the extractor's note of a run of unread pages (on
+    such a row too, or named among the rows stored before the note was
+    written), whose page count is above zero (a zero-page row is a PDF
     the extractor could not open, which is not OCR's to repair, and a case with
     no row of a kind at all is a fetch gap), and whose stored URL is one link.
     That last condition excludes one shape: a multi-respondent opposition is
@@ -3854,7 +3863,8 @@ def ocr_recover_petitions_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; opt
     result — the plain head cut, never the appendix-aware one — and
     every recovered row carries `ocr_derived`: OCR output is derived text, and
     must never read as a clean extraction. Additive — text is written only where
-    the stored row held none, or held thin text shorter than the reading — and a
+    the stored row held none, held thin text shorter than the reading, or is a
+    marked row whose longer reading still holds its stored text — and a
     recovered **petition** re-derives its
     `questions-presented` row through the ingest path's own deriver, which
     carries the marker with it; no other kind has a follow-on write.
@@ -4072,7 +4082,7 @@ def recut_documents_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options m
     URL, so a row stored before that cut keeps a plain head cut for as long as its
     link is unchanged. The class is every stored row of the three kinds that is
     `truncated`, not `ocr_derived` (an OCR-recovered row is head-cut by design),
-    carries no `[pipeline note:` line, and has one Court URL; the scope is the
+    carries no cut note (the unread-run note is not one), and has one Court URL; the scope is the
     predict-relevant live-slice rows, or with `--all-live` the whole live slice.
     Each candidate is re-fetched by its stored URL on supremecourt.gov and re-cut
     by the fetching lanes' own extractor at the configured cap. A served PDF with
@@ -7097,6 +7107,92 @@ def alignment_side_codes_cmd(
     if report is not None:
         write_text(report, alignment_side.render_run_report(merged, run_id=run_id))
     typer.echo(f"alignment-side-codes: {added} code(s) added, {len(merged.entries)} in all")
+
+
+@app.command("amicus-line-fit")
+def amicus_line_fit_cmd(
+    before_term: Annotated[
+        int | None,
+        typer.Option(
+            "--before-term",
+            help="Also print each band's two arm pools as a cert cell of this Term "
+            "would pool them: the Terms strictly before it, inside the lookback window.",
+        ),
+    ] = None,
+    salience_version: Annotated[
+        str,
+        typer.Option(
+            "--salience-version",
+            help="The salience version whose bands to print. Default: the active one.",
+        ),
+    ] = "",
+) -> None:
+    """Print the amicus-adjusted cert reference line's fit, read-only.
+
+    The fit (`amicus_line.py`, rule `amicus-line-v1`): each Term's risk set for
+    each salience band, over the live-slice paid cert petitions the band rates
+    pool, cut on the corpus `cert_amicus_briefs` column into `none` (a stored 0)
+    and `some` (1 or more), with the rows whose count is NULL beside them as
+    `unread`. With `--before-term`, also each arm's pool as the band anchor is
+    pooled (`salience.base_rate_lookback_terms`), and whether it meets the
+    rule's minimum; below it the line forecasts the band rate. Writes nothing
+    and feeds no board. Prints one coverage line per Term and band to stderr and
+    `{"rule": ..., "min_resolved": ..., "salience_version": ..., "cells": ...,
+    "pools": ...}` JSON to stdout. Each pool row also carries the band's unsplit
+    rate from the same fit and its unread rows. Exits 2 on an unregistered
+    salience version and 1 if the corpus is absent.
+    """
+    settings = get_settings()
+    version = salience_version or SALIENCE_VERSION
+    if version not in registered_versions():
+        typer.echo(f"amicus-line-fit: {version!r} is not a registered salience version.", err=True)
+        raise typer.Exit(code=2)
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if settings.corpus_backend != "ranged" and not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before reading the amicus-line fit.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
+        fit = [
+            cell
+            for cell in amicus_line.fit_rows(
+                corpus.iter_rows(conn, court="scotus", resolved=True, live_slice=True)
+            )
+            if cell.salience_version == version
+        ]
+    for cell in fit:
+        typer.echo(
+            f"OT{cell.term} {version}/{cell.band} risk set: {cell.none_resolved} resolved with "
+            f"no cert amicus brief, {cell.some_resolved} with one or more, "
+            f"{cell.unread_resolved} unread",
+            err=True,
+        )
+    pooled = (
+        amicus_line.pools(
+            fit,
+            salience_version=version,
+            term=before_term,
+            lookback_terms=load_salience_config(settings.config_root).base_rate_lookback_terms,
+        )
+        if before_term is not None
+        else []
+    )
+    typer.echo(
+        json.dumps(
+            {
+                "rule": amicus_line.AMICUS_LINE_RULE,
+                "min_resolved": amicus_line.AMICUS_LINE_MIN_RESOLVED,
+                "salience_version": version,
+                "cells": [cell.model_dump(mode="json") for cell in fit],
+                "pools": [pool.model_dump(mode="json") for pool in pooled],
+            },
+            indent=2,
+            sort_keys=True,
+        )
+    )
 
 
 @app.command("justice-priors")
@@ -14703,12 +14799,23 @@ def _stamped_conditioning(
     existing gap and stamps ``None`` as before; a context naming a snapshot file
     that is not on disk is a re-stamp away from the runner rather than evidence
     about what the cell read, so it stamps the block unjudged.
+
+    The same file gives the block its one other stamp-written field,
+    ``cert_amicus_briefs`` (:func:`_snapshot_cert_amicus_briefs`): read here
+    rather than at provisioning so the count is in no file the cell reads.
     """
     if provisioned is None:
         return None
     snapshot = case_paths.snapshot(provisioned.snapshot_date.isoformat())
+    # The cert-stage amicus count is the stamp's own reading of the snapshot
+    # file, assigned on every path so nothing `record/context.json` carried in
+    # the field survives: provisioning never writes it, and the file is
+    # reachable from the cell's workspace.
     if not snapshot.is_file():
-        return provisioned
+        return provisioned.model_copy(update={"cert_amicus_briefs": None})
+    provisioned = provisioned.model_copy(
+        update={"cert_amicus_briefs": _snapshot_cert_amicus_briefs(snapshot, provisioned.cutoff)}
+    )
     if _snapshot_stem(record.input_snapshot) == snapshot.stem:
         return provisioned.model_copy(update={"snapshot_uptake": "read"})
     _flag_unread_snapshot(
@@ -14725,6 +14832,23 @@ def _stamped_conditioning(
         run_id,
     )
     return provisioned.model_copy(update={"snapshot_uptake": "unread"})
+
+
+def _snapshot_cert_amicus_briefs(snapshot: Path, cutoff: date | None) -> int | None:
+    """The cert-stage amicus count the provisioned snapshot file discloses, or ``None``.
+
+    :func:`fedcourtsai.pipeline.cell_context.stamped_cert_amicus_briefs` over the
+    file's payload, under the cutoff the cell was placed at. Tolerant like the
+    rest of the post-agent stamp: a file that does not parse as a JSON object
+    leaves the count unset rather than failing a prediction that already exists.
+    """
+    try:
+        payload = json.loads(snapshot.read_text())
+    except (OSError, ValueError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    return cell_context.stamped_cert_amicus_briefs(payload, cutoff)
 
 
 #: What the tripwire's note may spend on one quoted path, and on the whole note.
@@ -17397,6 +17521,55 @@ def codex_item_shapes(
         f"codex item shapes: {distillation['files']} file(s), "
         f"{distillation['records']} record(s), "
         f"{len(distillation['shapes'])} distinct shape(s){truncation} -> {out}"
+    )
+
+
+@app.command("gemini-error-shapes")
+def gemini_error_shapes(
+    *,
+    report_dir: Annotated[
+        Path,
+        typer.Option(help="Dir gemini-cli writes its client-error reports to (its temp dir)."),
+    ],
+    out: Annotated[Path, typer.Option(help="Where to write the distillation JSON.")],
+    telemetry_file: Annotated[
+        Path | None,
+        typer.Option(help="The engine's telemetry.log, read for its api_error records."),
+    ] = None,
+) -> None:
+    """Distill gemini-cli's client-error reports into the refused request's shape.
+
+    When a model call fails for good the CLI leaves a report in its temp dir
+    holding the error and the request that drew it, and the runner is thrown
+    away with it. This writes what a client error (an HTTP 400) is read
+    against — the request's turn order, each part's kind and size, which
+    function a call or a response names — with the telemetry log's
+    ``api_error`` records beside it, so the fault can be explained after the
+    run.
+
+    No **value** crosses into the output: a report holds the cell's prompt,
+    its record text and what it retrieved, verbatim, and only key names, roles,
+    function names, the call site in a report's file name and telemetry's model
+    and error type (identifier-shaped tokens of up to 64 characters), sizes,
+    HTTP codes and the API's own status names are emitted — never the request
+    text, a call's arguments or the error message (see
+    :func:`~fedcourtsai.retrieval.distill_gemini_error_reports`). Reports and
+    turns are capped. Nothing is written when there is no report and no
+    ``api_error`` record, so a clean cell's artifact is unchanged. Tolerant
+    like the capture steps beside it — a missing dir or a malformed report
+    never fails the step.
+    """
+    distillation = retrieval.distill_gemini_error_reports(report_dir, telemetry_file)
+    found = distillation["reports_found"]
+    errors = distillation["api_errors_found"]
+    if not found and not errors:
+        typer.echo("gemini error shapes: no client-error report and no api_error record")
+        return
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(distillation, indent=2, sort_keys=True) + "\n")
+    typer.echo(
+        f"gemini error shapes: {found} report(s) found, "
+        f"{len(distillation['reports'])} read, {errors} api_error record(s) -> {out}"
     )
 
 

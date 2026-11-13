@@ -225,6 +225,24 @@ the process-version stamp and before `validate`. So write the alias and nothing
 else: inventing an alias you were not given, or guessing at a real predictor id,
 fails the cell.
 
+The whole of what you write, under
+`data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/evaluations/`:
+
+```
+$EVALUATOR_ID/<alias>/$RUN_ID/evaluation.json   one pair per candidate
+$EVALUATOR_ID/<alias>/$RUN_ID/evaluation.md
+$EVALUATOR_ID/$RUN_ID/retrieval.md              one set for the cell
+$EVALUATOR_ID/$RUN_ID/tooling.json
+$EVALUATOR_ID/$RUN_ID/flags.json                optional
+```
+
+A candidate's pair sits under its alias and then the run id; the cell's own
+files sit under the run id directly. Every path starts with `$EVALUATOR_ID`.
+Each candidate gets its own directory and its own `evaluation.md`: a grade
+written as `$EVALUATOR_ID/$RUN_ID/<alias>/…`, as
+`<alias>/$EVALUATOR_ID/$RUN_ID/…`, or as a single
+`$EVALUATOR_ID/$RUN_ID/<alias>.json` is at a path nothing reads.
+
 - **`evaluation.json`** — must validate against `schemas/evaluation.schema.json`
   (the `Evaluation` model). Key fields:
   - `case_id` = `$COURT_ID/$DOCKET_ID`, `event_id` = `$EVENT_ID`,

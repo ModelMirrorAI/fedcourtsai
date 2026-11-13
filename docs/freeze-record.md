@@ -19259,3 +19259,800 @@ freeze commit is recorded here.
   a cell whose artifact passes both `uv run fedcourts finalize-complete` and
   `uv run fedcourts finalize-validates`; and `uv run pytest
   tests/test_gemini_cell.py tests/test_finalize.py` is green.
+
+- **Readings the `proc-v21` entry owes, recorded 2026-11-13.** No rule moves
+  here. The `proc-v21` entry (dated 2026-11-11), carried to `main` by
+  `promotion/2026-11-12` (merge `b1cdb7c58`, registry stamped by `c768a6b50`)
+  and tagged `prereg/proc-v21`, quoted its `successor-disclosures` lines at
+  a provisional instant and owed them again once the carrying merge had
+  stamped the registry, before any figure of a `proc-v20` window is quoted
+  outside the committed board. That entry is not otherwise edited.
+
+  The run reads the stamped registry and the ledger at `origin/main`'s
+  `95bc6575c` (`2026-11-13T11:01:26Z`).
+
+  **`proc-v21` closes `proc-v20`.** `uv run fedcourts successor-disclosures
+  --closed proc-v20 --successor proc-v21` prints:
+
+  ```
+  successor proc-v21 closes proc-v20 at 2026-11-12T19:49:39+00:00
+    closed proc-v20 gemini-baseline: 51 counted event(s) — 3 resolved, 48 pending at close
+    closed proc-v20 codex-baseline: 51 counted event(s) — 3 resolved, 48 pending at close
+    closed proc-v20 claude-baseline: 51 counted event(s) — 3 resolved, 48 pending at close
+    split events: 0 (0 resolved) — in no complete grid
+    claude-baseline: 9 successor-counted event(s); earlier window proc-v20: 0 failed, 0 uncounted cell, 0 missing, 9 not reached before the close
+    codex-baseline: 9 successor-counted event(s); earlier window proc-v20: 0 failed, 0 uncounted cell, 0 missing, 9 not reached before the close
+    gemini-baseline: 9 successor-counted event(s); earlier window proc-v20: 0 failed, 0 uncounted cell, 0 missing, 9 not reached before the close
+  ```
+
+  The provisional run, at an instant of `2026-11-12T00:00:00Z`, printed 51
+  counted events per engine with none resolved. At the stamped instant,
+  `2026-11-12T19:49:39Z`, each engine still holds 51 counted events
+  in its window, and 3 of them carry an outcome dated on or before the
+  close's day: the `evt-motion-disposition` events of `scotus/9526000657`,
+  `scotus/9526000658` and `scotus/9526000661`, resolved 2026-11-10,
+  2026-11-11 and 2026-11-12. The command compares by day; the ledger settles
+  the minute. One commit, `0f219543a6` (`2026-11-12T17:04:13Z`), added all
+  three `outcome.json` files to `main`, after the `proc-v21` entry was
+  recorded and 2 hours 45 minutes before the carrying merge. So the close
+  was taken with outcomes visible on 3 of the 51 counted events, and with no
+  grading of any of the 51 recorded, which is also why no `graded by` line
+  prints. The `proc-v21` entry states that no score motivated its changes,
+  and these counts are what a reader weighs that statement against.
+
+  No event is split between the two labels. Each engine has 9 events counted
+  under `proc-v21` so far, and for every one the `proc-v20` window holds no
+  failed, uncounted or missing cell: the event was not reached before the
+  close.
+
+  The closed-window resolved counts can still move: an outcome dated on or
+  before the close's day may land late, and an event void de-counts what it
+  names. The successor-counted, split, partition and grading lines also move
+  as cells, outcomes and gradings land.
+
+- **`proc-v22`, the evaluate prompt lists every output path a judge writes;
+  recorded 2026-11-13.** Carried to `main` by the promotion tagged `<FILL: promotion tag>`
+  (merge commit `<FILL: merge hash>`, merged `<FILL: merged-at>`), to be tagged
+  **`prereg/proc-v22`**. Registered under the merge-stamped rule. Only the
+  evaluate prompt changes, so the three evaluator digests move and the three
+  predictor digests are carried forward byte-identical. This is an
+  evaluator-only label: it holds `proc-v21`'s counting instant,
+  `2026-11-12T19:49:39Z`, opens no window and closes none, and only its
+  three new evaluator blessings take the carrying merge's committer time. No
+  harness boundary is registered here. No scored value is recomputed, though
+  each judge's grades from this label on form a new rubric row on the boards
+  (the pooling paragraph below).
+
+  **What changes.**
+  - *The evaluate prompt, the output tree.* The *Outputs* section gains a
+    block listing every path a judge writes under the event's `evaluations/`
+    directory: each candidate's `evaluation.json` and `evaluation.md` under
+    `$EVALUATOR_ID/<alias>/$RUN_ID/`, and the cell's own `retrieval.md`,
+    `tooling.json` and optional `flags.json` under `$EVALUATOR_ID/$RUN_ID/`.
+    It says every path starts with `$EVALUATOR_ID`, that each candidate gets
+    its own directory and its own `evaluation.md`, and names three shapes
+    nothing reads: `$EVALUATOR_ID/$RUN_ID/<alias>/…`,
+    `<alias>/$EVALUATOR_ID/$RUN_ID/…`, and a single
+    `$EVALUATOR_ID/$RUN_ID/<alias>.json`.
+  - *Unchanged.* The predict prompt, every model, every engine CLI pin,
+    every agent's configuration, the rubric, and what a judge is asked to
+    grade. The paths the block lists are the paths the prompt already named
+    in prose and the harness already reads.
+
+  **Why.** A `gemini-judge` cell that writes its files at a path the harness
+  does not read lands nothing, and its attempt is recorded as `no_output`.
+  The evidence is five cells. Run `20261110T154355Z` (Actions run
+  42847288958) left 5 `gemini-judge` `no_output` attempts beside 28 landed
+  `gemini-judge` cells, and all five were read from their cell artifacts on
+  2026-11-12: three wrote `<alias>/$EVALUATOR_ID/$RUN_ID/`, one wrote
+  `$EVALUATOR_ID/$RUN_ID/<alias>/`, and one wrote a flat
+  `$EVALUATOR_ID/$RUN_ID/<alias>.json` with one shared `evaluation.md`.
+  Those are the three shapes the block names. Cell artifacts expire, so
+  nothing committed reproduces that reading.
+
+  The committed ledger at `origin/main` `95bc6575c` holds 39 `gemini-judge`
+  `attempt.json` records of class `no_output` in all, beside 247 landed
+  `gemini-judge` cells (by `usage.json`), across 9 evaluate runs from
+  `20260906T174126Z` to `20261110T154355Z`; none for `codex-judge`, and no
+  `claude-judge` attempt record is committed. The other 34 were not read
+  cell by cell, so the share of them that was a misplaced path is not
+  known, and 22 of them sit in one run, `20261014T154957Z`, which landed 4
+  `gemini-judge` cells: that looks like a failure of the run and not a path
+  slip in each cell. The harness moves a whole cell written in one of the
+  three shapes onto the contract path after the fact and adds a harness
+  note when it does; it declines a cell that mixes shapes or is partly
+  written, which still ends `no_output` with no note. The prompt change is
+  the half that asks the judge not to write them.
+
+  **Pre-registered.** No direction of movement is predicted for any grade a
+  judge authors, and a movement in `reasoning_quality`,
+  `predicted_reasoning_quality` or a judge-graded claim across this label is
+  not read as an effect of this wording: it changes where a judge writes,
+  not what it is asked to judge. A fall in `gemini-judge` `no_output`
+  attempts after this label is not read as the prompt's effect alone,
+  because the harness repairs for the same three shapes and the pair's move
+  to `gemini-4-carbon` reached `main` one promotion earlier, on 2026-11-12,
+  however many evaluate rounds land between the two. A judge that follows
+  the block gives the harness nothing to settle, so the count this change
+  should hold down is the harness note. That count has no before-series: at
+  `95bc6575c` no committed `flags.json` carries the note, because the repair
+  reached `main` on 2026-11-12 and no evaluate round has landed since. The
+  note also undercounts misplacement, since a cell the harness declines to
+  settle leaves none. So the note and `no_output` counts are reported after
+  this label and neither is read as a measured effect of the wording.
+
+  **What is not verified at registration.** No cell has run under the new
+  prompt. Whether a judge on any engine follows the block is owed to the
+  first evaluate rounds after the carrying merge, by the effect check below.
+
+  **The amendment debt.** This entry pays none and adds no new token.
+
+  The runnable effect check once it is live:
+  - on `main`, `uv run python -c "from fedcourtsai.process_version import
+    CURRENT_PROCESS_LABEL as L; print(L)"` prints `proc-v22`, and `uv run
+    fedcourts process-digest --all` prints the six digests below;
+  - `grep -c 'is at a path nothing reads' .github/prompts/evaluate.md` on
+    `main` prints 1 (0 on `proc-v21`);
+  - over the first three full evaluate rounds after the carrying merge, each
+    `evaluation.json` the round's collect PR adds carries the `proc-v22`
+    digest of its judge, and the count of `gemini-judge` `attempt.json`
+    records of class `no_output` and of `flags.json` files carrying `the
+    judge wrote its candidate directories as` is reported per round beside
+    the round's `gemini-judge` cell count. The check passes on the digests;
+    the two counts are reported, with no threshold.
+
+  **The registration** (`uv run fedcourts register-process --label
+  proc-v22`, run 2026-11-13 over `staging` at `38152858b` with `proc-v21`
+  stamped). Three digests move.
+
+  | Actor | Before | `proc-v22` |
+  | --- | --- | --- |
+  | `claude-baseline` | `sha256:b61115d400ce9267e594df12aa530e5a53f6412fb350ec04fc5cc04dac832e78` (`proc-v21`) | the same digest, carried forward |
+  | `codex-baseline` | `sha256:a74ea5610425d331c2616ae8719866bf78f06ea6e1c6b111d66dfac31f2c8578` (`proc-v21`) | the same digest, carried forward |
+  | `gemini-baseline` | `sha256:ff9786ea91896f0f50f176c3b1de403074ccf54cbe49ba69d844d201c59d2069` (`proc-v21`) | the same digest, carried forward |
+  | `claude-judge` | `sha256:c1b452dea2e2f9a5c263428a31ed4c11f562c6ca10765b1dcfe66ff54daa733d` (`proc-v21`) | `sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08` (new) |
+  | `codex-judge` | `sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c` (`proc-v20`, `proc-v21`) | `sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5` (new) |
+  | `gemini-judge` | `sha256:93dfd6b52d95a78cbc7ce722aa2230f0e8ce09716d6219c95036ca071419fee9` (`proc-v21`) | `sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a` (new) |
+
+  **The audit of a held instant.** The instant precedes the carrying
+  promotion on purpose, so the date comparison is not this label's audit.
+  Its audit is the byte comparison: the three predictor digests `uv run
+  fedcourts process-digest --all` prints at `prereg/proc-v22` equal the
+  three it prints at `prereg/proc-v21`, whose own instant-versus-promotion
+  audit stands, and the three new evaluator blessings equal the carrying
+  merge's committer time. No window row changes: the registry holds 39
+  windows before and after, and each live predictor keeps its open
+  `proc-v21` window.
+
+  **What was graded under the replaced digests.** At `origin/main`
+  `95bc6575c` (`2026-11-13T11:01:26Z`), committed files under `data/cases`
+  naming each replaced evaluator digest: 108 for `codex-judge`'s, which
+  `proc-v20` blessed and `proc-v21` carried, and 0 for each of
+  `claude-judge`'s and `gemini-judge`'s, which `proc-v21` blessed on
+  2026-11-12 and under which no evaluate round has yet landed. These count
+  carrying files, as the earlier entries' retiring-digest counts do: 108 is
+  every `evaluation.json` stamped with that digest, and so an upper bound on
+  the gradings of counted predictions among them, which no committed command
+  splits out. Rounds keep landing until the carrying merge, so the three
+  counts are read again once it has stamped the registry, and a dated
+  follow-up entry quotes them.
+
+  **The evaluator half's pooling exposure.** An evaluator digest records
+  and never partitions, so nothing is de-counted and a pooled judge figure
+  now spans one more digest per evaluator. Under the reading rule in
+  `metrics/README.md` the claimable figure is the per-rubric one, and a
+  rubric is an (evaluator, evaluate digest) pair. So from this label each of
+  the three judges opens a new rubric row in `reasoning_quality_rubrics`
+  and the panel figures a new signature in `by_signature`, each starting at
+  `n` 0, and a pooled value spanning two digests of one evaluator is
+  coverage, never a claimable figure. Three surfaces list their rubrics but
+  carry no per-rubric reading (the claim judge-validation tau-b, the ops
+  reasoning-quality quantiles and the semantic per-grader agreement), so
+  there a value pooled across this label has no claimable form. A point
+  holding one evaluator under two digests joins no reading and is counted in
+  `mixed_signature_points`; such points concentrate in cases read at several
+  moments, which are the granted ones. The `proc-v21` rubrics of
+  `claude-judge` and `gemini-judge` close at the carrying merge with
+  whatever lands before it, 0 gradings as of this entry. What separates the
+  two sides of this boundary is where the prompt tells a judge to write and
+  nothing in what it is told to grade.
+
+  **The gap a held instant leaves.** An evaluation stamped between the held
+  instant and the new evaluator bless moment passes the timing test under a
+  digest not yet on `main`. Nothing can carry the new evaluator bytes before
+  the carrying promotion lands them, since cells are minted from `main`, and
+  Step 0 below shows nothing already does; from the bless moment on, the
+  evaluation tripwire reddens the suite on any cell stamped in the gap.
+
+  **Step 0.** At the same commit, the count of committed files under
+  `data/cases` naming `sha256:<digest>` is **0** for each of the three newly
+  blessed digests, and **4071** files there carry a `process_version` stamp.
+- **The United States' merits amicus brief is read under the caption that
+  names the supported side; recorded 2026-11-13.** A **provisioning-cutoff**
+  change with a harness boundary, recorded ahead of the promotion that carries
+  it.
+
+  **Why.** The Clerk enters the United States' amicus brief on the merits
+  under two captions. One names the filer and then its role ("Brief for the
+  United States as amicus curiae supporting petitioners filed."); the other
+  names the supported side straight after the filer ("Brief amicus curiae of
+  United States supporting vacatur filed.", "Brief amicus curiae of United
+  States in support of neither party filed."). The merits arm read the brief
+  by the invited brief's entry anchor, which admits only "as …", the filing
+  verb, a parenthesis, punctuation or the end of the text after the filer's
+  name, so the second caption was never
+  read and a granted docket whose brief carries it stored no
+  `merits-amicus-united-states` row. All three predictors flagged the gap on
+  24-1016 (`evt-brief-judgment`) in predict run `20261113T042228Z`.
+
+  **What moved.** `pipeline.documents` reads the merits arm through its own
+  test, `is_united_states_merits_amicus_entry`: the invited brief's anchor, or
+  an entry that opens "Brief amicus curiae of [the] United States" followed
+  at once by "supporting" or "in support of" and carrying a filing verb, unless
+  it says the brief was "not accepted". The
+  post-grant bound, the `Main Document` link, first-in-docket-order and the
+  "(as to No.)" cut on a consolidated group are the arm's as before.
+  `cert_signals.is_sg_invited_brief_entry` is unchanged, so the invited
+  brief's position, the `sg-invited-brief` row and the sg-brief moment's date
+  read exactly the entries they read before. An amicus whose name opens with
+  the same words ("United States Conference of Catholic Bishops … supporting
+  petitioners") is still not read, because "supporting" or "in support of"
+  must follow the filer's name directly. The test reads those words and not a
+  list of sides, so an amicus named "United States Supporting …" would be
+  read; none is stored.
+
+  No prompt byte and no registry field other than the boundary row moves, so
+  no digest moves. `uv run fedcourts process-digest --all` prints `proc-v22`
+  and the six digests `b61115d4…` (claude-baseline), `a74ea561…`
+  (codex-baseline), `ff9786ea…` (gemini-baseline), `6d65018d…`
+  (claude-judge), `ad4c6cc6…` (codex-judge) and `71a3fe87…` (gemini-judge),
+  with and without the change. The predict prompt asks a cell to say which
+  side the brief supports; on a brief in support of neither party or of
+  vacatur the docket entry in the cell's snapshot carries the caption, and
+  the brief says what it asks for.
+
+  **A harness boundary under the 2026-10-11 pooled rule.** The change adds to
+  what a merits cell reads under unchanged digests. It is composition, not a
+  cut. The pooled default and the paired figure keep both sides and list each
+  engine's `n` before and after. It cuts only a figure that reads its own
+  effect.
+  - **The registry row** is `united-states-amicus-supported-side-caption`. It
+    applies to every predictor, and its reach is `granted dockets`, since the
+    arm opens only after a grant. It is **gradual**. A stored row changes
+    only when its docket's documents are fetched again: a live poll's
+    provisioning, or the freshness pass over predict-relevant cases, which
+    fetches any case whose stored set differs from the selected one. A
+    decided docket is not re-fetched unless a back-fill pass reaches it. It
+    is registered **pending** in this change's own PR (`fedcourts
+    register-boundary`), under the 2026-10-14 merge-stamping declaration,
+    and its `merge` and `at` stay null until the promotion merge that
+    carries it to `main` stamps them (`promotion-record`).
+  - **The side test** is the registered one, against the carrying merge.
+    Because the boundary is gradual, an after-side cell provisioned before
+    its docket was re-fetched still lacks the brief, so the after-side `n`
+    is an upper bound on exposure.
+
+  **The population.** Measured read-only over blob
+  `c6c5abc991871b32178203b08457fa95f5cb107b2091c9eb2ba5908a5fb64b73` (newest
+  pull 2026-11-13, newest stored snapshot row 2026-07-13), comparing the
+  previous and the changed selection at the latest stored snapshot of each
+  SCOTUS docket numbered in OT2016 through OT2026, applications aside (53,197
+  dockets, 46,534 with a snapshot, 1,280 of them showing a grant). Forty
+  entries carry the newly read caption, all on granted dockets: twenty-five
+  say "in support of neither party" or "supporting neither party", ten name
+  vacatur, and five name a party's side. Each sits on a docket of its own.
+  The selection moves on thirty of the forty dockets and on no other kind:
+  - **Twenty-nine gain** a `merits-amicus-united-states` link where none was
+    selected. Three have committed merits cells and no merits outcome: 24-1016
+    and 25-183 (six predictions each) and 25-1311 (three). The other
+    twenty-six, from the 2021 through 2025 Terms, have no committed
+    prediction.
+  - **One changes which brief is stored.** On 24-109 the docket carries a
+    brief in support of neither party filed 2024-12-23 and a second brief
+    under the already-read caption filed 2025-09-24, after the case was set
+    for reargument. The arm stores the first in docket order, so the row
+    moves from the second brief to the first. The docket is decided and has
+    no committed prediction.
+
+  The other ten gain nothing. On nine, from the 2017 through 2020 Terms, the
+  entry posts no link. On 25-581 the entry is an uninvited brief at the
+  petition stage, filed before the grant, so the post-grant bound turns it
+  away and the docket keeps the merits brief it already selected. No
+  ungranted docket carries the caption.
+
+  **Residuals, accepted.** The arm stores one brief, so a docket on which the
+  United States files twice on the merits keeps only the first, as 24-109
+  shows. Two captions on granted dockets stay unread: "Brief amicus curiae of
+  United States of America filed." (five entries), which the filer-name
+  lookahead refuses, and one entry that drops a word ("United States support
+  of neither party"). An entry saying the brief was not accepted for filing
+  is not read; the corrected brief's own entry is.
+
+  **What does not move.** No base rate re-prices, no membership rule moves
+  and no scored figure moves. No skill movement is predicted, and a movement
+  in **either** direction across this boundary may not be read as a model
+  effect.
+
+  **The amendment debt.** It is unchanged. This entry adds no new token.
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_merits_amicus.py` is green;
+  - after the first live cycles following the promotion, where the corpus is
+    pulled, `uv run fedcourts provision-snapshot --court scotus --docket
+    72483489 --event evt-brief-judgment` stages a
+    `merits-amicus-united-states.txt` whose entry is the corrected brief of
+    2026-09-15, beside the `sg-invited-brief.txt` it staged before;
+  - on `main` once the promotion has merged, `uv run python -c "from
+    fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
+    print('united-states-amicus-supported-side-caption' in {b.name for b in
+    H})"` prints `True`.
+- **The lower-court docket record reports no absence where its entries' text
+  could not carry one; recorded 2026-11-13.** A **provisioning** change with
+  a harness boundary, recorded ahead of the promotion that carries it.
+
+  **Why.** In predict run `20261112T230820Z` two predictors flagged that
+  `lower-court-docket.txt` for 26-624 (ca4) reported no petition for
+  rehearing en banc while the petition's appendix carries the order denying
+  one on 2026-08-11. Read against CourtListener on 2026-11-13: the docket
+  holds four entries filed from the judgment on 2026-07-15 through
+  2026-08-11, numbered 64, 65, 73 and 76. None carries a description of its
+  own; each is described only on its documents, and the two orders, the
+  second filed on the date the SCOTUS docket states rehearing was denied,
+  are labelled as a court order and nothing more. The reading already joins
+  an entry's own description with its documents', so it read every label
+  there was, matched none, and, the read being complete and reaching the
+  stated denial, said "petition filed: none in the entries read".
+
+  **What moved.** In `pipeline.decision_below`:
+  - Where the SCOTUS docket states a rehearing denial, a complete read
+    reaches its date, the entries show no en banc disposition, and none
+    records an order denying rehearing of either kind, the reading is
+    `denial_unrecorded` and reports no absence. An entry that records an
+    order denying panel rehearing accounts for the stated date, and the
+    absence of an en banc petition beside it is still reported.
+  - An entry with no text on itself or on any of its documents is counted in
+    `blank_entries`. Any such entry leaves a petition's absence unknown, and
+    one filed on the day of the disposition, after the judgment date, or
+    undated, leaves a dissent unknown.
+  - The record words either case as "could not be read" on the petition,
+    disposition and dissent lines in place of "not found" or an absence, and
+    adds a line saying which of the two it met.
+
+  No prompt byte and no registry field other than the boundary row moves, so
+  no digest moves: `uv run fedcourts process-digest --all` prints `proc-v22`
+  and the six digests the `proc-v22` entry lists, with and without the
+  change.
+
+  **A harness boundary under the 2026-10-11 pooled rule.** The change alters
+  what a cert or merits predict cell reads under unchanged digests. It is
+  composition, not a cut. The pooled default and the paired figure keep both
+  sides and list each engine's `n` before and after. It cuts only a figure
+  that reads its own effect.
+  - **The registry row** is `decision-below-unread-entries`. It applies to
+    every predictor, and its reach is `all`, because no narrower registered
+    reach names petitions from the federal courts of appeals. It is
+    **gradual**: a stored row changes only when the fill walks its case, on
+    arrival or once its stamp is 30 days stale. It is registered **pending**
+    in this change's own PR (`fedcourts register-boundary`), under the
+    2026-10-14 merge-stamping declaration, and its `merge` and `at` stay null
+    until the promotion merge that carries it to `main` stamps them
+    (`promotion-record`).
+  - **The side test** is the registered one, against the carrying merge.
+    Because the boundary is gradual, an after-side cell provisioned before
+    its case was walked again still reads the earlier row, so the after-side
+    `n` is an upper bound on exposure.
+
+  **The population.** Read from blob
+  `c6c5abc991871b32178203b08457fa95f5cb107b2091c9eb2ba5908a5fb64b73` (the
+  pointer this change's branch carries, which `origin/main`'s had moved past
+  when it was read; newest pull 2026-11-13, newest stored snapshot row
+  2026-07-13) and the case store on 2026-11-13: 288 cases carry a fill stamp
+  and 278 hold a `lower-court-docket` row. Of the 278 records, 172 quote a
+  rehearing denial from the SCOTUS docket, and 32 of those report no petition
+  for rehearing en banc. The counts were not read again on the blob
+  `origin/main` then pointed at. CourtListener was then read under the
+  changed reading for the first 11 of the 32 in corpus order before its
+  request budget ended the read; they are not a random sample. Of the 11, 6
+  are `denial_unrecorded`, 3 are `short_of_denial` (records stored before
+  that reading, which their next walk rewords) and 2 still report an absence
+  beside a recorded order denying panel rehearing. 26-624, the last of the 32
+  in corpus order, was read as well and is `denial_unrecorded`. The other 20
+  of the 32 were not read again, so how many of them change is not known.
+  None of the 12 read holds an entry with no text at all, so `blank_entries`
+  rests on its tests and on no observed docket. Three of the six, other than
+  26-624, were read entry by entry (23-959 from ca2, 24-46 from ca4, 25-459
+  from ca6): in each, the entry filed on the stated denial date is labelled
+  as an order without its subject.
+
+  **What does not move.** No base rate re-prices, no membership rule moves
+  and no scored figure moves. No skill movement is predicted, and a movement
+  in **either** direction across this boundary may not be read as a model
+  effect. The predict prompt's description of `lower-court-docket.txt` still
+  holds, so no amendment debt is added.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_decision_below.py` is green;
+  - where a CourtListener token is set, `uv run fedcourts decision-below
+    --docket 26-624` prints a rehearing reading with `denial_unrecorded` true
+    and `petition_filed` null, while CourtListener's copy of that docket
+    still labels its 2026-08-11 entry as a court order only;
+  - once the fill has walked `scotus/9026000624` again after the promotion,
+    its stored `lower-court-docket` row says "petition filed: could not be
+    read";
+  - on `main` once the promotion has merged, `uv run python -c "from
+    fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
+    print('decision-below-unread-entries' in {b.name for b in H})"` prints
+    `True`.
+- **A second no-model reference line for cert forecasts is registered, the
+  band rate split on a cert-stage amicus brief (`amicus-line-v1`); recorded
+  2026-11-13.** A **reading-rule** registration made before the line is
+  computed on any forward event: no board carries it, and no scored figure
+  moves.
+
+  **Why.** A cert cell's salience band is its relist, CVSG and caption tier,
+  so Brier skill against the band anchor is skill over that forecast. One
+  docket fact the band does not read is whether an amicus brief reached the
+  docket at the cert stage, and no reference read it.
+
+  **The frozen count.** `context.cert_amicus_briefs` on a committed
+  `prediction.json`: the cert reading (`pipeline.cert_amicus`) over the
+  entries of the snapshot file provisioning placed, on a Term-form docket
+  whose snapshot disclosed proceedings. `stamp-cell` writes it after the agent has finished.
+  Provisioning never does, so `record/context.json` carries the field null
+  and no cell is handed the count; the only thing a cell can newly see is the
+  field's name there and its description in `schemas/prediction.schema.json`.
+  Where the cell was placed at a cutoff the count is taken strictly before it,
+  an undated entry left out. The snapshot file sits in the cell's workspace, as
+  `record/context.json` does, so the count rests on the trust boundary the
+  rest of the block rests on. No digest moves, no harness boundary is
+  registered, and no committed prediction is re-stamped: a prediction stamped
+  before the carrying promotion carries no count, and none is back-filled from
+  the corpus, whose stored count can grow until the disposition.
+
+  **The rule, `amicus-line-v1`** (`src/fedcourtsai/amicus_line.py`).
+  - *The split.* Two arms on the count: `none` (0) and `some` (1 or more).
+  - *The fit.* For each salience version, band and Term, the band's risk set
+    as the statpack's per-Term segments pool it (live-slice paid cert
+    petitions inside the version's segment, each row in its own band's risk
+    set and every weaker band on its reachable ladder, on `sample_weight`),
+    resolved rows only, cut on the corpus `cert_amicus_briefs` column. A row
+    whose stored count is NULL joins neither arm and is counted as `unread`:
+    every rate is over read rows only, and each pool is quoted with the
+    unread rows of its band over the same Terms.
+  - *The pool.* An arm's rate for a cell is aggregate weighted grant-family
+    rows over aggregate weighted resolved rows, across the Terms strictly
+    before the cell's docket-number Term that carry its band under its frozen
+    salience version, inside the lookback window that cell's anchor froze
+    (`cert_anchor.lookback_terms`, 10 Terms as configured when this was
+    recorded): the pool the band anchor takes, cut by arm. A later change to
+    the configured window does not move the line for a cell already placed.
+  - *The minimum and the fallback.* An arm's pool is used only where it holds
+    at least **30** observed (unweighted) resolved rows
+    (`AMICUS_LINE_MIN_RESOLVED`). Below that the forecast is the band rate
+    the cell froze (`cert_anchor.rate`), marked as a fallback. Each arm is
+    judged on its own count, so where one arm falls back and the other does
+    not, the two forecasts are not a split of one band rate.
+  - *The event's forecast.* On a paired cert event the line reads the band,
+    version, Term, anchor and count of the event's earliest qualifying cell
+    by harness clock, the cell the paired figure already files the event's
+    band under. An event enters only where every paired engine's qualifying
+    cells carry a non-null count and that earliest cell froze a band, a
+    version, a Term and a non-null anchor rate. Events left out, events whose
+    engines' cells froze counts in different arms, and events forecast on the
+    fallback are each counted beside the figure.
+  - *The fit's vintage.* The fit is read from the corpus at the build that
+    computes the line and is not frozen on the cell, so a later correction to
+    a prior Term's rows moves the line where it would not move a frozen
+    anchor. The build states the corpus it read.
+  - *The unsplit comparator.* Beside the line the build computes the band
+    rate from the same fit, both arms pooled over the same Terms, and scores
+    it on the same events. The line is read against that figure, so the
+    comparison isolates the split from the difference in vintage between the
+    fit and the frozen anchors.
+
+  **The reading rule** (`metrics/README.md`, beside the no-model forecast).
+  - **A reference, never a predictor.** It takes no rank and no headline.
+  - **Read per event, on its own events.** Each engine's per-event Brier over
+    the line's events is read against the line's. Beside them sit the Brier
+    of the unsplit comparator and of the frozen band anchors over the same
+    events. The line against the unsplit comparator says whether this split,
+    as approximated below, beat the band rate there; a loss is not evidence
+    that amicus filings carry no signal.
+  - **Quoted with its `events`, `grants` and fallback count**, and with the
+    events it left out.
+  - **It describes forecasts stamped from the carrying promotion on.** It is
+    never extended to an earlier forecast by reading the corpus's current
+    count.
+
+  **What the rule approximates, stated before any figure exists.**
+  - The fit conditions on the count **at disposition**; a forecast reads the
+    count **at its snapshot**. The corpus stores only the final count, so
+    neither side of the gap can be sized. The `none` pool holds only
+    petitions that never drew a brief, while a `none` cell may itself yet
+    draw one, so the `none` rate is a floor for such a cell. The `some` pool
+    also holds petitions whose first brief arrived after they had climbed to
+    a stronger band, so in a weak band the `some` rate is probably a ceiling
+    for a cell that already holds a brief. In the table below, 771 of the
+    2,314 `baseline` `some` rows are the `elevated` risk set's `some` rows.
+  - The Solicitor General's invited brief counts as an amicus brief. A
+    petition under a CVSG whose invited brief has not arrived, with no other
+    amicus brief, is a `none` cell, while nearly every resolved CVSG petition
+    in the fit is `some`. In the bands a CVSG reaches, the `none` arm is
+    mostly relisted petitions with no CVSG.
+  - The arms nest by band as the anchor's risk sets do.
+  - The amicus reading's own stated approximations carry over (a multi-filer
+    entry counts once; an entry reciting the Latin without being a brief
+    counts).
+
+  **What was known when this was recorded.** No forward event had been read
+  against the line, and no committed prediction carried the count. The fit
+  over prior Terms had been read: `uv run fedcourts amicus-line-fit
+  --before-term 2026` on the corpus blob `c6c5abc9…` (the `staging` checkout's
+  pointer, which is not the blob `origin/main` pointed at when this was
+  recorded; newest pull 2026-11-13, newest stored snapshot 2026-07-13), under
+  `sal-v8`, pooling OT2017 to OT2025 with no row unread:
+
+  | Band | `none`: resolved, grant rate | `some`: resolved, grant rate |
+  | --- | --- | --- |
+  | `federal` | 151, 68.9% | 61, 83.6% |
+  | `high` | 232, 34.5% | 542, 35.1% |
+  | `state` | 220, 13.6% | 201, 34.3% |
+  | `elevated` | 1,237, 15.5% | 771, 39.7% |
+  | `baseline` | 10,347, 2.7% | 2,314, 16.3% |
+
+  Every arm clears the minimum there, so for an OT2026 docket under `sal-v8`
+  the fallback is not in play; in `high` the two arms are within a point of
+  each other and the line is the band rate in all but name.
+
+  **What does not move.** No digest, no base rate, no membership rule, no
+  rank and no scored figure. The corpus column, the statpack and the cert
+  anchor are untouched.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_amicus_line.py tests/test_cert_amicus.py
+    tests/test_cli_stamp.py -k "amicus"` is green;
+  - on `main` after the first predict round's collect PR that follows the
+    promotion has merged, `jq -c '[.context.term, .context.band,
+    .context.cert_amicus_briefs]' <path>` over a cert `prediction.json` that
+    PR added, on a Term-form docket whose snapshot disclosed proceedings,
+    prints a Term, a band and an integer, and the same read over a
+    prediction stamped before the promotion prints `null` in the third
+    place.
+
+- **A failing engine attempt is classified on the fault the engine reported,
+  not on the whole of its stderr; recorded 2026-11-13.** A harness change
+  under unchanged digests. Carried to `main` by the promotion tagged
+  `<FILL: promotion tag>` (merge commit `<FILL: merge hash>`, merged
+  `<FILL: merged-at>`). No harness boundary is registered, since no scoring
+  rule and no cell's information set moves.
+
+  **What changes.** The in-place retry of a Gemini cell (the entry *Gemini
+  cells retry a transient engine fault in place*, above) retries only an
+  attempt the classifier reads as transient (`fedcourts
+  engine-attempt-class`). On a non-zero exit the classifier matched its
+  transient signatures against the attempt's whole stderr, joined to any
+  error in the JSON result. From the carrying promotion, where the engine
+  reported the error its attempt ended on (the error object in its result,
+  or the same object on its stderr, `fedcourts engine-attempt-reported`),
+  that error's text is read alone, for the transient set and for the
+  terminal-quota set alike. Where the engine reported none, the whole of
+  stderr is read as before. A zero exit is unchanged: it was already
+  classified on its result's error alone. The back-test's `GeminiRunner`
+  calls the same classifier and takes the same rule. The claude and codex
+  runners' retry reads stderr whole and is unchanged.
+
+  **Why.** Evaluate run `20261110T154355Z` left a `gemini-judge` cell on
+  `scotus/9526000560` `evt-brief-response-disposition` whose turn ended on
+  HTTP 400 `INVALID_ARGUMENT`. The attempt read transient only because a
+  `fetch failed` line, from a model call the CLI had retried and recovered,
+  sat earlier in the same stderr. A client error mislabelled transient
+  spends up to two further attempts that cannot succeed.
+
+  **What it means for a reader.** No committed record moves: the verdict is
+  not stored on a cell, and the clean conclusion over whole output (the entry
+  *A Gemini cell whose turn fails on an engine fault after its work is whole
+  concludes clean*, above) admits both classes. From the carrying promotion a
+  Gemini cell that ends on a reported non-transient fault after a recovered
+  network error stops on that attempt where it took up to three before. The
+  other direction moves only for the terminal-quota set: an attempt whose
+  stderr carried a spent-quota line ahead of a different reported fault read
+  `terminal_quota` and now reads that fault's own class, so it retries where
+  the fault is transient. A reported transient fault after a recovered
+  client-error line read transient before and still does. The rule trusts the latest
+  error object on stderr to be the fault that ended the turn. That object is
+  any JSON object opening a stderr line and carrying an `error`, whoever
+  wrote it, so a turn that logged one, carried on, and then ended on a fault
+  the engine did not report (a signal from outside, or a bare network error
+  line) is classified on that object: a transient end after such an object
+  reads permanent and is not retried, where the whole-stderr reading retried
+  it. The report is read as its `type` and `message`, so a status carried
+  only in another field of the object is not read. The rule is Gemini's alone, so a comparison of
+  retry counts or cell-failure rates across this promotion reads the Gemini
+  pair apart.
+
+  The runnable effect check once it is live: `uv run pytest
+  tests/test_runner.py -k classify_engine_attempt` is green on `main`; and
+  for the captured streams of any Gemini attempt on which `uv run fedcourts
+  engine-attempt-reported` prints `true` and whose `uv run fedcourts
+  engine-attempt-fault` line names a 400 or `INVALID_ARGUMENT`, `uv run
+  fedcourts engine-attempt-class` prints `permanent`. In a round's job logs
+  the same reads as: no Gemini cell's annotation says `ended transient`
+  beside an `engine said:` text that is such a reported 400 (an attempt the
+  engine left no error object for is still read over its whole stderr, so
+  the annotation alone does not fail the check).
+- **The extractor marks a run of unread pages, and the OCR recovery class
+  takes a marked row; recorded 2026-11-13.** A **provisioning-cutoff** change
+  with a harness boundary, recorded ahead of the promotion that carries it.
+
+  **Why.** A filing can be typeset in two passes, with a text layer on its
+  cover, tables and appendix and page images for the argument between them.
+  The recovery class took a row that is empty or that averages under
+  `THIN_PAGE_CHARS` (200) characters a page, and on such a filing the pages
+  that did extract carry the average over the floor. On 26-624
+  (`scotus/9026000624`) the stored `petition` is 106 pages and 114,039
+  characters, `truncated` false, and all three predictors flagged in predict
+  run `20261112T230820Z` that the petition's body is absent. Read page by page
+  off the Court's PDF on 2026-11-13, pages 12 to 40 hold no text layer and
+  page 41 holds 9 characters.
+
+  **What moved.** Three things, in `pipeline.documents`,
+  `pipeline.ocr_recovery` and `pipeline.document_recut`.
+  - **The note.** Every reader of a filing writes one line where a run
+    starts: `[pipeline note: PDF pages X to Y have little or no text layer;
+    where they are page images, what they say is not in this text]`
+    (`documents.note_unread_pages`). A run is `UNREAD_RUN_PAGES` (3) or more
+    pages in a row under the same 200 characters, in a filing with a page at
+    or over the floor. The parsers of the Court's own orders, opinions and
+    transcripts write none. The note is not a cut: the re-cut class, a
+    combined row's `cut` reading, the appendix's page headings and the
+    questions-presented cutter set it aside.
+  - **The class.** A stored row carrying the note is in the recovery class
+    (`ocr_recovery.has_unread_run`), unless it is truncated, already
+    `ocr_derived`, set-keyed or under a per-filing header. So are four rows
+    named in `ocr_recovery.UNMARKED_RUN_ROWS`, by case, kind and link: a
+    stored link is not read again, so a row stored before the note carries
+    none. The standing sweep, the dispatched pass and the predict backlog's
+    `held_unread_scan` hold read that one predicate.
+  - **The write.** A reading of a marked row that is not thin is written only
+    if it still holds the stored text (`ocr_recovery.keeps_stored_text`): in
+    pieces of 200 letters and digits, found in order, with bounded misses;
+    with no more added than the pages there were to read could hold; and
+    ending early only at the document cap, by no more than it added. An empty
+    or thin row is held to length as before.
+
+  No prompt byte and no registry field other than the boundary row moves, so
+  no digest moves. `uv run fedcourts process-digest --all` prints `proc-v22`
+  and the six digests `b61115d4…` (claude-baseline), `a74ea561…`
+  (codex-baseline), `ff9786ea…` (gemini-baseline), `6d65018d…`
+  (claude-judge), `ad4c6cc6…` (codex-judge) and `71a3fe87…` (gemini-judge),
+  with and without the change.
+
+  **A harness boundary under the 2026-10-11 pooled rule.** The change adds to
+  what a predict cell reads under unchanged digests: a line of the pipeline's
+  in a filing's text, and then the pages OCR reads. It is composition, not a
+  cut. The pooled default and the paired figure keep both sides and list each
+  engine's `n` before and after. It cuts only a figure that reads its own
+  effect.
+  - **The registry row** is `unread-page-runs`. It applies to every
+    predictor, and its reach is `all`, because no narrower registered reach
+    names these dockets. It is **gradual**. A filing fetched after the
+    carrying merge is marked when it is stored and read within a sweep window
+    or two; a row stored before it changes only if it is one of the four
+    named, or when its link changes. It is registered **pending** in this
+    change's own PR (`fedcourts register-boundary`), under the 2026-10-14
+    merge-stamping declaration, and its `merge` and `at` stay null until the
+    promotion merge that carries it to `main` stamps them
+    (`promotion-record`).
+  - **The side test** is the registered one, against the carrying merge.
+    Because the boundary is gradual, an after-side cell may read a row that
+    holds a run and no note, so the after-side `n` is an upper bound on
+    exposure.
+
+  **The population.** Measured read-only over blob
+  `513cff96bfe07d6a35c21c17e969e813a259b260e26bd3fbd821341eb48611f1` (newest
+  pull 2026-11-13, newest stored snapshot row 2026-07-13), over the stored
+  documents of the 59,653 live-slice SCOTUS rows: 40,576 rows of a fetched
+  kind on 20,940 cases, 40,272 of them with pages and one link. 725 have no
+  text and 181 are thin, the class as it was; 924 are `ocr_derived`. The
+  frame for what follows is the 38,442 rows that hold text, are not thin, not
+  `ocr_derived`, one link and under no header, 2,514 of them truncated. Every
+  page figure below is a count of text-layer characters a page off the
+  Court's own PDF, fetched 2026-11-13, and no stored text.
+  - **The stored text does not carry the signal reliably.** Pages are joined by a line
+    break, so blank pages leave blank lines, but so does page layout. Of the
+    35,928 untruncated rows, the longest run of blank lines in the stored
+    text is under 5 in 28,394, 5 to 9 in 4,372, 10 to 19 in 1,892, 20 to 29
+    in 642, 30 to 39 in 465 and 40 or more in 163. Twelve rows drawn from
+    each of those six bands (72, seed 3312) had a run of three or more unread
+    pages in 0, 0, 0, 1, 3 and 1 of the twelve, and the one at 40 or more was
+    a three-page run. So the run is marked at extraction, where the pages are
+    seen.
+  - **The run length.** A uniform sample of 200 of the 38,442 (seed 3312; 112
+    petitions, 61 appendices, 13 oppositions, 8 cert-stage replies, 6 others)
+    by the longest run of pages under 200 characters: none in 89, one page in
+    94, two in 11, three or four in 3, five to nine in 1, and ten or more in
+    2 (runs of 34 and 37 pages). Six of 200 hold a run of three or more, 3
+    percent, with a 95 percent interval of about 1 to 6 percent on a sample
+    this size; 17 of 200 hold a run of two or more. Three is where a single
+    divider or signature page, and a divider beside a short page, are left
+    out.
+  - **What OCR reads on a run.** The eight filings with a run of three or
+    more from that sample and from the first rows of the census below, read
+    through the recovery's own page seam (tesseract 5.3.4, counts only). The
+    run pages read 81,544 characters against 26 in the layer (37 pages),
+    57,789 against 0 (34 pages), 9,242 against 212 (7 pages), 6,586 against
+    336 (4 pages), 2,256 against 621 (5 pages), 1,191 against 431 (4 pages),
+    597 against 20 (3 pages), and 0 against 0 on three blank pages that close
+    a brief in opposition. Seven of eight gain; the eighth is `no-gain` on
+    every pass.
+  - **The rows a forward cell reads.** Every stored row of the frame on a
+    case with an open event in predict scope (`ocr_sweep.forward_case_ids`):
+    643 rows on 220 cases, 641 read (two were not read), 47,763
+    pages. By longest run: none in 340, one page in 268, two in 20, three or
+    four in 3, five to nine in 8, ten or more in 2. Thirteen rows on ten
+    cases hold a run of three or more, 2 percent. Nine of them are truncated,
+    with runs of three to seven pages among appendix exhibits, and stay as
+    stored. The four that are whole are the named rows: the 26-624 petition
+    (30 pages of 106), the 26-545 appendix (`scotus/9026000545`, 5 of 51),
+    the response on 26A458 (`scotus/9526000458`, 4 of 86) and the 23-7809
+    appendix (`scotus/69666553`, 75 of 95).
+  - **26-624 under the change.** The fetch lane's extractor writes one note,
+    for PDF pages 12 to 41, and the row it would store is in the class. The
+    recovery's reading of the same PDF is 150,000 characters, cut at the
+    document cap, `ocr_derived`, with no note left, in 87 seconds; it passes
+    the write test against the marked text. Uncut it would be about 163,000
+    characters, so the recovered row gains its body and loses about 13,000
+    characters from the end of its appendix.
+
+  **What does not move.** No stored row changes at the merge. No selector
+  moves, so no cell gains or loses a file. One timing moves: a fresh marked
+  row holds its case's forward cells as an unread scan, for at most
+  `pull.SCAN_HOLD_DAYS` (2) days from when it was stored, and one whose pages
+  are short rather than scanned, or whose images read as nothing, holds them
+  for that whole bound and stays in the class. On the figures above, two or
+  three filings in a hundred hold a run, which is an upper bound on the
+  share held until the sweep reads them: a truncated row is not in the class,
+  and of the forward rows read, 4 of 641 are. How many of those hold for the
+  full two days is not estimated; one of the eight filings read by OCR
+  above, which were not drawn at random, gained nothing. A row stored before the
+  merge that holds a run and is not one of the four named keeps it unmarked;
+  at 3 percent of the frame that is on the order of a thousand rows, most on
+  resolved cases a replay or back-test cell can read, the nine truncated
+  forward rows among them, and no pass here re-reads them. A marked row cut at the cap keeps its note and is not
+  recovered. No base rate re-prices, no membership rule moves and no scored
+  figure moves. No skill movement is predicted, and a movement in **either**
+  direction across this boundary may not be read as a model effect. Cells
+  already committed over a row with an unread run are left as they are.
+
+  **The amendment debt.** One is added. The predict prompt describes a
+  `[pipeline note: …]` line as marking a cut around an appendix; the
+  unread-run note is a second kind, which says what it is in its own words.
+  Naming it in the prompt moves the three predictor digests, so it is owed to
+  the next re-bless. The manifest's `kind_description` makes the same
+  statement, that a truncated row with no such line was cut at the cap from
+  the end, and a head-cut row can carry an unread-run note; that sentence is
+  left as it is, and is owed a correction with the prompt's.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_ocr_recovery.py tests/test_documents.py
+    tests/test_document_recut.py` is green;
+  - the first run-seed windows after the promotion list `scotus/9026000624
+    petition` in an `ocr-sweep-projection` slice, and the `ocr-sweep` writer's
+    summary names it written, with `replaced=114039`, or says why not;
+  - after that window, where the corpus is pulled, `uv run fedcourts
+    ocr-recover-petitions --probe=0` prints the class with its "hold a marked
+    run of unread pages" line while any of the four named rows is unread, and
+    the stored `petition` row of `scotus/9026000624` is `ocr_derived` with
+    more than 114,039 characters;
+  - on `main` once the promotion has merged, `uv run python -c "from
+    fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
+    print('unread-page-runs' in {b.name for b in H})"` prints `True`.

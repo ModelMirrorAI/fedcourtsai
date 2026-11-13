@@ -103,6 +103,7 @@ from .ocr_recovery import (
     scanned_documents,
     spread_sample,
     thin_text_count,
+    unread_run_count,
 )
 
 #: The largest slice a worklist or plan may carry. Above any configured cap
@@ -332,6 +333,8 @@ class SweepSelection:
     slice: tuple[SweepCandidate, ...]
     #: Of the class, the rows holding thin text rather than none.
     thin_size: int = 0
+    #: Of the class, the rows there on a marked run of unread pages alone.
+    unread_size: int = 0
 
 
 def select_sweep(
@@ -361,6 +364,7 @@ def sweep_selection(conn: corpus.ReadConnection, *, cap: int, now: datetime) -> 
         class_by_kind={k: by_kind[k] for k in RECOVERABLE_KINDS if by_kind.get(k)},
         documents_seen=scan.documents_seen,
         thin_size=thin_text_count(scan.candidates),
+        unread_size=unread_run_count(scan.candidates),
         slice=select_sweep(
             candidates, cap=cap, rotation=window_rotation(now, cap), today=now.date()
         ),
@@ -387,6 +391,7 @@ def forward_slice(selection: SweepSelection) -> SweepSelection:
         class_by_kind=selection.class_by_kind,
         documents_seen=selection.documents_seen,
         thin_size=selection.thin_size,
+        unread_size=selection.unread_size,
         slice=tuple(c for c in selection.slice if c.forward),
     )
 
@@ -668,7 +673,7 @@ def apply_ocr_plan(  # noqa: PLR0913
                 "fetched_at": today,
             }
         )
-        if not gains_on(document, recovered):
+        if not gains_on(document, recovered, char_cap=char_cap):
             # A thin row keeps its text unless the reading is longer and takes
             # the row out of the class. The parse already holds its readings to
             # the count the worklist carried; this is the test against the row

@@ -202,8 +202,10 @@ logger = logging.getLogger(__name__)
 #   merits**: the first brief for the United States as amicus curiae filed
 #   after the grant, read by the invited brief's own entry anchor
 #   (:func:`cert_signals.is_sg_invited_brief_entry`) on the other side of the
-#   grant. It states the federal government's position on the judgment, which
-#   no party brief does where the United States is not a party.
+#   grant, and by the caption that names the supported side after the filer
+#   (:func:`is_united_states_merits_amicus_entry`). It states the federal
+#   government's position on the judgment, which no party brief does where the
+#   United States is not a party.
 # - `merits-brief-appointed-amicus` is the **merits brief of a Court-appointed
 #   amicus**: the first one filed after the grant, read by the anchor that
 #   dates the briefed moment from it (:func:`merits_signals.is_appointed_amicus_merits_brief`).
@@ -495,6 +497,42 @@ def _is_bio_entry(text: str, *, filed: date | None, granted_on: date | None) -> 
     if "brief" not in text.lower():
         return False
     return bool(_BIO_OPPOSITION_RE.search(text) or _BIO_RESPONDENT_BRIEF_RE.search(text))
+
+
+# The United States' merits amicus brief under the caption that names the side
+# it supports straight after the filer:
+#
+#   "Brief amicus curiae of United States supporting vacatur filed."
+#   "Brief amicus curiae of United States in support of neither party filed."
+#
+# The invited brief's anchor (:func:`cert_signals.is_sg_invited_brief_entry`)
+# stops at the filer's name and admits only "as …", the verb, a parenthesis,
+# punctuation or the end of the text after it, which is what keeps out an
+# amicus whose name opens with the same words; this one admits only
+# "supporting" or "in support of" there, so "United States Conference of
+# Catholic Bishops … supporting petitioners" is still not the government. The
+# singular "amicus" is deliberate: the United States files alone, and "amici
+# curiae of United States Senators" does not. An entry saying the brief was
+# "not accepted" for filing is refused whatever follows, since the note beside
+# it may itself say a corrected brief will be filed. It is the merits arm's
+# own, because the shared anchor also locates the invited brief and dates the
+# cert stage's sg-brief moment, and neither may move.
+_US_AMICUS_SUPPORTING_RE = re.compile(
+    r"^\s*brief\s+amicus\s+curiae\s+of\s+(?:the\s+)?united\s+states\s+"
+    + r"(?:supporting|in\s+support\s+of)\b(?!.*\bnot\s+accepted\b)"
+    + r".*\b(?:filed|submitted)\b",
+    re.IGNORECASE,
+)
+
+
+def is_united_states_merits_amicus_entry(text: str) -> bool:
+    """Whether an entry is a brief for the United States as amicus curiae on the merits.
+
+    Read under the invited brief's anchor, or under the caption that puts the
+    supported side after "of United States" (:data:`_US_AMICUS_SUPPORTING_RE`).
+    Text alone: the merits arm supplies the post-grant bound.
+    """
+    return is_sg_invited_brief_entry(text) or _US_AMICUS_SUPPORTING_RE.search(text) is not None
 
 
 def _is_post_grant(filed: date | None, granted_on: date | None) -> bool:
@@ -1047,6 +1085,101 @@ THIN_PAGE_CHARS = 200
 # be before it replaces that layer.
 THIN_PAGE_GAIN = 2
 
+# How many consecutive pages under the floor make a run the extractor marks as
+# unread (`unread_page_runs`). A filing set in two passes can carry a text layer
+# on its front matter and its appendix and none on the pages between, so the
+# document's average clears the floor while its argument is page images. One
+# thin page is a divider or a signature page, and two are a divider beside a
+# short page, in filings that are otherwise typeset; from three in a row the
+# pages are images.
+#
+# Sized on a page-by-page reading of the Court's own PDFs for stored rows of the
+# index blob of 2026-11-13 (sha 513cff96), by text-layer character counts and
+# no stored text; `docs/freeze-record.md` carries the count under this
+# constant's name.
+UNREAD_RUN_PAGES = 3
+
+# How every note the pipeline writes into a stored text opens; a filing
+# printing it is defused.
+_CUT_NOTE_OPENER = "[pipeline note:"
+# The opener as a filing's own text keeps it once defused.
+_DEFUSED_NOTE_OPENER = "[pipeline-note-in-filing:"
+# The note an unread run leaves where the run starts. Matched whole, opener to
+# closing bracket, so a stored row is read as carrying one only where the
+# extractor wrote it.
+_UNREAD_NOTE_RE = re.compile(
+    r"\[pipeline note: PDF pages (\d+) to (\d+) have little or no text layer;"
+    r" where they are page images, what they say is not in this text\]"
+)
+
+
+def unread_page_runs(pages: Sequence[str]) -> list[tuple[int, int]]:
+    """The ``[start, end)`` runs of consecutive pages a text layer does not carry.
+
+    A page is under the floor where its stripped text is shorter than
+    :data:`THIN_PAGE_CHARS`, and a run is :data:`UNREAD_RUN_PAGES` or more such
+    pages in a row. Runs are read only in a document that otherwise extracts,
+    one with a page at or over the floor: a filing thin on every page is the
+    whole-document case, which the recovery class takes on its average and
+    provisioning stamps where it is empty.
+    """
+    thin = [len(page.strip()) < THIN_PAGE_CHARS for page in pages]
+    if all(thin):
+        return []
+    runs: list[tuple[int, int]] = []
+    start: int | None = None
+    for index, is_thin in enumerate([*thin, False]):
+        if is_thin and start is None:
+            start = index
+        elif not is_thin and start is not None:
+            if index - start >= UNREAD_RUN_PAGES:
+                runs.append((start, index))
+            start = None
+    return runs
+
+
+def _unread_note(start: int, end: int) -> str:
+    """The note for the unread run ``[start, end)``, naming its PDF pages from one."""
+    return (
+        f"{_CUT_NOTE_OPENER} PDF pages {start + 1} to {end} have little or no text layer;"
+        " where they are page images, what they say is not in this text]"
+    )
+
+
+def note_unread_pages(pages: Sequence[str]) -> list[str]:
+    """``pages`` with a note opening each unread run (:func:`unread_page_runs`).
+
+    The note is its own line at the head of the run's first page, so the page
+    list keeps its length and every later reading of it by page index, the
+    appendix-aware cut among them, still names the PDF's own pages. Whatever
+    the run's pages do carry stays under the note. A filing's own text cannot
+    pass for a note: the opener is defused wherever a page prints it.
+    """
+    noted = [page.replace(_CUT_NOTE_OPENER, _DEFUSED_NOTE_OPENER) for page in pages]
+    for start, end in unread_page_runs(noted):
+        noted[start] = f"{_unread_note(start, end)}\n{noted[start]}"
+    return noted
+
+
+def has_unread_pages_note(text: str) -> bool:
+    """Whether a stored text carries the extractor's unread-run note."""
+    return _UNREAD_NOTE_RE.search(text) is not None
+
+
+def strip_unread_notes(text: str) -> str:
+    """``text`` without the extractor's unread-run notes."""
+    return _UNREAD_NOTE_RE.sub("", text)
+
+
+def carries_cut_note(text: str) -> bool:
+    """Whether a stored text carries a note a storage cut left in it.
+
+    Every pipeline note shares one opener, and the unread-run note marks pages
+    that were never text, not a cut, so it is set aside before the opener is
+    looked for.
+    """
+    return _CUT_NOTE_OPENER in strip_unread_notes(text)
+
 
 def _entry_link(
     entry: Mapping[str, Any], *, prefer: tuple[str, ...], fallback: bool = True
@@ -1256,17 +1389,19 @@ def select_documents(
       own — a cross-petition, or a case the Court appointed an amicus to defend
       the judgment in.
     - The **United States' amicus brief on the merits**
-      (:func:`cert_signals.is_sg_invited_brief_entry`, after the grant), stored
+      (:func:`is_united_states_merits_amicus_entry`, after the grant), stored
       as ``merits-amicus-united-states``: the first such entry in docket order
       after the grant whose entry posts a ``Main Document`` link, from that link
       alone — the merits arms' own terms. The entry anchor is the invited
-      brief's, so "Brief for the United States as amicus curiae supporting
-      petitioners filed." and "Brief amicus curiae of United States filed." are
-      read and an amicus whose name opens with the same words is not; the
-      post-grant bound is what keeps the invited brief, filed before the grant,
-      under its own kind. It follows every party arm, and the two arms after it
-      read only pre-grant entries, so an entry any other arm reads is never
-      offered to it and no other kind's selection moves.
+      brief's, widened for this arm alone to the caption that names the
+      supported side after the filer, so "Brief for the United States as amicus
+      curiae supporting petitioners filed.", "Brief amicus curiae of United
+      States filed." and "Brief amicus curiae of United States supporting
+      vacatur filed." are read and an amicus whose name opens with the same
+      words is not; the post-grant bound is what keeps the invited brief, filed
+      before the grant, under its own kind. It follows every party arm, and the
+      two arms after it read only pre-grant entries, so an entry any other arm
+      reads is never offered to it and no other kind's selection moves.
     - The **Court-appointed amicus's brief on the merits**
       (:func:`merits_signals.is_appointed_amicus_merits_brief`, after the
       grant), stored as ``merits-brief-appointed-amicus``: the first such entry
@@ -1465,7 +1600,7 @@ def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:  # noqa: PLR09
         elif (
             amicus_united_states is None
             and _is_post_grant(filed, granted_on)
-            and is_sg_invited_brief_entry(text)
+            and is_united_states_merits_amicus_entry(text)
         ):
             amicus_united_states = _merits_filing_ref(
                 entry, KIND_MERITS_AMICUS_UNITED_STATES, entry_date
@@ -1997,7 +2132,7 @@ def _without_amicus_marked_for_others(
             if not (
                 isinstance(entry, Mapping)
                 and (
-                    is_sg_invited_brief_entry(text := str(entry.get("Text") or ""))
+                    is_united_states_merits_amicus_entry(text := str(entry.get("Text") or ""))
                     or is_appointed_amicus_merits_brief(text)
                 )
                 and _marked_for_others(text, number)
@@ -2216,7 +2351,7 @@ def _read_pages(
 
 
 def extract_pdf_text(
-    data: bytes, *, char_cap: int, ocr_page: OcrPage | None = None
+    data: bytes, *, char_cap: int, ocr_page: OcrPage | None = None, note_unread: bool = False
 ) -> ExtractedText:
     """Extract a PDF's text with pypdf, capped at ``char_cap`` characters.
 
@@ -2240,6 +2375,13 @@ def extract_pdf_text(
     ``ocr_derived`` is set only where OCR actually contributed text. A raising
     ``ocr_page`` costs its own page and no more.
 
+    With ``note_unread`` — the filing readers' setting, and never the one a
+    parser of the Court's own orders and opinions takes — each run of pages the
+    text layer does not carry is marked where it starts
+    (:func:`note_unread_pages`), after any OCR reading, so a page the image
+    did yield is not in a run. Off, the text is the pages joined and nothing
+    else.
+
     A plain head cut: the text runs to the cap and stops. The filings that carry
     an appendix are read through :func:`extract_filing_text` instead, which cuts
     the appendix rather than the filing.
@@ -2247,6 +2389,8 @@ def extract_pdf_text(
     try:
         reader = PdfReader(io.BytesIO(data))
         parts, truncated, ocr_derived = _read_pages(reader, ocr_page=ocr_page, stop_at=char_cap)
+        if note_unread:
+            parts = note_unread_pages(parts)
         joined = "\n".join(parts)
         if len(joined) > char_cap:
             joined = joined[:char_cap]
@@ -2432,8 +2576,6 @@ _ITEM_OPENING = 2_000
 # Room left for one cut note, so the notes never push a row over its cap.
 # (A cap below this is not a cap a cut can honour; the configured floor is 1,000.)
 _CUT_NOTE_RESERVE = 240
-# How every note the cut writes opens; a filing printing it is defused.
-_CUT_NOTE_OPENER = "[pipeline note:"
 # How far past the cap the full-document read goes before it stops.
 _READ_CEILING_CAPS = 10
 
@@ -2457,11 +2599,14 @@ class _AppendixItem:
 
 
 def _top_lines(page: str, count: int = _TOP_LINES) -> list[str]:
-    """The first ``count`` non-blank lines of a page, whitespace collapsed."""
+    """The first ``count`` non-blank lines of a page, whitespace collapsed.
+
+    The extractor's unread-run note is not one of the page's lines.
+    """
     lines: list[str] = []
     for raw in page.splitlines():
         line = " ".join(raw.split())
-        if line:
+        if line and _UNREAD_NOTE_RE.fullmatch(line) is None:
             lines.append(line)
             if len(lines) == count:
                 break
@@ -2832,7 +2977,7 @@ def extract_filing_text(data: bytes, *, kind: str, char_cap: int) -> ExtractedTe
     pages read and one more note names the pages never read.
     """
     if kind not in APPENDIX_BEARING_KINDS:
-        return extract_pdf_text(data, char_cap=char_cap)
+        return extract_pdf_text(data, char_cap=char_cap, note_unread=True)
     try:
         reader = PdfReader(io.BytesIO(data))
         parts, stopped, ocr_derived = _read_pages(
@@ -2842,8 +2987,9 @@ def extract_filing_text(data: bytes, *, kind: str, char_cap: int) -> ExtractedTe
             page_tolerant=True,
         )
         # A filing's own text cannot pass for a pipeline note: the bracketed
-        # opener the cut writes is defused wherever the filing itself prints it.
-        parts = [part.replace(_CUT_NOTE_OPENER, "[pipeline-note-in-filing:") for part in parts]
+        # opener is defused wherever the filing itself prints it, and each
+        # unread run is marked where it starts.
+        parts = note_unread_pages(parts)
         total_pages = len(reader.pages)
         stopped = stopped and len(parts) < total_pages
         text, truncated = cut_filing_text(
@@ -2912,8 +3058,7 @@ def read_filing_pages(data: bytes, *, char_cap: int) -> tuple[list[str], int, bo
         parts, _, ocr_derived = _read_pages(
             reader, ocr_page=None, stop_at=char_cap * _READ_CEILING_CAPS, page_tolerant=True
         )
-        parts = [part.replace(_CUT_NOTE_OPENER, "[pipeline-note-in-filing:") for part in parts]
-        return parts, len(reader.pages), ocr_derived
+        return note_unread_pages(parts), len(reader.pages), ocr_derived
     except (PyPdfError, ValueError, TypeError):
         return [], 0, False
 
@@ -4429,7 +4574,13 @@ def questions_presented_capped(petition_text: str) -> bool:
 
 
 def _extract_questions_presented(petition_text: str) -> tuple[str | None, bool]:
-    """The section and whether it was cut at the cap; see :func:`extract_questions_presented`."""
+    """The section and whether it was cut at the cap; see :func:`extract_questions_presented`.
+
+    The extractor's unread-run notes are taken out first: a run that starts
+    inside the section would otherwise leave the pipeline's line among the
+    questions.
+    """
+    petition_text = strip_unread_notes(petition_text)
     heading_seen = False
     for start in _qp_starts(petition_text):
         heading_seen = True
@@ -4772,7 +4923,7 @@ class CombinedBlock:
         The note's opener is defused wherever a filing prints it itself
         (:func:`read_filing_pages`), so finding it means the pipeline cut here.
         """
-        return _CUT_NOTE_OPENER in self.text
+        return carries_cut_note(self.text)
 
 
 def combined_blocks(text: str) -> list[CombinedBlock]:
@@ -4999,7 +5150,7 @@ def _combine_documents(
             continue
         fetched_refs.append(ref)
         if single:
-            extracted = extract_pdf_text(data, char_cap=char_cap)
+            extracted = extract_pdf_text(data, char_cap=char_cap, note_unread=True)
             blocks.append(extracted.text)  # a lone BIO stays raw (no header)
             page_count, truncated, read_by_ocr = (
                 extracted.pages,

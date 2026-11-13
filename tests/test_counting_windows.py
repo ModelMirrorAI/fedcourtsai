@@ -492,16 +492,16 @@ def test_proc_v20_closed_every_predictor_window_and_opened_one_for_each() -> Non
         assert opened.opens.at == v20
 
 
-def test_proc_v21_closes_every_predictor_window_and_opens_one_for_each() -> None:
+def test_proc_v21_closed_every_predictor_window_and_opened_one_for_each() -> None:
     """proc-v21's registry shape, as the freeze record's proc-v21 entry registers it.
 
-    proc-v21 edits the predict prompt and moves two engines' default models, so
-    the three predictor digests move, with the two evaluator digests on those
-    engines. Each predictor's proc-v20 window closes at the proc-v21 instant,
-    and a proc-v21 window opens there for each live digest. Pending rows
-    compare by their null instants until the merge stamps them.
+    proc-v21 edited the predict prompt and moved two engines' default models,
+    so the three predictor digests moved, with the two evaluator digests on
+    those engines. Each predictor's proc-v20 window closed at the proc-v21
+    instant, and a proc-v21 window opened there for each new digest.
     """
     v21 = _label_since("proc-v21")
+    assert v21 is not None
     live = _live_predictor_digests()
     rows = process_version._REGISTRY.windows
     by_label = {(w.label, w.predictor_id): w for w in rows}
@@ -512,6 +512,24 @@ def test_proc_v21_closes_every_predictor_window_and_opens_one_for_each() -> None
         opened = by_label[("proc-v21", predictor)]
         assert opened.digest == live[predictor] != closed.digest
         assert opened.opens.at == v21 and opened.closes is None
+
+
+def test_proc_v22_holds_the_instant_and_moves_no_window() -> None:
+    """proc-v22's registry shape, as the freeze record's proc-v22 entry registers it.
+
+    proc-v22 edits the evaluate prompt only, so the three evaluator digests
+    move and no predictor digest does. An evaluator-only label holds its
+    predecessor's counting instant, opens no window and closes none: every
+    live predictor keeps its open proc-v21 window.
+    """
+    v21 = _label_since("proc-v21")
+    assert v21 is not None
+    assert _label_since("proc-v22") == v21
+    rows = process_version._REGISTRY.windows
+    assert not [w for w in rows if w.label == "proc-v22"]
+    open_windows = {w.predictor_id: w for w in rows if w.closes is None}
+    assert {p: w.digest for p, w in open_windows.items()} == _live_predictor_digests()
+    assert {w.label for w in open_windows.values()} == {"proc-v21"}
     assert len(rows) == 39
 
 

@@ -436,8 +436,15 @@ def test_the_configuration_digest_is_the_actors_own_until_something_changes() ->
 # ----------------------------------------------------------- the commands, offline
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def metrics_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """A scratch metrics root, for every test in this file whether it names it or not.
+
+    A replay command moves the pooled record and the comparison reports under
+    the metrics root out of the tree while its cells run. On the default root
+    that is the checkout's own ``metrics/``, which every xdist worker shares,
+    and two workers moving the same directories collide.
+    """
     root = tmp_path / "metrics"
     monkeypatch.setenv("FEDCOURTS_METRICS_ROOT", str(root))
     return root
@@ -1214,3 +1221,18 @@ def test_a_failed_record_write_is_annotated_and_does_not_fail_the_command(
     out = capsys.readouterr().out
     assert out.startswith("::error::cert-backtest: the pooled record was not written")
     assert "FileExistsError" in out and "a cell made" not in out
+
+
+_COMMITTED_COMPARISONS = Path(__file__).resolve().parents[1] / "metrics" / bc.COMPARISONS_DIRNAME
+
+
+def test_every_committed_comparison_report_ran_a_model() -> None:
+    """A stub dispatch rehearses the lane; its report is not evidence and never lands."""
+    reports = sorted(_COMMITTED_COMPARISONS.glob("*.json"))
+    assert reports, "the committed comparison reports are missing"
+    for path in reports:
+        report = BacktestComparison.model_validate_json(path.read_text(encoding="utf-8"))
+        engines = {report.dispatch.engine, *(arm.engine for arm in report.arms)}
+        assert "stub" not in engines, (
+            f"{path.name} is a stub-engine rehearsal: close its pull request unmerged"
+        )

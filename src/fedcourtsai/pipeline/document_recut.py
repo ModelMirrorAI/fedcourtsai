@@ -11,7 +11,9 @@ serving the same link. This is the pass that re-cuts those rows, on the terms
 recorded in *Contract for the re-cut pass* (`docs/live-sources.md`):
 
 - **Population.** Stored rows of an appendix-bearing kind that are
-  ``truncated``, not ``ocr_derived``, carry no ``[pipeline note:`` line, and
+  ``truncated``, not ``ocr_derived``, carry no cut note
+  (:func:`~fedcourtsai.pipeline.documents.carries_cut_note`: a
+  ``[pipeline note:`` line other than the unread-run note), and
   whose stored URL is one Court link. An untruncated row was never cut, so the
   two cuts agree on it. An OCR-recovered row is head-cut by design
   (:func:`~fedcourtsai.pipeline.documents.extract_filing_text` says why) and
@@ -62,8 +64,10 @@ from .documents import (
     KIND_QUESTIONS_PRESENTED,
     ExtractedText,
     _derived_questions_document,
+    carries_cut_note,
     extract_filing_text,
     extract_questions_presented,
+    strip_unread_notes,
 )
 from .ocr_recovery import DocumentRef, _refetch_document, fetchable_document_url
 from .prefetch import prefetch_by_case
@@ -147,7 +151,7 @@ def exclusion_reason(document: corpus.CaseDocument) -> str | None:
         return NOT_TRUNCATED
     if document.ocr_derived:
         return OCR_DERIVED
-    if _CUT_NOTE_OPENER in document.text:
+    if carries_cut_note(document.text):
         return HAS_CUT_NOTE
     if not fetchable_document_url(document.url):
         return UNFETCHABLE_URL
@@ -274,7 +278,7 @@ class DocumentRecutResult(BaseModel):
     candidates: int = Field(
         ge=0,
         description="Stored petition, application and appendix rows that are truncated, "
-        "not OCR-derived, carry no `[pipeline note:` line and have one fetchable Court "
+        "not OCR-derived, carry no cut note and have one fetchable Court "
         "URL — the whole re-cut class in scope",
     )
     candidates_by_kind: dict[str, int] = Field(
@@ -399,7 +403,11 @@ def _same_head(recut: str, stored: str) -> bool:
     the next line), and it reads a caption's decorative glyphs as different
     characters, some of them non-ASCII letters, neither of which is another
     filing. A re-cut head with no letter or digit opens no stored text that has one.
+    The re-cut's unread-run notes are set aside first: they are the pipeline's
+    lines, a stored text from before the extractor wrote them has none, and one
+    at the head would otherwise end the comparison before it began.
     """
+    recut = strip_unread_notes(recut)
     note = recut.find(_CUT_NOTE_OPENER)
     head = _letters_and_digits(recut[: min(HEAD_CHECK_CHARS, note if note >= 0 else len(recut))])
     opening = _letters_and_digits(stored[: HEAD_CHECK_CHARS * 2])
@@ -486,7 +494,7 @@ def stored_judgement(
     )
     detail = (
         f"pages={extracted.pages} chars={len(document.text)}->{len(extracted.text)} "
-        f"notes={extracted.text.count(_CUT_NOTE_OPENER)} "
+        f"notes={strip_unread_notes(extracted.text).count(_CUT_NOTE_OPENER)} "
         f"truncated={str(extracted.truncated).lower()}"
         + (" questions-presented=rederived" if questions else "")
     )

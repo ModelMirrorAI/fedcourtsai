@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import json
+import os
 import random
 import re
 import time
@@ -38,6 +39,7 @@ from fedcourtsai.schemas import (
     self_provisioned_fetches,
     target_blind_fetches,
 )
+from fedcourtsai.secretscan import redact_credentials
 from tests.conftest import FixtureCorpus
 
 runner = CliRunner()
@@ -3407,3 +3409,326 @@ def test_path_keys_lead_in_their_own_order_and_nested_values_stay_sorted(tmp_pat
     assert call.query == (
         '{"file_path": "f", "path": "p", "edits": [{"new_string": "b", "old_string": "a"}]}'
     )
+
+
+# --- gemini client-error report distillation -------------------------------
+
+# Text a report must never hand the artifact: record prose, a call's arguments,
+# a response payload, the API's message, a credential-shaped run.
+_GEMINI_REPORT_SECRETS = (
+    "The petition for a writ of certiorari",
+    "sealed-exhibit-text",
+    "docket payload returned verbatim",
+    "Please ensure that function response",
+    "AIzaSyD-not-a-real-key-000000000000000000",
+)
+_GEMINI_REPORT_STAMP = "2026-11-10T15-52-31-123Z"
+
+
+def _gemini_error_report(directory: Path, *, kind: str = "Turn.run-sendMessageStream") -> Path:
+    """One client-error report in gemini-cli's own layout, request included."""
+    directory.mkdir(parents=True, exist_ok=True)
+    report = directory / f"gemini-client-error-{kind}-{_GEMINI_REPORT_STAMP}.json"
+    contents = [
+        {"role": "user", "parts": [{"text": "The petition for a writ of certiorari " * 40}]},
+        {
+            "role": "model",
+            "parts": [
+                {"text": "reading", "thought": True},
+                {
+                    "functionCall": {
+                        "name": "read_file",
+                        "args": {"path": "record/sealed-exhibit-text.txt"},
+                    }
+                },
+            ],
+        },
+        {
+            "role": "user",
+            "parts": [
+                {
+                    "functionResponse": {
+                        "id": "call-1",
+                        "name": "read_file",
+                        "response": {"output": "docket payload returned verbatim"},
+                    }
+                }
+            ],
+        },
+    ]
+    message = (
+        '{"error":{"code":400,"message":"Please ensure that function response turn comes '
+        + 'immediately after a function call turn. key=AIzaSyD-not-a-real-key-000000000000000000",'
+        + '"status":"INVALID_ARGUMENT"}}'
+    )
+    report.write_text(
+        json.dumps({"error": {"message": message, "stack": "Error: at x"}, "context": contents})
+    )
+    return report
+
+
+def test_gemini_error_shapes_keep_the_request_structure_and_no_value(tmp_path: Path) -> None:
+    _gemini_error_report(tmp_path)
+    distillation = retrieval.distill_gemini_error_reports(tmp_path, None)
+    assert distillation["reports_found"] == 1
+    (report,) = distillation["reports"]
+    assert report["raised_in"] == "Turn.run-sendMessageStream"
+    assert report["error"]["http_codes"] == [400]
+    assert report["error"]["status_names"] == ["INVALID_ARGUMENT"]
+    request = report["request"]
+    assert request["turn_count"] == 3 and request["turns_dropped"] == 0
+    assert [turn["role"] for turn in request["turns"]] == ["user", "model", "user"]
+    call = request["turns"][1]["parts"][1]["functionCall"]
+    assert call["name"] == "read_file" and call["args_chars"] > 0
+    assert call["args_type"] == "object" and call["name_chars"] == len("read_file")
+    response = request["turns"][2]["parts"][0]["functionResponse"]
+    assert response["name"] == "read_file" and response["has_id"] is True
+    assert request["turns"][0]["parts"][0]["text"] == {"chars": 38 * 40}
+    rendered = json.dumps(distillation)
+    for secret in _GEMINI_REPORT_SECRETS:
+        assert secret not in rendered
+
+
+def test_gemini_error_shapes_screen_names_a_request_could_shape(tmp_path: Path) -> None:
+    report = _gemini_error_report(tmp_path, kind="a kind with spaces")
+    document = json.loads(report.read_text())
+    document["context"][0]["role"] = "a role that is a sentence of record text"
+    document["context"][1]["parts"][1]["functionCall"]["name"] = "leak this: sealed-exhibit-text!"
+    document["context"][0]["parts"][0]["key that is prose"] = "sealed-exhibit-text"
+    report.write_text(json.dumps(document))
+    rendered = json.dumps(retrieval.distill_gemini_error_reports(tmp_path, None))
+    assert "sentence of record" not in rendered
+    assert "leak this" not in rendered
+    assert "key that is prose" not in rendered
+    assert "with spaces" not in rendered
+    assert "<non-identifier>" in rendered
+
+
+def test_gemini_error_shapes_read_a_one_shot_generation_report(tmp_path: Path) -> None:
+    report = _gemini_error_report(tmp_path, kind="generateContent-api")
+    document = json.loads(report.read_text())
+    document["context"] = {
+        "requestContents": document["context"],
+        "requestConfig": {"systemInstruction": "sealed-exhibit-text", "temperature": 0},
+    }
+    report.write_text(json.dumps(document))
+    (shape,) = retrieval.distill_gemini_error_reports(tmp_path, None)["reports"]
+    assert shape["context_type"] == "object"
+    assert shape["context_shape"]["requestConfig"] == {
+        "systemInstruction": "string",
+        "temperature": "number",
+    }
+    assert shape["request"]["turn_count"] == 3
+    assert "sealed-exhibit-text" not in json.dumps(shape)
+
+
+def test_gemini_error_shapes_cap_reports_and_turns(tmp_path: Path) -> None:
+    for index in range(retrieval._GEMINI_REPORT_CAP + 2):
+        path = tmp_path / f"gemini-client-error-startChat-2026-11-10T15-52-3{index}-000Z.json"
+        turns: list[dict[str, Any]] = [{"role": "user", "parts": [{"text": "x"}]}] * (
+            retrieval._GEMINI_TURN_CAP + 6
+        )
+        turns.append({"role": None, "parts": [{"text": "x" * (index + 1)}] * 30})
+        path.write_text(json.dumps({"error": {"message": "boom"}, "context": turns}))
+    distillation = retrieval.distill_gemini_error_reports(tmp_path, None)
+    assert distillation["reports_found"] == retrieval._GEMINI_REPORT_CAP + 2
+    assert len(distillation["reports"]) == retrieval._GEMINI_REPORT_CAP
+    # Newest first by the name's own stamp: the two oldest are the ones left.
+    assert [
+        r["request"]["turns"][-1]["parts"][0]["text"]["chars"] for r in distillation["reports"]
+    ] == [
+        7,
+        6,
+        5,
+        4,
+        3,
+    ]
+    request = distillation["reports"][0]["request"]
+    assert request["turn_count"] == retrieval._GEMINI_TURN_CAP + 7
+    assert request["turns_dropped"] == 7
+    assert len(request["turns"]) == retrieval._GEMINI_TURN_CAP
+    assert request["turns"][0]["index"] == 7
+    last = request["turns"][-1]
+    assert last["role"] is None and last["part_count"] == 30
+    assert len(last["parts"]) == retrieval._GEMINI_PART_CAP
+
+
+def test_gemini_error_shapes_never_follow_a_link_out_of_the_report_dir(tmp_path: Path) -> None:
+    outside = tmp_path / "outside"
+    target = _gemini_error_report(outside)
+    reports = tmp_path / "tmp"
+    reports.mkdir()
+    (reports / target.name).symlink_to(target)
+    (reports / "gemini-client-error-dir-2026-11-10T15-52-31-123Z.json").mkdir()
+    assert retrieval._read_report_file(reports / target.name) is None
+    assert retrieval._read_report_file(target) is not None
+    assert retrieval.distill_gemini_error_reports(reports, None) == {
+        "reports_found": 0,
+        "reports": [],
+        "api_errors_found": 0,
+        "api_errors": [],
+        "truncated": False,
+    }
+
+
+def test_gemini_error_shapes_survive_a_malformed_or_oversized_report(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "gemini-client-error-general-2026-11-10T15-52-31-123Z.json").write_text("{not json")
+    (shape,) = retrieval.distill_gemini_error_reports(tmp_path, None)["reports"]
+    assert shape == {"raised_in": "general", "bytes": 9, "document_type": None}
+    monkeypatch.setattr(retrieval, "_GEMINI_REPORT_MAX_BYTES", 4)
+    _gemini_error_report(tmp_path, kind="startChat")
+    shapes = retrieval.distill_gemini_error_reports(tmp_path, None)["reports"]
+    assert [shape["document_type"] for shape in shapes] == [None, None]
+    assert retrieval.distill_gemini_error_reports(tmp_path / "absent", tmp_path / "absent.log") == {
+        "reports_found": 0,
+        "reports": [],
+        "api_errors_found": 0,
+        "api_errors": [],
+        "truncated": False,
+    }
+
+
+def _gemini_api_error_log(path: Path) -> Path:
+    record = {
+        "body": "API error for gemini-4-argon. Error: sealed-exhibit-text. Duration: 812ms.",
+        "attributes": {
+            "event.name": "gemini_cli.api_error",
+            "event.timestamp": "2026-11-10T15:52:31.123Z",
+            "error.message": "sealed-exhibit-text",
+            "error": "sealed-exhibit-text",
+            "model": "gemini-4-argon",
+            "status_code": 400,
+            "error.type": "ApiError",
+            "duration_ms": 812,
+            "prompt_id": "sealed-exhibit-text",
+        },
+    }
+    other = {"attributes": {"event.name": "gemini_cli.api_response", "input_token_count": 5}}
+    path.write_text(json.dumps(record, indent=2) + "\n" + json.dumps(other, indent=2) + "\n")
+    return path
+
+
+def test_gemini_error_shapes_read_the_telemetry_api_errors(tmp_path: Path) -> None:
+    log = _gemini_api_error_log(tmp_path / "telemetry.log")
+    distillation = retrieval.distill_gemini_error_reports(tmp_path / "absent", log)
+    assert distillation["api_errors_found"] == 1
+    assert distillation["api_errors"] == [
+        {
+            "timestamp": "2026-11-10T15:52:31.123Z",
+            "model": "gemini-4-argon",
+            "status_code": 400,
+            "error_type": "ApiError",
+            "duration_ms": 812,
+            "message_chars": len("sealed-exhibit-text"),
+        }
+    ]
+    assert "sealed-exhibit-text" not in json.dumps(distillation)
+
+
+def test_gemini_error_shapes_command_writes_only_when_there_is_a_fault(tmp_path: Path) -> None:
+    out = tmp_path / "bundle" / "gemini-error-shapes.json"
+    quiet = runner.invoke(
+        app, ["gemini-error-shapes", "--report-dir", str(tmp_path / "tmp"), "--out", str(out)]
+    )
+    assert quiet.exit_code == 0, quiet.output
+    assert not out.exists()
+    _gemini_error_report(tmp_path / "tmp")
+    log = _gemini_api_error_log(tmp_path / "telemetry.log")
+    result = runner.invoke(
+        app,
+        [
+            "gemini-error-shapes",
+            "--report-dir",
+            str(tmp_path / "tmp"),
+            "--telemetry-file",
+            str(log),
+            "--out",
+            str(out),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert "1 report(s) found, 1 read, 1 api_error record(s)" in result.output
+    written = out.read_text()
+    assert json.loads(written)["reports"][0]["error"]["status_names"] == ["INVALID_ARGUMENT"]
+    for secret in _GEMINI_REPORT_SECRETS:
+        assert secret not in written
+
+
+def test_gemini_error_shapes_hold_error_fields_to_their_vocabulary(tmp_path: Path) -> None:
+    shape = retrieval._gemini_error_shape(
+        {"message": "contents[412] exceeds the limit of 500 tokens. got status: 429 UNAVAILABLE"}
+    )
+    assert shape["http_codes"] == [429]
+    assert shape["status_names"] == ["UNAVAILABLE"]
+    assert shape["has_stack"] is False
+    assert retrieval._gemini_error_shape(None)["has_stack"] is False
+    log = tmp_path / "telemetry.log"
+    rows = [
+        {"event.name": "gemini_cli.api_error", "event.timestamp": f"2026-11-10T15:52:{n:02d}.000Z"}
+        | {"model": "a model named in prose", "status_code": "429", "duration_ms": 10**12}
+        for n in range(retrieval._GEMINI_API_ERROR_CAP + 3)
+    ]
+    rows.append(dict(rows[-1]))
+    otlp = {
+        "attributes": [
+            {"key": "event.name", "value": {"stringValue": "gemini_cli.api_error"}},
+            {"key": "status_code", "value": {"intValue": "70000"}},
+        ]
+    }
+    log.write_text("\n".join(json.dumps(row) for row in [*rows, otlp]) + "\n")
+    distillation = retrieval.distill_gemini_error_reports(tmp_path / "absent", log)
+    assert distillation["api_errors_found"] == retrieval._GEMINI_API_ERROR_CAP + 4
+    kept = distillation["api_errors"]
+    assert len(kept) == retrieval._GEMINI_API_ERROR_CAP
+    assert (
+        kept[-1]["timestamp"] == f"2026-11-10T15:52:{retrieval._GEMINI_API_ERROR_CAP + 2:02d}.000Z"
+    )
+    assert {row["model"] for row in kept} == {"<non-identifier>"}
+    assert {row["status_code"] for row in kept} == {429}
+    assert {row["duration_ms"] for row in kept} == {None}
+
+
+def test_gemini_error_shapes_hold_the_whole_output_to_a_budget(tmp_path: Path) -> None:
+    def token(n: int) -> str:
+        return f"k{n:03d}" + "x" * 59
+
+    part = {token(k): 1 for k in range(40)}
+    turn = {"role": token(0), "parts": [part] * 20}
+    for index in range(retrieval._GEMINI_REPORT_CAP):
+        path = tmp_path / f"gemini-client-error-startChat-2026-11-10T15-52-3{index}-000Z.json"
+        path.write_text(json.dumps({"error": {"message": "x"}, "context": [turn] * 200}))
+    distillation = retrieval.distill_gemini_error_reports(tmp_path, None)
+    assert distillation["truncated"] is True
+    assert len(json.dumps(distillation)) <= retrieval._GEMINI_OUTPUT_MAX_BYTES
+    request = distillation["reports"][0]["request"]
+    assert request["turn_count"] == 200
+    assert request["turns_dropped"] == 200 - len(request["turns"])
+
+
+def test_gemini_error_shapes_replace_a_credential_shaped_token(tmp_path: Path) -> None:
+    key = "AIzaSyD" + "a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6"
+    assert redact_credentials(key) != key
+    report = _gemini_error_report(tmp_path, kind=key)
+    document = json.loads(report.read_text())
+    document["context"][0]["role"] = key
+    document["context"][0]["parts"][0][key] = 1
+    document["context"][1]["parts"][1]["functionCall"]["name"] = key
+    report.write_text(json.dumps(document))
+    log = tmp_path / "telemetry.log"
+    log.write_text(json.dumps({"event.name": "gemini_cli.api_error", "model": key}))
+    rendered = json.dumps(retrieval.distill_gemini_error_reports(tmp_path, log))
+    assert key not in rendered
+    assert "<redacted>" in rendered
+
+
+def test_gemini_error_shapes_read_the_telemetry_log_only_as_a_plain_file(tmp_path: Path) -> None:
+    real = _gemini_api_error_log(tmp_path / "real.log")
+    link = tmp_path / "telemetry.log"
+    link.symlink_to(real)
+    assert retrieval.distill_gemini_error_reports(tmp_path, link)["api_errors_found"] == 0
+    fifo = tmp_path / "fifo.log"
+    os.mkfifo(fifo)
+    # A FIFO with no writer would hold a plain read open; this returns.
+    assert retrieval.distill_gemini_error_reports(tmp_path, fifo)["api_errors_found"] == 0

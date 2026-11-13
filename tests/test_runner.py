@@ -806,6 +806,13 @@ _FETCH_FAILED_RESULT = (
     + '"exception TypeError: fetch failed sending request", "code": 1}}'
 )
 
+# The client error a turn ends on when the API refuses its request: the error
+# object gemini-cli 0.49.0 leaves, abridged to the fields the classifier reads.
+_BAD_REQUEST_RESULT = (
+    '{"session_id": "s", "error": {"type": "Error", "message": '
+    + '"{\\"error\\": {\\"code\\": 400, \\"status\\": \\"INVALID_ARGUMENT\\"}}", "code": 144}}'
+)
+
 
 @pytest.mark.parametrize(
     ("returncode", "stdout", "stderr", "expected"),
@@ -841,6 +848,70 @@ _FETCH_FAILED_RESULT = (
             "",
             "    at async GeminiChat.makeApiCallAndProcessStream (chunk.js:321564:28)\n"
             + _FETCH_FAILED_RESULT,
+            AttemptClass.transient,
+        ),
+        # A failing exit is classified on the fault the engine reported, not
+        # on what the turn recovered from earlier: a model call the CLI retried
+        # itself, then the client error that ended the turn (evaluate round
+        # 20261110T154355Z's gemini-judge cell, abridged).
+        (
+            1,
+            "",
+            "Attempt 1 failed: exception TypeError: fetch failed sending request\n"
+            + "    at async GeminiChat.makeApiCallAndProcessStream (chunk.js:321564:28)\n"
+            + _BAD_REQUEST_RESULT,
+            AttemptClass.permanent,
+        ),
+        # The same client error where the CLI wrote its result to stdout.
+        (
+            1,
+            _BAD_REQUEST_RESULT,
+            "Attempt 1 failed: exception TypeError: fetch failed sending request",
+            AttemptClass.permanent,
+        ),
+        # The reverse order: a recovered client error, then the dropped call
+        # that ended the turn, is still a serving hiccup.
+        (
+            1,
+            "",
+            "Attempt 1 failed: 400 INVALID_ARGUMENT, context length exceeded\n"
+            + _FETCH_FAILED_RESULT,
+            AttemptClass.transient,
+        ),
+        # A reported spent quota is terminal whatever throttle preceded it, and
+        # a recovered one does not make a later reported fault terminal.
+        (
+            1,
+            "",
+            "HTTP 429 Too Many Requests\n"
+            + '{"error": {"type": "TerminalQuotaError", "message": "quota exceeded"}}',
+            AttemptClass.terminal_quota,
+        ),
+        (
+            1,
+            "",
+            "TerminalQuotaError: You have exhausted your daily quota on this model\n"
+            + _BAD_REQUEST_RESULT,
+            AttemptClass.permanent,
+        ),
+        # The result on stdout is the engine's verdict where both streams
+        # carry an error object.
+        (1, _BAD_REQUEST_RESULT, _FETCH_FAILED_RESULT, AttemptClass.permanent),
+        # Any line-opening JSON object with an error counts as the report,
+        # whoever wrote it: a stated limit of the reading, pinned here.
+        (
+            1,
+            "",
+            '{"jsonrpc": "2.0", "error": {"message": "tool not found"}}\n'
+            + "TypeError: fetch failed",
+            AttemptClass.permanent,
+        ),
+        # With no error object the whole of stderr is read, as the runner's
+        # retry loop reads it: nothing marks one line as the last word.
+        (
+            1,
+            "",
+            "HTTP 429 Too Many Requests\nError: the turn ended",
             AttemptClass.transient,
         ),
         # A spent quota overrides the throttle words it carries, on either surface.
@@ -881,9 +952,10 @@ def test_the_attempt_classifier_agrees_with_the_runners_retry_on_every_stderr(
 ) -> None:
     """The workflow step and the local runner read one signature set.
 
-    On a non-zero exit with no JSON result, the classifier's verdict is exactly
-    the runner's retry decision — so the step cannot retry what the runner
-    would not, nor give up on what the runner would retry.
+    On a non-zero exit where the engine reported no error, in its result or
+    as an object on stderr, the classifier's verdict is exactly the runner's
+    retry decision — so the step cannot retry what the runner would not, nor
+    give up on what the runner would retry.
     """
     result = CommandResult(1, stderr)
     verdict = classify_engine_attempt(1, "", stderr)
