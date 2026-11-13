@@ -1,0 +1,584 @@
+{
+  "conferences": [
+    {
+      "conference": "2017-09-25",
+      "petitions": 3
+    },
+    {
+      "conference": "2017-10-06",
+      "petitions": 4
+    },
+    {
+      "conference": "2017-10-27",
+      "petitions": 1
+    },
+    {
+      "conference": "2017-11-03",
+      "petitions": 2
+    },
+    {
+      "conference": "2017-11-09",
+      "petitions": 1
+    },
+    {
+      "conference": "2017-11-21",
+      "petitions": 1
+    },
+    {
+      "conference": "2017-12-01",
+      "petitions": 1
+    },
+    {
+      "conference": "2018-01-05",
+      "petitions": 1
+    },
+    {
+      "conference": "2018-01-19",
+      "petitions": 3
+    },
+    {
+      "conference": "2018-02-16",
+      "petitions": 4
+    },
+    {
+      "conference": "2018-02-23",
+      "petitions": 1
+    },
+    {
+      "conference": "2018-03-23",
+      "petitions": 1
+    },
+    {
+      "conference": "2018-04-13",
+      "petitions": 1
+    },
+    {
+      "conference": "2018-05-10",
+      "petitions": 1
+    },
+    {
+      "conference": "2018-05-17",
+      "petitions": 1
+    },
+    {
+      "conference": "2018-05-31",
+      "petitions": 1
+    },
+    {
+      "conference": "2018-06-07",
+      "petitions": 1
+    },
+    {
+      "conference": "2018-06-21",
+      "petitions": 2
+    },
+    {
+      "conference": "2018-06-27",
+      "petitions": 1
+    },
+    {
+      "conference": "2018-09-24",
+      "petitions": 12
+    },
+    {
+      "conference": "2018-10-05",
+      "petitions": 5
+    },
+    {
+      "conference": "2018-10-12",
+      "petitions": 3
+    },
+    {
+      "conference": "2018-10-26",
+      "petitions": 1
+    },
+    {
+      "conference": "2018-11-09",
+      "petitions": 1
+    },
+    {
+      "conference": "2018-11-30",
+      "petitions": 7
+    },
+    {
+      "conference": "2019-01-04",
+      "petitions": 2
+    },
+    {
+      "conference": "2019-01-18",
+      "petitions": 1
+    },
+    {
+      "conference": "2019-02-15",
+      "petitions": 4
+    },
+    {
+      "conference": "2019-03-15",
+      "petitions": 2
+    },
+    {
+      "conference": "2019-03-22",
+      "petitions": 2
+    },
+    {
+      "conference": "2019-03-29",
+      "petitions": 2
+    },
+    {
+      "conference": "2019-04-26",
+      "petitions": 1
+    },
+    {
+      "conference": "2019-05-16",
+      "petitions": 1
+    },
+    {
+      "conference": "2019-06-06",
+      "petitions": 1
+    },
+    {
+      "conference": "2019-06-13",
+      "petitions": 2
+    },
+    {
+      "conference": "2019-06-20",
+      "petitions": 1
+    },
+    {
+      "conference": "2019-10-01",
+      "petitions": 13
+    },
+    {
+      "conference": "2019-10-11",
+      "petitions": 1
+    },
+    {
+      "conference": "2019-11-08",
+      "petitions": 2
+    },
+    {
+      "conference": "2019-11-22",
+      "petitions": 1
+    },
+    {
+      "conference": "2019-12-06",
+      "petitions": 3
+    },
+    {
+      "conference": "2020-01-10",
+      "petitions": 3
+    },
+    {
+      "conference": "2020-01-17",
+      "petitions": 1
+    },
+    {
+      "conference": "2020-03-06",
+      "petitions": 1
+    },
+    {
+      "conference": "2020-03-27",
+      "petitions": 1
+    },
+    {
+      "conference": "2020-04-24",
+      "petitions": 1
+    },
+    {
+      "conference": "2020-05-01",
+      "petitions": 1
+    },
+    {
+      "conference": "2020-05-15",
+      "petitions": 2
+    },
+    {
+      "conference": "2020-05-21",
+      "petitions": 1
+    },
+    {
+      "conference": "2020-06-04",
+      "petitions": 2
+    },
+    {
+      "conference": "2020-06-11",
+      "petitions": 1
+    },
+    {
+      "conference": "2020-06-18",
+      "petitions": 1
+    },
+    {
+      "conference": "2020-06-25",
+      "petitions": 1
+    },
+    {
+      "conference": "2020-09-29",
+      "petitions": 7
+    },
+    {
+      "conference": "2020-10-09",
+      "petitions": 1
+    },
+    {
+      "conference": "2020-11-06",
+      "petitions": 1
+    },
+    {
+      "conference": "2020-11-13",
+      "petitions": 1
+    },
+    {
+      "conference": "2020-11-20",
+      "petitions": 1
+    },
+    {
+      "conference": "2020-12-04",
+      "petitions": 4
+    },
+    {
+      "conference": "2020-12-11",
+      "petitions": 3
+    },
+    {
+      "conference": "2021-01-08",
+      "petitions": 2
+    },
+    {
+      "conference": "2021-01-15",
+      "petitions": 1
+    },
+    {
+      "conference": "2021-02-19",
+      "petitions": 1
+    },
+    {
+      "conference": "2021-03-05",
+      "petitions": 1
+    },
+    {
+      "conference": "2021-03-26",
+      "petitions": 1
+    },
+    {
+      "conference": "2021-04-16",
+      "petitions": 1
+    },
+    {
+      "conference": "2021-05-13",
+      "petitions": 1
+    },
+    {
+      "conference": "2021-05-20",
+      "petitions": 1
+    },
+    {
+      "conference": "2021-05-27",
+      "petitions": 1
+    },
+    {
+      "conference": "2021-06-10",
+      "petitions": 1
+    },
+    {
+      "conference": "2021-06-24",
+      "petitions": 3
+    },
+    {
+      "conference": "2021-09-27",
+      "petitions": 6
+    },
+    {
+      "conference": "2021-10-08",
+      "petitions": 1
+    },
+    {
+      "conference": "2021-10-15",
+      "petitions": 2
+    },
+    {
+      "conference": "2021-10-29",
+      "petitions": 2
+    },
+    {
+      "conference": "2021-11-12",
+      "petitions": 1
+    },
+    {
+      "conference": "2021-11-19",
+      "petitions": 1
+    },
+    {
+      "conference": "2021-12-03",
+      "petitions": 2
+    },
+    {
+      "conference": "2022-01-07",
+      "petitions": 1
+    },
+    {
+      "conference": "2022-02-18",
+      "petitions": 3
+    },
+    {
+      "conference": "2022-02-25",
+      "petitions": 2
+    },
+    {
+      "conference": "2022-03-04",
+      "petitions": 1
+    },
+    {
+      "conference": "2022-03-18",
+      "petitions": 1
+    },
+    {
+      "conference": "2022-05-12",
+      "petitions": 4
+    },
+    {
+      "conference": "2022-05-19",
+      "petitions": 1
+    },
+    {
+      "conference": "2022-05-26",
+      "petitions": 1
+    },
+    {
+      "conference": "2022-06-16",
+      "petitions": 1
+    },
+    {
+      "conference": "2022-09-28",
+      "petitions": 3
+    },
+    {
+      "conference": "2022-10-07",
+      "petitions": 1
+    },
+    {
+      "conference": "2022-10-14",
+      "petitions": 1
+    },
+    {
+      "conference": "2022-10-28",
+      "petitions": 4
+    },
+    {
+      "conference": "2022-11-04",
+      "petitions": 1
+    },
+    {
+      "conference": "2022-11-10",
+      "petitions": 4
+    },
+    {
+      "conference": "2022-11-18",
+      "petitions": 1
+    },
+    {
+      "conference": "2022-12-02",
+      "petitions": 1
+    },
+    {
+      "conference": "2022-12-09",
+      "petitions": 1
+    },
+    {
+      "conference": "2023-01-06",
+      "petitions": 1
+    },
+    {
+      "conference": "2023-01-20",
+      "petitions": 1
+    },
+    {
+      "conference": "2023-02-17",
+      "petitions": 1
+    },
+    {
+      "conference": "2025-09-29",
+      "petitions": 5
+    },
+    {
+      "conference": "2025-10-10",
+      "petitions": 3
+    },
+    {
+      "conference": "2025-10-17",
+      "petitions": 2
+    },
+    {
+      "conference": "2025-11-07",
+      "petitions": 1
+    },
+    {
+      "conference": "2025-11-14",
+      "petitions": 3
+    },
+    {
+      "conference": "2025-11-21",
+      "petitions": 1
+    },
+    {
+      "conference": "2025-12-05",
+      "petitions": 2
+    },
+    {
+      "conference": "2025-12-12",
+      "petitions": 2
+    },
+    {
+      "conference": "2026-01-09",
+      "petitions": 2
+    },
+    {
+      "conference": "2026-02-20",
+      "petitions": 4
+    },
+    {
+      "conference": "2026-02-27",
+      "petitions": 1
+    },
+    {
+      "conference": "2026-03-06",
+      "petitions": 1
+    },
+    {
+      "conference": "2026-03-20",
+      "petitions": 1
+    },
+    {
+      "conference": "2026-04-02",
+      "petitions": 2
+    },
+    {
+      "conference": "2026-04-17",
+      "petitions": 4
+    },
+    {
+      "conference": "2026-04-24",
+      "petitions": 3
+    },
+    {
+      "conference": "2026-05-01",
+      "petitions": 1
+    },
+    {
+      "conference": "2026-05-14",
+      "petitions": 1
+    },
+    {
+      "conference": "2026-05-21",
+      "petitions": 1
+    },
+    {
+      "conference": "2026-05-28",
+      "petitions": 3
+    },
+    {
+      "conference": "2026-06-11",
+      "petitions": 2
+    },
+    {
+      "conference": "2026-06-18",
+      "petitions": 5
+    },
+    {
+      "conference": "2026-06-25",
+      "petitions": 6
+    },
+    {
+      "conference": "2026-06-29",
+      "petitions": 3
+    },
+    {
+      "conference": "2026-09-28",
+      "petitions": 70
+    },
+    {
+      "conference": "2026-10-09",
+      "petitions": 29
+    },
+    {
+      "conference": "2026-10-16",
+      "petitions": 10
+    },
+    {
+      "conference": "2026-11-06",
+      "petitions": 35
+    },
+    {
+      "conference": "2026-11-13",
+      "petitions": 154
+    },
+    {
+      "conference": "2026-12-04",
+      "petitions": 131
+    }
+  ],
+  "discovery": {
+    "ok": true,
+    "streams": [
+      {
+        "alarms": [],
+        "checked_on": "2026-11-13",
+        "cursor": 625,
+        "frontier": 625,
+        "holes": 0,
+        "holes_reprobed": 3,
+        "holes_serving": [],
+        "lookahead_hits": [],
+        "newest_filed": "2026-11-12",
+        "outside_serial": 498,
+        "outside_source": "order-list 2026-11-09",
+        "problems": [],
+        "quiet_business_days": 0,
+        "stall_threshold": 3,
+        "stream": "paid"
+      },
+      {
+        "alarms": [],
+        "checked_on": "2026-11-13",
+        "cursor": 6146,
+        "frontier": 6146,
+        "holes": 5,
+        "holes_reprobed": 10,
+        "holes_serving": [],
+        "lookahead_hits": [],
+        "newest_filed": "2026-11-12",
+        "outside_serial": 6095,
+        "outside_source": "miscellaneous-order 2026-11-12",
+        "problems": [],
+        "quiet_business_days": 0,
+        "stall_threshold": 7,
+        "stream": "ifp"
+      },
+      {
+        "alarms": [],
+        "checked_on": "2026-11-13",
+        "cursor": 675,
+        "frontier": 675,
+        "holes": 2,
+        "holes_reprobed": 3,
+        "holes_serving": [],
+        "lookahead_hits": [],
+        "newest_filed": "2026-11-12",
+        "outside_serial": 661,
+        "outside_source": "miscellaneous-order 2026-11-12",
+        "problems": [],
+        "quiet_business_days": 0,
+        "stall_threshold": 3,
+        "stream": "application"
+      }
+    ],
+    "term": 26
+  },
+  "documents_provisioned": 171,
+  "generated_on": "2026-11-13",
+  "next_conference": "2026-11-13",
+  "next_conference_petitions": 154,
+  "schema_version": "1.0",
+  "skipped": false,
+  "watchlist": 685
+}

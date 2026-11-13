@@ -349,6 +349,54 @@
       "petitions": 1
     },
     {
+      "conference": "2022-09-28",
+      "petitions": 3
+    },
+    {
+      "conference": "2022-10-07",
+      "petitions": 1
+    },
+    {
+      "conference": "2022-10-14",
+      "petitions": 1
+    },
+    {
+      "conference": "2022-10-28",
+      "petitions": 4
+    },
+    {
+      "conference": "2022-11-04",
+      "petitions": 1
+    },
+    {
+      "conference": "2022-11-10",
+      "petitions": 4
+    },
+    {
+      "conference": "2022-11-18",
+      "petitions": 1
+    },
+    {
+      "conference": "2022-12-02",
+      "petitions": 1
+    },
+    {
+      "conference": "2022-12-09",
+      "petitions": 1
+    },
+    {
+      "conference": "2023-01-06",
+      "petitions": 1
+    },
+    {
+      "conference": "2023-01-20",
+      "petitions": 1
+    },
+    {
+      "conference": "2023-02-17",
+      "petitions": 1
+    },
+    {
       "conference": "2025-09-29",
       "petitions": 5
     },
@@ -450,7 +498,7 @@
     },
     {
       "conference": "2026-10-09",
-      "petitions": 28
+      "petitions": 29
     },
     {
       "conference": "2026-10-16",
@@ -458,22 +506,79 @@
     },
     {
       "conference": "2026-11-06",
-      "petitions": 34
+      "petitions": 35
     },
     {
       "conference": "2026-11-13",
-      "petitions": 153
+      "petitions": 154
     },
     {
       "conference": "2026-12-04",
-      "petitions": 117
+      "petitions": 131
     }
   ],
-  "documents_provisioned": 167,
-  "generated_on": "2026-11-12",
+  "discovery": {
+    "ok": true,
+    "streams": [
+      {
+        "alarms": [],
+        "checked_on": "2026-11-13",
+        "cursor": 625,
+        "frontier": 625,
+        "holes": 0,
+        "holes_reprobed": 3,
+        "holes_serving": [],
+        "lookahead_hits": [],
+        "newest_filed": "2026-11-12",
+        "outside_serial": 498,
+        "outside_source": "order-list 2026-11-09",
+        "problems": [],
+        "quiet_business_days": 0,
+        "stall_threshold": 3,
+        "stream": "paid"
+      },
+      {
+        "alarms": [],
+        "checked_on": "2026-11-13",
+        "cursor": 6146,
+        "frontier": 6146,
+        "holes": 5,
+        "holes_reprobed": 10,
+        "holes_serving": [],
+        "lookahead_hits": [],
+        "newest_filed": "2026-11-12",
+        "outside_serial": 6095,
+        "outside_source": "miscellaneous-order 2026-11-12",
+        "problems": [],
+        "quiet_business_days": 0,
+        "stall_threshold": 7,
+        "stream": "ifp"
+      },
+      {
+        "alarms": [],
+        "checked_on": "2026-11-13",
+        "cursor": 675,
+        "frontier": 675,
+        "holes": 2,
+        "holes_reprobed": 3,
+        "holes_serving": [],
+        "lookahead_hits": [],
+        "newest_filed": "2026-11-12",
+        "outside_serial": 661,
+        "outside_source": "miscellaneous-order 2026-11-12",
+        "problems": [],
+        "quiet_business_days": 0,
+        "stall_threshold": 3,
+        "stream": "application"
+      }
+    ],
+    "term": 26
+  },
+  "documents_provisioned": 171,
+  "generated_on": "2026-11-13",
   "next_conference": "2026-11-13",
-  "next_conference_petitions": 153,
+  "next_conference_petitions": 154,
   "schema_version": "1.0",
   "skipped": false,
-  "watchlist": 648
+  "watchlist": 685
 }
