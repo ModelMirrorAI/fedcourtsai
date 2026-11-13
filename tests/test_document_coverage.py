@@ -777,7 +777,11 @@ def test_extract_filing_text_cuts_only_the_appendix_bearing_kinds() -> None:
     plain = extract_pdf_text(data, char_cap=8_000)
     assert plain.truncated and "pipeline note" not in plain.text
     assert KIND_CERT_REPLY not in APPENDIX_BEARING_KINDS
-    assert extract_filing_text(data, kind=KIND_CERT_REPLY, char_cap=8_000) == plain
+    # The other kinds take the plain head cut, with the filing readers' note
+    # over the fixture's three one-letter front pages.
+    head_cut = extract_filing_text(data, kind=KIND_CERT_REPLY, char_cap=8_000)
+    assert head_cut == extract_pdf_text(data, char_cap=8_000, note_unread=True)
+    assert head_cut.truncated and head_cut.text.count("[pipeline note:") == 1
     cut = extract_filing_text(data, kind=KIND_PETITION, char_cap=8_000)
     assert cut.truncated and cut.pages == len(pages)
     assert "pipeline note" in cut.text and len(cut.text) <= 8_000

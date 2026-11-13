@@ -19886,3 +19886,173 @@ freeze commit is recorded here.
   beside an `engine said:` text that is such a reported 400 (an attempt the
   engine left no error object for is still read over its whole stderr, so
   the annotation alone does not fail the check).
+- **The extractor marks a run of unread pages, and the OCR recovery class
+  takes a marked row; recorded 2026-11-13.** A **provisioning-cutoff** change
+  with a harness boundary, recorded ahead of the promotion that carries it.
+
+  **Why.** A filing can be typeset in two passes, with a text layer on its
+  cover, tables and appendix and page images for the argument between them.
+  The recovery class took a row that is empty or that averages under
+  `THIN_PAGE_CHARS` (200) characters a page, and on such a filing the pages
+  that did extract carry the average over the floor. On 26-624
+  (`scotus/9026000624`) the stored `petition` is 106 pages and 114,039
+  characters, `truncated` false, and all three predictors flagged in predict
+  run `20261112T230820Z` that the petition's body is absent. Read page by page
+  off the Court's PDF on 2026-11-13, pages 12 to 40 hold no text layer and
+  page 41 holds 9 characters.
+
+  **What moved.** Three things, in `pipeline.documents`,
+  `pipeline.ocr_recovery` and `pipeline.document_recut`.
+  - **The note.** Every reader of a filing writes one line where a run
+    starts: `[pipeline note: PDF pages X to Y have little or no text layer;
+    where they are page images, what they say is not in this text]`
+    (`documents.note_unread_pages`). A run is `UNREAD_RUN_PAGES` (3) or more
+    pages in a row under the same 200 characters, in a filing with a page at
+    or over the floor. The parsers of the Court's own orders, opinions and
+    transcripts write none. The note is not a cut: the re-cut class, a
+    combined row's `cut` reading, the appendix's page headings and the
+    questions-presented cutter set it aside.
+  - **The class.** A stored row carrying the note is in the recovery class
+    (`ocr_recovery.has_unread_run`), unless it is truncated, already
+    `ocr_derived`, set-keyed or under a per-filing header. So are four rows
+    named in `ocr_recovery.UNMARKED_RUN_ROWS`, by case, kind and link: a
+    stored link is not read again, so a row stored before the note carries
+    none. The standing sweep, the dispatched pass and the predict backlog's
+    `held_unread_scan` hold read that one predicate.
+  - **The write.** A reading of a marked row that is not thin is written only
+    if it still holds the stored text (`ocr_recovery.keeps_stored_text`): in
+    pieces of 200 letters and digits, found in order, with bounded misses;
+    with no more added than the pages there were to read could hold; and
+    ending early only at the document cap, by no more than it added. An empty
+    or thin row is held to length as before.
+
+  No prompt byte and no registry field other than the boundary row moves, so
+  no digest moves. `uv run fedcourts process-digest --all` prints `proc-v22`
+  and the six digests `b61115d4…` (claude-baseline), `a74ea561…`
+  (codex-baseline), `ff9786ea…` (gemini-baseline), `6d65018d…`
+  (claude-judge), `ad4c6cc6…` (codex-judge) and `71a3fe87…` (gemini-judge),
+  with and without the change.
+
+  **A harness boundary under the 2026-10-11 pooled rule.** The change adds to
+  what a predict cell reads under unchanged digests: a line of the pipeline's
+  in a filing's text, and then the pages OCR reads. It is composition, not a
+  cut. The pooled default and the paired figure keep both sides and list each
+  engine's `n` before and after. It cuts only a figure that reads its own
+  effect.
+  - **The registry row** is `unread-page-runs`. It applies to every
+    predictor, and its reach is `all`, because no narrower registered reach
+    names these dockets. It is **gradual**. A filing fetched after the
+    carrying merge is marked when it is stored and read within a sweep window
+    or two; a row stored before it changes only if it is one of the four
+    named, or when its link changes. It is registered **pending** in this
+    change's own PR (`fedcourts register-boundary`), under the 2026-10-14
+    merge-stamping declaration, and its `merge` and `at` stay null until the
+    promotion merge that carries it to `main` stamps them
+    (`promotion-record`).
+  - **The side test** is the registered one, against the carrying merge.
+    Because the boundary is gradual, an after-side cell may read a row that
+    holds a run and no note, so the after-side `n` is an upper bound on
+    exposure.
+
+  **The population.** Measured read-only over blob
+  `513cff96bfe07d6a35c21c17e969e813a259b260e26bd3fbd821341eb48611f1` (newest
+  pull 2026-11-13, newest stored snapshot row 2026-07-13), over the stored
+  documents of the 59,653 live-slice SCOTUS rows: 40,576 rows of a fetched
+  kind on 20,940 cases, 40,272 of them with pages and one link. 725 have no
+  text and 181 are thin, the class as it was; 924 are `ocr_derived`. The
+  frame for what follows is the 38,442 rows that hold text, are not thin, not
+  `ocr_derived`, one link and under no header, 2,514 of them truncated. Every
+  page figure below is a count of text-layer characters a page off the
+  Court's own PDF, fetched 2026-11-13, and no stored text.
+  - **The stored text does not carry the signal reliably.** Pages are joined by a line
+    break, so blank pages leave blank lines, but so does page layout. Of the
+    35,928 untruncated rows, the longest run of blank lines in the stored
+    text is under 5 in 28,394, 5 to 9 in 4,372, 10 to 19 in 1,892, 20 to 29
+    in 642, 30 to 39 in 465 and 40 or more in 163. Twelve rows drawn from
+    each of those six bands (72, seed 3312) had a run of three or more unread
+    pages in 0, 0, 0, 1, 3 and 1 of the twelve, and the one at 40 or more was
+    a three-page run. So the run is marked at extraction, where the pages are
+    seen.
+  - **The run length.** A uniform sample of 200 of the 38,442 (seed 3312; 112
+    petitions, 61 appendices, 13 oppositions, 8 cert-stage replies, 6 others)
+    by the longest run of pages under 200 characters: none in 89, one page in
+    94, two in 11, three or four in 3, five to nine in 1, and ten or more in
+    2 (runs of 34 and 37 pages). Six of 200 hold a run of three or more, 3
+    percent, with a 95 percent interval of about 1 to 6 percent on a sample
+    this size; 17 of 200 hold a run of two or more. Three is where a single
+    divider or signature page, and a divider beside a short page, are left
+    out.
+  - **What OCR reads on a run.** The eight filings with a run of three or
+    more from that sample and from the first rows of the census below, read
+    through the recovery's own page seam (tesseract 5.3.4, counts only). The
+    run pages read 81,544 characters against 26 in the layer (37 pages),
+    57,789 against 0 (34 pages), 9,242 against 212 (7 pages), 6,586 against
+    336 (4 pages), 2,256 against 621 (5 pages), 1,191 against 431 (4 pages),
+    597 against 20 (3 pages), and 0 against 0 on three blank pages that close
+    a brief in opposition. Seven of eight gain; the eighth is `no-gain` on
+    every pass.
+  - **The rows a forward cell reads.** Every stored row of the frame on a
+    case with an open event in predict scope (`ocr_sweep.forward_case_ids`):
+    643 rows on 220 cases, 641 read (two were not read), 47,763
+    pages. By longest run: none in 340, one page in 268, two in 20, three or
+    four in 3, five to nine in 8, ten or more in 2. Thirteen rows on ten
+    cases hold a run of three or more, 2 percent. Nine of them are truncated,
+    with runs of three to seven pages among appendix exhibits, and stay as
+    stored. The four that are whole are the named rows: the 26-624 petition
+    (30 pages of 106), the 26-545 appendix (`scotus/9026000545`, 5 of 51),
+    the response on 26A458 (`scotus/9526000458`, 4 of 86) and the 23-7809
+    appendix (`scotus/69666553`, 75 of 95).
+  - **26-624 under the change.** The fetch lane's extractor writes one note,
+    for PDF pages 12 to 41, and the row it would store is in the class. The
+    recovery's reading of the same PDF is 150,000 characters, cut at the
+    document cap, `ocr_derived`, with no note left, in 87 seconds; it passes
+    the write test against the marked text. Uncut it would be about 163,000
+    characters, so the recovered row gains its body and loses about 13,000
+    characters from the end of its appendix.
+
+  **What does not move.** No stored row changes at the merge. No selector
+  moves, so no cell gains or loses a file. One timing moves: a fresh marked
+  row holds its case's forward cells as an unread scan, for at most
+  `pull.SCAN_HOLD_DAYS` (2) days from when it was stored, and one whose pages
+  are short rather than scanned, or whose images read as nothing, holds them
+  for that whole bound and stays in the class. On the figures above, two or
+  three filings in a hundred hold a run, which is an upper bound on the
+  share held until the sweep reads them: a truncated row is not in the class,
+  and of the forward rows read, 4 of 641 are. How many of those hold for the
+  full two days is not estimated; one of the eight filings read by OCR
+  above, which were not drawn at random, gained nothing. A row stored before the
+  merge that holds a run and is not one of the four named keeps it unmarked;
+  at 3 percent of the frame that is on the order of a thousand rows, most on
+  resolved cases a replay or back-test cell can read, the nine truncated
+  forward rows among them, and no pass here re-reads them. A marked row cut at the cap keeps its note and is not
+  recovered. No base rate re-prices, no membership rule moves and no scored
+  figure moves. No skill movement is predicted, and a movement in **either**
+  direction across this boundary may not be read as a model effect. Cells
+  already committed over a row with an unread run are left as they are.
+
+  **The amendment debt.** One is added. The predict prompt describes a
+  `[pipeline note: …]` line as marking a cut around an appendix; the
+  unread-run note is a second kind, which says what it is in its own words.
+  Naming it in the prompt moves the three predictor digests, so it is owed to
+  the next re-bless. The manifest's `kind_description` makes the same
+  statement, that a truncated row with no such line was cut at the cap from
+  the end, and a head-cut row can carry an unread-run note; that sentence is
+  left as it is, and is owed a correction with the prompt's.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_ocr_recovery.py tests/test_documents.py
+    tests/test_document_recut.py` is green;
+  - the first run-seed windows after the promotion list `scotus/9026000624
+    petition` in an `ocr-sweep-projection` slice, and the `ocr-sweep` writer's
+    summary names it written, with `replaced=114039`, or says why not;
+  - after that window, where the corpus is pulled, `uv run fedcourts
+    ocr-recover-petitions --probe=0` prints the class with its "hold a marked
+    run of unread pages" line while any of the four named rows is unread, and
+    the stored `petition` row of `scotus/9026000624` is `ocr_derived` with
+    more than 114,039 characters;
+  - on `main` once the promotion has merged, `uv run python -c "from
+    fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
+    print('unread-page-runs' in {b.name for b in H})"` prints `True`.

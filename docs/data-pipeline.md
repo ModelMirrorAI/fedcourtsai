@@ -2177,8 +2177,10 @@ read whole in the parse.
   recovery's writer (`documents`) does the same, binding the plan to the
   projection's own worklist, downloaded by artifact id: every planned row,
   failure and unreached item must be one of its items, each exactly once, and
-  each row is written only into a stored document still empty or thin at the
-  item's URL, and only where the reading is longer than the text stored there. It walks the class before it writes and re-reads it after, and requires
+  each row is written only into a stored document still empty, thin or marked
+  with an unread run at the
+  item's URL, and only where the reading is longer than the text stored there
+  and, on a marked row, still holds it. It walks the class before it writes and re-reads it after, and requires
   the re-read to find exactly what its ledger left. It lands the re-cut's plan
   the same way, judging each row against the stored text as the pass in one
   job does (another filing of the same page count, an unchanged text, a petition's

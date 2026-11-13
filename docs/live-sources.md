@@ -1044,8 +1044,8 @@ after its first long opinion — the short lower-court orders an application tur
 on above all — is dropped. Those three kinds read every page and are cut so
 that:
 
-- **under the cap nothing is cut** — the text is every page joined, exactly the
-  plain extractor's output;
+- **under the cap nothing is cut** — the text is every page joined, as the
+  plain extractor joins them;
 - **the filing's own body is never cut for its appendix** — the body (every page
   before the appendix starts: an `APPENDIX` divider, the appendix's own contents
   page or its first folio, read from the fourth page on and never on a contents
@@ -1078,6 +1078,31 @@ The OCR recovery pass keeps the plain head cut for the rows it recovers: the
 appendix-aware cut reads every page, which on a scan means recognizing every
 page, and a long scan would spend its whole document budget and be discarded on
 every pass.
+
+**The unread-run note.** A filing can be typeset in two passes: a text layer on
+its cover, tables and appendix, and page images for the argument between them.
+Its text clears every whole-document test, since the pages that did extract
+carry the average, and the stored text keeps no page breaks to count blank
+pages from afterwards. So the extractor marks the gap where it sees the pages.
+A page is unread when its text layer holds under `THIN_PAGE_CHARS` (200)
+characters, and a run is `UNREAD_RUN_PAGES` (3) or more unread pages in a row,
+in a filing with a page at or over the floor. Every reader of a filing writes
+one line at the head of each run: `[pipeline note: PDF pages X to Y have
+little or no text layer; where they are page images, what they say is not in
+this text]`. Whatever the run's pages do hold stays under the note. The line
+tells a reader which pages may be missing, and it is what puts the row in the
+OCR recovery class (*Contract for the recovery pass*). It is conditional on
+purpose: the extractor sees a page's text and not its image, so three short
+typeset pages in a row are marked as three scanned ones are, and only the
+recovery's reading tells them apart. It is not a cut: the re-cut pass, a
+combined row's `cut` reading, the appendix's page headings and the
+questions-presented cutter all set it aside. One or two unread pages are a
+divider or a signature page and are left unmarked; the count the run length
+was sized on is in `docs/freeze-record.md`, under the `unread-page-runs`
+boundary. A filing thin on every page gets no note, because the recovery class
+takes it on its average. A note that takes a filing over the cap is cut with
+it like any other text. The parsers of the Court's own orders, opinions and
+transcripts read pages only and write no note.
 
 **The combined-row cut.** A combined row of more than one selected filing (the
 opposition, the supplemental briefs, the party letters) shares one cap, and a
@@ -1608,7 +1633,8 @@ dependency on either side.
   the brief in opposition, the cert-stage reply, the invited brief, the four
   merits filings, the United States' merits amicus brief, and the
   supplemental briefs and party letters; which is the text-coverage set less its one derived
-  member — whose text is empty, whitespace-only or **thin**, whose page
+  member — whose text is empty, whitespace-only, **thin** or **marked with an
+  unread run**, whose page
   count is above zero, and whose stored URL is one link. A thin row holds some
   text and averages under `THIN_PAGE_CHARS` (200) characters a page: the text
   layer of a scan that carries only what was typed over it, such as a
@@ -1619,7 +1645,17 @@ dependency on either side.
   the pass has read whole; a set-keyed one; and one carrying a per-filing
   `=== … ===` header, a combined row stored with one of its filings fetched,
   whose header a recovery would drop. The floor is sized on the
-  stored documents, and the comment on the constant carries the count. A zero-page row is
+  stored documents, and the comment on the constant carries the count. A
+  marked row carries the extractor's unread-run note (*The unread-run note*):
+  a filing that mostly extracted, with three or more pages in a row that are
+  page images. The same four rows stay out: a truncated row is at its cap, so
+  a head-cut reading can be no longer, and its note still names the missing
+  pages; an `ocr_derived` row keeps a note only over images that read as
+  little or nothing. A row stored before the extractor wrote the note carries none,
+  and its link is not re-fetched, so the rows a forward cell reads that a
+  page-by-page reading found a run in are named in
+  `ocr_recovery.UNMARKED_RUN_ROWS`, by case, kind and link, and are in the
+  class as a marked row is. A zero-page row is
   either a PDF the extractor could not open or a derived section — `pages`
   carries both — and neither is OCR's to repair; a case holding no row of a
   kind is a fetch gap, or on an application docket no gap at all; a row whose
@@ -1665,7 +1701,23 @@ dependency on either side.
   appendix takes (see *The appendix-aware cut*). Additive by construction: a
   reading is written only where it is longer than the text the row stores and
   leaves the row out of the class, so the pass cannot
-  shorten an extraction. A reading that does not is `no-gain`: counted, named,
+  shorten an extraction. On a marked row, which holds a filing's real text,
+  the reading must also still hold that text
+  (`ocr_recovery.keeps_stored_text`): the pages that extracted are extracted
+  again and only the unread ones are read off their images, so the stored
+  text, in pieces of 200 letters and digits, must be found in the reading in
+  order, with misses allowed at one a note and a tenth of the pieces and never
+  more than a quarter; what the reading holds beyond those pieces must fit the
+  pages there were to read (the runs' pages and one page in ten of the
+  filing, never fewer than two), at 4,000 letters and digits a page; and a reading
+  may end before the stored text does only where it was cut at the document
+  cap, and then by no more than it added. A reading that fails any of these is
+  another document, or more than OCR read, and is not written. A marked row
+  whose reading passes the cap is head-cut there like any recovered row, so it
+  gains its unread pages and loses as much from its end, which on a petition
+  is the back of the appendix. A marked row whose pages are short rather than
+  scanned, or whose images read as nothing, is `no-gain` on every pass, as a
+  sparse thin row is. A reading that does not gain is `no-gain`: counted, named,
   and not written. So is a thin row's reading that OCR contributed nothing
   to: a longer text layer at the same link is a different filing than the one
   stored, and the standing sweep's writer takes only OCR-marked rows. A filing that is sparse rather than scanned, a one-line
@@ -1911,7 +1963,8 @@ the same link.
   a read-only reader job on a dry run — in the same order as in one job, so
   the ledger reads the same.
 - **What it reads.** Stored rows of the three appendix-bearing kinds that are
-  `truncated`, not `ocr_derived`, carry no `[pipeline note:` line, and whose
+  `truncated`, not `ocr_derived`, carry no cut note (a `[pipeline note:` line
+  other than the unread-run note), and whose
   stored URL is one Court link, over the **predict-relevant** live-slice rows
   (the document back-fill's scope) or, with the `all-live` option, the whole
   live slice. An untruncated row was never cut, so the two cuts agree on it; an

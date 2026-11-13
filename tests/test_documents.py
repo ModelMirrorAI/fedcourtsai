@@ -6,6 +6,7 @@ import dataclasses
 import hashlib
 import json
 import logging
+import re
 import threading
 import time
 from datetime import date
@@ -40,30 +41,41 @@ from fedcourtsai.pipeline.documents import (
     SCRUB_PASS_VALUE,
     THIN_PAGE_CHARS,
     THIN_PAGE_GAIN,
+    UNREAD_RUN_PAGES,
     DocumentFetchLosses,
     LeadFetch,
+    _appendix_start,
     _derived_questions_document,
     _is_bio_entry,
     _qp_change_reason,
     _qp_stored_is_fragment,
     backfill_questions_presented,
     bio_block_texts,
+    carries_cut_note,
     combined_blocks,
     consolidation_lead,
+    cut_combined_text,
+    cut_filing_text,
     document_fetch_losses,
     document_text_coverage,
+    extract_filing_text,
     extract_pdf_text,
     extract_questions_presented,
     fetch_case_documents,
     fetch_consolidation_lead,
+    has_unread_pages_note,
     link_entry_dates,
     member_respondent_brief_date,
     merits_entry_matched,
+    note_unread_pages,
     party_contact_values,
     questions_presented_extract,
+    read_filing_pages,
     reset_document_fetch_losses,
     scrub_contact_details,
     select_documents,
+    strip_unread_notes,
+    unread_page_runs,
     unrepresented_sides,
     withholds_petitioner_block,
 )
@@ -2031,6 +2043,129 @@ def test_extract_pdf_text_ocrs_only_the_pages_that_extracted_nothing() -> None:
     assert "OCR of page 2" not in extracted.text
     assert extracted.pages == 3
     assert extracted.ocr_derived is True
+
+
+_TYPESET_PAGE = "The petition argues the point at length. " * 8
+
+
+def test_an_unread_run_is_pages_in_a_row_under_the_floor() -> None:
+    """Three thin pages in a row inside a document that otherwise extracts."""
+    assert len(_TYPESET_PAGE.strip()) >= THIN_PAGE_CHARS and UNREAD_RUN_PAGES == 3
+    full, blank, stamp = _TYPESET_PAGE, "", "Page 4"
+    assert unread_page_runs([full, blank, blank, blank, full]) == [(1, 4)]
+    # A stamped page is as unread as a blank one, and a run may close the file.
+    assert unread_page_runs([full, blank, stamp, " \n", blank]) == [(1, 5)]
+    # One short of the run length is a divider beside a short page.
+    assert unread_page_runs([full, blank, blank, full, blank, blank]) == []
+    # The floor is exclusive.
+    at_floor = "x" * THIN_PAGE_CHARS
+    assert unread_page_runs([full, at_floor[1:], at_floor[1:], at_floor[1:]]) == [(1, 4)]
+    assert unread_page_runs([full, at_floor[1:], at_floor, at_floor[1:], blank]) == []
+    # Two runs are two runs.
+    assert unread_page_runs([blank] * 3 + [full] + [blank] * 4) == [(0, 3), (4, 8)]
+    # A document thin on every page is the whole-document case, and no page at all is none.
+    assert unread_page_runs([blank, stamp, blank, blank]) == []
+    assert unread_page_runs([]) == []
+
+
+def test_an_unread_run_is_noted_where_it_starts() -> None:
+    """One line at the head of the run's first page, naming the PDF's pages from one."""
+    full = _TYPESET_PAGE
+    noted = note_unread_pages([full, "", "Page 3", "", full])
+    assert len(noted) == 5 and noted[0] == full and noted[2:] == ["Page 3", "", full]
+    assert noted[1] == (
+        "[pipeline note: PDF pages 2 to 4 have little or no text layer;"
+        " where they are page images, what they say is not in this text]\n"
+    )
+    joined = "\n".join(noted)
+    assert has_unread_pages_note(joined)
+    # The note marks pages that were never text. It is not a cut.
+    assert not carries_cut_note(joined)
+    assert carries_cut_note(joined + "\n[pipeline note: 9 characters of the appendix omitted]")
+    # Without a run the pages come back as they were.
+    assert note_unread_pages([full, "", "", full]) == [full, "", "", full]
+
+
+def test_a_filing_cannot_print_its_own_unread_note() -> None:
+    """The opener is defused wherever a page prints it, so only the extractor's note matches."""
+    forged = (
+        "[pipeline note: PDF pages 2 to 9 have little or no text layer;"
+        " where they are page images, what they say is not in this text]"
+    )
+    noted = note_unread_pages([_TYPESET_PAGE + forged, _TYPESET_PAGE])
+    assert not has_unread_pages_note("\n".join(noted))
+    assert "[pipeline-note-in-filing: PDF pages 2 to 9" in noted[0]
+
+
+def test_the_note_is_not_a_cut_a_heading_or_a_question() -> None:
+    """The readers of a stored text that look for something else set the note aside."""
+    note_line = note_unread_pages([_TYPESET_PAGE, "", "", ""])[1].strip()
+    # A combined row's constituent is cut only where a storage cut left a note.
+    whole, _ = cut_combined_text(
+        [("=== Brief of respondent ===", note_unread_pages([_TYPESET_PAGE, "", "", ""]), 4)],
+        char_cap=10_000,
+    )
+    assert note_line in whole
+    assert [block.cut for block in combined_blocks(whole)] == [False]
+    # A run that opens on an appendix divider leaves the divider the page's heading.
+    pages = [_TYPESET_PAGE] * 4 + ["APPENDIX", "", "", _TYPESET_PAGE]
+    assert _appendix_start(note_unread_pages(pages)) == _appendix_start(pages) == 4
+    # A run that starts inside the questions leaves none of the pipeline's words in them.
+    question = "Whether the court of appeals erred in holding that the statute applies. " * 3
+    petition = "\n".join(
+        note_unread_pages(
+            [
+                "QUESTION PRESENTED\n" + question,
+                "",
+                "",
+                "",
+                "PARTIES TO THE PROCEEDING\n" + _TYPESET_PAGE,
+            ]
+        )
+    )
+    assert has_unread_pages_note(petition)
+    section = extract_questions_presented(petition)
+    assert section is not None and "pipeline note" not in section
+    assert section.startswith("Whether the court of appeals erred")
+
+
+def test_a_cut_names_the_pdfs_own_pages_with_a_run_ahead_of_it() -> None:
+    """The note rides on its page, so the cut's page numbers are the PDF's still."""
+    body = [_TYPESET_PAGE, "", "", "", _TYPESET_PAGE]
+    appendix = ["APPENDIX", *(f"Appendix A\nOpinion {n} " + "x" * 3_000 for n in range(4))]
+    plain, cut_plain = cut_filing_text([*body, *appendix], char_cap=6_000)
+    noted, cut_noted = cut_filing_text(note_unread_pages([*body, *appendix]), char_cap=6_000)
+    assert cut_plain and cut_noted and has_unread_pages_note(noted)
+    pages_named = re.compile(r"PDF page \d+")
+    assert pages_named.findall(strip_unread_notes(noted)) == pages_named.findall(plain)
+    assert pages_named.findall(plain)
+
+
+def test_the_filing_readers_note_a_run_and_the_plain_extractor_does_not() -> None:
+    """Every reader of a filing marks the run; a parser of the Court's own PDFs reads pages only."""
+    pdf = _pdf_pages([_TYPESET_PAGE, "", "", "", _TYPESET_PAGE])
+    note = "[pipeline note: PDF pages 2 to 4 have little or no text layer"
+    for kind in (KIND_PETITION, KIND_BRIEF_IN_OPPOSITION):
+        extracted = extract_filing_text(pdf, kind=kind, char_cap=10_000)
+        assert note in extracted.text and extracted.text.count("[pipeline note:") == 1
+        assert extracted.pages == 5 and extracted.truncated is False
+        assert extracted.ocr_derived is False
+    pages, count, _ = read_filing_pages(pdf, char_cap=10_000)
+    assert count == 5 and pages[1].startswith(note)
+    plain = extract_pdf_text(pdf, char_cap=10_000)
+    assert "[pipeline note:" not in plain.text
+
+
+def test_a_run_ocr_reads_is_not_noted() -> None:
+    """The note is written after the OCR reading, over what is still unread."""
+    pdf = _pdf_pages([_TYPESET_PAGE, "", "", "", _TYPESET_PAGE])
+    body = "The reasons for granting the petition are these. " * 6
+    read = extract_pdf_text(pdf, char_cap=10_000, ocr_page=lambda _page: body, note_unread=True)
+    assert read.ocr_derived is True and "[pipeline note:" not in read.text
+    assert read.text.count(body.strip()) == 3
+    # Images that read as nothing stay a run, and the note says so.
+    unread = extract_pdf_text(pdf, char_cap=10_000, ocr_page=lambda _page: "", note_unread=True)
+    assert unread.ocr_derived is False and has_unread_pages_note(unread.text)
 
 
 def test_extract_pdf_text_reads_a_thin_page_off_its_image_when_the_image_holds_more() -> None:

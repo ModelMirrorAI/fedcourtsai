@@ -24,6 +24,7 @@ from typer.testing import CliRunner
 
 from fedcourtsai import corpus, supremecourt
 from fedcourtsai.cli import app
+from fedcourtsai.pipeline import ocr_recovery
 from fedcourtsai.pipeline.documents import (
     BIO_URL_JOIN,
     FETCHED_DOCUMENT_KINDS,
@@ -34,7 +35,9 @@ from fedcourtsai.pipeline.documents import (
     KIND_QUESTIONS_PRESENTED,
     TEXT_COVERAGE_KINDS,
     THIN_PAGE_CHARS,
+    UNREAD_RUN_PAGES,
     cut_combined_text,
+    note_unread_pages,
 )
 from fedcourtsai.pipeline.ocr_recovery import (
     DOCUMENT_BUDGET_SECONDS,
@@ -51,7 +54,10 @@ from fedcourtsai.pipeline.ocr_recovery import (
     estimated_candidate_seconds,
     exclusion_reason,
     fetchable_document_url,
+    gains_on,
+    has_unread_run,
     is_thin_text,
+    keeps_stored_text,
     missing_ocr_binaries,
     ocr_page_for_pdf,
     recover_scanned_documents,
@@ -610,6 +616,196 @@ def test_the_apply_only_ocrs_a_page_that_extracted_nothing(tmp_path: Path) -> No
         )
     text = _documents(db, "scotus/1")[KIND_PETITION].text
     assert "Digital page text" in text and "OCR read this instead" in text
+
+
+# A filing typeset on its front matter and appendix and set as page images
+# between them: the average clears the thin floor, and three pages are unread.
+_TYPESET_PAGE = "The petition argues the point at length. " * 30
+_TWO_PASS_PAGES = [_TYPESET_PAGE, "", "", "", _TYPESET_PAGE]
+_TWO_PASS = "\n".join(note_unread_pages(_TWO_PASS_PAGES))
+# A document cap no fixture here reaches.
+_CAP = 150_000
+
+
+def test_a_marked_run_puts_a_whole_unread_row_in_the_class() -> None:
+    """The extractor's note, on a row that is whole, one link, and not yet read by OCR."""
+    row = _document("scotus/1", text=_TWO_PASS, pages=5)
+    assert not is_thin_text(row)
+    assert has_unread_run(row) and exclusion_reason(row) is None
+    # The same pages without the note are a filing that extracted.
+    unmarked = row.model_copy(update={"text": "\n".join(_TWO_PASS_PAGES)})
+    assert not has_unread_run(unmarked) and exclusion_reason(unmarked) == "has-text"
+    # A truncated row is at its cap: a head-cut reading can be no longer.
+    assert not has_unread_run(row.model_copy(update={"truncated": True}))
+    # A row OCR has read keeps a note only over images that read as nothing.
+    assert not has_unread_run(row.model_copy(update={"ocr_derived": True}))
+    set_keyed = row.url + BIO_URL_JOIN + "https://www.supremecourt.gov/b.pdf"
+    assert not has_unread_run(row.model_copy(update={"url": set_keyed}))
+    combined, _ = cut_combined_text(
+        [("=== Brief of respondent (Oct 09 2026) ===", note_unread_pages(_TWO_PASS_PAGES), 5)],
+        char_cap=10_000,
+    )
+    assert "[pipeline note:" in combined
+    assert not has_unread_run(row.model_copy(update={"text": combined}))
+    assert not has_unread_run(row.model_copy(update={"pages": 0}))
+
+
+def test_a_marked_row_is_recovered_page_by_page(tmp_path: Path) -> None:
+    """Only the unread pages are read off their images, and the note goes with the run."""
+    row = _document("scotus/1", text=_TWO_PASS, pages=5)
+    body = "The reasons for granting the petition are these. " * 6
+    db = _seed(tmp_path / "corpus", [row])
+    with (
+        _client({row.url: _pdf_pages(_TWO_PASS_PAGES)}) as client,
+        corpus.connect(db) as conn,
+    ):
+        result = recover_scanned_documents(
+            conn,
+            client=client,
+            apply=True,
+            char_cap=10_000,
+            today=_TODAY,
+            max_cases=5,
+            ocr_page_factory=_stub_ocr(body),
+        )
+        assert scanned_documents(conn).candidates == ()
+    assert result.candidates == 1 and result.recovered == 1
+    assert result.thin_text == 0 and result.unread_runs == 1
+    stored = _documents(db, "scotus/1")[KIND_PETITION]
+    assert stored.ocr_derived is True and "[pipeline note:" not in stored.text
+    assert stored.text.count(body.strip()) == 3 and stored.text.count(_TYPESET_PAGE.strip()) == 2
+
+
+def test_a_marked_row_keeps_its_text_when_the_images_read_as_nothing(tmp_path: Path) -> None:
+    """Pages that are blank on paper too: `no-gain`, the stored text and its note stand."""
+    row = _document("scotus/1", text=_TWO_PASS, pages=5)
+    db = _seed(tmp_path / "corpus", [row])
+    with (
+        _client({row.url: _pdf_pages(_TWO_PASS_PAGES)}) as client,
+        corpus.connect(db) as conn,
+    ):
+        result = recover_scanned_documents(
+            conn,
+            client=client,
+            apply=True,
+            char_cap=10_000,
+            today=_TODAY,
+            max_cases=5,
+            ocr_page_factory=_stub_ocr(""),
+        )
+    assert result.recovered == 0 and result.failures == {"scotus/1 petition": NO_GAIN}
+    stored = _documents(db, "scotus/1")[KIND_PETITION]
+    assert stored.text == _TWO_PASS and stored.ocr_derived is False
+
+
+def _numbered(label: str, count: int) -> str:
+    """``count`` distinct sentences, so every stretch of the text is its own."""
+    return " ".join(f"{label} sentence {index} of the filing." for index in range(count))
+
+
+def test_a_marked_rows_reading_must_keep_the_stored_text() -> None:
+    """A reading adds to a filing that mostly extracted. It does not replace it.
+
+    This is what a forged plan has to pass on a marked row, where being longer
+    than the stored text would otherwise let it put any text in the filing's
+    place.
+    """
+    front, back = _numbered("Front", 120), _numbered("Appendix", 400)
+    pages = [front, "", "", "", back]
+    stored = _document("scotus/1", text="\n".join(note_unread_pages(pages)), pages=5)
+    assert has_unread_run(stored) and not is_thin_text(stored)
+    body = _numbered("Argument", 90)
+
+    def reading(text: str, *, truncated: bool = False) -> corpus.CaseDocument:
+        return stored.model_copy(update={"text": text, "truncated": truncated, "ocr_derived": True})
+
+    whole = reading("\n".join([front, body, body, body, back]))
+    assert keeps_stored_text(stored, whole, char_cap=_CAP) and gains_on(
+        stored, whole, char_cap=_CAP
+    )
+    # Another text of a greater length is not a recovery of this row.
+    forged = reading("x" * (len(whole.text) + 1))
+    assert not keeps_stored_text(stored, forged, char_cap=_CAP)
+    assert not gains_on(stored, forged, char_cap=_CAP)
+    # Nor is the stored text out of order, or with its middle swapped out.
+    assert not gains_on(stored, reading("\n".join([back, body, body, body, front])), char_cap=_CAP)
+    swapped = reading("\n".join([front, body, body, body, _numbered("Other", 440)]))
+    assert not gains_on(stored, swapped, char_cap=_CAP)
+    # A page whose image read longer than its layer replaces a little of it.
+    patched = whole.text.replace("Appendix sentence 7 of the filing.", "Appendix sentence VII.")
+    assert gains_on(stored, reading(patched + " and a word more"), char_cap=_CAP)
+    # More than the unread pages could hold is not what OCR read off them.
+    stuffed = "\n".join([front, _numbered("Invented", 900), back])
+    assert not gains_on(stored, reading(stuffed), char_cap=_CAP)
+    # Cut at the cap, the reading ends inside the stored text: what the cap
+    # pushed out is no more than what was added ahead of it.
+    cap = len(whole.text) - len(body)
+    cut = reading(whole.text[:cap], truncated=True)
+    assert len(cut.text) > len(stored.text)
+    assert gains_on(stored, cut, char_cap=cap)
+    # A reading that only says it was cut is held to every piece.
+    assert not gains_on(stored, cut, char_cap=cap + 1)
+    assert not gains_on(stored, reading(cut.text), char_cap=cap)
+    # A cut reading that kept the opening and invented the rest is not one:
+    # what it added is more than the unread pages hold.
+    opening = reading(front[:400] + "y" * (cap - 400), truncated=True)
+    assert not gains_on(stored, opening, char_cap=cap)
+    assert not gains_on(stored, reading("y" * cap, truncated=True), char_cap=cap)
+    # An empty or a thin stored row is held to length alone, as before.
+    letter = _document("scotus/2", KIND_PARTY_LETTER, text=_LETTERHEAD, pages=1)
+    longer = letter.model_copy(update={"text": "z" * 500, "ocr_derived": True})
+    assert gains_on(letter, longer, char_cap=_CAP)
+
+
+def test_a_named_row_stored_before_the_note_is_recovered_as_a_marked_one(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Its case, kind and link, with the pages its runs hold; another link is another filing."""
+    row = _document("scotus/1", text="\n".join(_TWO_PASS_PAGES), pages=5)
+    assert exclusion_reason(row) == "has-text"
+    monkeypatch.setattr(ocr_recovery, "UNMARKED_RUN_ROWS", {(row.case_id, row.kind, row.url): 3})
+    assert has_unread_run(row) and exclusion_reason(row) is None
+    assert ocr_recovery.unread_run_pages(row) == 3
+    moved = row.model_copy(update={"url": "https://www.supremecourt.gov/other.pdf"})
+    assert not has_unread_run(moved)
+    body = "The reasons for granting the petition are these. " * 6
+    db = _seed(tmp_path / "corpus", [row])
+    with (
+        _client({row.url: _pdf_pages(_TWO_PASS_PAGES)}) as client,
+        corpus.connect(db) as conn,
+    ):
+        # Images that read as nothing: the reading is the stored text and its
+        # note, longer by the note alone, and is not a recovery.
+        unread = recover_scanned_documents(
+            conn,
+            client=client,
+            apply=True,
+            char_cap=10_000,
+            today=_TODAY,
+            max_cases=5,
+            ocr_page_factory=_stub_ocr(""),
+        )
+        assert unread.recovered == 0 and unread.failures == {"scotus/1 petition": NO_GAIN}
+        result = recover_scanned_documents(
+            conn,
+            client=client,
+            apply=True,
+            char_cap=10_000,
+            today=_TODAY,
+            max_cases=5,
+            ocr_page_factory=_stub_ocr(body),
+        )
+        assert scanned_documents(conn).candidates == ()
+    assert result.recovered == 1 and result.unread_runs == 1
+    stored = _documents(db, "scotus/1")[KIND_PETITION]
+    assert stored.ocr_derived is True and stored.text.count(body.strip()) == 3
+
+
+def test_every_named_row_is_one_the_pass_can_fetch() -> None:
+    """A recoverable kind at a Court link, with a run of at least the run length."""
+    for (case_id, kind, url), pages in ocr_recovery.UNMARKED_RUN_ROWS.items():
+        assert case_id.startswith("scotus/") and kind in RECOVERABLE_KINDS
+        assert fetchable_document_url(url) and pages >= UNREAD_RUN_PAGES
 
 
 def test_a_thin_rows_longer_text_layer_never_reaches_the_plan() -> None:
