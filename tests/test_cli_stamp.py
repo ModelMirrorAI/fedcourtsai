@@ -3415,6 +3415,158 @@ def test_stamp_leaves_the_conditioning_unjudged_with_no_snapshot_on_disk(
     assert not event_paths.prediction_flags("claude-baseline", "RID").is_file()
 
 
+# --- the stamp-written cert amicus count ----------------------------------------
+#
+# The one conditioning field provisioning never writes. `record/context.json` is
+# read by the cell, so a pre-computed amicus count there would widen every cert
+# cell's information set; the stamp reads it off the provisioned snapshot file
+# after the agent has finished, and nothing the context file carried survives.
+
+_CERT_PROCEEDINGS = [
+    {"Date": "Oct 01 2025", "Text": "Petition for a writ of certiorari filed."},
+    {"Date": "Nov 03 2025", "Text": "Brief amicus curiae of Cato Institute filed."},
+    {"Date": "Nov 04 2025", "Text": "Brief amici curiae of Law Professors filed."},
+    {"Date": "Dec 03 2025", "Text": "DISTRIBUTED for Conference of 1/9/2026."},
+]
+
+
+def _provision_live(
+    data_root: Path, docket: int, number: str, *, claimed: int | None = None
+) -> CasePaths:
+    """A provisioned record whose snapshot is a live payload carrying two cert amici."""
+    paths = _provision(data_root, docket)
+    if claimed is not None:
+        context = read_model(paths.cell_context, PredictionContext)
+        write_json(paths.cell_context, context.model_copy(update={"cert_amicus_briefs": claimed}))
+    paths.snapshot(_SNAPSHOT_DAY.isoformat()).write_text(
+        json.dumps({"CaseNumber": f"{number} ", "ProceedingsandOrder": _CERT_PROCEEDINGS})
+    )
+    return paths
+
+
+@pytest.mark.parametrize("input_snapshot", ["2026-01-01", "missing"])
+def test_stamp_counts_the_cert_amici_off_the_provisioned_snapshot(
+    _data_root: Path, input_snapshot: str
+) -> None:
+    """Read or unread, the count is a fact about the provisioned record."""
+    event = "evt-petition-disposition"
+    paths = _provision_live(_data_root, 47, "25-47")
+    assert read_model(paths.cell_context, PredictionContext).cert_amicus_briefs is None
+    event_paths = _seed_unstamped(_data_root, 47, event, input_snapshot)
+
+    result = _stamp("predictor", "claude-baseline", 47, event, "RID")
+
+    assert result.exit_code == 0, result.output
+    stamped = read_model(event_paths.prediction("claude-baseline", "RID"), Prediction)
+    assert stamped.context is not None
+    assert stamped.context.cert_amicus_briefs == 2
+    # Nothing else about the block moves.
+    assert stamped.context.band == "baseline"
+    assert stamped.context.distribution_count == 2
+
+
+def test_stamp_overwrites_a_count_the_context_file_carried(_data_root: Path) -> None:
+    """The context file is reachable from the cell's workspace; the field is the stamp's."""
+    event = "evt-petition-disposition"
+    _provision_live(_data_root, 48, "25-48", claimed=9)
+    event_paths = _seed_unstamped(_data_root, 48, event, "2026-01-01")
+
+    assert _stamp("predictor", "claude-baseline", 48, event, "RID").exit_code == 0
+
+    stamped = read_model(event_paths.prediction("claude-baseline", "RID"), Prediction)
+    assert stamped.context is not None
+    assert stamped.context.cert_amicus_briefs == 2
+
+
+def test_stamp_clears_a_claimed_count_with_no_snapshot_to_read(_data_root: Path) -> None:
+    event = "evt-petition-disposition"
+    paths = _provision(_data_root, 49, snapshot=False)
+    context = read_model(paths.cell_context, PredictionContext)
+    write_json(paths.cell_context, context.model_copy(update={"cert_amicus_briefs": 9}))
+    event_paths = _seed_unstamped(_data_root, 49, event, "missing")
+
+    assert _stamp("predictor", "claude-baseline", 49, event, "RID").exit_code == 0
+
+    stamped = read_model(event_paths.prediction("claude-baseline", "RID"), Prediction)
+    assert stamped.context is not None
+    assert stamped.context.cert_amicus_briefs is None
+
+
+def test_stamp_counts_a_cut_cell_strictly_before_its_cutoff(_data_root: Path) -> None:
+    """A cell placed at a cutoff takes the prediction-side count: no undated entry."""
+    event = "evt-petition-disposition"
+    paths = _provision(_data_root, 51)
+    context = read_model(paths.cell_context, PredictionContext)
+    write_json(
+        paths.cell_context,
+        context.model_copy(
+            update={
+                "mode": "replay",
+                "snapshot_provenance": "truncated",
+                "cutoff": date(2025, 11, 4),
+                "cut_kind": "date",
+            }
+        ),
+    )
+    undated = {"Date": "", "Text": "Brief amicus curiae of Pilots Union filed."}
+    paths.snapshot(_SNAPSHOT_DAY.isoformat()).write_text(
+        json.dumps({"CaseNumber": "25-51 ", "ProceedingsandOrder": [*_CERT_PROCEEDINGS, undated]})
+    )
+    event_paths = _seed_unstamped(_data_root, 51, event, "2026-01-01")
+
+    assert _stamp("predictor", "claude-baseline", 51, event, "RID").exit_code == 0
+
+    stamped = read_model(event_paths.prediction("claude-baseline", "RID"), Prediction)
+    assert stamped.context is not None
+    # Nov 03 is before the cutoff; Nov 04 is on it; the undated entry has no day.
+    assert stamped.context.cert_amicus_briefs == 1
+
+
+def test_stamp_counts_the_cert_amici_off_a_rest_shape_snapshot(_data_root: Path) -> None:
+    event = "evt-petition-disposition"
+    paths = _provision(_data_root, 52)
+    entries = [
+        {"date_filed": "2025-11-03", "description": "Brief amicus curiae of Cato filed."},
+        {"date_filed": "2025-12-03", "description": "DISTRIBUTED for Conference of 1/9/2026."},
+    ]
+    paths.snapshot(_SNAPSHOT_DAY.isoformat()).write_text(
+        json.dumps({"docket_number": "25-52", "docket_entries": entries})
+    )
+    event_paths = _seed_unstamped(_data_root, 52, event, "2026-01-01")
+
+    assert _stamp("predictor", "claude-baseline", 52, event, "RID").exit_code == 0
+
+    stamped = read_model(event_paths.prediction("claude-baseline", "RID"), Prediction)
+    assert stamped.context is not None
+    assert stamped.context.cert_amicus_briefs == 1
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        # An application docket: its count is `amicus_briefs`, under the interim reading.
+        {"CaseNumber": "25A50 ", "ProceedingsandOrder": _CERT_PROCEEDINGS},
+        # No proceedings disclosed: unknown, not zero.
+        {"CaseNumber": "25-50 "},
+        # Not a JSON object at all.
+        ["25-50"],
+    ],
+)
+def test_stamp_leaves_the_cert_amicus_count_null_where_it_cannot_be_read(
+    _data_root: Path, payload: object
+) -> None:
+    event = "evt-petition-disposition"
+    paths = _provision(_data_root, 50)
+    paths.snapshot(_SNAPSHOT_DAY.isoformat()).write_text(json.dumps(payload))
+    event_paths = _seed_unstamped(_data_root, 50, event, "2026-01-01")
+
+    assert _stamp("predictor", "claude-baseline", 50, event, "RID").exit_code == 0
+
+    stamped = read_model(event_paths.prediction("claude-baseline", "RID"), Prediction)
+    assert stamped.context is not None
+    assert stamped.context.cert_amicus_briefs is None
+
+
 # --- telling the two misses apart ---------------------------------------------
 #
 # `snapshot_uptake` stamps `unread` for both shapes of miss, which is right: the

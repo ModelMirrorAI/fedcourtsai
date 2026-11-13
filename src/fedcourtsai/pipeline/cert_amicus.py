@@ -41,7 +41,9 @@ Two counts, for two readers:
   accumulate, so the count is monotone over a docket's life and max-latch
   compatible. It is what the corpus ``cert_amicus_briefs`` column stores and
   what the stat pack's amicus cut buckets on, the timing the relist cut takes:
-  where the petition ended up, not what a forecaster faced.
+  where the petition ended up, not what a forecaster faced. The stamp also
+  takes it over the snapshot of a cell placed at no cutoff, whose payload is
+  the docket as the cell was handed it.
 - :func:`cert_amicus_briefs_before` is the **prediction-side** count, over the
   cert-stage entries dated strictly before a cutoff. An undated entry is left
   out there, the opposite discipline from the count above, because the stakes
@@ -120,9 +122,12 @@ def cert_amicus_briefs_before(entries: Sequence[tuple[str, str | None]], cutoff:
     (:func:`~fedcourtsai.pipeline.cert_signals.entry_date`) falls before
     ``cutoff``. An entry dated on the cutoff day is out, as it is out of a
     cell's snapshot cut at that day, and an undated entry is out because no
-    date places it before the cutoff. This is the count a cert cell's
-    ``record/context.json`` would freeze beside ``distribution_count``, once a
-    process change admits it under its own re-bless.
+    date places it before the cutoff. ``stamp-cell`` freezes this count on a
+    cert prediction placed at a cutoff
+    (:func:`~fedcourtsai.pipeline.cell_context.stamped_cert_amicus_briefs`),
+    reading the provisioned snapshot after the agent has finished. It is not
+    in ``record/context.json``, which the cell reads: handing a cell the count
+    is a process change under its own re-bless.
     """
     kept = [
         text
