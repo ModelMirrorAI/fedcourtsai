@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000239",
+  "run_id": "20261113T214525Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts paths", "fedcourts query", "metrics/statpack.md", "courtlistener search", "courtlistener read_document", "courtlistener search_document"],
+  "helpful": ["Statpack merits section for the pooled disturbed rate", "Provisioned petition, brief in opposition and reply", "CourtListener for the vote lineup in a recent related decision"],
+  "gaps": ["No way to pull recent SCOTUS merits decisions by statute or subject from the corpus; citation filter is nearly empty", "A base rate for cases where the United States is petitioner would sharpen the merits anchor"],
+  "notes": "The first corpus query with --disposition granted returned this docket's own row at the top; harmless on a forward merits cell but worth knowing."
+}

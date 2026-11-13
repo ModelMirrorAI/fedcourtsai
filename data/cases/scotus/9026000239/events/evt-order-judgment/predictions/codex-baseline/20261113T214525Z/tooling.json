@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000239",
+  "run_id": "20261113T214525Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "provisioned record",
+    "fedcourts paths",
+    "fedcourts query",
+    "committed statpack",
+    "CourtListener MCP search and search_document",
+    "web.run (unsuccessful)",
+    "fedcourts validate"
+  ],
+  "helpful": [
+    "The snapshot states exactly which questions were granted.",
+    "Readable opposing briefs and lower-court opinion support an independent merits forecast.",
+    "Prior-Term merits, vote, and authorship counts permit stage-appropriate baselines.",
+    "CourtListener snippets verified the remedial precedent and its limiting footnote."
+  ],
+  "gaps": [
+    "Default uv cache is read-only; UV_CACHE_DIR=/tmp/uv-cache was needed.",
+    "Web search and direct primary-source opens returned no usable content.",
+    "The petition appendix and lower-court partial dissent are truncated."
+  ],
+  "notes": "No packages installed. The corrected corpus query succeeded but returned cert-grant rows without useful merits judgments; they did not affect the forecast. No merits briefs or argument transcript were expected at the grant moment. No outcome or third-party forecast was encountered."
+}
