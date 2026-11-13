@@ -19309,3 +19309,161 @@ freeze commit is recorded here.
   before the close's day may land late, and an event void de-counts what it
   names. The successor-counted, split, partition and grading lines also move
   as cells, outcomes and gradings land.
+
+- **`proc-v22`, the evaluate prompt lists every output path a judge writes;
+  recorded 2026-11-13.** Carried to `main` by the promotion tagged `<FILL: promotion tag>`
+  (merge commit `<FILL: merge hash>`, merged `<FILL: merged-at>`), to be tagged
+  **`prereg/proc-v22`**. Registered under the merge-stamped rule. Only the
+  evaluate prompt changes, so the three evaluator digests move and the three
+  predictor digests are carried forward byte-identical. This is an
+  evaluator-only label: it holds `proc-v21`'s counting instant,
+  `2026-11-12T19:49:39Z`, opens no window and closes none, and only its
+  three new evaluator blessings take the carrying merge's committer time. No
+  harness boundary is registered here. No scored value is recomputed, though
+  each judge's grades from this label on form a new rubric row on the boards
+  (the pooling paragraph below).
+
+  **What changes.**
+  - *The evaluate prompt, the output tree.* The *Outputs* section gains a
+    block listing every path a judge writes under the event's `evaluations/`
+    directory: each candidate's `evaluation.json` and `evaluation.md` under
+    `$EVALUATOR_ID/<alias>/$RUN_ID/`, and the cell's own `retrieval.md`,
+    `tooling.json` and optional `flags.json` under `$EVALUATOR_ID/$RUN_ID/`.
+    It says every path starts with `$EVALUATOR_ID`, that each candidate gets
+    its own directory and its own `evaluation.md`, and names three shapes
+    nothing reads: `$EVALUATOR_ID/$RUN_ID/<alias>/…`,
+    `<alias>/$EVALUATOR_ID/$RUN_ID/…`, and a single
+    `$EVALUATOR_ID/$RUN_ID/<alias>.json`.
+  - *Unchanged.* The predict prompt, every model, every engine CLI pin,
+    every agent's configuration, the rubric, and what a judge is asked to
+    grade. The paths the block lists are the paths the prompt already named
+    in prose and the harness already reads.
+
+  **Why.** A `gemini-judge` cell that writes its files at a path the harness
+  does not read lands nothing, and its attempt is recorded as `no_output`.
+  The evidence is five cells. Run `20261110T154355Z` (Actions run
+  42847288958) left 5 `gemini-judge` `no_output` attempts beside 28 landed
+  `gemini-judge` cells, and all five were read from their cell artifacts on
+  2026-11-12: three wrote `<alias>/$EVALUATOR_ID/$RUN_ID/`, one wrote
+  `$EVALUATOR_ID/$RUN_ID/<alias>/`, and one wrote a flat
+  `$EVALUATOR_ID/$RUN_ID/<alias>.json` with one shared `evaluation.md`.
+  Those are the three shapes the block names. Cell artifacts expire, so
+  nothing committed reproduces that reading.
+
+  The committed ledger at `origin/main` `95bc6575c` holds 39 `gemini-judge`
+  `attempt.json` records of class `no_output` in all, beside 247 landed
+  `gemini-judge` cells (by `usage.json`), across 9 evaluate runs from
+  `20260906T174126Z` to `20261110T154355Z`; none for `codex-judge`, and no
+  `claude-judge` attempt record is committed. The other 34 were not read
+  cell by cell, so the share of them that was a misplaced path is not
+  known, and 22 of them sit in one run, `20261014T154957Z`, which landed 4
+  `gemini-judge` cells: that looks like a failure of the run and not a path
+  slip in each cell. The harness moves a whole cell written in one of the
+  three shapes onto the contract path after the fact and adds a harness
+  note when it does; it declines a cell that mixes shapes or is partly
+  written, which still ends `no_output` with no note. The prompt change is
+  the half that asks the judge not to write them.
+
+  **Pre-registered.** No direction of movement is predicted for any grade a
+  judge authors, and a movement in `reasoning_quality`,
+  `predicted_reasoning_quality` or a judge-graded claim across this label is
+  not read as an effect of this wording: it changes where a judge writes,
+  not what it is asked to judge. A fall in `gemini-judge` `no_output`
+  attempts after this label is not read as the prompt's effect alone,
+  because the harness repairs for the same three shapes and the pair's move
+  to `gemini-4-carbon` reached `main` one promotion earlier, on 2026-11-12,
+  however many evaluate rounds land between the two. A judge that follows
+  the block gives the harness nothing to settle, so the count this change
+  should hold down is the harness note. That count has no before-series: at
+  `95bc6575c` no committed `flags.json` carries the note, because the repair
+  reached `main` on 2026-11-12 and no evaluate round has landed since. The
+  note also undercounts misplacement, since a cell the harness declines to
+  settle leaves none. So the note and `no_output` counts are reported after
+  this label and neither is read as a measured effect of the wording.
+
+  **What is not verified at registration.** No cell has run under the new
+  prompt. Whether a judge on any engine follows the block is owed to the
+  first evaluate rounds after the carrying merge, by the effect check below.
+
+  **The amendment debt.** This entry pays none and adds no new token.
+
+  The runnable effect check once it is live:
+  - on `main`, `uv run python -c "from fedcourtsai.process_version import
+    CURRENT_PROCESS_LABEL as L; print(L)"` prints `proc-v22`, and `uv run
+    fedcourts process-digest --all` prints the six digests below;
+  - `grep -c 'is at a path nothing reads' .github/prompts/evaluate.md` on
+    `main` prints 1 (0 on `proc-v21`);
+  - over the first three full evaluate rounds after the carrying merge, each
+    `evaluation.json` the round's collect PR adds carries the `proc-v22`
+    digest of its judge, and the count of `gemini-judge` `attempt.json`
+    records of class `no_output` and of `flags.json` files carrying `the
+    judge wrote its candidate directories as` is reported per round beside
+    the round's `gemini-judge` cell count. The check passes on the digests;
+    the two counts are reported, with no threshold.
+
+  **The registration** (`uv run fedcourts register-process --label
+  proc-v22`, run 2026-11-13 over `staging` at `38152858b` with `proc-v21`
+  stamped). Three digests move.
+
+  | Actor | Before | `proc-v22` |
+  | --- | --- | --- |
+  | `claude-baseline` | `sha256:b61115d400ce9267e594df12aa530e5a53f6412fb350ec04fc5cc04dac832e78` (`proc-v21`) | the same digest, carried forward |
+  | `codex-baseline` | `sha256:a74ea5610425d331c2616ae8719866bf78f06ea6e1c6b111d66dfac31f2c8578` (`proc-v21`) | the same digest, carried forward |
+  | `gemini-baseline` | `sha256:ff9786ea91896f0f50f176c3b1de403074ccf54cbe49ba69d844d201c59d2069` (`proc-v21`) | the same digest, carried forward |
+  | `claude-judge` | `sha256:c1b452dea2e2f9a5c263428a31ed4c11f562c6ca10765b1dcfe66ff54daa733d` (`proc-v21`) | `sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08` (new) |
+  | `codex-judge` | `sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c` (`proc-v20`, `proc-v21`) | `sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5` (new) |
+  | `gemini-judge` | `sha256:93dfd6b52d95a78cbc7ce722aa2230f0e8ce09716d6219c95036ca071419fee9` (`proc-v21`) | `sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a` (new) |
+
+  **The audit of a held instant.** The instant precedes the carrying
+  promotion on purpose, so the date comparison is not this label's audit.
+  Its audit is the byte comparison: the three predictor digests `uv run
+  fedcourts process-digest --all` prints at `prereg/proc-v22` equal the
+  three it prints at `prereg/proc-v21`, whose own instant-versus-promotion
+  audit stands, and the three new evaluator blessings equal the carrying
+  merge's committer time. No window row changes: the registry holds 39
+  windows before and after, and each live predictor keeps its open
+  `proc-v21` window.
+
+  **What was graded under the replaced digests.** At `origin/main`
+  `95bc6575c` (`2026-11-13T11:01:26Z`), committed files under `data/cases`
+  naming each replaced evaluator digest: 108 for `codex-judge`'s, which
+  `proc-v20` blessed and `proc-v21` carried, and 0 for each of
+  `claude-judge`'s and `gemini-judge`'s, which `proc-v21` blessed on
+  2026-11-12 and under which no evaluate round has yet landed. These count
+  carrying files, as the earlier entries' retiring-digest counts do: 108 is
+  every `evaluation.json` stamped with that digest, and so an upper bound on
+  the gradings of counted predictions among them, which no committed command
+  splits out. Rounds keep landing until the carrying merge, so the three
+  counts are read again once it has stamped the registry, and a dated
+  follow-up entry quotes them.
+
+  **The evaluator half's pooling exposure.** An evaluator digest records
+  and never partitions, so nothing is de-counted and a pooled judge figure
+  now spans one more digest per evaluator. Under the reading rule in
+  `metrics/README.md` the claimable figure is the per-rubric one, and a
+  rubric is an (evaluator, evaluate digest) pair. So from this label each of
+  the three judges opens a new rubric row in `reasoning_quality_rubrics`
+  and the panel figures a new signature in `by_signature`, each starting at
+  `n` 0, and a pooled value spanning two digests of one evaluator is
+  coverage, never a claimable figure. Three surfaces list their rubrics but
+  carry no per-rubric reading (the claim judge-validation tau-b, the ops
+  reasoning-quality quantiles and the semantic per-grader agreement), so
+  there a value pooled across this label has no claimable form. A point
+  holding one evaluator under two digests joins no reading and is counted in
+  `mixed_signature_points`; such points concentrate in cases read at several
+  moments, which are the granted ones. The `proc-v21` rubrics of
+  `claude-judge` and `gemini-judge` close at the carrying merge with
+  whatever lands before it, 0 gradings as of this entry. What separates the
+  two sides of this boundary is where the prompt tells a judge to write and
+  nothing in what it is told to grade.
+
+  **The gap a held instant leaves.** An evaluation stamped between the held
+  instant and the new evaluator bless moment passes the timing test under a
+  digest not yet on `main`. Nothing can carry the new evaluator bytes before
+  the carrying promotion lands them, since cells are minted from `main`, and
+  Step 0 below shows nothing already does; from the bless moment on, the
+  evaluation tripwire reddens the suite on any cell stamped in the gap.
+
+  **Step 0.** At the same commit, the count of committed files under
+  `data/cases` naming `sha256:<digest>` is **0** for each of the three newly
+  blessed digests, and **4071** files there carry a `process_version` stamp.
