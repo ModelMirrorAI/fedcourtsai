@@ -1254,7 +1254,12 @@ def classify_engine_attempt(returncode: int, stdout: str, stderr: str) -> Attemp
     reported nothing, the whole of stderr is read, as
     :func:`_failure_is_transient` reads it: no line of it is marked as the last
     word, and a throttle read as permanent costs the cell where a permanent
-    fault retried costs only the capped attempts. A terminal quota overrides
+    fault retried costs only the capped attempts. Two limits follow from
+    reading the report alone, both to re-check on a CLI bump: the report is its
+    ``type`` and ``message``, so a status carried only in another field is not
+    read; and the object on stderr is the latest line-opening JSON object with
+    an ``error``, whoever wrote it, so one a tool logged ahead of an unreported
+    fault is read in that fault's place. A terminal quota overrides
     the transient set on whichever text is read, as it does in the runner's
     retry loop.
     """

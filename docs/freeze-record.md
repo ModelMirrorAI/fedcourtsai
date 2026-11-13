@@ -19502,17 +19502,30 @@ freeze commit is recorded here.
   *A Gemini cell whose turn fails on an engine fault after its work is whole
   concludes clean*, above) admits both classes. From the carrying promotion a
   Gemini cell that ends on a reported non-transient fault after a recovered
-  network error stops on that attempt where it took up to three before, and
-  one that ends on a reported transient fault after a recovered
-  client-error line now retries where it stopped. The rule trusts the latest
-  error object on stderr to be the fault that ended the turn; a turn that
-  logged such an object, carried on, and was then ended from outside is
-  classified on that object. The rule is Gemini's alone, so a comparison of
+  network error stops on that attempt where it took up to three before. The
+  other direction moves only for the terminal-quota set: an attempt whose
+  stderr carried a spent-quota line ahead of a different reported fault read
+  `terminal_quota` and now reads that fault's own class, so it retries where
+  the fault is transient. A reported transient fault after a recovered
+  client-error line read transient before and still does. The rule trusts the latest
+  error object on stderr to be the fault that ended the turn. That object is
+  any JSON object opening a stderr line and carrying an `error`, whoever
+  wrote it, so a turn that logged one, carried on, and then ended on a fault
+  the engine did not report (a signal from outside, or a bare network error
+  line) is classified on that object: a transient end after such an object
+  reads permanent and is not retried, where the whole-stderr reading retried
+  it. The report is read as its `type` and `message`, so a status carried
+  only in another field of the object is not read. The rule is Gemini's alone, so a comparison of
   retry counts or cell-failure rates across this promotion reads the Gemini
   pair apart.
 
   The runnable effect check once it is live: `uv run pytest
   tests/test_runner.py -k classify_engine_attempt` is green on `main`; and
-  after a full evaluate round on `main`, no `gemini-judge` job log carries
-  an annotation reading `ended transient` whose `engine said:` text names a
-  400 or `INVALID_ARGUMENT`.
+  for the captured streams of any Gemini attempt on which `uv run fedcourts
+  engine-attempt-reported` prints `true` and whose `uv run fedcourts
+  engine-attempt-fault` line names a 400 or `INVALID_ARGUMENT`, `uv run
+  fedcourts engine-attempt-class` prints `permanent`. In a round's job logs
+  the same reads as: no Gemini cell's annotation says `ended transient`
+  beside an `engine said:` text that is such a reported 400 (an attempt the
+  engine left no error object for is still read over its whole stderr, so
+  the annotation alone does not fail the check).

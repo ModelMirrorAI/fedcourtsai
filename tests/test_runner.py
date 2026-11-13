@@ -894,6 +894,18 @@ _BAD_REQUEST_RESULT = (
             + _BAD_REQUEST_RESULT,
             AttemptClass.permanent,
         ),
+        # The result on stdout is the engine's verdict where both streams
+        # carry an error object.
+        (1, _BAD_REQUEST_RESULT, _FETCH_FAILED_RESULT, AttemptClass.permanent),
+        # Any line-opening JSON object with an error counts as the report,
+        # whoever wrote it: a stated limit of the reading, pinned here.
+        (
+            1,
+            "",
+            '{"jsonrpc": "2.0", "error": {"message": "tool not found"}}\n'
+            + "TypeError: fetch failed",
+            AttemptClass.permanent,
+        ),
         # With no error object the whole of stderr is read, as the runner's
         # retry loop reads it: nothing marks one line as the last word.
         (
@@ -940,9 +952,10 @@ def test_the_attempt_classifier_agrees_with_the_runners_retry_on_every_stderr(
 ) -> None:
     """The workflow step and the local runner read one signature set.
 
-    On a non-zero exit with no JSON result, the classifier's verdict is exactly
-    the runner's retry decision — so the step cannot retry what the runner
-    would not, nor give up on what the runner would retry.
+    On a non-zero exit where the engine reported no error, in its result or
+    as an object on stderr, the classifier's verdict is exactly the runner's
+    retry decision — so the step cannot retry what the runner would not, nor
+    give up on what the runner would retry.
     """
     result = CommandResult(1, stderr)
     verdict = classify_engine_attempt(1, "", stderr)

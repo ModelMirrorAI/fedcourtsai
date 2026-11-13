@@ -4319,7 +4319,8 @@ unrecognized ends the step on that attempt. A failing exit is classified on
 the error the engine itself reported, in its result or as the same object on
 stderr, and not on the rest of stderr, so a model call the CLI retried and
 recovered from does not buy a retry for the client error the turn ended on;
-only where the engine reported nothing is the whole of stderr read. A retry starts only while 20
+only where the engine reported nothing is the whole of stderr read. A retry
+starts only while 20
 minutes of the deadline would remain after its backoff (the backoff is 15
 seconds per attempt so far, plus up to 15 of jitter): past the watchdog's
 three-minute margin by more than the longest cell observed, so a retry is a
