@@ -20316,3 +20316,66 @@ freeze commit is recorded here.
   a judge grades does change on the predictor side of the boundary: from
   this label a cert prediction's reasoning may cite the handed count and
   rate.
+
+- **The legacy one-in-ten IFP denial sample is complete in every Term; recorded
+  2026-11-13.** A reading, and the end of a statpack boundary; no rule, digest
+  or `salience_version` moves.
+
+  **What moved.** An early historical walk kept one IFP denial in ten for
+  OT2017 to OT2024 and stored each at `sample_weight` 10. `run-seed` re-opened
+  the `historical-ifp` stream of each of those Terms (OT2017 first, then OT2018
+  to OT2025 in one dispatch, OT2025 for its counsel only), and each re-walk
+  served every serial again and stored it at weight 1. Every stream reached its
+  frontier by the corpus pointer of `main` `db110b584` (2026-11-13T13:22:44Z).
+  Read from the blob at `main` `bcfd1b916` (latest pull 2026-11-13, latest
+  snapshot 2026-07-13), `uv run fedcourts corpus-info --legacy-sample` prints
+  `legacy sample: no weighted rows`.
+
+  **The figures.** Per-Term IFP cert figures of `metrics/statpack.json`: before,
+  the pack committed at `7fbb3736e` (2026-10-26), built before any
+  re-walk; after, the pack committed at `b30dc90f6` (2026-11-13T20:23:42Z,
+  merged to `main` as `8a8367f41`), the first built after the last stream
+  closed.
+
+  | Term | IFP filings | denied, weighted | denied, counted | gap | grant-family estimate (of weighted resolved) |
+  | --- | --- | --- | --- | --- | --- |
+  | OT2017 | 4,595 | 4,410 | 4,397 | −13 | 1.403% → 1.472% |
+  | OT2018 | 4,847 | 4,650 | 4,647 | −3 | 1.188% → 1.188% |
+  | OT2019 | 3,930 | 3,721 | 3,733 | +12 | 1.521% → 1.542% |
+  | OT2020 | 3,477 | 3,302 | 3,315 | +13 | 1.076% → 1.072% |
+  | OT2021 | 3,288 | 3,161 | 3,145 | −16 | 1.162% → 1.167% |
+  | OT2022 | 2,907 | 2,690 | 2,757 | +67 | 0.607% → 0.593% |
+  | OT2023 | 2,848 | 2,680 | 2,691 | +11 | 1.043% → 1.074% |
+  | OT2024 | 2,529 | 2,391 | 2,401 | +10 | 0.971% → 0.967% |
+
+  Over the eight Terms the weighted estimate was 27,005 denials and the count
+  is 27,086, a gap of +81 (0.3% of the estimate). The largest is OT2022's,
+  +67 (2.5% of its estimate). No sampling band is quoted: the sample was a
+  grid over serials, not a random draw, and its variance was not estimated.
+  Nor is the gap sampling error alone, since it also holds rows the re-walk
+  read differently or that resolved between the two packs. The other IFP dispositions were
+  stored one by one before the walk. Dismissed rows do not move in any Term,
+  and granted plus GVR rows move by at most three (OT2017, 64 to 67). Within
+  that sum the re-walk re-read OT2023's and OT2024's rows: the earlier pack
+  held 29 and 24 as granted and none as GVR, and this one holds 3 granted and
+  27 GVR, and 3 granted and 21 GVR.
+
+  **What is not complete.** 46 OT2024 IFP dockets (serials between 5049 and
+  7519) are stored, have never been live-polled and carry no disposition; the
+  pack counts them as filings and not as ingested rows (2,483 of 2,529), and
+  OT2024's count can rise by up to 46 as the never-polled reserve reaches
+  them. In no other Term from OT2017 to OT2025 does the IFP stream hold a
+  docket number with no polled row.
+
+  **The boundary.** The packs committed from 2026-10-28 up to, and not
+  including, `b30dc90f6` were built mid-walk and mix counted and weighted rows within a Term: the pack
+  at `829c27682` (2026-11-09) reads OT2018 IFP denials as 5,337 and marks
+  OT2018 to OT2020 IFP not complete. A per-Term IFP or pooled cert figure for
+  OT2017 to OT2024 from a pack in that window is not compared or pooled with
+  one from before it or after it, and a prediction stamped in that window may
+  have drawn on such a pack. No scored figure is recomputed and no cell is de-counted.
+  `sample_weight` and its guards stay as they are; retiring them is a separate
+  change.
+
+  The re-walks also wrote `counsel` on the rows they served: resolved rows with
+  parties and blank counsel fell from 6,042 to 1 across OT2017 to OT2025.
