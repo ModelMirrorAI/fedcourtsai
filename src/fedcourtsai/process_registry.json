@@ -121,39 +121,47 @@
         "merge": "b1cdb7c5805de5507155a573fb51210c31b97746",
         "source": "merge"
       }
+    },
+    {
+      "label": "proc-v23",
+      "since": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      }
     }
   ],
   "blessings": [
     {
-      "digest": "sha256:b61115d400ce9267e594df12aa530e5a53f6412fb350ec04fc5cc04dac832e78",
+      "digest": "sha256:e266abac2a7bd5d69f3b76ce27dae510b389f78e786fc7ed620c85c96165f138",
       "role": "predictor",
       "actor_id": "claude-baseline",
-      "label": "proc-v21",
+      "label": "proc-v23",
       "blessed": {
-        "at": "2026-11-12T19:49:39Z",
-        "merge": "b1cdb7c5805de5507155a573fb51210c31b97746",
+        "at": null,
+        "merge": null,
         "source": "merge"
       }
     },
     {
-      "digest": "sha256:a74ea5610425d331c2616ae8719866bf78f06ea6e1c6b111d66dfac31f2c8578",
+      "digest": "sha256:b10485508f9857df40bf900089e422926fad9d2314dc06116f01f191d79ef319",
       "role": "predictor",
       "actor_id": "codex-baseline",
-      "label": "proc-v21",
+      "label": "proc-v23",
       "blessed": {
-        "at": "2026-11-12T19:49:39Z",
-        "merge": "b1cdb7c5805de5507155a573fb51210c31b97746",
+        "at": null,
+        "merge": null,
         "source": "merge"
       }
     },
     {
-      "digest": "sha256:ff9786ea91896f0f50f176c3b1de403074ccf54cbe49ba69d844d201c59d2069",
+      "digest": "sha256:5b3e9ae5871c082f95427257cca4e9a043830b1dd290847c28bd960c1f2327c3",
       "role": "predictor",
       "actor_id": "gemini-baseline",
-      "label": "proc-v21",
+      "label": "proc-v23",
       "blessed": {
-        "at": "2026-11-12T19:49:39Z",
-        "merge": "b1cdb7c5805de5507155a573fb51210c31b97746",
+        "at": null,
+        "merge": null,
         "source": "merge"
       }
     },
@@ -777,7 +785,11 @@
         "merge": "b1cdb7c5805de5507155a573fb51210c31b97746",
         "source": "merge"
       },
-      "closes": null,
+      "closes": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      },
       "revoked_at": null
     },
     {
@@ -789,7 +801,11 @@
         "merge": "b1cdb7c5805de5507155a573fb51210c31b97746",
         "source": "merge"
       },
-      "closes": null,
+      "closes": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      },
       "revoked_at": null
     },
     {
@@ -799,6 +815,46 @@
       "opens": {
         "at": "2026-11-12T19:49:39Z",
         "merge": "b1cdb7c5805de5507155a573fb51210c31b97746",
+        "source": "merge"
+      },
+      "closes": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      },
+      "revoked_at": null
+    },
+    {
+      "label": "proc-v23",
+      "digest": "sha256:e266abac2a7bd5d69f3b76ce27dae510b389f78e786fc7ed620c85c96165f138",
+      "predictor_id": "claude-baseline",
+      "opens": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      },
+      "closes": null,
+      "revoked_at": null
+    },
+    {
+      "label": "proc-v23",
+      "digest": "sha256:b10485508f9857df40bf900089e422926fad9d2314dc06116f01f191d79ef319",
+      "predictor_id": "codex-baseline",
+      "opens": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      },
+      "closes": null,
+      "revoked_at": null
+    },
+    {
+      "label": "proc-v23",
+      "digest": "sha256:5b3e9ae5871c082f95427257cca4e9a043830b1dd290847c28bd960c1f2327c3",
+      "predictor_id": "gemini-baseline",
+      "opens": {
+        "at": null,
+        "merge": null,
         "source": "merge"
       },
       "closes": null,
@@ -899,13 +955,16 @@
       "proc-v21"
     ],
     "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08": [
-      "proc-v22"
+      "proc-v22",
+      "proc-v23"
     ],
     "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5": [
-      "proc-v22"
+      "proc-v22",
+      "proc-v23"
     ],
     "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a": [
-      "proc-v22"
+      "proc-v22",
+      "proc-v23"
     ]
   },
   "harness_boundaries": [

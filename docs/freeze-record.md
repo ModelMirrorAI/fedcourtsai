@@ -20213,3 +20213,106 @@ freeze commit is recorded here.
   - once paired cert events placed after the refresh resolve, `jq '.. |
     .amicus_line? // empty' metrics/leaderboard.json` prints a block with
     `events` above 0.
+- **`proc-v23`, cert cells are handed their cert-stage amicus count and the
+  amicus-adjusted reference forecast; recorded 2026-11-13.** Carried to
+  `main` by the promotion tagged `<FILL: promotion tag>` (merge commit
+  `<FILL: merge hash>`, merged `<FILL: merged-at>`), to be tagged
+  **`prereg/proc-v23`**. Registered under the merge-stamped rule, so its
+  counting instant, its three predictor bless moments and every window edge
+  it moves are the carrying merge's committer time. Only the predict prompt
+  changes, so the three predictor digests move and the three evaluator
+  digests are carried forward byte-identical. No harness boundary is
+  registered here: the change is to the prompt, and the label is its
+  boundary. No committed prediction or grading is re-stamped and no scored
+  value is recomputed.
+
+  **What changes.** The entry above this one, which registers
+  `amicus-line-v2`, states it in full: provisioning writes
+  `cert_amicus_briefs` and `cert_amicus_line` into a cert cell's
+  `record/context.json`, the predict prompt's cert-stage section describes
+  both, and the prompt gains the description of the unread-run pipeline note
+  that the `unread-page-runs` entry owed. The evaluate prompt, every model,
+  every engine CLI pin and every agent's configuration are unchanged.
+
+  **Why, what is pre-registered and what is not verified.** As that entry
+  states them: the maintainer chose on 2026-11-13 to hand cells the count
+  and the rate; no direction of movement in cert accuracy, Brier or skill is
+  predicted across this label, and a movement in either direction is not
+  attributed to the engines' models; no cell has run under the new prompt.
+  The maintainer also chose that day to register the change under a label of
+  its own, after `proc-v22`'s promotion branch was cut, and not to fold it
+  into `proc-v22`.
+
+  **The amendment debt.** The one the entry above pays, and no new token.
+
+  The runnable effect check once it is live:
+  - on `main`, `uv run python -c "from fedcourtsai.process_version import
+    CURRENT_PROCESS_LABEL as L; print(L)"` prints `proc-v23`, and `uv run
+    fedcourts process-digest --all` prints the six digests below;
+  - `grep -c 'cert_amicus_line' .github/prompts/predict.md` on `main` prints
+    a number above 0 (0 on `proc-v22`);
+  - each `prediction.json` the first predict round after the carrying merge
+    adds carries the `proc-v23` digest of its predictor;
+  - the cell-level checks in the entry above.
+
+  **The registration** (`uv run fedcourts register-process --label
+  proc-v23`, run 2026-11-13 over `staging` at `243cbedd3` with `proc-v22`
+  stamped). Three digests move.
+
+  | Actor | Before | `proc-v23` |
+  | --- | --- | --- |
+  | `claude-baseline` | `sha256:b61115d400ce9267e594df12aa530e5a53f6412fb350ec04fc5cc04dac832e78` (`proc-v21`, `proc-v22`) | `sha256:e266abac2a7bd5d69f3b76ce27dae510b389f78e786fc7ed620c85c96165f138` (new) |
+  | `codex-baseline` | `sha256:a74ea5610425d331c2616ae8719866bf78f06ea6e1c6b111d66dfac31f2c8578` (`proc-v21`, `proc-v22`) | `sha256:b10485508f9857df40bf900089e422926fad9d2314dc06116f01f191d79ef319` (new) |
+  | `gemini-baseline` | `sha256:ff9786ea91896f0f50f176c3b1de403074ccf54cbe49ba69d844d201c59d2069` (`proc-v21`, `proc-v22`) | `sha256:5b3e9ae5871c082f95427257cca4e9a043830b1dd290847c28bd960c1f2327c3` (new) |
+  | `claude-judge` | `sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08` (`proc-v22`) | the same digest, carried forward (`proc-v22`, `proc-v23`) |
+  | `codex-judge` | `sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5` (`proc-v22`) | the same digest, carried forward (`proc-v22`, `proc-v23`) |
+  | `gemini-judge` | `sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a` (`proc-v22`) | the same digest, carried forward (`proc-v22`, `proc-v23`) |
+
+  **What was made under the retiring digests.** At `origin/main`
+  `94b3cd8e2` (`2026-11-13T17:04:30Z`), committed files under `data/cases`
+  naming each retiring digest: 9 for each of the three `proc-v21` predictor
+  digests. No evaluator digest retires.
+
+  **Step 0.** At the same commit, the count of committed files under
+  `data/cases` naming `sha256:<digest>` is **0** for each of the three newly
+  blessed digests, and **4098** files there carry a `process_version` stamp.
+
+  **Windows** (`COUNTING_WINDOWS`, once the carrying merge stamps them):
+
+  | Predictor | Label | Opens | Closes |
+  | --- | --- | --- | --- |
+  | `claude-baseline` (`b61115d4…`) | `proc-v21` | `2026-11-12T19:49:39Z` | this label's instant (was open) |
+  | `codex-baseline` (`a74ea561…`) | `proc-v21` | `2026-11-12T19:49:39Z` | this label's instant (was open) |
+  | `gemini-baseline` (`ff9786ea…`) | `proc-v21` | `2026-11-12T19:49:39Z` | this label's instant (was open) |
+  | `claude-baseline` (`e266abac…`) | `proc-v23` | this label's instant | open (new) |
+  | `codex-baseline` (`b1048550…`) | `proc-v23` | this label's instant | open (new) |
+  | `gemini-baseline` (`5b3e9ae5…`) | `proc-v23` | this label's instant | open (new) |
+
+  Earlier windows keep the closes earlier labels gave them. `proc-v22` opened
+  no window, so the windows this label closes are `proc-v21`'s, and the
+  registry holds 42 windows where it held 39.
+
+  **What the close owes, provisional.** Run with this commit's pending rows
+  stamped by hand at a provisional instant, `2026-11-14T00:00:00Z`, in a
+  scratch copy of the registry, over the ledger at `origin/main`
+  `94b3cd8e2`. `uv run fedcourts successor-disclosures --closed proc-v21
+  --successor proc-v23`:
+
+  ```
+  successor proc-v23 closes proc-v21 at 2026-11-14T00:00:00+00:00
+    closed proc-v21 codex-baseline: 9 counted event(s) — 0 resolved, 9 pending at close
+    closed proc-v21 claude-baseline: 9 counted event(s) — 0 resolved, 9 pending at close
+    closed proc-v21 gemini-baseline: 9 counted event(s) — 0 resolved, 9 pending at close
+    split events: 0 (0 resolved) — in no complete grid
+  ```
+
+  Cells keep landing until the instant, so the run is repeated once the
+  carrying merge has stamped the registry, and a dated follow-up entry quotes
+  it before any `proc-v21` window figure is quoted outside the committed
+  board.
+
+  **The evaluator half.** The three evaluator digests are `proc-v22`'s, so
+  no rubric row opens and no judge figure gains a digest at this label. What
+  a judge grades does change on the predictor side of the boundary: from
+  this label a cert prediction's reasoning may cite the handed count and
+  rate.
