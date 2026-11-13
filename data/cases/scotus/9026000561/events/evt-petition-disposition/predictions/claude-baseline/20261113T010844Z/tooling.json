@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000561",
+  "run_id": "20261113T010844Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "provisioned petition text"],
+  "helpful": ["cert_anchor in context.json", "statpack relist-count and band tables", "full petition text"],
+  "gaps": ["no decision-below.txt staged for this D.C. Circuit judgment", "no base rate conditioned on a waived response with no call for response", "corpus query has no subject-matter filter for SCOTUS rows"],
+  "notes": "The structured query returned only the most recent denials, which were not informative for this petition."
+}
