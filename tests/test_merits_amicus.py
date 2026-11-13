@@ -9,7 +9,7 @@ from typing import Any
 import pytest
 
 from fedcourtsai import corpus
-from fedcourtsai.pipeline import moments
+from fedcourtsai.pipeline import cert_signals, moments
 from fedcourtsai.pipeline.documents import (
     FETCHED_DOCUMENT_KINDS,
     KIND_DESCRIPTIONS,
@@ -54,6 +54,11 @@ def _kinds(payload: Mapping[str, Any], **kw: Any) -> dict[str, str]:
         "Brief of the United States as Amicus Curiae in support of neither party filed.",
         "Brief amicus curiae of United States filed.",
         "Brief for the United States as amicus curiae supporting vacatur filed. (Distributed)",
+        # The caption that names the supported side straight after the filer.
+        "Brief amicus curiae of United States supporting vacatur filed.",
+        "Brief amicus curiae of United States supporting vacatur filed. (Corrected)",
+        "Brief amicus curiae of United States supporting petitioner filed.",
+        "Brief amicus curiae of the United States in support of neither party filed.",
     ],
 )
 def test_the_united_states_merits_amicus_brief_is_selected_after_the_grant(words: str) -> None:
@@ -67,6 +72,11 @@ def test_the_united_states_merits_amicus_brief_is_selected_after_the_grant(words
         # Amici whose names open with the same words.
         "Brief amicus curiae of United States Conference of Catholic Bishops filed.",
         "Brief of United States Senators as amici curiae filed.",
+        "Brief amicus curiae of United States Conference of Catholic Bishops supporting "
+        + "petitioners filed.",
+        "Brief amici curiae of United States Senators supporting respondents filed.",
+        # The supported-side caption the Clerk did not accept carries no filing verb.
+        "Brief amicus curiae of United States supporting vacatur not accepted for filing.",
         # Any other amicus brief stays unselected.
         "Brief amicus curiae of Cato Institute filed.",
         "Brief amici curiae of States of Ohio, et al. filed.",
@@ -284,3 +294,34 @@ def test_an_uncut_cell_is_handed_the_kind() -> None:
             [KIND_MERITS_BRIEF_PETITIONER, KIND_MERITS_AMICUS_UNITED_STATES]
         )
         assert placement.dropped_documents == 0
+
+
+# --- the supported-side caption is the merits arm's alone ---------------------------
+
+
+def test_the_supported_side_caption_does_not_move_the_invited_brief_or_its_moment() -> None:
+    """The shared anchor is unchanged, so no cert-stage read sees the wider caption."""
+    words = "Brief amicus curiae of United States supporting petitioner filed."
+    assert not cert_signals.is_sg_invited_brief_entry(words)
+    payload = {
+        "ProceedingsandOrder": [
+            _MERITS_PETITION_ENTRY,
+            _INVITATION,
+            _entry("Mar 02 2026", words, url=_US_URL),
+        ]
+    }
+    assert cert_signals.sg_invited_brief_position(payload) is None
+    assert cert_signals.sg_brief_date(payload) is None
+    assert KIND_SG_INVITED_BRIEF not in _kinds(payload)
+    assert KIND_MERITS_AMICUS_UNITED_STATES not in _kinds(payload)
+
+
+def test_a_member_never_borrows_a_supported_side_brief_marked_for_other_dockets() -> None:
+    marked = _entry(
+        "Jul 20 2026",
+        "Brief amicus curiae of United States supporting petitioners filed (as to 25-500).",
+        url=_US_URL,
+    )
+    assert KIND_MERITS_AMICUS_UNITED_STATES not in _kinds(
+        _member_payload(), lead=_lead_payload(*_LEAD_BRIEFS, marked)
+    )

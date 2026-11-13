@@ -19467,3 +19467,112 @@ freeze commit is recorded here.
   **Step 0.** At the same commit, the count of committed files under
   `data/cases` naming `sha256:<digest>` is **0** for each of the three newly
   blessed digests, and **4071** files there carry a `process_version` stamp.
+- **The United States' merits amicus brief is read under the caption that
+  names the supported side; recorded 2026-11-13.** A **provisioning-cutoff**
+  change with a harness boundary, recorded ahead of the promotion that carries
+  it.
+
+  **Why.** The Clerk enters the United States' amicus brief on the merits
+  under two captions. One names the filer and then its role ("Brief for the
+  United States as amicus curiae supporting petitioners filed."); the other
+  names the supported side straight after the filer ("Brief amicus curiae of
+  United States supporting vacatur filed.", "Brief amicus curiae of United
+  States in support of neither party filed."). The merits arm read the brief
+  by the invited brief's entry anchor, which admits only "as …", the filing
+  verb or punctuation after the filer's name, so the second caption was never
+  read and a granted docket whose brief carries it stored no
+  `merits-amicus-united-states` row. All three predictors flagged the gap on
+  24-1016 (`evt-brief-judgment`) in predict run `20261113T042228Z`.
+
+  **What moved.** `pipeline.documents` reads the merits arm through its own
+  test, `is_united_states_merits_amicus_entry`: the invited brief's anchor, or
+  an entry that opens "Brief amicus curiae of [the] United States" followed
+  at once by "supporting" or "in support of" and carrying a filing verb. The
+  post-grant bound, the `Main Document` link, first-in-docket-order and the
+  "(as to No.)" cut on a consolidated group are the arm's as before.
+  `cert_signals.is_sg_invited_brief_entry` is unchanged, so the invited
+  brief's position, the `sg-invited-brief` row and the sg-brief moment's date
+  read exactly the entries they read before. An amicus whose name opens with
+  the same words ("United States Conference of Catholic Bishops … supporting
+  petitioners") is still not read, because the supported side must follow the
+  filer's name directly.
+
+  No prompt byte and no registry field other than the boundary row moves, so
+  no digest moves. `uv run fedcourts process-digest --all` prints `proc-v22`
+  and the six digests `b61115d4…` (claude-baseline), `a74ea561…`
+  (codex-baseline), `ff9786ea…` (gemini-baseline), `6d65018d…`
+  (claude-judge), `ad4c6cc6…` (codex-judge) and `71a3fe87…` (gemini-judge),
+  with and without the change.
+
+  **A harness boundary under the 2026-10-11 pooled rule.** The change adds to
+  what a merits cell reads under unchanged digests. It is composition, not a
+  cut. The pooled default and the paired figure keep both sides and list each
+  engine's `n` before and after. It cuts only a figure that reads its own
+  effect.
+  - **The registry row** is `united-states-amicus-supported-side-caption`. It
+    applies to every predictor, and its reach is `granted dockets`, since the
+    arm opens only after a grant. It is **gradual**. A stored row changes
+    only when its docket's documents are fetched again: a live poll's
+    provisioning, or the freshness pass over predict-relevant cases, which
+    fetches any case whose stored set differs from the selected one. A
+    decided docket is not re-fetched unless a back-fill pass reaches it. It
+    is registered **pending** in this change's own PR (`fedcourts
+    register-boundary`), under the 2026-10-14 merge-stamping declaration,
+    and its `merge` and `at` stay null until the promotion merge that
+    carries it to `main` stamps them (`promotion-record`).
+  - **The side test** is the registered one, against the carrying merge.
+    Because the boundary is gradual, an after-side cell provisioned before
+    its docket was re-fetched still lacks the brief, so the after-side `n`
+    is an upper bound on exposure.
+
+  **The population.** Measured read-only over blob
+  `c6c5abc991871b32178203b08457fa95f5cb107b2091c9eb2ba5908a5fb64b73` (newest
+  pull 2026-11-13, newest stored snapshot row 2026-07-13), comparing the
+  previous and the changed selection at the latest stored snapshot of each
+  SCOTUS docket numbered in OT2016 through OT2026, applications aside (53,197
+  dockets, 46,534 with a snapshot, 1,280 of them showing a grant). Forty
+  entries carry the newly read caption, all on granted dockets: twenty-five
+  say "in support of neither party" or "supporting neither party", ten name
+  vacatur, and five name a party's side. The selection moves on thirty dockets and on no other
+  kind:
+  - **Twenty-nine gain** a `merits-amicus-united-states` link where none was
+    selected. Three have committed merits cells and no merits outcome: 24-1016
+    and 25-183 (six predictions each) and 25-1311 (three). The other
+    twenty-six, from the 2021 through 2025 Terms, have no committed
+    prediction.
+  - **One changes which brief is stored.** On 24-109 the docket carries a
+    brief in support of neither party filed 2024-12-23 and a second brief
+    under the already-read caption filed 2025-09-24, after the case was set
+    for reargument. The arm stores the first in docket order, so the row
+    moves from the second brief to the first. The docket is decided and has
+    no committed prediction.
+
+  No ungranted docket carries the caption, so the post-grant bound turns
+  nothing away.
+
+  **Residuals, accepted.** The arm stores one brief, so a docket on which the
+  United States files twice on the merits keeps only the first, as 24-109
+  shows. Two captions on granted dockets stay unread: "Brief amicus curiae of
+  United States of America filed." (five entries), which the filer-name
+  lookahead refuses, and one entry that drops a word ("United States support
+  of neither party"). A brief the Clerk did not accept carries no filing verb
+  and is not read; the corrected brief's own entry is.
+
+  **What does not move.** No base rate re-prices, no membership rule moves
+  and no scored figure moves. No skill movement is predicted, and a movement
+  in **either** direction across this boundary may not be read as a model
+  effect.
+
+  **The amendment debt.** It is unchanged. This entry adds no new token.
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_merits_amicus.py` is green;
+  - after the first live cycles following the promotion, where the corpus is
+    pulled, `uv run fedcourts provision-snapshot --court scotus --docket
+    72483489 --event evt-brief-judgment` stages a
+    `merits-amicus-united-states.txt` whose entry is the corrected brief of
+    2026-09-15, beside the `sg-invited-brief.txt` it staged before;
+  - on `main` once the promotion has merged, `uv run python -c "from
+    fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
+    print('united-states-amicus-supported-side-caption' in {b.name for b in
+    H})"` prints `True`.
