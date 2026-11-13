@@ -341,6 +341,19 @@ def test_orders_that_do_not_say_what_they_ordered_report_no_absence() -> None:
     timed = [*thin, _dated(70, "2025-05-01", "Motion to extend time for rehearing denied.")]
     late = read_rehearing(timed, judgment_date=_JUDGMENT, rehearing_denied=denied_on)
     assert late.denial_unrecorded is True
+    # Nor is a petition docketed beside the denial of some other motion.
+    beside = [*thin, _dated(71, "2025-05-02", "Petition for panel rehearing. Stay motion denied.")]
+    other = read_rehearing(beside, judgment_date=_JUDGMENT, rehearing_denied=denied_on)
+    assert other.denial_unrecorded is True and other.petition_filed is None
+    # An en banc petition found without its ruling says so too.
+    sought = [*thin, _dated(71, "2025-05-02", "Petition for rehearing en banc filed.")]
+    found = read_rehearing(sought, judgment_date=_JUDGMENT, rehearing_denied=denied_on)
+    assert found.petition_filed is True and found.denial_unrecorded is True
+    # A partial read may hold the ruling on a page it did not reach.
+    partial = read_rehearing(
+        thin, complete=False, judgment_date=_JUDGMENT, rehearing_denied=denied_on
+    )
+    assert partial.denial_unrecorded is False and partial.petition_filed is None
 
 
 def test_an_entry_with_no_text_leaves_the_petition_unknown() -> None:
@@ -366,6 +379,8 @@ def test_an_entry_with_no_text_leaves_the_petition_unknown() -> None:
     beside = [*on_document, _dated(67, "2025-06-02", "")]
     unsure = read_rehearing(beside, judgment_date=_JUDGMENT)
     assert unsure.petition_filed is True and unsure.dissent_noted is None
+    undated = [*on_document, (11, {"entry_number": 68, "date_filed": None, "description": ""})]
+    assert read_rehearing(undated, judgment_date=_JUDGMENT).dissent_noted is None
 
 
 def test_the_docket_row_says_what_could_not_be_read() -> None:

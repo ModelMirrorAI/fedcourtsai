@@ -19485,16 +19485,16 @@ freeze commit is recorded here.
   stated denial, said "petition filed: none in the entries read".
 
   **What moved.** In `pipeline.decision_below`:
-  - Where the SCOTUS docket states a rehearing denial, the entries read
-    reach its date, they show no en banc disposition, and none records a
-    denial of rehearing of either kind, the reading is `denial_unrecorded`
-    and reports no absence. An entry that records the denial of panel
-    rehearing accounts for the stated date, and the absence of an en banc
-    petition beside it is still reported.
+  - Where the SCOTUS docket states a rehearing denial, a complete read
+    reaches its date, the entries show no en banc disposition, and none
+    records an order denying rehearing of either kind, the reading is
+    `denial_unrecorded` and reports no absence. An entry that records an
+    order denying panel rehearing accounts for the stated date, and the
+    absence of an en banc petition beside it is still reported.
   - An entry with no text on itself or on any of its documents is counted in
     `blank_entries`. Any such entry leaves a petition's absence unknown, and
-    one filed on the day of the disposition, after the judgment date, leaves
-    a dissent unknown.
+    one filed on the day of the disposition, after the judgment date, or
+    undated, leaves a dissent unknown.
   - The record words either case as "could not be read" on the petition,
     disposition and dissent lines in place of "not found" or an absence, and
     adds a line saying which of the two it met.
@@ -19530,16 +19530,20 @@ freeze commit is recorded here.
   2026-07-13) and the case store on 2026-11-13: 288 cases carry a fill stamp
   and 278 hold a `lower-court-docket` row. Of the 278 records, 172 quote a
   rehearing denial from the SCOTUS docket, and 32 of those report no petition
-  for rehearing en banc. CourtListener was then read under the changed
-  reading for the first 11 of the 32 in corpus order before its request
-  budget ended the read; they are not a random sample. Of the 11, 6 are
-  `denial_unrecorded`, 3 are `short_of_denial` (records stored before that
-  reading, which their next walk rewords) and 2 still report an absence
-  beside a recorded denial of panel rehearing. 26-624, the thirty-second, is
-  `denial_unrecorded`. None of the 12 holds an entry with no text at all, so
-  `blank_entries` rests on its tests and on no observed docket. Three of the
-  six were read entry by entry (ca2, ca4, ca6): in each, the entry filed on
-  the stated denial date is labelled as an order without its subject.
+  for rehearing en banc. The counts were not read again on the blob
+  `origin/main` then pointed at. CourtListener was then read under the
+  changed reading for the first 11 of the 32 in corpus order before its
+  request budget ended the read; they are not a random sample. Of the 11, 6
+  are `denial_unrecorded`, 3 are `short_of_denial` (records stored before
+  that reading, which their next walk rewords) and 2 still report an absence
+  beside a recorded order denying panel rehearing. 26-624, the last of the 32
+  in corpus order, was read as well and is `denial_unrecorded`. The other 20
+  of the 32 were not read again, so how many of them change is not known.
+  None of the 12 read holds an entry with no text at all, so `blank_entries`
+  rests on its tests and on no observed docket. Three of the six, other than
+  26-624, were read entry by entry (23-959 from ca2, 24-46 from ca4, 25-459
+  from ca6): in each, the entry filed on the stated denial date is labelled
+  as an order without its subject.
 
   **What does not move.** No base rate re-prices, no membership rule moves
   and no scored figure moves. No skill movement is predicted, and a movement
