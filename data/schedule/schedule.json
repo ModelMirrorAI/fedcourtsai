@@ -45,6 +45,38 @@
       "stale_reason": null
     },
     {
+      "argument": null,
+      "case_id": "scotus/72483503",
+      "conferences": [
+        {
+          "conference": "2025-05-02",
+          "distributed": "2025-04-16",
+          "transition": "first"
+        },
+        {
+          "conference": "2025-06-26",
+          "distributed": "2025-06-10",
+          "transition": "reschedule"
+        },
+        {
+          "conference": "2026-01-09",
+          "distributed": "2025-12-23",
+          "transition": "redistributed"
+        },
+        {
+          "conference": "2026-01-16",
+          "distributed": "2026-01-12",
+          "transition": "relist"
+        }
+      ],
+      "distributed_for_conference": "2026-01-16",
+      "last_live_polled": "2026-11-13",
+      "next_conference": null,
+      "relists": 1,
+      "response_due": null,
+      "stale_reason": "conference_passed"
+    },
+    {
       "argument": {
         "set_for": "2027-01-11",
         "stale_reason": null,
