@@ -1285,6 +1285,22 @@
       "predictors": null,
       "reach": "all",
       "gradual": true
+    },
+    {
+      "name": "united-states-amicus-supported-side-caption",
+      "merge": null,
+      "at": null,
+      "predictors": null,
+      "reach": "granted dockets",
+      "gradual": true
+    },
+    {
+      "name": "decision-below-unread-entries",
+      "merge": null,
+      "at": null,
+      "predictors": null,
+      "reach": "all",
+      "gradual": true
     }
   ]
 }

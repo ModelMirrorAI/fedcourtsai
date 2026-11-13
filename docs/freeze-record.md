@@ -19467,6 +19467,225 @@ freeze commit is recorded here.
   **Step 0.** At the same commit, the count of committed files under
   `data/cases` naming `sha256:<digest>` is **0** for each of the three newly
   blessed digests, and **4071** files there carry a `process_version` stamp.
+- **The United States' merits amicus brief is read under the caption that
+  names the supported side; recorded 2026-11-13.** A **provisioning-cutoff**
+  change with a harness boundary, recorded ahead of the promotion that carries
+  it.
+
+  **Why.** The Clerk enters the United States' amicus brief on the merits
+  under two captions. One names the filer and then its role ("Brief for the
+  United States as amicus curiae supporting petitioners filed."); the other
+  names the supported side straight after the filer ("Brief amicus curiae of
+  United States supporting vacatur filed.", "Brief amicus curiae of United
+  States in support of neither party filed."). The merits arm read the brief
+  by the invited brief's entry anchor, which admits only "as …", the filing
+  verb, a parenthesis, punctuation or the end of the text after the filer's
+  name, so the second caption was never
+  read and a granted docket whose brief carries it stored no
+  `merits-amicus-united-states` row. All three predictors flagged the gap on
+  24-1016 (`evt-brief-judgment`) in predict run `20261113T042228Z`.
+
+  **What moved.** `pipeline.documents` reads the merits arm through its own
+  test, `is_united_states_merits_amicus_entry`: the invited brief's anchor, or
+  an entry that opens "Brief amicus curiae of [the] United States" followed
+  at once by "supporting" or "in support of" and carrying a filing verb, unless
+  it says the brief was "not accepted". The
+  post-grant bound, the `Main Document` link, first-in-docket-order and the
+  "(as to No.)" cut on a consolidated group are the arm's as before.
+  `cert_signals.is_sg_invited_brief_entry` is unchanged, so the invited
+  brief's position, the `sg-invited-brief` row and the sg-brief moment's date
+  read exactly the entries they read before. An amicus whose name opens with
+  the same words ("United States Conference of Catholic Bishops … supporting
+  petitioners") is still not read, because "supporting" or "in support of"
+  must follow the filer's name directly. The test reads those words and not a
+  list of sides, so an amicus named "United States Supporting …" would be
+  read; none is stored.
+
+  No prompt byte and no registry field other than the boundary row moves, so
+  no digest moves. `uv run fedcourts process-digest --all` prints `proc-v22`
+  and the six digests `b61115d4…` (claude-baseline), `a74ea561…`
+  (codex-baseline), `ff9786ea…` (gemini-baseline), `6d65018d…`
+  (claude-judge), `ad4c6cc6…` (codex-judge) and `71a3fe87…` (gemini-judge),
+  with and without the change. The predict prompt asks a cell to say which
+  side the brief supports; on a brief in support of neither party or of
+  vacatur the docket entry in the cell's snapshot carries the caption, and
+  the brief says what it asks for.
+
+  **A harness boundary under the 2026-10-11 pooled rule.** The change adds to
+  what a merits cell reads under unchanged digests. It is composition, not a
+  cut. The pooled default and the paired figure keep both sides and list each
+  engine's `n` before and after. It cuts only a figure that reads its own
+  effect.
+  - **The registry row** is `united-states-amicus-supported-side-caption`. It
+    applies to every predictor, and its reach is `granted dockets`, since the
+    arm opens only after a grant. It is **gradual**. A stored row changes
+    only when its docket's documents are fetched again: a live poll's
+    provisioning, or the freshness pass over predict-relevant cases, which
+    fetches any case whose stored set differs from the selected one. A
+    decided docket is not re-fetched unless a back-fill pass reaches it. It
+    is registered **pending** in this change's own PR (`fedcourts
+    register-boundary`), under the 2026-10-14 merge-stamping declaration,
+    and its `merge` and `at` stay null until the promotion merge that
+    carries it to `main` stamps them (`promotion-record`).
+  - **The side test** is the registered one, against the carrying merge.
+    Because the boundary is gradual, an after-side cell provisioned before
+    its docket was re-fetched still lacks the brief, so the after-side `n`
+    is an upper bound on exposure.
+
+  **The population.** Measured read-only over blob
+  `c6c5abc991871b32178203b08457fa95f5cb107b2091c9eb2ba5908a5fb64b73` (newest
+  pull 2026-11-13, newest stored snapshot row 2026-07-13), comparing the
+  previous and the changed selection at the latest stored snapshot of each
+  SCOTUS docket numbered in OT2016 through OT2026, applications aside (53,197
+  dockets, 46,534 with a snapshot, 1,280 of them showing a grant). Forty
+  entries carry the newly read caption, all on granted dockets: twenty-five
+  say "in support of neither party" or "supporting neither party", ten name
+  vacatur, and five name a party's side. Each sits on a docket of its own.
+  The selection moves on thirty of the forty dockets and on no other kind:
+  - **Twenty-nine gain** a `merits-amicus-united-states` link where none was
+    selected. Three have committed merits cells and no merits outcome: 24-1016
+    and 25-183 (six predictions each) and 25-1311 (three). The other
+    twenty-six, from the 2021 through 2025 Terms, have no committed
+    prediction.
+  - **One changes which brief is stored.** On 24-109 the docket carries a
+    brief in support of neither party filed 2024-12-23 and a second brief
+    under the already-read caption filed 2025-09-24, after the case was set
+    for reargument. The arm stores the first in docket order, so the row
+    moves from the second brief to the first. The docket is decided and has
+    no committed prediction.
+
+  The other ten gain nothing. On nine, from the 2017 through 2020 Terms, the
+  entry posts no link. On 25-581 the entry is an uninvited brief at the
+  petition stage, filed before the grant, so the post-grant bound turns it
+  away and the docket keeps the merits brief it already selected. No
+  ungranted docket carries the caption.
+
+  **Residuals, accepted.** The arm stores one brief, so a docket on which the
+  United States files twice on the merits keeps only the first, as 24-109
+  shows. Two captions on granted dockets stay unread: "Brief amicus curiae of
+  United States of America filed." (five entries), which the filer-name
+  lookahead refuses, and one entry that drops a word ("United States support
+  of neither party"). An entry saying the brief was not accepted for filing
+  is not read; the corrected brief's own entry is.
+
+  **What does not move.** No base rate re-prices, no membership rule moves
+  and no scored figure moves. No skill movement is predicted, and a movement
+  in **either** direction across this boundary may not be read as a model
+  effect.
+
+  **The amendment debt.** It is unchanged. This entry adds no new token.
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_merits_amicus.py` is green;
+  - after the first live cycles following the promotion, where the corpus is
+    pulled, `uv run fedcourts provision-snapshot --court scotus --docket
+    72483489 --event evt-brief-judgment` stages a
+    `merits-amicus-united-states.txt` whose entry is the corrected brief of
+    2026-09-15, beside the `sg-invited-brief.txt` it staged before;
+  - on `main` once the promotion has merged, `uv run python -c "from
+    fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
+    print('united-states-amicus-supported-side-caption' in {b.name for b in
+    H})"` prints `True`.
+- **The lower-court docket record reports no absence where its entries' text
+  could not carry one; recorded 2026-11-13.** A **provisioning** change with
+  a harness boundary, recorded ahead of the promotion that carries it.
+
+  **Why.** In predict run `20261112T230820Z` two predictors flagged that
+  `lower-court-docket.txt` for 26-624 (ca4) reported no petition for
+  rehearing en banc while the petition's appendix carries the order denying
+  one on 2026-08-11. Read against CourtListener on 2026-11-13: the docket
+  holds four entries filed from the judgment on 2026-07-15 through
+  2026-08-11, numbered 64, 65, 73 and 76. None carries a description of its
+  own; each is described only on its documents, and the two orders, the
+  second filed on the date the SCOTUS docket states rehearing was denied,
+  are labelled as a court order and nothing more. The reading already joins
+  an entry's own description with its documents', so it read every label
+  there was, matched none, and, the read being complete and reaching the
+  stated denial, said "petition filed: none in the entries read".
+
+  **What moved.** In `pipeline.decision_below`:
+  - Where the SCOTUS docket states a rehearing denial, a complete read
+    reaches its date, the entries show no en banc disposition, and none
+    records an order denying rehearing of either kind, the reading is
+    `denial_unrecorded` and reports no absence. An entry that records an
+    order denying panel rehearing accounts for the stated date, and the
+    absence of an en banc petition beside it is still reported.
+  - An entry with no text on itself or on any of its documents is counted in
+    `blank_entries`. Any such entry leaves a petition's absence unknown, and
+    one filed on the day of the disposition, after the judgment date, or
+    undated, leaves a dissent unknown.
+  - The record words either case as "could not be read" on the petition,
+    disposition and dissent lines in place of "not found" or an absence, and
+    adds a line saying which of the two it met.
+
+  No prompt byte and no registry field other than the boundary row moves, so
+  no digest moves: `uv run fedcourts process-digest --all` prints `proc-v22`
+  and the six digests the `proc-v22` entry lists, with and without the
+  change.
+
+  **A harness boundary under the 2026-10-11 pooled rule.** The change alters
+  what a cert or merits predict cell reads under unchanged digests. It is
+  composition, not a cut. The pooled default and the paired figure keep both
+  sides and list each engine's `n` before and after. It cuts only a figure
+  that reads its own effect.
+  - **The registry row** is `decision-below-unread-entries`. It applies to
+    every predictor, and its reach is `all`, because no narrower registered
+    reach names petitions from the federal courts of appeals. It is
+    **gradual**: a stored row changes only when the fill walks its case, on
+    arrival or once its stamp is 30 days stale. It is registered **pending**
+    in this change's own PR (`fedcourts register-boundary`), under the
+    2026-10-14 merge-stamping declaration, and its `merge` and `at` stay null
+    until the promotion merge that carries it to `main` stamps them
+    (`promotion-record`).
+  - **The side test** is the registered one, against the carrying merge.
+    Because the boundary is gradual, an after-side cell provisioned before
+    its case was walked again still reads the earlier row, so the after-side
+    `n` is an upper bound on exposure.
+
+  **The population.** Read from blob
+  `c6c5abc991871b32178203b08457fa95f5cb107b2091c9eb2ba5908a5fb64b73` (the
+  pointer this change's branch carries, which `origin/main`'s had moved past
+  when it was read; newest pull 2026-11-13, newest stored snapshot row
+  2026-07-13) and the case store on 2026-11-13: 288 cases carry a fill stamp
+  and 278 hold a `lower-court-docket` row. Of the 278 records, 172 quote a
+  rehearing denial from the SCOTUS docket, and 32 of those report no petition
+  for rehearing en banc. The counts were not read again on the blob
+  `origin/main` then pointed at. CourtListener was then read under the
+  changed reading for the first 11 of the 32 in corpus order before its
+  request budget ended the read; they are not a random sample. Of the 11, 6
+  are `denial_unrecorded`, 3 are `short_of_denial` (records stored before
+  that reading, which their next walk rewords) and 2 still report an absence
+  beside a recorded order denying panel rehearing. 26-624, the last of the 32
+  in corpus order, was read as well and is `denial_unrecorded`. The other 20
+  of the 32 were not read again, so how many of them change is not known.
+  None of the 12 read holds an entry with no text at all, so `blank_entries`
+  rests on its tests and on no observed docket. Three of the six, other than
+  26-624, were read entry by entry (23-959 from ca2, 24-46 from ca4, 25-459
+  from ca6): in each, the entry filed on the stated denial date is labelled
+  as an order without its subject.
+
+  **What does not move.** No base rate re-prices, no membership rule moves
+  and no scored figure moves. No skill movement is predicted, and a movement
+  in **either** direction across this boundary may not be read as a model
+  effect. The predict prompt's description of `lower-court-docket.txt` still
+  holds, so no amendment debt is added.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_decision_below.py` is green;
+  - where a CourtListener token is set, `uv run fedcourts decision-below
+    --docket 26-624` prints a rehearing reading with `denial_unrecorded` true
+    and `petition_filed` null, while CourtListener's copy of that docket
+    still labels its 2026-08-11 entry as a court order only;
+  - once the fill has walked `scotus/9026000624` again after the promotion,
+    its stored `lower-court-docket` row says "petition filed: could not be
+    read";
+  - on `main` once the promotion has merged, `uv run python -c "from
+    fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
+    print('decision-below-unread-entries' in {b.name for b in H})"` prints
+    `True`.
 
 - **A failing engine attempt is classified on the fault the engine reported,
   not on the whole of its stderr; recorded 2026-11-13.** A harness change

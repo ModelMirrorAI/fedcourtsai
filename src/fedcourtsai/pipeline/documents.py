@@ -202,8 +202,10 @@ logger = logging.getLogger(__name__)
 #   merits**: the first brief for the United States as amicus curiae filed
 #   after the grant, read by the invited brief's own entry anchor
 #   (:func:`cert_signals.is_sg_invited_brief_entry`) on the other side of the
-#   grant. It states the federal government's position on the judgment, which
-#   no party brief does where the United States is not a party.
+#   grant, and by the caption that names the supported side after the filer
+#   (:func:`is_united_states_merits_amicus_entry`). It states the federal
+#   government's position on the judgment, which no party brief does where the
+#   United States is not a party.
 # - `merits-brief-appointed-amicus` is the **merits brief of a Court-appointed
 #   amicus**: the first one filed after the grant, read by the anchor that
 #   dates the briefed moment from it (:func:`merits_signals.is_appointed_amicus_merits_brief`).
@@ -495,6 +497,42 @@ def _is_bio_entry(text: str, *, filed: date | None, granted_on: date | None) -> 
     if "brief" not in text.lower():
         return False
     return bool(_BIO_OPPOSITION_RE.search(text) or _BIO_RESPONDENT_BRIEF_RE.search(text))
+
+
+# The United States' merits amicus brief under the caption that names the side
+# it supports straight after the filer:
+#
+#   "Brief amicus curiae of United States supporting vacatur filed."
+#   "Brief amicus curiae of United States in support of neither party filed."
+#
+# The invited brief's anchor (:func:`cert_signals.is_sg_invited_brief_entry`)
+# stops at the filer's name and admits only "as …", the verb, a parenthesis,
+# punctuation or the end of the text after it, which is what keeps out an
+# amicus whose name opens with the same words; this one admits only
+# "supporting" or "in support of" there, so "United States Conference of
+# Catholic Bishops … supporting petitioners" is still not the government. The
+# singular "amicus" is deliberate: the United States files alone, and "amici
+# curiae of United States Senators" does not. An entry saying the brief was
+# "not accepted" for filing is refused whatever follows, since the note beside
+# it may itself say a corrected brief will be filed. It is the merits arm's
+# own, because the shared anchor also locates the invited brief and dates the
+# cert stage's sg-brief moment, and neither may move.
+_US_AMICUS_SUPPORTING_RE = re.compile(
+    r"^\s*brief\s+amicus\s+curiae\s+of\s+(?:the\s+)?united\s+states\s+"
+    + r"(?:supporting|in\s+support\s+of)\b(?!.*\bnot\s+accepted\b)"
+    + r".*\b(?:filed|submitted)\b",
+    re.IGNORECASE,
+)
+
+
+def is_united_states_merits_amicus_entry(text: str) -> bool:
+    """Whether an entry is a brief for the United States as amicus curiae on the merits.
+
+    Read under the invited brief's anchor, or under the caption that puts the
+    supported side after "of United States" (:data:`_US_AMICUS_SUPPORTING_RE`).
+    Text alone: the merits arm supplies the post-grant bound.
+    """
+    return is_sg_invited_brief_entry(text) or _US_AMICUS_SUPPORTING_RE.search(text) is not None
 
 
 def _is_post_grant(filed: date | None, granted_on: date | None) -> bool:
@@ -1256,17 +1294,19 @@ def select_documents(
       own — a cross-petition, or a case the Court appointed an amicus to defend
       the judgment in.
     - The **United States' amicus brief on the merits**
-      (:func:`cert_signals.is_sg_invited_brief_entry`, after the grant), stored
+      (:func:`is_united_states_merits_amicus_entry`, after the grant), stored
       as ``merits-amicus-united-states``: the first such entry in docket order
       after the grant whose entry posts a ``Main Document`` link, from that link
       alone — the merits arms' own terms. The entry anchor is the invited
-      brief's, so "Brief for the United States as amicus curiae supporting
-      petitioners filed." and "Brief amicus curiae of United States filed." are
-      read and an amicus whose name opens with the same words is not; the
-      post-grant bound is what keeps the invited brief, filed before the grant,
-      under its own kind. It follows every party arm, and the two arms after it
-      read only pre-grant entries, so an entry any other arm reads is never
-      offered to it and no other kind's selection moves.
+      brief's, widened for this arm alone to the caption that names the
+      supported side after the filer, so "Brief for the United States as amicus
+      curiae supporting petitioners filed.", "Brief amicus curiae of United
+      States filed." and "Brief amicus curiae of United States supporting
+      vacatur filed." are read and an amicus whose name opens with the same
+      words is not; the post-grant bound is what keeps the invited brief, filed
+      before the grant, under its own kind. It follows every party arm, and the
+      two arms after it read only pre-grant entries, so an entry any other arm
+      reads is never offered to it and no other kind's selection moves.
     - The **Court-appointed amicus's brief on the merits**
       (:func:`merits_signals.is_appointed_amicus_merits_brief`, after the
       grant), stored as ``merits-brief-appointed-amicus``: the first such entry
@@ -1465,7 +1505,7 @@ def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:  # noqa: PLR09
         elif (
             amicus_united_states is None
             and _is_post_grant(filed, granted_on)
-            and is_sg_invited_brief_entry(text)
+            and is_united_states_merits_amicus_entry(text)
         ):
             amicus_united_states = _merits_filing_ref(
                 entry, KIND_MERITS_AMICUS_UNITED_STATES, entry_date
@@ -1997,7 +2037,7 @@ def _without_amicus_marked_for_others(
             if not (
                 isinstance(entry, Mapping)
                 and (
-                    is_sg_invited_brief_entry(text := str(entry.get("Text") or ""))
+                    is_united_states_merits_amicus_entry(text := str(entry.get("Text") or ""))
                     or is_appointed_amicus_merits_brief(text)
                 )
                 and _marked_for_others(text, number)

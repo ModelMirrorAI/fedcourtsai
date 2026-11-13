@@ -264,7 +264,16 @@ runbook, [docs/security.md](docs/security.md).
   log, a marker, and a shapes-only diagnostics bundle — and leaves through the
   cell's own tail: the disarm step turns a marker into a `::warning::` and a
   step-summary line, records a deadline stop in the cell's `status.json`, and
-  carries the bundle into the cell artifact. That tail runs because acting is
+  carries the bundle into the cell artifact. On a gemini cell the same step
+  adds the shape of any request the API refused (`gemini-error-shapes`): the
+  CLI's client-error report holds that request whole and never leaves the
+  runner, and what is kept is sizes, HTTP codes, status names and
+  identifier-shaped tokens of up to 64 characters (a field's key, a role, a
+  function, a call site, a model, an error type), with no request text, call
+  argument or error message. The same-user engine writes the temp dir and
+  the telemetry log both are read from, so it can shape those tokens; each
+  passes the credential redactor, the output is held to 1 MiB, and neither
+  input is read through a link. That tail runs because acting is
   what *concludes* the step. So no step mints a token for it, its arm and
   disarm steps hold no GitHub credential, and the script makes no network
   call.

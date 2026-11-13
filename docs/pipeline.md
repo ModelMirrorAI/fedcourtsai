@@ -4557,8 +4557,13 @@ spawned since. The bundle rides the cell's
 artifact under `engine-watchdog/`, which every logged-in GitHub user can
 download for its retention window, so it carries shapes and metadata only: the
 session rollout stays on the runner and the disarm step distils its item shapes
-(`codex-item-shapes`) in its place. Now that the bracket is every engine's, that
-exposure is too — a claude or gemini cell uploads the watchdog's own log always,
+(`codex-item-shapes`) in its place, and a gemini cell's client-error report —
+the request a model call was refused over, which is the cell's prompt, record
+text and retrievals — stays there too, with the refused request's shape
+(`gemini-error-shapes`: turn order, part kinds and sizes, function names, HTTP
+codes and status names) joining the bundle as `gemini-error-shapes.json`
+whenever a report or a telemetry `api_error` record exists. Now that the bracket is every engine's, the
+bundle's exposure is too — a claude or gemini cell uploads the watchdog's own log always,
 and the process forest whenever the watchdog acts. It is the same class of
 publication the codex cells already accepted, widened from one engine to three:
 argv and kernel state for this runner user, never a file's contents, and a

@@ -93,7 +93,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
+import stat
 from collections.abc import Sequence
 from contextlib import suppress
 from pathlib import Path
@@ -102,6 +104,7 @@ from typing import Any
 from .schemas import RetrievalCall, RetrievalResultStatus, normalize_call
 from .secretscan import REDACTION_MARKER_PREFIX, redact_credentials
 from .usage import (
+    _decode_json_objects,
     _find_gemini_token_events,
     _gemini_attrs,
     _last_codex_token_usage,
@@ -1048,6 +1051,410 @@ def distill_codex_shapes(sessions_dir: Path) -> dict[str, Any]:
         "shapes_dropped": dropped,
         "shapes": [{"count": counts[key], **entries[key]} for key in ordered],
     }
+
+
+# --- Gemini client-error report distillation ------------------------------
+#
+# gemini-cli writes a report file to the system temp dir when a model call
+# fails for good: the error, and as its context the request that was refused —
+# the whole conversation, which is the cell's prompt, its record text and
+# whatever it retrieved. The runner is thrown away with the file, so a client
+# error (an HTTP 400) the API explains only as "invalid argument" cannot be
+# read afterwards against the request that drew it.
+#
+# The report itself never leaves the runner, for the reason a Codex rollout
+# does not: a cell artifact is downloadable for its retention window, and the
+# report republishes documents verbatim. What is kept is the request's
+# *structure*, which is what a client error is about — the order of the turns,
+# what kind each part is, how large each is, which call a response answers —
+# under the same rule as the Codex distillation above: no value crosses, every
+# emitted string is a JSON type name, an identifier-shaped token (read from a
+# key, a role, a function name, a report's file name, or a telemetry record's
+# model and error type), a timestamp, or a member of a closed vocabulary.
+_GEMINI_REPORT_GLOB = "gemini-client-error-*.json"
+_GEMINI_REPORT_NAME = re.compile(
+    r"gemini-client-error-(?P<kind>.+)-(?P<stamp>\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z)\.json",
+    re.ASCII,
+)
+# How many reports are read, newest first: one is written per failed model
+# call, so a step's attempts leave a handful. All are counted.
+_GEMINI_REPORT_CAP = 5
+# A report larger than this is counted and not parsed. The request of the
+# longest cell observed is a few megabytes; the bound keeps a planted file from
+# choosing how much the step reads into memory.
+_GEMINI_REPORT_MAX_BYTES = 64 * 1024 * 1024
+# The turns kept per report are its last ones — a refused request is refused
+# for how it ends far more often than for how it began — and the parts kept per
+# turn its first. Totals are counted over all of them.
+_GEMINI_TURN_CAP = 200
+_GEMINI_PART_CAP = 20
+_GEMINI_API_ERROR_CAP = 20
+# A call's duration past a day is not one; the bound keeps the field a
+# duration rather than a number of the log's choosing.
+_GEMINI_DURATION_MAX_MS = 24 * 60 * 60 * 1000
+# The API's status vocabulary (google.rpc.Code). An error message is free text
+# the API composes, and it can quote the request, so nothing of it is kept but
+# its length, the HTTP client/server codes it names and the members of this
+# closed set it names. The message itself is already in the job log.
+_GEMINI_STATUS_NAMES = frozenset(
+    {
+        "ABORTED",
+        "ALREADY_EXISTS",
+        "CANCELLED",
+        "DATA_LOSS",
+        "DEADLINE_EXCEEDED",
+        "FAILED_PRECONDITION",
+        "INTERNAL",
+        "INVALID_ARGUMENT",
+        "NOT_FOUND",
+        "OUT_OF_RANGE",
+        "PERMISSION_DENIED",
+        "RESOURCE_EXHAUSTED",
+        "UNAUTHENTICATED",
+        "UNAVAILABLE",
+        "UNIMPLEMENTED",
+        "UNKNOWN",
+    }
+)
+_GEMINI_STATUS_WORD = re.compile(r"[A-Z][A-Z_]{3,24}")
+# An HTTP code is read only where the message labels it as one (the API's
+# `"code": 400`, the SDK's `status: 400` and `[400 Bad Request]`), so a count
+# or an index the message happens to quote is not reported as a status.
+_GEMINI_HTTP_CODE = re.compile(
+    r"(?:\"code\"\s*:\s*|status:?\s+|(?<![A-Za-z0-9_\]])\[)([1-5][0-9]{2})(?![0-9.])", re.IGNORECASE
+)
+_GEMINI_TIMESTAMP = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z", re.ASCII)
+# The telemetry log sits in the workspace, which the engine writes, so it is
+# read under the report reader's guards and a size bound of its own.
+_GEMINI_TELEMETRY_MAX_BYTES = 256 * 1024 * 1024
+# The whole distillation's size bound. Every list above is capped, and the
+# caps multiply: a request shaped for it could still fill hundreds of
+# megabytes with key names. Past this the kept turns are halved, oldest
+# first, until the output fits, and the output says so (``truncated``).
+_GEMINI_OUTPUT_MAX_BYTES = 1024 * 1024
+_GEMINI_PART_KEY_CAP = 12
+_GEMINI_REDACTED_TOKEN = "<redacted>"
+
+
+def _report_stamp(name: str) -> str:
+    """The timestamp a report's file name ends on, or ``""`` where it has none."""
+    named = _GEMINI_REPORT_NAME.fullmatch(name)
+    return named["stamp"] if named else ""
+
+
+def _read_plain_file(path: Path, max_bytes: int) -> tuple[int, bytes | None] | None:
+    """A file's size and bytes, read only where it is a plain file in place.
+
+    ``None`` for a symlink (refused at open, ``O_NOFOLLOW``) and for anything
+    but a regular file (a FIFO or a device would otherwise hold the step);
+    the size with no bytes for a file past ``max_bytes``.
+    """
+    try:
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    except OSError:
+        return None
+    with os.fdopen(fd, "rb") as handle:
+        info = os.fstat(handle.fileno())
+        if not stat.S_ISREG(info.st_mode):
+            return None
+        if info.st_size > max_bytes:
+            return info.st_size, None
+        try:
+            return info.st_size, handle.read(max_bytes + 1)
+        except OSError:
+            return info.st_size, None
+
+
+def _read_report_file(path: Path) -> tuple[int, Any] | None:
+    """A report's size and parsed JSON, or ``None`` where it is not a plain file.
+
+    The temp dir is writable by the engine, which runs as the step's own uid,
+    so a name matching the report pattern proves nothing about what is behind
+    it. A symlink is refused at open (``O_NOFOLLOW``) and anything but a regular
+    file after it, so the distiller reads only bytes that are in the temp dir.
+    An oversized or unparseable report keeps its size and yields no document.
+    """
+    read = _read_plain_file(path, _GEMINI_REPORT_MAX_BYTES)
+    if read is None or read[1] is None:
+        return None if read is None else (read[0], None)
+    try:
+        return read[0], json.loads(read[1])
+    except (ValueError, RecursionError):
+        return read[0], None
+
+
+def _json_size(value: Any) -> int:
+    """How many characters ``value`` takes as compact JSON — a size, not content."""
+    try:
+        return len(json.dumps(value, separators=(",", ":"), ensure_ascii=False))
+    except (TypeError, ValueError, RecursionError):
+        return 0
+
+
+def _gemini_part_shape(part: Any) -> dict[str, Any]:
+    """One request part as its kind and size: keys, never what they hold.
+
+    A text part contributes its length; a function call or response its
+    function's name (identifier-screened) and the size of its payload; any
+    other field its JSON type name alone.
+    """
+    if not isinstance(part, dict):
+        return {"type": _json_type_name(part)}
+    shape: dict[str, Any] = {}
+    for raw_key, value in list(part.items())[:_GEMINI_PART_KEY_CAP]:
+        key = _shape_token(raw_key)
+        if raw_key == "text" and isinstance(value, str):
+            shape[key] = {"chars": len(value)}
+        elif raw_key in ("functionCall", "functionResponse") and isinstance(value, dict):
+            entry: dict[str, Any] = {
+                "keys": sorted(_shape_token(k) for k in value)[:_GEMINI_PART_KEY_CAP]
+            }
+            if "name" in value:
+                entry["name"] = _shape_token(value["name"])
+            if "id" in value:
+                entry["has_id"] = bool(value["id"])
+            if isinstance(value.get("name"), str):
+                entry["name_chars"] = len(value["name"])
+            payload_key = "args" if raw_key == "functionCall" else "response"
+            if payload_key in value:
+                entry[f"{payload_key}_type"] = _json_type_name(value[payload_key])
+                entry[f"{payload_key}_chars"] = _json_size(value[payload_key])
+            shape[key] = entry
+        elif isinstance(value, str):
+            shape[key] = {"type": "string", "chars": len(value)}
+        elif isinstance(value, dict):
+            # Inline or referenced media and the like: which fields it has.
+            shape[key] = {
+                "type": "object",
+                "keys": sorted(_shape_token(k) for k in value)[:_GEMINI_PART_KEY_CAP],
+            }
+        else:
+            shape[key] = {"type": _json_type_name(value)}
+    return shape
+
+
+def _gemini_turns(contents: list[Any]) -> dict[str, Any]:
+    """The turn sequence of a request: roles and part shapes, last turns kept."""
+    kept = contents[-_GEMINI_TURN_CAP:]
+    offset = len(contents) - len(kept)
+    turns: list[dict[str, Any]] = []
+    for index, content in enumerate(kept, start=offset):
+        if not isinstance(content, dict):
+            turns.append({"index": index, "type": _json_type_name(content)})
+            continue
+        parts = content.get("parts")
+        turn: dict[str, Any] = {
+            "index": index,
+            "role": _shape_token(content["role"]) if content.get("role") is not None else None,
+            "keys": sorted(_shape_token(key) for key in content)[:_GEMINI_PART_KEY_CAP],
+        }
+        if isinstance(parts, list):
+            turn["part_count"] = len(parts)
+            turn["parts"] = [_gemini_part_shape(part) for part in parts[:_GEMINI_PART_CAP]]
+        else:
+            turn["parts_type"] = _json_type_name(parts)
+        turns.append(turn)
+    return {
+        "turn_count": len(contents),
+        "turns_dropped": offset,
+        "request_chars": _json_size(contents),
+        "turns": turns,
+    }
+
+
+def _gemini_error_shape(error: Any) -> dict[str, Any]:
+    """What a report's error says, held to a closed vocabulary."""
+    message = error.get("message") if isinstance(error, dict) else None
+    has_stack = isinstance(error, dict) and isinstance(error.get("stack"), str)
+    if not isinstance(message, str):
+        return {"message_chars": None, "http_codes": [], "status_names": [], "has_stack": has_stack}
+    window = message[:_REDACT_WINDOW]
+    return {
+        "message_chars": len(message),
+        "http_codes": sorted({int(code) for code in _GEMINI_HTTP_CODE.findall(window)})[:5],
+        "status_names": sorted(
+            {word for word in _GEMINI_STATUS_WORD.findall(window) if word in _GEMINI_STATUS_NAMES}
+        ),
+        "has_stack": has_stack,
+    }
+
+
+def _gemini_report_shape(name: str, size: int, document: Any) -> dict[str, Any]:
+    """One report's distillation: where it was raised, its error, its request."""
+    named = _GEMINI_REPORT_NAME.fullmatch(name)
+    entry: dict[str, Any] = {
+        "raised_in": _shape_token(named["kind"]) if named else None,
+        "bytes": size,
+        "document_type": _json_type_name(document) if document is not None else None,
+    }
+    if not isinstance(document, dict):
+        return entry
+    entry["error"] = _gemini_error_shape(document.get("error"))
+    context = document.get("context")
+    # The context is the conversation itself where the turn loop raised the
+    # report, and an object naming it (`requestContents`) where a one-shot
+    # generation did.
+    contents = context.get("requestContents") if isinstance(context, dict) else context
+    entry["context_type"] = _json_type_name(context)
+    if isinstance(context, dict):
+        entry["context_shape"] = _shape(context, _SHAPE_DEPTH)
+    if isinstance(contents, list):
+        entry["request"] = _gemini_turns(contents)
+    return entry
+
+
+def _gemini_api_errors(telemetry_file: Path | None) -> tuple[int, list[dict[str, Any]]]:
+    """The telemetry log's ``api_error`` records: when, which model, which status.
+
+    The fallback account where no report was written. The record's error text
+    is left where it is for the reason a report's is; the fields kept are the
+    CLI's own enumerations and numbers.
+    """
+    if telemetry_file is None:
+        return 0, []
+    read = _read_plain_file(telemetry_file, _GEMINI_TELEMETRY_MAX_BYTES)
+    if read is None or read[1] is None:
+        return 0, []
+    seen: set[str] = set()
+    errors: list[dict[str, Any]] = []
+    stack: list[Any] = [_decode_json_objects(read[1].decode("utf-8", errors="replace"))]
+    while stack:
+        node = stack.pop()
+        if isinstance(node, list):
+            stack.extend(node)
+            continue
+        if not isinstance(node, dict):
+            continue
+        attrs = {**node, **_gemini_attrs(node)}
+        if not str(attrs.get("event.name") or "").endswith("api_error"):
+            stack.extend(node.values())
+            continue
+        timestamp = attrs.get("event.timestamp")
+        status = attrs.get("status_code")
+        if isinstance(status, str) and status.isascii() and status.isdigit() and len(status) == 3:
+            status = int(status)
+        elif isinstance(status, bool):
+            status = None
+        duration = attrs.get("duration_ms")
+        entry = {
+            "timestamp": (
+                timestamp
+                if isinstance(timestamp, str) and _GEMINI_TIMESTAMP.fullmatch(timestamp)
+                else None
+            ),
+            "model": _shape_token(attrs["model"]) if "model" in attrs else None,
+            "status_code": status if isinstance(status, int) and 100 <= status <= 599 else None,
+            "error_type": _shape_token(attrs["error.type"]) if "error.type" in attrs else None,
+            "duration_ms": (
+                int(duration)
+                if isinstance(duration, (int, float))
+                and not isinstance(duration, bool)
+                and 0 <= duration < _GEMINI_DURATION_MAX_MS
+                else None
+            ),
+            "message_chars": (
+                len(attrs["error.message"]) if isinstance(attrs.get("error.message"), str) else None
+            ),
+        }
+        # The CLI logs one failed call under more than one record (its own
+        # event and a semantic-convention twin); identical rows are one error.
+        key = json.dumps(entry, sort_keys=True)
+        if key not in seen:
+            seen.add(key)
+            errors.append(entry)
+    errors.sort(key=lambda entry: entry["timestamp"] or "")
+    return len(errors), errors[-_GEMINI_API_ERROR_CAP:]
+
+
+def distill_gemini_error_reports(report_dir: Path, telemetry_file: Path | None) -> dict[str, Any]:
+    """The shape of every gemini-cli client-error report under ``report_dir``.
+
+    Reads the report files directly in ``report_dir`` (the CLI's temp dir; not
+    its subdirectories), newest first up to :data:`_GEMINI_REPORT_CAP`, and the
+    ``api_error`` records of ``telemetry_file`` where one is named. Returns a
+    JSON-ready mapping: how many reports were found and read, one entry per
+    report read — the call site its file name carries, its size, its error
+    held to HTTP codes and the API's status names, and the refused request as
+    a turn sequence of roles, part kinds and sizes — and the telemetry errors.
+
+    No **value** of a report crosses into the output: not the request's text,
+    not a function call's arguments or a response's payload, not the error
+    message. The residual is the Codex distillation's, stated the same way: a
+    key, a role, a function name, the call site in a report's file name and a
+    telemetry record's model and error type are emitted verbatim where they
+    are identifier-shaped, so a request, or an engine that writes its own temp
+    dir and telemetry log, can export fragments of up to 64 characters through
+    those fields; one the credential redactor would touch is replaced whole.
+    Numbers are sizes the distiller measured, or a status code and a duration
+    held to their ranges. Every list is capped and the whole output is held to
+    :data:`_GEMINI_OUTPUT_MAX_BYTES` (``truncated`` says when turns were
+    dropped for it), so a report cannot choose the artifact's size. Both
+    inputs are read only as plain files in place, never through a link.
+    Tolerant like the capture steps beside it: a missing directory, an
+    unreadable or malformed report and a missing telemetry log distill to
+    what could be read, never an exception.
+    """
+    found: list[Path] = []
+    if report_dir.is_dir():
+        for path in report_dir.glob(_GEMINI_REPORT_GLOB):
+            try:
+                info = path.lstat()
+            except OSError:
+                continue
+            if stat.S_ISREG(info.st_mode):
+                found.append(path)
+    # Newest first by the stamp the CLI puts at the end of the name, which
+    # sorts as text; a name without one sorts last.
+    found.sort(key=lambda path: (_report_stamp(path.name), path.name), reverse=True)
+    reports: list[dict[str, Any]] = []
+    for path in found[:_GEMINI_REPORT_CAP]:
+        read = _read_report_file(path)
+        if read is not None:
+            reports.append(_gemini_report_shape(path.name, read[0], read[1]))
+    api_error_count, api_errors = _gemini_api_errors(telemetry_file)
+    distillation: dict[str, Any] = _screen_tokens(
+        {
+            "reports_found": len(found),
+            "reports": reports,
+            "api_errors_found": api_error_count,
+            "api_errors": api_errors,
+            "truncated": False,
+        }
+    )
+    while _json_size(distillation) > _GEMINI_OUTPUT_MAX_BYTES:
+        distillation["truncated"] = True
+        requests = [
+            r["request"] for r in distillation["reports"] if r.get("request", {}).get("turns")
+        ]
+        if requests:
+            for request in requests:
+                drop = (len(request["turns"]) + 1) // 2
+                request["turns"] = request["turns"][drop:]
+                request["turns_dropped"] += drop
+        elif any("context_shape" in report for report in distillation["reports"]):
+            for report in distillation["reports"]:
+                report.pop("context_shape", None)
+        else:
+            break
+    return distillation
+
+
+def _screen_tokens(value: Any) -> Any:
+    """``value`` with every credential-shaped string, key or leaf, replaced.
+
+    An identifier-shaped token can be shaped like a key (an API key is
+    identifier characters and under 64 of them), and the engine that could
+    plant one in a report holds its own during the turn. Every string the
+    distillation would emit goes through the harness's credential redactor,
+    and one it would touch is replaced whole.
+    """
+    if isinstance(value, str):
+        return value if redact_credentials(value) == value else _GEMINI_REDACTED_TOKEN
+    if isinstance(value, list):
+        return [_screen_tokens(item) for item in value]
+    if isinstance(value, dict):
+        return {_screen_tokens(key): _screen_tokens(item) for key, item in value.items()}
+    return value
 
 
 def parse_gemini_retrieval(telemetry_file: Path) -> list[RetrievalCall]:
