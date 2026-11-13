@@ -6037,3 +6037,32 @@ def test_the_coverage_verdict_splits_its_read_from_its_issue_write() -> None:
     writers = [s for s in alarm["steps"] if "GH_TOKEN" in (s.get("env") or {})]
     assert [s["if"] for s in writers] == ["${{ github.ref == 'refs/heads/main' }}"]
     assert "coverage-verdict-alarm" in writers[0]["run"]
+
+
+def test_a_gemini_cell_keeps_its_refused_request_as_shapes_only() -> None:
+    """The client-error report stays on the runner; its distillation rides the bundle.
+
+    gemini-cli's report holds the request a model call was refused over, which
+    is the cell's prompt, record text and retrievals, and a cell artifact is
+    downloadable. So the disarm step of each cell job runs the distiller into
+    the bundle directory the artifact already uploads, and no step anywhere
+    copies, moves or uploads a report file itself.
+    """
+    for name, job_name in ENGINE_WATCHDOG_CELL_JOBS.items():
+        steps = _load(name)["jobs"][job_name]["steps"]
+        disarm = next(s for s in steps if s.get("name") == "Disarm the engine watchdog")
+        disarm_run = str(disarm["run"])
+        assert "uv run fedcourts gemini-error-shapes" in disarm_run, (
+            f"{name}: a refused gemini request leaves no account in the cell artifact"
+        )
+        assert f"--out {ENGINE_WATCHDOG_DIR}/gemini-error-shapes.json" in disarm_run
+        # The step that reads the report dir holds no engine or GitHub
+        # credential: its env is the cell's coordinates and paths alone.
+        assert not any("secrets." in str(value) for value in disarm.get("env", {}).values()), (
+            f"{name}: the disarm step, which reads the engine's temp dir, holds a secret"
+        )
+        for step in steps:
+            text = str(step.get("run") or "") + str(step.get("with") or "")
+            assert "gemini-client-error" not in text, (
+                f"{name}: step {step.get('name')!r} handles a raw client-error report"
+            )

@@ -19586,6 +19586,7 @@ freeze commit is recorded here.
     fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
     print('united-states-amicus-supported-side-caption' in {b.name for b in
     H})"` prints `True`.
+<<<<<<< HEAD
 - **A second no-model reference line for cert forecasts is registered, the
   band rate split on a cert-stage amicus brief (`amicus-line-v1`); recorded
   2026-11-13.** A **reading-rule** registration made before the line is
@@ -19710,11 +19711,97 @@ freeze commit is recorded here.
   **What does not move.** No digest, no base rate, no membership rule, no
   rank and no scored figure. The corpus column, the statpack and the cert
   anchor are untouched.
+=======
+- **The lower-court docket record reports no absence where its entries' text
+  could not carry one; recorded 2026-11-13.** A **provisioning** change with
+  a harness boundary, recorded ahead of the promotion that carries it.
+
+  **Why.** In predict run `20261112T230820Z` two predictors flagged that
+  `lower-court-docket.txt` for 26-624 (ca4) reported no petition for
+  rehearing en banc while the petition's appendix carries the order denying
+  one on 2026-08-11. Read against CourtListener on 2026-11-13: the docket
+  holds four entries filed from the judgment on 2026-07-15 through
+  2026-08-11, numbered 64, 65, 73 and 76. None carries a description of its
+  own; each is described only on its documents, and the two orders, the
+  second filed on the date the SCOTUS docket states rehearing was denied,
+  are labelled as a court order and nothing more. The reading already joins
+  an entry's own description with its documents', so it read every label
+  there was, matched none, and, the read being complete and reaching the
+  stated denial, said "petition filed: none in the entries read".
+
+  **What moved.** In `pipeline.decision_below`:
+  - Where the SCOTUS docket states a rehearing denial, a complete read
+    reaches its date, the entries show no en banc disposition, and none
+    records an order denying rehearing of either kind, the reading is
+    `denial_unrecorded` and reports no absence. An entry that records an
+    order denying panel rehearing accounts for the stated date, and the
+    absence of an en banc petition beside it is still reported.
+  - An entry with no text on itself or on any of its documents is counted in
+    `blank_entries`. Any such entry leaves a petition's absence unknown, and
+    one filed on the day of the disposition, after the judgment date, or
+    undated, leaves a dissent unknown.
+  - The record words either case as "could not be read" on the petition,
+    disposition and dissent lines in place of "not found" or an absence, and
+    adds a line saying which of the two it met.
+
+  No prompt byte and no registry field other than the boundary row moves, so
+  no digest moves: `uv run fedcourts process-digest --all` prints `proc-v22`
+  and the six digests the `proc-v22` entry lists, with and without the
+  change.
+
+  **A harness boundary under the 2026-10-11 pooled rule.** The change alters
+  what a cert or merits predict cell reads under unchanged digests. It is
+  composition, not a cut. The pooled default and the paired figure keep both
+  sides and list each engine's `n` before and after. It cuts only a figure
+  that reads its own effect.
+  - **The registry row** is `decision-below-unread-entries`. It applies to
+    every predictor, and its reach is `all`, because no narrower registered
+    reach names petitions from the federal courts of appeals. It is
+    **gradual**: a stored row changes only when the fill walks its case, on
+    arrival or once its stamp is 30 days stale. It is registered **pending**
+    in this change's own PR (`fedcourts register-boundary`), under the
+    2026-10-14 merge-stamping declaration, and its `merge` and `at` stay null
+    until the promotion merge that carries it to `main` stamps them
+    (`promotion-record`).
+  - **The side test** is the registered one, against the carrying merge.
+    Because the boundary is gradual, an after-side cell provisioned before
+    its case was walked again still reads the earlier row, so the after-side
+    `n` is an upper bound on exposure.
+
+  **The population.** Read from blob
+  `c6c5abc991871b32178203b08457fa95f5cb107b2091c9eb2ba5908a5fb64b73` (the
+  pointer this change's branch carries, which `origin/main`'s had moved past
+  when it was read; newest pull 2026-11-13, newest stored snapshot row
+  2026-07-13) and the case store on 2026-11-13: 288 cases carry a fill stamp
+  and 278 hold a `lower-court-docket` row. Of the 278 records, 172 quote a
+  rehearing denial from the SCOTUS docket, and 32 of those report no petition
+  for rehearing en banc. The counts were not read again on the blob
+  `origin/main` then pointed at. CourtListener was then read under the
+  changed reading for the first 11 of the 32 in corpus order before its
+  request budget ended the read; they are not a random sample. Of the 11, 6
+  are `denial_unrecorded`, 3 are `short_of_denial` (records stored before
+  that reading, which their next walk rewords) and 2 still report an absence
+  beside a recorded order denying panel rehearing. 26-624, the last of the 32
+  in corpus order, was read as well and is `denial_unrecorded`. The other 20
+  of the 32 were not read again, so how many of them change is not known.
+  None of the 12 read holds an entry with no text at all, so `blank_entries`
+  rests on its tests and on no observed docket. Three of the six, other than
+  26-624, were read entry by entry (23-959 from ca2, 24-46 from ca4, 25-459
+  from ca6): in each, the entry filed on the stated denial date is labelled
+  as an order without its subject.
+
+  **What does not move.** No base rate re-prices, no membership rule moves
+  and no scored figure moves. No skill movement is predicted, and a movement
+  in **either** direction across this boundary may not be read as a model
+  effect. The predict prompt's description of `lower-court-docket.txt` still
+  holds, so no amendment debt is added.
+>>>>>>> origin/staging
 
   Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
   commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
 
   The runnable effect check once it is live:
+<<<<<<< HEAD
   - `uv run pytest tests/test_amicus_line.py tests/test_cert_amicus.py
     tests/test_cli_stamp.py -k "amicus"` is green;
   - on `main` after the first predict round's collect PR that follows the
@@ -19724,3 +19811,17 @@ freeze commit is recorded here.
     prints a Term, a band and an integer, and the same read over a
     prediction stamped before the promotion prints `null` in the third
     place.
+=======
+  - `uv run pytest tests/test_decision_below.py` is green;
+  - where a CourtListener token is set, `uv run fedcourts decision-below
+    --docket 26-624` prints a rehearing reading with `denial_unrecorded` true
+    and `petition_filed` null, while CourtListener's copy of that docket
+    still labels its 2026-08-11 entry as a court order only;
+  - once the fill has walked `scotus/9026000624` again after the promotion,
+    its stored `lower-court-docket` row says "petition filed: could not be
+    read";
+  - on `main` once the promotion has merged, `uv run python -c "from
+    fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
+    print('decision-below-unread-entries' in {b.name for b in H})"` prints
+    `True`.
+>>>>>>> origin/staging

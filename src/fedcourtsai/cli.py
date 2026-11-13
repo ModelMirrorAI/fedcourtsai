@@ -17516,6 +17516,55 @@ def codex_item_shapes(
     )
 
 
+@app.command("gemini-error-shapes")
+def gemini_error_shapes(
+    *,
+    report_dir: Annotated[
+        Path,
+        typer.Option(help="Dir gemini-cli writes its client-error reports to (its temp dir)."),
+    ],
+    out: Annotated[Path, typer.Option(help="Where to write the distillation JSON.")],
+    telemetry_file: Annotated[
+        Path | None,
+        typer.Option(help="The engine's telemetry.log, read for its api_error records."),
+    ] = None,
+) -> None:
+    """Distill gemini-cli's client-error reports into the refused request's shape.
+
+    When a model call fails for good the CLI leaves a report in its temp dir
+    holding the error and the request that drew it, and the runner is thrown
+    away with it. This writes what a client error (an HTTP 400) is read
+    against — the request's turn order, each part's kind and size, which
+    function a call or a response names — with the telemetry log's
+    ``api_error`` records beside it, so the fault can be explained after the
+    run.
+
+    No **value** crosses into the output: a report holds the cell's prompt,
+    its record text and what it retrieved, verbatim, and only key names, roles,
+    function names, the call site in a report's file name and telemetry's model
+    and error type (identifier-shaped tokens of up to 64 characters), sizes,
+    HTTP codes and the API's own status names are emitted — never the request
+    text, a call's arguments or the error message (see
+    :func:`~fedcourtsai.retrieval.distill_gemini_error_reports`). Reports and
+    turns are capped. Nothing is written when there is no report and no
+    ``api_error`` record, so a clean cell's artifact is unchanged. Tolerant
+    like the capture steps beside it — a missing dir or a malformed report
+    never fails the step.
+    """
+    distillation = retrieval.distill_gemini_error_reports(report_dir, telemetry_file)
+    found = distillation["reports_found"]
+    errors = distillation["api_errors_found"]
+    if not found and not errors:
+        typer.echo("gemini error shapes: no client-error report and no api_error record")
+        return
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(distillation, indent=2, sort_keys=True) + "\n")
+    typer.echo(
+        f"gemini error shapes: {found} report(s) found, "
+        f"{len(distillation['reports'])} read, {errors} api_error record(s) -> {out}"
+    )
+
+
 @app.command("usage-summary")
 def usage_summary() -> None:
     """Sum recorded ``usage.json`` into an actual \\$/run, as JSON on stdout.
