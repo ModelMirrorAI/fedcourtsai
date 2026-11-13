@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000561",
+  "run_id": "20261113T010844Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "CourtListener MCP search",
+    "CourtListener MCP search_document",
+    "web search/open",
+    "fedcourts validate"
+  ],
+  "helpful": [
+    "Frozen reached-band cert anchor prevented confusion with terminal-band rates.",
+    "Complete petition appendix supplied the actual letter, charging language, final order, and judgment.",
+    "CourtListener excerpts allowed a targeted check of the cited Ashraf authority."
+  ],
+  "gaps": [
+    "The default uv cache was read-only; UV_CACHE_DIR=/tmp/uv-cache resolved the problem.",
+    "Web calls returned no visible content.",
+    "Broad corpus filters returned unrelated cases and substantive applications rather than close cert comparators."
+  ],
+  "notes": "A rejected era filter was corrected from roberts to 2020s. Corpus rows were not used as a representative sample; the frozen anchor and statpack supplied calibration. No installation or direct CourtListener REST access was attempted."
+}
