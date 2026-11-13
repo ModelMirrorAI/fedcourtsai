@@ -20,6 +20,7 @@ import pytest
 from typer.testing import CliRunner
 
 from fedcourtsai import analytics, corpus, fixture, serialize
+from fedcourtsai.amicus_line import AMICUS_LINE_RULE, fit_rows
 from fedcourtsai.analytics import _STATPACK_SECTIONS
 from fedcourtsai.cli import app
 from fedcourtsai.pipeline.base_rates import (
@@ -30,6 +31,7 @@ from fedcourtsai.pipeline.base_rates import (
 from fedcourtsai.pipeline.cert_signals import DEFAULT_DISTRIBUTION_PARSE
 from fedcourtsai.pipeline.salience import SALIENCE_VERSION, SCORERS, SalienceScorer
 from fedcourtsai.schemas import (
+    AmicusLineFit,
     BaseRateBucket,
     Disposition,
     FeeClass,
@@ -917,6 +919,12 @@ def test_cli_statpack_writes_both_files(fixture_corpus: FixtureCorpus, tmp_path:
     pack = StatPack.model_validate_json(json_out.read_text())
     assert pack.corpus_rows == 7
     assert md_out.read_text().startswith("# Corpus statpack")
+    # The amicus-line fit lands beside the JSON, from the same corpus.
+    fit = AmicusLineFit.model_validate_json((tmp_path / "amicus-line.json").read_text())
+    assert fit.rule == AMICUS_LINE_RULE
+    with corpus.connect_local_read(fixture_corpus.db_path) as conn:
+        assert fit.cells == fit_rows(corpus.iter_rows(conn))
+    assert fit.cells, "the fixture corpus resolves no scored-segment petition"
 
 
 def test_cli_statpack_absent_corpus_writes_empty(
@@ -929,6 +937,8 @@ def test_cli_statpack_absent_corpus_writes_empty(
     pack = StatPack.model_validate_json((tmp_path / "metrics/statpack.json").read_text())
     assert pack.corpus_rows == 0
     assert "Empty — no corpus present" in (tmp_path / "metrics/statpack.md").read_text()
+    fit = AmicusLineFit.model_validate_json((tmp_path / "metrics/amicus-line.json").read_text())
+    assert fit.cells == []
 
 
 def test_build_statpack_era_section(fixture_corpus: FixtureCorpus) -> None:

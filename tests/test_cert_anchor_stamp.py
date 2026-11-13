@@ -23,7 +23,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner, Result
 
-from fedcourtsai import cli, process_version
+from fedcourtsai import amicus_line, cli, process_version
 from fedcourtsai.cli import app
 from fedcourtsai.config import get_settings
 from fedcourtsai.leaderboard import _anchor_reproduces
@@ -31,6 +31,8 @@ from fedcourtsai.paths import CasePaths, EventPaths
 from fedcourtsai.pipeline.base_rates import freeze_cert_anchor, statpack_digest
 from fedcourtsai.pipeline.salience import SALIENCE_VERSION
 from fedcourtsai.schemas import (
+    AmicusLineCell,
+    AmicusLineFit,
     BaseRateBucket,
     CertAnchor,
     Disposition,
@@ -1186,3 +1188,207 @@ def test_a_regrade_keeps_the_stamped_terminal_anchor(
     assert stamped["brier_skill_score"] == pytest.approx(1 - 0.64 / (1 - _TERMINAL_POOL) ** 2)
     for field in ("base_rate_basis", "base_rate_salience_version", "base_rate_statpack_digest"):
         assert stamped[field] == first[field], field
+
+
+# --- the amicus-adjusted reference forecast, copied only where it re-pools ----
+
+
+def _amicus_fit(none_grants: int = 4) -> AmicusLineFit:
+    return AmicusLineFit(
+        rule=amicus_line.AMICUS_LINE_RULE,
+        min_resolved=amicus_line.AMICUS_LINE_MIN_RESOLVED,
+        cells=[
+            AmicusLineCell(
+                term=2025,
+                salience_version=_OLD_VERSION,
+                band="baseline",
+                none_resolved=40,
+                none_weighted_resolved=40,
+                none_weighted_grants=none_grants,
+                some_resolved=40,
+                some_weighted_resolved=40,
+                some_weighted_grants=20,
+                unread_resolved=0,
+            )
+        ],
+    )
+
+
+def _lined(edit: dict[str, object] | None = None) -> PredictionContext:
+    """A pinned context carrying the count and the line provisioning would freeze."""
+    context = _pinned().model_copy(update={"cert_amicus_briefs": 0})
+    line = amicus_line.freeze(context, _amicus_fit(), context.cert_anchor)
+    assert line is not None
+    return context.model_copy(update={"cert_amicus_line": line.model_copy(update=edit or {})})
+
+
+@pytest.fixture
+def _fits(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """The committed fit builds in force at the seeded cells' run id."""
+    committed = [_amicus_fit().model_dump_json()]
+
+    def in_force(_settings: object, bound: datetime) -> list[str]:
+        assert bound == _PROVISIONED, "bound by the predict cell's run id"
+        return committed
+
+    monkeypatch.setattr(cli, "_amicus_fits", in_force)
+    return committed
+
+
+def test_a_verified_amicus_line_is_copied_onto_the_grading(
+    _roots: Path, monkeypatch: pytest.MonkeyPatch, _fits: list[str]
+) -> None:
+    monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v15")
+    event_paths = _seed(_roots, 31, context=_lined())
+
+    result = _stamp(31)
+
+    assert result.exit_code == 0, result.output
+    stamped = _stamped(event_paths)
+    assert stamped["segment_base_rate"] == pytest.approx(_EXACT_POOL)
+    assert stamped["amicus_line_rate"] == pytest.approx(0.1)
+    assert "amicus-adjusted" not in result.output
+
+
+def test_a_refresh_of_the_fit_within_the_slack_still_verifies_the_one_it_replaced(
+    _roots: Path, monkeypatch: pytest.MonkeyPatch, _fits: list[str]
+) -> None:
+    monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v15")
+    _fits.insert(0, _amicus_fit(none_grants=8).model_dump_json())
+    event_paths = _seed(_roots, 32, context=_lined())
+
+    assert _stamp(32).exit_code == 0
+
+    assert _stamped(event_paths)["amicus_line_rate"] == pytest.approx(0.1)
+
+
+@pytest.mark.parametrize(
+    ("edit", "reason"),
+    [
+        ({"rate": 0.9}, "does not re-pool"),
+        ({"arm": "some"}, "does not re-pool"),
+        ({"fit_digest": "sha256:invented"}, "not a fit build in force"),
+    ],
+)
+def test_an_amicus_line_that_does_not_verify_is_left_null_out_loud(
+    _roots: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    _fits: list[str],
+    edit: dict[str, object],
+    reason: str,
+) -> None:
+    monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v15")
+    event_paths = _seed(_roots, 33, context=_lined(edit))
+
+    result = _stamp(33)
+
+    assert result.exit_code == 0, result.output
+    stamped = _stamped(event_paths)
+    assert stamped["amicus_line_rate"] is None
+    # The anchor verified on its own and is still copied.
+    assert stamped["segment_base_rate"] == pytest.approx(_EXACT_POOL)
+    flat = " ".join(result.output.split())
+    assert "amicus-adjusted reference forecast does not verify" in flat
+    assert reason in flat
+
+
+def test_no_committed_fit_leaves_the_line_null(
+    _roots: Path, monkeypatch: pytest.MonkeyPatch, _fits: list[str]
+) -> None:
+    monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v15")
+    _fits.clear()
+    event_paths = _seed(_roots, 34, context=_lined())
+
+    result = _stamp(34)
+
+    assert _stamped(event_paths)["amicus_line_rate"] is None
+    assert "no committed amicus-line fit" in " ".join(result.output.split())
+
+
+def test_a_line_beside_a_refused_anchor_is_not_copied(
+    _roots: Path, monkeypatch: pytest.MonkeyPatch, _fits: list[str]
+) -> None:
+    """The line was frozen under the anchor's rate and window, so it stands or
+    falls with the anchor."""
+    monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v15")
+    context = _lined()
+    assert context.cert_anchor is not None
+    refused = context.cert_anchor.model_copy(update={"lookback_terms": 3})
+    event_paths = _seed(_roots, 35, context=context.model_copy(update={"cert_anchor": refused}))
+
+    assert _stamp(35).exit_code == 0
+
+    stamped = _stamped(event_paths)
+    assert stamped["segment_base_rate"] is None
+    assert stamped["amicus_line_rate"] is None
+
+
+def test_a_rate_the_judge_wrote_does_not_survive_a_cell_with_no_frozen_line(
+    _roots: Path, monkeypatch: pytest.MonkeyPatch, _fits: list[str]
+) -> None:
+    monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v15")
+    event_paths = _seed(_roots, 36, context=_pinned())
+    path = event_paths.evaluation("claude-judge", "claude-baseline", _RUN)
+    claimed = read_model(path, Evaluation).model_copy(update={"amicus_line_rate": 0.77})
+    write_json(path, claimed)
+
+    assert _stamp(36).exit_code == 0
+
+    assert _stamped(event_paths)["amicus_line_rate"] is None
+
+
+def test_the_git_reader_returns_the_fit_in_force_and_the_one_replaced_in_the_slack(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    (repo / "metrics").mkdir(parents=True)
+    _run_git(repo, "init", "-q")
+    first, second = _amicus_fit(), _amicus_fit(none_grants=8)
+    for fit, when in ((first, "2026-09-01T00:00:00Z"), (second, "2026-10-01T09:00:00Z")):
+        write_json(repo / "metrics" / "amicus-line.json", fit)
+        _run_git(repo, "add", "-A")
+        _run_git(repo, "commit", "-q", "-m", "fit", when=when)
+    history = GitStatpackHistory(repo, "HEAD")
+
+    def digests(bound: datetime) -> list[str]:
+        fits = [amicus_line.parse_fit(text) for text in history.amicus_fits_in_force(bound)]
+        return [amicus_line.fit_digest(fit) for fit in fits if fit is not None]
+
+    one, two = amicus_line.fit_digest(first), amicus_line.fit_digest(second)
+    # Three hours after the second landed: inside the slack, so both are candidates.
+    assert digests(_PROVISIONED) == [two, one]
+    assert digests(datetime(2026, 10, 2, tzinfo=UTC)) == [two]
+    assert digests(datetime(2026, 9, 15, tzinfo=UTC)) == [one]
+    assert digests(datetime(2026, 8, 1, tzinfo=UTC)) == []
+    assert GitStatpackHistory(tmp_path / "none", "main").amicus_fits_in_force(_PROVISIONED) == []
+
+
+def test_a_line_is_not_copied_under_a_label_that_pools_the_anchor_at_grading(
+    _roots: Path, monkeypatch: pytest.MonkeyPatch, _fits: list[str]
+) -> None:
+    """Before the pin the stamp pools the checked-out statpack, which can be the
+    very build the context names; the frozen anchor is unverified there, and so
+    is the line frozen under it."""
+    monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v14")
+    event_paths = _seed(_roots, 37, context=_lined())
+
+    assert _stamp(37).exit_code == 0
+
+    stamped = _stamped(event_paths)
+    assert stamped["base_rate_statpack_digest"] == statpack_digest(_statpack())
+    assert stamped["amicus_line_rate"] is None
+
+
+def test_a_rate_the_judge_wrote_does_not_survive_a_terminal_basis_grading(
+    _roots: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v17")
+    event_paths = _seed_terminal(_roots, tmp_path, 38, graded=_graded_context())
+    path = event_paths.evaluation("claude-judge", "claude-baseline", _RUN)
+    write_json(path, read_model(path, Evaluation).model_copy(update={"amicus_line_rate": 0.77}))
+
+    assert _stamp(38).exit_code == 0
+
+    stamped = _stamped(event_paths)
+    assert stamped["base_rate_basis"] == "terminal"
+    assert stamped["amicus_line_rate"] is None

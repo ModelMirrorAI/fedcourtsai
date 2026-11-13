@@ -83,6 +83,7 @@ CHECKOUT_SLACK = timedelta(hours=6)
 #: The production paths, relative to the repository root.
 STATPACK_PATH = "metrics/statpack.json"
 TRACKING_PATH = "config/tracking.yaml"
+AMICUS_FIT_PATH = "metrics/amicus-line.json"
 
 #: The branch a checkout's landings are read from where no bare clone is given.
 DEFAULT_REF = "origin/main"
@@ -128,10 +129,10 @@ class GitStatpackHistory:
         self._repo = repo
         self._ref = ref
 
-    def _landings(self) -> list[tuple[datetime, str]]:
-        """Every first-parent commit of ``ref`` touching the statpack, newest first."""
+    def _landings(self, path: str = STATPACK_PATH) -> list[tuple[datetime, str]]:
+        """Every first-parent commit of ``ref`` touching ``path``, newest first."""
         log = git_read(
-            self._repo, "log", "--first-parent", "--format=%H %cI", self._ref, "--", STATPACK_PATH
+            self._repo, "log", "--first-parent", "--format=%H %cI", self._ref, "--", path
         )
         landings = []
         for line in (log or "").splitlines():
@@ -171,6 +172,27 @@ class GitStatpackHistory:
                     return self._read(*landings[index + 1])
                 return None
         return None
+
+    def amicus_fits_in_force(self, bound: datetime) -> list[str]:
+        """The amicus-line fit a cell placed by ``bound`` could have checked out.
+
+        The text of ``metrics/amicus-line.json`` as of its newest first-parent
+        landing at or before ``bound``, by the landing's own committer time,
+        followed by the revision that one replaced where it landed within
+        :data:`CHECKOUT_SLACK` before the bound: the same two candidates, for
+        the same reason, as :func:`verify_cert_anchor` accepts of the statpack.
+        Empty where no landing is that old or the blob cannot be read.
+        """
+        landings = self._landings(AMICUS_FIT_PATH)
+        for index, (landed, sha) in enumerate(landings):
+            if landed > bound:
+                continue
+            candidates = [sha]
+            if bound - landed <= CHECKOUT_SLACK and index + 1 < len(landings):
+                candidates.append(landings[index + 1][1])
+            texts = (self.file_at(candidate, AMICUS_FIT_PATH) for candidate in candidates)
+            return [text for text in texts if text is not None]
+        return []
 
     def file_at(self, sha: str, path: str) -> str | None:
         """``path`` as committed at ``sha``, or ``None`` where it cannot be read."""

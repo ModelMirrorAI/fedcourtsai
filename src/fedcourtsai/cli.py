@@ -7129,14 +7129,16 @@ def amicus_line_fit_cmd(
 ) -> None:
     """Print the amicus-adjusted cert reference line's fit, read-only.
 
-    The fit (`amicus_line.py`, rule `amicus-line-v1`): each Term's risk set for
+    The fit (`amicus_line.py`, rule `amicus-line-v2`), read live off the corpus
+    rather than from the committed `metrics/amicus-line.json`: each Term's risk set for
     each salience band, over the live-slice paid cert petitions the band rates
     pool, cut on the corpus `cert_amicus_briefs` column into `none` (a stored 0)
     and `some` (1 or more), with the rows whose count is NULL beside them as
     `unread`. With `--before-term`, also each arm's pool as the band anchor is
     pooled (`salience.base_rate_lookback_terms`), and whether it meets the
-    rule's minimum; below it the line forecasts the band rate. Writes nothing
-    and feeds no board. Prints one coverage line per Term and band to stderr and
+    rule's minimum; below it the line forecasts the band rate. Writes nothing:
+    `fedcourts statpack` writes the committed fit. Prints one coverage line per
+    Term and band to stderr and
     `{"rule": ..., "min_resolved": ..., "salience_version": ..., "cells": ...,
     "pools": ...}` JSON to stdout. Each pool row also carries the band's unsplit
     rate from the same fit and its unread rows. Exits 2 on an unregistered
@@ -13932,6 +13934,12 @@ def statpack(
     corpus, so reruns reproduce both files byte for byte. Writes the empty
     zero-count pack when the corpus is absent (run after a corpus pull).
     Git-tracked alongside `leaderboard` / `backtest`.
+
+    Also writes ``amicus-line.json`` beside the JSON output: the
+    amicus-adjusted cert reference line's fit (`amicus_line.py`), every band's
+    per-Term risk set cut on the cert-stage amicus count, which provisioning
+    freezes a cert cell's reference forecast from. The empty fit when the
+    corpus is absent.
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
@@ -13949,9 +13957,20 @@ def statpack(
             ).base_rate_lookback_terms,
         ),
     )
+    # The amicus-line fit, from the same corpus beside the pack it is pooled
+    # with: a cert cell freezes its reference forecast from this file.
+    fit_dest = json_dest.parent / "amicus-line.json"
+    if db_path.exists():
+        with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
+            fit = amicus_line.build_fit(
+                corpus.iter_rows(conn, court="scotus", resolved=True, live_slice=True)
+            )
+    else:
+        fit = amicus_line.build_fit(())
+    write_json(fit_dest, fit)
     typer.echo(
         f"statpack: {pack.corpus_rows} case(s), {len(pack.sections)} section(s) "
-        f"-> {json_dest}, {md_dest}"
+        f"-> {json_dest}, {md_dest}; amicus-line fit {len(fit.cells)} risk set(s) -> {fit_dest}"
     )
 
 
@@ -14800,17 +14819,20 @@ def _stamped_conditioning(
     that is not on disk is a re-stamp away from the runner rather than evidence
     about what the cell read, so it stamps the block unjudged.
 
-    The same file gives the block its one other stamp-written field,
-    ``cert_amicus_briefs`` (:func:`_snapshot_cert_amicus_briefs`): read here
-    rather than at provisioning so the count is in no file the cell reads.
+    The same file gives the block ``cert_amicus_briefs`` a second time
+    (:func:`_snapshot_cert_amicus_briefs`): provisioning froze the count into
+    ``record/context.json`` for the cell to read, and the stamp reads the
+    snapshot again by the same rule, so the committed count is the stamp's own
+    reading, null where there is no file to read.
     """
     if provisioned is None:
         return None
     snapshot = case_paths.snapshot(provisioned.snapshot_date.isoformat())
     # The cert-stage amicus count is the stamp's own reading of the snapshot
-    # file, assigned on every path so nothing `record/context.json` carried in
-    # the field survives: provisioning never writes it, and the file is
-    # reachable from the cell's workspace.
+    # file, assigned on every path over whatever `record/context.json` carried:
+    # that file is reachable from the cell's workspace. With no snapshot file
+    # to read the count is cleared rather than taken on the context's word,
+    # which also leaves the frozen reference forecast it picks unverifiable.
     if not snapshot.is_file():
         return provisioned.model_copy(update={"cert_amicus_briefs": None})
     provisioned = provisioned.model_copy(
@@ -14837,7 +14859,7 @@ def _stamped_conditioning(
 def _snapshot_cert_amicus_briefs(snapshot: Path, cutoff: date | None) -> int | None:
     """The cert-stage amicus count the provisioned snapshot file discloses, or ``None``.
 
-    :func:`fedcourtsai.pipeline.cell_context.stamped_cert_amicus_briefs` over the
+    :func:`fedcourtsai.pipeline.cell_context.snapshot_cert_amicus_briefs` over the
     file's payload, under the cutoff the cell was placed at. Tolerant like the
     rest of the post-agent stamp: a file that does not parse as a JSON object
     leaves the count unset rather than failing a prediction that already exists.
@@ -14848,7 +14870,7 @@ def _snapshot_cert_amicus_briefs(snapshot: Path, cutoff: date | None) -> int | N
         return None
     if not isinstance(payload, dict):
         return None
-    return cell_context.stamped_cert_amicus_briefs(payload, cutoff)
+    return cell_context.snapshot_cert_amicus_briefs(payload, cutoff)
 
 
 #: What the tripwire's note may spend on one quoted path, and on the whole note.
@@ -16138,6 +16160,7 @@ def _skill_record_for(
                 "base_rate_salience_version": version,
                 "base_rate_statpack_digest": None,
                 "base_rate_lookback_terms": None,
+                "amicus_line_rate": None,
             },
             (evaluation.base_rate_basis, version, latest if stage == Stage.cert else None),
         )
@@ -16157,6 +16180,7 @@ def _skill_record_for(
             "base_rate_salience_version": None,
             "base_rate_statpack_digest": None,
             "base_rate_lookback_terms": None,
+            "amicus_line_rate": None,
         },
         (None, None, None),
     )
@@ -16293,6 +16317,9 @@ def _terminal_skill_record_for(
         "base_rate_salience_version": version,
         "base_rate_statpack_digest": digest,
         "base_rate_lookback_terms": lookback,
+        # A terminal-basis grading reads no frozen context, so it carries no
+        # line; a re-grade keeps what the record was stamped with.
+        "amicus_line_rate": evaluation.amicus_line_rate if regrade else None,
     }
     return fields, basis, version
 
@@ -16386,16 +16413,19 @@ def _cert_skill_record_for(
     lookback: int | None
     basis: str | None
     version: str | None
+    line_rate: float | None
     if regrade:
         rate = evaluation.segment_base_rate
         digest = evaluation.base_rate_statpack_digest
         lookback = evaluation.base_rate_lookback_terms
         basis = evaluation.base_rate_basis
         version = evaluation.base_rate_salience_version
+        line_rate = evaluation.amicus_line_rate
     else:
         rate, digest, lookback = _cert_anchor_for(
             event_paths, evaluation, scored, settings, label, anchor_refusals
         )
+        line_rate = _amicus_line_rate_for(event_paths, evaluation, scored, settings, label, digest)
         _warn_on_discarded_number(
             evaluation, "segment_base_rate", evaluation.segment_base_rate, rate
         )
@@ -16415,6 +16445,7 @@ def _cert_skill_record_for(
         "base_rate_salience_version": version,
         "base_rate_statpack_digest": digest,
         "base_rate_lookback_terms": lookback,
+        "amicus_line_rate": line_rate,
     }
     return fields, basis, version
 
@@ -16471,6 +16502,58 @@ def _cert_anchor_for(
     return frozen.rate, frozen.statpack_digest, frozen.lookback_terms
 
 
+def _amicus_line_rate_for(
+    event_paths: EventPaths,
+    evaluation: Evaluation,
+    scored: Prediction,
+    settings: Settings,
+    label: str | None,
+    stamped_digest: str | None,
+) -> float | None:
+    """The scored cert cell's amicus-adjusted reference rate, where it verifies.
+
+    The rate the cell's context froze at provisioning
+    (``context.cert_amicus_line``), copied only where the stamp took the cert
+    anchor from the same context (the label pins the frozen anchor and
+    ``stamped_digest`` is that anchor's build, so the anchor has verified and
+    its rate and window are the ones the line was frozen under) and
+    :func:`fedcourtsai.amicus_line.verify` re-pools the line from the fit
+    committed on ``main`` at the predict cell's run id. ``None``, with a warning
+    where a frozen line was refused, everywhere else: a reference line the
+    board cannot vouch for is omitted, never trusted.
+    """
+    context = scored.context
+    line = context.cert_amicus_line if context is not None else None
+    anchor = context.cert_anchor if context is not None else None
+    if context is None or line is None or anchor is None:
+        return None
+    if not process_version.pins_cert_anchor(label):
+        return None
+    if stamped_digest is None or stamped_digest != anchor.statpack_digest:
+        return None
+    cell = scored_prediction_cell(
+        event_paths.base, evaluation.predictor_id, evaluation.prediction_run_id
+    )
+    try:
+        provisioned_by = ids.parse_run_id(cell[0].name) if cell is not None else None
+    except ValueError:
+        provisioned_by = None
+    refusal = (
+        "the scored prediction's run directory does not resolve to a run id"
+        if provisioned_by is None
+        else amicus_line.verify(line, context, anchor, _amicus_fits(settings, provisioned_by))
+    )
+    if refusal is not None:
+        typer.echo(
+            f"::warning::stamp: {evaluation.evaluator_id}/{evaluation.predictor_id}: the frozen "
+            + f"amicus-adjusted reference forecast does not verify ({refusal}) — this cert "
+            + "cell's amicus_line_rate is left null.",
+            err=True,
+        )
+        return None
+    return line.rate
+
+
 def _anchor_refusal(
     event_paths: EventPaths,
     evaluation: Evaluation,
@@ -16515,6 +16598,16 @@ def _git_statpack_history(settings: Settings) -> statpack_history.StatpackHistor
 _statpack_history: Callable[[Settings], statpack_history.StatpackHistory] = _git_statpack_history
 
 
+def _git_amicus_fits(settings: Settings, bound: datetime) -> list[str]:
+    repo, ref = _ANCHOR_HISTORY.get() or (Path.cwd(), statpack_history.DEFAULT_REF)
+    return statpack_history.GitStatpackHistory(repo, ref).amicus_fits_in_force(bound)
+
+
+#: The committed amicus-line fits a cell placed by a bound could have read, off
+#: the same history the frozen-anchor check walks. A seam for tests.
+_amicus_fits: Callable[[Settings, datetime], list[str]] = _git_amicus_fits
+
+
 def _cert_anchor_pool(
     paths: CasePaths, event: str, pool: provision.AnchorPool | None
 ) -> provision.AnchorPool | None:
@@ -16535,6 +16628,12 @@ def _cert_anchor_pool(
         typer.echo(
             "::warning::provision: no readable metrics/statpack.json — this cert cell's "
             "anchor is not frozen and its grading pools the statpack read at stamp time.",
+            err=True,
+        )
+    elif pool.amicus_fit is None:
+        typer.echo(
+            "::warning::provision: no readable metrics/amicus-line.json — this cert cell "
+            "carries no amicus-adjusted reference forecast.",
             err=True,
         )
     return pool

@@ -263,7 +263,10 @@ Five blocks, in the order a reader needs them:
   once the cohort's relisted and held petitions have resolved. One line under
   the table reads the board's `engine_mean` reference, the mean of the engines'
   probabilities, against the best engine's own per-event Brier, as a reference
-  and never a ranked row. Under it, the gradings the build dropped for
+  and never a ranked row. A second line reads the board's `amicus_line`
+  reference, the band rate split on a cert-stage amicus brief, against the
+  frozen band anchor and each engine on the line's own events, once any paired
+  event carries one. Under them, the gradings the build dropped for
   suspected leakage (by predictor) or set aside as not shown to be forward,
   counted across every stage and so not subtractable from the cert figures. It
   leads the scored
@@ -685,6 +688,8 @@ queues behind the production run of the same mode. The modes:
   job below owns it, and the weekly tick regenerates it too so one refresh is a
   self-consistent tree state),
   and `metrics/backtest.json` / `metrics/statpack.{json,md}` /
+  `metrics/amicus-line.json` (the amicus-adjusted reference line's fit, written
+  by the statpack command from the same corpus read) /
   `metrics/docket.{json,md}` (the docket pack, regenerated after the statpack it
   reads, with the committed topic labels) / `data/scope/scope.json`
   (input: the corpus) are deterministic stage commands that otherwise change

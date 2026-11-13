@@ -1072,7 +1072,8 @@ stored set lacks — so a petition or application already stored keeps its head
 cut until its link changes or the dispatched re-cut pass reaches it (*Contract
 for the re-cut pass*), and until then the corpus holds both vintages side by
 side — which is why each kind's `kind_description` says a truncated row with no
-`[pipeline note:` line was cut at the cap from the end.
+cut note was cut at the cap from the end, and that a `[pipeline note:` line
+naming PDF pages with little or no text layer marks unread pages, not a cut.
 
 The OCR recovery pass keeps the plain head cut for the rows it recovers: the
 appendix-aware cut reads every page, which on a scan means recognizing every
