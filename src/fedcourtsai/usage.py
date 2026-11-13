@@ -626,9 +626,15 @@ def _load_json_objects(path: Path) -> list[Any]:
     unreadable or unparseable file.
     """
     try:
-        text = path.read_text().strip()
+        text = path.read_text()
     except OSError:
         return []
+    return _decode_json_objects(text)
+
+
+def _decode_json_objects(text: str) -> list[Any]:
+    """The top-level JSON values in ``text``: one value, or consecutive ones."""
+    text = text.strip()
     if not text:
         return []
     try:

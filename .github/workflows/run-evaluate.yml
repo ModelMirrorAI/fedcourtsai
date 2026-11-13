@@ -1531,6 +1531,27 @@ jobs:
               --out engine-watchdog/session-shapes.json \
               || echo "::warning::no codex item shapes distilled for ${EVENT_ID}"
           fi
+          # A gemini cell's counterpart, for a model call the API refused:
+          # gemini-cli leaves a client-error report in its temp dir holding
+          # the error and the whole request that drew it — the cell's prompt,
+          # its record text and what it retrieved — and the runner is thrown
+          # away with it. The report stays on the runner for the reason the
+          # rollout does; what joins the bundle is the refused request's
+          # shape (turn order, part kinds and sizes, function names, HTTP
+          # codes and the API's status names — never a value, and never the
+          # error message, which the job log already carries), with the
+          # telemetry log's api_error records beside it. On every gemini
+          # cell, not a failed step alone: a fault that arrives after the
+          # cell's work is whole leaves the step clean and is exactly the one
+          # nothing else explains. Nothing is written where there is no
+          # report and no api_error record. This step holds no engine key.
+          if [ "$ENGINE" = "gemini" ]; then
+            uv run fedcourts gemini-error-shapes \
+              --report-dir "${TMPDIR:-/tmp}" \
+              --telemetry-file "$GITHUB_WORKSPACE/.gemini/telemetry.log" \
+              --out engine-watchdog/gemini-error-shapes.json \
+              || echo "::warning::no gemini error shapes distilled for ${EVENT_ID}"
+          fi
           # A watchdog that acted is a cell-level fact whichever way it went —
           # and one that stood down is too — so say it where the run is read;
           # the bundle itself rides the cell artifact uploaded below. The marker is truncated on the way into the
