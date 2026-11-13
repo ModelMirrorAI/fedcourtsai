@@ -1,0 +1,125 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.02,
+    "notes": "Self-represented debtor asking the Chief Justice to stop a district judge from ruling on a bankruptcy appeal while a recusal-mandamus rehearing petition was pending in the Fourth Circuit. Denied in a one-line order by a single Justice with no response, referral or amicus. No stakes beyond the parties."
+  },
+  "brier_score": 0.0004,
+  "brier_skill_score": 0.9706185239973701,
+  "case_id": "scotus/9526000658",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": 0.013214019934335405
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.15,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.002,
+          "Barrett": 0.002,
+          "Gorsuch": 0.003,
+          "Jackson": 0.004,
+          "Kagan": 0.002,
+          "Kavanaugh": 0.002,
+          "Roberts": 0.003,
+          "Sotomayor": 0.004,
+          "Thomas": 0.003
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.013214019934335405,
+    "total": 0.013214019934335405
+  },
+  "correct": 1,
+  "created_at": "2026-11-13T15:47:51.926165Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell (run 2026-11-09; event resolved 2026-11-11). Log fully captured: prompt and record reads, the statpack, one corpus query for denied applications, and one web fetch of this application's own Supreme Court docket page on 2026-11-09, two days before the denial; the candidate reports it showed only the Nov 2 submission entry. That is a live read of an open docket, the ordinary forward shape. No retrieved date on or after 2026-11-11 and nothing in the reasoning presupposes the result.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-2",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.72,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Docket entry Nov 11 2026: 'Application (26A658) denied by The Chief Justice.'; outcome.json response_requested false.",
+        "claim": "The Chief Justice, as Circuit Justice, denies the application alone without calling for a response.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Docketed Nov 6, denied Nov 11: five days, earlier than the stated window, though close to its near edge.",
+        "claim": "The denial comes about one to three weeks after docketing, in mid-to-late November 2026.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "outcome.json referred_to_court false; the record through the Nov 12 snapshot shows no renewal or referral.",
+        "claim": "Referral to the full Court is unlikely at first instance (15%), with renewal to another Justice the realistic path to one.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json amicus_briefs 0, no writing roles; bare denial entry.",
+        "claim": "No amicus and no Justice writes; a one-line denial.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261109T032540Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:c1b452dea2e2f9a5c263428a31ed4c11f562c6ca10765b1dcfe66ff54daa733d",
+    "label": "proc-v21",
+    "pipeline_sha": "db110b5849c5c90c07c307a3a3ae81ece2ae563e",
+    "stamped_at": "2026-11-13T15:47:51.926165Z"
+  },
+  "reasoning_quality": 0.75,
+  "run_id": "20261113T154407Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

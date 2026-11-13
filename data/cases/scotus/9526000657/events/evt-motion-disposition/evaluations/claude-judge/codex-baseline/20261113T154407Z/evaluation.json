@@ -1,0 +1,130 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.02,
+    "notes": "Pro se debtor's emergency application to stay a district judge from ruling on his bankruptcy appeal while a recusal-mandamus rehearing petition was pending in the Fourth Circuit; denied by the Chief Justice in eight days with no response, referral or writing. Private dispute, no doctrinal or public stakes."
+  },
+  "brier_score": 0.004900000000000001,
+  "brier_skill_score": 0.6400769189677844,
+  "case_id": "scotus/9526000657",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.07,
+        "score": 0.008714019934335404
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.12,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.3,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.003,
+          "Barrett": 0.002,
+          "Gorsuch": 0.003,
+          "Jackson": 0.003,
+          "Kagan": 0.002,
+          "Kavanaugh": 0.002,
+          "Roberts": 0.008,
+          "Sotomayor": 0.003,
+          "Thomas": 0.003
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.008714019934335404,
+    "total": 0.008714019934335404
+  },
+  "correct": 1,
+  "created_at": "2026-11-13T15:48:15.642054Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell, prediction written 2026-11-09, before the 2026-11-10 denial. Log coverage 0.9; the only legible document date is 2026-03-20 (statpack/corpus shell call). Three web calls targeted the Court's general rules PDFs / Rule 23, not this docket; one CourtListener search for CA4 26-2406 filed before Nov 3. No qp-topics read; the reasoning states no later state of this docket was retrieved and nothing in the log contradicts it.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-2",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.6,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Docket entry Nov 10 2026: 'Application (26A657) denied by The Chief Justice.'; no writing recorded. The document did not commit to who acts.",
+        "claim": "The Court or the Chief Justice will deny the stay application, modally by a short unexplained order.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "interim_signals.response_requested false.",
+        "claim": "A response will probably not be called for (12% it is).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "interim_signals.referred_to_court false; denied by the Chief Justice.",
+        "claim": "The application will probably be resolved without referral to the full Court (30% it is referred).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Denied Nov 10, eight days after submission; no writing recorded in outcome.json.",
+        "claim": "Disposition within roughly one to three weeks of submission, about November 9-23, with no Justice writing.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "interim_signals.amicus_briefs 0.",
+        "claim": "The amicus count will remain zero.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261109T032540Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:c1b452dea2e2f9a5c263428a31ed4c11f562c6ca10765b1dcfe66ff54daa733d",
+    "label": "proc-v21",
+    "pipeline_sha": "db110b5849c5c90c07c307a3a3ae81ece2ae563e",
+    "stamped_at": "2026-11-13T15:48:15.642054Z"
+  },
+  "reasoning_quality": 0.68,
+  "run_id": "20261113T154407Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

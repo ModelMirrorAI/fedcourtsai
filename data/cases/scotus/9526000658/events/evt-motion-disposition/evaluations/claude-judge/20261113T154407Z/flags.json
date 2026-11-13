@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000658",
+  "run_id": "20261113T154407Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-motion-disposition",
+      "message": "The snapshot's LowerCourt field reads 'United States Bankruptcy Appellate Panel for the 10th Circuit' with case number 26-2404, but the staged application's own cover says it arises from the United States Court of Appeals for the Fourth Circuit (No. 26-2404), and it was submitted to the Chief Justice. The lower-court label looks wrong upstream. It did not change any score."
+    },
+    {
+      "category": "provisioning",
+      "severity": "info",
+      "event_id": "evt-motion-disposition",
+      "message": "All three candidates report that the application text they were given was empty (documents.json empty_text true, fetched Nov 6), while the copy staged for the evaluator (fetched 2026-11-11) carries OCR text. The predictors therefore forecast without the application's content. I did not penalize them for it."
+    }
+  ]
+}

@@ -1,0 +1,130 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.02,
+    "notes": "Self-represented debtor asking the Chief Justice to stop a district judge from ruling on a bankruptcy appeal while a recusal-mandamus rehearing petition was pending in the Fourth Circuit. Denied in a one-line order by a single Justice with no response, referral or amicus. No stakes beyond the parties."
+  },
+  "brier_score": 0.0036,
+  "brier_skill_score": 0.7355667159763314,
+  "case_id": "scotus/9526000658",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.06,
+        "score": 0.010014019934335403
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.1,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.25,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.015,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.004,
+          "Barrett": 0.003,
+          "Gorsuch": 0.004,
+          "Jackson": 0.003,
+          "Kagan": 0.003,
+          "Kavanaugh": 0.003,
+          "Roberts": 0.003,
+          "Sotomayor": 0.003,
+          "Thomas": 0.005
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.010014019934335403,
+    "total": 0.010014019934335403
+  },
+  "correct": 1,
+  "created_at": "2026-11-13T15:47:51.926165Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell (run 2026-11-09; event resolved 2026-11-11). Log shows only prompt/schema/record reads, the statpack, one corpus query for denied cert petitions (doc date 2026-04-29), two unobserved web searches whose queries target Hollingsworth v. Perry, and CourtListener lookups of that 2010 opinion. No query reached this application's docket or disposition; reasoning states the disposition is unknown. Nothing shows the case provisioned as already decided.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-2",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.6,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Docket entry Nov 11 2026: 'Application (26A658) denied by The Chief Justice.'; outcome.json interim_reading denied.",
+        "claim": "The Chief Justice will most likely deny the stay application in a short order without an explanatory opinion (6% chance of any grant).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json interim_signals: response_requested false, referred_to_court false; the denial was by the Chief Justice alone. The 25% referral hedge was loose but the stated direction held.",
+        "claim": "A response will probably not be requested (10%) and the application will probably not be referred to the full Court (25%).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Denied Nov 11, 2026, nine days after submission.",
+        "claim": "Disposition within about two weeks of the Nov 2 submission, approximately by Nov 16, 2026.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json: amicus_briefs 0, no writing roles; the docket shows a bare denial entry.",
+        "claim": "No separate writing and no amicus participation.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Conditional on an explanation; the order gives none.",
+        "claim": "If a denial is explained, the rationale will be failure to meet the prerequisites for emergency relief rather than a ruling on the bankruptcy dispute.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261109T032540Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:c1b452dea2e2f9a5c263428a31ed4c11f562c6ca10765b1dcfe66ff54daa733d",
+    "label": "proc-v21",
+    "pipeline_sha": "db110b5849c5c90c07c307a3a3ae81ece2ae563e",
+    "stamped_at": "2026-11-13T15:47:51.926165Z"
+  },
+  "reasoning_quality": 0.6,
+  "run_id": "20261113T154407Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

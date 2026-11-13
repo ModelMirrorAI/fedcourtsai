@@ -1,0 +1,130 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.01,
+    "notes": "Pro se stay application seeking to halt district-court merits adjudication of an individual Chapter 7 bankruptcy appeal in E.D. Va. while the applicant pursued rehearing of an unpublished Fourth Circuit refusal to grant mandamus disqualifying the district judge. Summarily denied in chambers by The Chief Justice eight days after submission with no response requested, no referral, and zero institutional or doctrinal reach beyond the immediate litigant."
+  },
+  "brier_score": 2.5e-05,
+  "brier_skill_score": 0.9981636577498356,
+  "case_id": "scotus/9526000657",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": 0.013589019934335403
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.015,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.001,
+          "Barrett": 0.001,
+          "Gorsuch": 0.001,
+          "Jackson": 0.001,
+          "Kagan": 0.001,
+          "Kavanaugh": 0.001,
+          "Roberts": 0.002,
+          "Sotomayor": 0.001,
+          "Thomas": 0.001
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.013589019934335403,
+    "total": 0.013589019934335403
+  },
+  "correct": 1,
+  "created_at": "2026-11-13T15:57:12.927858Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward-mode run on 2026-11-09, one day before the 2026-11-10 denial (58 calls, all outcome_only per engine telemetry shape, result_capture_coverage 0.0). Audited by query text: all file reads, fedcourts corpus queries, and CourtListener lookups targeted pre-disposition records (CA4 No. 26-2406 decided Oct. 26, 2026, companion OT2026 applications, and E.D. Va. bankruptcy dockets), with no access to qp-topics or outcome material.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-carbon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.86,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records interim_signals.response_requested = false, and the staged OCR application text confirms respondent Kevin McCarthy is the Chapter 7 trustee.",
+        "claim": "Neither Chief Justice Roberts nor the Court will call for a response from Chapter 7 bankruptcy trustee Kevin McCarthy, disposing of the pro se application on the applicant's papers alone.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records interim_signals.referred_to_court = false, and the November 12, 2026 snapshot records 'Application (26A657) denied by The Chief Justice.'",
+        "claim": "Chief Justice Roberts will act on the application directly in chambers without referring it to the full Court.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records interim_signals.amicus_briefs = 0.",
+        "claim": "No amicus curiae briefs or submissions will be filed before disposition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Chief Justice Roberts denied the application on November 10, 2026 \u2014 eight days after the November 2 submission and in the first half of November \u2014 via an unexplained docket order with no separate writings or noted dissents (votes=[], writing_roles=null).",
+        "claim": "Chief Justice Roberts will deny the stay within roughly two to ten days of its November 2, 2026 submission (during the first half of November 2026) via a standard summary denial order with no separate opinions or statements.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Conditional merits content never tested by the outcome: the Chief Justice denied the stay via an unexplained one-line docket entry with no staged opinion.",
+        "claim": "If the Court were to address the merits or stay standard, it would reject Schultz's recusal-mandamus and reassignment challenge to Judge Brinkema under Hollingsworth, Nken, Liteky, and Cheney.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261109T032540Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:93dfd6b52d95a78cbc7ce722aa2230f0e8ce09716d6219c95036ca071419fee9",
+    "label": "proc-v21",
+    "pipeline_sha": "db110b5849c5c90c07c307a3a3ae81ece2ae563e",
+    "stamped_at": "2026-11-13T15:57:12.927858Z"
+  },
+  "reasoning_quality": 0.76,
+  "run_id": "20261113T154407Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}
