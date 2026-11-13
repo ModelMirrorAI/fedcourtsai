@@ -506,25 +506,31 @@ def _is_bio_entry(text: str, *, filed: date | None, granted_on: date | None) -> 
 #   "Brief amicus curiae of United States in support of neither party filed."
 #
 # The invited brief's anchor (:func:`cert_signals.is_sg_invited_brief_entry`)
-# stops at the filer's name and admits only "as …", the verb or punctuation
-# after it, which is what keeps out an amicus whose name opens with the same
-# words; this one admits the supported side there and nothing else, so "United
-# States Conference of Catholic Bishops" is still not the government. It is
-# the merits arm's own, because the shared anchor also locates the invited
-# brief and dates the cert stage's sg-brief moment, and neither may move.
+# stops at the filer's name and admits only "as …", the verb, a parenthesis,
+# punctuation or the end of the text after it, which is what keeps out an
+# amicus whose name opens with the same words; this one admits only
+# "supporting" or "in support of" there, so "United States Conference of
+# Catholic Bishops … supporting petitioners" is still not the government. The
+# singular "amicus" is deliberate: the United States files alone, and "amici
+# curiae of United States Senators" does not. An entry saying the brief was
+# "not accepted" for filing is refused whatever follows, since the note beside
+# it may itself say a corrected brief will be filed. It is the merits arm's
+# own, because the shared anchor also locates the invited brief and dates the
+# cert stage's sg-brief moment, and neither may move.
 _US_AMICUS_SUPPORTING_RE = re.compile(
     r"^\s*brief\s+amicus\s+curiae\s+of\s+(?:the\s+)?united\s+states\s+"
-    + r"(?:supporting|in\s+support\s+of)\b.*\b(?:filed|submitted)\b",
+    + r"(?:supporting|in\s+support\s+of)\b(?!.*\bnot\s+accepted\b)"
+    + r".*\b(?:filed|submitted)\b",
     re.IGNORECASE,
 )
 
 
 def is_united_states_merits_amicus_entry(text: str) -> bool:
-    """Whether an entry is a brief for the United States as amicus curiae, either caption.
+    """Whether an entry is a brief for the United States as amicus curiae on the merits.
 
-    The invited brief's anchor, or the caption that puts the supported side
-    after "of United States" (:data:`_US_AMICUS_SUPPORTING_RE`). Text alone:
-    the merits arm supplies the post-grant bound.
+    Read under the invited brief's anchor, or under the caption that puts the
+    supported side after "of United States" (:data:`_US_AMICUS_SUPPORTING_RE`).
+    Text alone: the merits arm supplies the post-grant bound.
     """
     return is_sg_invited_brief_entry(text) or _US_AMICUS_SUPPORTING_RE.search(text) is not None
 

@@ -19479,7 +19479,8 @@ freeze commit is recorded here.
   United States supporting vacatur filed.", "Brief amicus curiae of United
   States in support of neither party filed."). The merits arm read the brief
   by the invited brief's entry anchor, which admits only "as …", the filing
-  verb or punctuation after the filer's name, so the second caption was never
+  verb, a parenthesis, punctuation or the end of the text after the filer's
+  name, so the second caption was never
   read and a granted docket whose brief carries it stored no
   `merits-amicus-united-states` row. All three predictors flagged the gap on
   24-1016 (`evt-brief-judgment`) in predict run `20261113T042228Z`.
@@ -19487,22 +19488,28 @@ freeze commit is recorded here.
   **What moved.** `pipeline.documents` reads the merits arm through its own
   test, `is_united_states_merits_amicus_entry`: the invited brief's anchor, or
   an entry that opens "Brief amicus curiae of [the] United States" followed
-  at once by "supporting" or "in support of" and carrying a filing verb. The
+  at once by "supporting" or "in support of" and carrying a filing verb, unless
+  it says the brief was "not accepted". The
   post-grant bound, the `Main Document` link, first-in-docket-order and the
   "(as to No.)" cut on a consolidated group are the arm's as before.
   `cert_signals.is_sg_invited_brief_entry` is unchanged, so the invited
   brief's position, the `sg-invited-brief` row and the sg-brief moment's date
   read exactly the entries they read before. An amicus whose name opens with
   the same words ("United States Conference of Catholic Bishops … supporting
-  petitioners") is still not read, because the supported side must follow the
-  filer's name directly.
+  petitioners") is still not read, because "supporting" or "in support of"
+  must follow the filer's name directly. The test reads those words and not a
+  list of sides, so an amicus named "United States Supporting …" would be
+  read; none is stored.
 
   No prompt byte and no registry field other than the boundary row moves, so
   no digest moves. `uv run fedcourts process-digest --all` prints `proc-v22`
   and the six digests `b61115d4…` (claude-baseline), `a74ea561…`
   (codex-baseline), `ff9786ea…` (gemini-baseline), `6d65018d…`
   (claude-judge), `ad4c6cc6…` (codex-judge) and `71a3fe87…` (gemini-judge),
-  with and without the change.
+  with and without the change. The predict prompt asks a cell to say which
+  side the brief supports; on a brief in support of neither party or of
+  vacatur the docket entry in the cell's snapshot carries the caption, and
+  the brief says what it asks for.
 
   **A harness boundary under the 2026-10-11 pooled rule.** The change adds to
   what a merits cell reads under unchanged digests. It is composition, not a
@@ -19533,8 +19540,8 @@ freeze commit is recorded here.
   dockets, 46,534 with a snapshot, 1,280 of them showing a grant). Forty
   entries carry the newly read caption, all on granted dockets: twenty-five
   say "in support of neither party" or "supporting neither party", ten name
-  vacatur, and five name a party's side. The selection moves on thirty dockets and on no other
-  kind:
+  vacatur, and five name a party's side. Each sits on a docket of its own.
+  The selection moves on thirty of the forty dockets and on no other kind:
   - **Twenty-nine gain** a `merits-amicus-united-states` link where none was
     selected. Three have committed merits cells and no merits outcome: 24-1016
     and 25-183 (six predictions each) and 25-1311 (three). The other
@@ -19547,16 +19554,19 @@ freeze commit is recorded here.
     moves from the second brief to the first. The docket is decided and has
     no committed prediction.
 
-  No ungranted docket carries the caption, so the post-grant bound turns
-  nothing away.
+  The other ten gain nothing. On nine, from the 2017 through 2020 Terms, the
+  entry posts no link. On 25-581 the entry is an uninvited brief at the
+  petition stage, filed before the grant, so the post-grant bound turns it
+  away and the docket keeps the merits brief it already selected. No
+  ungranted docket carries the caption.
 
   **Residuals, accepted.** The arm stores one brief, so a docket on which the
   United States files twice on the merits keeps only the first, as 24-109
   shows. Two captions on granted dockets stay unread: "Brief amicus curiae of
   United States of America filed." (five entries), which the filer-name
   lookahead refuses, and one entry that drops a word ("United States support
-  of neither party"). A brief the Clerk did not accept carries no filing verb
-  and is not read; the corrected brief's own entry is.
+  of neither party"). An entry saying the brief was not accepted for filing
+  is not read; the corrected brief's own entry is.
 
   **What does not move.** No base rate re-prices, no membership rule moves
   and no scored figure moves. No skill movement is predicted, and a movement
