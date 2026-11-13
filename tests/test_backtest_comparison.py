@@ -1214,3 +1214,18 @@ def test_a_failed_record_write_is_annotated_and_does_not_fail_the_command(
     out = capsys.readouterr().out
     assert out.startswith("::error::cert-backtest: the pooled record was not written")
     assert "FileExistsError" in out and "a cell made" not in out
+
+
+_COMMITTED_COMPARISONS = Path(__file__).resolve().parents[1] / "metrics" / bc.COMPARISONS_DIRNAME
+
+
+def test_every_committed_comparison_report_ran_a_model() -> None:
+    """A stub dispatch rehearses the lane; its report is not evidence and never lands."""
+    reports = sorted(_COMMITTED_COMPARISONS.glob("*.json"))
+    assert reports, "the committed comparison reports are missing"
+    for path in reports:
+        report = BacktestComparison.model_validate_json(path.read_text(encoding="utf-8"))
+        engines = {report.dispatch.engine, *(arm.engine for arm in report.arms)}
+        assert "stub" not in engines, (
+            f"{path.name} is a stub-engine rehearsal: close its pull request unmerged"
+        )
