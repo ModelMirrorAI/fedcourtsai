@@ -11,6 +11,7 @@ from typer.testing import CliRunner
 
 from fedcourtsai import analytics, corpus
 from fedcourtsai.cli import app
+from fedcourtsai.pipeline import cell_context
 from fedcourtsai.pipeline.cert_amicus import (
     cert_amicus_briefs,
     cert_amicus_briefs_before,
@@ -333,3 +334,31 @@ def test_stats_does_not_offer_the_amicus_cut(fixture_corpus: FixtureCorpus) -> N
     result = runner.invoke(app, ["stats", "--group-by", "cert_amicus"])
     assert result.exit_code == 2
     assert "Unknown --group-by 'cert_amicus'" in result.stderr
+
+
+# --- the count a cell's snapshot discloses, and who may read it ---------------
+
+
+def _live_payload(number: str, *entries: tuple[str, str]) -> dict[str, object]:
+    return {
+        "CaseNumber": f"{number} ",
+        "ProceedingsandOrder": [{"Date": day, "Text": text} for day, text in entries],
+    }
+
+
+def test_the_provisioned_context_never_carries_the_cert_count() -> None:
+    """`record/context.json` is read by the cell, so the count is the stamp's to write."""
+    payload = _live_payload("26-55", _PETITION, *_CERT_AMICI)
+    built = cell_context.build("scotus/9026000055", date(2026, 7, 1), payload, "forward")
+    assert built.signals_observable is True
+    assert built.cert_amicus_briefs is None
+    assert cell_context.stamped_cert_amicus_briefs(payload) == 3
+    assert cert_amicus_briefs(proceedings_entries(payload)) == 3
+
+
+def test_the_stamped_count_is_null_off_the_cert_form_and_without_proceedings() -> None:
+    application = _live_payload("26A55", _PETITION, *_CERT_AMICI)
+    assert cell_context.stamped_cert_amicus_briefs(application) is None
+    assert cell_context.stamped_cert_amicus_briefs({"CaseNumber": "26-55 "}) is None
+    # A docket with a proceedings list and no amicus entry is a measured zero.
+    assert cell_context.stamped_cert_amicus_briefs(_live_payload("26-55", _PETITION)) == 0

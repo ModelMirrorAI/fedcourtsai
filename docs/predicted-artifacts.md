@@ -258,6 +258,7 @@ absent optional field as null.
     "response_requested": null,
     "referred_to_court": null,
     "amicus_briefs": null,
+    "cert_amicus_briefs": 0,
     "term": 2025,
     "vide_links": [],
     "paper_only_filings": false,
@@ -956,6 +957,16 @@ directory without knowing which part is which invites trusting the wrong half.
   probed, spelled from the case down like the file beside it, and rules
   provisioning out in terms. Which of the two a cell gets is inferred from the
   shape of the string it wrote, so the split errs toward the weaker reading.
+
+  **`cert_amicus_briefs` is the block's other stamp-written field.** On a
+  Term-form docket the stamp counts the cert-stage amicus briefs in the
+  provisioned snapshot file and records the count here. Provisioning leaves
+  it null in `record/context.json`, because that file is read by the cell and
+  a pre-computed count there would widen what every cert cell is handed. It
+  is null on an application docket, where the snapshot disclosed no
+  proceedings, and on a re-stamp with no `record/` beside it. The
+  amicus-adjusted reference line (`metrics/README.md`) reads it; no scored
+  figure does.
 
   **It reports; it masks nothing.** The conditioning beside it is what
   provisioning derived and offered, and that is a fact about the record whatever

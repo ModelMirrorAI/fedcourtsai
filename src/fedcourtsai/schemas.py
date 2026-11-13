@@ -1106,6 +1106,28 @@ class PredictionContext(_Strict):
         "moved the count is shown to postdate this cell's own anchor; "
         "`docs/freeze-record.md` dates the re-derivations",
     )
+    cert_amicus_briefs: int | None = Field(
+        default=None,
+        ge=0,
+        description="Cert-stage amicus briefs the provisioned snapshot's entries "
+        "recorded: the cert reading (`pipeline.cert_amicus.cert_amicus_briefs`: "
+        "accepted-form entries plus each distinct lead filer still docketed as "
+        "submitted, less the Court's orders on amicus motions, before the first "
+        "disposition entry) over the entries the cell's own cut kept. **Written "
+        "by `stamp-cell`, never by provisioning**: `record/context.json` carries "
+        "it null, so no cell is handed the count, and the stamp reads it off the "
+        "provisioned snapshot file after the agent has finished. That file sits "
+        "in the cell's workspace, as `record/context.json` does, so the count "
+        "rests on the same trust boundary as the rest of this block. On a "
+        "Term-form docket only (an application's own count is `amicus_briefs`, "
+        "under the interim reading); null where the snapshot disclosed no "
+        "proceedings, where the stamp found no snapshot file to read, and on "
+        "every prediction stamped before the field existed. Not masked by "
+        "`snapshot_uptake`: like the signals above it is a fact about the "
+        "provisioned record. Frozen once written and never re-derived. Read by "
+        "the amicus-adjusted cert reference line (`metrics/README.md`) and by no "
+        "scored figure",
+    )
     term: int | None = Field(
         default=None,
         description="The case's October Term, the leakage guard's key — the cert "

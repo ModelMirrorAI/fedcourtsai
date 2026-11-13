@@ -1028,6 +1028,28 @@ stays outside the gate:
   response beyond its relist rule, so skill over the anchor is not skill over
   every fact on the docket.
 
+  A second no-model forecast is **registered and not yet computed**: the band
+  rate split on whether an amicus brief had reached the docket at the cert
+  stage (`amicus-line-v1`, `src/fedcourtsai/amicus_line.py`). A cert
+  prediction freezes that count as `context.cert_amicus_briefs`, written by
+  the stamp from the provisioned snapshot and never handed to a cell. The
+  line's forecast for a cell is its arm's grant rate (`none`, or `some` for
+  one or more briefs) over the band's risk set in the Terms strictly before
+  the cell's docket Term, inside the anchor's lookback window, falling back to
+  the band rate where the arm's pool holds fewer than 30 observed resolved
+  petitions. `uv run fedcourts amicus-line-fit --before-term <Term>` prints
+  the fit and each arm's pool from the corpus. No board carries the line.
+  Once one does, it is a reference and takes no rank; each engine's per-event
+  Brier is read against it on the line's own events, beside the band anchor's
+  Brier over the same events; it is quoted with its events, grants, fallback
+  count and the events it left out; and it describes only forecasts that
+  froze the count, never an earlier one read against the corpus's current
+  count. The fit conditions on the count at the petition's disposition while
+  a forecast reads it at its snapshot, and the Solicitor General's invited
+  brief counts as an amicus brief, so a petition awaiting that brief with no
+  other is in the `none` arm while nearly every resolved CVSG petition in the
+  fit is in `some`.
+
   Eight of these fields are cert-only, null off the cert stage (where
   `denied` is not the null call): the two floors (`always_deny_accuracy`,
   `event_always_deny_accuracy`), the two lifts (`accuracy_lift`,

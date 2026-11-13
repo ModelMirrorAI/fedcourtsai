@@ -26,7 +26,7 @@ from typing import Any, Literal
 
 from .. import corpus
 from ..schemas import PredictionContext
-from . import arrival_cut, caption, cert_signals, vide_links
+from . import arrival_cut, caption, cert_amicus, cert_signals, vide_links
 from .asof import project_row
 from .paper_only import paper_only_filings
 from .salience import scorer
@@ -212,6 +212,31 @@ def build(  # noqa: PLR0913 - one context, each optional part a keyword
         # the Court never posted from one provisioning missed.
         paper_only_filings=paper_only_filings(payload),
     )
+
+
+def stamped_cert_amicus_briefs(payload: Mapping[str, Any]) -> int | None:
+    """The cert-stage amicus count a provisioned snapshot discloses, for the stamp.
+
+    :func:`.cert_amicus.cert_amicus_briefs` over the payload's own entries, on a
+    Term-form docket whose payload carries a proceedings list; ``None`` on any
+    other docket form (an application freezes ``amicus_briefs`` under the
+    interim reading) and where the payload discloses no proceedings, which is
+    unknown rather than zero.
+
+    Not part of :func:`build` on purpose. What ``build`` returns is written to
+    ``record/context.json``, which the cell reads, and a pre-computed amicus
+    count there would widen every cert cell's information set. ``stamp-cell``
+    calls this after the agent has finished, over the snapshot file provisioning
+    placed, so the count reaches the committed ``prediction.json`` and no cell.
+    The payload is already the docket as the cell's cut left it, so the count
+    takes no cutoff of its own.
+    """
+    docket_number = str(payload.get("docket_number") or payload.get("CaseNumber") or "").strip()
+    if corpus.scotus_term_year(docket_number) is None:
+        return None
+    if not cert_signals.snapshot_carries_proceedings(payload):
+        return None
+    return cert_amicus.cert_amicus_briefs(cert_signals.proceedings_entries(payload))
 
 
 def _base_row(case_id: str, payload: Mapping[str, Any]) -> corpus.CorpusRow:

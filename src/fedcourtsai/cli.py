@@ -51,6 +51,7 @@ from typer.core import TyperCommand
 from . import (
     ai_activity,
     ai_rulings,
+    amicus_line,
     analytics,
     backtest_comparison,
     blinding,
@@ -323,6 +324,7 @@ from .pipeline import (
     application_backfill,
     argument_features,
     authorship,
+    cell_context,
     decision_below,
     discovery_frontier,
     granted_noted,
@@ -7097,6 +7099,90 @@ def alignment_side_codes_cmd(
     if report is not None:
         write_text(report, alignment_side.render_run_report(merged, run_id=run_id))
     typer.echo(f"alignment-side-codes: {added} code(s) added, {len(merged.entries)} in all")
+
+
+@app.command("amicus-line-fit")
+def amicus_line_fit_cmd(
+    before_term: Annotated[
+        int | None,
+        typer.Option(
+            "--before-term",
+            help="Also print each band's two arm pools as a cert cell of this Term "
+            "would pool them: the Terms strictly before it, inside the lookback window.",
+        ),
+    ] = None,
+    salience_version: Annotated[
+        str,
+        typer.Option(
+            "--salience-version",
+            help="The salience version whose bands to print. Default: the active one.",
+        ),
+    ] = "",
+) -> None:
+    """Print the amicus-adjusted cert reference line's fit, read-only.
+
+    The fit (`amicus_line.py`, rule `amicus-line-v1`): each Term's risk set for
+    each salience band, over the live-slice paid cert petitions the band rates
+    pool, cut on the corpus `cert_amicus_briefs` column into `none` (a stored 0)
+    and `some` (1 or more), with the rows whose count is NULL beside them as
+    `unread`. With `--before-term`, also each arm's pool as the band anchor is
+    pooled (`salience.base_rate_lookback_terms`), and whether it meets the
+    rule's minimum; below it the line forecasts the band rate. Writes nothing
+    and feeds no board. Prints one coverage line per Term and band to stderr and
+    `{"rule": ..., "min_resolved": ..., "cells": ..., "pools": ...}` JSON to
+    stdout. Fails loud if the corpus is absent.
+    """
+    settings = get_settings()
+    version = salience_version or SALIENCE_VERSION
+    if version not in registered_versions():
+        typer.echo(f"amicus-line-fit: {version!r} is not a registered salience version.", err=True)
+        raise typer.Exit(code=2)
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if settings.corpus_backend != "ranged" and not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before reading the amicus-line fit.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
+        fit = [
+            cell
+            for cell in amicus_line.fit_rows(
+                corpus.iter_rows(conn, court="scotus", resolved=True, live_slice=True)
+            )
+            if cell.salience_version == version
+        ]
+    for cell in fit:
+        typer.echo(
+            f"OT{cell.term} {version}/{cell.band} risk set: {cell.none_resolved} resolved with "
+            f"no cert amicus brief, {cell.some_resolved} with one or more, "
+            f"{cell.unread_resolved} unread",
+            err=True,
+        )
+    pooled = (
+        amicus_line.pools(
+            fit,
+            salience_version=version,
+            term=before_term,
+            lookback_terms=load_salience_config(settings.config_root).base_rate_lookback_terms,
+        )
+        if before_term is not None
+        else []
+    )
+    typer.echo(
+        json.dumps(
+            {
+                "rule": amicus_line.AMICUS_LINE_RULE,
+                "min_resolved": amicus_line.AMICUS_LINE_MIN_RESOLVED,
+                "salience_version": version,
+                "cells": [cell.model_dump(mode="json") for cell in fit],
+                "pools": [pool.model_dump(mode="json") for pool in pooled],
+            },
+            indent=2,
+            sort_keys=True,
+        )
+    )
 
 
 @app.command("justice-priors")
@@ -14703,12 +14789,23 @@ def _stamped_conditioning(
     existing gap and stamps ``None`` as before; a context naming a snapshot file
     that is not on disk is a re-stamp away from the runner rather than evidence
     about what the cell read, so it stamps the block unjudged.
+
+    The same file gives the block its one other stamp-written field,
+    ``cert_amicus_briefs`` (:func:`_snapshot_cert_amicus_briefs`): read here
+    rather than at provisioning so the count is in no file the cell reads.
     """
     if provisioned is None:
         return None
     snapshot = case_paths.snapshot(provisioned.snapshot_date.isoformat())
+    # The cert-stage amicus count is the stamp's own reading of the snapshot
+    # file, assigned on every path so nothing `record/context.json` carried in
+    # the field survives: provisioning never writes it, and the file is
+    # reachable from the cell's workspace.
     if not snapshot.is_file():
-        return provisioned
+        return provisioned.model_copy(update={"cert_amicus_briefs": None})
+    provisioned = provisioned.model_copy(
+        update={"cert_amicus_briefs": _snapshot_cert_amicus_briefs(snapshot)}
+    )
     if _snapshot_stem(record.input_snapshot) == snapshot.stem:
         return provisioned.model_copy(update={"snapshot_uptake": "read"})
     _flag_unread_snapshot(
@@ -14725,6 +14822,23 @@ def _stamped_conditioning(
         run_id,
     )
     return provisioned.model_copy(update={"snapshot_uptake": "unread"})
+
+
+def _snapshot_cert_amicus_briefs(snapshot: Path) -> int | None:
+    """The cert-stage amicus count the provisioned snapshot file discloses, or ``None``.
+
+    :func:`fedcourtsai.pipeline.cell_context.stamped_cert_amicus_briefs` over the
+    file's payload. Tolerant like the rest of the post-agent stamp: a file that
+    does not parse as a JSON object leaves the count unset rather than failing a
+    prediction that already exists.
+    """
+    try:
+        payload = json.loads(snapshot.read_text())
+    except (OSError, ValueError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    return cell_context.stamped_cert_amicus_briefs(payload)
 
 
 #: What the tripwire's note may spend on one quoted path, and on the whole note.
