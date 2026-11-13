@@ -163,8 +163,8 @@
       "actor_id": "claude-judge",
       "label": "proc-v22",
       "blessed": {
-        "at": null,
-        "merge": null,
+        "at": "2026-11-13T17:00:26Z",
+        "merge": "f6441bcdaf6e8c8bc364c2f6048aa8c54c800af5",
         "source": "merge"
       }
     },
@@ -174,8 +174,8 @@
       "actor_id": "codex-judge",
       "label": "proc-v22",
       "blessed": {
-        "at": null,
-        "merge": null,
+        "at": "2026-11-13T17:00:26Z",
+        "merge": "f6441bcdaf6e8c8bc364c2f6048aa8c54c800af5",
         "source": "merge"
       }
     },
@@ -185,8 +185,8 @@
       "actor_id": "gemini-judge",
       "label": "proc-v22",
       "blessed": {
-        "at": null,
-        "merge": null,
+        "at": "2026-11-13T17:00:26Z",
+        "merge": "f6441bcdaf6e8c8bc364c2f6048aa8c54c800af5",
         "source": "merge"
       }
     }
@@ -1288,24 +1288,24 @@
     },
     {
       "name": "united-states-amicus-supported-side-caption",
-      "merge": null,
-      "at": null,
+      "merge": "f6441bcdaf6e8c8bc364c2f6048aa8c54c800af5",
+      "at": "2026-11-13T17:00:26Z",
       "predictors": null,
       "reach": "granted dockets",
       "gradual": true
     },
     {
       "name": "decision-below-unread-entries",
-      "merge": null,
-      "at": null,
+      "merge": "f6441bcdaf6e8c8bc364c2f6048aa8c54c800af5",
+      "at": "2026-11-13T17:00:26Z",
       "predictors": null,
       "reach": "all",
       "gradual": true
     },
     {
       "name": "unread-page-runs",
-      "merge": null,
-      "at": null,
+      "merge": "f6441bcdaf6e8c8bc364c2f6048aa8c54c800af5",
+      "at": "2026-11-13T17:00:26Z",
       "predictors": null,
       "reach": "all",
       "gradual": true
