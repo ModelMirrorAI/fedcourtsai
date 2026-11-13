@@ -1,0 +1,151 @@
+{
+  "big_case_rationale": "Resolves a 12-to-1 Second Circuit outlier rule on summary-judgment factfinding in trademark suits\u2014consequential for commercial IP litigation in a major venue, though doctrinally technical.",
+  "big_case_score": 0.28,
+  "case_id": "scotus/72483489",
+  "claim_distributions": [
+    {
+      "claim_id": "majority-author",
+      "probabilities": {
+        "Alito": 0.035,
+        "Barrett": 0.13,
+        "Gorsuch": 0.105,
+        "Jackson": 0.08,
+        "Kagan": 0.195,
+        "Kavanaugh": 0.085,
+        "Roberts": 0.05,
+        "Sotomayor": 0.2,
+        "Thomas": 0.11,
+        "per-curiam": 0.01
+      }
+    },
+    {
+      "claim_id": "separate-writers",
+      "probabilities": {
+        "Alito": 0.16,
+        "Barrett": 0.06,
+        "Gorsuch": 0.18,
+        "Jackson": 0.12,
+        "Kagan": 0.05,
+        "Kavanaugh": 0.1,
+        "Roberts": 0.03,
+        "Sotomayor": 0.17,
+        "Thomas": 0.18
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.88
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "band_refused": null,
+    "cert_anchor": null,
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-11-05",
+    "cvsg_date": "2025-10-06",
+    "decided_before": null,
+    "distribution_count": 3,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v8",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_contact_scrub": {
+      "blocks": 0,
+      "fields": 0,
+      "sides": []
+    },
+    "snapshot_date": "2026-11-05",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+    "term": 2024,
+    "vide_links": []
+  },
+  "created_at": "2026-11-13T04:49:39.060344Z",
+  "engine": "gemini",
+  "event_id": "evt-brief-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-11-05.json",
+  "judgment": "vacated",
+  "model": "gemini-4-carbon",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "gemini-baseline",
+  "probability": 0.88,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ff9786ea91896f0f50f176c3b1de403074ccf54cbe49ba69d844d201c59d2069",
+    "label": "proc-v21",
+    "pipeline_sha": "0b1a4e2623288d4e7059d3336fd5a3ebb170a114",
+    "stamped_at": "2026-11-13T04:49:39.060344Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261113T042228Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "Extending Hana Financial, Inc. v. Hana Bank and USPTO v. Booking.com B.V. under the U.S. Bank N.A. v. Village at Lakeridge mixed-question framework, the majority holds that a trademark's inherent or conceptual strength in a Lanham Act likelihood-of-confusion inquiry turns on the commercial impression the mark conveys to ordinary consumers in marketplace context\u2014making it a predominantly factual determination governed by Rule 56's reasonable-jury standard at summary judgment and Rule 52(a) clear-error review, rather than a legal question like patent claim construction (Markman) or copyright fair use (Google v. Oracle)."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The majority announces a categorical rule across federal trademark infringement litigation that conceptual/inherent mark strength is a factual issue rather than a question of law, while cabining its judgment to vacatur and remand by preserving Rule 56 summary judgment where no reasonable jury could find conceptual strength and leaving to the Second Circuit in the first instance whether PepsiCo is entitled to summary judgment under that standard or on alternative Polaroid factors."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "majority",
+      "writing": null
+    }
+  ]
+}

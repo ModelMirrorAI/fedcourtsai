@@ -1,0 +1,28 @@
+# Predicted Court Reasoning — *RiseandShine Corp. v. PepsiCo, Inc.* (No. 24-1016)
+
+## Judgment and Vote Lineup
+
+The Supreme Court will **vacate** the judgment of the Second Circuit and remand for further proceedings (`vacated`), by a **9–0** vote with all nine sitting Justices (`Roberts`, `Thomas`, `Alito`, `Sotomayor`, `Kagan`, `Gorsuch`, `Kavanaugh`, `Barrett`, and `Jackson`) joining the judgment and the opinion of the Court.
+
+## Question Reached and Doctrinal Ground (`majority-ground`)
+
+The Court will reach the single question presented as granted—whether a trademark's inherent or conceptual strength in a likelihood-of-confusion analysis under the Lanham Act, 15 U.S.C. § 1114, is a question of fact rather than a question of law—and reject the Second Circuit's outlier rule treating conceptual strength as an issue of law for judges to decide *de novo*.
+
+Anchoring its analysis in *Hana Financial, Inc. v. Hana Bank*, 574 U.S. 418 (2015), *U.S. Patent & Trademark Office v. Booking.com B.V.*, 591 U.S. 549 (2020), and the mixed-question framework of *U.S. Bank N.A. v. Village at Lakeridge, LLC*, 583 U.S. 387 (2018), the majority will hold that while the *Abercrombie* distinctiveness categories and the legal definition of trademark strength are legal standards, placing a specific mark along that spectrum and gauging its conceptual source-identifying force in a given product market turns on the commercial impression the mark conveys to ordinary purchasing consumers in context. Because answering that question immerses the decisionmaker in case-specific marketplace facts and consumer perception rather than expounding general legal principles, conceptual strength—whether framed as a pure question of fact or a mixed question in which factual issues predominate—is allocated to the factfinder: governed by Rule 56's "no reasonable jury" standard at summary judgment and reviewed for clear error under Rule 52(a) after a bench trial.
+
+The majority will distinguish *Markman v. Westview Instruments, Inc.*, 517 U.S. 370 (1996), on the ground that patent claim construction construes a formal written legal instrument rather than ordinary consumer perception in the marketplace, and will decline to extend *Google LLC v. Oracle America, Inc.*, 593 U.S. 1 (2021), explaining that heartland Lanham Act confusion factors do not carry the judge-made constitutional speech-balancing role of copyright fair use (consistent with *Jack Daniel's Properties, Inc. v. VIP Products LLC*, 599 U.S. 140 (2023)).
+
+## Breadth of the Holding and Disposition Scope (`ground-breadth`)
+
+On the doctrinal rule, the Court's holding will be **categorical** across federal trademark infringement suits: courts may not resolve a mark's conceptual or inherent strength as a matter of law by substituting judicial intuition about dictionary associations for Rule 56's reasonable-jury inquiry. At the same time, the Court will carefully cabin the remedial sweep of its disposition in two respects:
+
+1. **Preserving Rule 56 summary-judgment gatekeeping:** Echoing *Hana Financial*, the Court will emphasize that treating inherent strength as factual changes the *standard* of decision on summary judgment, not the *availability* of summary judgment. Where the record—including dictionary meanings, extensive third-party uses in the relevant market, or prosecution representations—permits no reasonable jury to find a mark conceptually strong, a district court may resolve the issue under Rule 56.
+2. **Vacatur rather than outright reversal on remand:** Acting as a court of review rather than first view, the Court will decline PepsiCo's invitation to affirm on the alternative grounds that no reasonable jury could find "RISE" conceptually strong under Rule 56 or that the remaining *Polaroid* factors (acquired strength, visual dissimilarity featuring the "MTN DEW" house mark, and appellate forfeiture) independently compel summary judgment. Instead, the Court will vacate the Second Circuit's summary order and remand so the court of appeals can evaluate those questions free of the erroneous "as a matter of law" premise.
+
+## Authorship, Separate Writings, and Procedural Exits
+
+Justice **Sotomayor** (author of *Hana Financial* and experienced in Second Circuit *Polaroid* jurisprudence) and Justice **Kagan** (author of *Village at Lakeridge*, *Jack Daniel's*, and *Dewberry Group, Inc. v. Dewberry Engineers Inc.*, 604 U.S. 321 (2025)) are the two likeliest majority authors, followed by Justice **Barrett**, Justice **Thomas** (author of *Bufkin v. Collins*, 604 U.S. 369 (2025), and *Vidal v. Elster*, 602 U.S. 286 (2024)), and Justice **Gorsuch**.
+
+While the judgment is expected to be unanimous, a short concurring opinion has moderate likelihood—most plausibly from Justice **Sotomayor**, Justice **Alito**, or Justice **Kavanaugh** underscoring district courts' continued Rule 56 authority to grant summary judgment against weak marks composed of everyday words and highlighting the open *Polaroid* issues on remand, or from Justice **Gorsuch** or Justice **Thomas** emphasizing the Seventh Amendment jury-trial foundations of allocating consumer-impression questions to juries.
+
+A procedural exit—either a dismissal as improvidently granted (DIG) or an affirmance by an equally divided Court—is unlikely. The Court already weighed and rejected the Solicitor General's vehicle-based recommendation against review when granting certiorari after the CVSG, the single question presented is cleanly teed up on the face of the Second Circuit's holding that `"RISE" was, as a matter of law, an inherently weak mark`, and no Justice has recused on the docket.

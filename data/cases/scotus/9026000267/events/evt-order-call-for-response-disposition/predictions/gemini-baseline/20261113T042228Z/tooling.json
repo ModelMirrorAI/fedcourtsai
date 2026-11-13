@@ -1,0 +1,34 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/9026000267",
+  "gaps": [
+    "Full-text or party-substring search in fedcourts query (currently --docket-number requires knowing the exact SCOTUS docket number in advance, and --citation matches own parallel cites rather than cited authorities)"
+  ],
+  "helpful": [
+    "Provisioned petition.txt, supplemental-brief.txt, and full appendix.txt (especially Judge VanDyke's dissent and Plan Amendment No. 1)",
+    "record/context.json frozen sal-v8 baseline cert_anchor and metrics/statpack.md",
+    "CourtListener MCP read_document and docket-entries endpoints for reading Trauernicht and checking companion circuit/district dockets",
+    "Live supremecourt.gov JSON docket feed in forward mode",
+    "fedcourts query for recent OT2026 SCOTUS dispositions"
+  ],
+  "notes": "Reading both Trauernicht on CourtListener and the full Ninth Circuit appendix (including Judge VanDyke's threshold contract/delegation dissent and the E.D. Va. docket confirming Trauernicht plaintiffs did not seek cert) was critical for weighing the genuine 1-7 split against the vehicle asymmetries.",
+  "role": "predictor",
+  "run_id": "20261113T042228Z",
+  "schema_version": "1.0",
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts validate",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_read_document",
+    "mcp_courtlistener_call_endpoint",
+    "mcp_courtlistener_get_endpoint_schema",
+    "web_fetch",
+    "google_web_search"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}
