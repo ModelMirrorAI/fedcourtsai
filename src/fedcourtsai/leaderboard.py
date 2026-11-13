@@ -102,6 +102,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Final, Literal
 
+from .amicus_line import AMICUS_LINE_RULE
 from .integrity import (
     FORWARD,
     PROCEDURAL,
@@ -148,6 +149,7 @@ from .schemas import (
     NO_BAND_KEY,
     NO_LINK_KEY,
     UNLINKED_KEY,
+    AmicusLineReference,
     BigCaseLeaderboard,
     BoundaryCount,
     CertAnchor,
@@ -417,6 +419,13 @@ class CellFacts:
     probability: float
     #: The ``by_link`` key: whether the scored prediction froze a ``Vide`` link.
     link_key: str = NO_LINK_KEY
+    #: The arm of the amicus-adjusted reference forecast the scored prediction's
+    #: context froze (``context.cert_amicus_line.arm``); ``None`` where it froze
+    #: none, or one under another rule than the board's.
+    amicus_arm: str | None = None
+    #: That frozen forecast is the band rate, its arm's pool being under the
+    #: rule's minimum (``basis == "band-fallback"``).
+    amicus_fallback: bool = False
 
 
 def band_key(context: PredictionContext | None) -> str:
@@ -1026,6 +1035,78 @@ def _paired(  # noqa: PLR0913 - one keyword per per-cell reading the figure list
             qualifying, paired, entries, skills, facts, vote_scores, provisioning
         ),
         engine_mean=_engine_mean(qualifying, engines, paired, facts),
+        amicus_line=_amicus_line(qualifying, engines, paired, facts),
+    )
+
+
+def _amicus_line(
+    qualifying: Mapping[str, Mapping[tuple[str, str], Sequence[Evaluation]]],
+    engines: Sequence[str],
+    paired: Collection[tuple[str, str]],
+    facts: Mapping[EvaluationKey, CellFacts] | None,
+) -> AmicusLineReference | None:
+    """The amicus-adjusted reference line over the paired events, or ``None``.
+
+    The registered rule (``fedcourtsai.amicus_line``, dated in
+    ``docs/freeze-record.md``). An event's forecast is the stamped
+    ``amicus_line_rate`` of its earliest qualifying grading by harness clock,
+    the cell :func:`_band_filing` files its band under, and the band rate
+    beside it is that grading's risk-set ``segment_base_rate``. An event enters
+    only where every paired engine's every qualifying grading carries facts
+    and a stamped line rate, and that earliest grading a risk-set band rate;
+    the rest are counted in ``left_out``. Each engine's forecast on an event is
+    the mean of its qualifying gradings' probabilities, as on the
+    mean-of-engines line. ``None`` with no facts or no such event.
+    """
+    if facts is None:
+        return None
+    rows: list[tuple[float, float, dict[str, float], int]] = []
+    fallbacks = mismatches = 0
+    by_arm: dict[str, int] = defaultdict(int)
+    for event in sorted(paired):
+        gradings = [ev for pid in engines for ev in qualifying[pid][event]]
+        found = [(ev, facts.get(_evaluation_key(ev))) for ev in gradings]
+        cells = [(ev, fact) for ev, fact in found if fact is not None]
+        if len(cells) != len(found) or any(
+            ev.amicus_line_rate is None or fact.amicus_arm is None for ev, fact in cells
+        ):
+            continue
+        first, first_fact = min(cells, key=lambda cell: (cell[1].clock, cell[1].band_key))
+        if (
+            first.amicus_line_rate is None
+            or first_fact.amicus_arm is None
+            or first.segment_base_rate is None
+            or first.base_rate_basis != "risk_set"
+        ):
+            continue
+        forecasts = {
+            pid: sum(facts[_evaluation_key(ev)].probability for ev in qualifying[pid][event])
+            / len(qualifying[pid][event])
+            for pid in engines
+        }
+        rows.append(
+            (first.amicus_line_rate, first.segment_base_rate, forecasts, first_fact.granted)
+        )
+        by_arm[first_fact.amicus_arm] += 1
+        fallbacks += first_fact.amicus_fallback
+        mismatches += len({fact.amicus_arm for _, fact in cells}) > 1
+    if not rows:
+        return None
+    return AmicusLineReference(
+        rule=AMICUS_LINE_RULE,
+        events=len(rows),
+        left_out=len(paired) - len(rows),
+        grants=sum(target for *_, target in rows),
+        grants_forecast=sum(line for line, *_ in rows),
+        brier=sum((line - target) ** 2 for line, _, _, target in rows) / len(rows),
+        band_brier=sum((band - target) ** 2 for _, band, _, target in rows) / len(rows),
+        engine_brier={
+            pid: sum((forecasts[pid] - target) ** 2 for _, _, forecasts, target in rows) / len(rows)
+            for pid in engines
+        },
+        by_arm=dict(sorted(by_arm.items())),
+        fallback_events=fallbacks,
+        arm_mismatches=mismatches,
     )
 
 
@@ -1775,6 +1856,7 @@ def cell_facts(cells: Iterable[StratifiedCell], data_root: Path) -> dict[Evaluat
         always_deny = scored.model_copy(
             update={"predicted_disposition": Disposition.denied, "judgment": None}
         )
+        line = scored.context.cert_amicus_line if scored.context is not None else None
         facts[_evaluation_key(evaluation)] = CellFacts(
             band_key=band_key(scored.context),
             link_key=link_key(scored.context),
@@ -1793,6 +1875,8 @@ def cell_facts(cells: Iterable[StratifiedCell], data_root: Path) -> dict[Evaluat
             ),
             clock=cell_clock(scored),
             probability=scored.probability,
+            amicus_arm=line.arm if line is not None and line.rule == AMICUS_LINE_RULE else None,
+            amicus_fallback=line is not None and line.basis == "band-fallback",
         )
     return facts
 

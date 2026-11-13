@@ -1,5 +1,69 @@
 {
   "$defs": {
+    "CertAmicusLine": {
+      "additionalProperties": false,
+      "description": "The amicus-adjusted reference forecast frozen at provisioning for one cert cell.\n\n**Harness-owned.** ``provision-snapshot`` pools it\n(:func:`fedcourtsai.amicus_line.freeze`) for a cert cell whose context froze\na band, a salience version, a Term, a cert-stage amicus count and a cert\nanchor, from the ``metrics/amicus-line.json`` checked out when the cell was\nplaced: the cell's arm of its band's risk set (``none`` for a count of 0,\n``some`` for 1 or more) over the Terms strictly before its own inside the\nanchor's window. The cell reads it in ``record/context.json`` beside the\nanchor. Like the anchor it is a claim until checked: the evaluator stamp\nre-pools it from the fit committed on ``main`` when the cell was placed and\ncopies the rate onto the grading only where it reproduces.",
+      "properties": {
+        "arm": {
+          "description": "The arm the frozen count put the cell in: `none` for 0 cert-stage amicus briefs, `some` for 1 or more",
+          "enum": [
+            "none",
+            "some"
+          ],
+          "title": "Arm",
+          "type": "string"
+        },
+        "arm_resolved": {
+          "description": "Observed (unweighted) resolved rows in that arm's pool, on either basis",
+          "minimum": 0,
+          "title": "Arm Resolved",
+          "type": "integer"
+        },
+        "basis": {
+          "description": "`arm` where the arm's pool held the rule's minimum of observed resolved rows; `band-fallback` where it did not, and `rate` is the cert anchor's band rate",
+          "enum": [
+            "arm",
+            "band-fallback"
+          ],
+          "title": "Basis",
+          "type": "string"
+        },
+        "fit_digest": {
+          "description": "`amicus_line.fit_digest` of the `metrics/amicus-line.json` build the forecast was pooled from (`sha256:` over the parsed fit's canonical JSON)",
+          "title": "Fit Digest",
+          "type": "string"
+        },
+        "rate": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The reference probability of a grant: the arm's pooled rate on the `arm` basis, the anchor's band rate on `band-fallback`. Null only where the fallback applies and the anchor's own rate is null",
+          "title": "Rate"
+        },
+        "rule": {
+          "description": "The registered rule the forecast was pooled under",
+          "title": "Rule",
+          "type": "string"
+        }
+      },
+      "required": [
+        "rule",
+        "rate",
+        "basis",
+        "arm",
+        "arm_resolved",
+        "fit_digest"
+      ],
+      "title": "CertAmicusLine",
+      "type": "object"
+    },
     "CertAnchor": {
       "additionalProperties": false,
       "description": "The cert skill anchor frozen at provisioning: one pool of one statpack build.\n\n**Harness-owned.** ``provision-snapshot`` pools it for a cert cell whose\ncontext froze a band, with the scorer's own pooler\n(:func:`fedcourtsai.pipeline.base_rates.prediction_base_rate`) over the\nfrozen ``(band, salience_version, term)`` and the ``metrics/statpack.json``\nchecked out when the cell was placed. The evaluator stamp reads it in place\nof re-pooling, so a statpack refresh landing between forecast and grading\ndoes not move the baseline the forecast is scored against \u2014 once it has\nchecked the record against harness-side inputs, since the file is reachable\nfrom the cell's workspace: ``statpack_digest`` must name the newest build\ncommitted by the predict cell's run id, ``lookback_terms`` the window\nconfigured at that commit, and ``rate`` what that build pools to.",
@@ -162,7 +226,7 @@
     },
     "PredictionContext": {
       "additionalProperties": false,
-      "description": "The conditioning state a predict cell actually ran against.\n\n**Harness-owned.** Written by ``provision-snapshot`` and copied onto the\nprediction by ``stamp-cell``, exactly like ``process_version`` and\n``usage.json`` \u2014 never the agent's word. Two fields are the stamp's own\nrather than provisioning's: ``snapshot_uptake``, below, and\n``cert_amicus_briefs``, which the stamp reads off the provisioned snapshot\nfile so that no cell is handed it. That matters here more than\nelsewhere: ``input_snapshot`` is the agent's own string and is written\nseveral ways across the committed set, with some cells naming no path at\nall, so it cannot carry a scoring input.\n\nThe agent's string is not *nothing*, though: it is the cell's own account of\nwhich snapshot it read, and where it disagrees with the file the harness\nprovisioned, the block and the cell are describing different information\nsets. ``stamp-cell`` compares them \u2014 both sides normalized to the provisioned\nfile's day \u2014 and records the answer in ``snapshot_uptake``, which is the only\nfield here the cell's word decides.\n\nThat one field reports; it does not mask. What the rest of the block records\nis what **provisioning** derived and offered, which is a fact about the\nrecord whether or not a given cell took it up \u2014 so a reader wanting the\ncell's own information set reads the two together, and every scoring surface\nreads the conditioning exactly as it did before the field existed.\n\nIt exists because the salience band moves. ``distribution_count`` is\nmax-latched and a ``cvsg_date``, once set, stays set, so a petition's band\nonly ever strengthens \u2014 and a band re-derived at evaluation is the band the\npetition *ended* at, not the one the cell faced. Scoring against that\nconditions a forecast's baseline on its own future. Freezing the band here is\nwhat lets the evaluator read the risk-set rate\n(``StatPackTermSegment.prefix_est_grant_rate``), which is the rate a petition\nat this band actually faces.\n\nDerived from the **provisioned snapshot payload**, not from the corpus row.\nThe row holds current values; the payload is what the cell could read, which\nis the thing a baseline has to be conditioned on. It also makes the record\nreproducible \u2014 an auditor re-parses the dated snapshot and recovers the same\nband \u2014 and makes forward and replay cells identical by construction, since\nboth go through the same derivation.",
+      "description": "The conditioning state a predict cell actually ran against.\n\n**Harness-owned.** Written by ``provision-snapshot`` and copied onto the\nprediction by ``stamp-cell``, exactly like ``process_version`` and\n``usage.json`` \u2014 never the agent's word. One field is the stamp's own\nrather than provisioning's, ``snapshot_uptake``, below, and one is written\nby both: ``cert_amicus_briefs``, which provisioning hands the cell and the\nstamp reads again off the provisioned snapshot file, so the committed count\nis the harness's reading whatever ``record/context.json`` held by then.\nHarness ownership matters here more than elsewhere: ``input_snapshot`` is\nthe agent's own string and is written several ways across the committed\nset, with some cells naming no path at all, so it cannot carry a scoring\ninput.\n\nThe agent's string is not *nothing*, though: it is the cell's own account of\nwhich snapshot it read, and where it disagrees with the file the harness\nprovisioned, the block and the cell are describing different information\nsets. ``stamp-cell`` compares them \u2014 both sides normalized to the provisioned\nfile's day \u2014 and records the answer in ``snapshot_uptake``, which is the only\nfield here the cell's word decides.\n\nThat one field reports; it does not mask. What the rest of the block records\nis what **provisioning** derived and offered, which is a fact about the\nrecord whether or not a given cell took it up \u2014 so a reader wanting the\ncell's own information set reads the two together, and every scoring surface\nreads the conditioning exactly as it did before the field existed.\n\nIt exists because the salience band moves. ``distribution_count`` is\nmax-latched and a ``cvsg_date``, once set, stays set, so a petition's band\nonly ever strengthens \u2014 and a band re-derived at evaluation is the band the\npetition *ended* at, not the one the cell faced. Scoring against that\nconditions a forecast's baseline on its own future. Freezing the band here is\nwhat lets the evaluator read the risk-set rate\n(``StatPackTermSegment.prefix_est_grant_rate``), which is the rate a petition\nat this band actually faces.\n\nDerived from the **provisioned snapshot payload**, not from the corpus row.\nThe row holds current values; the payload is what the cell could read, which\nis the thing a baseline has to be conditioned on. It also makes the record\nreproducible \u2014 an auditor re-parses the dated snapshot and recovers the same\nband \u2014 and makes forward and replay cells identical by construction, since\nboth go through the same derivation.",
       "properties": {
         "amicus_briefs": {
           "anyOf": [
@@ -216,8 +280,20 @@
             }
           ],
           "default": null,
-          "description": "Cert-stage amicus briefs the provisioned snapshot's entries recorded: the cert reading (`pipeline.cert_amicus.cert_amicus_briefs`: accepted-form entries plus each distinct lead filer still docketed as submitted, less the Court's orders on amicus motions, before the first disposition entry) over the entries the cell's own cut kept, an undated entry left out where the cell was placed at a cutoff. **Written by `stamp-cell`, never by provisioning**: `record/context.json` carries it null, so no cell is handed the count, and the stamp reads it off the provisioned snapshot file after the agent has finished. That file sits in the cell's workspace, as `record/context.json` does, so the count rests on the same trust boundary as the rest of this block. On a Term-form docket only (an application's own count is `amicus_briefs`, under the interim reading); null where the snapshot disclosed no proceedings, where the stamp found no snapshot file to read, and on every prediction stamped before the field existed. Not masked by `snapshot_uptake`: like the signals above it is a fact about the provisioned record. Never re-derived from a later record. Read by no scored figure",
+          "description": "Cert-stage amicus briefs the provisioned snapshot's entries recorded: the cert reading (`pipeline.cert_amicus.cert_amicus_briefs`: accepted-form entries plus each distinct lead filer still docketed as submitted, less the Court's orders on amicus motions, before the first disposition entry) over the entries the cell's own cut kept, an undated entry left out where the cell was placed at a cutoff. Written by provisioning into `record/context.json`, where the cell reads it, and again by `stamp-cell` off the provisioned snapshot file after the agent has finished, so the committed value is the stamp's reading. That file sits in the cell's workspace, as `record/context.json` does, so the count rests on the same trust boundary as the rest of this block. On a Term-form docket only (an application's own count is `amicus_briefs`, under the interim reading); null where the snapshot disclosed no proceedings, where the stamp found no snapshot file to read, and on every prediction stamped before the field existed. A prediction placed before `cert_amicus_line` existed carries the count from the stamp alone: its cell was not handed it. Not masked by `snapshot_uptake`: like the signals above it is a fact about the provisioned record. Never re-derived from a later record. Picks the arm of `cert_amicus_line`",
           "title": "Cert Amicus Briefs"
+        },
+        "cert_amicus_line": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CertAmicusLine"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The amicus-adjusted reference forecast pooled when the cell was placed (see CertAmicusLine): the cell's arm of its band's risk set, from the `metrics/amicus-line.json` then checked out, under the cert anchor's window. Handed to the cell beside `cert_anchor`. A cert grading copies its rate to `amicus_line_rate` only where it re-pools from the fit committed when the cell was placed. Null on a cell of any other stage, on a cert cell with no frozen anchor, Term, salience version or amicus count, where no fit file was readable at provisioning, and on cells placed before the record"
         },
         "cert_anchor": {
           "anyOf": [

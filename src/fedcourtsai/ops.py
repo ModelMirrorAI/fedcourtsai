@@ -1363,6 +1363,32 @@ def _engine_mean_line(paired: PairedEvents) -> list[str]:
     return ["", line]
 
 
+def _amicus_line_line(paired: PairedEvents) -> list[str]:
+    """The amicus-adjusted reference under the forward table, read against the band rate.
+
+    Per-event Briers over the line's own events: the line, the unsplit band
+    rate it splits, and each engine's own.
+    """
+    ref = paired.amicus_line
+    if ref is None:
+        return []
+    arms = ", ".join(f"{count:,} `{arm}`" for arm, count in ref.by_arm.items())
+    engines = ", ".join(
+        f"`{_cell(pid)}` {_brier(ref.engine_brier[pid])}" for pid in sorted(ref.engine_brier)
+    )
+    line = (
+        "Reference, not a predictor and never ranked: the band rate split on a "
+        f"cert-stage amicus brief (`{ref.rule}`) scores a per-event Brier of "
+        f"**{_brier(ref.brier)}** over {ref.events:,} of {paired.events:,} paired event(s) "
+        f"({ref.grants} granted; {arms}), against {_brier(ref.band_brier)} for the unsplit "
+        f"band rate on the same events. Per event over the same events: {engines}. "
+        f"{ref.fallback_events:,} event(s) read the band rate as a fallback and "
+        f"{ref.arm_mismatches:,} had engines' cells in different arms. The engines are "
+        "handed this rate before they forecast, so a gap is what an engine adds beyond it."
+    )
+    return ["", line]
+
+
 def _left_out_line(board: Leaderboard) -> list[str]:
     """What the build dropped before any figure above was taken, stage-blind."""
     left_out = []
@@ -1448,6 +1474,7 @@ def _forward_lines(vintaged: Vintaged[Leaderboard]) -> list[str]:
         *[_forward_row(p, by_engine[p]) for p in order],
     ]
     lines += _engine_mean_line(paired)
+    lines += _amicus_line_line(paired)
     unranked = [
         e.predictor_id
         for e in board.entries

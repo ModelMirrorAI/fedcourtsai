@@ -122,12 +122,12 @@ def cert_amicus_briefs_before(entries: Sequence[tuple[str, str | None]], cutoff:
     (:func:`~fedcourtsai.pipeline.cert_signals.entry_date`) falls before
     ``cutoff``. An entry dated on the cutoff day is out, as it is out of a
     cell's snapshot cut at that day, and an undated entry is out because no
-    date places it before the cutoff. ``stamp-cell`` freezes this count on a
-    cert prediction placed at a cutoff
-    (:func:`~fedcourtsai.pipeline.cell_context.stamped_cert_amicus_briefs`),
-    reading the provisioned snapshot after the agent has finished. It is not
-    in ``record/context.json``, which the cell reads: handing a cell the count
-    is a process change under its own re-bless.
+    date places it before the cutoff. A cert cell placed at a cutoff freezes
+    this count
+    (:func:`~fedcourtsai.pipeline.cell_context.snapshot_cert_amicus_briefs`):
+    provisioning writes it to ``record/context.json``, which the cell reads,
+    and ``stamp-cell`` reads the provisioned snapshot again after the agent has
+    finished.
     """
     kept = [
         text

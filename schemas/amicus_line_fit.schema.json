@@ -1,0 +1,116 @@
+{
+  "$defs": {
+    "AmicusLineCell": {
+      "additionalProperties": false,
+      "description": "One Term's risk set for one band under one salience version, cut on the amicus count.",
+      "properties": {
+        "band": {
+          "description": "The band whose risk set this is: every row that reached it",
+          "title": "Band",
+          "type": "string"
+        },
+        "none_resolved": {
+          "description": "Resolved rows in the risk set whose stored count is 0 (raw count)",
+          "minimum": 0,
+          "title": "None Resolved",
+          "type": "integer"
+        },
+        "none_weighted_grants": {
+          "description": "The grant-family rows among them, on the same weights",
+          "minimum": 0,
+          "title": "None Weighted Grants",
+          "type": "integer"
+        },
+        "none_weighted_resolved": {
+          "description": "The same rows, each counted `sample_weight` times",
+          "minimum": 0,
+          "title": "None Weighted Resolved",
+          "type": "integer"
+        },
+        "salience_version": {
+          "description": "The scorer whose bands the risk set is under",
+          "title": "Salience Version",
+          "type": "string"
+        },
+        "some_resolved": {
+          "description": "Resolved rows in the risk set whose stored count is 1 or more",
+          "minimum": 0,
+          "title": "Some Resolved",
+          "type": "integer"
+        },
+        "some_weighted_grants": {
+          "description": "The grant-family rows among them, on the same weights",
+          "minimum": 0,
+          "title": "Some Weighted Grants",
+          "type": "integer"
+        },
+        "some_weighted_resolved": {
+          "description": "The same rows, each counted `sample_weight` times",
+          "minimum": 0,
+          "title": "Some Weighted Resolved",
+          "type": "integer"
+        },
+        "term": {
+          "description": "The October-Term year of the rows' docket numbers",
+          "title": "Term",
+          "type": "integer"
+        },
+        "unread_resolved": {
+          "description": "Resolved rows in the risk set whose stored count is NULL: in neither arm. With the two arms' raw counts it sums to the statpack segment's `prefix_resolved`",
+          "minimum": 0,
+          "title": "Unread Resolved",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "term",
+        "salience_version",
+        "band",
+        "none_resolved",
+        "none_weighted_resolved",
+        "none_weighted_grants",
+        "some_resolved",
+        "some_weighted_resolved",
+        "some_weighted_grants",
+        "unread_resolved"
+      ],
+      "title": "AmicusLineCell",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The committed fit, ``metrics/amicus-line.json``: every risk set, cut on the count.\n\nWritten by ``fedcourts statpack`` from the corpus read that builds the\nstatpack, under every registered salience version. Carries no build\ntimestamp, so two builds share a ``fedcourtsai.amicus_line.fit_digest`` exactly when every count\nagrees. A replay self-selection surface like the statpack's per-Term table:\na cell pools only Terms strictly before its own.",
+  "properties": {
+    "cells": {
+      "description": "One row per Term, salience version and band: recent Term first, then version, then the scorer's band order",
+      "items": {
+        "$ref": "#/$defs/AmicusLineCell"
+      },
+      "title": "Cells",
+      "type": "array"
+    },
+    "min_resolved": {
+      "description": "Observed resolved rows an arm's pool must hold before a forecast uses its rate",
+      "minimum": 0,
+      "title": "Min Resolved",
+      "type": "integer"
+    },
+    "rule": {
+      "description": "The registered rule whose fit this is",
+      "title": "Rule",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "rule",
+    "min_resolved"
+  ],
+  "title": "AmicusLineFit",
+  "type": "object"
+}

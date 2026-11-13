@@ -7,7 +7,7 @@ from typing import Any
 import pytest
 from typer.testing import CliRunner, Result
 
-from fedcourtsai import casestore, corpus, provision
+from fedcourtsai import amicus_line, casestore, corpus, provision
 from fedcourtsai.cli import app
 from fedcourtsai.collect import ForwardRefusal
 from fedcourtsai.paths import CasePaths
@@ -18,6 +18,8 @@ from fedcourtsai.pipeline.lineup import WritingKind
 from fedcourtsai.pipeline.salience import SALIENCE_VERSION
 from fedcourtsai.provision import stage_writings
 from fedcourtsai.schemas import (
+    AmicusLineCell,
+    AmicusLineFit,
     BaseRateBucket,
     EventKind,
     Moment,
@@ -3651,6 +3653,62 @@ def test_a_cert_cell_freezes_its_anchor_against_the_statpack_in_force(
         "lookback_terms": 10,  # config/tracking.yaml
     }
     assert context["statpack_digest"] == statpack_digest(pack)
+
+
+def test_a_cert_cell_freezes_its_amicus_line_from_the_fit_beside_the_statpack(
+    fixture_corpus: FixtureCorpus, tmp_path: Path
+) -> None:
+    """The count and the reference forecast it picks are in `record/context.json`,
+    pooled from the committed fit under the anchor's window and named by build."""
+    write_json(tmp_path / "metrics" / "statpack.json", _anchor_statpack(0.18))
+    fit = AmicusLineFit(
+        rule=amicus_line.AMICUS_LINE_RULE,
+        min_resolved=amicus_line.AMICUS_LINE_MIN_RESOLVED,
+        cells=[
+            AmicusLineCell(
+                term=2023,
+                salience_version=SALIENCE_VERSION,
+                band="high",
+                none_resolved=40,
+                none_weighted_resolved=40,
+                none_weighted_grants=4,
+                some_resolved=5,
+                some_weighted_resolved=5,
+                some_weighted_grants=5,
+                unread_resolved=0,
+            )
+        ],
+    )
+    write_json(tmp_path / "metrics" / "amicus-line.json", fit)
+
+    _, context = _provision_event(fixture_corpus, "evt-petition-disposition", tmp_path / "metrics")
+
+    count = context["cert_amicus_briefs"]
+    assert isinstance(count, int)
+    expected = (
+        {"arm": "none", "basis": "arm", "rate": pytest.approx(0.1), "arm_resolved": 40}
+        if count == 0
+        # The thin arm falls back to the anchor's band rate.
+        else {"arm": "some", "basis": "band-fallback", "rate": pytest.approx(0.18)}
+        | {"arm_resolved": 5}
+    )
+    assert context["cert_amicus_line"] == expected | {
+        "rule": amicus_line.AMICUS_LINE_RULE,
+        "fit_digest": amicus_line.fit_digest(fit),
+    }
+
+
+def test_a_cert_cell_with_no_fit_file_freezes_its_count_and_no_line(
+    fixture_corpus: FixtureCorpus, tmp_path: Path
+) -> None:
+    write_json(tmp_path / "metrics" / "statpack.json", _anchor_statpack(0.18))
+    (tmp_path / "metrics" / "amicus-line.json").write_text("not a fit")
+
+    _, context = _provision_event(fixture_corpus, "evt-petition-disposition", tmp_path / "metrics")
+
+    assert context["cert_anchor"] is not None
+    assert isinstance(context["cert_amicus_briefs"], int)
+    assert context["cert_amicus_line"] is None
 
 
 def test_a_cert_cell_with_no_readable_statpack_freezes_no_anchor_out_loud(

@@ -42,7 +42,7 @@ from typing import Any, Literal
 
 import yaml
 
-from . import casestore
+from . import amicus_line, casestore
 from .config import load_salience_config
 from .corpus import CaseDocument, CorpusEvent, CorpusRow, ReadConnection, VidedCompanion
 from .paths import CasePaths
@@ -78,6 +78,7 @@ from .pipeline.opinion_record import StoredText
 from .pipeline.vide_links import MAX_RELATED_DOCKETS, VIDE_RELATION, related_file_number
 from .pipeline.vided import VIDED_AMICUS_RELATION
 from .schemas import (
+    AmicusLineFit,
     ArgumentFeatures,
     AuthorshipTally,
     Moment,
@@ -1262,6 +1263,10 @@ class AnchorPool:
 
     statpack: StatPack
     lookback_terms: int
+    amicus_fit: AmicusLineFit | None = None
+    """The committed ``metrics/amicus-line.json`` read beside the statpack, which
+    the cell's amicus-adjusted reference forecast is frozen from; ``None`` where
+    the file is absent or does not parse, and the cell carries no line."""
 
     @property
     def digest(self) -> str:
@@ -1274,7 +1279,9 @@ def read_anchor_pool(metrics_root: Path, config_root: Path) -> AnchorPool | None
 
     ``None`` where ``metrics_root/statpack.json`` is absent or does not parse
     as the current :class:`~fedcourtsai.schemas.StatPack`: the cell then
-    carries no frozen anchor, and its grading pools at stamp time.
+    carries no frozen anchor, and its grading pools at stamp time. The
+    amicus-line fit beside it (``amicus-line.json``) is read into the same pool
+    where it parses.
     """
     path = metrics_root / "statpack.json"
     if not path.is_file():
@@ -1284,7 +1291,12 @@ def read_anchor_pool(metrics_root: Path, config_root: Path) -> AnchorPool | None
     except (OSError, ValueError):
         return None
     lookback = load_salience_config(config_root).base_rate_lookback_terms
-    return AnchorPool(statpack=statpack, lookback_terms=lookback)
+    fit_path = metrics_root / "amicus-line.json"
+    try:
+        amicus_fit = amicus_line.parse_fit(fit_path.read_text()) if fit_path.is_file() else None
+    except OSError:
+        amicus_fit = None
+    return AnchorPool(statpack=statpack, lookback_terms=lookback, amicus_fit=amicus_fit)
 
 
 def freezes_cert_anchor(event_file: Path, event_id: str) -> bool:
@@ -1387,7 +1399,9 @@ def write_cell_record(  # noqa: PLR0913 - one record, each optional part a keywo
     ``context.json`` (``cert_anchor``, :func:`fedcourtsai.pipeline.base_rates.freeze_cert_anchor`)
     over the band the context froze, so the grading reads the pool of the build
     in force when the forecast was placed. Without it, or over a context that
-    froze no band, ``cert_anchor`` is null.
+    froze no band, ``cert_anchor`` is null. Where the pool also carries the
+    committed amicus-line fit, the cell's amicus-adjusted reference forecast is
+    frozen beside it (``cert_amicus_line``, :func:`fedcourtsai.amicus_line.freeze`).
 
     ``statpack_digest``, given for a predict cell of any stage, records which
     ``metrics/statpack.json`` build the cell was placed against
@@ -1441,15 +1455,30 @@ def write_cell_record(  # noqa: PLR0913 - one record, each optional part a keywo
         decided_before=decided_before,
         sg_counsel_of_record_for_petitioner=sg_counsel_of_record_for_petitioner,
     )
+    # The cert anchor is pooled over the band just frozen and the statpack the
+    # caller read, so the grading scores against the build in force now. The
+    # amicus-adjusted reference forecast is pooled from the fit read beside
+    # that statpack, under the anchor's own rate and window.
+    cert_anchor = (
+        None
+        if anchor_pool is None
+        else base_rates.freeze_cert_anchor(
+            context, anchor_pool.statpack, lookback_terms=anchor_pool.lookback_terms
+        )
+    )
+    cert_amicus_line = (
+        None
+        if anchor_pool is None or anchor_pool.amicus_fit is None
+        else amicus_line.freeze(context, anchor_pool.amicus_fit, cert_anchor)
+    )
     write_raw_json(
         paths.cell_context,
         # The fields not read off the payload. The scrub above ran over a
         # copy of it, so only this writer can say what it withheld — stated
         # beside the trigger it keyed on, so a snapshot with no placeholder
         # reads as scrubbed and clean or as never scrubbed, not as either. The
-        # cert anchor is pooled over the band just frozen and the statpack the
-        # caller read, so the grading scores against the build in force now;
-        # the statpack digest names that build on every stage, for the judge.
+        # statpack digest names the build the caller read on every stage, for
+        # the judge.
         context.model_copy(
             update={
                 "snapshot_contact_scrub": SnapshotContactScrub(
@@ -1457,13 +1486,8 @@ def write_cell_record(  # noqa: PLR0913 - one record, each optional part a keywo
                     blocks=0 if snapshot_scrub is None else snapshot_scrub.blocks,
                     fields=0 if snapshot_scrub is None else snapshot_scrub.fields,
                 ),
-                "cert_anchor": (
-                    None
-                    if anchor_pool is None
-                    else base_rates.freeze_cert_anchor(
-                        context, anchor_pool.statpack, lookback_terms=anchor_pool.lookback_terms
-                    )
-                ),
+                "cert_anchor": cert_anchor,
+                "cert_amicus_line": cert_amicus_line,
                 "statpack_digest": statpack_digest,
             }
         ).model_dump(mode="json"),

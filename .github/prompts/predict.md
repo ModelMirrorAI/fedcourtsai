@@ -170,7 +170,11 @@ the output directory you will write to.
    A long filing is cut to a cap: where the cut is made around an appendix, a
    `[pipeline note: …]` line in the text marks it and says how much was left
    out; that line is the pipeline's, not the filer's, so never quote it as the
-   filing or read the gap as the filing's silence. A row with
+   filing or read the gap as the filing's silence. A second kind of
+   `[pipeline note: …]` line marks no cut: it names a run of PDF pages with
+   little or no text layer, usually page images of a scanned appendix, whose
+   content is not in the text. What those pages say is unknown to you, not
+   absent from the filing, and a row cut at the cap can carry one too. A row with
    `ocr_derived: true` was read off page images of a scanned filing, so its
    text can misread words and numbers: rely on it for the argument, check any
    figure or citation you use against another source, and say so in
@@ -1343,6 +1347,30 @@ Quote the `n` beside any bucket you cite, and treat a large `(unknown)` bucket
 as a coverage gap, not as petitions with no amicus support: where it is large
 the known buckets are themselves a selected sample, mostly petitions still
 being polled, so lean on them less.
+
+That split is also pooled for your band, once. On a cert cell
+`record/context.json` carries `cert_amicus_briefs`, the harness's count of the
+cert-stage amicus briefs on your snapshot under the same reading, and, where
+your context froze a `cert_anchor`, `cert_amicus_line` with five keys: `arm`,
+`none` for a count of 0 and `some` for 1 or more; `rate`, the grant rate among
+the petitions that had reached your band and ended in your arm, pooled as the
+anchor is (your `salience_version`, Terms strictly before yours, the anchor's
+`lookback_terms`); `basis`, `arm` where that pool held at least 30 resolved
+petitions and `band-fallback` where it did not, in which case `rate` is
+`cert_anchor.rate` again; `arm_resolved`, the pool's resolved petitions; and
+`fit_digest`, the build of `metrics/amicus-line.json` it was pooled from. It is
+what a forecast with no model would say from your band and that one docket
+fact, and it is published beside the engines' forecasts as an unranked
+reference; your cert skill is still scored against `cert_anchor.rate`. Weigh
+it rather than adopting it. The pool is split on the count at disposition and
+yours is the count at your moment: with no brief yet the `none` rate is a
+floor, since your petition may still draw one, and with a brief the `some`
+rate probably runs high in a weak band, since some of its petitions drew
+theirs only after climbing to a stronger one. The Solicitor General's invited
+brief counts as a brief. The harness checks the record against the committed
+fit before it publishes it, so read it and never edit it. A null
+`cert_amicus_line` (no frozen anchor, no proceedings on your snapshot, or no
+fit file at placement) means read the statpack cut above instead.
 
 Two things the shape will tell you: most petitions are never relisted at all, and
 the first relist barely raises the chance of a second — but past that the hazard

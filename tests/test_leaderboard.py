@@ -2,7 +2,7 @@
 
 import itertools
 import json
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
@@ -13,6 +13,7 @@ from pydantic import ValidationError
 from typer.testing import CliRunner
 
 from fedcourtsai import process_version, voids
+from fedcourtsai.amicus_line import AMICUS_LINE_RULE
 from fedcourtsai.cli import app
 from fedcourtsai.integrity import (
     FORWARD,
@@ -4397,6 +4398,110 @@ def test_the_engine_mean_scores_the_mean_forecast_per_event_beside_each_engine()
     }
     # It can beat the best engine; it can never be worse than the engines' average.
     assert mean.brier <= sum(mean.engine_brier.values()) / 2
+
+
+def _line_cells(
+    rows: Sequence[tuple[str, str, float, int, float | None, str | None, timedelta]],
+    *,
+    fallback: Collection[str] = (),
+) -> tuple[list[Cell], dict[Any, CellFacts]]:
+    """Forward cert cells for the amicus line: (engine, event, probability, target,
+    stamped line rate, frozen arm, clock offset), each with a 10% risk-set band rate."""
+    cells: list[Cell] = []
+    facts: dict[Any, CellFacts] = {}
+    for pid, event, probability, target, rate, arm, offset in rows:
+        ev = _evaluation(
+            pid,
+            event_id=event,
+            amicus_line_rate=rate,
+            segment_base_rate=0.1,
+            base_rate_basis="risk_set",
+        )
+        cells.append(_forward(ev))
+        facts[_evaluation_key(ev)] = CellFacts(
+            clock=_CLOCK + offset,
+            band_key="sal-v1/high",
+            always_deny_correct=1 - target,
+            recomputed_correct=ev.correct or 0,
+            grant_family=bool(target),
+            granted=target,
+            brier_reproduces=True,
+            probability=probability,
+            amicus_arm=arm,
+            amicus_fallback=event in fallback,
+        )
+    return cells, facts
+
+
+_NOW = timedelta(0)
+_LATER = timedelta(hours=1)
+
+
+def test_the_amicus_line_scores_each_events_earliest_cell_beside_band_and_engines() -> None:
+    # evt-0 granted: beta ran first, with a brief on the docket (`some`, 0.4);
+    # alpha ran later in the same arm. evt-1 denied, both `none` (0.02).
+    cells, facts = _line_cells(
+        [
+            ("alpha", "evt-0", 0.8, 1, 0.5, "some", _LATER),
+            ("beta", "evt-0", 0.4, 1, 0.4, "some", _NOW),
+            ("alpha", "evt-1", 0.1, 0, 0.02, "none", _NOW),
+            ("beta", "evt-1", 0.3, 0, 0.02, "none", _LATER),
+        ]
+    )
+    paired = build_leaderboard(cells, facts=facts).paired
+    assert paired is not None and paired.amicus_line is not None
+    line = paired.amicus_line
+    assert line.rule == AMICUS_LINE_RULE
+    assert (line.events, line.left_out, line.grants) == (2, 0, 1)
+    assert line.grants_forecast == pytest.approx(0.42)
+    assert line.brier == pytest.approx((0.6**2 + 0.02**2) / 2)
+    assert line.band_brier == pytest.approx((0.9**2 + 0.1**2) / 2)
+    assert line.engine_brier == {
+        "alpha": pytest.approx((0.04 + 0.01) / 2),
+        "beta": pytest.approx((0.36 + 0.09) / 2),
+    }
+    assert line.by_arm == {"none": 1, "some": 1}
+    assert (line.fallback_events, line.arm_mismatches) == (0, 0)
+    assert "amicus_line" in paired.model_dump(mode="json")
+
+
+def test_the_amicus_line_counts_fallbacks_and_arm_mismatches() -> None:
+    cells, facts = _line_cells(
+        [
+            ("alpha", "evt-0", 0.8, 1, 0.1, "none", _NOW),
+            ("beta", "evt-0", 0.4, 1, 0.4, "some", _LATER),
+        ],
+        fallback={"evt-0"},
+    )
+    paired = build_leaderboard(cells, facts=facts).paired
+    assert paired is not None and paired.amicus_line is not None
+    line = paired.amicus_line
+    # The earliest cell's arm and rate stand for the event.
+    assert line.by_arm == {"none": 1}
+    assert line.grants_forecast == pytest.approx(0.1)
+    assert (line.fallback_events, line.arm_mismatches) == (1, 1)
+
+
+def test_the_amicus_line_leaves_out_an_event_a_cell_carries_no_stamped_rate_on() -> None:
+    cells, facts = _line_cells(
+        [
+            ("alpha", "evt-0", 0.8, 1, 0.4, "some", _NOW),
+            ("beta", "evt-0", 0.4, 1, 0.4, "some", _LATER),
+            # beta's cell on evt-1 froze a line the stamp did not verify.
+            ("alpha", "evt-1", 0.1, 0, 0.02, "none", _NOW),
+            ("beta", "evt-1", 0.3, 0, None, "none", _LATER),
+        ]
+    )
+    paired = build_leaderboard(cells, facts=facts).paired
+    assert paired is not None and paired.amicus_line is not None
+    assert (paired.events, paired.amicus_line.events, paired.amicus_line.left_out) == (2, 1, 1)
+
+
+def test_no_amicus_line_while_no_event_carries_one() -> None:
+    cells, facts = _engine_cells({"alpha": [0.8, 0.1], "beta": [0.4, 0.3]}, [1, 0])
+    paired = build_leaderboard(cells, facts=facts).paired
+    assert paired is not None and paired.amicus_line is None
+    assert "amicus_line" not in paired.model_dump(mode="json")
 
 
 def test_the_engine_mean_takes_each_engine_once_however_deep_its_panel() -> None:

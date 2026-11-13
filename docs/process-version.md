@@ -327,13 +327,13 @@ prompt bytes and the resolved registry config are what it hashes. The restraint
 is the point: degrading the block instead would have moved a scored number,
 which is what would have put this in the freeze record.
 
-`context.cert_amicus_briefs` is the stamp's other field in that block and
-sits on the same footing. The stamp counts the cert-stage amicus briefs in the
-provisioned snapshot file and writes the count onto the prediction;
-provisioning never writes it, so `record/context.json` carries it null and no
-cell's information set gains a count. No scoring surface reads it and no
-digest moves. The reference line that will read it is registered in the freeze
-record as a reading rule.
+`context.cert_amicus_briefs` is a different case: provisioning writes the
+cert-stage amicus count into `record/context.json` with the reference forecast
+it picks (`cert_amicus_line`), the prompt tells a cert cell to read both, and
+so the cell's information set carries them under the label that registered
+that prompt. The stamp reads the count again from the provisioned snapshot
+file and writes its own reading onto the prediction, which moves nothing a
+cell saw.
 
 `context.statpack_digest` sits on the same footing, though provisioning
 writes it rather than the stamp, which only copies it on. Provisioning records on

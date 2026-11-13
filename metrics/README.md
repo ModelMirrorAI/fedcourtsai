@@ -1028,34 +1028,51 @@ stays outside the gate:
   response beyond its relist rule, so skill over the anchor is not skill over
   every fact on the docket.
 
-  A second no-model forecast is **registered and not yet computed**: the band
-  rate split on whether an amicus brief had reached the docket at the cert
-  stage (`amicus-line-v1`, `src/fedcourtsai/amicus_line.py`). A cert
-  prediction freezes that count as `context.cert_amicus_briefs`, written by
-  the stamp from the provisioned snapshot and never handed to a cell. The
-  line's forecast for a cell is its arm's grant rate (`none`, or `some` for
-  one or more briefs) over the band's risk set in the Terms strictly before
-  the cell's docket Term, inside the lookback window the cell's anchor froze,
-  falling back to the band rate where the arm's pool holds fewer than 30
-  observed resolved petitions. `uv run fedcourts amicus-line-fit --before-term <Term>` prints
-  the fit and each arm's pool from the corpus. No board carries the line.
-  Once one does, it is a reference and takes no rank; each engine's per-event
-  Brier is read against it on the line's own events, beside the Brier of the
-  band rate from the same fit (both arms pooled) and of the frozen band
-  anchors over the same events; it is quoted with its events, grants,
-  fallback count and the events it left out; and it describes only forecasts
-  that froze the count, never an earlier one read against the corpus's
-  current count. The line against the same fit's band rate says whether this
-  split, as approximated, beat the band rate there; a loss is not evidence
-  that amicus filings carry no signal. The fit conditions on the count at the
-  petition's disposition while a forecast reads it at its snapshot: the
-  `none` rate is a floor for a cell that may yet draw a brief, and in a weak
-  band the `some` rate is probably a ceiling, since its pool also holds
-  petitions whose first brief arrived after they had climbed. The Solicitor
-  General's invited
-  brief counts as an amicus brief, so a petition awaiting that brief with no
-  other is in the `none` arm while nearly every resolved CVSG petition in the
-  fit is in `some`.
+  A second no-model forecast is the **amicus-adjusted reference line**
+  (`amicus_line` on a cert population's paired figure; rule `amicus-line-v2`,
+  `src/fedcourtsai/amicus_line.py`): the band rate split on whether an amicus
+  brief had reached the docket at the cert stage. Its fit is the committed
+  `metrics/amicus-line.json`, which `fedcourts statpack` writes beside the
+  statpack from the same corpus read: each band's per-Term risk set cut into
+  `none` (no cert-stage amicus brief at disposition) and `some` (one or
+  more). Provisioning counts the briefs on a cert cell's snapshot
+  (`context.cert_amicus_briefs`) and freezes the cell's forecast
+  (`context.cert_amicus_line`): its arm's grant rate over the Terms strictly
+  before its docket Term, inside the window its anchor froze, falling back to
+  the anchor's band rate where the arm's pool holds fewer than 30 observed
+  resolved petitions. **The cell reads both**, in `record/context.json`
+  beside its anchor. The evaluator stamp copies the rate to the grading's
+  `amicus_line_rate` only where it re-pools from the fit committed on `main`
+  when the cell was placed, and the board reads that stamped rate.
+
+  Reading rule. The line is a reference and takes no rank. An event's
+  forecast is that of its earliest qualifying cell by harness clock, the cell
+  its band is filed under; an event enters only where every paired engine's
+  qualifying gradings carry a stamped rate, and the rest are counted in
+  `left_out`. Each engine's per-event Brier (`engine_brier`) is read against
+  the line's (`brier`) on the line's own `events`, beside `band_brier`, the
+  frozen band anchors scored on the same events: the line against
+  `band_brier` says whether this split, as approximated, beat the band rate
+  there, and a loss is not evidence that amicus filings carry no signal.
+  Because the engines are handed the rate before they forecast, an engine's
+  gap to the line measures what it adds beyond the line, never whether it
+  would have found the amicus signal unaided. Quote the line with its
+  `events`, `grants`, `fallback_events` (events whose forecast is the band
+  rate, where the two Briers share a term), `arm_mismatches` and `left_out`.
+  It describes only forecasts whose cells froze the line; it is never
+  extended to an earlier forecast by reading the corpus's current count. The
+  fit conditions on the count at the petition's disposition while a cell
+  reads it at its snapshot: the `none` rate is a floor for a cell that may
+  yet draw a brief, and in a weak band the `some` rate is probably a ceiling,
+  since its pool also holds petitions whose first brief arrived after they
+  had climbed. The Solicitor General's invited brief counts as an amicus
+  brief, so a petition awaiting that brief with no other is in the `none` arm
+  while nearly every resolved CVSG petition in the fit is in `some`. A row
+  the live channel has not read since the count was stored is in neither arm
+  (`unread_resolved` in the fit), while the band anchor pools it, so the two
+  arms need not average to the anchor. `uv run fedcourts amicus-line-fit
+  --before-term <Term>` prints the same fit read live off the corpus, with
+  each arm's pool.
 
   Eight of these fields are cert-only, null off the cert stage (where
   `denied` is not the null call): the two floors (`always_deny_accuracy`,

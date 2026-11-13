@@ -20056,3 +20056,139 @@ freeze commit is recorded here.
   - on `main` once the promotion has merged, `uv run python -c "from
     fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
     print('unread-page-runs' in {b.name for b in H})"` prints `True`.
+
+- **Cert cells are handed their cert-stage amicus count and the
+  amicus-adjusted reference forecast, and the line reads the frozen forecast
+  (`amicus-line-v2`); recorded 2026-11-13.** A change to what a cert cell is
+  given and a re-registration of the reference line's rule, made before the
+  line was computed on any forward event. `amicus-line-v1` is superseded
+  with no event ever read under it and no board ever carrying it.
+
+  **Why.** `amicus-line-v1` kept the count out of every file a cell reads, so
+  that the engine-against-line gap would say whether engines find the amicus
+  signal unaided. The maintainer chose on 2026-11-13 to hand cells the count
+  and the rate instead, as they are already handed their band's rate
+  (`cert_anchor`), because it may improve the forecasts. The line then
+  answers a different question, stated in the reading rule below.
+
+  **What a cert cell is newly given.**
+  - *The count.* Provisioning writes `cert_amicus_briefs` into
+    `record/context.json`: the cert reading (`pipeline.cert_amicus`) over
+    the snapshot it places, on a Term-form docket whose snapshot disclosed
+    proceedings, strictly before the cutoff where the cell was placed at
+    one. `stamp-cell` still reads the count again off the provisioned
+    snapshot file after the agent has finished and writes its own reading
+    onto the prediction, null where there is no file to read.
+  - *The forecast.* Where the cell froze a cert anchor and a count, and
+    `metrics/amicus-line.json` is readable, provisioning writes
+    `cert_amicus_line` beside the anchor: `rule`, `rate`, `basis`, `arm`,
+    `arm_resolved` and `fit_digest`.
+  - *The prompt.* The predict prompt's cert-stage section describes both
+    fields, says the rate is a reference and that cert skill is still scored
+    against `cert_anchor.rate`, and states the two timing approximations
+    below. The three predictor digests move with it.
+  - *The fit file.* `metrics/amicus-line.json` sits in the tree a cell runs
+    in, with every band's per-Term risk set under every registered salience
+    version. It is a replay self-selection surface on the statpack's own
+    contract: a cell pools only Terms strictly before its own.
+
+  **The rule, `amicus-line-v2`** (`src/fedcourtsai/amicus_line.py`). The
+  split, the fit's population and weights, the pool, the minimum of 30
+  observed resolved rows and the fallback to `cert_anchor.rate` are
+  `amicus-line-v1`'s, unchanged. What changes:
+  - *The fit is committed and frozen per cell.* `fedcourts statpack` writes
+    `metrics/amicus-line.json` beside the statpack from the same corpus
+    read. A cell's forecast is pooled once, at provisioning, from the build
+    then checked out, under its anchor's rate and window, and is named by
+    that build's digest. A later correction to a prior Term's rows no longer
+    moves the line for a cell already placed.
+  - *The frozen forecast is a claim until checked.* `record/context.json` is
+    reachable from the cell's workspace. The evaluator stamp copies the rate
+    to the grading's `amicus_line_rate` only where the cert anchor beside it
+    verified and the forecast re-pools, with its arm, basis and pool size,
+    from a fit committed on `main` in force at the predict cell's run id (or
+    the build that one replaced inside the checkout slack). A forecast that
+    does not verify is left null with a warning, and its event is left out.
+  - *The event's forecast.* On a paired cert event the line is the stamped
+    rate of the event's earliest qualifying grading by harness clock, the
+    cell the paired figure files the event's band under. An event enters
+    only where every paired engine's every qualifying grading carries
+    outcome facts and a stamped rate under this rule, and that earliest
+    grading a risk-set `segment_base_rate`. Events left out
+    (`left_out`), events whose engines' cells froze different arms
+    (`arm_mismatches`) and events forecast on the fallback
+    (`fallback_events`) are counted beside the figure.
+  - *The comparator.* `band_brier` scores the frozen band anchor of that
+    same earliest grading on the same events. The fit and the anchor are now
+    one vintage, written by one command from one corpus read, so the frozen
+    anchor replaces v1's band rate re-pooled from the fit. They differ by
+    the fit's unread rows, which the anchor pools and neither arm holds.
+
+  **The reading rule** (`metrics/README.md`, beside the no-model forecast).
+  - **A reference, never a predictor.** It takes no rank and no headline.
+  - **The engines read it before they forecast.** An engine's per-event
+    Brier against the line's, on the line's own events, measures what the
+    engine adds beyond the line. It never measures whether the engine would
+    have found the amicus signal unaided, and no figure under this rule
+    answers that.
+  - **The line against `band_brier`** says whether this split, as
+    approximated, beat the band rate on those events. A loss is not evidence
+    that amicus filings carry no signal. On a fallback event the two share a
+    term.
+  - **Quoted with its `events`, `grants`, `fallback_events`,
+    `arm_mismatches` and `left_out`.**
+  - **It describes forecasts whose cells froze the forecast.** It is never
+    extended to an earlier forecast by reading the corpus's current count,
+    and a prediction stamped with a count but placed before this change (its
+    cell was not handed it) carries no forecast and enters no figure.
+
+  **What the rule approximates.** Everything `amicus-line-v1`'s entry lists
+  carries over: the fit conditions on the count at disposition while the
+  cell reads it at its snapshot (the `none` rate a floor, the `some` rate
+  probably a ceiling in a weak band); the Solicitor General's invited brief
+  counts; the arms nest by band; the amicus reading's own approximations.
+  The prompt states the first two to the cell.
+
+  **What a reader may and may not conclude across this change.** Cert
+  forecasts placed under the label that registers this prompt saw a number
+  earlier forecasts did not. A movement in cert accuracy, Brier or skill
+  across that label may not be attributed to the engines' models, and, with
+  no cell run under it yet, no direction is predicted. The anchor every cert
+  skill is scored against does not move. No committed prediction or grading
+  is re-stamped, no base rate re-prices and no membership rule moves.
+
+  **What is not verified at registration.** No cell has run under the new
+  prompt, so whether any engine reads the field, or over-anchors on it, is
+  unobserved. No `metrics/amicus-line.json` exists on `main`: the first
+  metrics refresh after the carrying merge writes it, and a cert cell placed
+  between the merge and that refresh is handed its count and a null
+  forecast, which the prompt tells it to read as "use the statpack cut". The
+  only fit read is the one `amicus-line-v1`'s entry tabulates.
+
+  **The amendment debt.** One is paid. The entry that registers the
+  `unread-page-runs` boundary owed the predict prompt a description of the
+  unread-run `[pipeline note: …]` line and the manifest's `kind_description`
+  a matching correction; both are made here. This entry adds no new token.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_amicus_line.py tests/test_cert_anchor_stamp.py
+    -k "amicus or fit"` is green;
+  - after the first metrics refresh following the promotion, on `main`,
+    `jq -c '[.rule, .min_resolved, (.cells | length)]'
+    metrics/amicus-line.json` prints `["amicus-line-v2",30,N]` with `N`
+    above 0;
+  - over a cert `prediction.json` the first predict round after that
+    refresh adds (Term-form docket, snapshot disclosed proceedings, band
+    frozen), `jq -c '[.context.cert_amicus_briefs, .context.cert_amicus_line.arm,
+    .context.cert_amicus_line.basis, .context.cert_amicus_line.rate]'` prints
+    an integer, an arm, a basis and a rate, and the cell's `reasoning.md`
+    is read for whether it mentions the reference;
+  - over an `evaluation.json` grading that prediction, `jq
+    .amicus_line_rate` prints the same rate, and the evaluate job log carries
+    no "amicus-adjusted reference forecast does not verify" warning;
+  - once paired cert events resolve, `jq '.. | .amicus_line? // empty'
+    metrics/leaderboard.json` prints a block whose `events` plus `left_out`
+    equals its paired figure's `events`.
