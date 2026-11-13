@@ -1651,7 +1651,7 @@ dependency on either side.
   page images. The same four rows stay out: a truncated row is at its cap, so
   a head-cut reading can be no longer, and its note still names the missing
   pages; an `ocr_derived` row keeps a note only over images that read as
-  nothing. A row stored before the extractor wrote the note carries none,
+  little or nothing. A row stored before the extractor wrote the note carries none,
   and its link is not re-fetched, so the rows a forward cell reads that a
   page-by-page reading found a run in are named in
   `ocr_recovery.UNMARKED_RUN_ROWS`, by case, kind and link, and are in the
@@ -1708,7 +1708,8 @@ dependency on either side.
   text, in pieces of 200 letters and digits, must be found in the reading in
   order, with misses allowed at one a note and a tenth of the pieces and never
   more than a quarter; what the reading holds beyond those pieces must fit the
-  pages there were to read, at 4,000 letters and digits a page; and a reading
+  pages there were to read (the runs' pages and one page in ten of the
+  filing, never fewer than two), at 4,000 letters and digits a page; and a reading
   may end before the stored text does only where it was cut at the document
   cap, and then by no more than it added. A reading that fails any of these is
   another document, or more than OCR read, and is not written. A marked row

@@ -2427,7 +2427,7 @@ scored — vote scoring reads only a complete merits record — and each is a
 committed, reviewable `outcome.json` change. run-seed's OCR sweep is the
 same shape with a weaker review: a compromised parse could write up to the
 window's cap (`historical.sweep_caps.ocr`, 50) of arbitrary text, each up to
-the document cap (150,000 characters), into the empty or thin scanned rows of
+the document cap (150,000 characters), into the empty, thin or marked rows of
 that window's worklist, marked `ocr_derived`. On a thin row the write replaces
 text rather than filling a blank: what a forged row can destroy is bounded at
 under 200 characters a page of the row's stored text, the thin layer itself,
@@ -2449,8 +2449,10 @@ up to the allowed share of pieces, which need not be the run's own pages;
 change punctuation, spacing and non-ASCII characters, which are not compared;
 and, by adding enough to reach the cap, push as much of the stored text off
 its end. On a long run the allowance is large: a thirty-page run in a
-hundred-page filing admits 160,000 letters and digits, a whole row. It cannot reorder the filing or
-drop its opening, and a stored text too short to make one piece is held to
+hundred-page filing admits at least 160,000 letters and digits, a whole row
+(the one page in ten is never fewer than two, and each allowed miss and
+each stretch adds 200 more). Beyond the allowed misses it cannot reorder the filing or
+drop any part of it ahead of that cut, and a stored text too short to make one piece is held to
 length alone. No standing
 lane restores either kind of row, since the fetch lanes do not re-read an unchanged link; the
 writer's summary marks each such write `replaced=<characters>`, which is the

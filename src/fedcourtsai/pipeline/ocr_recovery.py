@@ -632,7 +632,7 @@ def has_unread_run(document: corpus.CaseDocument) -> bool:
     its link can be no longer than what it stores and would lose the
     appendix-aware cut for nothing; its note still tells the reader which pages
     are missing. An **``ocr_derived``** row is one the recovery already read,
-    and a note left in it marks pages whose images read as nothing. A
+    and a note left in it marks pages whose images read as little or nothing. A
     **set-keyed** row and one under a **per-filing header** are combined rows
     this pass does not re-fetch.
     """

@@ -19902,7 +19902,7 @@ freeze commit is recorded here.
   `ocr_derived`, one link and under no header, 2,514 of them truncated. Every
   page figure below is a count of text-layer characters a page off the
   Court's own PDF, fetched 2026-11-13, and no stored text.
-  - **The stored text does not carry the signal.** Pages are joined by a line
+  - **The stored text does not carry the signal reliably.** Pages are joined by a line
     break, so blank pages leave blank lines, but so does page layout. Of the
     35,928 untruncated rows, the longest run of blank lines in the stored
     text is under 5 in 28,394, 5 to 9 in 4,372, 10 to 19 in 1,892, 20 to 29
@@ -19953,13 +19953,16 @@ freeze commit is recorded here.
   row holds its case's forward cells as an unread scan, for at most
   `pull.SCAN_HOLD_DAYS` (2) days from when it was stored, and one whose pages
   are short rather than scanned, or whose images read as nothing, holds them
-  for that whole bound and stays in the class. On the figures above that is
-  two or three filings in a hundred held until the sweep reads them, and
-  about one in eight of those for the full two days. A row stored before the
+  for that whole bound and stays in the class. On the figures above, two or
+  three filings in a hundred hold a run, which is an upper bound on the
+  share held until the sweep reads them: a truncated row is not in the class,
+  and of the forward rows read, 4 of 641 are. How many of those hold for the
+  full two days is not estimated; one of the eight filings read by OCR
+  above, which were not drawn at random, gained nothing. A row stored before the
   merge that holds a run and is not one of the four named keeps it unmarked;
-  at 3 percent of the frame that is on the order of a thousand rows, on
-  resolved cases a replay or back-test cell can read, and no pass here
-  re-reads them. A marked row cut at the cap keeps its note and is not
+  at 3 percent of the frame that is on the order of a thousand rows, most on
+  resolved cases a replay or back-test cell can read, the nine truncated
+  forward rows among them, and no pass here re-reads them. A marked row cut at the cap keeps its note and is not
   recovered. No base rate re-prices, no membership rule moves and no scored
   figure moves. No skill movement is predicted, and a movement in **either**
   direction across this boundary may not be read as a model effect. Cells
@@ -19969,7 +19972,10 @@ freeze commit is recorded here.
   `[pipeline note: …]` line as marking a cut around an appendix; the
   unread-run note is a second kind, which says what it is in its own words.
   Naming it in the prompt moves the three predictor digests, so it is owed to
-  the next re-bless.
+  the next re-bless. The manifest's `kind_description` makes the same
+  statement, that a truncated row with no such line was cut at the cap from
+  the end, and a head-cut row can carry an unread-run note; that sentence is
+  left as it is, and is owed a correction with the prompt's.
 
   Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
   commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
