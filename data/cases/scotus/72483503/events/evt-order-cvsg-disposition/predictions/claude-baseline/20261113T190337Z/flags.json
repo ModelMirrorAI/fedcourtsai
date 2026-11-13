@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/72483503",
+  "run_id": "20261113T190337Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "leakage-disclosure",
+      "severity": "warning",
+      "event_id": "evt-order-cvsg-disposition",
+      "message": "Forward cell with a snapshot cut at 2025-07-01, run on 2026-11-13. I carry an unverified recollection from training that the Solicitor General later recommended a grant and that certiorari was granted in No. 24-1030. I did not retrieve the docket or any coverage to check it and reasoned from the pre-cutoff record (probability 0.52), but the recollection may have shaded the number upward; the cell may also be mis-provisioned as forward if the petition is in fact already resolved."
+    }
+  ]
+}
