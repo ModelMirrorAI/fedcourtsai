@@ -321,6 +321,85 @@ def test_entries_that_stop_before_the_stated_denial_report_no_absence() -> None:
     assert read_rehearing(held, judgment_date=_JUDGMENT).petition_filed is False
 
 
+def test_orders_that_do_not_say_what_they_ordered_report_no_absence() -> None:
+    # A court's feed labels each filing by kind and nothing more: the entries
+    # reach the denial the SCOTUS docket states, and the order is among them.
+    denied_on = date(2025, 6, 2)
+    thin = [
+        _dated(64, "2025-04-09", "", "Unpublished per curiam opinion filed"),
+        _dated(73, "2025-06-01", "", "Court order filed"),
+        _dated(76, "2025-06-02", "", "Court order filed"),
+    ]
+    reading = read_rehearing(thin, judgment_date=_JUDGMENT, rehearing_denied=denied_on)
+    assert reading.short_of_denial is False
+    assert reading.denial_unrecorded is True
+    assert reading.blank_entries == 0
+    assert reading.petition_filed is None and reading.disposition is None
+    # With no denial stated the same entries have nothing to account for.
+    assert read_rehearing(thin, judgment_date=_JUDGMENT).petition_filed is False
+    # A motion for time to seek rehearing, denied, is not the ruling either.
+    timed = [*thin, _dated(70, "2025-05-01", "Motion to extend time for rehearing denied.")]
+    late = read_rehearing(timed, judgment_date=_JUDGMENT, rehearing_denied=denied_on)
+    assert late.denial_unrecorded is True
+
+
+def test_an_entry_with_no_text_leaves_the_petition_unknown() -> None:
+    blank = [
+        _dated(64, "2025-04-09", "", "Opinion Issued"),
+        _dated(65, "2025-04-20", ""),
+        _dated(66, "2025-04-21", "", ""),
+        (11, {"entry_number": 67, "date_filed": "2025-04-22", "description": None}),
+    ]
+    reading = read_rehearing(blank, judgment_date=_JUDGMENT)
+    assert reading.blank_entries == 3
+    assert reading.petition_filed is None
+    # The text may sit on the document where the entry carries none.
+    on_document = [
+        _dated(65, "2025-04-20", "", "Petition for rehearing en banc"),
+        _dated(66, "2025-06-02", "", "ORDER denying petition for rehearing en banc"),
+    ]
+    read = read_rehearing(on_document, judgment_date=_JUDGMENT)
+    assert read.blank_entries == 0
+    assert read.petition_filed is True and read.disposition == "denied"
+    assert read.dissent_noted is False
+    # A blank entry beside the order could be a dissent from it.
+    beside = [*on_document, _dated(67, "2025-06-02", "")]
+    unsure = read_rehearing(beside, judgment_date=_JUDGMENT)
+    assert unsure.petition_filed is True and unsure.dissent_noted is None
+
+
+def test_the_docket_row_says_what_could_not_be_read() -> None:
+    def entry(number: int, filed: str, *docs: str) -> dict[str, Any]:
+        return {
+            "entry_number": number,
+            "date_filed": filed,
+            "description": "",
+            "recap_documents": [{"description": d} for d in docs],
+        }
+
+    thin = _matched_upstream(
+        entries={11: [entry(64, "2025-04-09", "Opinion"), entry(76, "2025-06-02", "Court order")]}
+    )
+    with _client(thin) as client:
+        found = match_case(
+            client, _facts(LowerCourtRehearingDenied="June 2, 2025"), case_id="scotus/1"
+        )
+    document = docket_document(found, today=_TODAY)
+    assert document is not None
+    assert "petition filed: could not be read" in document.text
+    assert "disposition: could not be read" in document.text
+    assert "none in the entries read" not in document.text
+    assert "states rehearing was denied on 2025-06-02, and no entry read records" in document.text
+    blank = _matched_upstream(
+        entries={11: [entry(64, "2025-04-09", "Opinion"), entry(65, "2025-04-20")]}
+    )
+    with _client(blank) as client:
+        unread = docket_document(match_case(client, _facts(), case_id="scotus/1"), today=_TODAY)
+    assert unread is not None
+    assert "petition filed: could not be read" in unread.text
+    assert "1 of the entries read carries no text on CourtListener" in unread.text
+
+
 def test_the_docket_row_says_when_its_entries_stop_short() -> None:
     upstream = _matched_upstream(
         entries={11: [{"entry_number": 52, "date_filed": "2025-04-09", "description": "Opinion."}]}

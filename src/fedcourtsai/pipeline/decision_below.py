@@ -53,16 +53,22 @@ match — the status still says whether the judgment date itself has a cluster.
 
 **The rehearing reading is text, and says so.** CourtListener serves docket
 entries as filed text with no structured rehearing field, so the en banc
-reading is a pattern match over the ``description`` of each entry filed on or
-after the judgment date and before the SCOTUS docketing, with every entry that
-drove it cited by number and date. A motion about the *time* to petition is
+reading is a pattern match over the text of each entry filed on or after the
+judgment date and before the SCOTUS docketing — its own ``description`` and
+those of its documents, since upstream fills one or the other — with every
+entry that drove it cited by number and date. A motion about the *time* to petition is
 not a petition, and its grant is not a grant of rehearing. A positive reading
 is a fact about the entries read; a negative one is reported only when the
 read was complete — every row, every page — and is ``None`` otherwise. Upstream
 holds a circuit docket only as far as someone last uploaded it, so a complete
 read can still end before the court ruled: where the SCOTUS docket states a
 rehearing denial and the entries show no disposition and none filed that late,
-the reading is ``short_of_denial`` and reports no absence either. A dissent is
+the reading is ``short_of_denial`` and reports no absence either. Nor is an
+absence reported where the text was not there to match: an entry described
+nowhere is counted in ``blank_entries``, and entries that reach the stated
+denial without one of them recording a ruling on rehearing, panel or en banc,
+make the reading ``denial_unrecorded`` — a court's feed can label its orders
+"Court order filed" and nothing more. A dissent is
 read off the order's own entry and off a separate writing docketed the same
 day, which is how some circuits file one. Without
 a judgment date there is no bound to read from, so the entries are not read.
@@ -186,6 +192,9 @@ _TIME_MOTION_RE: Final = re.compile(
     + r"|\bleave\s+to\s+file\b.*\bout\s+of\s+time\b",
     re.I,
 )
+# Any rehearing, panel or en banc: an entry that names one beside a denial
+# accounts for the denial the SCOTUS docket states.
+_REHEARING_RE: Final = re.compile(r"\brehearing\b", re.I)
 _DISSENT_RE: Final = re.compile(r"\bdissent(?:s|ed|ing)?\b", re.I)
 # A clerk's label for a separate writing of either kind ("Concurring or
 # Dissenting Opinion FILED"): it names no dissent, and does not rule one out.
@@ -296,9 +305,11 @@ class RehearingReading(BaseModel):
 
     Text-derived: each flag is a pattern match over the entries' filed text,
     and ``cites`` names every entry that set one. ``True`` is a fact about the
-    entries read; ``False`` is reported only when ``complete`` and not
-    ``short_of_denial``, and ``None`` otherwise — an unread page is not
-    evidence of absence, and neither is a docket upstream stopped receiving.
+    entries read; ``False`` is reported only when ``complete`` and none of
+    ``short_of_denial``, ``denial_unrecorded`` and ``blank_entries`` is set,
+    and ``None`` otherwise — an unread page is not evidence of absence, and
+    neither is a docket upstream stopped receiving or an entry whose text
+    does not say what was filed.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -320,6 +331,17 @@ class RehearingReading(BaseModel):
         default=False,
         description="Whether the SCOTUS docket states a rehearing denial the entries read "
         "neither show nor reach: upstream holds no entry that late, so no absence is reported",
+    )
+    denial_unrecorded: bool = Field(
+        default=False,
+        description="Whether the entries read reach the rehearing denial the SCOTUS docket "
+        "states and none records a ruling on rehearing in its text, so no absence is reported",
+    )
+    blank_entries: int = Field(
+        default=0,
+        ge=0,
+        description="Entries read that carry no text, on the entry or on its documents; "
+        "any makes a petition's absence unknown",
     )
     petition_filed: bool | None = None
     disposition: Literal["denied", "granted"] | None = None
@@ -526,6 +548,13 @@ def _entry_text(entry: Mapping[str, Any]) -> str:
     return " ".join(part for part in parts if isinstance(part, str))
 
 
+def _records_rehearing_denial(text: str) -> bool:
+    """Whether an entry's text records a denial of rehearing, panel or en banc."""
+    return bool(
+        _REHEARING_RE.search(text) and _DENIED_RE.search(text) and not _TIME_MOTION_RE.search(text)
+    )
+
+
 def read_separate_writing(text: str) -> bool | None:
     """Whether an entry that is not the rehearing order records a dissent.
 
@@ -573,10 +602,15 @@ def read_rehearing(
     ``rehearing_denied`` is the denial date the SCOTUS docket states. Where
     the entries show no disposition and none is filed that late, upstream
     stopped receiving the docket before the denial, so the reading is
-    ``short_of_denial`` and reports no absence.
+    ``short_of_denial`` and reports no absence. Where they reach that date
+    and none records a ruling on rehearing of either kind, the order is among
+    them under a label that does not say so, and the reading is
+    ``denial_unrecorded``. An entry with no text at all could be the petition,
+    so any such entry leaves a petition's absence unknown, and one on the
+    disposition's day leaves the dissent unknown.
     """
-    read = 0
-    petition = denied = granted = dissent = False
+    read = blank = 0
+    petition = denied = granted = dissent = ruled = False
     cites: list[EntryCite] = []
     through: date | None = None
     disposed: set[tuple[int, date]] = set()
@@ -586,7 +620,11 @@ def read_rehearing(
         filed = _iso_date(entry.get("date_filed"))
         if filed is not None and (through is None or filed > through):
             through = filed
-        found = read_entry(_entry_text(entry))
+        text = _entry_text(entry)
+        if not text.strip():
+            blank += 1
+        ruled = ruled or _records_rehearing_denial(text)
+        found = read_entry(text)
         if not (found.petition or found.denied or found.granted):
             if filed is not None:
                 others.append((docket_id, entry, filed))
@@ -608,7 +646,8 @@ def read_rehearing(
             judgment_date is not None and filed <= judgment_date
         ):
             continue
-        writing = read_separate_writing(_entry_text(entry))
+        text = _entry_text(entry)
+        writing = read_separate_writing(text) if text.strip() else None
         if writing:
             dissent = True
             cites.append(_cite(docket_id, entry))
@@ -622,16 +661,19 @@ def read_rehearing(
         and rehearing_denied is not None
         and (through is None or through < rehearing_denied)
     )
-    negative = False if complete and not short else None
+    unrecorded = disposition is None and rehearing_denied is not None and not short and not ruled
+    negative = False if complete and not (short or unrecorded or blank) else None
     # A disposition implies a petition was before the court, whether or not its
     # filing entry was among those read.
     filed_any = petition or disposition is not None
-    no_dissent = None if writing_unread else negative
+    no_dissent = None if writing_unread or not complete else False
     return RehearingReading(
         entries_read=read,
         complete=complete,
         through=through,
         short_of_denial=short,
+        denial_unrecorded=unrecorded,
+        blank_entries=blank,
         petition_filed=True if filed_any else negative,
         disposition=disposition,
         dissent_noted=None if disposition is None else (True if dissent else no_dissent),
@@ -1240,8 +1282,8 @@ def _yes_no(value: bool | None, unknown: str) -> str:
     """A reading's flag as the docket record words it.
 
     A negative is worded as what it is, an absence among the entries read: it
-    is reported only for a complete read, and even then says nothing of an
-    entry upstream never received.
+    is reported only for a complete read whose entries carry their text, and
+    even then says nothing of an entry upstream never received.
     """
     return unknown if value is None else ("yes" if value else "none in the entries read")
 
@@ -1253,7 +1295,10 @@ def docket_document(match: DecisionBelowMatch, *, today: date) -> corpus.CaseDoc
     docket names, the judgment and rehearing dates it serves, the CourtListener
     rows found, the panel where upstream records one, each opinion cluster on
     or after the judgment date with its opinion ids, and the en banc reading
-    with the date its entries run through and the entries it rests on. Stored
+    with the date its entries run through and the entries it rests on. Where
+    the entries' text could not carry an answer — an entry described nowhere,
+    or a stated rehearing denial no entry records — the record says "could not
+    be read" in place of an absence. Stored
     wherever a docket row was found, matched opinion or not. Dated on the
     latest entry the reading read or later opinion cluster it lists, else on
     the judgment date: no fact in it follows the SCOTUS docketing.
@@ -1295,6 +1340,11 @@ def docket_document(match: DecisionBelowMatch, *, today: date) -> corpus.CaseDoc
         why = reading.unavailable if reading and reading.unavailable else "no entries held"
         lines.append(f"Rehearing en banc: not read ({why})")
     else:
+        unknown = (
+            "could not be read"
+            if reading.blank_entries or reading.denial_unrecorded
+            else "not found"
+        )
         lines.extend(
             [
                 "Rehearing en banc, read from the text of "
@@ -1303,9 +1353,9 @@ def docket_document(match: DecisionBelowMatch, *, today: date) -> corpus.CaseDoc
                 + (" (all of them)" if reading.complete else " (not all of them)")
                 + (f", the latest filed {reading.through}" if reading.through else "")
                 + ":",
-                f"  petition filed: {_yes_no(reading.petition_filed, 'not found')}",
-                f"  disposition: {reading.disposition or 'not found'}",
-                f"  dissent noted: {_yes_no(reading.dissent_noted, 'not found')}",
+                f"  petition filed: {_yes_no(reading.petition_filed, unknown)}",
+                f"  disposition: {reading.disposition or unknown}",
+                f"  dissent noted: {_yes_no(reading.dissent_noted, unknown)}",
             ]
         )
         for cite in reading.cites:
@@ -1318,6 +1368,20 @@ def docket_document(match: DecisionBelowMatch, *, today: date) -> corpus.CaseDoc
                 "  CourtListener holds no entry as late as the rehearing denial the SCOTUS "
                 + f"docket states ({facts.rehearing_denied}), so its entries stop before the "
                 + "court ruled on rehearing: what is not found above was not there to read."
+            )
+        if reading.denial_unrecorded:
+            lines.append(
+                "  The SCOTUS docket states rehearing was denied on "
+                + f"{facts.rehearing_denied}, and no entry read records a ruling on rehearing "
+                + "in its text: CourtListener's entries name these filings too thinly to say "
+                + "whether rehearing en banc was sought or how it was disposed of."
+            )
+        if reading.blank_entries:
+            lines.append(
+                f"  {reading.blank_entries} of the entries read "
+                + ("carries" if reading.blank_entries == 1 else "carry")
+                + " no text on CourtListener, on the entry or on its documents: what is not "
+                + "shown above could not be read from them, and is not ruled out."
             )
     cited = [cite.date_filed for cite in (reading.cites if reading else []) if cite.date_filed]
     cited.extend(c.date_filed for c in decided if c.after_judgment and c.date_filed)

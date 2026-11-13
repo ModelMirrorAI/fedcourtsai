@@ -174,7 +174,10 @@ Each of these is stated, with its reason, where the code makes the choice:
   absence as one among the entries read, names the date those entries run
   through, and says so where they stop before a rehearing denial the SCOTUS
   docket states, since CourtListener holds a circuit docket only as far as it
-  was last uploaded. A stored case is walked again once its stamp is 30 days
+  was last uploaded. Each entry is read from its own description and its
+  documents', whichever upstream fills; where an entry carries neither, or the
+  entries reach the stated denial and none records a ruling on rehearing, the
+  record says the answer could not be read and reports no absence. A stored case is walked again once its stamp is 30 days
   old and the rotation reaches it, until cert is denied or the merits are
   decided; `run-pull`'s live job runs it on six petitions each full
   window, four windows a day, and the predict backlog holds a cert arrival
