@@ -20,8 +20,13 @@ on:
 
 permissions: {}
 
+# The event name is part of the group so the weekly scan has a slot of its
+# own: `main` takes data commits around the clock, and in a group keyed on the
+# ref alone the next push would cancel the scheduled scan mid-analysis. A
+# newer push still supersedes an older push to the same branch, and a newer
+# PR head an older one.
 concurrency:
-  group: codeql-${{ github.workflow }}-${{ github.ref }}
+  group: codeql-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
