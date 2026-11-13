@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000239",
+  "run_id": "20261113T214525Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "metrics/statpack.json",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_read_document",
+    "mcp_courtlistener_search_document"
+  ],
+  "helpful": [
+    "Provisioned cert-stage filings and D.C. Circuit opinion in record/documents/",
+    "CourtListener MCP read_document and search_document for OT2024-OT2025 Supreme Court precedents (Al Otro Lado, Barbara, CASA, Learning Resources)",
+    "Strictly-prior merits, per-Justice vote, and authorship tables in metrics/statpack.md and metrics/statpack.json",
+    "fedcourts query --docket-number lookup confirming companion grant DHS v. D.V.D. (No. 26-426)"
+  ],
+  "gaps": [
+    "150,000-character cap truncated the tail of Judge Walker's partial dissent in decision-below.txt, and CourtListener opinion_id 11315059 carried no extracted text"
+  ],
+  "notes": "All needed legal arguments from Judge Walker's dissent and the stay-panel opinions were thoroughly summarized in petition.txt, brief-in-opposition.txt, and cert-reply.txt."
+}
