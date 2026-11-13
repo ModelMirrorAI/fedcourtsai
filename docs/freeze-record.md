@@ -19467,3 +19467,52 @@ freeze commit is recorded here.
   **Step 0.** At the same commit, the count of committed files under
   `data/cases` naming `sha256:<digest>` is **0** for each of the three newly
   blessed digests, and **4071** files there carry a `process_version` stamp.
+
+- **A failing engine attempt is classified on the fault the engine reported,
+  not on the whole of its stderr; recorded 2026-11-13.** A harness change
+  under unchanged digests. Carried to `main` by the promotion tagged
+  `<FILL: promotion tag>` (merge commit `<FILL: merge hash>`, merged
+  `<FILL: merged-at>`). No harness boundary is registered, since no scoring
+  rule and no cell's information set moves.
+
+  **What changes.** The in-place retry of a Gemini cell (the entry *Gemini
+  cells retry a transient engine fault in place*, above) retries only an
+  attempt the classifier reads as transient (`fedcourts
+  engine-attempt-class`). On a non-zero exit the classifier matched its
+  transient signatures against the attempt's whole stderr, joined to any
+  error in the JSON result. From the carrying promotion, where the engine
+  reported the error its attempt ended on (the error object in its result,
+  or the same object on its stderr, `fedcourts engine-attempt-reported`),
+  that error's text is read alone, for the transient set and for the
+  terminal-quota set alike. Where the engine reported none, the whole of
+  stderr is read as before. A zero exit is unchanged: it was already
+  classified on its result's error alone. The back-test's `GeminiRunner`
+  calls the same classifier and takes the same rule. The claude and codex
+  runners' retry reads stderr whole and is unchanged.
+
+  **Why.** Evaluate run `20261110T154355Z` left a `gemini-judge` cell on
+  `scotus/9526000560` `evt-brief-response-disposition` whose turn ended on
+  HTTP 400 `INVALID_ARGUMENT`. The attempt read transient only because a
+  `fetch failed` line, from a model call the CLI had retried and recovered,
+  sat earlier in the same stderr. A client error mislabelled transient
+  spends up to two further attempts that cannot succeed.
+
+  **What it means for a reader.** No committed record moves: the verdict is
+  not stored on a cell, and the clean conclusion over whole output (the entry
+  *A Gemini cell whose turn fails on an engine fault after its work is whole
+  concludes clean*, above) admits both classes. From the carrying promotion a
+  Gemini cell that ends on a reported non-transient fault after a recovered
+  network error stops on that attempt where it took up to three before, and
+  one that ends on a reported transient fault after a recovered
+  client-error line now retries where it stopped. The rule trusts the latest
+  error object on stderr to be the fault that ended the turn; a turn that
+  logged such an object, carried on, and was then ended from outside is
+  classified on that object. The rule is Gemini's alone, so a comparison of
+  retry counts or cell-failure rates across this promotion reads the Gemini
+  pair apart.
+
+  The runnable effect check once it is live: `uv run pytest
+  tests/test_runner.py -k classify_engine_attempt` is green on `main`; and
+  after a full evaluate round on `main`, no `gemini-judge` job log carries
+  an annotation reading `ended transient` whose `engine said:` text names a
+  400 or `INVALID_ARGUMENT`.

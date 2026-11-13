@@ -1243,9 +1243,20 @@ def classify_engine_attempt(returncode: int, stdout: str, stderr: str) -> Attemp
     A zero exit with no error in the JSON result is ``ok``. A zero exit *with*
     one is classified on that error's text alone — the CLI's own verdict on the
     turn — and not on stderr, where a clean exit leaves incidental warnings that
-    could carry a signature word. A non-zero exit reads stderr plus any result
-    error, as :func:`_failure_is_transient` reads stderr. A terminal quota
-    overrides the transient set, as it does in the runner's retry loop.
+    could carry a signature word.
+
+    A non-zero exit is classified on the fault that ended it. Where the engine
+    reported one — the error in its JSON result, or the same object where the
+    CLI leaves it on stderr (:func:`_stderr_result_error`) — that error's text
+    is read alone: the rest of stderr holds whatever the turn met and recovered
+    from on the way, and a model call the CLI retried itself ("fetch failed")
+    is not why a turn later refused with a client error ended. Where the engine
+    reported nothing, the whole of stderr is read, as
+    :func:`_failure_is_transient` reads it: no line of it is marked as the last
+    word, and a throttle read as permanent costs the cell where a permanent
+    fault retried costs only the capped attempts. A terminal quota overrides
+    the transient set on whichever text is read, as it does in the runner's
+    retry loop.
     """
     error = engine_result_error(stdout)
     if returncode == 0:
@@ -1253,7 +1264,8 @@ def classify_engine_attempt(returncode: int, stdout: str, stderr: str) -> Attemp
             return AttemptClass.ok
         text = error
     else:
-        text = "\n".join(part for part in (stderr, error) if part)
+        reported = error if error is not None else _stderr_result_error(stderr)
+        text = reported if reported is not None else stderr
     if _text_is_terminal_quota(text):
         return AttemptClass.terminal_quota
     if _text_is_transient(text):
