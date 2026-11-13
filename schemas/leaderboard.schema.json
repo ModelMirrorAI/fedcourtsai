@@ -2,16 +2,16 @@
   "$defs": {
     "AmicusLineReference": {
       "additionalProperties": false,
-      "description": "A reference line on a paired cert figure: the band rate split on a cert-stage amicus brief.\n\nA no-model forecast under a registered rule (`fedcourtsai.amicus_line`,\ndated in `docs/freeze-record.md`): each event's forecast is the rate its\nearliest qualifying cell froze at provisioning for its arm of its band's\nrisk set (`none` for no cert-stage amicus brief on the cell's snapshot,\n`some` for one or more), copied to the grading only where the stamp\nre-pooled it from the committed fit. Nobody forecast it and it never takes\na rank. Every Brier here is **per event** against the binary target, over\nthis block's own `events`. From the label that hands cells the frozen rate\non, the engines read the line before they forecast, so an engine's Brier\nagainst it measures what the engine adds beyond the line, not whether it\nfinds the amicus signal unaided.",
+      "description": "A reference line on a paired cert figure: the band rate split on a cert-stage amicus brief.\n\nA no-model forecast under a registered rule (`fedcourtsai.amicus_line`,\ndated in `docs/freeze-record.md`): each event's forecast is the rate its\nearliest qualifying cell froze at provisioning for its arm of its band's\nrisk set (`none` for no cert-stage amicus brief on the cell's snapshot,\n`some` for one or more), copied to the grading only where the stamp\nre-pooled it from the committed fit. Nobody forecast it and it never takes\na rank. Every Brier here is **per event** against the binary target, over\nthis block's own `events`. Each engine's cell is handed its own frozen\nrate before it forecasts, so an engine's Brier against the line is its gap\nto a reference that was available to it, not a test of whether it finds\nthe amicus signal unaided; on an arm-mismatch event the line is not the\nrate a later engine was handed.",
       "properties": {
         "arm_mismatches": {
-          "description": "Events among `events` whose engines' cells froze counts in different arms: an amicus brief reached the docket between the engines' runs",
+          "description": "Events among `events` whose engines' cells froze counts in different arms: an amicus brief reached the docket between the engines' runs. The line is the earliest cell's rate, so these lean against it",
           "minimum": 0,
           "title": "Arm Mismatches",
           "type": "integer"
         },
         "band_brier": {
-          "description": "The same mean for the unsplit band rate: the frozen cert anchor (`segment_base_rate`) of each event's earliest qualifying cell. The figure `brier` is read against to see what the split adds over the band",
+          "description": "The same mean for the frozen band anchor (`segment_base_rate`) of each event's earliest qualifying cell. The figure `brier` is read against to see what the split adds over the band, while the fit's pools carry no unread rows",
           "maximum": 1.0,
           "minimum": 0.0,
           "title": "Band Brier",

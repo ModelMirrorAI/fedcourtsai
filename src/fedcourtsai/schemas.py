@@ -928,9 +928,12 @@ class CertAmicusLine(_Strict):
     placed: the cell's arm of its band's risk set (``none`` for a count of 0,
     ``some`` for 1 or more) over the Terms strictly before its own inside the
     anchor's window. The cell reads it in ``record/context.json`` beside the
-    anchor. Like the anchor it is a claim until checked: the evaluator stamp
-    re-pools it from the fit committed on ``main`` when the cell was placed and
-    copies the rate onto the grading only where it reproduces.
+    anchor. Like the anchor it is a claim until checked: ``stamp-cell`` copies
+    it onto the prediction as it finds it, and the evaluator stamp re-pools it
+    from the fit committed on ``main`` when the cell was placed and copies the
+    rate onto the grading only where it reproduces. That check binds the rate
+    to the count beside it, and the count rests on the provisioned snapshot
+    file, which sits in the same workspace.
     """
 
     rule: str = Field(description="The registered rule the forecast was pooled under")
@@ -5379,10 +5382,11 @@ class AmicusLineReference(_Strict):
     `some` for one or more), copied to the grading only where the stamp
     re-pooled it from the committed fit. Nobody forecast it and it never takes
     a rank. Every Brier here is **per event** against the binary target, over
-    this block's own `events`. From the label that hands cells the frozen rate
-    on, the engines read the line before they forecast, so an engine's Brier
-    against it measures what the engine adds beyond the line, not whether it
-    finds the amicus signal unaided.
+    this block's own `events`. Each engine's cell is handed its own frozen
+    rate before it forecasts, so an engine's Brier against the line is its gap
+    to a reference that was available to it, not a test of whether it finds
+    the amicus signal unaided; on an arm-mismatch event the line is not the
+    rate a later engine was handed.
     """
 
     rule: str = Field(description="The registered rule the line is computed under")
@@ -5411,9 +5415,9 @@ class AmicusLineReference(_Strict):
     band_brier: float = Field(
         ge=0.0,
         le=1.0,
-        description="The same mean for the unsplit band rate: the frozen cert anchor "
-        "(`segment_base_rate`) of each event's earliest qualifying cell. The figure "
-        "`brier` is read against to see what the split adds over the band",
+        description="The same mean for the frozen band anchor (`segment_base_rate`) of "
+        "each event's earliest qualifying cell. The figure `brier` is read against to "
+        "see what the split adds over the band, while the fit's pools carry no unread rows",
     )
     engine_brier: dict[str, Annotated[float, Field(ge=0.0, le=1.0)]] = Field(
         description="Each paired engine's own per-event Brier over the same `events`, by "
@@ -5431,7 +5435,8 @@ class AmicusLineReference(_Strict):
     arm_mismatches: int = Field(
         ge=0,
         description="Events among `events` whose engines' cells froze counts in different "
-        "arms: an amicus brief reached the docket between the engines' runs",
+        "arms: an amicus brief reached the docket between the engines' runs. The line "
+        "is the earliest cell's rate, so these lean against it",
     )
 
 

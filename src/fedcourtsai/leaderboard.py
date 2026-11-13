@@ -426,6 +426,11 @@ class CellFacts:
     #: That frozen forecast is the band rate, its arm's pool being under the
     #: rule's minimum (``basis == "band-fallback"``).
     amicus_fallback: bool = False
+    #: The grading's stamped ``amicus_line_rate`` is the rate the committed
+    #: scored prediction froze under that arm. A disagreement means the stamp
+    #: verified a context other than the committed one, so the pair is not one
+    #: forecast.
+    amicus_rate_agrees: bool = False
 
 
 def band_key(context: PredictionContext | None) -> str:
@@ -1053,7 +1058,8 @@ def _amicus_line(
     the cell :func:`_band_filing` files its band under, and the band rate
     beside it is that grading's risk-set ``segment_base_rate``. An event enters
     only where every paired engine's every qualifying grading carries facts
-    and a stamped line rate, and that earliest grading a risk-set band rate;
+    and a stamped line rate equal to the one its committed scored prediction
+    froze, and that earliest grading a risk-set band rate;
     the rest are counted in ``left_out``. Each engine's forecast on an event is
     the mean of its qualifying gradings' probabilities, as on the
     mean-of-engines line. ``None`` with no facts or no such event.
@@ -1068,13 +1074,15 @@ def _amicus_line(
         found = [(ev, facts.get(_evaluation_key(ev))) for ev in gradings]
         cells = [(ev, fact) for ev, fact in found if fact is not None]
         if len(cells) != len(found) or any(
-            ev.amicus_line_rate is None or fact.amicus_arm is None for ev, fact in cells
+            ev.amicus_line_rate is None or fact.amicus_arm is None or not fact.amicus_rate_agrees
+            for ev, fact in cells
         ):
             continue
         first, first_fact = min(cells, key=lambda cell: (cell[1].clock, cell[1].band_key))
+        line_rate, arm = first.amicus_line_rate, first_fact.amicus_arm
         if (
-            first.amicus_line_rate is None
-            or first_fact.amicus_arm is None
+            line_rate is None
+            or arm is None
             or first.segment_base_rate is None
             or first.base_rate_basis != "risk_set"
         ):
@@ -1084,10 +1092,8 @@ def _amicus_line(
             / len(qualifying[pid][event])
             for pid in engines
         }
-        rows.append(
-            (first.amicus_line_rate, first.segment_base_rate, forecasts, first_fact.granted)
-        )
-        by_arm[first_fact.amicus_arm] += 1
+        rows.append((line_rate, first.segment_base_rate, forecasts, first_fact.granted))
+        by_arm[arm] += 1
         fallbacks += first_fact.amicus_fallback
         mismatches += len({fact.amicus_arm for _, fact in cells}) > 1
     if not rows:
@@ -1877,6 +1883,17 @@ def cell_facts(cells: Iterable[StratifiedCell], data_root: Path) -> dict[Evaluat
             probability=scored.probability,
             amicus_arm=line.arm if line is not None and line.rule == AMICUS_LINE_RULE else None,
             amicus_fallback=line is not None and line.basis == "band-fallback",
+            amicus_rate_agrees=(
+                line is not None
+                and line.rate is not None
+                and evaluation.amicus_line_rate is not None
+                and math.isclose(
+                    line.rate,
+                    evaluation.amicus_line_rate,
+                    rel_tol=0.0,
+                    abs_tol=BRIER_REPRODUCTION_TOLERANCE,
+                )
+            ),
         )
     return facts
 

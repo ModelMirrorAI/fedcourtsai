@@ -4404,6 +4404,7 @@ def _line_cells(
     rows: Sequence[tuple[str, str, float, int, float | None, str | None, timedelta]],
     *,
     fallback: Collection[str] = (),
+    disagree: Collection[str] = (),
 ) -> tuple[list[Cell], dict[Any, CellFacts]]:
     """Forward cert cells for the amicus line: (engine, event, probability, target,
     stamped line rate, frozen arm, clock offset), each with a 10% risk-set band rate."""
@@ -4429,6 +4430,7 @@ def _line_cells(
             probability=probability,
             amicus_arm=arm,
             amicus_fallback=event in fallback,
+            amicus_rate_agrees=event not in disagree,
         )
     return cells, facts
 
@@ -4495,6 +4497,21 @@ def test_the_amicus_line_leaves_out_an_event_a_cell_carries_no_stamped_rate_on()
     paired = build_leaderboard(cells, facts=facts).paired
     assert paired is not None and paired.amicus_line is not None
     assert (paired.events, paired.amicus_line.events, paired.amicus_line.left_out) == (2, 1, 1)
+
+
+def test_the_amicus_line_leaves_out_a_rate_the_committed_prediction_did_not_freeze() -> None:
+    cells, facts = _line_cells(
+        [
+            ("alpha", "evt-0", 0.8, 1, 0.4, "some", _NOW),
+            ("beta", "evt-0", 0.4, 1, 0.4, "some", _LATER),
+            ("alpha", "evt-1", 0.1, 0, 0.02, "none", _NOW),
+            ("beta", "evt-1", 0.3, 0, 0.02, "none", _LATER),
+        ],
+        disagree={"evt-1"},
+    )
+    paired = build_leaderboard(cells, facts=facts).paired
+    assert paired is not None and paired.amicus_line is not None
+    assert (paired.amicus_line.events, paired.amicus_line.left_out) == (1, 1)
 
 
 def test_no_amicus_line_while_no_event_carries_one() -> None:

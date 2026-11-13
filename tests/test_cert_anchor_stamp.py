@@ -1361,3 +1361,34 @@ def test_the_git_reader_returns_the_fit_in_force_and_the_one_replaced_in_the_sla
     assert digests(datetime(2026, 9, 15, tzinfo=UTC)) == [one]
     assert digests(datetime(2026, 8, 1, tzinfo=UTC)) == []
     assert GitStatpackHistory(tmp_path / "none", "main").amicus_fits_in_force(_PROVISIONED) == []
+
+
+def test_a_line_is_not_copied_under_a_label_that_pools_the_anchor_at_grading(
+    _roots: Path, monkeypatch: pytest.MonkeyPatch, _fits: list[str]
+) -> None:
+    """Before the pin the stamp pools the checked-out statpack, which can be the
+    very build the context names; the frozen anchor is unverified there, and so
+    is the line frozen under it."""
+    monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v14")
+    event_paths = _seed(_roots, 37, context=_lined())
+
+    assert _stamp(37).exit_code == 0
+
+    stamped = _stamped(event_paths)
+    assert stamped["base_rate_statpack_digest"] == statpack_digest(_statpack())
+    assert stamped["amicus_line_rate"] is None
+
+
+def test_a_rate_the_judge_wrote_does_not_survive_a_terminal_basis_grading(
+    _roots: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v17")
+    event_paths = _seed_terminal(_roots, tmp_path, 38, graded=_graded_context())
+    path = event_paths.evaluation("claude-judge", "claude-baseline", _RUN)
+    write_json(path, read_model(path, Evaluation).model_copy(update={"amicus_line_rate": 0.77}))
+
+    assert _stamp(38).exit_code == 0
+
+    stamped = _stamped(event_paths)
+    assert stamped["base_rate_basis"] == "terminal"
+    assert stamped["amicus_line_rate"] is None

@@ -3704,11 +3704,14 @@ def test_a_cert_cell_with_no_fit_file_freezes_its_count_and_no_line(
     write_json(tmp_path / "metrics" / "statpack.json", _anchor_statpack(0.18))
     (tmp_path / "metrics" / "amicus-line.json").write_text("not a fit")
 
-    _, context = _provision_event(fixture_corpus, "evt-petition-disposition", tmp_path / "metrics")
+    result, context = _provision_event(
+        fixture_corpus, "evt-petition-disposition", tmp_path / "metrics"
+    )
 
     assert context["cert_anchor"] is not None
     assert isinstance(context["cert_amicus_briefs"], int)
     assert context["cert_amicus_line"] is None
+    assert "no readable metrics/amicus-line.json" in " ".join(result.output.split())
 
 
 def test_a_cert_cell_with_no_readable_statpack_freezes_no_anchor_out_loud(

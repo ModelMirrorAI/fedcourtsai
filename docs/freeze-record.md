@@ -20113,7 +20113,8 @@ freeze commit is recorded here.
     rate of the event's earliest qualifying grading by harness clock, the
     cell the paired figure files the event's band under. An event enters
     only where every paired engine's every qualifying grading carries
-    outcome facts and a stamped rate under this rule, and that earliest
+    outcome facts and a stamped rate under this rule equal to the rate its
+    committed prediction froze, and that earliest
     grading a risk-set `segment_base_rate`. Events left out
     (`left_out`), events whose engines' cells froze different arms
     (`arm_mismatches`) and events forecast on the fallback
@@ -20126,17 +20127,29 @@ freeze commit is recorded here.
 
   **The reading rule** (`metrics/README.md`, beside the no-model forecast).
   - **A reference, never a predictor.** It takes no rank and no headline.
-  - **The engines read it before they forecast.** An engine's per-event
-    Brier against the line's, on the line's own events, measures what the
-    engine adds beyond the line. It never measures whether the engine would
-    have found the amicus signal unaided, and no figure under this rule
-    answers that.
+  - **Each engine's cell is handed its own frozen rate before it
+    forecasts.** An engine's per-event Brier against the line's, on the
+    line's own events, is its gap to a reference that was available to it.
+    It never measures whether the engine would have found the amicus signal
+    unaided, and no figure under this rule answers that. Nor is it a clean
+    measure of what the engine adds: whether an engine reads the field is
+    unobserved, the engine holds the rest of its record, and on an
+    `arm_mismatches` event the line is the earliest cell's rate, not the
+    rate a later engine was handed. Those events are expected to lean
+    against the line, the earliest cell being usually `none` where a later
+    engine saw a brief, and to cluster on higher-grant events.
   - **The line against `band_brier`** says whether this split, as
-    approximated, beat the band rate on those events. A loss is not evidence
-    that amicus filings carry no signal. On a fallback event the two share a
-    term.
+    approximated, beat the band rate on those events, while the fit's pools
+    carry no unread rows (none did in the fit `amicus-line-v1`'s entry
+    tabulates); where they do, the two differ by more than the split. A
+    loss is not evidence that amicus filings carry no signal. On a fallback
+    event the two share a term.
   - **Quoted with its `events`, `grants`, `fallback_events`,
-    `arm_mismatches` and `left_out`.**
+    `arm_mismatches` and `left_out`.** The events left out are not missing
+    at random (a cell placed before this change, a forecast that did not
+    verify, a snapshot with no proceedings, a cell with no risk-set anchor),
+    so `engine_brier` over the line's events is never read as the paired
+    figure's Brier.
   - **It describes forecasts whose cells froze the forecast.** It is never
     extended to an earlier forecast by reading the corpus's current count,
     and a prediction stamped with a count but placed before this change (its
@@ -20153,13 +20166,21 @@ freeze commit is recorded here.
   forecasts placed under the label that registers this prompt saw a number
   earlier forecasts did not. A movement in cert accuracy, Brier or skill
   across that label may not be attributed to the engines' models, and, with
-  no cell run under it yet, no direction is predicted. The anchor every cert
+  no cell run under it yet, no direction is predicted. Cert skill over the
+  anchor from that label on includes whatever a cell took from the handed
+  rate. Two information sets sit under the label: a cell whose
+  `context.cert_amicus_line` is null (placed before the first fit file was
+  committed, or with no anchor, count or readable fit) saw the count and the
+  prompt and no rate, and enters cert skill but no line figure. The anchor every cert
   skill is scored against does not move. No committed prediction or grading
   is re-stamped, no base rate re-prices and no membership rule moves.
 
   **What is not verified at registration.** No cell has run under the new
   prompt, so whether any engine reads the field, or over-anchors on it, is
-  unobserved. No `metrics/amicus-line.json` exists on `main`: the first
+  unobserved. The count the forecast's arm rests on is read from the
+  provisioned snapshot file, which sits in the cell's workspace beside the
+  context, so the checks bind the rate to the committed fit and to the count
+  and no further. No `metrics/amicus-line.json` exists on `main`: the first
   metrics refresh after the carrying merge writes it, and a cert cell placed
   between the merge and that refresh is handed its count and a null
   forecast, which the prompt tells it to read as "use the statpack cut". The
@@ -20189,6 +20210,6 @@ freeze commit is recorded here.
   - over an `evaluation.json` grading that prediction, `jq
     .amicus_line_rate` prints the same rate, and the evaluate job log carries
     no "amicus-adjusted reference forecast does not verify" warning;
-  - once paired cert events resolve, `jq '.. | .amicus_line? // empty'
-    metrics/leaderboard.json` prints a block whose `events` plus `left_out`
-    equals its paired figure's `events`.
+  - once paired cert events placed after the refresh resolve, `jq '.. |
+    .amicus_line? // empty' metrics/leaderboard.json` prints a block with
+    `events` above 0.

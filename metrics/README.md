@@ -345,6 +345,8 @@ The offline gate
 `leaderboard.json`, `claim-scores.json`, `backtest.json`, `statpack.json`,
 `statpack.md` — exist
 and are committed. Others land here without being gate-checked:
+`amicus-line.json`, the amicus-adjusted reference line's fit, which the
+statpack command writes beside the pack and the weekly refresh commits,
 `cert-backtest.json`, which only a released replay writes, `docket.{json,md}`,
 which the weekly metrics refresh regenerates beside the statpack, `big-cases.{json,md}`,
 which the daily `big-cases` lane keeps current on its own cadence,
@@ -1048,15 +1050,29 @@ stays outside the gate:
   Reading rule. The line is a reference and takes no rank. An event's
   forecast is that of its earliest qualifying cell by harness clock, the cell
   its band is filed under; an event enters only where every paired engine's
-  qualifying gradings carry a stamped rate, and the rest are counted in
-  `left_out`. Each engine's per-event Brier (`engine_brier`) is read against
+  every qualifying grading carries outcome facts and a stamped rate equal to
+  the one its committed prediction froze, and that earliest grading a risk-set `segment_base_rate`. The rest are counted in
+  `left_out`, and they are not missing at random: events with a cell placed
+  before cells were handed the line, lines that did not verify, snapshots
+  with no proceedings and cells with no risk-set anchor. So `engine_brier`
+  here is over the line's events only, never the paired figure's Brier, and
+  early figures hold only events placed after the change. Each engine's per-event Brier (`engine_brier`) is read against
   the line's (`brier`) on the line's own `events`, beside `band_brier`, the
   frozen band anchors scored on the same events: the line against
   `band_brier` says whether this split, as approximated, beat the band rate
-  there, and a loss is not evidence that amicus filings carry no signal.
-  Because the engines are handed the rate before they forecast, an engine's
-  gap to the line measures what it adds beyond the line, never whether it
-  would have found the amicus signal unaided. Quote the line with its
+  there, and a loss is not evidence that amicus filings carry no signal. That
+  reading holds while the fit's pools carry no unread rows; where they do,
+  the anchor pools rows neither arm holds, and the two differ by more than
+  the split.
+  Each engine's cell is handed its own frozen rate before it forecasts, so an
+  engine's gap to the line is its gap to a reference that was available to
+  it, not a test of whether it would have found the amicus signal unaided.
+  It is not a clean measure of what the engine adds either: whether an engine
+  reads the field is unobserved, the engine holds the rest of its record, and
+  on an `arm_mismatches` event the line is the earliest cell's rate, which is
+  not the rate a later engine was handed. Those events lean against the line:
+  the earliest cell is usually `none` while a later engine saw a brief, and
+  they cluster on higher-grant events, as band mismatches do. Quote the line with its
   `events`, `grants`, `fallback_events` (events whose forecast is the band
   rate, where the two Briers share a term), `arm_mismatches` and `left_out`.
   It describes only forecasts whose cells froze the line; it is never
@@ -1073,6 +1089,16 @@ stays outside the gate:
   arms need not average to the anchor. `uv run fedcourts amicus-line-fit
   --before-term <Term>` prints the same fit read live off the corpus, with
   each arm's pool.
+
+  **Across the change.** From the label that registers the prompt describing
+  these fields, a cert cell is handed a no-model rate earlier cells were not.
+  A cert cell's skill over its anchor from then on includes whatever it took
+  from that rate, so read it beside the line's own gain over `band_brier`,
+  and attribute no movement in cert accuracy, Brier or skill across that
+  label to the engines' models. Under that label a cell whose
+  `context.cert_amicus_line` is null (placed before the first fit file was
+  committed, or with no anchor, count or readable fit) saw the count and the
+  prompt but no rate: it enters cert skill and no line figure.
 
   Eight of these fields are cert-only, null off the cert stage (where
   `denied` is not the null call): the two floors (`always_deny_accuracy`,

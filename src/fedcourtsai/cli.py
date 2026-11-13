@@ -16425,7 +16425,7 @@ def _cert_skill_record_for(
         rate, digest, lookback = _cert_anchor_for(
             event_paths, evaluation, scored, settings, label, anchor_refusals
         )
-        line_rate = _amicus_line_rate_for(event_paths, evaluation, scored, settings, digest)
+        line_rate = _amicus_line_rate_for(event_paths, evaluation, scored, settings, label, digest)
         _warn_on_discarded_number(
             evaluation, "segment_base_rate", evaluation.segment_base_rate, rate
         )
@@ -16507,23 +16507,27 @@ def _amicus_line_rate_for(
     evaluation: Evaluation,
     scored: Prediction,
     settings: Settings,
+    label: str | None,
     stamped_digest: str | None,
 ) -> float | None:
     """The scored cert cell's amicus-adjusted reference rate, where it verifies.
 
     The rate the cell's context froze at provisioning
     (``context.cert_amicus_line``), copied only where the stamp took the cert
-    anchor from the same context (``stamped_digest`` is that anchor's build, so
-    the anchor has verified and its rate and window are the ones the line was
-    frozen under) and :func:`fedcourtsai.amicus_line.verify` re-pools the line
-    from the fit committed on ``main`` at the predict cell's run id. ``None``,
-    with a warning where a frozen line was refused, everywhere else: a
-    reference line the board cannot vouch for is omitted, never trusted.
+    anchor from the same context (the label pins the frozen anchor and
+    ``stamped_digest`` is that anchor's build, so the anchor has verified and
+    its rate and window are the ones the line was frozen under) and
+    :func:`fedcourtsai.amicus_line.verify` re-pools the line from the fit
+    committed on ``main`` at the predict cell's run id. ``None``, with a warning
+    where a frozen line was refused, everywhere else: a reference line the
+    board cannot vouch for is omitted, never trusted.
     """
     context = scored.context
     line = context.cert_amicus_line if context is not None else None
     anchor = context.cert_anchor if context is not None else None
     if context is None or line is None or anchor is None:
+        return None
+    if not process_version.pins_cert_anchor(label):
         return None
     if stamped_digest is None or stamped_digest != anchor.statpack_digest:
         return None
@@ -16624,6 +16628,12 @@ def _cert_anchor_pool(
         typer.echo(
             "::warning::provision: no readable metrics/statpack.json — this cert cell's "
             "anchor is not frozen and its grading pools the statpack read at stamp time.",
+            err=True,
+        )
+    elif pool.amicus_fit is None:
+        typer.echo(
+            "::warning::provision: no readable metrics/amicus-line.json — this cert cell "
+            "carries no amicus-adjusted reference forecast.",
             err=True,
         )
     return pool

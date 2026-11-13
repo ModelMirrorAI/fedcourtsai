@@ -17,6 +17,7 @@ from fedcourtsai.schemas import (
     AgentFlag,
     AgentFlags,
     AgentToolingFeedback,
+    AmicusLineReference,
     Backtest,
     BacktestCourtScore,
     BacktestDocketClassScore,
@@ -3813,6 +3814,42 @@ def test_the_weekly_digest_reads_the_engine_mean_against_the_best_engine() -> No
     assert "not below the best engine's own" in with_mean(0.03)
     plain = ops.render_weekly_digest(_empty_report(), analytics=_analytics(leaderboard=board))
     assert "Reference, not a predictor" not in plain
+
+
+def test_the_weekly_digest_reads_the_amicus_line_against_the_band_anchor() -> None:
+    board = _board(_lb_entry("claude-baseline", _forward()), _lb_entry("p", _forward()))
+    assert board.paired is not None
+    paired = board.paired.model_copy(
+        update={
+            "amicus_line": AmicusLineReference(
+                rule="amicus-line-v2",
+                events=40,
+                left_out=70,
+                grants=3,
+                grants_forecast=4.2,
+                brier=0.041,
+                band_brier=0.052,
+                engine_brier={"claude-baseline": 0.03, "p": 0.05},
+                by_arm={"none": 31, "some": 9},
+                fallback_events=2,
+                arm_mismatches=1,
+            )
+        }
+    )
+
+    md = ops.render_weekly_digest(
+        _empty_report(),
+        analytics=_analytics(leaderboard=board.model_copy(update={"paired": paired})),
+    )
+
+    assert "cert-stage amicus brief (`amicus-line-v2`)" in md
+    assert "**0.0410** over 40 of 110 paired event(s) (3 granted; 31 `none`, 9 `some`)" in md
+    assert "against 0.0520 for the frozen band anchor" in md
+    assert "`claude-baseline` 0.0300, `p` 0.0500" in md
+    assert "2 event(s) read the band rate as a fallback, 1 had engines' cells" in md
+    assert "70 paired event(s) were left out" in md
+    plain = ops.render_weekly_digest(_empty_report(), analytics=_analytics(leaderboard=board))
+    assert "cert-stage amicus brief" not in plain
 
 
 def test_the_weekly_digest_prints_each_engines_own_grant_forecast() -> None:

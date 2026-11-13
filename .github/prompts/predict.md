@@ -1351,7 +1351,8 @@ being polled, so lean on them less.
 That split is also pooled for your band, once. On a cert cell
 `record/context.json` carries `cert_amicus_briefs`, the harness's count of the
 cert-stage amicus briefs on your snapshot under the same reading, and, where
-your context froze a `cert_anchor`, `cert_amicus_line` with five keys: `arm`,
+your context froze a `cert_anchor`, `cert_amicus_line` with six keys: `rule`,
+the registered rule it was pooled under; `arm`,
 `none` for a count of 0 and `some` for 1 or more; `rate`, the grant rate among
 the petitions that had reached your band and ended in your arm, pooled as the
 anchor is (your `salience_version`, Terms strictly before yours, the anchor's
@@ -1368,7 +1369,9 @@ floor, since your petition may still draw one, and with a brief the `some`
 rate probably runs high in a weak band, since some of its petitions drew
 theirs only after climbing to a stronger one. The Solicitor General's invited
 brief counts as a brief. The harness checks the record against the committed
-fit before it publishes it, so read it and never edit it. A null
+fit before it publishes it, so read it and never edit it. The fit file itself
+is under the statpack's replay rule: in a replay cell use only its Term rows
+strictly preceding your clock, which is what the frozen `rate` already pools. A null
 `cert_amicus_line` (no frozen anchor, no proceedings on your snapshot, or no
 fit file at placement) means read the statpack cut above instead.
 

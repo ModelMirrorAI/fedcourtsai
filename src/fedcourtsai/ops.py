@@ -1366,8 +1366,8 @@ def _engine_mean_line(paired: PairedEvents) -> list[str]:
 def _amicus_line_line(paired: PairedEvents) -> list[str]:
     """The amicus-adjusted reference under the forward table, read against the band rate.
 
-    Per-event Briers over the line's own events: the line, the unsplit band
-    rate it splits, and each engine's own.
+    Per-event Briers over the line's own events: the line, the frozen band
+    anchor it splits, and each engine's own.
     """
     ref = paired.amicus_line
     if ref is None:
@@ -1380,11 +1380,13 @@ def _amicus_line_line(paired: PairedEvents) -> list[str]:
         "Reference, not a predictor and never ranked: the band rate split on a "
         f"cert-stage amicus brief (`{ref.rule}`) scores a per-event Brier of "
         f"**{_brier(ref.brier)}** over {ref.events:,} of {paired.events:,} paired event(s) "
-        f"({ref.grants} granted; {arms}), against {_brier(ref.band_brier)} for the unsplit "
-        f"band rate on the same events. Per event over the same events: {engines}. "
-        f"{ref.fallback_events:,} event(s) read the band rate as a fallback and "
-        f"{ref.arm_mismatches:,} had engines' cells in different arms. The engines are "
-        "handed this rate before they forecast, so a gap is what an engine adds beyond it."
+        f"({ref.grants} granted; {arms}), against {_brier(ref.band_brier)} for the frozen "
+        f"band anchor on the same events. Per event over the same events: {engines}. "
+        f"{ref.fallback_events:,} event(s) read the band rate as a fallback, "
+        f"{ref.arm_mismatches:,} had engines' cells in different arms and "
+        f"{ref.left_out:,} paired event(s) were left out. Each engine's cell was handed "
+        "its own frozen rate before it forecast, so a gap is to a reference the engine "
+        "could read, not a test of finding the signal unaided."
     )
     return ["", line]
 

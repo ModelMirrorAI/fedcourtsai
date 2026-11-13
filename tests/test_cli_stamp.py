@@ -3415,7 +3415,7 @@ def test_stamp_leaves_the_conditioning_unjudged_with_no_snapshot_on_disk(
     assert not event_paths.prediction_flags("claude-baseline", "RID").is_file()
 
 
-# --- the stamp-written cert amicus count ----------------------------------------
+# --- the cert amicus count the stamp reads again --------------------------------
 #
 # The one conditioning field provisioning never writes. `record/context.json` is
 # read by the cell, so a pre-computed amicus count there would widen every cert

@@ -987,8 +987,8 @@ directory without knowing which part is which invites trusting the wrong half.
   committed value does not rest on what the context file held after the
   agent ran. The count is null on an application docket; where the snapshot
   disclosed no proceedings; on a re-stamp with no snapshot file beside it; and
-  on every prediction stamped before the field existed. `cert_amicus_line` is a claim like `cert_anchor`: the evaluator
-  stamp copies its rate to the grading's `amicus_line_rate` only where it
+  on every prediction stamped before the field existed. `cert_amicus_line` is
+  a claim like `cert_anchor`: the evaluator stamp copies its rate to the grading's `amicus_line_rate` only where it
   re-pools from the committed fit, and the amicus-adjusted reference line
   (`metrics/README.md`) reads that. No skill is scored against it.
 
@@ -1126,7 +1126,12 @@ who writes the baseline on each:
   committed at or before the predict cell's run id, record the lookback
   window `config/tracking.yaml` names at that commit, and re-pool to the
   frozen rate, or the anchor and skill are cleared with a warning
-  (`docs/process-version.md` states the trust boundary). A context with no `cert_anchor` pools the statpack checked out at
+  (`docs/process-version.md` states the trust boundary). Where the anchor
+  was copied and the context also froze a `cert_amicus_line`, the stamp writes
+  its rate to `amicus_line_rate` once it re-pools from the
+  `metrics/amicus-line.json` committed at or before the same run id, and
+  leaves the field null with a warning otherwise; no skill is taken against
+  it. A context with no `cert_anchor` pools the statpack checked out at
   grading. A cert cell whose prediction froze no band takes the terminal
   fallback, and from `proc-v17` on the stamp writes that record too:
   `pipeline.base_rates.terminal_base_rate` over the band, salience version
