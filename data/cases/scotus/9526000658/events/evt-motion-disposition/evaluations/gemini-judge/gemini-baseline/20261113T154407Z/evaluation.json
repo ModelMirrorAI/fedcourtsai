@@ -1,0 +1,125 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.03,
+    "notes": "Routine pro se emergency stay application arising from personal/entity Chapter 7 bankruptcy litigation in E.D. Va. and an unpublished Fourth Circuit mandamus denial of a judicial-recusal motion (No. 26-2404), summarily denied in chambers by the Chief Justice without a response request, referral, amicus filings, or broader legal reach."
+  },
+  "brier_score": 0.0001,
+  "brier_skill_score": 0.9926546309993426,
+  "case_id": "scotus/9526000658",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": 0.013514019934335405
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.001,
+          "Barrett": 0.001,
+          "Gorsuch": 0.001,
+          "Jackson": 0.001,
+          "Kagan": 0.001,
+          "Kavanaugh": 0.001,
+          "Roberts": 0.002,
+          "Sotomayor": 0.001,
+          "Thomas": 0.001
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.013514019934335405,
+    "total": 0.013514019934335405
+  },
+  "correct": 1,
+  "created_at": "2026-11-13T15:53:37.657129Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction placed on 2026-11-09T03:34-03:49Z, two days before the 2026-11-11 denial. All 53 logged calls in retrieval_log.json (outcome_only capture, engine standing shape) predated resolution; CourtListener lookups retrieved pre-existing Fourth Circuit opinions (2026-10-22 and 2026-07-10) and fedcourts query checked open companion applications (including 26A657, unresolved until 2026-11-10). Failed directory probes on unprovisioned 9526000657 returned errors and exposed nothing; data/qp-topics/ was not touched.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-carbon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.86,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Snapshot 2026-11-12.json and outcome.json show Chief Justice Roberts denied 26A658 solo on 2026-11-11 (five days after the 2026-11-06 docketing date) with interim_reading = 'denied', referred_to_court = false, and writing_roles = null.",
+        "claim": "Chief Justice Roberts, acting solo in chambers as Circuit Justice for the Fourth Circuit, will summarily deny the stay application in a one-sentence standard order within roughly one to two weeks of docketing.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json interim_signals records response_requested = false and referred_to_court = false.",
+        "claim": "The Chief Justice will dispose of the application without calling for a response from Chapter 7 Trustee H. Jason Gold and without referring the application to the full Court.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records interim_signals.amicus_briefs = 0, noted_dissent_from_denial = null, votes = [], and writing_roles = null.",
+        "claim": "No amicus briefs will be filed and no Justice will author a concurrence, statement, or noted dissent.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The posture matches the staged OCR application.txt verbatim, but the Chief Justice's textless summary denial states no doctrinal ground.",
+        "claim": "Under Hollingsworth v. Perry and Cheney v. U.S. District Court, the application fails the certiorari, reversal, and irreparable-harm prongs because it seeks emergency relief from an unpublished Fourth Circuit mandamus denial of a district-judge recusal motion in an ongoing E.D. Va. bankruptcy appeal.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261109T032540Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:93dfd6b52d95a78cbc7ce722aa2230f0e8ce09716d6219c95036ca071419fee9",
+    "label": "proc-v21",
+    "pipeline_sha": "db110b5849c5c90c07c307a3a3ae81ece2ae563e",
+    "stamped_at": "2026-11-13T15:53:37.657129Z"
+  },
+  "reasoning_quality": 0.95,
+  "run_id": "20261113T154407Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,18 @@
+{
+  "actor_id": "gemini-judge",
+  "case_id": "scotus/9526000657",
+  "gaps": [],
+  "helpful": [
+    "fedcourts statpack-at rebuilt the exact prediction-time statpack (f0a8cabd41e6), isolating a candidate's fabricated base-rate counts with certainty",
+    "provisioned OCR application text in record/documents/application.txt grounded the independent big_case assessment and verified lower-court posture"
+  ],
+  "notes": "All three candidates ran in forward mode on 2026-11-09 prior to the 2026-11-10 denial; statpack-at confirmed that claude-baseline and codex-baseline read f0a8cabd41e6 accurately while gemini-baseline cited non-existent interim counts.",
+  "role": "evaluator",
+  "run_id": "20261113T154407Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts statpack-at"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

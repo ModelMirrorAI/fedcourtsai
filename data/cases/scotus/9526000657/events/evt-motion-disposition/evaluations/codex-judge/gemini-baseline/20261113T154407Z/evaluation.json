@@ -1,0 +1,127 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": null,
+  "brier_score": 2.5e-05,
+  "brier_skill_score": 0.9981636577498356,
+  "case_id": "scotus/9526000657",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": 0.013589019934335403
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.015,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.001,
+          "Barrett": 0.001,
+          "Gorsuch": 0.001,
+          "Jackson": 0.001,
+          "Kagan": 0.001,
+          "Kavanaugh": 0.001,
+          "Roberts": 0.002,
+          "Sotomayor": 0.001,
+          "Thomas": 0.001
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.013589019934335403,
+    "total": 0.013589019934335403
+  },
+  "correct": 1,
+  "created_at": "2026-11-13T15:51:53.402101Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "All 62 logged calls are outcome_only, not captured; null dates and digests are therefore not evidence of empty results. Assessing the queries and disclosed prose shows lower-court opinions/dockets, general corpus priors and neighboring applications, not retrieval of this application's denial. The disclosed November 4 Fourth Circuit order and earlier lower-court opinions precede the November 10 resolution and are legitimate forward information. No visible material says this Supreme Court application was already decided.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.85,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The outcome records response_requested = false; the staged docket has no response request.",
+        "claim": "No response will be requested from Kevin McCarthy before disposition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The outcome records referred_to_court = false and the November 10 docket entry attributes denial to The Chief Justice.",
+        "claim": "Chief Justice Roberts will dispose of the application without referral to the full Court.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The outcome records amicus_briefs = 0 and the staged docket contains no amicus entry.",
+        "claim": "There will be no amicus submissions before disposition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Denial on November 10 is eight days after submission and within the forecast's stated interval.",
+        "claim": "The Chief Justice will deny the application roughly two to ten days after November 2, during the first half of November.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The staged docket and outcome disclose denial but no grounds. They do not establish which requirement failed or adjudicate the asserted injury; no explanatory order is staged.",
+        "claim": "The application meets none of the stay requirements, with no plausible certiorari or reversal prospect and no cognizable irreparable harm.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261109T032540Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v21",
+    "pipeline_sha": "db110b5849c5c90c07c307a3a3ae81ece2ae563e",
+    "stamped_at": "2026-11-13T15:51:53.402101Z"
+  },
+  "reasoning_quality": 0.58,
+  "run_id": "20261113T154407Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

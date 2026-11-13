@@ -1,0 +1,130 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.45,
+    "notes": "An imminent execution creates irreversible individual stakes, and the proposed constitutional exception could matter beyond this case. The realized action is an unexplained, individual interim denial, not a precedential resolution of that exception."
+  },
+  "brier_score": 0.0004,
+  "brier_skill_score": 0.9706185239973701,
+  "case_id": "scotus/9526000661",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": 0.013214019934335405
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.08,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.9,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.01,
+          "Barrett": 0.01,
+          "Gorsuch": 0.01,
+          "Jackson": 0.06,
+          "Kagan": 0.02,
+          "Kavanaugh": 0.01,
+          "Roberts": 0.005,
+          "Sotomayor": 0.08,
+          "Thomas": 0.01
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.013214019934335405,
+    "total": 0.013214019934335405
+  },
+  "correct": 1,
+  "created_at": "2026-11-13T15:58:52.530012Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "All 16 logged calls have captured results, with forward mode and prediction on November 9 before the November 12 disposition. Calls read the arrival snapshot, application, statistical context, and corpus queries for the linked petition and other applications. No query or prose shows this application's already-decided result; no web or CourtListener retrieval appears. Null retrieved-document dates are not by themselves evidence of no retrieval.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.9,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The November 12 disposing entry denies both the stay and certiorari. The date window holds; execution-relative timing within that day is not recorded.",
+        "claim": "The Court will deny the stay and almost certainly deny the linked certiorari petition on the same day, November 11 or 12.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The snapshot contains a November 12 referral entry, and the disposing entry repeats that Gorsuch referred the application to the Court.",
+        "claim": "Justice Gorsuch will refer the application to the full Court.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Oklahoma filed its response on November 9, the application date. The outcome records response_requested false. The separate filing of a certiorari opposition is not established by this application docket.",
+        "claim": "Oklahoma will respond within a day, probably uninvited, and no formal response request is likely.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The frozen amicus count and outcome.interim_signals.amicus_briefs are both zero.",
+        "claim": "No amicus briefs are expected.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The staged disposing entry is an unexplained denial and notes no separate writing or dissent. It supplies no evidence of individual unannounced votes; the forecast's conditional merits discussion was not triggered.",
+        "claim": "The order will most likely be unexplained, with a written dissent possible but improbable.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261109T212928Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v21",
+    "pipeline_sha": "db110b5849c5c90c07c307a3a3ae81ece2ae563e",
+    "stamped_at": "2026-11-13T15:58:52.530012Z"
+  },
+  "reasoning_quality": 0.78,
+  "run_id": "20261113T154407Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

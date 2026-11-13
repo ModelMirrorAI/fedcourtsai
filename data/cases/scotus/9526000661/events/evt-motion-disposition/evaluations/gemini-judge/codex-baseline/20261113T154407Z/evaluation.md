@@ -1,0 +1,31 @@
+# Evaluation of `codex-baseline` (`scotus/9526000661`, `evt-motion-disposition`)
+
+## Overview and Interim Scoring Context
+
+This is an **interim**-stage arrival cell (`26A661`, *James Dwight Pavatt v. Oklahoma*, linked with certiorari petition `26-6095`), resolved on November 12, 2026 by referral to the full Court and a summary denial of both the stay application and certiorari (`actual_disposition: "denied"`, `interim_reading: "denied"`, `interim_granted: 0`, `referred_to_court: true`, `response_requested: false`, `amicus_briefs: 0`). Because the cell is interim, `segment_base_rate` and `brier_skill_score` are computed and stamped by the harness from the committed statpack's strictly-prior application-Term pool (`base_rate_basis` stays `null`; the strictly-prior OT2016–OT2025 pool in `metrics/statpack.json` clears the registered 50-resolution floor with zero unread rows, so the stamped segment base rate is non-null).
+
+`codex-baseline` predicted `denied` with `probability = 0.06`, earning `correct = 1`, `brier_score = 0.0036`, and positive skill against the stamped segment base rate, though with four to nine times the Brier loss of the sharper 2%–3% forecasts on this cell.
+
+## Rationale Assessment (`reasoning_quality`: `0.76`)
+
+### Strengths
+- **Exact, verified statistical work:** Using `jq` directly against `metrics/statpack.json` (which matches its pinned build `ca0c9e1a49e2`), `codex-baseline` verified every per-Term `finer_granted/finer_resolved` count across OT2016–OT2025, confirmed zero `finer_unread` counts, distinguished the scorer's unconditioned 10-Term reference pool from the `private` × `capital` descriptive cut, and carefully noted why terminal escalation counts in the statpack are censored and selection-skewed.
+- **Sound doctrinal analysis and epistemic restraint:** Retrieving *Peña-Rodriguez v. Colorado*, 580 U.S. 206, 221–25 (2017), via CourtListener, `codex-baseline` accurately explained that the Sixth Amendment exception to the no-impeachment rule rested on features distinctive to racial bias, that no split supported extending it to prosecutorial misrepresentations about who fired the fatal shots, and that alleged prosecutorial misconduct can ordinarily be evaluated from non-juror trial evidence under an objective prejudice standard. It also maintained strict epistemic discipline about what could not be verified without the un-staged OCCA opinion or State opposition.
+
+### Weaknesses
+- **Double-counting irreparable harm in an upward adjustment from the `private` × `capital` prior:** After locating the matching `private` × `capital` descriptive cell (~3.5%), `codex-baseline` adjusted **upward** to `0.06` largely because "an imminent execution makes the irreparable injury exceptionally strong" and because direct review from state post-conviction avoided *Storey v. Lumpkin*'s federal AEDPA posture. Every stay-of-execution application in the `private` × `capital` reference class already involves imminent execution harm, so treating that harm as an upward differentiator double-counts it. Moreover, arriving three days before execution from a third successive state post-conviction denial (`PCD-2026-827`) posed severe state-procedural-bar risk—which `application-response.txt` confirmed materialized in full when the OCCA dismissed under `Okla. Stat. tit. 22, § 1089(D)(8)` without reaching the merits—making `3.5%` a ceiling rather than a floor.
+- **Capital response-request mechanics and overstated `big_case` / authorship priors:** `codex-baseline` reasoned that the compressed execution deadline made a formal call for a response highly likely (`0.88`), overlooking that in three-day execution-week capital stays the State routinely files an immediate opposition under capital protocol without any docketed call from the Circuit Justice or Court (`response_requested` resolved `false`). Its `order-writers` estimates (e.g., Sotomayor `0.22`) and `big_case_score` (`0.67`) also over-weighted the individual gravity of an execution relative to the routine, procedurally barred posture of the application.
+
+## Predicted reasoning (`predicted_reasoning_quality`: `0.75`)
+
+`codex-baseline`'s `predicted_reasoning.md` sits cleanly at the `0.75` anchor—specific central claims that were mostly borne out, with one prominent procedural call failing:
+1. **Denial of the stay before the Nov. 12 execution (`borne-out`):** Correctly forecast denial on Nov. 11 or the morning of Nov. 12 ahead of the 10 a.m. CT execution (`resolved_at: "2026-11-12"`, `interim_reading: "denied"`).
+2. **Prompt formal call for a response on Nov. 9 or 10 (`not-borne-out`):** Confidently committed (`88%`) to a prompt call for a response, whereas Oklahoma filed its opposition uninvited on Nov. 9 with no response request ever entered (`response_requested: false`).
+3. **Referral to the full Court (`borne-out`):** Correctly forecast referral by Justice Gorsuch to the full Court (`referred_to_court: true` on Nov. 12).
+4. **Zero additional amicus briefs (`borne-out`):** Correctly forecast zero amicus filings (`amicus_briefs: 0`).
+5. **Brief unexplained order with no separate writing (`borne-out`):** Specifically and accurately forecast that the operative order would be brief, supply no majority explanation (and thus make no finding on harmlessness or misconduct), and carry no separately authored writing (`writing_roles: null`), though unlike the stronger forecasts on this cell it did not note that the same order would simultaneously deny certiorari in linked No. `26-6095`.
+
+## Leakage and Big-Case Notes
+
+- **Leakage (`not_applicable`, `leakage_suspected: false`):** Placed in `forward` mode on November 9, 2026 (~22:48–22:51 UTC) while the case was genuinely open. Captured tool calls (`result_capture_coverage = 0.931`) and the two unobserved web searches targeted only *Peña-Rodriguez* and *Storey v. Lumpkin*, plus pre-2026 corpus rows; no outcome material existed or was accessed.
+- **Case stakes (`evaluator_score: 0.18`):** Despite irreversible execution stakes for the individual applicant, this third successive state post-conviction stay application was barred on routine state procedural grounds and resolved in an unexplained summary denial with zero noted dissents or broader doctrinal impact (`0.18`).

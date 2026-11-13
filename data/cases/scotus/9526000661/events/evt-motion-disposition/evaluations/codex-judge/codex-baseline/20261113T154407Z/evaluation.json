@@ -1,0 +1,130 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.45,
+    "notes": "An imminent execution creates irreversible individual stakes, and the proposed constitutional exception could matter beyond this case. The realized action is an unexplained, individual interim denial, not a precedential resolution of that exception."
+  },
+  "brier_score": 0.0036,
+  "brier_skill_score": 0.7355667159763314,
+  "case_id": "scotus/9526000661",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.06,
+        "score": 0.010014019934335403
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.88,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.95,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.12,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.01,
+          "Barrett": 0.01,
+          "Gorsuch": 0.02,
+          "Jackson": 0.1,
+          "Kagan": 0.035,
+          "Kavanaugh": 0.01,
+          "Roberts": 0.005,
+          "Sotomayor": 0.22,
+          "Thomas": 0.015
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.010014019934335403,
+    "total": 0.010014019934335403
+  },
+  "correct": 1,
+  "created_at": "2026-11-13T15:58:52.530012Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The November 9 forward prediction precedes the November 12 denial. Logged legal research concerns Pena-Rodriguez and Storey, not this application's result; captured document dates include March 6, 2017 and June 3, 2026, before resolution. Capture coverage is 27/29: the two web rows are unobserved and their null dates do not establish empty results, but their queries target older precedent. Neither the queries nor the prose reveal this case's disposition.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.72,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Outcome.json records an interim denial with interim_granted zero, resolved November 12; the disposing docket entry agrees. Exact time of day is unavailable.",
+        "claim": "The Court will deny substantive relief, most likely on November 11 or 12.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Outcome.interim_signals.response_requested is false. The docket shows a November 9 state response but no response-request entry; filing a response is not a request.",
+        "claim": "A response will be called for promptly, probably November 9 or 10, with 88% probability.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "The November 12 docket expressly records referral and then denial by the Court.",
+        "claim": "Justice Gorsuch will refer the application to the full Court.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Outcome.interim_signals.amicus_briefs is zero, as in the frozen prediction context. The staged disposing entry supplies no explanation or separate writing.",
+        "claim": "There will be zero additional amicus entries, and the operative denial will be brief and unexplained.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The denial states no ground. The record cannot distinguish this explanation from procedural, equitable, or other grounds. The conditional account of a grant was not triggered.",
+        "claim": "The likely impediment is insufficient support for reviewing and extending the constitutional exception to juror-impeachment restrictions.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261109T212928Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+    "label": "proc-v21",
+    "pipeline_sha": "db110b5849c5c90c07c307a3a3ae81ece2ae563e",
+    "stamped_at": "2026-11-13T15:58:52.530012Z"
+  },
+  "reasoning_quality": 0.9,
+  "run_id": "20261113T154407Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

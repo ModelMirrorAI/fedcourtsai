@@ -1,0 +1,21 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/9526000657",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-motion-disposition",
+      "message": "gemini-baseline's reasoning.md quotes interim base-rate figures (a strictly-prior pool of 30/148 = 20.3% holding only OT2025, a private/unmarked cell of 9/92, federal 17/22, state 2/5, signals over a 231-application slice) that do not appear in the statpack build its own context.statpack_digest records (f0a8cabd41e6: pool 156/1337 over OT2016-OT2025, private/unmarked 63/906). Reflected in reasoning_quality only; no score depends on it.",
+      "severity": "info"
+    },
+    {
+      "category": "provisioning",
+      "event_id": "evt-motion-disposition",
+      "message": "All three candidates report record/documents/application.txt as empty_text (61 scanned pages, no text layer) at prediction time; the evaluator's record carries an OCR'd text. Predictors forecast without the application's content.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261113T154407Z",
+  "schema_version": "1.0"
+}
