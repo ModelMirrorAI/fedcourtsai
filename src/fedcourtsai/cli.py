@@ -3335,6 +3335,8 @@ def _ocr_sweep(  # noqa: PLR0912, PLR0913, PLR0915 - keyword-only; one flag per 
     _echo_by_kind("class", selection.class_by_kind)
     if selection.thin_size:
         typer.echo(f"  {selection.thin_size} of the class hold thin text rather than none")
+    if selection.unread_size:
+        typer.echo(f"  {selection.unread_size} of the class hold a marked run of unread pages")
     if backlog_held:
         typer.echo(
             f"::warning::{command} --sweep: backlog held — the class holds {found} rows, "
@@ -3575,6 +3577,7 @@ def _ocr_dispatched_write(
         documents_seen=scan.documents_seen,
         candidates=len(scan.candidates),
         thin_text=class_reading(scan).thin_text,
+        unread_runs=class_reading(scan).unread_runs,
         candidates_by_kind=class_reading(scan).candidates_by_kind,
         set_keyed=scan.set_keyed,
         bound=max_cases,
@@ -3690,6 +3693,8 @@ def _echo_ocr_recovery(result: OcrRecoveryResult, db_path: Path, *, apply: bool)
     _echo_by_kind("class", result.candidates_by_kind)
     if result.thin_text:
         typer.echo(f"  {result.thin_text} of the class hold thin text rather than none")
+    if result.unread_runs:
+        typer.echo(f"  {result.unread_runs} of the class hold a marked run of unread pages")
     if result.set_keyed:
         _echo_by_kind("left out (stored URL is a set key, not one link)", result.set_keyed)
     if apply:
@@ -3836,7 +3841,9 @@ def ocr_recover_petitions_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; opt
     reply, the invited brief, the four merits filings — whose text is empty,
     whitespace-only or thin (under 200 characters a page on average, on a row
     that is not truncated, not under a per-filing header and that OCR has not
-    read), whose page count is above zero (a zero-page row is a PDF
+    read), or that carries the extractor's note of a run of unread pages (on
+    such a row too, or named among the rows stored before the note was
+    written), whose page count is above zero (a zero-page row is a PDF
     the extractor could not open, which is not OCR's to repair, and a case with
     no row of a kind at all is a fetch gap), and whose stored URL is one link.
     That last condition excludes one shape: a multi-respondent opposition is
@@ -3856,7 +3863,8 @@ def ocr_recover_petitions_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; opt
     result — the plain head cut, never the appendix-aware one — and
     every recovered row carries `ocr_derived`: OCR output is derived text, and
     must never read as a clean extraction. Additive — text is written only where
-    the stored row held none, or held thin text shorter than the reading — and a
+    the stored row held none, held thin text shorter than the reading, or is a
+    marked row whose longer reading still holds its stored text — and a
     recovered **petition** re-derives its
     `questions-presented` row through the ingest path's own deriver, which
     carries the marker with it; no other kind has a follow-on write.
@@ -4074,7 +4082,7 @@ def recut_documents_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options m
     URL, so a row stored before that cut keeps a plain head cut for as long as its
     link is unchanged. The class is every stored row of the three kinds that is
     `truncated`, not `ocr_derived` (an OCR-recovered row is head-cut by design),
-    carries no `[pipeline note:` line, and has one Court URL; the scope is the
+    carries no cut note (the unread-run note is not one), and has one Court URL; the scope is the
     predict-relevant live-slice rows, or with `--all-live` the whole live slice.
     Each candidate is re-fetched by its stored URL on supremecourt.gov and re-cut
     by the fetching lanes' own extractor at the configured cap. A served PDF with

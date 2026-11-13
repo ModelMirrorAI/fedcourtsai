@@ -1084,8 +1084,10 @@ material**:
     carries each row's identifiers, page count, character count and flags.
     The writer refuses a plan whole above the window's cap, off its shape, or
     naming anything not on the window's worklist, and writes a row only into
-    a stored document still empty or thin (under 200 characters a page) at the
-    same URL, and only where the reading is longer than the text stored there.
+    a stored document still empty, thin (under 200 characters a page) or
+    marked with an unread run at the
+    same URL, and only where the reading is longer than the text stored there
+    and, on a marked row, still holds it.
   - *The dispatched pass* (proposed; promoting the split of run-repair's
     `ocr-recovery` pass to `main` decides it). The same text, of the same shape, read
     the same way, crosses run-repair's credential split as

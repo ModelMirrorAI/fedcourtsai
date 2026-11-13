@@ -49,6 +49,7 @@ from fedcourtsai.pipeline.documents import (
     ExtractedText,
     extract_filing_text,
     extract_pdf_text,
+    note_unread_pages,
 )
 from fedcourtsai.supremecourt import SupremeCourtClient
 from tests.test_documents import _pdf_pages
@@ -168,6 +169,11 @@ def test_every_exclusion_names_its_own_reason() -> None:
     assert exclusion_reason(row.model_copy(update={"ocr_derived": True})) == OCR_DERIVED
     noted = row.model_copy(update={"text": row.text + "\n[pipeline note: 9 characters omitted]"})
     assert exclusion_reason(noted) == HAS_CUT_NOTE
+    # The unread-run note marks pages that were never text. It is not a cut,
+    # so a head-cut row carrying only that note is still in the class.
+    run_noted = "\n".join(note_unread_pages(["x" * 400, "", "", "", row.text]))
+    assert "[pipeline note:" in run_noted
+    assert exclusion_reason(row.model_copy(update={"text": run_noted})) is None
     off_host = row.model_copy(update={"url": "https://example.com/a.pdf"})
     assert exclusion_reason(off_host) == UNFETCHABLE_URL
     joined = row.model_copy(update={"url": _url("scotus/1") + BIO_URL_JOIN + _url("scotus/2")})
@@ -630,3 +636,13 @@ def test_the_cli_refuses_a_corpus_whose_documents_it_cannot_read(tmp_path: Path)
     result = runner.invoke(app, ["recut-documents"], env={"FEDCOURTS_CORPUS_ROOT": str(root)})
     assert result.exit_code == 1
     assert "no stored documents" in result.output and "wrong blob" in result.output
+
+
+def test_a_recut_that_opens_on_an_unread_run_is_still_the_stored_filing() -> None:
+    """The note at the head is the pipeline's line: the comparison starts after it."""
+    body = "The petition argues the point at length. " * 40
+    stored = "\n".join(["COVER", "", "stamp", body])
+    recut = "\n".join(note_unread_pages(["COVER", "", "stamp", body]))
+    assert recut.startswith("[pipeline note:")
+    assert document_recut._same_head(recut, stored)
+    assert not document_recut._same_head(recut.replace("COVER", "OTHER"), stored)

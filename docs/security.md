@@ -2339,9 +2339,11 @@ hand-off reader): an extra field's name or a dict key is the file's own
 text, so no name, message or value from a refused file is printed. It refuses the plan whole above the window's
 cap, if any row, failure or unreached key is not an item of the worklist,
 or if a row is not marked `ocr_derived`, and writes a row only into a
-stored document still in the recovery class at the same URL (empty, or
-holding thin text under 200 characters a page) and only where the reading is
-longer than the text stored there. Both files are downloaded by
+stored document still in the recovery class at the same URL (empty,
+holding thin text under 200 characters a page, or marked with an unread run)
+and only where the reading is
+longer than the text stored there and, on a marked row, still holds that
+text in order. Both files are downloaded by
 artifact id, read from the producing job's outputs. Within one run, any job
 holding the runtime token can upload an artifact under another job's name —
 so either parse in a run-seed run (the vote sweep's or this one) could
@@ -2429,8 +2431,28 @@ the document cap (150,000 characters), into the empty or thin scanned rows of
 that window's worklist, marked `ocr_derived`. On a thin row the write replaces
 text rather than filling a blank: what a forged row can destroy is bounded at
 under 200 characters a page of the row's stored text, the thin layer itself,
-and the only test it must pass is being longer than that text. No standing
-lane restores it, since the fetch lanes do not re-read an unchanged link; the
+and the only test it must pass is being longer than that text. A row marked
+with an unread run is a filing that mostly extracted, so its stored text is
+real and long, and length alone would let a forged row put any text in its
+place. There the writer also holds the reading to the stored text
+(`ocr_recovery.keeps_stored_text`). The stored text is cut at its notes and
+into pieces of 200 ASCII letters and digits, and each piece is looked for in
+the reading after the one before; at least one must be found, and the misses
+may number one a note and a tenth of the pieces, never more than a quarter.
+What the reading holds beyond the pieces it kept may come to no more than
+4,000 letters and digits for each page of the row's runs and for one page in
+ten of the filing besides. A reading may end before the stored text does only
+if it is marked truncated and is as long as the document cap, and then by no
+more than it added. What a forged row can still do to a marked row is
+therefore this: insert text anywhere in it, up to that page allowance; replace
+up to the allowed share of pieces, which need not be the run's own pages;
+change punctuation, spacing and non-ASCII characters, which are not compared;
+and, by adding enough to reach the cap, push as much of the stored text off
+its end. On a long run the allowance is large: a thirty-page run in a
+hundred-page filing admits 160,000 letters and digits, a whole row. It cannot reorder the filing or
+drop its opening, and a stored text too short to make one piece is held to
+length alone. No standing
+lane restores either kind of row, since the fetch lanes do not re-read an unchanged link; the
 writer's summary marks each such write `replaced=<characters>`, which is the
 trace. Those rows go to the content store,
 not git, so no diff review sees them, and forward cells, the case-summary

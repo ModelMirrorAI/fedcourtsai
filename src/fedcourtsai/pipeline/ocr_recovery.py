@@ -14,8 +14,10 @@ that does, on the terms recorded in *Contract for the recovery pass*
   a cell reads that was fetched as a PDF — whose text is empty or
   whitespace-only, or thin (:func:`is_thin_text`: under
   :data:`~fedcourtsai.pipeline.documents.THIN_PAGE_CHARS` characters a page on
-  average, on a row that is whole and that OCR has not read), whose `pages` is
-  above zero, and whose stored URL is one
+  average, on a row that is whole and that OCR has not read), or that carries
+  the extractor's note of a run of unread pages (:func:`has_unread_run`: the
+  filing whose average clears the floor while a stretch of its pages is
+  images), whose `pages` is above zero, and whose stored URL is one
   link. A zero-page row is a PDF the extractor could not open or a derived
   section, and neither is OCR's to repair; a case holding no row of a kind at
   all is a fetch gap, repaired in the fetch path or not at all; a row whose URL
@@ -88,8 +90,11 @@ from .. import corpus, supremecourt
 from ..supremecourt import SupremeCourtClient
 from .documents import (
     _BIO_BLOCK_HEADER_RE,
+    _UNREAD_NOTE_RE,
     BIO_URL_JOIN,
     FETCHED_DOCUMENT_KINDS,
+    KIND_APPENDIX,
+    KIND_APPLICATION_RESPONSE,
     KIND_PETITION,
     KIND_QUESTIONS_PRESENTED,
     THIN_PAGE_CHARS,
@@ -98,6 +103,7 @@ from .documents import (
     _derived_questions_document,
     extract_pdf_text,
     extract_questions_presented,
+    has_unread_pages_note,
     one_log_line,
 )
 from .prefetch import prefetch_by_case
@@ -435,6 +441,13 @@ class OcrRecoveryResult(BaseModel):
         "the thin-page floor of characters a page: a text layer carrying a letterhead "
         "or page stamps over scanned pages",
     )
+    unread_runs: int = Field(
+        default=0,
+        ge=0,
+        description="Of `candidates`, the rows that are not thin and carry the "
+        "extractor's note of a run of pages no text layer carries: a filing typeset "
+        "on some pages and set as page images on a stretch of others",
+    )
     candidates_by_kind: dict[str, int] = Field(
         default_factory=dict,
         description="The class cut by document kind — what an apply's slice is drawn "
@@ -559,6 +572,83 @@ def is_thin_text(document: corpus.CaseDocument) -> bool:
     )
 
 
+# Stored rows that hold an unread run and no note of it. The extractor writes
+# the note when it reads a filing, and a stored link is not read again, so a
+# row stored before the extractor wrote notes carries none however many of its
+# pages are images. These are the ones a forward cell reads: every stored row
+# of a fetched kind on a case with an open event in predict scope, read page by
+# page off the Court's own PDF on 2026-11-13 (index blob sha 513cff96;
+# `docs/freeze-record.md` carries the count), that holds a run and is not
+# truncated. Each is its case, kind and link, with the number of pages its runs
+# hold, so a filing superseded at a new
+# link, which the extractor reads and marks itself, is no longer named. A row
+# leaves the class as any marked row does, by a reading that gains, and its
+# line here is then inert.
+UNMARKED_RUN_ROWS: Mapping[tuple[str, str, str], int] = {
+    (
+        "scotus/9026000624",
+        KIND_PETITION,
+        "https://www.supremecourt.gov/DocketPDF/26/26-624/432234/"
+        "20261109133223577_26-__%20Petition%20For%20A%20Writ%20Of%20Certiorari.pdf",
+    ): 30,
+    (
+        "scotus/9026000545",
+        KIND_APPENDIX,
+        "https://www.supremecourt.gov/DocketPDF/26/26-545/430659/"
+        "20261026145552086_20261026-144911-00002683-00006959.pdf",
+    ): 5,
+    (
+        "scotus/9526000458",
+        KIND_APPLICATION_RESPONSE,
+        "https://www.supremecourt.gov/DocketPDF/26/26A458/429313/"
+        "20261013140622646_Opposition%20of%20Respondent%20Puyallup%20School%20District"
+        "%20to%20Emergency%20Application%20for%20an%20Injunction%20Pending%20Appeal.pdf",
+    ): 4,
+    (
+        "scotus/69666553",
+        KIND_APPENDIX,
+        "https://www.supremecourt.gov/DocketPDF/23/23-7809/315731/"
+        "20240625164206282_24-06-25_Appendix.pdf",
+    ): 75,
+}
+
+
+def has_unread_run(document: corpus.CaseDocument) -> bool:
+    """Whether a stored row is marked as holding a run of pages no text layer carries.
+
+    A filing can be typeset in two passes: a text layer on the cover, the
+    tables and the appendix, and page images for the argument between them.
+    Its average over the pages clears the thin floor, so :func:`is_thin_text`
+    never sees it, and the stored text keeps no page breaks to count blank
+    pages from. The signal is therefore written where the pages are seen: the
+    extractor leaves a note at each run of
+    :data:`~fedcourtsai.pipeline.documents.UNREAD_RUN_PAGES` or more pages under
+    the floor (:func:`~fedcourtsai.pipeline.documents.note_unread_pages`), and a
+    row carrying one is in the class. So is a row named in
+    :data:`UNMARKED_RUN_ROWS`, stored before the note was written.
+
+    The same four rows :func:`is_thin_text` leaves out stay out here, for the
+    same reasons. A **truncated** row is at its cap, so a head-cut reading of
+    its link can be no longer than what it stores and would lose the
+    appendix-aware cut for nothing; its note still tells the reader which pages
+    are missing. An **``ocr_derived``** row is one the recovery already read,
+    and a note left in it marks pages whose images read as nothing. A
+    **set-keyed** row and one under a **per-filing header** are combined rows
+    this pass does not re-fetch.
+    """
+    return (
+        document.pages > 0
+        and not document.truncated
+        and not document.ocr_derived
+        and not is_set_keyed_url(document.url)
+        and _BIO_BLOCK_HEADER_RE.search(document.text) is None
+        and (
+            has_unread_pages_note(document.text)
+            or (document.case_id, document.kind, document.url) in UNMARKED_RUN_ROWS
+        )
+    )
+
+
 def exclusion_reason(document: corpus.CaseDocument) -> str | None:
     """Why this row is out of the recovery class, or ``None`` if it is in it.
 
@@ -566,14 +656,15 @@ def exclusion_reason(document: corpus.CaseDocument) -> str | None:
     conjunction, so the count of what was excluded cannot drift from the test
     that excluded it. Whitespace-only counts as empty (it is what the coverage
     report counts, and what provisioning stamps as ``empty_text``), and a row
-    with thin text is in the class beside it (:func:`is_thin_text`); ``pages > 0``
+    with thin text (:func:`is_thin_text`) or a marked run of unread pages
+    (:func:`has_unread_run`) is in the class beside it; ``pages > 0``
     is what separates a scan from a PDF the extractor could not open, which is
     not OCR's to repair; and the row has to be one this pass can re-fetch by its
     stored URL.
     """
     if document.kind not in RECOVERABLE_KINDS:
         return "not-a-fetched-kind"
-    if document.text.strip() and not is_thin_text(document):
+    if document.text.strip() and not (is_thin_text(document) or has_unread_run(document)):
         return "has-text"
     if document.pages <= 0:
         return "no-pages"
@@ -587,23 +678,144 @@ def is_recoverable_scan(document: corpus.CaseDocument) -> bool:
     return exclusion_reason(document) is None
 
 
-def gains_on(stored: corpus.CaseDocument, recovered: corpus.CaseDocument) -> bool:
+# How a marked row's reading is held to the text the row stores
+# (:func:`keeps_stored_text`). The stored text is compared in pieces of
+# `KEPT_PIECE_CHARS` ASCII letters and digits. Whole pieces rather than one
+# comparison, because a reading legitimately differs from the stored text in
+# places: a thin page inside a run, or a divider elsewhere, whose image read
+# longer than its layer and replaced it. The pieces missed may number one a
+# note and `1 - KEPT_PIECE_SHARE` of the pieces besides, and never more than
+# `KEPT_PIECE_MISS_CEILING` of them. What a reading holds beyond the pieces it
+# kept is what OCR added, and that is bounded by the pages there were to read
+# off their images: the pages of the row's runs, and beside them the single
+# image pages no run holds, allowed at one page in `ISOLATED_PAGE_SHARE` of the
+# filing and never fewer than two. Each may hold `UNREAD_PAGE_CEILING` letters
+# and digits, above what a single-spaced letter page holds.
+KEPT_PIECE_CHARS = 200
+KEPT_PIECE_SHARE = 0.9
+KEPT_PIECE_MISS_CEILING = 0.25
+UNREAD_PAGE_CEILING = 4_000
+ISOLATED_PAGE_SHARE = 10
+
+
+def _ascii_letters_and_digits(text: str) -> str:
+    """``text`` as its ASCII letters and digits alone.
+
+    What two extractions of one PDF agree on: the PDF library moves line breaks
+    between versions and reads decorative glyphs as different characters.
+    """
+    return "".join(c for c in text if c.isascii() and c.isalnum())
+
+
+def unread_run_pages(document: corpus.CaseDocument) -> int:
+    """How many pages a marked row's runs come to: its notes' page ranges, or its named count."""
+    noted = sum(
+        max(int(match.group(2)) - int(match.group(1)) + 1, 0)
+        for match in _UNREAD_NOTE_RE.finditer(document.text)
+    )
+    return noted or UNMARKED_RUN_ROWS.get((document.case_id, document.kind, document.url), 0)
+
+
+def keeps_stored_text(
+    stored: corpus.CaseDocument, recovered: corpus.CaseDocument, *, char_cap: int
+) -> bool:
+    """Whether a reading of a marked row still holds the text the row stores.
+
+    A row in the class on a marked run (:func:`has_unread_run`) is a filing
+    that mostly extracted, so a write over it replaces real text, where a write
+    over an empty row fills a blank and one over a thin row replaces a few
+    lines. The recovery only ever adds to such a row: the pages that extracted
+    are extracted again, and the unread ones are read off their images. Three
+    things follow, and a reading is held to each.
+
+    **The stored text is in the reading, in order.** It is cut at its notes,
+    where the reading has new text, and each stretch into pieces of
+    :data:`KEPT_PIECE_CHARS` letters and digits; each piece is looked for after
+    the one before. At least one must be found, and the misses are bounded as
+    the constants' comment says.
+
+    **What was added fits the unread pages.** The reading's letters and digits
+    beyond the pieces it kept, less a piece's worth for each allowed miss, may
+    come to no more than :data:`UNREAD_PAGE_CEILING` for each page the row's
+    runs hold (:func:`unread_run_pages`) and for the single image pages allowed
+    beside them (:data:`ISOLATED_PAGE_SHARE`).
+
+    **Only the cap ends a reading early.** A reading cut at the cap ends before
+    the stored text does, by as much as OCR added ahead of the cut. That is
+    allowed only where the reading is marked truncated and is ``char_cap``
+    long: the pieces counted are then those up to the last one found, and the
+    pieces past it may come to no more than what was added. Any other reading
+    is held to every piece.
+
+    This is the bound on a forged plan for these rows, and it is a bound on
+    volume and order, not on place: a reading that passes holds the stored text
+    in order less the allowed misses, with no more added than the unread pages
+    could hold, anywhere in it, and at the cap as much pushed off its end.
+    Punctuation, spacing and non-ASCII characters are not compared. A stored
+    text too short to make one piece is held to length alone.
+    """
+    stretches = [_ascii_letters_and_digits(part) for part in _UNREAD_NOTE_RE.split(stored.text)]
+    # `split` returns the note's two captured page numbers between stretches.
+    stretches = stretches[::3]
+    pieces = [
+        stretch[start : start + KEPT_PIECE_CHARS]
+        for stretch in stretches
+        for start in range(0, len(stretch) - KEPT_PIECE_CHARS + 1, KEPT_PIECE_CHARS)
+    ]
+    if not pieces:
+        return True
+    reading = _ascii_letters_and_digits(recovered.text)
+    cursor = 0
+    found = 0
+    last_found = 0
+    for index, piece in enumerate(pieces):
+        at = reading.find(piece, cursor)
+        if at >= 0:
+            cursor = at + len(piece)
+            found += 1
+            last_found = index + 1
+    at_cap = recovered.truncated and len(recovered.text) >= char_cap
+    counted = last_found if at_cap else len(pieces)
+    allowed = min(
+        max(len(stretches) - 1, 1) + (1 - KEPT_PIECE_SHARE) * counted,
+        KEPT_PIECE_MISS_CEILING * counted,
+    )
+    if found == 0 or counted - found > allowed:
+        return False
+    # All three in letters and digits: what the reading holds beyond the pieces
+    # it kept, what the unread pages could hold, and what the cap pushed out.
+    added = len(reading) - found * KEPT_PIECE_CHARS
+    read_pages = unread_run_pages(stored) + max(stored.pages // ISOLATED_PAGE_SHARE, 2)
+    room = read_pages * UNREAD_PAGE_CEILING + int(allowed) * KEPT_PIECE_CHARS
+    pushed_out = (len(pieces) - counted) * KEPT_PIECE_CHARS
+    return added <= room + KEPT_PIECE_CHARS * len(stretches) and pushed_out <= added
+
+
+def gains_on(stored: corpus.CaseDocument, recovered: corpus.CaseDocument, *, char_cap: int) -> bool:
     """Whether writing ``recovered`` over ``stored`` is a recovery.
 
-    Two conditions, and both writers hold a row to them. The reading is longer
-    than the text the row stores, so a write never shortens a row. And the row
+    Three conditions, and both writers hold a row to them. The reading is longer
+    than the text the row stores, so a write never shortens a row. The row
     it leaves is out of the class: every ledger counts what is left as the
     class less what was written, and the dispatched writer's witness re-reads
-    the class to that number. The second bites on one shape only, a reading OCR
+    the class to that number. That one bites on one shape only, a reading OCR
     contributed nothing to that is itself thin: the same sparse text layer,
     served again. It is a ledger invariant and no bound on a forged plan, whose
-    row is marked ``ocr_derived`` and so always leaves the class: against one,
-    the first condition is the whole test.
+    row is marked ``ocr_derived`` and so always leaves the class. And where the
+    stored row is a filing that mostly extracted, in the class on a marked run
+    and not thin, the reading still holds the stored text
+    (:func:`keeps_stored_text`, which reads ``char_cap``, the document cap the
+    reading was cut to). Against a forged plan the first condition is
+    the whole test on an empty or thin row, and the third is the test on a
+    marked one.
     """
-    return (
-        len(recovered.text.strip()) > len(stored.text.strip())
-        and exclusion_reason(recovered) is not None
-    )
+    if len(recovered.text.strip()) <= len(stored.text.strip()):
+        return False
+    if exclusion_reason(recovered) is None:
+        return False
+    if has_unread_run(stored) and not is_thin_text(stored):
+        return keeps_stored_text(stored, recovered, char_cap=char_cap)
+    return True
 
 
 def fetchable_document_url(url: str) -> bool:
@@ -798,6 +1010,19 @@ def _count_by_kind(candidates: Sequence[ScannedDocument]) -> dict[str, int]:
 def thin_text_count(candidates: Sequence[ScannedDocument]) -> int:
     """How many of the class hold thin text rather than none (:func:`is_thin_text`)."""
     return sum(1 for candidate in candidates if is_thin_text(candidate.document))
+
+
+def unread_run_count(candidates: Sequence[ScannedDocument]) -> int:
+    """How many of the class are there on a marked run alone (:func:`has_unread_run`).
+
+    A thin row that also carries the note is counted as thin, so the two counts
+    and the empty rows add up to the class.
+    """
+    return sum(
+        1
+        for candidate in candidates
+        if has_unread_run(candidate.document) and not is_thin_text(candidate.document)
+    )
 
 
 def spread_sample(candidates: Sequence[ScannedDocument], size: int) -> list[ScannedDocument]:
@@ -1018,7 +1243,7 @@ def read_scanned_document(
     if data is None:
         return None, refused or "not-served"
     with ocr_page_factory(data) as run:
-        extracted = extract_pdf_text(data, char_cap=char_cap, ocr_page=run.page)
+        extracted = extract_pdf_text(data, char_cap=char_cap, ocr_page=run.page, note_unread=True)
     if run.budget_spent:
         return None, BUDGET_EXHAUSTED
     if not extracted.text.strip():
@@ -1072,6 +1297,7 @@ def class_reading(
         documents_seen=scan.documents_seen,
         candidates=len(scan.candidates),
         thin_text=thin_text_count(scan.candidates),
+        unread_runs=unread_run_count(scan.candidates),
         candidates_by_kind=_count_by_kind(scan.candidates),
         set_keyed=scan.set_keyed,
         # A dry run is unbounded whatever it was handed: it writes nothing,
@@ -1270,7 +1496,7 @@ def recover_scanned_documents(  # noqa: PLR0913 - keyword-only; slice deadline +
                 "fetched_at": today,
             }
         )
-        if not gains_on(document, recovered):
+        if not gains_on(document, recovered, char_cap=char_cap):
             lose(candidate.key, NO_GAIN)
             continue
         updates = [
@@ -1291,6 +1517,7 @@ def recover_scanned_documents(  # noqa: PLR0913 - keyword-only; slice deadline +
         documents_seen=scan.documents_seen,
         candidates=len(candidates),
         thin_text=thin_text_count(candidates),
+        unread_runs=unread_run_count(candidates),
         candidates_by_kind=by_kind,
         set_keyed=scan.set_keyed,
         bound=max_cases,
