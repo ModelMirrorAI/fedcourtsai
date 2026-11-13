@@ -1,0 +1,153 @@
+{
+  "big_case_rationale": "The case determines the practical availability of personal constitutional damages claims for medical mistreatment throughout the federal prison system and puts a longstanding Supreme Court remedy at risk, although the modal ruling is narrower than its elimination.",
+  "big_case_score": 0.78,
+  "case_id": "scotus/73278422",
+  "claim_distributions": [
+    {
+      "claim_id": "majority-author",
+      "probabilities": {
+        "Alito": 0.2,
+        "Barrett": 0.15,
+        "Gorsuch": 0.09,
+        "Jackson": 0.015,
+        "Kagan": 0.16,
+        "Kavanaugh": 0.16,
+        "Roberts": 0.12,
+        "Sotomayor": 0.015,
+        "Thomas": 0.07,
+        "per-curiam": 0.02
+      }
+    },
+    {
+      "claim_id": "separate-writers",
+      "probabilities": {
+        "Alito": 0.13,
+        "Barrett": 0.15,
+        "Gorsuch": 0.43,
+        "Jackson": 0.4,
+        "Kagan": 0.2,
+        "Kavanaugh": 0.24,
+        "Roberts": 0.08,
+        "Sotomayor": 0.58,
+        "Thomas": 0.65
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.88
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "band_refused": null,
+    "cert_anchor": null,
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-11-10",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 4,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v8",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_contact_scrub": {
+      "blocks": 1,
+      "fields": 5,
+      "sides": [
+        "Other"
+      ]
+    },
+    "snapshot_date": "2026-11-10",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+    "term": 2025,
+    "vide_links": []
+  },
+  "created_at": "2026-11-13T04:49:17.862285Z",
+  "engine": "codex",
+  "event_id": "evt-argument-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-11-10.json",
+  "judgment": "reversed",
+  "model": "gpt-6.1-sol",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.88,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:a74ea5610425d331c2616ae8719866bf78f06ea6e1c6b111d66dfac31f2c8578",
+    "label": "proc-v21",
+    "pipeline_sha": "0b1a4e2623288d4e7059d3336fd5a3ebb170a114",
+    "stamped_at": "2026-11-13T04:49:17.862285Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261113T042228Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority holds that Watanabe's claim presents a new Bivens context because the circumstances of the alleged medical mistreatment, including the official's knowledge and affirmative contribution to the injury and the absence of Carlson's rapidly fatal emergency, are meaningfully different from Carlson; special factors then preclude extending the damages remedy. It does not treat the shared Eighth Amendment deliberate-indifference label as sufficient to establish an existing context."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The majority distinguishes this nonfatal, nonemergency treatment claim while leaving Carlson available within its core context; it does not announce that every federal-prison medical-care damages claim is barred or overrule Bivens altogether."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": "concurrence"
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": "majority"
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "dissent",
+      "writing": "dissent"
+    },
+    {
+      "justice": "Kagan",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "dissent",
+      "writing": null
+    }
+  ]
+}

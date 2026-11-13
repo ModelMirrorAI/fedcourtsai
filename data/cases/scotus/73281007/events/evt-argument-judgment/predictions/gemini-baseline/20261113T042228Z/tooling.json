@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281007",
+  "run_id": "20261113T042228Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener.search",
+    "courtlistener.read_document",
+    "courtlistener.search_document"
+  ],
+  "helpful": [
+    "Provisioned argument-transcript.txt and argument-features.json gave full visibility into bench dynamics across all nine Justices.",
+    "Provisioned merits briefs (petitioner, respondent, reply) and decision-below.txt cleanly framed both Question 1 (Article III) and Question 2 (8 U.S.C. 1188(g)(2)).",
+    "CourtListener MCP read_document/search_document retrieved the full June 4, 2026 slip opinion in FCC v. AT&T (No. 25-406), crucial to evaluating Question 2 and Justice Kavanaugh's and Justice Gorsuch's questions.",
+    "metrics/statpack.md provided exact strictly-prior grant-Term merits disturbed rates and per-Justice vote rates."
+  ],
+  "gaps": [
+    "fedcourts query does not offer an --originating-court or --merits-judgment filter to slice SCOTUS merits priors by lower court or statutory subject."
+  ],
+  "notes": null
+}

@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000267",
+  "run_id": "20261113T042228Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "WebSearch"],
+  "helpful": ["cert_anchor in context.json", "amicus-count and relist cuts in the statpack", "provisioned supplemental brief"],
+  "gaps": ["No statpack cut conditioning on a called-for response", "No topical or free-text corpus search to pull prior ERISA arbitration petitions and their dispositions", "same-question.json was not built for this cell"],
+  "notes": "The corpus query's recency-ranked grants were not topically useful here."
+}

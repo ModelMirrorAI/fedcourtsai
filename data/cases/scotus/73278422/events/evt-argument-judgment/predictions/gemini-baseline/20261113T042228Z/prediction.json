@@ -1,0 +1,153 @@
+{
+  "big_case_rationale": "Puts the continued vitality of Bivens and Carlson v. Green directly at issue and resolves whether federal prisoners retain a constitutional damages remedy for medical mistreatment, a category representing roughly two-thirds to three-quarters of all Bivens suits nationwide.",
+  "big_case_score": 0.68,
+  "case_id": "scotus/73278422",
+  "claim_distributions": [
+    {
+      "claim_id": "majority-author",
+      "probabilities": {
+        "Alito": 0.2,
+        "Barrett": 0.145,
+        "Gorsuch": 0.07,
+        "Jackson": 0.015,
+        "Kagan": 0.025,
+        "Kavanaugh": 0.25,
+        "Roberts": 0.165,
+        "Sotomayor": 0.015,
+        "Thomas": 0.095,
+        "per-curiam": 0.02
+      }
+    },
+    {
+      "claim_id": "separate-writers",
+      "probabilities": {
+        "Alito": 0.12,
+        "Barrett": 0.09,
+        "Gorsuch": 0.46,
+        "Jackson": 0.42,
+        "Kagan": 0.22,
+        "Kavanaugh": 0.16,
+        "Roberts": 0.04,
+        "Sotomayor": 0.56,
+        "Thomas": 0.48
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.94
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "band_refused": null,
+    "cert_anchor": null,
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-11-10",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 4,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v8",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_contact_scrub": {
+      "blocks": 1,
+      "fields": 5,
+      "sides": [
+        "Other"
+      ]
+    },
+    "snapshot_date": "2026-11-10",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+    "term": 2025,
+    "vide_links": []
+  },
+  "created_at": "2026-11-13T05:07:55.932784Z",
+  "engine": "gemini",
+  "event_id": "evt-argument-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-11-10.json",
+  "judgment": "reversed",
+  "model": "gemini-4-carbon",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "gemini-baseline",
+  "probability": 0.94,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ff9786ea91896f0f50f176c3b1de403074ccf54cbe49ba69d844d201c59d2069",
+    "label": "proc-v21",
+    "pipeline_sha": "0b1a4e2623288d4e7059d3336fd5a3ebb170a114",
+    "stamped_at": "2026-11-13T05:07:55.932784Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261113T042228Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "Applying the two-step separation-of-powers framework of Ziglar v. Abbasi, Egbert v. Boule, and Goldey v. Fields rather than overruling Bivens under stare decisis, the majority holds that Watanabe's Eighth Amendment medical-care claim arises in a new Bivens context from Carlson v. Green and is foreclosed by special factors\u2014specifically the non-fatal, ongoing nature of the alleged mistreatment where administrative, injunctive, and FTCA remedies were accessible, alongside Congress's post-Carlson enactment of the PLRA and the Bureau of Prisons Administrative Remedy Program."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The majority declines Petitioner's request to formally overrule Bivens, Davis v. Passman, or Carlson v. Green across the board ('this far and no further'), leaving Fourth and Fifth Amendment Bivens precedents untouched while adopting a rule categorical enough across post-PLRA, non-fatal federal prison medical disputes to foreclose Eighth Amendment Bivens medical-indifference suits beyond Carlson's own facts."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "dissent",
+      "writing": null
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/72483489",
+  "run_id": "20261113T042228Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "provisioning",
+      "severity": "info",
+      "event_id": "evt-brief-judgment",
+      "message": "The snapshot records the September 15, 2026 corrected United States merits amicus brief supporting vacatur, but documents.json and the provisioned documents omit merits-amicus-united-states.txt. The staged sg-invited-brief.txt is the different May 20 cert-stage filing. Recovered and used the corrected merits PDF through the official Supreme Court docket; it predates the November 5 cutoff. The gap did not block the forecast."
+    }
+  ]
+}

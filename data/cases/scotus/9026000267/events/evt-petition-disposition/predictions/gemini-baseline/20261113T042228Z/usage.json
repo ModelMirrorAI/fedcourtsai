@@ -1,0 +1,50 @@
+{
+  "actor_id": "gemini-baseline",
+  "cache_creation_input_tokens": 0,
+  "cache_read_input_tokens": 4051008,
+  "case_id": "scotus/9026000267",
+  "created_at": "2026-11-13T04:22:28Z",
+  "engine": "gemini",
+  "engine_version": "0.49.0",
+  "engine_version_discrepancy": null,
+  "estimated_cost_usd": 4.0657428,
+  "event_id": "evt-petition-disposition",
+  "input_tokens": 1466011,
+  "model": "gemini-4-carbon",
+  "output_tokens": 72862,
+  "pipeline_sha": "0b1a4e2623288d4e7059d3336fd5a3ebb170a114",
+  "post_run_poll": {
+    "docket_number": "26-267",
+    "polled_at": "2026-11-13T05:29:04.119959Z",
+    "reason": null,
+    "signals": {
+      "cvsg": {
+        "entry_date": null,
+        "present": false
+      },
+      "referred_to_court": null,
+      "response_requested": null
+    },
+    "state": "open"
+  },
+  "pre_mint_poll": {
+    "docket_number": "26-267",
+    "polled_at": "2026-11-13T04:55:05.190419Z",
+    "reason": null,
+    "signals": {
+      "cvsg": {
+        "entry_date": null,
+        "present": false
+      },
+      "referred_to_court": null,
+      "response_requested": null
+    },
+    "state": "open"
+  },
+  "role": "predictor",
+  "run_id": "20261113T042228Z",
+  "schema_version": "1.0",
+  "served_models": [
+    "gemini-4-carbon"
+  ]
+}

@@ -1,0 +1,181 @@
+{
+  "arms": [
+    {
+      "cells_lost": 0,
+      "cells_scored": 4,
+      "engine": "stub",
+      "model": null,
+      "process_digest": "sha256:b61115d400ce9267e594df12aa530e5a53f6412fb350ec04fc5cc04dac832e78",
+      "prompt": ".github/prompts/predict.md",
+      "requested_model": "claude-fable-5-2",
+      "role": "incumbent",
+      "training_cutoff": "2026-06-30"
+    },
+    {
+      "cells_lost": 0,
+      "cells_scored": 4,
+      "engine": "stub",
+      "model": null,
+      "process_digest": "sha256:251a821fade321d9f3203f2c3dcb50f23b9ecdc2a828589a2644c0e486c1b522",
+      "prompt": ".github/prompts/predict.md",
+      "requested_model": "claude-opus-5-5",
+      "role": "candidate",
+      "training_cutoff": "2026-06-30"
+    }
+  ],
+  "dispatch": {
+    "candidate_model": "claude-opus-5-5",
+    "candidate_prompt": null,
+    "draw_key": "2026-11-12",
+    "draw_rule": "outcome-stratified-hash-v1",
+    "draw_salt": "fedcourtsai/cert-backtest/outcome-stratified",
+    "engine": "stub",
+    "limit": 4,
+    "predictor_id": "claude-baseline",
+    "scope": "all",
+    "terms": []
+  },
+  "exposure_note": "No scored pair was decided after both arms' training cutoffs (the later is 2026-06-30), so every difference here may include recall of the outcome and none isolates forecasting.",
+  "kind": "cert",
+  "moments": [
+    {
+      "after_both_cutoffs": {
+        "calls_changed": 0,
+        "candidate_mean_brier": null,
+        "changed_to_correct": 0,
+        "changed_to_wrong": 0,
+        "degrees_of_freedom": null,
+        "estimator": "unweighted",
+        "incumbent_mean_brier": null,
+        "interval_high": null,
+        "interval_low": null,
+        "level": 0.95,
+        "mean_brier_difference": null,
+        "pairs": 0,
+        "positives": 0
+      },
+      "by_stratum": [
+        {
+          "largest_absolute_difference": 0.0,
+          "mean_brier_difference": 0.0,
+          "pairs": 2,
+          "stratum": "granted"
+        },
+        {
+          "largest_absolute_difference": 0.0,
+          "mean_brier_difference": 0.0,
+          "pairs": 2,
+          "stratum": "not-granted"
+        }
+      ],
+      "cells": 4,
+      "drawn_set": {
+        "calls_changed": 0,
+        "candidate_mean_brier": 0.5,
+        "changed_to_correct": 0,
+        "changed_to_wrong": 0,
+        "degrees_of_freedom": null,
+        "estimator": "unweighted",
+        "incumbent_mean_brier": 0.5,
+        "interval_high": null,
+        "interval_low": null,
+        "level": 0.95,
+        "mean_brier_difference": 0.0,
+        "pairs": 4,
+        "positives": 2
+      },
+      "moment": "distribution",
+      "population": {
+        "calls_changed": 0,
+        "candidate_mean_brier": 0.028374454124271243,
+        "changed_to_correct": 0,
+        "changed_to_wrong": 0,
+        "degrees_of_freedom": null,
+        "estimator": "stratified",
+        "incumbent_mean_brier": 0.028374454124271243,
+        "interval_high": null,
+        "interval_low": null,
+        "level": 0.95,
+        "mean_brier_difference": 0.0,
+        "pairs": 4,
+        "positives": 2
+      }
+    }
+  ],
+  "pairs": [
+    {
+      "after_both_cutoffs": false,
+      "brier_difference": 0.0,
+      "call": "same",
+      "candidate_probability": 0.0,
+      "case_id": "scotus/66659516",
+      "decided": "2019-06-20",
+      "incumbent_probability": 0.0,
+      "moment": "distribution",
+      "outcome": 1,
+      "provisioning": "truncated",
+      "stratum": "granted"
+    },
+    {
+      "after_both_cutoffs": false,
+      "brier_difference": 0.0,
+      "call": "same",
+      "candidate_probability": 0.0,
+      "case_id": "scotus/66720153",
+      "decided": "2019-02-25",
+      "incumbent_probability": 0.0,
+      "moment": "distribution",
+      "outcome": 0,
+      "provisioning": "truncated",
+      "stratum": "not-granted"
+    },
+    {
+      "after_both_cutoffs": false,
+      "brier_difference": 0.0,
+      "call": "same",
+      "candidate_probability": 0.0,
+      "case_id": "scotus/72469985",
+      "decided": "2021-10-04",
+      "incumbent_probability": 0.0,
+      "moment": "distribution",
+      "outcome": 0,
+      "provisioning": "truncated",
+      "stratum": "not-granted"
+    },
+    {
+      "after_both_cutoffs": false,
+      "brier_difference": 0.0,
+      "call": "same",
+      "candidate_probability": 0.0,
+      "case_id": "scotus/72484144",
+      "decided": "2025-06-30",
+      "incumbent_probability": 0.0,
+      "moment": "distribution",
+      "outcome": 1,
+      "provisioning": "truncated",
+      "stratum": "granted"
+    }
+  ],
+  "pulled_through": "2026-11-12",
+  "run_id": "20261112T201203Z",
+  "schema_version": "1.0",
+  "strata": [
+    {
+      "drawn": 2,
+      "passed_over": 0,
+      "population": 1280,
+      "stratum": "granted",
+      "target": 2,
+      "weight": 0.028374454124271243
+    },
+    {
+      "drawn": 2,
+      "passed_over": 0,
+      "population": 43831,
+      "stratum": "not-granted",
+      "target": 2,
+      "weight": 0.9716255458757288
+    }
+  ],
+  "stratum": "retrospective"
+}

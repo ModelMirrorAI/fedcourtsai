@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000267",
+  "run_id": "20261113T042228Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts validate",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_read_document",
+    "google_web_search"
+  ],
+  "helpful": [
+    "Provisioned petition.txt, supplemental-brief.txt, and full appendix.txt",
+    "cert_anchor in record/context.json and metrics/statpack.md band/signal tables",
+    "mcp_courtlistener_read_document for full text of Trauernicht v. Genworth Financial Inc.",
+    "fedcourts query --docket-number for prior ERISA arbitration cert denials (23-122, 24-392, 24-559)"
+  ],
+  "gaps": [
+    "Cert-stage amicus brief (Nov. 2, 2026 Mayer Brown brief for ERISA trade associations) was listed on the snapshot docket but not staged in record/documents/",
+    "Case-name substring filter on fedcourts query (e.g., --case-name) to look up prior cert petitions without knowing their SCOTUS docket numbers in advance"
+  ],
+  "notes": "Having the complete lower-court opinions and the Plan's arbitration text inside appendix.txt was decisive for evaluating vehicle quality alongside CourtListener's full text of Trauernicht."
+}

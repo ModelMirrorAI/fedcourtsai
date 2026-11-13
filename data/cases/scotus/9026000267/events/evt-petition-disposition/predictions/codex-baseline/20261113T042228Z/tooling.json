@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000267",
+  "run_id": "20261113T042228Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "provisioned case record",
+    "committed statpack",
+    "fedcourts paths",
+    "fedcourts query",
+    "CourtListener MCP search",
+    "web search",
+    "fedcourts validate"
+  ],
+  "helpful": [
+    "Frozen prior-Term salience anchor",
+    "Readable petition, supplemental brief, and appellate appendix",
+    "Docket entries distinguishing the waived response from the later requested response",
+    "Explicit sparse-citation-coverage warning from the corpus CLI"
+  ],
+  "gaps": [
+    "Neither CourtListener citation search returned an opinion",
+    "Corpus citation lookup returned no precedent row",
+    "Web lookups returned no usable sources",
+    "Docketed amicus brief text was not provisioned"
+  ],
+  "notes": "The default uv cache location was read-only; setting UV_CACHE_DIR=/tmp/uv-cache allowed the CLI to run without installing anything. Retrieval gaps did not block a record-based forecast. The opposition is not yet due, so its absence is expected rather than a provisioning failure."
+}

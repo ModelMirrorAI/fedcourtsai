@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000624",
+  "run_id": "20261112T230820Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts validate",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_call_endpoint",
+    "mcp_courtlistener_read_document",
+    "mcp_courtlistener_search_document"
+  ],
+  "helpful": [
+    "context.json cert_anchor rate",
+    "fedcourts query (--docket-number 25-640 and 24-1021)",
+    "CourtListener read_document and search_document on Galette and citing CA3/CA9 opinions",
+    "provisioned questions-presented.txt, decision-below.txt, and petition.txt appendices"
+  ],
+  "gaps": [
+    "Per-page OCR fallback when a mixed PDF has embedded text in front matter/appendices but non-extractable pages in the main brief body (pages 1-29 of petition.txt extracted as blank lines)",
+    "Strictly-prior arrival-conditioned hazard tables in statpack for relist-increment and cvsg-increment"
+  ],
+  "notes": "Reading Galette Footnote 5 directly via CourtListener read_document and checking the prior GVR docket (25-640) via fedcourts query were decisive in evaluating Petitioners' claimed circuit split and post-GVR posture."
+}

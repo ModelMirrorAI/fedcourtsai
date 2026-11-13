@@ -1,10 +1,12 @@
 {
-  "cases": 400,
+  "cases": 403,
+  "cases_at_court_next_conference": 47,
   "cases_out_of_scope": 0,
   "cases_without_score": 1,
+  "court_next_conference": "2026-11-13",
   "coverage": [
     {
-      "cases": 362,
+      "cases": 365,
       "n": 3
     },
     {
@@ -16,18 +18,18 @@
       "n": 1
     }
   ],
-  "current_reads": 1198,
+  "current_reads": 1207,
   "declared_no_view": 28,
   "frozen_process": {
     "digests": [
-      "sha256:154ba5e6732eb9627dfa988245cba7a2f5a5682fa4b9bf6ac5d0c7e6e4e984de",
-      "sha256:56f5da33ed8eeda29c8094135a9141710b69c76fb939abe281da85d263d238a7",
-      "sha256:69076c7e6ef3b55358bbb298c3ab3e821f14f7ce165f7a1eed2e51a550f5ca21",
-      "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
-      "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
-      "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c"
+      "sha256:93dfd6b52d95a78cbc7ce722aa2230f0e8ce09716d6219c95036ca071419fee9",
+      "sha256:a74ea5610425d331c2616ae8719866bf78f06ea6e1c6b111d66dfac31f2c8578",
+      "sha256:b61115d400ce9267e594df12aa530e5a53f6412fb350ec04fc5cc04dac832e78",
+      "sha256:c1b452dea2e2f9a5c263428a31ed4c11f562c6ca10765b1dcfe66ff54daa733d",
+      "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+      "sha256:ff9786ea91896f0f50f176c3b1de403074ccf54cbe49ba69d844d201c59d2069"
     ],
-    "since": "2026-11-08T18:17:04Z",
+    "since": "2026-11-12T19:49:39Z",
     "windows": [
       {
         "closes": "2026-10-11T12:00:00Z",
@@ -294,7 +296,7 @@
         "revoked_at": null
       },
       {
-        "closes": null,
+        "closes": "2026-11-12T19:49:39Z",
         "digest": "sha256:69076c7e6ef3b55358bbb298c3ab3e821f14f7ce165f7a1eed2e51a550f5ca21",
         "label": "proc-v20",
         "opens": "2026-11-08T18:17:04Z",
@@ -302,7 +304,7 @@
         "revoked_at": null
       },
       {
-        "closes": null,
+        "closes": "2026-11-12T19:49:39Z",
         "digest": "sha256:56f5da33ed8eeda29c8094135a9141710b69c76fb939abe281da85d263d238a7",
         "label": "proc-v20",
         "opens": "2026-11-08T18:17:04Z",
@@ -310,10 +312,34 @@
         "revoked_at": null
       },
       {
-        "closes": null,
+        "closes": "2026-11-12T19:49:39Z",
         "digest": "sha256:154ba5e6732eb9627dfa988245cba7a2f5a5682fa4b9bf6ac5d0c7e6e4e984de",
         "label": "proc-v20",
         "opens": "2026-11-08T18:17:04Z",
+        "predictor_id": "gemini-baseline",
+        "revoked_at": null
+      },
+      {
+        "closes": null,
+        "digest": "sha256:b61115d400ce9267e594df12aa530e5a53f6412fb350ec04fc5cc04dac832e78",
+        "label": "proc-v21",
+        "opens": "2026-11-12T19:49:39Z",
+        "predictor_id": "claude-baseline",
+        "revoked_at": null
+      },
+      {
+        "closes": null,
+        "digest": "sha256:a74ea5610425d331c2616ae8719866bf78f06ea6e1c6b111d66dfac31f2c8578",
+        "label": "proc-v21",
+        "opens": "2026-11-12T19:49:39Z",
+        "predictor_id": "codex-baseline",
+        "revoked_at": null
+      },
+      {
+        "closes": null,
+        "digest": "sha256:ff9786ea91896f0f50f176c3b1de403074ccf54cbe49ba69d844d201c59d2069",
+        "label": "proc-v21",
+        "opens": "2026-11-12T19:49:39Z",
         "predictor_id": "gemini-baseline",
         "revoked_at": null
       }
@@ -337,10 +363,10 @@
     "leakage_note": "A leakage-flagged read is worse here than on a board that drops it. A stakes read is partly a read of the disposition, so a predictor that saw its own outcome may have read the stakes off it too \u2014 and on this board that cell is not one point inside a coefficient, it is the published number. Every read and every row carries `leakage_suspected`, set where any committed grading of that run recorded the bit. Read a marked row as evidence about the cell, not about the case. The **row** mark is moment-scoped like every other row figure: it covers the reads the row publishes, so a flagged read on an earlier moment leaves the row unmarked while staying visible, and marked, under its own event.",
     "no_time_series": "The committed ledger spans a boundary at which `big_case_score` became required with an explicit null escape (`docs/freeze-record.md`). Cells either side of it are two populations \u2014 the ask changed, so which cells carry a read changed with it \u2014 and **this build spans it**, so the board publishes no trend and no history. Nor is a movement between two consecutive builds a measurement: a row's mean, `n` and rank also move when its `moment` does, which is the **docket** advancing and the whole panel switching question at once, not a predictor changing its mind. A movement across any of these boundaries measures nothing.",
     "population": "Every case in the committed ledger carrying at least one **in-scope** scored read on its current moment, pending and decided alike. `cases_without_score` counts the predicted cases whose in-scope reads carry no number at all and which are therefore absent \u2014 including a case whose current moment drew only declining reads whilst an earlier moment carried scores, which are history here and never promoted back into a row. The list is the predictions', never the corpus's \u2014 and the predictions' list is the salience gate's deliberately non-representative selection (`docs/salience.md`), so the board inherits that gate and is **not** a sample of the docket or of any conference. `status` says only whether a committed `outcome.json` sits on the case's predicted events: `pending` means the ledger records no outcome, which is not a statement about what the Court has done.",
-    "process_label": "proc-v20",
+    "process_label": "proc-v21",
     "rank_resolution": "The `#` column is a coarse band, never an ordering. Neighbouring rows sit far closer together than the predictors inside a single row sit to each other, so the difference between two adjacent ranks is smaller than the disagreement the ranks are built from. `median_adjacent_gap` and `median_score_range` are published beside each other so that comparison can be made rather than assumed. The moment-first collapse sharpens this rather than settling it: each row is one moment, so a row's mean **is** comparable across its own predictors, but two rows on different moments are not comparable to each other and the `#` column orders across moments anyway. The panel reads stakes systematically higher at later moments, so a row's position reflects which question its panel answered as well as how big its case is.",
     "reading_rule": "A stakes read is neither scored nor ranked: it resolves against nothing, so no **stakes** figure here is an accuracy, a calibration or an ordering of predictors, and none may be quoted as one. The per-cell `probability` carried beside it **is** a forecast \u2014 the cell's raw value, unstratified, unexcluded and unscored \u2014 and it is not a claimable one either; scored forecast performance lives on the leaderboard and nowhere else. Like the leaderboard's big-case views, this board reads the ledger directly, so neither the forward-claim exclusion nor the leakage exclusion applies; it is wider still than those, since it also reads cells no judge has graded and every process version. A wider population than the scored boards, deliberately, and a caveat that has to travel with a quoted number. The mean is a panel opinion about which cases matter, and it says nothing about how likely any of them is to be granted.",
-    "schedule_rule": "`schedule` and `scheduled` are joined by case id from the committed `data/schedule/schedule.json`, which the live poll writes from what each pending public docket's entries name: the conference its newest 'DISTRIBUTED for Conference of ...' entry names while it is undecided, the day its newest 'SET FOR ARGUMENT on ...' entry names while a granted case awaits decision and has not been argued on or after that day, and the newest stated response deadline while the docket is undecided and no response or waiver has followed it. `schedule` lists each such date still ahead on the day the schedule was built, earliest first; `scheduled` is its conference entry alone, or null. The row carries no build day, so the board moves only when a case's date does; a reader rendering on a later day drops a date that has since passed rather than show it as upcoming. A schedule moves on every relist, reschedule and extension, so the fields are display-only and never a ledger record: nothing predicts, evaluates or scores on them, and no cell is provisioned with them.",
+    "schedule_rule": "`schedule` and `scheduled` are joined by case id from the committed `data/schedule/schedule.json`, which the live poll writes from what each pending public docket's entries name: the conference its newest 'DISTRIBUTED for Conference of ...' entry names while it is undecided, the day its newest 'SET FOR ARGUMENT on ...' entry names while a granted case awaits decision and has not been argued on or after that day, and the newest stated response deadline while the docket is undecided and no response or waiver has followed it. `schedule` lists each such date still ahead on the day the schedule was built, earliest first; `scheduled` is its conference entry alone, or null. The row carries no build day, so the board moves only when a case's date does; a reader rendering on a later day drops a date that has since passed rather than show it as upcoming. A schedule moves on every relist, reschedule and extension, so the fields are display-only and never a ledger record: nothing predicts, evaluates or scores on them, and no cell is provisioned with them. Above the rows, `court_next_conference` is that schedule's own court-wide field, the first conference on or after the day the schedule was built in the Court's published case distribution schedule, set whether or not any case on the board is distributed for it, and null where the schedule carries none; `cases_at_court_next_conference` counts the rows whose `scheduled` conference is that day: the board's rows distributed for it so far, not the Court's conference list, since a case off the board is not counted and a relisted case joins only once its redistribution is docketed. Both follow the same reader rule: a day that has since passed is dropped, not shown as upcoming.",
     "short_caption_rule": "`short_caption` is derived from `caption` by a fixed rule and is null wherever the rule is not sure, because a null costs a reader nothing (the full caption stands) while a wrong short form misnames a case. Each side of the single ` v. ` (an `In re` caption has one side) is reduced to its first-named party \u2014 the text before the first comma, everything after it being description. `United States` and a state or territory stand as written. An organisation \u2014 a corporate form, an institutional noun, an alias segment (`dba`, `fka`, `aka`), or any name not shaped like a person's \u2014 keeps its name with a leading `The`, a parenthetical and trailing corporate forms dropped (kept where the rest is initials only); a federal agency the Court's own case names abbreviate takes that acronym (CFPB, EEOC, EPA, FBI, FCC, FDA, FEC, FERC, FTC, NLRB, SEC), and a federal trial or appellate court named with its seat keeps the court's name. An organisation name still longer than 6 words is null, since its conventional short form is an acronym or phrase only a reader knows. A person is their surname, the last word; a name of initials only stands whole, and so does a name of exactly 3 full words, whose last two may be one surname; a name with a surname particle or longer than 3 words is null, since the caption cannot say where the surname starts. Either side null makes the short caption null. Display-only: nothing predicts, evaluates or scores on it.",
     "version_scope": "`process_scope: \"all\"` \u2014 **version-blind, and that is the default**: every committed run is eligible as a current read, shakedown, pre-freeze, de-counted-digest and unstamped cells included, because the board is a census of what the panel said rather than a measurement of how well it said it, and a stakes read resolves against nothing for a partition to protect. `--process-scope frozen` rebuilds it as the **comparison build**, admitting only runs that are their predictor's counted forecast of their event \u2014 a harness stamp inside a counting window (the predicate the performance boards scope on; the record it keys on is published in `frozen_process` on every build, this one included). That build is not this board with fewer rows: it holds out a systematically different population \u2014 see *Population*, the `population` field. `process_label` is what a prediction minted today would stamp and is a filter on nothing here; `process_scope` is the filter. **No count, mean, rate or spread statistic is differenced across a scope change.** A row's own mean and `n` move when a predictor's read falls outside the scope, and every denominator moves at once, so a coverage rate that rises at `frozen` rises by construction \u2014 the older cells the rate's numerator was missing are the cells the scope removed \u2014 and is never the pre-registered coverage rise `docs/freeze-record.md` describes."
   },
@@ -10598,6 +10624,129 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Citibank",
+      "caption": "Citibank, N.A. v. Climate United Fund, et al.",
+      "caption_event_id": "evt-petition-arrival-disposition",
+      "case_id": "scotus/9026000594",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Tag-along to the Solicitor General's petition over the $16 billion Greenhouse Gas Reduction Fund terminations and the Tucker Act's reach over grant suits; Citibank's own question is narrow and derivative.",
+          "big_case_score": 0.65,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261112T230820Z"
+        },
+        {
+          "big_case_rationale": "The underlying dispute concerns roughly $20 billion in climate grants and federal control over awarded funds; this bank-specific petition has narrower, derivative stakes for government financial agents.",
+          "big_case_score": 0.76,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261112T230820Z"
+        },
+        {
+          "big_case_rationale": "Controls $16B-$20B in Greenhouse Gas Reduction Fund accounts and tests whether federal financial agents can be enjoined when following government instructions.",
+          "big_case_score": 0.78,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261112T230820Z"
+        }
+      ],
+      "docket_id": 9026000594,
+      "docket_number": "26-594",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-594.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-arrival-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Tag-along to the Solicitor General's petition over the $16 billion Greenhouse Gas Reduction Fund terminations and the Tucker Act's reach over grant suits; Citibank's own question is narrow and derivative.",
+              "big_case_score": 0.65,
+              "cell_path": "data/cases/scotus/9026000594/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261112T230820Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000594/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261112T230820Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "claude-baseline",
+              "probability": 0.62,
+              "run_id": "20261112T230820Z"
+            },
+            {
+              "big_case_rationale": "The underlying dispute concerns roughly $20 billion in climate grants and federal control over awarded funds; this bank-specific petition has narrower, derivative stakes for government financial agents.",
+              "big_case_score": 0.76,
+              "cell_path": "data/cases/scotus/9026000594/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261112T230820Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000594/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261112T230820Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "gvr",
+              "predictor_id": "codex-baseline",
+              "probability": 0.64,
+              "run_id": "20261112T230820Z"
+            },
+            {
+              "big_case_rationale": "Controls $16B-$20B in Greenhouse Gas Reduction Fund accounts and tests whether federal financial agents can be enjoined when following government instructions.",
+              "big_case_score": 0.78,
+              "cell_path": "data/cases/scotus/9026000594/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261112T230820Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000594/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261112T230820Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "gvr",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.54,
+              "run_id": "20261112T230820Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Citibank, N.A. v. Climate United Fund, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.73,
+      "moment": "evt-petition-arrival-disposition",
+      "moment_opened_at": "2026-11-05",
+      "n": 3,
+      "other_party": "Climate United Fund",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Citibank's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Citibank's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-12-15",
+          "kind": "response_due"
+        }
+      ],
+      "scheduled": null,
+      "score_max": 0.78,
+      "score_min": 0.65,
+      "score_range": 0.13,
+      "short_caption": "Citibank v. Climate United Fund",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Mullin",
       "caption": "Markwayne Mullin, Secretary of Homeland Security, et al. v. Friends of the Ruidosa Church, et al.",
       "caption_event_id": "evt-brief-response-disposition",
@@ -11259,7 +11408,7 @@
       ],
       "schedule": [
         {
-          "date": "2026-11-27",
+          "date": "2026-12-28",
           "kind": "response_due"
         }
       ],
@@ -28072,12 +28221,7 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-12",
-          "kind": "response_due"
-        }
-      ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.6,
       "score_min": 0.35,
@@ -32134,7 +32278,7 @@
       "outcome_lines": null,
       "schedule": [
         {
-          "date": "2026-11-18",
+          "date": "2026-12-18",
           "kind": "response_due"
         }
       ],
@@ -38501,6 +38645,129 @@
       "status": "pending"
     },
     {
+      "asking_declined": null,
+      "asking_party": "Williams",
+      "caption": "Randall Williams, as Personal Representative of the Estates of Shanice R. Dantzler-Williams and Miranda R. Dantzler-Williams, et al. v. Charleston County Sheriff\u2019s Office",
+      "caption_event_id": "evt-petition-arrival-disposition",
+      "case_id": "scotus/9026000624",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Arm-of-the-state status of county sheriffs after Galette matters for section 1983 suits across the Fourth Circuit, but the decision below is unpublished and the dispute is state-specific.",
+          "big_case_score": 0.3,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261112T230820Z"
+        },
+        {
+          "big_case_rationale": "Potentially important limits on state sovereign immunity for locally funded sheriff's offices, but an unpublished, state-specific dispute after remand.",
+          "big_case_score": 0.43,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261112T230820Z"
+        },
+        {
+          "big_case_rationale": "A merits decision would clarify how Galette v. New Jersey Transit Corp.'s arm-of-the-state sovereign-immunity framework applies to unincorporated county sheriffs' offices in \u00a7 1983 suits, affecting law-enforcement accountability in several states without broad national political or economic disruption.",
+          "big_case_score": 0.35,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261112T230820Z"
+        }
+      ],
+      "docket_id": 9026000624,
+      "docket_number": "26-624",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-624.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-arrival-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Arm-of-the-state status of county sheriffs after Galette matters for section 1983 suits across the Fourth Circuit, but the decision below is unpublished and the dispute is state-specific.",
+              "big_case_score": 0.3,
+              "cell_path": "data/cases/scotus/9026000624/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261112T230820Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000624/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261112T230820Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.08,
+              "run_id": "20261112T230820Z"
+            },
+            {
+              "big_case_rationale": "Potentially important limits on state sovereign immunity for locally funded sheriff's offices, but an unpublished, state-specific dispute after remand.",
+              "big_case_score": 0.43,
+              "cell_path": "data/cases/scotus/9026000624/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261112T230820Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000624/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261112T230820Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.24,
+              "run_id": "20261112T230820Z"
+            },
+            {
+              "big_case_rationale": "A merits decision would clarify how Galette v. New Jersey Transit Corp.'s arm-of-the-state sovereign-immunity framework applies to unincorporated county sheriffs' offices in \u00a7 1983 suits, affecting law-enforcement accountability in several states without broad national political or economic disruption.",
+              "big_case_score": 0.35,
+              "cell_path": "data/cases/scotus/9026000624/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261112T230820Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000624/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261112T230820Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.03,
+              "run_id": "20261112T230820Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Randall Williams, as Personal Representative of the Estates of Shanice R. Dantzler-Williams and Miranda R. Dantzler-Williams, et al. v. Charleston County Sheriff\u2019s Office"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.36,
+      "moment": "evt-petition-arrival-disposition",
+      "moment_opened_at": "2026-11-12",
+      "n": 3,
+      "other_party": "Charleston County Sheriff\u2019s Office",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Williams' case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Williams' petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-12-14",
+          "kind": "response_due"
+        }
+      ],
+      "scheduled": null,
+      "score_max": 0.43,
+      "score_min": 0.3,
+      "score_range": 0.13,
+      "short_caption": "Williams v. Charleston County Sheriff\u2019s Office",
+      "status": "pending"
+    },
+    {
       "asking_declined": "short_form",
       "asking_party": null,
       "caption": "Ronnie Alexander v. Philip R. Taft Psy D and Associates, P.L.L.C., et al.",
@@ -38767,7 +39034,7 @@
       "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26a661.html",
       "events": [
         {
-          "actual_disposition": null,
+          "actual_disposition": "denied",
           "event_id": "evt-motion-disposition",
           "reads": [
             {
@@ -38813,7 +39080,7 @@
               "run_id": "20261109T212928Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-11-12",
           "title": "James Dwight Pavatt v. Oklahoma"
         }
       ],
@@ -38841,7 +39108,7 @@
       "score_min": 0.15,
       "score_range": 0.52,
       "short_caption": "James Dwight Pavatt v. Oklahoma",
-      "status": "pending"
+      "status": "resolved"
     },
     {
       "asking_declined": null,
@@ -50900,6 +51167,132 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Hameed",
+      "caption": "Haroon I. Hameed v. Drug Enforcement Administration, et al.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000561",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "First-impression reading of a 2016 CSA procedural provision touching all DEA registrants, but arising from one physician's fact-bound revocation with an unpublished judgment, no split and no amici.",
+          "big_case_score": 0.08,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261113T010844Z"
+        },
+        {
+          "big_case_rationale": "Potentially consequential procedural protection across DEA registration proceedings, but a narrow statutory question arising from one physician's fact-specific, unpublished loss.",
+          "big_case_score": 0.25,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261113T010844Z"
+        },
+        {
+          "big_case_rationale": "Routine individual DEA practitioner registration revocation affirmed in an unpublished Rule 36 order; narrow procedural question under 21 U.S.C. \u00a7 824(c)(3) affecting DEA show-cause practice with low public salience.",
+          "big_case_score": 0.06,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261113T010844Z"
+        }
+      ],
+      "docket_id": 9026000561,
+      "docket_number": "26-561",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-561.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "First-impression reading of a 2016 CSA procedural provision touching all DEA registrants, but arising from one physician's fact-bound revocation with an unpublished judgment, no split and no amici.",
+              "big_case_score": 0.08,
+              "cell_path": "data/cases/scotus/9026000561/events/evt-petition-disposition/predictions/claude-baseline/20261113T010844Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000561/events/evt-petition-disposition/predictions/claude-baseline/20261113T010844Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.006,
+              "run_id": "20261113T010844Z"
+            },
+            {
+              "big_case_rationale": "Potentially consequential procedural protection across DEA registration proceedings, but a narrow statutory question arising from one physician's fact-specific, unpublished loss.",
+              "big_case_score": 0.25,
+              "cell_path": "data/cases/scotus/9026000561/events/evt-petition-disposition/predictions/codex-baseline/20261113T010844Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000561/events/evt-petition-disposition/predictions/codex-baseline/20261113T010844Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.01,
+              "run_id": "20261113T010844Z"
+            },
+            {
+              "big_case_rationale": "Routine individual DEA practitioner registration revocation affirmed in an unpublished Rule 36 order; narrow procedural question under 21 U.S.C. \u00a7 824(c)(3) affecting DEA show-cause practice with low public salience.",
+              "big_case_score": 0.06,
+              "cell_path": "data/cases/scotus/9026000561/events/evt-petition-disposition/predictions/gemini-baseline/20261113T010844Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000561/events/evt-petition-disposition/predictions/gemini-baseline/20261113T010844Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.008,
+              "run_id": "20261113T010844Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Haroon I. Hameed v. Drug Enforcement Administration, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.13,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-10-28",
+      "n": 3,
+      "other_party": "Drug Enforcement Administration",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Hameed's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Hameed's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-12-04",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-12-04",
+        "kind": "conference"
+      },
+      "score_max": 0.25,
+      "score_min": 0.06,
+      "score_range": 0.19,
+      "short_caption": "Hameed v. Drug Enforcement Administration",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "White",
       "caption": "Alvin B. White, Individually and as Trustee for the White Revocable Living \r\nTrust dated January 6, 2010 v. U.S. Bank National Association, as Legal Title Trustee for Truman 2016 SC6 Title Trust",
       "caption_event_id": "evt-petition-disposition",
@@ -57294,7 +57687,7 @@
       "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26a657.html",
       "events": [
         {
-          "actual_disposition": null,
+          "actual_disposition": "denied",
           "event_id": "evt-motion-disposition",
           "reads": [
             {
@@ -57340,7 +57733,7 @@
               "run_id": "20261109T032540Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-11-10",
           "title": "Paul Schultz v. Kevin McCarthy"
         }
       ],
@@ -57368,7 +57761,7 @@
       "score_min": 0.02,
       "score_range": 0.0,
       "short_caption": "Schultz v. McCarthy",
-      "status": "pending"
+      "status": "resolved"
     },
     {
       "asking_declined": null,
@@ -58103,7 +58496,7 @@
       "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26a658.html",
       "events": [
         {
-          "actual_disposition": null,
+          "actual_disposition": "denied",
           "event_id": "evt-motion-disposition",
           "reads": [
             {
@@ -58149,7 +58542,7 @@
               "run_id": "20261109T032540Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-11-11",
           "title": "Paul Schultz v. H. Jason Gold"
         }
       ],
@@ -58177,7 +58570,7 @@
       "score_min": 0.01,
       "score_range": 0.01,
       "short_caption": "Schultz v. Gold",
-      "status": "pending"
+      "status": "resolved"
     },
     {
       "asking_declined": null,
@@ -58299,6 +58692,6 @@
     }
   ],
   "rows_with_leakage_flag": 4,
-  "schema_version": "1.4",
-  "scored_reads": 1160
+  "schema_version": "1.5",
+  "scored_reads": 1169
 }

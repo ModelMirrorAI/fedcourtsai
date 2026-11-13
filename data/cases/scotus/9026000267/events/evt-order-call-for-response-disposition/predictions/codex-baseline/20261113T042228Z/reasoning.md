@@ -1,0 +1,39 @@
+# Rationale
+
+## Information set and call
+
+I assign a 30% probability to any grant, including a GVR or summary reversal, and predict denial. This is the cert-stage response-requested moment, not a forecast of whether the Court will request a response: it already did on October 1, 2026. I read the provisioned October 2 snapshot, the petition and questions presented, the supplemental brief, relevant portions of the appendix, and context.json. The snapshot contains one distribution, entered September 23 for the October 9 conference, a September 16 response waiver, and the October 1 response request with a November 2 deadline. It contains no response or CVSG.
+
+The context identifies this as forward mode. I chose not to update this case's own docket beyond the baseline, and do not assume anything about what actually happened at the scheduled conference or after the response deadline. No disposition or outside forecast of this petition was sought or encountered. External retrieval concerned general priors and pre-baseline precedent only.
+
+## Anchor and adjustment
+
+The authoritative band is baseline under sal-v8. The frozen cert_anchor.rate is 0.051587928582714486, approximately 5.16%, pooled from prior Terms under the stated ten-Term lookback. I use that reached-band rate, not the terminal-baseline rate, the current Term's experience, or the whole-docket grant rate.
+
+The increase to 30% is a judgmental adjustment, not a measured response-request rate. The prompt and statpack supply no rate conditional on a call for response. The call shows sufficient interest to require an adversarial presentation after a waiver, but does not establish four votes to grant. More importantly, the petition identifies a substantive conflict over whether a defined-contribution-plan participant can recover losses attributable to other participants' accounts under ERISA section 502(a)(2).
+
+I checked the asserted minority rule against the Fourth Circuit's March 10, 2026 opinion in Trauernicht v. Genworth Financial Inc., No. 24-1880, CourtListener opinion 11274227, especially slip pages 14–15. It expressly rejects one participant's recovering aggregate losses across other accounts and tailors monetary relief to that participant's account. This supports a real disagreement, rather than merely a disagreement about arbitration wording. The provisioned Ninth Circuit opinion, appendix 20a–23a, expressly permits plan-wide recovery and joins other circuits. The petition's detailed seven-circuit characterization remains partly advocacy; I did not independently read all seven opinions.
+
+The issue has recurring significance for retirement-plan litigation and individual arbitration. The supplemental brief reports a stay of the Ninth Circuit mandate and an acknowledgment of the conflict by respondent's counsel in separate litigation. Those are supportive but limited signals: I did not independently retrieve the stay or that separate brief, an unopposed stay is not a Supreme Court grant decision, and consenting to it does not concede certworthiness. The brief's arguments are advocacy, not an independent forecast.
+
+## Why denial remains more likely
+
+The outlying Fourth Circuit decision arose from mandatory class certification, not enforcement of this arbitration clause; its prospective-relief claim had been dismissed. Here, the complaint seeks both monetary and equitable plan-wide remedies, and the Ninth Circuit separately construed the clause to prohibit representative claims on the plan's behalf. Its severability provision then sends those claims to court. These differences create a genuine vehicle risk: a ruling limiting monetary relief might not dispose of the contract and equitable-relief issues. I treat that as a risk, not a proven jurisdictional bar or an established independent ground that necessarily defeats review. See appendix 17a–23a.
+
+The panel division also overstates disagreement on the question presented. VanDyke's dissent concerns clause interpretation and delegation; the majority regarded the delegation argument as forfeited. Indeed, appendix 25a affirmatively agrees with the majority's propositions about plan-wide financial and equitable recovery. The petition's page 14 statement that he did not opine on the scope of relief is therefore too broad; I prefer the opinion itself and flag this discrepancy. There is no dissent below squarely supporting petitioners' answer to the statutory question.
+
+LaRue v. DeWolff, Boberg & Associates, Inc., 552 U.S. 248, 252–256 (2008), supplies the interpretive framework, not an unambiguous command to reverse summarily. The portion retrieved through CourtListener emphasizes a plan-based action even when the injury is concentrated in an individual account. Resolving whether that authorization also permits recovery for other accounts calls for statutory analysis. I identified no intervening controlling decision that would supply a specific GVR rationale. Thus only 6% of the grant probability is assigned to a cert-order disposition, with plenary review strongly favored conditional on a grant.
+
+## Procedural probabilities and cross-checks
+
+The paid-segment relist table reports resolved n=10,204 for zero relists, n=2,532 for one, n=495 for two, and n=483 for three or more. Grant-family shares are approximately 1.8%, 13.5%, 41.2%, and 37.3%, respectively. These terminal buckets are not forward hazards. In particular, this petition has already been distributed before a response was requested: another distribution after response and reply is likely even without a substantive conference relist. That administrative feature drives my 95% relist-increment probability, not an assumption that nearly every such petition gets repeated merits consideration.
+
+The CVSG cut has resolved n=164 with 29.3% grants and 5.5% GVRs, versus n=13,550 without a CVSG with 4.1% grants and 2.3% GVRs. These pooled, terminal-status rates are contextual checks, not a measure of whether this petition will receive a CVSG. ERISA's federal administration makes an invitation plausible, but none is present and this is not an invitation to the Solicitor General already issued: I assign 12% to a future CVSG.
+
+I count zero amicus-brief entries in the frozen proceedings. The snapshot lists counsel for a benefits-industry coalition, but that attorney listing is not a docketed brief and cannot establish a filing date or contents. The paid-segment zero-amicus bucket has resolved n=11,109 and a grant-family rate of about 3.8%; the one-brief bucket has n=1,159 and about 14.9%; the two-or-more bucket has n=1,446 and about 22.7%. These are disposition-time marginal populations, not independent multipliers. I do not impute amicus support from the counsel listing.
+
+I put a 6% conditional probability on a dissent or statement respecting denial and small unconditional probabilities on individual order writers; these are not cert-vote predictions. The 0.60 significance score reflects the national remedial and arbitration stakes independently of grant likelihood.
+
+## Limitations
+
+The record is petitioner-heavy, as expected at this moment; no opposition's reasoning is available and none is invented. All staged document rows report nonempty, non-OCR, untruncated text. No separate decision-below or lower-court-docket file was provisioned; I used the petition's appendix for the decision instead. The broad corpus grant query produced unrelated cases, which supplied no substantive analog or probability estimate. The citation-filter corpus query was empty with an explicit sparse-coverage warning; CourtListener then supplied the relevant precedent. Web search and PDF-open attempts returned no usable output. The initial uv cache failure was resolved by setting UV_CACHE_DIR=/tmp/uv-cache, without installing anything.

@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000267",
+  "run_id": "20261113T042228Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-order-call-for-response-disposition",
+      "message": "Petition page 14 says Judge VanDyke did not opine on the scope of appropriate relief. The provisioned appendix at 25a instead expressly agrees with the majority's propositions permitting plan-wide financial and equitable recovery, before dissenting on contract interpretation and delegation. I relied on the opinion itself and did not count the panel dissent as supporting petitioners on the question presented. This is a characterization discrepancy in party advocacy, not a provisioning failure."
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000624",
+  "run_id": "20261112T230820Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "flags": [
+    {
+      "category": "provisioning",
+      "severity": "info",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "In record/documents/petition.txt (106 pages, empty_text=false, ocr_derived=false), the front matter (cover, Questions Presented, Table of Contents, Table of Authorities, pp. i-xi) and the entire Appendix (pp. 1a-63a) extracted cleanly, but pages 1-29 of the Petition body extracted as ~45 blank lines (lines 286-331) with no pipeline truncation note, suggesting mixed PDF text/image layers where overall text volume masked empty body pages from OCR fallback."
+    },
+    {
+      "category": "capture-gap",
+      "severity": "info",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "record/documents/lower-court-docket.txt reports 'petition filed: none' and 'disposition: not found' for rehearing en banc because the 4 post-judgment RECAP docket entries on CourtListener (docket 68399001, entries 64, 65, 73, 76 between 2026-07-15 and 2026-08-11) have blank description strings; Petition Appendix A (petition.txt, pp. 1a-2a) shows that Petitioners did petition for rehearing en banc and the Fourth Circuit denied it on 2026-08-11 with no judge requesting a poll."
+    }
+  ]
+}
