@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/72483503",
+  "run_id": "20261113T190337Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_search_document"
+  ],
+  "helpful": [
+    "context.json frozen cert_anchor and statpack CVSG/sal-v8 base-rate tables",
+    "full provisioned cert-stage filings and Sixth Circuit appendix",
+    "CourtListener MCP snippet search on intervening circuit and SCOTUS opinions (Anderson v. Intel, Cunningham v. Cornell, England v. DENSO)",
+    "fedcourts query prior rows showing post-CVSG distribution counts on granted and denied dockets"
+  ],
+  "gaps": [
+    "fedcourts query filter for cvsg status (e.g. --cvsg) to pull resolved CVSG priors directly without scanning general granted/denied slices",
+    "statpack breakdown of CVSG grant rates conditional on SG recommendation for sg-brief and cvsg calibration"
+  ],
+  "notes": "Provisioned inputs and CourtListener MCP worked cleanly with zero errors."
+}
