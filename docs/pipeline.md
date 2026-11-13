@@ -3432,7 +3432,11 @@ candidate's campaign first. The draw is capped at 20 petitions or 10 cases,
 40 cells of one engine either way, since a dispatch has no `review` hold. The
 report, `metrics/backtest-comparisons/<kind>-<predictor>-<run id>.json`,
 lands on its own `metrics/backtest-comparison-<run id>` branch, so one
-unmerged comparison is never overwritten by the next. A prompt candidate is
+unmerged comparison is never overwritten by the next. An `engine: stub`
+dispatch is the lane's free rehearsal: its pull request shows the `publish` job
+working end to end and is closed unmerged, and a test fails any committed
+comparison report whose dispatch or arms ran the stub, so that pull request
+cannot pass the gate. A prompt candidate is
 not dispatchable, its template having to be in the commit's tree: that
 comparison runs by command where the corpus is pulled.
 
