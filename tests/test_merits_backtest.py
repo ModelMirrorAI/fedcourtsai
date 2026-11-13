@@ -36,6 +36,19 @@ from fedcourtsai.schemas import Judgment, MeritsBacktest, Moment
 runner = CliRunner()
 
 
+@pytest.fixture(autouse=True)
+def _scratch_metrics_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Point the metrics root at a scratch directory for every test in this file.
+
+    A replay command moves the pooled record and the comparison reports under
+    the metrics root out of the tree while its cells run and back afterwards.
+    Left on the default, that is the checkout's own ``metrics/``, which every
+    xdist worker shares: two workers moving the same directories collide, and
+    a loser can leave a committed file deleted from the working tree.
+    """
+    monkeypatch.setenv("FEDCOURTS_METRICS_ROOT", str(tmp_path / "metrics"))
+
+
 def _argued(case: int, docket: str, **fields: Any) -> corpus.CorpusRow:
     """A decided argued OT2024 plenary docket: granted, briefed, argued, reversed."""
     base: dict[str, Any] = {
