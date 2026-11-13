@@ -1,16 +1,16 @@
 {
-  "cases": 403,
+  "cases": 405,
   "cases_at_court_next_conference": 47,
   "cases_out_of_scope": 0,
   "cases_without_score": 1,
   "court_next_conference": "2026-11-13",
   "coverage": [
     {
-      "cases": 365,
+      "cases": 368,
       "n": 3
     },
     {
-      "cases": 36,
+      "cases": 35,
       "n": 2
     },
     {
@@ -18,15 +18,15 @@
       "n": 1
     }
   ],
-  "current_reads": 1207,
+  "current_reads": 1213,
   "declared_no_view": 28,
   "frozen_process": {
     "digests": [
-      "sha256:93dfd6b52d95a78cbc7ce722aa2230f0e8ce09716d6219c95036ca071419fee9",
+      "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+      "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
       "sha256:a74ea5610425d331c2616ae8719866bf78f06ea6e1c6b111d66dfac31f2c8578",
+      "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
       "sha256:b61115d400ce9267e594df12aa530e5a53f6412fb350ec04fc5cc04dac832e78",
-      "sha256:c1b452dea2e2f9a5c263428a31ed4c11f562c6ca10765b1dcfe66ff54daa733d",
-      "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
       "sha256:ff9786ea91896f0f50f176c3b1de403074ccf54cbe49ba69d844d201c59d2069"
     ],
     "since": "2026-11-12T19:49:39Z",
@@ -347,7 +347,7 @@
   },
   "median_adjacent_gap": 0.0017,
   "median_score_range": 0.2,
-  "missing_reads": 10,
+  "missing_reads": 9,
   "predictors": [
     "claude-baseline",
     "codex-baseline",
@@ -363,7 +363,7 @@
     "leakage_note": "A leakage-flagged read is worse here than on a board that drops it. A stakes read is partly a read of the disposition, so a predictor that saw its own outcome may have read the stakes off it too \u2014 and on this board that cell is not one point inside a coefficient, it is the published number. Every read and every row carries `leakage_suspected`, set where any committed grading of that run recorded the bit. Read a marked row as evidence about the cell, not about the case. The **row** mark is moment-scoped like every other row figure: it covers the reads the row publishes, so a flagged read on an earlier moment leaves the row unmarked while staying visible, and marked, under its own event.",
     "no_time_series": "The committed ledger spans a boundary at which `big_case_score` became required with an explicit null escape (`docs/freeze-record.md`). Cells either side of it are two populations \u2014 the ask changed, so which cells carry a read changed with it \u2014 and **this build spans it**, so the board publishes no trend and no history. Nor is a movement between two consecutive builds a measurement: a row's mean, `n` and rank also move when its `moment` does, which is the **docket** advancing and the whole panel switching question at once, not a predictor changing its mind. A movement across any of these boundaries measures nothing.",
     "population": "Every case in the committed ledger carrying at least one **in-scope** scored read on its current moment, pending and decided alike. `cases_without_score` counts the predicted cases whose in-scope reads carry no number at all and which are therefore absent \u2014 including a case whose current moment drew only declining reads whilst an earlier moment carried scores, which are history here and never promoted back into a row. The list is the predictions', never the corpus's \u2014 and the predictions' list is the salience gate's deliberately non-representative selection (`docs/salience.md`), so the board inherits that gate and is **not** a sample of the docket or of any conference. `status` says only whether a committed `outcome.json` sits on the case's predicted events: `pending` means the ledger records no outcome, which is not a statement about what the Court has done.",
-    "process_label": "proc-v21",
+    "process_label": "proc-v22",
     "rank_resolution": "The `#` column is a coarse band, never an ordering. Neighbouring rows sit far closer together than the predictors inside a single row sit to each other, so the difference between two adjacent ranks is smaller than the disagreement the ranks are built from. `median_adjacent_gap` and `median_score_range` are published beside each other so that comparison can be made rather than assumed. The moment-first collapse sharpens this rather than settling it: each row is one moment, so a row's mean **is** comparable across its own predictors, but two rows on different moments are not comparable to each other and the `#` column orders across moments anyway. The panel reads stakes systematically higher at later moments, so a row's position reflects which question its panel answered as well as how big its case is.",
     "reading_rule": "A stakes read is neither scored nor ranked: it resolves against nothing, so no **stakes** figure here is an accuracy, a calibration or an ordering of predictors, and none may be quoted as one. The per-cell `probability` carried beside it **is** a forecast \u2014 the cell's raw value, unstratified, unexcluded and unscored \u2014 and it is not a claimable one either; scored forecast performance lives on the leaderboard and nowhere else. Like the leaderboard's big-case views, this board reads the ledger directly, so neither the forward-claim exclusion nor the leakage exclusion applies; it is wider still than those, since it also reads cells no judge has graded and every process version. A wider population than the scored boards, deliberately, and a caveat that has to travel with a quoted number. The mean is a panel opinion about which cases matter, and it says nothing about how likely any of them is to be granted.",
     "schedule_rule": "`schedule` and `scheduled` are joined by case id from the committed `data/schedule/schedule.json`, which the live poll writes from what each pending public docket's entries name: the conference its newest 'DISTRIBUTED for Conference of ...' entry names while it is undecided, the day its newest 'SET FOR ARGUMENT on ...' entry names while a granted case awaits decision and has not been argued on or after that day, and the newest stated response deadline while the docket is undecided and no response or waiver has followed it. `schedule` lists each such date still ahead on the day the schedule was built, earliest first; `scheduled` is its conference entry alone, or null. The row carries no build day, so the board moves only when a case's date does; a reader rendering on a later day drops a date that has since passed rather than show it as upcoming. A schedule moves on every relist, reschedule and extension, so the fields are display-only and never a ledger record: nothing predicts, evaluates or scores on them, and no cell is provisioned with them. Above the rows, `court_next_conference` is that schedule's own court-wide field, the first conference on or after the day the schedule was built in the Court's published case distribution schedule, set whether or not any case on the board is distributed for it, and null where the schedule carries none; `cases_at_court_next_conference` counts the rows whose `scheduled` conference is that day: the board's rows distributed for it so far, not the Court's conference list, since a case off the board is not counted and a relisted case joins only once its redistribution is docketed. Both follow the same reader rule: a day that has since passed is dropped, not shown as upcoming.",
@@ -5939,179 +5939,6 @@
     },
     {
       "asking_declined": null,
-      "asking_party": "Department of Labor",
-      "caption": "Department of Labor, et al. v. Sun Valley Orchards, LLC",
-      "caption_event_id": "evt-brief-judgment",
-      "case_id": "scotus/73281007",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "Post-Jarkesy test of Article III limits on agency adjudication across federal benefit/immigration programs; SG petition, invalidated application of a federal statute, and 20+ merits amici from the Chamber, AFL-CIO, and the conservative legal movement.",
-          "big_case_score": 0.8,
-          "event_id": "evt-brief-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20260816T111104Z"
-        },
-        {
-          "big_case_rationale": "The case could define Article III limits on binding agency monetary adjudication across H-2A and related regulatory programs.",
-          "big_case_score": 0.82,
-          "event_id": "evt-brief-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20260816T111104Z"
-        },
-        {
-          "big_case_rationale": null,
-          "big_case_score": null,
-          "event_id": "evt-brief-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20260816T111104Z"
-        }
-      ],
-      "docket_id": 73281007,
-      "docket_number": "25-966",
-      "docket_number_source": "qp-topics",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-966.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-brief-judgment",
-          "reads": [
-            {
-              "big_case_rationale": "Post-Jarkesy test of Article III limits on agency adjudication across federal benefit/immigration programs; SG petition, invalidated application of a federal statute, and 20+ merits amici from the Chamber, AFL-CIO, and the conservative legal movement.",
-              "big_case_score": 0.8,
-              "cell_path": "data/cases/scotus/73281007/events/evt-brief-judgment/predictions/claude-baseline/20260816T111104Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73281007/events/evt-brief-judgment/predictions/claude-baseline/20260816T111104Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "claude-baseline",
-              "probability": 0.45,
-              "run_id": "20260816T111104Z"
-            },
-            {
-              "big_case_rationale": "The case could define Article III limits on binding agency monetary adjudication across H-2A and related regulatory programs.",
-              "big_case_score": 0.82,
-              "cell_path": "data/cases/scotus/73281007/events/evt-brief-judgment/predictions/codex-baseline/20260816T111104Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73281007/events/evt-brief-judgment/predictions/codex-baseline/20260816T111104Z",
-              "confidence": 0.66,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "codex-baseline",
-              "probability": 0.4,
-              "run_id": "20260816T111104Z"
-            },
-            {
-              "big_case_rationale": null,
-              "big_case_score": null,
-              "cell_path": "data/cases/scotus/73281007/events/evt-brief-judgment/predictions/gemini-baseline/20260816T111104Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73281007/events/evt-brief-judgment/predictions/gemini-baseline/20260816T111104Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.7,
-              "run_id": "20260816T111104Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Department of Labor, et al. v. Sun Valley Orchards, LLC"
-        },
-        {
-          "actual_disposition": null,
-          "event_id": "evt-order-judgment",
-          "reads": [
-            {
-              "big_case_rationale": "Post-Jarkesy boundary case for agency adjudication of monetary penalties, with direct consequences for H-2A enforcement (a sixth of the agricultural workforce) and, by extension, other benefit-condition and employer-sanction schemes; a broad cross-ideological amicus field on both sides marks the stakes.",
-              "big_case_score": 0.7,
-              "cell_path": "data/cases/scotus/73281007/events/evt-order-judgment/predictions/claude-baseline/20260816T111104Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73281007/events/evt-order-judgment/predictions/claude-baseline/20260816T111104Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "claude-baseline",
-              "probability": 0.45,
-              "run_id": "20260816T111104Z"
-            },
-            {
-              "big_case_rationale": "The case could define both Congress's authorization of in-house monetary adjudication and Article III's public-rights boundary for federal benefit programs.",
-              "big_case_score": 0.82,
-              "cell_path": "data/cases/scotus/73281007/events/evt-order-judgment/predictions/codex-baseline/20260816T111104Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73281007/events/evt-order-judgment/predictions/codex-baseline/20260816T111104Z",
-              "confidence": 0.58,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "codex-baseline",
-              "probability": 0.44,
-              "run_id": "20260816T111104Z"
-            },
-            {
-              "big_case_rationale": null,
-              "big_case_score": null,
-              "cell_path": "data/cases/scotus/73281007/events/evt-order-judgment/predictions/gemini-baseline/20260816T111104Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73281007/events/evt-order-judgment/predictions/gemini-baseline/20260816T111104Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.7,
-              "run_id": "20260816T111104Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Department of Labor, et al. v. Sun Valley Orchards, LLC"
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.81,
-      "moment": "evt-brief-judgment",
-      "moment_opened_at": "2026-07-27",
-      "n": 2,
-      "other_party": "Sun Valley Orchards",
-      "outcome_lines": [
-        {
-          "action": "reversed",
-          "line": "The Department of Labor wins: the lower court's decision is overturned, and any remaining issues go back to that court.",
-          "side": "disturbed"
-        },
-        {
-          "action": "affirmed",
-          "line": "Sun Valley Orchards wins: the lower court's decision is upheld.",
-          "side": "undisturbed"
-        },
-        {
-          "action": "vacated",
-          "line": "The lower court's decision is set aside and the case goes back to that court, without the Court deciding it for either side.",
-          "side": "disturbed"
-        }
-      ],
-      "schedule": [],
-      "scheduled": null,
-      "score_max": 0.82,
-      "score_min": 0.8,
-      "score_range": 0.02,
-      "short_caption": "Department of Labor v. Sun Valley Orchards",
-      "status": "pending"
-    },
-    {
-      "asking_declined": null,
       "asking_party": "Arizona",
       "caption": "Arizona, et al. v. Promise Arizona, et al.",
       "caption_event_id": "evt-petition-disposition",
@@ -10624,6 +10451,229 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Department of Labor",
+      "caption": "Department of Labor, et al. v. Sun Valley Orchards, LLC",
+      "caption_event_id": "evt-argument-judgment",
+      "case_id": "scotus/73281007",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "First test of how far SEC v. Jarkesy reaches into agency civil-penalty adjudication under a claimed public-rights (immigration/privilege) exception; the government says many penalty schemes ride on it, but the program directly at issue is narrow.",
+          "big_case_score": 0.62,
+          "event_id": "evt-argument-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261113T042228Z"
+        },
+        {
+          "big_case_rationale": "The case tests the boundary between federal agency adjudication and Article III courts after Jarkesy, with consequences for immigration-related labor enforcement and potentially other administrative monetary remedies.",
+          "big_case_score": 0.79,
+          "event_id": "evt-argument-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261113T042228Z"
+        },
+        {
+          "big_case_rationale": "Major post-Jarkesy separation-of-powers test of whether Article III's public-rights exception permits agencies to adjudicate civil penalties and back pay against U.S. employers under federal immigration and guestworker programs, with broad implications across administrative enforcement.",
+          "big_case_score": 0.78,
+          "event_id": "evt-argument-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261113T042228Z"
+        }
+      ],
+      "docket_id": 73281007,
+      "docket_number": "25-966",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-966.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-argument-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "First test of how far SEC v. Jarkesy reaches into agency civil-penalty adjudication under a claimed public-rights (immigration/privilege) exception; the government says many penalty schemes ride on it, but the program directly at issue is narrow.",
+              "big_case_score": 0.62,
+              "cell_path": "data/cases/scotus/73281007/events/evt-argument-judgment/predictions/claude-baseline/20261113T042228Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73281007/events/evt-argument-judgment/predictions/claude-baseline/20261113T042228Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.26,
+              "run_id": "20261113T042228Z"
+            },
+            {
+              "big_case_rationale": "The case tests the boundary between federal agency adjudication and Article III courts after Jarkesy, with consequences for immigration-related labor enforcement and potentially other administrative monetary remedies.",
+              "big_case_score": 0.79,
+              "cell_path": "data/cases/scotus/73281007/events/evt-argument-judgment/predictions/codex-baseline/20261113T042228Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73281007/events/evt-argument-judgment/predictions/codex-baseline/20261113T042228Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.32,
+              "run_id": "20261113T042228Z"
+            },
+            {
+              "big_case_rationale": "Major post-Jarkesy separation-of-powers test of whether Article III's public-rights exception permits agencies to adjudicate civil penalties and back pay against U.S. employers under federal immigration and guestworker programs, with broad implications across administrative enforcement.",
+              "big_case_score": 0.78,
+              "cell_path": "data/cases/scotus/73281007/events/evt-argument-judgment/predictions/gemini-baseline/20261113T042228Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73281007/events/evt-argument-judgment/predictions/gemini-baseline/20261113T042228Z",
+              "confidence": 0.62,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.55,
+              "run_id": "20261113T042228Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Department of Labor, et al. v. Sun Valley Orchards, LLC"
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-brief-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "Post-Jarkesy test of Article III limits on agency adjudication across federal benefit/immigration programs; SG petition, invalidated application of a federal statute, and 20+ merits amici from the Chamber, AFL-CIO, and the conservative legal movement.",
+              "big_case_score": 0.8,
+              "cell_path": "data/cases/scotus/73281007/events/evt-brief-judgment/predictions/claude-baseline/20260816T111104Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73281007/events/evt-brief-judgment/predictions/claude-baseline/20260816T111104Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.45,
+              "run_id": "20260816T111104Z"
+            },
+            {
+              "big_case_rationale": "The case could define Article III limits on binding agency monetary adjudication across H-2A and related regulatory programs.",
+              "big_case_score": 0.82,
+              "cell_path": "data/cases/scotus/73281007/events/evt-brief-judgment/predictions/codex-baseline/20260816T111104Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73281007/events/evt-brief-judgment/predictions/codex-baseline/20260816T111104Z",
+              "confidence": 0.66,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.4,
+              "run_id": "20260816T111104Z"
+            },
+            {
+              "big_case_rationale": null,
+              "big_case_score": null,
+              "cell_path": "data/cases/scotus/73281007/events/evt-brief-judgment/predictions/gemini-baseline/20260816T111104Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73281007/events/evt-brief-judgment/predictions/gemini-baseline/20260816T111104Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.7,
+              "run_id": "20260816T111104Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Department of Labor, et al. v. Sun Valley Orchards, LLC"
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "Post-Jarkesy boundary case for agency adjudication of monetary penalties, with direct consequences for H-2A enforcement (a sixth of the agricultural workforce) and, by extension, other benefit-condition and employer-sanction schemes; a broad cross-ideological amicus field on both sides marks the stakes.",
+              "big_case_score": 0.7,
+              "cell_path": "data/cases/scotus/73281007/events/evt-order-judgment/predictions/claude-baseline/20260816T111104Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73281007/events/evt-order-judgment/predictions/claude-baseline/20260816T111104Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.45,
+              "run_id": "20260816T111104Z"
+            },
+            {
+              "big_case_rationale": "The case could define both Congress's authorization of in-house monetary adjudication and Article III's public-rights boundary for federal benefit programs.",
+              "big_case_score": 0.82,
+              "cell_path": "data/cases/scotus/73281007/events/evt-order-judgment/predictions/codex-baseline/20260816T111104Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73281007/events/evt-order-judgment/predictions/codex-baseline/20260816T111104Z",
+              "confidence": 0.58,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.44,
+              "run_id": "20260816T111104Z"
+            },
+            {
+              "big_case_rationale": null,
+              "big_case_score": null,
+              "cell_path": "data/cases/scotus/73281007/events/evt-order-judgment/predictions/gemini-baseline/20260816T111104Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73281007/events/evt-order-judgment/predictions/gemini-baseline/20260816T111104Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.7,
+              "run_id": "20260816T111104Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Department of Labor, et al. v. Sun Valley Orchards, LLC"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.73,
+      "moment": "evt-argument-judgment",
+      "moment_opened_at": "2026-11-10",
+      "n": 3,
+      "other_party": "Sun Valley Orchards",
+      "outcome_lines": [
+        {
+          "action": "reversed",
+          "line": "The Department of Labor wins: the lower court's decision is overturned, and any remaining issues go back to that court.",
+          "side": "disturbed"
+        },
+        {
+          "action": "affirmed",
+          "line": "Sun Valley Orchards wins: the lower court's decision is upheld.",
+          "side": "undisturbed"
+        },
+        {
+          "action": "vacated",
+          "line": "The lower court's decision is set aside and the case goes back to that court, without the Court deciding it for either side.",
+          "side": "disturbed"
+        }
+      ],
+      "schedule": [],
+      "scheduled": null,
+      "score_max": 0.79,
+      "score_min": 0.62,
+      "score_range": 0.17,
+      "short_caption": "Department of Labor v. Sun Valley Orchards",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Citibank",
       "caption": "Citibank, N.A. v. Climate United Fund, et al.",
       "caption_event_id": "evt-petition-arrival-disposition",
@@ -13245,6 +13295,229 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Nielsen",
+      "caption": "Francis Nielsen v. Kekai Watanabe",
+      "caption_event_id": "evt-argument-judgment",
+      "case_id": "scotus/73278422",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Decides whether Carlson v. Green's Eighth Amendment Bivens remedy survives for ordinary federal-prisoner medical-care claims (roughly two-thirds to three-quarters of all Bivens filings), with petitioner asking to overrule Bivens outright; doctrinally important, moderate public salience.",
+          "big_case_score": 0.6,
+          "event_id": "evt-argument-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261113T042228Z"
+        },
+        {
+          "big_case_rationale": "The case determines the practical availability of personal constitutional damages claims for medical mistreatment throughout the federal prison system and puts a longstanding Supreme Court remedy at risk, although the modal ruling is narrower than its elimination.",
+          "big_case_score": 0.78,
+          "event_id": "evt-argument-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261113T042228Z"
+        },
+        {
+          "big_case_rationale": "Puts the continued vitality of Bivens and Carlson v. Green directly at issue and resolves whether federal prisoners retain a constitutional damages remedy for medical mistreatment, a category representing roughly two-thirds to three-quarters of all Bivens suits nationwide.",
+          "big_case_score": 0.68,
+          "event_id": "evt-argument-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261113T042228Z"
+        }
+      ],
+      "docket_id": 73278422,
+      "docket_number": "25-417",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-417.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-argument-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "Decides whether Carlson v. Green's Eighth Amendment Bivens remedy survives for ordinary federal-prisoner medical-care claims (roughly two-thirds to three-quarters of all Bivens filings), with petitioner asking to overrule Bivens outright; doctrinally important, moderate public salience.",
+              "big_case_score": 0.6,
+              "cell_path": "data/cases/scotus/73278422/events/evt-argument-judgment/predictions/claude-baseline/20261113T042228Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278422/events/evt-argument-judgment/predictions/claude-baseline/20261113T042228Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.9,
+              "run_id": "20261113T042228Z"
+            },
+            {
+              "big_case_rationale": "The case determines the practical availability of personal constitutional damages claims for medical mistreatment throughout the federal prison system and puts a longstanding Supreme Court remedy at risk, although the modal ruling is narrower than its elimination.",
+              "big_case_score": 0.78,
+              "cell_path": "data/cases/scotus/73278422/events/evt-argument-judgment/predictions/codex-baseline/20261113T042228Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278422/events/evt-argument-judgment/predictions/codex-baseline/20261113T042228Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.88,
+              "run_id": "20261113T042228Z"
+            },
+            {
+              "big_case_rationale": "Puts the continued vitality of Bivens and Carlson v. Green directly at issue and resolves whether federal prisoners retain a constitutional damages remedy for medical mistreatment, a category representing roughly two-thirds to three-quarters of all Bivens suits nationwide.",
+              "big_case_score": 0.68,
+              "cell_path": "data/cases/scotus/73278422/events/evt-argument-judgment/predictions/gemini-baseline/20261113T042228Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278422/events/evt-argument-judgment/predictions/gemini-baseline/20261113T042228Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.94,
+              "run_id": "20261113T042228Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Francis Nielsen v. Kekai Watanabe"
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-brief-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "A Bivens case with the Solicitor General and nineteen States as amici and divided argument; the judgment will govern damages suits by every federal prisoner over medical care and may confine Carlson v. Green to its facts, though an outright overruling of Bivens is unlikely and the doctrine is already narrow.",
+              "big_case_score": 0.65,
+              "cell_path": "data/cases/scotus/73278422/events/evt-brief-judgment/predictions/claude-baseline/20261004T201824Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278422/events/evt-brief-judgment/predictions/claude-baseline/20261004T201824Z",
+              "confidence": 0.7,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.86,
+              "run_id": "20261004T201824Z"
+            },
+            {
+              "big_case_rationale": "The case can substantially narrow federal prisoners' constitutional damages remedies for denial of medical care and tests the survival of Carlson. Its nationwide remedial stakes exceed its individual injury dispute, although its immediate reach is federal prison litigation.",
+              "big_case_score": 0.73,
+              "cell_path": "data/cases/scotus/73278422/events/evt-brief-judgment/predictions/codex-baseline/20261004T201824Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278422/events/evt-brief-judgment/predictions/codex-baseline/20261004T201824Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.84,
+              "run_id": "20261004T201824Z"
+            },
+            {
+              "big_case_rationale": "Clarifies the remaining boundaries of Bivens in the prison medical care context, which is significant for civil rights litigation but doctrinally predictable.",
+              "big_case_score": 0.65,
+              "cell_path": "data/cases/scotus/73278422/events/evt-brief-judgment/predictions/gemini-baseline/20261004T201824Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278422/events/evt-brief-judgment/predictions/gemini-baseline/20261004T201824Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.95,
+              "run_id": "20261004T201824Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Francis Nielsen v. Kekai Watanabe"
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "Likely vehicle for confining (or inviting the overruling of) Carlson v. Green and the remaining Bivens remedy, with direct stakes for all federal-prisoner damages suits; significant within federal-courts doctrine, though not a headline case for the general public.",
+              "big_case_score": 0.62,
+              "cell_path": "data/cases/scotus/73278422/events/evt-order-judgment/predictions/claude-baseline/20260816T173750Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278422/events/evt-order-judgment/predictions/claude-baseline/20260816T173750Z",
+              "confidence": 0.75,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.93,
+              "run_id": "20260816T173750Z"
+            },
+            {
+              "big_case_rationale": "The case could define how much of Carlson remains available to federal prisoners and materially affect constitutional damages actions nationwide.",
+              "big_case_score": 0.74,
+              "cell_path": "data/cases/scotus/73278422/events/evt-order-judgment/predictions/codex-baseline/20260816T173750Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278422/events/evt-order-judgment/predictions/codex-baseline/20260816T173750Z",
+              "confidence": 0.82,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.89,
+              "run_id": "20260816T173750Z"
+            },
+            {
+              "big_case_rationale": null,
+              "big_case_score": null,
+              "cell_path": "data/cases/scotus/73278422/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278422/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.9,
+              "run_id": "20260816T173750Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Francis Nielsen v. Kekai Watanabe"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.6867,
+      "moment": "evt-argument-judgment",
+      "moment_opened_at": "2026-11-09",
+      "n": 3,
+      "other_party": "Watanabe",
+      "outcome_lines": [
+        {
+          "action": "reversed",
+          "line": "Nielsen wins: the lower court's decision is overturned, and any remaining issues go back to that court.",
+          "side": "disturbed"
+        },
+        {
+          "action": "affirmed",
+          "line": "Watanabe wins: the lower court's decision is upheld.",
+          "side": "undisturbed"
+        },
+        {
+          "action": "vacated",
+          "line": "The lower court's decision is set aside and the case goes back to that court, without the Court deciding it for either side.",
+          "side": "disturbed"
+        }
+      ],
+      "schedule": [],
+      "scheduled": null,
+      "score_max": 0.78,
+      "score_min": 0.6,
+      "score_range": 0.18,
+      "short_caption": "Nielsen v. Watanabe",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "AstraZeneca UK Limited",
       "caption": "AstraZeneca UK Limited, et al. v. Joshua Atchley, et al.",
       "caption_event_id": "evt-order-cvsg-disposition",
@@ -13863,179 +14136,6 @@
       "score_min": 0.6,
       "score_range": 0.16,
       "short_caption": "City of Cleveland v. Pickett",
-      "status": "pending"
-    },
-    {
-      "asking_declined": null,
-      "asking_party": "Nielsen",
-      "caption": "Francis Nielsen v. Kekai Watanabe",
-      "caption_event_id": "evt-brief-judgment",
-      "case_id": "scotus/73278422",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "A Bivens case with the Solicitor General and nineteen States as amici and divided argument; the judgment will govern damages suits by every federal prisoner over medical care and may confine Carlson v. Green to its facts, though an outright overruling of Bivens is unlikely and the doctrine is already narrow.",
-          "big_case_score": 0.65,
-          "event_id": "evt-brief-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20261004T201824Z"
-        },
-        {
-          "big_case_rationale": "The case can substantially narrow federal prisoners' constitutional damages remedies for denial of medical care and tests the survival of Carlson. Its nationwide remedial stakes exceed its individual injury dispute, although its immediate reach is federal prison litigation.",
-          "big_case_score": 0.73,
-          "event_id": "evt-brief-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20261004T201824Z"
-        },
-        {
-          "big_case_rationale": "Clarifies the remaining boundaries of Bivens in the prison medical care context, which is significant for civil rights litigation but doctrinally predictable.",
-          "big_case_score": 0.65,
-          "event_id": "evt-brief-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20261004T201824Z"
-        }
-      ],
-      "docket_id": 73278422,
-      "docket_number": "25-417",
-      "docket_number_source": "qp-topics",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-417.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-brief-judgment",
-          "reads": [
-            {
-              "big_case_rationale": "A Bivens case with the Solicitor General and nineteen States as amici and divided argument; the judgment will govern damages suits by every federal prisoner over medical care and may confine Carlson v. Green to its facts, though an outright overruling of Bivens is unlikely and the doctrine is already narrow.",
-              "big_case_score": 0.65,
-              "cell_path": "data/cases/scotus/73278422/events/evt-brief-judgment/predictions/claude-baseline/20261004T201824Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278422/events/evt-brief-judgment/predictions/claude-baseline/20261004T201824Z",
-              "confidence": 0.7,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "claude-baseline",
-              "probability": 0.86,
-              "run_id": "20261004T201824Z"
-            },
-            {
-              "big_case_rationale": "The case can substantially narrow federal prisoners' constitutional damages remedies for denial of medical care and tests the survival of Carlson. Its nationwide remedial stakes exceed its individual injury dispute, although its immediate reach is federal prison litigation.",
-              "big_case_score": 0.73,
-              "cell_path": "data/cases/scotus/73278422/events/evt-brief-judgment/predictions/codex-baseline/20261004T201824Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278422/events/evt-brief-judgment/predictions/codex-baseline/20261004T201824Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "codex-baseline",
-              "probability": 0.84,
-              "run_id": "20261004T201824Z"
-            },
-            {
-              "big_case_rationale": "Clarifies the remaining boundaries of Bivens in the prison medical care context, which is significant for civil rights litigation but doctrinally predictable.",
-              "big_case_score": 0.65,
-              "cell_path": "data/cases/scotus/73278422/events/evt-brief-judgment/predictions/gemini-baseline/20261004T201824Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278422/events/evt-brief-judgment/predictions/gemini-baseline/20261004T201824Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.95,
-              "run_id": "20261004T201824Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Francis Nielsen v. Kekai Watanabe"
-        },
-        {
-          "actual_disposition": null,
-          "event_id": "evt-order-judgment",
-          "reads": [
-            {
-              "big_case_rationale": "Likely vehicle for confining (or inviting the overruling of) Carlson v. Green and the remaining Bivens remedy, with direct stakes for all federal-prisoner damages suits; significant within federal-courts doctrine, though not a headline case for the general public.",
-              "big_case_score": 0.62,
-              "cell_path": "data/cases/scotus/73278422/events/evt-order-judgment/predictions/claude-baseline/20260816T173750Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278422/events/evt-order-judgment/predictions/claude-baseline/20260816T173750Z",
-              "confidence": 0.75,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "claude-baseline",
-              "probability": 0.93,
-              "run_id": "20260816T173750Z"
-            },
-            {
-              "big_case_rationale": "The case could define how much of Carlson remains available to federal prisoners and materially affect constitutional damages actions nationwide.",
-              "big_case_score": 0.74,
-              "cell_path": "data/cases/scotus/73278422/events/evt-order-judgment/predictions/codex-baseline/20260816T173750Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278422/events/evt-order-judgment/predictions/codex-baseline/20260816T173750Z",
-              "confidence": 0.82,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "codex-baseline",
-              "probability": 0.89,
-              "run_id": "20260816T173750Z"
-            },
-            {
-              "big_case_rationale": null,
-              "big_case_score": null,
-              "cell_path": "data/cases/scotus/73278422/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278422/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.9,
-              "run_id": "20260816T173750Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Francis Nielsen v. Kekai Watanabe"
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.6767,
-      "moment": "evt-brief-judgment",
-      "moment_opened_at": "2026-09-23",
-      "n": 3,
-      "other_party": "Watanabe",
-      "outcome_lines": [
-        {
-          "action": "reversed",
-          "line": "Nielsen wins: the lower court's decision is overturned, and any remaining issues go back to that court.",
-          "side": "disturbed"
-        },
-        {
-          "action": "affirmed",
-          "line": "Watanabe wins: the lower court's decision is upheld.",
-          "side": "undisturbed"
-        },
-        {
-          "action": "vacated",
-          "line": "The lower court's decision is set aside and the case goes back to that court, without the Court deciding it for either side.",
-          "side": "disturbed"
-        }
-      ],
-      "schedule": [],
-      "scheduled": null,
-      "score_max": 0.73,
-      "score_min": 0.65,
-      "score_range": 0.08,
-      "short_caption": "Nielsen v. Watanabe",
       "status": "pending"
     },
     {
@@ -24773,179 +24873,6 @@
     },
     {
       "asking_declined": null,
-      "asking_party": "Hoffmann",
-      "caption": "Leonard W. Hoffmann, et al. v. WBI Energy Transmission, Inc.",
-      "caption_event_id": "evt-brief-judgment",
-      "case_id": "scotus/73274853",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "A recurring question for every Natural Gas Act condemnation nationwide, with a four-circuit consensus at stake and broad property-rights and industry amicus interest, but technical, fee-focused, and unlikely to lead general news.",
-          "big_case_score": 0.42,
-          "event_id": "evt-brief-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20261004T201824Z"
-        },
-        {
-          "big_case_rationale": "A nationally consequential compensation rule for federally authorized pipeline condemnations, affecting landowners' litigation costs and infrastructure acquisition costs, but not a challenge to the power to condemn or a general redefinition of constitutional takings rights.",
-          "big_case_score": 0.56,
-          "event_id": "evt-brief-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20261004T201824Z"
-        },
-        {
-          "big_case_rationale": "A significant eminent domain and federalism case that determines whether private pipelines using federal condemnation power must pay state-law compensation, which can be higher than the federal floor.",
-          "big_case_score": 0.65,
-          "event_id": "evt-brief-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20261004T201824Z"
-        }
-      ],
-      "docket_id": 73274853,
-      "docket_number": "25-159",
-      "docket_number_source": "qp-topics",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-159.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-brief-judgment",
-          "reads": [
-            {
-              "big_case_rationale": "A recurring question for every Natural Gas Act condemnation nationwide, with a four-circuit consensus at stake and broad property-rights and industry amicus interest, but technical, fee-focused, and unlikely to lead general news.",
-              "big_case_score": 0.42,
-              "cell_path": "data/cases/scotus/73274853/events/evt-brief-judgment/predictions/claude-baseline/20261004T201824Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73274853/events/evt-brief-judgment/predictions/claude-baseline/20261004T201824Z",
-              "confidence": 0.35,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "claude-baseline",
-              "probability": 0.44,
-              "run_id": "20261004T201824Z"
-            },
-            {
-              "big_case_rationale": "A nationally consequential compensation rule for federally authorized pipeline condemnations, affecting landowners' litigation costs and infrastructure acquisition costs, but not a challenge to the power to condemn or a general redefinition of constitutional takings rights.",
-              "big_case_score": 0.56,
-              "cell_path": "data/cases/scotus/73274853/events/evt-brief-judgment/predictions/codex-baseline/20261004T201824Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73274853/events/evt-brief-judgment/predictions/codex-baseline/20261004T201824Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "codex-baseline",
-              "probability": 0.38,
-              "run_id": "20261004T201824Z"
-            },
-            {
-              "big_case_rationale": "A significant eminent domain and federalism case that determines whether private pipelines using federal condemnation power must pay state-law compensation, which can be higher than the federal floor.",
-              "big_case_score": 0.65,
-              "cell_path": "data/cases/scotus/73274853/events/evt-brief-judgment/predictions/gemini-baseline/20261004T201824Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73274853/events/evt-brief-judgment/predictions/gemini-baseline/20261004T201824Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.85,
-              "run_id": "20261004T201824Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Leonard W. Hoffmann, et al. v. WBI Energy Transmission, Inc."
-        },
-        {
-          "actual_disposition": null,
-          "event_id": "evt-order-judgment",
-          "reads": [
-            {
-              "big_case_rationale": "Nationwide rule for what pipeline condemnors must pay landowners under the Natural Gas Act \u2014 consequential for energy infrastructure and property owners across at least five circuits, but a technical choice-of-law question with modest general-public salience.",
-              "big_case_score": 0.45,
-              "cell_path": "data/cases/scotus/73274853/events/evt-order-judgment/predictions/claude-baseline/20260816T173750Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73274853/events/evt-order-judgment/predictions/claude-baseline/20260816T173750Z",
-              "confidence": 0.4,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "claude-baseline",
-              "probability": 0.45,
-              "run_id": "20260816T173750Z"
-            },
-            {
-              "big_case_rationale": "The ruling will govern compensation in private Natural Gas Act condemnations nationwide, affecting landowners, pipeline costs, and a mature circuit split.",
-              "big_case_score": 0.63,
-              "cell_path": "data/cases/scotus/73274853/events/evt-order-judgment/predictions/codex-baseline/20260816T173750Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73274853/events/evt-order-judgment/predictions/codex-baseline/20260816T173750Z",
-              "confidence": 0.7,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "codex-baseline",
-              "probability": 0.34,
-              "run_id": "20260816T173750Z"
-            },
-            {
-              "big_case_rationale": "Establishes a uniform standard for land compensation in Natural Gas Act takings, heavily impacting national pipeline infrastructure costs.",
-              "big_case_score": 0.6,
-              "cell_path": "data/cases/scotus/73274853/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73274853/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.85,
-              "run_id": "20260816T173750Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Leonard W. Hoffmann, et al. v. WBI Energy Transmission, Inc."
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.5433,
-      "moment": "evt-brief-judgment",
-      "moment_opened_at": "2026-09-14",
-      "n": 3,
-      "other_party": "WBI Energy Transmission",
-      "outcome_lines": [
-        {
-          "action": "reversed",
-          "line": "Hoffmann wins: the lower court's decision is overturned, and any remaining issues go back to that court.",
-          "side": "disturbed"
-        },
-        {
-          "action": "affirmed",
-          "line": "WBI Energy Transmission wins: the lower court's decision is upheld.",
-          "side": "undisturbed"
-        },
-        {
-          "action": "vacated",
-          "line": "The lower court's decision is set aside and the case goes back to that court, without the Court deciding it for either side.",
-          "side": "disturbed"
-        }
-      ],
-      "schedule": [],
-      "scheduled": null,
-      "score_max": 0.65,
-      "score_min": 0.42,
-      "score_range": 0.23,
-      "short_caption": "Hoffmann v. WBI Energy Transmission",
-      "status": "pending"
-    },
-    {
-      "asking_declined": null,
       "asking_party": "Google",
       "caption": "Google LLC v. VirtaMove, Corp., et al.",
       "caption_event_id": "evt-petition-disposition",
@@ -27985,134 +27912,6 @@
     },
     {
       "asking_declined": null,
-      "asking_party": "RiseandShine",
-      "caption": "RiseandShine Corporation, dba Rise Brewing v. PepsiCo, Inc.",
-      "caption_event_id": "evt-order-judgment",
-      "case_id": "scotus/72483489",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "A 12-1 procedural split (judge vs. jury on trademark strength) with PepsiCo as respondent: consequential for trademark litigation practice and summary-judgment rates, but technical and low-salience for the general public.",
-          "big_case_score": 0.35,
-          "event_id": "evt-order-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20260816T173750Z"
-        },
-        {
-          "big_case_rationale": "A nationwide trademark fact-law rule matters to jury allocation and summary judgment, but the dispute concerns one subfactor of a broader likelihood-of-confusion test.",
-          "big_case_score": 0.58,
-          "event_id": "evt-order-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20260816T173750Z"
-        },
-        {
-          "big_case_rationale": "A significant procedural clarification for trademark litigation resolving a 12-1 circuit split, but technically narrow.",
-          "big_case_score": 0.6,
-          "event_id": "evt-order-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20260816T173750Z"
-        }
-      ],
-      "docket_id": 72483489,
-      "docket_number": "24-1016",
-      "docket_number_source": "qp-topics",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/24-1016.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-order-judgment",
-          "reads": [
-            {
-              "big_case_rationale": "A 12-1 procedural split (judge vs. jury on trademark strength) with PepsiCo as respondent: consequential for trademark litigation practice and summary-judgment rates, but technical and low-salience for the general public.",
-              "big_case_score": 0.35,
-              "cell_path": "data/cases/scotus/72483489/events/evt-order-judgment/predictions/claude-baseline/20260816T173750Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/72483489/events/evt-order-judgment/predictions/claude-baseline/20260816T173750Z",
-              "confidence": 0.55,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "claude-baseline",
-              "probability": 0.8,
-              "run_id": "20260816T173750Z"
-            },
-            {
-              "big_case_rationale": "A nationwide trademark fact-law rule matters to jury allocation and summary judgment, but the dispute concerns one subfactor of a broader likelihood-of-confusion test.",
-              "big_case_score": 0.58,
-              "cell_path": "data/cases/scotus/72483489/events/evt-order-judgment/predictions/codex-baseline/20260816T173750Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/72483489/events/evt-order-judgment/predictions/codex-baseline/20260816T173750Z",
-              "confidence": 0.8,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "codex-baseline",
-              "probability": 0.86,
-              "run_id": "20260816T173750Z"
-            },
-            {
-              "big_case_rationale": "A significant procedural clarification for trademark litigation resolving a 12-1 circuit split, but technically narrow.",
-              "big_case_score": 0.6,
-              "cell_path": "data/cases/scotus/72483489/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/72483489/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.85,
-              "run_id": "20260816T173750Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "RiseandShine Corporation, dba Rise Brewing v. PepsiCo, Inc."
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.51,
-      "moment": "evt-order-judgment",
-      "moment_opened_at": "2026-06-29",
-      "n": 3,
-      "other_party": "PepsiCo",
-      "outcome_lines": [
-        {
-          "action": "reversed",
-          "line": "RiseandShine wins: the lower court's decision is overturned, and any remaining issues go back to that court.",
-          "side": "disturbed"
-        },
-        {
-          "action": "affirmed",
-          "line": "PepsiCo wins: the lower court's decision is upheld.",
-          "side": "undisturbed"
-        },
-        {
-          "action": "vacated",
-          "line": "The lower court's decision is set aside and the case goes back to that court, without the Court deciding it for either side.",
-          "side": "disturbed"
-        }
-      ],
-      "schedule": [
-        {
-          "date": "2027-01-12",
-          "kind": "argument"
-        }
-      ],
-      "scheduled": null,
-      "score_max": 0.6,
-      "score_min": 0.35,
-      "score_range": 0.25,
-      "short_caption": "RiseandShine v. PepsiCo",
-      "status": "pending"
-    },
-    {
-      "asking_declined": null,
       "asking_party": "Eric Alan Isaacson",
       "caption": "Eric Alan Isaacson v. National Veterans Legal Services Program, et al.",
       "caption_event_id": "evt-petition-arrival-disposition",
@@ -28968,6 +28767,124 @@
       "score_range": 0.16,
       "short_caption": "Blanche v. Ozurumba",
       "status": "partly_resolved"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Parker-Hannifin",
+      "caption": "Parker-Hannifin Corporation, et al. v. Michael D. Johnson, et al.",
+      "caption_event_id": "evt-order-cvsg-disposition",
+      "case_id": "scotus/72483503",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Pleading standard for ERISA imprudent-investment suits against 401(k) fiduciaries: large practical stakes for plan sponsors and the plaintiffs' bar, but technical and of limited general newsworthiness.",
+          "big_case_score": 0.45,
+          "event_id": "evt-order-cvsg-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261113T190337Z"
+        },
+        {
+          "big_case_rationale": "A recurring ERISA pleading question with substantial retirement-plan and litigation consequences, but narrower public significance than a major constitutional dispute.",
+          "big_case_score": 0.58,
+          "event_id": "evt-order-cvsg-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261113T190337Z"
+        },
+        {
+          "big_case_rationale": "A merits ruling on ERISA's 'meaningful benchmark' pleading standard would govern motion-to-dismiss screening across hundreds of 401(k) target-date-fund class actions nationwide, matching Hughes and Cunningham in commercial significance though lacking broad constitutional salience.",
+          "big_case_score": 0.45,
+          "event_id": "evt-order-cvsg-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261113T190337Z"
+        }
+      ],
+      "docket_id": 72483503,
+      "docket_number": null,
+      "docket_number_source": null,
+      "docket_url": null,
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-cvsg-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Pleading standard for ERISA imprudent-investment suits against 401(k) fiduciaries: large practical stakes for plan sponsors and the plaintiffs' bar, but technical and of limited general newsworthiness.",
+              "big_case_score": 0.45,
+              "cell_path": "data/cases/scotus/72483503/events/evt-order-cvsg-disposition/predictions/claude-baseline/20261113T190337Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/72483503/events/evt-order-cvsg-disposition/predictions/claude-baseline/20261113T190337Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "claude-baseline",
+              "probability": 0.52,
+              "run_id": "20261113T190337Z"
+            },
+            {
+              "big_case_rationale": "A recurring ERISA pleading question with substantial retirement-plan and litigation consequences, but narrower public significance than a major constitutional dispute.",
+              "big_case_score": 0.58,
+              "cell_path": "data/cases/scotus/72483503/events/evt-order-cvsg-disposition/predictions/codex-baseline/20261113T190337Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/72483503/events/evt-order-cvsg-disposition/predictions/codex-baseline/20261113T190337Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.46,
+              "run_id": "20261113T190337Z"
+            },
+            {
+              "big_case_rationale": "A merits ruling on ERISA's 'meaningful benchmark' pleading standard would govern motion-to-dismiss screening across hundreds of 401(k) target-date-fund class actions nationwide, matching Hughes and Cunningham in commercial significance though lacking broad constitutional salience.",
+              "big_case_score": 0.45,
+              "cell_path": "data/cases/scotus/72483503/events/evt-order-cvsg-disposition/predictions/gemini-baseline/20261113T190337Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/72483503/events/evt-order-cvsg-disposition/predictions/gemini-baseline/20261113T190337Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.38,
+              "run_id": "20261113T190337Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Parker-Hannifin Corporation, et al. v. Michael D. Johnson, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.4933,
+      "moment": "evt-order-cvsg-disposition",
+      "moment_opened_at": "2025-06-30",
+      "n": 3,
+      "other_party": "Johnson",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Parker-Hannifin's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Parker-Hannifin's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [],
+      "scheduled": null,
+      "score_max": 0.58,
+      "score_min": 0.45,
+      "score_range": 0.13,
+      "short_caption": "Parker-Hannifin v. Johnson",
+      "status": "pending"
     },
     {
       "asking_declined": null,
@@ -30437,6 +30354,229 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Hoffmann",
+      "caption": "Leonard W. Hoffmann, et al. v. WBI Energy Transmission, Inc.",
+      "caption_event_id": "evt-argument-judgment",
+      "case_id": "scotus/73274853",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Resolves a 4-1 circuit split on the compensation measure in every private Natural Gas Act condemnation; real stakes for landowners and pipeline builders, but a technical statutory question with modest public salience.",
+          "big_case_score": 0.4,
+          "event_id": "evt-argument-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261113T042228Z"
+        },
+        {
+          "big_case_rationale": "A nationwide rule for pipeline condemnations affects landowner compensation, infrastructure costs, and federal-state authority, but the immediate dispute is a statutory compensation question rather than a wholesale change to takings doctrine.",
+          "big_case_score": 0.6,
+          "event_id": "evt-argument-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261113T042228Z"
+        },
+        {
+          "big_case_rationale": "Resolves an entrenched circuit split over federal versus state compensation rules for interstate natural-gas pipeline condemnations under 15 U.S.C. 717f(h), carrying practical nationwide stakes for energy infrastructure and landowners without broader constitutional reach.",
+          "big_case_score": 0.42,
+          "event_id": "evt-argument-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261113T042228Z"
+        }
+      ],
+      "docket_id": 73274853,
+      "docket_number": "25-159",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-159.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-argument-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "Resolves a 4-1 circuit split on the compensation measure in every private Natural Gas Act condemnation; real stakes for landowners and pipeline builders, but a technical statutory question with modest public salience.",
+              "big_case_score": 0.4,
+              "cell_path": "data/cases/scotus/73274853/events/evt-argument-judgment/predictions/claude-baseline/20261113T042228Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73274853/events/evt-argument-judgment/predictions/claude-baseline/20261113T042228Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.12,
+              "run_id": "20261113T042228Z"
+            },
+            {
+              "big_case_rationale": "A nationwide rule for pipeline condemnations affects landowner compensation, infrastructure costs, and federal-state authority, but the immediate dispute is a statutory compensation question rather than a wholesale change to takings doctrine.",
+              "big_case_score": 0.6,
+              "cell_path": "data/cases/scotus/73274853/events/evt-argument-judgment/predictions/codex-baseline/20261113T042228Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73274853/events/evt-argument-judgment/predictions/codex-baseline/20261113T042228Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.1,
+              "run_id": "20261113T042228Z"
+            },
+            {
+              "big_case_rationale": "Resolves an entrenched circuit split over federal versus state compensation rules for interstate natural-gas pipeline condemnations under 15 U.S.C. 717f(h), carrying practical nationwide stakes for energy infrastructure and landowners without broader constitutional reach.",
+              "big_case_score": 0.42,
+              "cell_path": "data/cases/scotus/73274853/events/evt-argument-judgment/predictions/gemini-baseline/20261113T042228Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73274853/events/evt-argument-judgment/predictions/gemini-baseline/20261113T042228Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.09,
+              "run_id": "20261113T042228Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Leonard W. Hoffmann, et al. v. WBI Energy Transmission, Inc."
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-brief-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "A recurring question for every Natural Gas Act condemnation nationwide, with a four-circuit consensus at stake and broad property-rights and industry amicus interest, but technical, fee-focused, and unlikely to lead general news.",
+              "big_case_score": 0.42,
+              "cell_path": "data/cases/scotus/73274853/events/evt-brief-judgment/predictions/claude-baseline/20261004T201824Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73274853/events/evt-brief-judgment/predictions/claude-baseline/20261004T201824Z",
+              "confidence": 0.35,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.44,
+              "run_id": "20261004T201824Z"
+            },
+            {
+              "big_case_rationale": "A nationally consequential compensation rule for federally authorized pipeline condemnations, affecting landowners' litigation costs and infrastructure acquisition costs, but not a challenge to the power to condemn or a general redefinition of constitutional takings rights.",
+              "big_case_score": 0.56,
+              "cell_path": "data/cases/scotus/73274853/events/evt-brief-judgment/predictions/codex-baseline/20261004T201824Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73274853/events/evt-brief-judgment/predictions/codex-baseline/20261004T201824Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.38,
+              "run_id": "20261004T201824Z"
+            },
+            {
+              "big_case_rationale": "A significant eminent domain and federalism case that determines whether private pipelines using federal condemnation power must pay state-law compensation, which can be higher than the federal floor.",
+              "big_case_score": 0.65,
+              "cell_path": "data/cases/scotus/73274853/events/evt-brief-judgment/predictions/gemini-baseline/20261004T201824Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73274853/events/evt-brief-judgment/predictions/gemini-baseline/20261004T201824Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.85,
+              "run_id": "20261004T201824Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Leonard W. Hoffmann, et al. v. WBI Energy Transmission, Inc."
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "Nationwide rule for what pipeline condemnors must pay landowners under the Natural Gas Act \u2014 consequential for energy infrastructure and property owners across at least five circuits, but a technical choice-of-law question with modest general-public salience.",
+              "big_case_score": 0.45,
+              "cell_path": "data/cases/scotus/73274853/events/evt-order-judgment/predictions/claude-baseline/20260816T173750Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73274853/events/evt-order-judgment/predictions/claude-baseline/20260816T173750Z",
+              "confidence": 0.4,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.45,
+              "run_id": "20260816T173750Z"
+            },
+            {
+              "big_case_rationale": "The ruling will govern compensation in private Natural Gas Act condemnations nationwide, affecting landowners, pipeline costs, and a mature circuit split.",
+              "big_case_score": 0.63,
+              "cell_path": "data/cases/scotus/73274853/events/evt-order-judgment/predictions/codex-baseline/20260816T173750Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73274853/events/evt-order-judgment/predictions/codex-baseline/20260816T173750Z",
+              "confidence": 0.7,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.34,
+              "run_id": "20260816T173750Z"
+            },
+            {
+              "big_case_rationale": "Establishes a uniform standard for land compensation in Natural Gas Act takings, heavily impacting national pipeline infrastructure costs.",
+              "big_case_score": 0.6,
+              "cell_path": "data/cases/scotus/73274853/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73274853/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.85,
+              "run_id": "20260816T173750Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Leonard W. Hoffmann, et al. v. WBI Energy Transmission, Inc."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.4733,
+      "moment": "evt-argument-judgment",
+      "moment_opened_at": "2026-11-09",
+      "n": 3,
+      "other_party": "WBI Energy Transmission",
+      "outcome_lines": [
+        {
+          "action": "reversed",
+          "line": "Hoffmann wins: the lower court's decision is overturned, and any remaining issues go back to that court.",
+          "side": "disturbed"
+        },
+        {
+          "action": "affirmed",
+          "line": "WBI Energy Transmission wins: the lower court's decision is upheld.",
+          "side": "undisturbed"
+        },
+        {
+          "action": "vacated",
+          "line": "The lower court's decision is set aside and the case goes back to that court, without the Court deciding it for either side.",
+          "side": "disturbed"
+        }
+      ],
+      "schedule": [],
+      "scheduled": null,
+      "score_max": 0.6,
+      "score_min": 0.4,
+      "score_range": 0.2,
+      "short_caption": "Hoffmann v. WBI Energy Transmission",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Utah",
       "caption": "Utah v. Morris Thomas Mullins",
       "caption_event_id": "evt-petition-disposition",
@@ -31079,6 +31219,179 @@
       "score_range": 0.35,
       "short_caption": "Ramesh Sunny Balwani v. United States",
       "status": "resolved"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Capital Group Companies",
+      "caption": "The Capital Group Companies, Inc., et al. v. Cathy Pover",
+      "caption_event_id": "evt-order-call-for-response-disposition",
+      "case_id": "scotus/9026000267",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Scope of plan-wide monetary relief in ERISA 502(a)(2) defined-contribution suits: large stakes for retirement-plan class litigation and individual-arbitration clauses, but technical and of little general-public salience.",
+          "big_case_score": 0.35,
+          "event_id": "evt-order-call-for-response-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261113T042228Z"
+        },
+        {
+          "big_case_rationale": "The scope of retirement-plan fiduciary remedies and enforceability of individual arbitration affect retirement savers and employers nationwide, although the issue is technical rather than a broad constitutional dispute.",
+          "big_case_score": 0.6,
+          "event_id": "evt-order-call-for-response-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261113T042228Z"
+        },
+        {
+          "big_case_rationale": "A merits ruling would govern whether employers nationwide can pair 401(k) and ESOP arbitration clauses with class waivers to limit fiduciary-breach recoveries to a single worker's account across trillions in retirement assets.",
+          "big_case_score": 0.45,
+          "event_id": "evt-order-call-for-response-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261113T042228Z"
+        }
+      ],
+      "docket_id": 9026000267,
+      "docket_number": "26-267",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-267.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-call-for-response-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Scope of plan-wide monetary relief in ERISA 502(a)(2) defined-contribution suits: large stakes for retirement-plan class litigation and individual-arbitration clauses, but technical and of little general-public salience.",
+              "big_case_score": 0.35,
+              "cell_path": "data/cases/scotus/9026000267/events/evt-order-call-for-response-disposition/predictions/claude-baseline/20261113T042228Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000267/events/evt-order-call-for-response-disposition/predictions/claude-baseline/20261113T042228Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.13,
+              "run_id": "20261113T042228Z"
+            },
+            {
+              "big_case_rationale": "The scope of retirement-plan fiduciary remedies and enforceability of individual arbitration affect retirement savers and employers nationwide, although the issue is technical rather than a broad constitutional dispute.",
+              "big_case_score": 0.6,
+              "cell_path": "data/cases/scotus/9026000267/events/evt-order-call-for-response-disposition/predictions/codex-baseline/20261113T042228Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000267/events/evt-order-call-for-response-disposition/predictions/codex-baseline/20261113T042228Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.3,
+              "run_id": "20261113T042228Z"
+            },
+            {
+              "big_case_rationale": "A merits ruling would govern whether employers nationwide can pair 401(k) and ESOP arbitration clauses with class waivers to limit fiduciary-breach recoveries to a single worker's account across trillions in retirement assets.",
+              "big_case_score": 0.45,
+              "cell_path": "data/cases/scotus/9026000267/events/evt-order-call-for-response-disposition/predictions/gemini-baseline/20261113T042228Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000267/events/evt-order-call-for-response-disposition/predictions/gemini-baseline/20261113T042228Z",
+              "confidence": 0.75,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.25,
+              "run_id": "20261113T042228Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "The Capital Group Companies, Inc., et al. v. Cathy Pover"
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Scope of ERISA 502(a)(2) relief for defined-contribution participants; governs class certification and arbitration of 401(k) fiduciary suits nationwide, but a specialist question with little public salience.",
+              "big_case_score": 0.45,
+              "cell_path": "data/cases/scotus/9026000267/events/evt-petition-disposition/predictions/claude-baseline/20261113T042228Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000267/events/evt-petition-disposition/predictions/claude-baseline/20261113T042228Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.13,
+              "run_id": "20261113T042228Z"
+            },
+            {
+              "big_case_rationale": "The permissible scope of retirement-plan recovery has substantial nationwide consequences for participants, plan fiduciaries, and arbitration, but the question is technical rather than broadly constitutional.",
+              "big_case_score": 0.58,
+              "cell_path": "data/cases/scotus/9026000267/events/evt-petition-disposition/predictions/codex-baseline/20261113T042228Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000267/events/evt-petition-disposition/predictions/codex-baseline/20261113T042228Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.24,
+              "run_id": "20261113T042228Z"
+            },
+            {
+              "big_case_rationale": "A merits ruling would determine whether 401(k) participants can seek plan-wide monetary recovery under ERISA \u00a7 502(a)(2) or be confined to single-account arbitration, reshaping fiduciary litigation across trillions in retirement assets.",
+              "big_case_score": 0.62,
+              "cell_path": "data/cases/scotus/9026000267/events/evt-petition-disposition/predictions/gemini-baseline/20261113T042228Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000267/events/evt-petition-disposition/predictions/gemini-baseline/20261113T042228Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.24,
+              "run_id": "20261113T042228Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "The Capital Group Companies, Inc., et al. v. Cathy Pover"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.4667,
+      "moment": "evt-order-call-for-response-disposition",
+      "moment_opened_at": "2026-10-01",
+      "n": 3,
+      "other_party": "Pover",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Capital Group Companies' case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Capital Group Companies' petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-12-02",
+          "kind": "response_due"
+        }
+      ],
+      "scheduled": null,
+      "score_max": 0.6,
+      "score_min": 0.35,
+      "score_range": 0.25,
+      "short_caption": "Capital Group Companies v. Pover",
+      "status": "pending"
     },
     {
       "asking_declined": null,
@@ -40022,6 +40335,184 @@
       "score_range": 0.46,
       "short_caption": "Guardado v. Florida",
       "status": "resolved"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "RiseandShine",
+      "caption": "RiseandShine Corporation, dba Rise Brewing v. PepsiCo, Inc.",
+      "caption_event_id": "evt-brief-judgment",
+      "case_id": "scotus/72483489",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Doctrinally meaningful for trademark litigation (judge/jury allocation and summary judgment in the Second Circuit, a major trademark venue) and drew the main IP bar associations as amici, but a narrow sub-factor question with little salience outside IP practice.",
+          "big_case_score": 0.3,
+          "event_id": "evt-brief-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261113T042228Z"
+        },
+        {
+          "big_case_rationale": "A nationwide rule about judges' and juries' roles in trademark disputes, but confined to one component of the infringement inquiry rather than the ultimate ownership of common words.",
+          "big_case_score": 0.45,
+          "event_id": "evt-brief-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261113T042228Z"
+        },
+        {
+          "big_case_rationale": "Resolves a 12-to-1 Second Circuit outlier rule on summary-judgment factfinding in trademark suits\u2014consequential for commercial IP litigation in a major venue, though doctrinally technical.",
+          "big_case_score": 0.28,
+          "event_id": "evt-brief-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261113T042228Z"
+        }
+      ],
+      "docket_id": 72483489,
+      "docket_number": "24-1016",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/24-1016.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-brief-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "Doctrinally meaningful for trademark litigation (judge/jury allocation and summary judgment in the Second Circuit, a major trademark venue) and drew the main IP bar associations as amici, but a narrow sub-factor question with little salience outside IP practice.",
+              "big_case_score": 0.3,
+              "cell_path": "data/cases/scotus/72483489/events/evt-brief-judgment/predictions/claude-baseline/20261113T042228Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/72483489/events/evt-brief-judgment/predictions/claude-baseline/20261113T042228Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.79,
+              "run_id": "20261113T042228Z"
+            },
+            {
+              "big_case_rationale": "A nationwide rule about judges' and juries' roles in trademark disputes, but confined to one component of the infringement inquiry rather than the ultimate ownership of common words.",
+              "big_case_score": 0.45,
+              "cell_path": "data/cases/scotus/72483489/events/evt-brief-judgment/predictions/codex-baseline/20261113T042228Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/72483489/events/evt-brief-judgment/predictions/codex-baseline/20261113T042228Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.76,
+              "run_id": "20261113T042228Z"
+            },
+            {
+              "big_case_rationale": "Resolves a 12-to-1 Second Circuit outlier rule on summary-judgment factfinding in trademark suits\u2014consequential for commercial IP litigation in a major venue, though doctrinally technical.",
+              "big_case_score": 0.28,
+              "cell_path": "data/cases/scotus/72483489/events/evt-brief-judgment/predictions/gemini-baseline/20261113T042228Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/72483489/events/evt-brief-judgment/predictions/gemini-baseline/20261113T042228Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.88,
+              "run_id": "20261113T042228Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "RiseandShine Corporation, dba Rise Brewing v. PepsiCo, Inc."
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "A 12-1 procedural split (judge vs. jury on trademark strength) with PepsiCo as respondent: consequential for trademark litigation practice and summary-judgment rates, but technical and low-salience for the general public.",
+              "big_case_score": 0.35,
+              "cell_path": "data/cases/scotus/72483489/events/evt-order-judgment/predictions/claude-baseline/20260816T173750Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/72483489/events/evt-order-judgment/predictions/claude-baseline/20260816T173750Z",
+              "confidence": 0.55,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.8,
+              "run_id": "20260816T173750Z"
+            },
+            {
+              "big_case_rationale": "A nationwide trademark fact-law rule matters to jury allocation and summary judgment, but the dispute concerns one subfactor of a broader likelihood-of-confusion test.",
+              "big_case_score": 0.58,
+              "cell_path": "data/cases/scotus/72483489/events/evt-order-judgment/predictions/codex-baseline/20260816T173750Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/72483489/events/evt-order-judgment/predictions/codex-baseline/20260816T173750Z",
+              "confidence": 0.8,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.86,
+              "run_id": "20260816T173750Z"
+            },
+            {
+              "big_case_rationale": "A significant procedural clarification for trademark litigation resolving a 12-1 circuit split, but technically narrow.",
+              "big_case_score": 0.6,
+              "cell_path": "data/cases/scotus/72483489/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/72483489/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.85,
+              "run_id": "20260816T173750Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "RiseandShine Corporation, dba Rise Brewing v. PepsiCo, Inc."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.3433,
+      "moment": "evt-brief-judgment",
+      "moment_opened_at": "2026-11-04",
+      "n": 3,
+      "other_party": "PepsiCo",
+      "outcome_lines": [
+        {
+          "action": "reversed",
+          "line": "RiseandShine wins: the lower court's decision is overturned, and any remaining issues go back to that court.",
+          "side": "disturbed"
+        },
+        {
+          "action": "affirmed",
+          "line": "PepsiCo wins: the lower court's decision is upheld.",
+          "side": "undisturbed"
+        },
+        {
+          "action": "vacated",
+          "line": "The lower court's decision is set aside and the case goes back to that court, without the Court deciding it for either side.",
+          "side": "disturbed"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2027-01-12",
+          "kind": "argument"
+        }
+      ],
+      "scheduled": null,
+      "score_max": 0.45,
+      "score_min": 0.28,
+      "score_range": 0.17,
+      "short_caption": "RiseandShine v. PepsiCo",
+      "status": "pending"
     },
     {
       "asking_declined": null,
@@ -58693,5 +59184,5 @@
   ],
   "rows_with_leakage_flag": 4,
   "schema_version": "1.5",
-  "scored_reads": 1169
+  "scored_reads": 1176
 }
