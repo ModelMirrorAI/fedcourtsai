@@ -522,7 +522,9 @@ def test_proc_v22_holds_the_instant_and_moves_no_window() -> None:
     predecessor's counting instant, opens no window and closes none: every
     live predictor keeps its open proc-v21 window.
     """
-    assert _label_since("proc-v22") == _label_since("proc-v21") is not None
+    v21 = _label_since("proc-v21")
+    assert v21 is not None
+    assert _label_since("proc-v22") == v21
     rows = process_version._REGISTRY.windows
     assert not [w for w in rows if w.label == "proc-v22"]
     open_windows = {w.predictor_id: w for w in rows if w.closes is None}
