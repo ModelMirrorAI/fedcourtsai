@@ -19311,8 +19311,8 @@ freeze commit is recorded here.
   as cells, outcomes and gradings land.
 
 - **`proc-v22`, the evaluate prompt lists every output path a judge writes;
-  recorded 2026-11-13.** Carried to `main` by the promotion tagged `<FILL: promotion tag>`
-  (merge commit `<FILL: merge hash>`, merged `<FILL: merged-at>`), to be tagged
+  recorded 2026-11-13.** Carried to `main` by the promotion tagged `promotion/2026-11-13`
+  (merge commit `f6441bcdaf6e8c8bc364c2f6048aa8c54c800af5`, merged `2026-11-13T17:00:26Z`), to be tagged
   **`prereg/proc-v22`**. Registered under the merge-stamped rule. Only the
   evaluate prompt changes, so the three evaluator digests move and the three
   predictor digests are carried forward byte-identical. This is an
@@ -19670,8 +19670,8 @@ freeze commit is recorded here.
   effect. The predict prompt's description of `lower-court-docket.txt` still
   holds, so no amendment debt is added.
 
-  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
-  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by the promotion tagged `promotion/2026-11-13` (merge
+  commit `f6441bcdaf6e8c8bc364c2f6048aa8c54c800af5`, merged `2026-11-13T17:00:26Z`).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_decision_below.py` is green;
@@ -19811,8 +19811,8 @@ freeze commit is recorded here.
   rank and no scored figure. The corpus column, the statpack and the cert
   anchor are untouched.
 
-  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
-  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by the promotion tagged `promotion/2026-11-13` (merge
+  commit `f6441bcdaf6e8c8bc364c2f6048aa8c54c800af5`, merged `2026-11-13T17:00:26Z`).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_amicus_line.py tests/test_cert_amicus.py
@@ -19828,8 +19828,8 @@ freeze commit is recorded here.
 - **A failing engine attempt is classified on the fault the engine reported,
   not on the whole of its stderr; recorded 2026-11-13.** A harness change
   under unchanged digests. Carried to `main` by the promotion tagged
-  `<FILL: promotion tag>` (merge commit `<FILL: merge hash>`, merged
-  `<FILL: merged-at>`). No harness boundary is registered, since no scoring
+  `promotion/2026-11-13` (merge commit `f6441bcdaf6e8c8bc364c2f6048aa8c54c800af5`, merged
+  `2026-11-13T17:00:26Z`). No harness boundary is registered, since no scoring
   rule and no cell's information set moves.
 
   **What changes.** The in-place retry of a Gemini cell (the entry *Gemini
@@ -20039,8 +20039,8 @@ freeze commit is recorded here.
   the end, and a head-cut row can carry an unread-run note; that sentence is
   left as it is, and is owed a correction with the prompt's.
 
-  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
-  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by the promotion tagged `promotion/2026-11-13` (merge
+  commit `f6441bcdaf6e8c8bc364c2f6048aa8c54c800af5`, merged `2026-11-13T17:00:26Z`).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_ocr_recovery.py tests/test_documents.py

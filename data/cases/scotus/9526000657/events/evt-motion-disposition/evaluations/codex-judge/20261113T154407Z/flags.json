@@ -1,0 +1,21 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9526000657",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-motion-disposition",
+      "message": "gemini-baseline's rationale materially misquotes its frozen statpack. statpack-at resolves recorded digest sha256:b122cc43052b1328321031e3615601101a1b85c7dcdc87d23e5436373b03f133 to build f0a8cabd41e643e9a1441db9518d722d427a1768 with no alternative. That build has OT2016\u2013OT2025 finer grants/resolutions 156/1337, private/unmarked 63/906, and OT2025 19/218, rather than the rationale's 30/148 and 9/92. This affects reasoning_quality, not the mechanical probability score or harness-stamped baseline.",
+      "severity": "warning"
+    },
+    {
+      "category": "capture-gap",
+      "event_id": "evt-motion-disposition",
+      "message": "claude-baseline, codex-baseline, and gemini-baseline all report receiving an empty, non-OCR 61-page application extraction fetched November 6. The evaluator's documents.json instead describes a November 11 OCR extraction with empty_text=false. The later text is available now; the historical gap is disclosed so candidates are not penalized for failing to read content supplied only later.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261113T154407Z",
+  "schema_version": "1.0"
+}

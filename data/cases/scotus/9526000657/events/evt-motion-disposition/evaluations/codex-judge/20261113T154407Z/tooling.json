@@ -1,0 +1,27 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9526000657",
+  "gaps": [
+    "No explanatory disposition text or complete writing record is staged, limiting verification of asserted grounds and categorical no-writing forecasts.",
+    "gemini-baseline's outcome-only retrieval capture permits query review but not independent inspection of returned bodies."
+  ],
+  "helpful": [
+    "Blinded candidates and explicit result-capture markers support mode-aware integrity review.",
+    "statpack-at resolves the exact frozen build without consulting prediction history.",
+    "The provisioned docket and finer interim outcome suffice for mechanical scoring."
+  ],
+  "notes": "No external retrieval or package installation. The evaluator has a later OCR application extraction than the candidates reported receiving; that change is not treated as their failure to read an available text.",
+  "role": "evaluator",
+  "run_id": "20261113T154407Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "local-file-read",
+    "fedcourts statpack-at",
+    "apply_patch",
+    "JSON Schema validation",
+    "Pydantic validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

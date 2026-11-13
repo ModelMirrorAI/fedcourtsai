@@ -1,0 +1,125 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.03,
+    "notes": "Routine pro se emergency stay application arising from personal/entity Chapter 7 bankruptcy litigation in E.D. Va. and an unpublished Fourth Circuit mandamus denial of a judicial-recusal motion (No. 26-2404), summarily denied in chambers by the Chief Justice without a response request, referral, amicus filings, or broader legal reach."
+  },
+  "brier_score": 0.0004,
+  "brier_skill_score": 0.9706185239973701,
+  "case_id": "scotus/9526000658",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": 0.013214019934335405
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.15,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.002,
+          "Barrett": 0.002,
+          "Gorsuch": 0.003,
+          "Jackson": 0.004,
+          "Kagan": 0.002,
+          "Kavanaugh": 0.002,
+          "Roberts": 0.003,
+          "Sotomayor": 0.004,
+          "Thomas": 0.003
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.013214019934335405,
+    "total": 0.013214019934335405
+  },
+  "correct": 1,
+  "created_at": "2026-11-13T15:53:37.657129Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction placed on 2026-11-09T03:34-03:35Z, two days before the 2026-11-11 denial. All 14 logged calls in retrieval_log.json (result_capture_coverage = 1.0) were local file reads, a fedcourts query over prior denied applications, and a live fetch of the supremecourt.gov 26a658 docket page while it still showed only the 2026-11-02 submission entry; data/qp-topics/ was not touched.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-carbon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.7,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json and snapshot 2026-11-12.json confirm Chief Justice Roberts denied 26A658 solo on 2026-11-11 with interim_reading = 'denied', referred_to_court = false, writing_roles = null, and noted_dissent_from_denial = null.",
+        "claim": "The Chief Justice, acting alone as Circuit Justice, denies the stay application in a one-line order with no separate writings.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json interim_signals records response_requested = false and amicus_briefs = 0.",
+        "claim": "No response is requested from the respondent and essentially no amicus briefs are filed.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Denied on 2026-11-11 (five days after docketing, slightly earlier than mid-to-late November) with referred_to_court = false and no renewal.",
+        "claim": "Disposition most likely occurs within about one to three weeks of the November 6 docketing (mid-to-late November 2026), absent a renewed application referred to the full Court.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The Chief Justice's summary one-line denial states no doctrinal ground.",
+        "claim": "On the stay standard, a personal bankruptcy dispute in an intermediate bankruptcy-appeal posture with no identified circuit split fails the reasonable-probability-of-certiorari prong.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261109T032540Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:93dfd6b52d95a78cbc7ce722aa2230f0e8ce09716d6219c95036ca071419fee9",
+    "label": "proc-v21",
+    "pipeline_sha": "db110b5849c5c90c07c307a3a3ae81ece2ae563e",
+    "stamped_at": "2026-11-13T15:53:37.657129Z"
+  },
+  "reasoning_quality": 0.78,
+  "run_id": "20261113T154407Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000661",
+  "run_id": "20261113T154407Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell", "jq", "fedcourts statpack-at", "apply_patch", "python3 jsonschema"],
+  "helpful": [
+    "Blinded candidate records preserve the prediction contexts and forecast documents.",
+    "The resolved snapshot distinguishes a filed response from a formal response request.",
+    "statpack-at reconstructs the shared frozen build without exposing candidate identities.",
+    "Capture markers make the limits of leakage evidence explicit."
+  ],
+  "gaps": [],
+  "notes": "No installation or external case retrieval was needed. The project virtual environment lacks jsonschema, but the existing system Python supplies it for local output-schema validation. The unexplained order permits procedural grading but not confirmation of inferred legal grounds."
+}

@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000658",
+  "run_id": "20261113T154407Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-motion-disposition",
+      "message": "Upstream supremecourt.gov docket JSON (record/snapshots/2026-11-12.json) lists LowerCourt as 'United States Bankruptcy Appellate Panel for the 10th Circuit' for case number (26-2404), whereas record/documents/application.txt and Fourth Circuit No. 26-2404 (In re: Paul Schultz, Oct. 22, 2026) confirm the application arises from the United States Court of Appeals for the Fourth Circuit (submitted to Chief Justice Roberts as Fourth Circuit Justice)."
+    }
+  ]
+}

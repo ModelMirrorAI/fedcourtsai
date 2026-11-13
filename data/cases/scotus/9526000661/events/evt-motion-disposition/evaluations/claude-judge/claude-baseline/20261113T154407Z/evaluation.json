@@ -1,0 +1,130 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.2,
+    "notes": "A single capital stay application on the eve of an Oklahoma execution, from a successive state post-conviction proceeding the state court resolved on a procedural bar. The question (extending the Pena-Rodriguez juror-impeachment exception to alleged false prosecutorial argument) is novel but drew no amicus, no noted dissent and no separate writing; the Court denied the stay and certiorari in a two-sentence order. Grave for the applicant, low systemic significance."
+  },
+  "brier_score": 0.0004,
+  "brier_skill_score": 0.9706185239973701,
+  "case_id": "scotus/9526000661",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": 0.013214019934335405
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.08,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.9,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.01,
+          "Barrett": 0.01,
+          "Gorsuch": 0.01,
+          "Jackson": 0.06,
+          "Kagan": 0.02,
+          "Kavanaugh": 0.01,
+          "Roberts": 0.005,
+          "Sotomayor": 0.08,
+          "Thomas": 0.01
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.013214019934335405,
+    "total": 0.013214019934335405
+  },
+  "correct": 1,
+  "created_at": "2026-11-13T15:51:22.792215Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell run 2026-11-09, before the 2026-11-12 resolution. Fully captured log (coverage 1.0): prompt, provisioned snapshot and application, statpack, and corpus queries (no row for 26-6095; a listing of recent granted applications). No web or CourtListener call. Nothing dated on or after resolution; reasoning treats the outcome as open.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-2",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.9,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Docket entries of Nov 12 2026: 'Application (26A661) referred to the Court.' and 'Application (26A661) for stay of execution of sentence of death presented to Justice Gorsuch and by him referred to the Court is denied. The petition for a writ of certiorari is denied.'",
+        "claim": "The Court will deny the stay and almost certainly deny certiorari in No. 26-6095 by the same order or on the same day, on November 11 or 12.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Outcome referred_to_court true; the disposing entry uses that wording.",
+        "claim": "Justice Gorsuch will refer the application to the full Court; the denial will read 'referred to the Court' and 'denied'.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "'Response to application from respondent Oklahoma filed' on Nov 09 2026, the filing day; outcome response_requested false.",
+        "claim": "Oklahoma will respond uninvited within a day; a formal call for a response is unlikely.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Outcome interim_signals.amicus_briefs 0.",
+        "claim": "No amicus briefs are expected.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Order is unexplained with no writing. The hedged 'perhaps' notation of Justices who would grant did not appear in the disposing entry; treated as a secondary, hedged miss.",
+        "claim": "The order will be unexplained, perhaps with a notation that Justice Sotomayor and possibly Justice Jackson would grant; a written dissent is improbable (~10%).",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261109T212928Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:c1b452dea2e2f9a5c263428a31ed4c11f562c6ca10765b1dcfe66ff54daa733d",
+    "label": "proc-v21",
+    "pipeline_sha": "db110b5849c5c90c07c307a3a3ae81ece2ae563e",
+    "stamped_at": "2026-11-13T15:51:22.792215Z"
+  },
+  "reasoning_quality": 0.85,
+  "run_id": "20261113T154407Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}
