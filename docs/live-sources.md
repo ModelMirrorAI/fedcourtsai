@@ -691,7 +691,11 @@ the docket form, so one function serves both lanes:
   party. Read by the invited brief's own entry anchor ("Brief for the United
   States as amicus curiae supporting petitioners filed.", "Brief of the United
   States as amicus curiae supporting respondents filed.", "Brief amicus curiae
-  of United States filed.") on the other side of the grant: the first such entry
+  of United States filed.") on the other side of the grant, and, in this arm
+  alone, by the caption that names the supported side straight after the filer
+  ("Brief amicus curiae of United States supporting vacatur filed.", "… in
+  support of neither party filed."), which the invited brief's anchor does not
+  read and the cert-stage reads that share it never see: the first such entry
   filed **after the cert grant** whose entry posts a `Main Document` link, from
   that link alone, on the merits arms' terms. The invited brief is filed before
   the grant, so it stays `sg-invited-brief` and is never this kind. It follows
