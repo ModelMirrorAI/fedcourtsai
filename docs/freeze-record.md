@@ -19287,17 +19287,23 @@ freeze commit is recorded here.
 
   The provisional run, at an instant of `2026-11-12T00:00:00Z`, printed 51
   counted events per engine with none resolved. At the stamped instant,
-  `2026-11-12T19:49:39Z`, each engine still holds 51 counted events in the
-  window, and 3 of them carry an outcome dated on or before the close's day,
-  2026-11-12. The comparison is by day, so it does not say whether those 3
-  outcomes were committed before the merge's own minute; read at its widest,
-  the close was taken with 3 of the window's 51 outcomes visible. The
-  `proc-v21` entry states that no score motivated its changes, and this
-  count is what a reader weighs that statement against. No event is split between the two labels. Each
-  engine has 9 events counted under `proc-v21` so far, and for every one the
-  `proc-v20` window holds no failed, uncounted or missing cell: the event was
-  not reached before the close. No `graded by` line prints because no
-  grading of a `proc-v20`-window cell is recorded yet.
+  `2026-11-12T19:49:39Z`, each engine still holds 51 counted events
+  in its window, and 3 of them carry an outcome dated on or before the
+  close's day: the `evt-motion-disposition` events of `scotus/9526000657`,
+  `scotus/9526000658` and `scotus/9526000661`, resolved 2026-11-10,
+  2026-11-11 and 2026-11-12. The command compares by day; the ledger settles
+  the minute. One commit, `0f219543a6` (`2026-11-12T17:04:13Z`), added all
+  three `outcome.json` files to `main`, after the `proc-v21` entry was
+  recorded and 2 hours 45 minutes before the carrying merge. So the close
+  was taken with outcomes visible on 3 of the 51 counted events, and with no
+  grading of any of the 51 recorded, which is also why no `graded by` line
+  prints. The `proc-v21` entry states that no score motivated its changes,
+  and these counts are what a reader weighs that statement against.
+
+  No event is split between the two labels. Each engine has 9 events counted
+  under `proc-v21` so far, and for every one the `proc-v20` window holds no
+  failed, uncounted or missing cell: the event was not reached before the
+  close.
 
   The closed-window resolved counts can still move: an outcome dated on or
   before the close's day may land late, and an event void de-counts what it
