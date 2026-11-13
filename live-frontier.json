@@ -394,6 +394,42 @@
     },
     {
       "conference": "2023-02-17",
+      "petitions": 2
+    },
+    {
+      "conference": "2023-03-03",
+      "petitions": 3
+    },
+    {
+      "conference": "2023-03-24",
+      "petitions": 2
+    },
+    {
+      "conference": "2023-03-31",
+      "petitions": 1
+    },
+    {
+      "conference": "2023-04-14",
+      "petitions": 1
+    },
+    {
+      "conference": "2023-05-11",
+      "petitions": 2
+    },
+    {
+      "conference": "2023-05-25",
+      "petitions": 1
+    },
+    {
+      "conference": "2023-06-22",
+      "petitions": 5
+    },
+    {
+      "conference": "2023-09-26",
+      "petitions": 13
+    },
+    {
+      "conference": "2024-02-16",
       "petitions": 1
     },
     {
@@ -580,5 +616,5 @@
   "next_conference_petitions": 154,
   "schema_version": "1.0",
   "skipped": false,
-  "watchlist": 685
+  "watchlist": 715
 }
