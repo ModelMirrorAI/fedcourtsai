@@ -19824,6 +19824,68 @@ freeze commit is recorded here.
     prints a Term, a band and an integer, and the same read over a
     prediction stamped before the promotion prints `null` in the third
     place.
+
+- **A failing engine attempt is classified on the fault the engine reported,
+  not on the whole of its stderr; recorded 2026-11-13.** A harness change
+  under unchanged digests. Carried to `main` by the promotion tagged
+  `<FILL: promotion tag>` (merge commit `<FILL: merge hash>`, merged
+  `<FILL: merged-at>`). No harness boundary is registered, since no scoring
+  rule and no cell's information set moves.
+
+  **What changes.** The in-place retry of a Gemini cell (the entry *Gemini
+  cells retry a transient engine fault in place*, above) retries only an
+  attempt the classifier reads as transient (`fedcourts
+  engine-attempt-class`). On a non-zero exit the classifier matched its
+  transient signatures against the attempt's whole stderr, joined to any
+  error in the JSON result. From the carrying promotion, where the engine
+  reported the error its attempt ended on (the error object in its result,
+  or the same object on its stderr, `fedcourts engine-attempt-reported`),
+  that error's text is read alone, for the transient set and for the
+  terminal-quota set alike. Where the engine reported none, the whole of
+  stderr is read as before. A zero exit is unchanged: it was already
+  classified on its result's error alone. The back-test's `GeminiRunner`
+  calls the same classifier and takes the same rule. The claude and codex
+  runners' retry reads stderr whole and is unchanged.
+
+  **Why.** Evaluate run `20261110T154355Z` left a `gemini-judge` cell on
+  `scotus/9526000560` `evt-brief-response-disposition` whose turn ended on
+  HTTP 400 `INVALID_ARGUMENT`. The attempt read transient only because a
+  `fetch failed` line, from a model call the CLI had retried and recovered,
+  sat earlier in the same stderr. A client error mislabelled transient
+  spends up to two further attempts that cannot succeed.
+
+  **What it means for a reader.** No committed record moves: the verdict is
+  not stored on a cell, and the clean conclusion over whole output (the entry
+  *A Gemini cell whose turn fails on an engine fault after its work is whole
+  concludes clean*, above) admits both classes. From the carrying promotion a
+  Gemini cell that ends on a reported non-transient fault after a recovered
+  network error stops on that attempt where it took up to three before. The
+  other direction moves only for the terminal-quota set: an attempt whose
+  stderr carried a spent-quota line ahead of a different reported fault read
+  `terminal_quota` and now reads that fault's own class, so it retries where
+  the fault is transient. A reported transient fault after a recovered
+  client-error line read transient before and still does. The rule trusts the latest
+  error object on stderr to be the fault that ended the turn. That object is
+  any JSON object opening a stderr line and carrying an `error`, whoever
+  wrote it, so a turn that logged one, carried on, and then ended on a fault
+  the engine did not report (a signal from outside, or a bare network error
+  line) is classified on that object: a transient end after such an object
+  reads permanent and is not retried, where the whole-stderr reading retried
+  it. The report is read as its `type` and `message`, so a status carried
+  only in another field of the object is not read. The rule is Gemini's alone, so a comparison of
+  retry counts or cell-failure rates across this promotion reads the Gemini
+  pair apart.
+
+  The runnable effect check once it is live: `uv run pytest
+  tests/test_runner.py -k classify_engine_attempt` is green on `main`; and
+  for the captured streams of any Gemini attempt on which `uv run fedcourts
+  engine-attempt-reported` prints `true` and whose `uv run fedcourts
+  engine-attempt-fault` line names a 400 or `INVALID_ARGUMENT`, `uv run
+  fedcourts engine-attempt-class` prints `permanent`. In a round's job logs
+  the same reads as: no Gemini cell's annotation says `ended transient`
+  beside an `engine said:` text that is such a reported 400 (an attempt the
+  engine left no error object for is still read over its whole stderr, so
+  the annotation alone does not fail the check).
 - **The extractor marks a run of unread pages, and the OCR recovery class
   takes a marked row; recorded 2026-11-13.** A **provisioning-cutoff** change
   with a harness boundary, recorded ahead of the promotion that carries it.

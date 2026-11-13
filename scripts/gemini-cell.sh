@@ -214,11 +214,12 @@ done
 #     outside, by the deadline's signal or a crash, leaves none; the classifier
 #     calls any unrecognized failing exit `permanent`, so the class alone would
 #     admit those.
-#   * The verdict is `transient` or `permanent`. Both qualify because the
-#     classifier reads a whole stderr: a 400 after a recovered network error
-#     reads transient and a bare one permanent, and a finished cell is finished
-#     either way. A spent quota stays a failure, which the collect job accounts
-#     for as one, and so does a fault that could not be classified.
+#   * The verdict is `transient` or `permanent`. Both qualify because a
+#     finished cell is finished whichever kind of fault ended its turn: a
+#     dropped model call reads transient and an API 400 permanent, and neither
+#     says anything about the files already written. A spent quota stays a
+#     failure, which the collect job accounts for as one, and so does a fault
+#     that could not be classified.
 #   * The watchdog has not acted. Any of its markers means the step was ended
 #     for the deadline or reaped, and the disarm step owns that outcome.
 #   * The cell is complete (`finalize-complete`) and valid
