@@ -1,0 +1,151 @@
+{
+  "big_case_rationale": "Resolves an entrenched circuit split over federal versus state compensation rules for interstate natural-gas pipeline condemnations under 15 U.S.C. 717f(h), carrying practical nationwide stakes for energy infrastructure and landowners without broader constitutional reach.",
+  "big_case_score": 0.42,
+  "case_id": "scotus/73274853",
+  "claim_distributions": [
+    {
+      "claim_id": "majority-author",
+      "probabilities": {
+        "Alito": 0.085,
+        "Barrett": 0.115,
+        "Gorsuch": 0.065,
+        "Jackson": 0.14,
+        "Kagan": 0.11,
+        "Kavanaugh": 0.13,
+        "Roberts": 0.145,
+        "Sotomayor": 0.105,
+        "Thomas": 0.095,
+        "per-curiam": 0.01
+      }
+    },
+    {
+      "claim_id": "separate-writers",
+      "probabilities": {
+        "Alito": 0.095,
+        "Barrett": 0.095,
+        "Gorsuch": 0.22,
+        "Jackson": 0.11,
+        "Kagan": 0.04,
+        "Kavanaugh": 0.09,
+        "Roberts": 0.015,
+        "Sotomayor": 0.085,
+        "Thomas": 0.24
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.09
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "band_refused": null,
+    "cert_anchor": null,
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-11-10",
+    "cvsg_date": "2025-12-08",
+    "decided_before": null,
+    "distribution_count": 4,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v8",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_contact_scrub": {
+      "blocks": 0,
+      "fields": 0,
+      "sides": []
+    },
+    "snapshot_date": "2026-11-10",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+    "term": 2025,
+    "vide_links": []
+  },
+  "created_at": "2026-11-13T04:54:17.140701Z",
+  "engine": "gemini",
+  "event_id": "evt-argument-judgment",
+  "granted": 0,
+  "input_snapshot": "2026-11-10.json",
+  "judgment": "affirmed",
+  "model": "gemini-4-carbon",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "gemini-baseline",
+  "probability": 0.09,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ff9786ea91896f0f50f176c3b1de403074ccf54cbe49ba69d844d201c59d2069",
+    "label": "proc-v21",
+    "pipeline_sha": "0b1a4e2623288d4e7059d3336fd5a3ebb170a114",
+    "stamped_at": "2026-11-13T04:54:17.140701Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261113T042228Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "Extending PennEast Pipeline Co. v. New Jersey, 594 U.S. 482 (2021), together with United States v. Miller, 317 U.S. 369 (1943), United States v. 93.970 Acres of Land, 360 U.S. 328 (1959), and United States v. Bodcaw Co., 440 U.S. 202 (1979), the majority holds that a certificate holder condemning property under 15 U.S.C. 717f(h) exercises the federal eminent-domain power, which carries as an incident the federal Fifth Amendment fair-market-value measure of just compensation (excluding attorney fees) unless Congress directs reference to state compensation law\u2014as it did in the 1946 General Bridge Act and for practice and procedure alone in Section 717f(h)\u2014leaving no statutory gap for state law under United States v. Kimbell Foods, Inc., 440 U.S. 715 (1979), and rejecting petitioners' contention that Miller and Bodcaw rest on sovereign immunity."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The majority announces a categorical rule across all private condemnations under 15 U.S.C. 717f(h) nationwide\u2014holding that federal Fifth Amendment compensation principles displace all state-law compensation enhancements rather than limiting the decision to North Dakota attorney fees or case-by-case frustration preemption\u2014while assuming without deciding the lower courts' construction of North Dakota law and confining its holding to delegated federal eminent-domain authority without conferring general federal sovereign immunity on private certificate holders."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "majority",
+      "writing": null
+    }
+  ]
+}

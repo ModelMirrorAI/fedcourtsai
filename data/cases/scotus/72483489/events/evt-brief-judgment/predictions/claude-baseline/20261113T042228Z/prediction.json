@@ -1,0 +1,151 @@
+{
+  "big_case_rationale": "Doctrinally meaningful for trademark litigation (judge/jury allocation and summary judgment in the Second Circuit, a major trademark venue) and drew the main IP bar associations as amici, but a narrow sub-factor question with little salience outside IP practice.",
+  "big_case_score": 0.3,
+  "case_id": "scotus/72483489",
+  "claim_distributions": [
+    {
+      "claim_id": "majority-author",
+      "probabilities": {
+        "Alito": 0.07,
+        "Barrett": 0.11,
+        "Gorsuch": 0.09,
+        "Jackson": 0.13,
+        "Kagan": 0.17,
+        "Kavanaugh": 0.09,
+        "Roberts": 0.06,
+        "Sotomayor": 0.15,
+        "Thomas": 0.12,
+        "per-curiam": 0.01
+      }
+    },
+    {
+      "claim_id": "separate-writers",
+      "probabilities": {
+        "Alito": 0.14,
+        "Barrett": 0.14,
+        "Gorsuch": 0.17,
+        "Jackson": 0.16,
+        "Kagan": 0.07,
+        "Kavanaugh": 0.11,
+        "Roberts": 0.03,
+        "Sotomayor": 0.1,
+        "Thomas": 0.2
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.79
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "band_refused": null,
+    "cert_anchor": null,
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-11-05",
+    "cvsg_date": "2025-10-06",
+    "decided_before": null,
+    "distribution_count": 3,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v8",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_contact_scrub": {
+      "blocks": 0,
+      "fields": 0,
+      "sides": []
+    },
+    "snapshot_date": "2026-11-05",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+    "term": 2024,
+    "vide_links": []
+  },
+  "created_at": "2026-11-13T04:40:58.610401Z",
+  "engine": "claude-code",
+  "event_id": "evt-brief-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-11-05.json",
+  "judgment": "vacated",
+  "model": "claude-fable-5-2",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.79,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b61115d400ce9267e594df12aa530e5a53f6412fb350ec04fc5cc04dac832e78",
+    "label": "proc-v21",
+    "pipeline_sha": "0b1a4e2623288d4e7059d3336fd5a3ebb170a114",
+    "stamped_at": "2026-11-13T04:40:58.610401Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261113T042228Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority holds that a trademark's inherent (conceptual) strength in the likelihood-of-confusion analysis turns on how ordinary consumers perceive the mark in relation to the goods, and is therefore a question of fact (or a mixed question in which the factual component predominates), extending Hana Financial v. Hana Bank's rule that consumer-impression questions belong to the factfinder and relying on Booking.com's consumer-perception test and U.S. Bank v. Village at Lakeridge's primarily-factual-work test; it rejects the Second Circuit's rule, and PepsiCo's patent-claim-construction analogy, that inherent strength is a legal question for the judge."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The majority's ground is deliberately narrow: it classifies only the inherent-strength sub-factor as factual, expressly preserves summary judgment where no reasonable factfinder could find otherwise, does not decide whether the ultimate likelihood-of-confusion determination is a question of law or fact, does not apply its rule to the RISE mark, and remands for the Second Circuit to consider PepsiCo's alternative grounds for affirmance rather than announcing a categorical rule for all Polaroid-type factors."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "majority",
+      "writing": null
+    }
+  ]
+}

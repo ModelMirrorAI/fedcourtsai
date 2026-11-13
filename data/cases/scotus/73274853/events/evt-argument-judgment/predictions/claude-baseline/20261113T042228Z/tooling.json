@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73274853",
+  "run_id": "20261113T042228Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "provisioned transcript and argument-features.json"
+  ],
+  "helpful": [
+    "The argument transcript was the decisive input",
+    "argument-features.json as a check on where questioning fell"
+  ],
+  "gaps": [
+    "The corpus query cannot filter by merits judgment or subject, so it gave no useful priors for a merits cell",
+    "No record of the sitting's opinion assignments for the authorship claim"
+  ],
+  "notes": "Merits briefs were provisioned but not read in full; the transcript covered the arguments."
+}

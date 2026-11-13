@@ -1,0 +1,151 @@
+{
+  "big_case_rationale": "Resolves a 4-1 circuit split on the compensation measure in every private Natural Gas Act condemnation; real stakes for landowners and pipeline builders, but a technical statutory question with modest public salience.",
+  "big_case_score": 0.4,
+  "case_id": "scotus/73274853",
+  "claim_distributions": [
+    {
+      "claim_id": "majority-author",
+      "probabilities": {
+        "Alito": 0.06,
+        "Barrett": 0.12,
+        "Gorsuch": 0.05,
+        "Jackson": 0.15,
+        "Kagan": 0.11,
+        "Kavanaugh": 0.16,
+        "Roberts": 0.16,
+        "Sotomayor": 0.12,
+        "Thomas": 0.06,
+        "per-curiam": 0.01
+      }
+    },
+    {
+      "claim_id": "separate-writers",
+      "probabilities": {
+        "Alito": 0.1,
+        "Barrett": 0.12,
+        "Gorsuch": 0.55,
+        "Jackson": 0.12,
+        "Kagan": 0.05,
+        "Kavanaugh": 0.12,
+        "Roberts": 0.03,
+        "Sotomayor": 0.08,
+        "Thomas": 0.25
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.12
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "band_refused": null,
+    "cert_anchor": null,
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-11-10",
+    "cvsg_date": "2025-12-08",
+    "decided_before": null,
+    "distribution_count": 4,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v8",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_contact_scrub": {
+      "blocks": 0,
+      "fields": 0,
+      "sides": []
+    },
+    "snapshot_date": "2026-11-10",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+    "term": 2025,
+    "vide_links": []
+  },
+  "created_at": "2026-11-13T04:40:01.438856Z",
+  "engine": "claude-code",
+  "event_id": "evt-argument-judgment",
+  "granted": 0,
+  "input_snapshot": "2026-11-10.json",
+  "judgment": "affirmed",
+  "model": "claude-fable-5-2",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.12,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b61115d400ce9267e594df12aa530e5a53f6412fb350ec04fc5cc04dac832e78",
+    "label": "proc-v21",
+    "pipeline_sha": "0b1a4e2623288d4e7059d3336fd5a3ebb170a114",
+    "stamped_at": "2026-11-13T04:40:01.438856Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261113T042228Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority holds that Section 7(h) of the Natural Gas Act, 15 U.S.C. 717f(h), delegates the federal government's own eminent domain power (relying on PennEast), so the compensation owed is the federal Fifth Amendment just-compensation measure that governs federal takings under United States v. Miller and 93.97 Acres; state compensation law does not apply of its own force to an exercise of federal eminent domain power, and Congress's express reference to state practice and procedure, contrasted with the General Bridge Act's express adoption of state compensation law, shows it did not incorporate state compensation rules. The Court treats the statute as leaving no gap, so it does not decide the case by a Kimbell Foods balancing of whether to borrow state law as federal common law."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The majority states a categorical rule for all private condemnations under the Natural Gas Act: compensation is measured by the federal Fifth Amendment standard in every State, displacing every state-law compensation enhancement (attorney's fees, consequential or business damages, heritage-value multipliers), not merely North Dakota's fee-shifting provision; but it confines the holding to the Natural Gas Act and does not announce a rule for all federal statutes delegating eminent domain to private parties such as the Federal Power Act."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "dissent",
+      "writing": "dissent"
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "majority",
+      "writing": null
+    }
+  ]
+}
