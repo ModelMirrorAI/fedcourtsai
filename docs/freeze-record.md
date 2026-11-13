@@ -19259,3 +19259,47 @@ freeze commit is recorded here.
   a cell whose artifact passes both `uv run fedcourts finalize-complete` and
   `uv run fedcourts finalize-validates`; and `uv run pytest
   tests/test_gemini_cell.py tests/test_finalize.py` is green.
+
+- **Readings the `proc-v21` entry owes, recorded 2026-11-13.** No rule moves
+  here. The `proc-v21` entry (dated 2026-11-11), carried to `main` by
+  `promotion/2026-11-12` (merge `b1cdb7c58`, registry stamped by `c768a6b50`)
+  and tagged `prereg/proc-v21`, quoted its `successor-disclosures` lines at
+  a provisional instant and owed them again once the carrying merge had
+  stamped the registry, before any figure of a `proc-v20` window is quoted
+  outside the committed board. That entry is not otherwise edited.
+
+  The run reads the stamped registry and the ledger at `origin/main`'s
+  `95bc6575c` (`2026-11-13T11:01:26Z`).
+
+  **`proc-v21` closes `proc-v20`.** `uv run fedcourts successor-disclosures
+  --closed proc-v20 --successor proc-v21` prints:
+
+  ```
+  successor proc-v21 closes proc-v20 at 2026-11-12T19:49:39+00:00
+    closed proc-v20 gemini-baseline: 51 counted event(s) — 3 resolved, 48 pending at close
+    closed proc-v20 codex-baseline: 51 counted event(s) — 3 resolved, 48 pending at close
+    closed proc-v20 claude-baseline: 51 counted event(s) — 3 resolved, 48 pending at close
+    split events: 0 (0 resolved) — in no complete grid
+    claude-baseline: 9 successor-counted event(s); earlier window proc-v20: 0 failed, 0 uncounted cell, 0 missing, 9 not reached before the close
+    codex-baseline: 9 successor-counted event(s); earlier window proc-v20: 0 failed, 0 uncounted cell, 0 missing, 9 not reached before the close
+    gemini-baseline: 9 successor-counted event(s); earlier window proc-v20: 0 failed, 0 uncounted cell, 0 missing, 9 not reached before the close
+  ```
+
+  The provisional run, at an instant of `2026-11-12T00:00:00Z`, printed 51
+  counted events per engine with none resolved. At the stamped instant,
+  `2026-11-12T19:49:39Z`, each engine still holds 51 counted events in the
+  window, and 3 of them carry an outcome dated on or before the close's day,
+  2026-11-12. The comparison is by day, so it does not say whether those 3
+  outcomes were committed before the merge's own minute; read at its widest,
+  the close was taken with 3 of the window's 51 outcomes visible. The
+  `proc-v21` entry states that no score motivated its changes, and this
+  count is what a reader weighs that statement against. No event is split between the two labels. Each
+  engine has 9 events counted under `proc-v21` so far, and for every one the
+  `proc-v20` window holds no failed, uncounted or missing cell: the event was
+  not reached before the close. No `graded by` line prints because no
+  grading of a `proc-v20`-window cell is recorded yet.
+
+  The closed-window resolved counts can still move: an outcome dated on or
+  before the close's day may land late, and an event void de-counts what it
+  names. The successor-counted, split, partition and grading lines also move
+  as cells, outcomes and gradings land.
