@@ -4315,7 +4315,12 @@ three turns, each a fresh CLI process, under four rules the script states and
 classified by `fedcourts engine-attempt-class` — the local runner's own
 classifier over its own signature sets — and only a `transient` verdict
 retries: a content-filter or context-length fault, a spent quota, or anything
-unrecognized ends the step on that attempt. A retry starts only while 20
+unrecognized ends the step on that attempt. A failing exit is classified on
+the error the engine itself reported, in its result or as the same object on
+stderr, and not on the rest of stderr, so a model call the CLI retried and
+recovered from does not buy a retry for the client error the turn ended on;
+only where the engine reported nothing is the whole of stderr read. A retry
+starts only while 20
 minutes of the deadline would remain after its backoff (the backoff is 15
 seconds per attempt so far, plus up to 15 of jitter): past the watchdog's
 three-minute margin by more than the longest cell observed, so a retry is a
