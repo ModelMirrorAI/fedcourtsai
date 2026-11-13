@@ -20,12 +20,14 @@ from fedcourtsai.amicus_line import (
     pools,
 )
 from fedcourtsai.cli import app
-from fedcourtsai.pipeline.salience import SALIENCE_VERSION, registered_versions, scorer
+from fedcourtsai.pipeline.salience import registered_versions, scorer
 from fedcourtsai.schemas import Disposition
 from tests.conftest import FixtureCorpus
 
 runner = CliRunner()
 
+# The active version, read through the scorer rather than imported by value.
+SALIENCE_VERSION = scorer().version
 _WEAKEST = scorer(SALIENCE_VERSION).bands[-1]
 
 
