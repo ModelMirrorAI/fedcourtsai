@@ -258,7 +258,7 @@ absent optional field as null.
     "response_requested": null,
     "referred_to_court": null,
     "amicus_briefs": null,
-    "cert_amicus_briefs": 0,
+    "cert_amicus_briefs": null,
     "term": 2025,
     "vide_links": [],
     "paper_only_filings": false,
@@ -958,16 +958,6 @@ directory without knowing which part is which invites trusting the wrong half.
   provisioning out in terms. Which of the two a cell gets is inferred from the
   shape of the string it wrote, so the split errs toward the weaker reading.
 
-  **`cert_amicus_briefs` is the block's other stamp-written field.** On a
-  Term-form docket the stamp counts the cert-stage amicus briefs in the
-  provisioned snapshot file and records the count here. Provisioning leaves
-  it null in `record/context.json`, because that file is read by the cell and
-  a pre-computed count there would widen what every cert cell is handed. It
-  is null on an application docket, where the snapshot disclosed no
-  proceedings, and on a re-stamp with no `record/` beside it. The
-  amicus-adjusted reference line (`metrics/README.md`) reads it; no scored
-  figure does.
-
   **It reports; it masks nothing.** The conditioning beside it is what
   provisioning derived and offered, and that is a fact about the record whatever
   a given cell did with it — so every scoring surface reads the block exactly as
@@ -983,6 +973,17 @@ directory without knowing which part is which invites trusting the wrong half.
   it would make the increment claims unresolvable on the predictor's own
   conduct, and the availability mask is a property of the record, never of the
   predictor ([outcome-decomposition.md](outcome-decomposition.md)).
+
+  **`cert_amicus_briefs` is the block's other stamp-written field.** On a
+  Term-form docket the stamp counts the cert-stage amicus briefs in the
+  provisioned snapshot file and records the count here. Provisioning leaves
+  it null in `record/context.json`, because that file is read by the cell and
+  a pre-computed count there would widen what every cert cell is handed. It
+  is null on an application docket; where the snapshot disclosed no
+  proceedings; on a re-stamp with no snapshot file beside it; and on every
+  prediction stamped before the field existed. The
+  amicus-adjusted reference line (`metrics/README.md`) reads it; no scored
+  figure does.
 
   **`cut_kind` is the boundary, and the cutoff on its own is not.** A date
   cannot express the interim arrival moment: an application is submitted,

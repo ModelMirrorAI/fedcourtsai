@@ -196,6 +196,10 @@ def test_the_pools_table_lists_both_arms_of_every_band() -> None:
     assert weakest["some"].rate == pytest.approx(0.5)
     assert weakest["some"].meets_minimum is False
     assert weakest["some"].terms == [2025]
+    # The same fit's band rate, both arms pooled: 7 grants over 110 read rows.
+    assert weakest["none"].unsplit_rate == pytest.approx(7 / 110)
+    assert weakest["some"].unsplit_rate == weakest["none"].unsplit_rate
+    assert weakest["none"].unread_resolved == 0
 
 
 def test_the_command(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -215,4 +219,16 @@ def test_the_command(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     weakest = next(cell for cell in payload["cells"] if cell["band"] == _WEAKEST)
     assert (weakest["none_resolved"], weakest["some_resolved"]) == (1, 1)
     assert len(payload["pools"]) == 2 * len(scorer(SALIENCE_VERSION).bands)
-    assert runner.invoke(app, ["amicus-line-fit"]).stdout.count('"pools": []') == 1
+    assert json.loads(runner.invoke(app, ["amicus-line-fit"]).stdout)["pools"] == []
+
+
+def test_the_forecast_ignores_another_band_and_another_version() -> None:
+    other_band = _fit(2025, none=(500, 400), some=(500, 400)).model_copy(update={"band": "x"})
+    other_version = _fit(2025, none=(500, 400), some=(500, 400)).model_copy(
+        update={"salience_version": "sal-x"}
+    )
+    read = _forecast(
+        [other_band, other_version, _fit(2025, none=(100, 2), some=(0, 0))], term=2026, amicus=0
+    )
+    assert (read.basis, read.arm_resolved) == ("arm", 100)
+    assert read.rate == pytest.approx(0.02)

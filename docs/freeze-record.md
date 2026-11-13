@@ -19474,18 +19474,19 @@ freeze commit is recorded here.
   moves.
 
   **Why.** A cert cell's salience band is its relist, CVSG and caption tier,
-  so Brier skill against the band anchor is skill over that forecast. The one
-  docket fact that adds signal inside a tier is whether an amicus brief
-  reached the docket at the cert stage, and no reference read it.
+  so Brier skill against the band anchor is skill over that forecast. One
+  docket fact the band does not read is whether an amicus brief reached the
+  docket at the cert stage, and no reference read it.
 
   **The frozen count.** `context.cert_amicus_briefs` on a committed
-  `prediction.json`: the cert reading
-  (`pipeline.cert_amicus.cert_amicus_briefs`) over the entries of the
-  snapshot file provisioning placed, on a Term-form docket whose snapshot
-  disclosed proceedings. `stamp-cell` writes it after the agent has finished.
+  `prediction.json`: the cert reading (`pipeline.cert_amicus`) over the
+  entries of the snapshot file provisioning placed, on a Term-form docket
+  whose snapshot disclosed proceedings. `stamp-cell` writes it after the agent has finished.
   Provisioning never does, so `record/context.json` carries the field null
   and no cell is handed the count; the only thing a cell can newly see is the
-  field's name. The snapshot file sits in the cell's workspace, as
+  field's name there and its description in `schemas/prediction.schema.json`.
+  Where the cell was placed at a cutoff the count is taken strictly before it,
+  an undated entry left out. The snapshot file sits in the cell's workspace, as
   `record/context.json` does, so the count rests on the trust boundary the
   rest of the block rests on. No digest moves, no harness boundary is
   registered, and no committed prediction is re-stamped: a prediction stamped
@@ -19499,16 +19500,22 @@ freeze commit is recorded here.
     petitions inside the version's segment, each row in its own band's risk
     set and every weaker band on its reachable ladder, on `sample_weight`),
     resolved rows only, cut on the corpus `cert_amicus_briefs` column. A row
-    whose stored count is NULL joins neither arm and is counted as `unread`.
+    whose stored count is NULL joins neither arm and is counted as `unread`:
+    every rate is over read rows only, and each pool is quoted with the
+    unread rows of its band over the same Terms.
   - *The pool.* An arm's rate for a cell is aggregate weighted grant-family
     rows over aggregate weighted resolved rows, across the Terms strictly
     before the cell's docket-number Term that carry its band under its frozen
-    salience version, inside `salience.base_rate_lookback_terms`: the pool
-    the band anchor takes, cut by arm.
+    salience version, inside the lookback window that cell's anchor froze
+    (`cert_anchor.lookback_terms`, 10 Terms as configured when this was
+    recorded): the pool the band anchor takes, cut by arm. A later change to
+    the configured window does not move the line for a cell already placed.
   - *The minimum and the fallback.* An arm's pool is used only where it holds
     at least **30** observed (unweighted) resolved rows
     (`AMICUS_LINE_MIN_RESOLVED`). Below that the forecast is the band rate
-    the cell froze (`cert_anchor.rate`), marked as a fallback.
+    the cell froze (`cert_anchor.rate`), marked as a fallback. Each arm is
+    judged on its own count, so where one arm falls back and the other does
+    not, the two forecasts are not a split of one band rate.
   - *The event's forecast.* On a paired cert event the line reads the band,
     version, Term, anchor and count of the event's earliest qualifying cell
     by harness clock, the cell the paired figure already files the event's
@@ -19521,13 +19528,20 @@ freeze commit is recorded here.
     computes the line and is not frozen on the cell, so a later correction to
     a prior Term's rows moves the line where it would not move a frozen
     anchor. The build states the corpus it read.
+  - *The unsplit comparator.* Beside the line the build computes the band
+    rate from the same fit, both arms pooled over the same Terms, and scores
+    it on the same events. The line is read against that figure, so the
+    comparison isolates the split from the difference in vintage between the
+    fit and the frozen anchors.
 
   **The reading rule** (`metrics/README.md`, beside the no-model forecast).
   - **A reference, never a predictor.** It takes no rank and no headline.
   - **Read per event, on its own events.** Each engine's per-event Brier over
-    the line's events is read against the line's, beside the band-anchor
-    forecast's Brier over the same events, which is what says whether the
-    split added anything to the band rate there.
+    the line's events is read against the line's. Beside them sit the Brier
+    of the unsplit comparator and of the frozen band anchors over the same
+    events. The line against the unsplit comparator says whether this split,
+    as approximated below, beat the band rate there; a loss is not evidence
+    that amicus filings carry no signal.
   - **Quoted with its `events`, `grants` and fallback count**, and with the
     events it left out.
   - **It describes forecasts stamped from the carrying promotion on.** It is
@@ -19536,9 +19550,14 @@ freeze commit is recorded here.
 
   **What the rule approximates, stated before any figure exists.**
   - The fit conditions on the count **at disposition**; a forecast reads the
-    count **at its snapshot**. The count only grows, so a `some` cell stays
-    `some`, while a `none` cell is forecast from petitions that never drew a
-    brief and may yet draw one.
+    count **at its snapshot**. The corpus stores only the final count, so
+    neither side of the gap can be sized. The `none` pool holds only
+    petitions that never drew a brief, while a `none` cell may itself yet
+    draw one, so the `none` rate is a floor for such a cell. The `some` pool
+    also holds petitions whose first brief arrived after they had climbed to
+    a stronger band, so in a weak band the `some` rate is probably a ceiling
+    for a cell that already holds a brief. In the table below, 771 of the
+    2,314 `baseline` `some` rows are the `elevated` risk set's `some` rows.
   - The Solicitor General's invited brief counts as an amicus brief. A
     petition under a CVSG whose invited brief has not arrived, with no other
     amicus brief, is a `none` cell, while nearly every resolved CVSG petition
@@ -19553,7 +19572,8 @@ freeze commit is recorded here.
   against the line, and no committed prediction carried the count. The fit
   over prior Terms had been read: `uv run fedcourts amicus-line-fit
   --before-term 2026` on the corpus blob `c6c5abc9…` (the `staging` checkout's
-  pointer; newest pull 2026-11-13, newest stored snapshot 2026-07-13), under
+  pointer, which is not the blob `origin/main` pointed at when this was
+  recorded; newest pull 2026-11-13, newest stored snapshot 2026-07-13), under
   `sal-v8`, pooling OT2017 to OT2025 with no row unread:
 
   | Band | `none`: resolved, grant rate | `some`: resolved, grant rate |
@@ -19576,11 +19596,12 @@ freeze commit is recorded here.
   commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
 
   The runnable effect check once it is live:
-  - `uv run pytest tests/test_amicus_line.py tests/test_cli_stamp.py -k
-    "amicus"` is green;
-  - on `main` after the first predict round that follows the promotion, `git
-    log -1 --format=%H -- data/cases` names a commit whose new cert
-    `prediction.json` files carry a non-null count: `jq -c '[.context.term,
-    .context.band, .context.cert_amicus_briefs]'` over one of them prints a
-    Term, a band and an integer, and the same read over a prediction stamped
-    before the promotion prints `null` in the third place.
+  - `uv run pytest tests/test_amicus_line.py tests/test_cert_amicus.py
+    tests/test_cli_stamp.py -k "amicus"` is green;
+  - on `main` after the first predict round's collect PR that follows the
+    promotion has merged, `jq -c '[.context.term, .context.band,
+    .context.cert_amicus_briefs]' <path>` over a cert `prediction.json` that
+    PR added, on a Term-form docket whose snapshot disclosed proceedings,
+    prints a Term, a band and an integer, and the same read over a
+    prediction stamped before the promotion prints `null` in the third
+    place.

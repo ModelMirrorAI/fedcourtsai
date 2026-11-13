@@ -867,7 +867,10 @@ class PredictionContext(_Strict):
 
     **Harness-owned.** Written by ``provision-snapshot`` and copied onto the
     prediction by ``stamp-cell``, exactly like ``process_version`` and
-    ``usage.json`` — never the agent's word. That matters here more than
+    ``usage.json`` — never the agent's word. Two fields are the stamp's own
+    rather than provisioning's: ``snapshot_uptake``, below, and
+    ``cert_amicus_briefs``, which the stamp reads off the provisioned snapshot
+    file so that no cell is handed it. That matters here more than
     elsewhere: ``input_snapshot`` is the agent's own string and is written
     several ways across the committed set, with some cells naming no path at
     all, so it cannot carry a scoring input.
@@ -1113,7 +1116,8 @@ class PredictionContext(_Strict):
         "recorded: the cert reading (`pipeline.cert_amicus.cert_amicus_briefs`: "
         "accepted-form entries plus each distinct lead filer still docketed as "
         "submitted, less the Court's orders on amicus motions, before the first "
-        "disposition entry) over the entries the cell's own cut kept. **Written "
+        "disposition entry) over the entries the cell's own cut kept, an undated "
+        "entry left out where the cell was placed at a cutoff. **Written "
         "by `stamp-cell`, never by provisioning**: `record/context.json` carries "
         "it null, so no cell is handed the count, and the stamp reads it off the "
         "provisioned snapshot file after the agent has finished. That file sits "
@@ -1124,8 +1128,7 @@ class PredictionContext(_Strict):
         "proceedings, where the stamp found no snapshot file to read, and on "
         "every prediction stamped before the field existed. Not masked by "
         "`snapshot_uptake`: like the signals above it is a fact about the "
-        "provisioned record. Frozen once written and never re-derived. Read by "
-        "the amicus-adjusted cert reference line (`metrics/README.md`) and by no "
+        "provisioned record. Never re-derived from a later record. Read by no "
         "scored figure",
     )
     term: int | None = Field(

@@ -2,18 +2,18 @@
 
 A cert cell's salience band is its relist, CVSG and caption tier, so the
 risk-set band rate (``StatPackTermSegment.prefix_est_grant_rate``) already is
-the no-model forecast those docket facts give. The one docket fact that adds
-signal inside a tier is whether an amicus brief reached the docket at the cert
-stage. This module owns the registered rule that turns it into a second
-no-model forecast (``docs/freeze-record.md`` dates the registration, and
-``metrics/README.md`` carries the reading rule):
+the no-model forecast those docket facts give. One docket fact the band does
+not read is whether an amicus brief reached the docket at the cert stage. This
+module owns the registered rule that turns it into a second no-model forecast
+(``docs/freeze-record.md`` dates the registration, and ``metrics/README.md``
+carries the reading rule):
 
 - **The fit** (:func:`fit_rows`) is the band's risk set, the same rows on the
   same weights the statpack's per-Term segments pool, cut in two **arms** on
   the corpus ``cert_amicus_briefs`` column: ``none`` (a stored 0) and ``some``
   (1 or more). A row whose count is NULL, a docket the live channel has not
   read since the column existed, joins neither arm and is counted beside them
-  as ``unread``.
+  as ``unread``, so every rate is over read rows only.
 - **The forecast** (:func:`forecast`) for a cell that froze a band, a salience
   version, a Term and a cert-stage amicus count is its arm's pooled rate over
   the Terms strictly before its own, inside the same lookback window the band
@@ -23,11 +23,15 @@ no-model forecast (``docs/freeze-record.md`` dates the registration, and
 
 Two approximations the rule states rather than hides. The fit conditions on
 the count **at disposition** (what the column stores), while a forecast reads
-the count **at the cell's snapshot** (``PredictionContext.cert_amicus_briefs``);
-the count only grows, so a cell in the ``some`` arm stays there, and a cell in
-``none`` can sit in a population some of whose members drew a brief later. And
-the two arms nest by band exactly as the anchor's risk sets do, so a relisted
-petition is in the weaker bands' arms too.
+the count **at the cell's snapshot** (``PredictionContext.cert_amicus_briefs``),
+and the corpus stores only the final count, so neither side of the gap can be
+sized. The ``none`` pool holds only petitions that never drew a brief, while a
+``none`` cell may yet draw one: its rate is a floor for such a cell. The
+``some`` pool also holds petitions whose first brief arrived after they had
+climbed to a stronger band, so in a weak band its rate is probably a ceiling
+for a cell that already holds a brief. And the two arms nest by band exactly
+as the anchor's risk sets do, so a relisted petition is in the weaker bands'
+arms too.
 
 Nothing here is read by a cell or by a scored figure. The fit is a corpus read
 with no artifact behind it yet: :func:`fit_rows` and ``fedcourts
@@ -140,7 +144,10 @@ def fit_rows(rows: Iterable[corpus.CorpusRow]) -> list[AmicusLineCell]:
             if not banding.in_segment(row):
                 continue
             ladder = banding.reachable_bands(row)
-            for band in ladder[ladder.index(banding.band(row)) :]:
+            own = banding.band(row)
+            if own not in ladder:  # a registration whose ladder and band rule disagree
+                raise ValueError(f"{version} banded {row.case_id} `{own}`, off its ladder {ladder}")
+            for band in ladder[ladder.index(own) :]:
                 cell = counts[(term, version, band)]
                 if amicus is None:
                     cell[6] += 1
@@ -191,6 +198,18 @@ class AmicusLineArmPool(_Model):
         description="Whether `resolved` reaches `AMICUS_LINE_MIN_RESOLVED`; where it does "
         "not, the line forecasts the band rate"
     )
+    unsplit_rate: float | None = Field(
+        ge=0.0,
+        le=1.0,
+        description="Both arms of this band pooled over the same Terms: the band rate from "
+        "the same fit, over read rows only. The comparator that isolates the split from "
+        "the fit's vintage; null where both arms are empty",
+    )
+    unread_resolved: int = Field(
+        ge=0,
+        description="Resolved rows in this band's risk set over the same Terms whose stored "
+        "count is NULL: in neither arm and in no rate here",
+    )
 
 
 def _pool(
@@ -206,6 +225,7 @@ def _pool(
     oldest = term - lookback_terms if lookback_terms > 0 else None
     terms: list[int] = []
     resolved = weighted_resolved = weighted_grants = 0
+    both_resolved = both_grants = unread = 0
     for cell in fit:
         if cell.salience_version != salience_version or cell.band != band:
             continue
@@ -216,6 +236,9 @@ def _pool(
             if arm == "some"
             else (cell.none_resolved, cell.none_weighted_resolved, cell.none_weighted_grants)
         )
+        both_resolved += cell.none_weighted_resolved + cell.some_weighted_resolved
+        both_grants += cell.none_weighted_grants + cell.some_weighted_grants
+        unread += cell.unread_resolved
         if counts[0]:
             terms.append(cell.term)
         resolved += counts[0]
@@ -229,6 +252,8 @@ def _pool(
         weighted_resolved=weighted_resolved,
         rate=weighted_grants / weighted_resolved if weighted_resolved else None,
         meets_minimum=resolved >= AMICUS_LINE_MIN_RESOLVED,
+        unsplit_rate=both_grants / both_resolved if both_resolved else None,
+        unread_resolved=unread,
     )
 
 
@@ -270,7 +295,9 @@ def forecast(
     (``0`` is no window). The minimum is read on the pool's observed rows, not
     its weighted estimate, so a heavily weighted handful cannot clear it.
     ``band_rate`` is the fallback, the risk-set rate the cell itself froze
-    (``CertAnchor.rate``).
+    (``CertAnchor.rate``), and ``lookback_terms`` the window that anchor froze
+    (``CertAnchor.lookback_terms``), so a later change to the configured window
+    does not move the line for a cell already placed.
     """
     arm = arm_of(cert_amicus_briefs)
     pool = _pool(

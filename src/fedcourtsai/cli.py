@@ -7129,8 +7129,10 @@ def amicus_line_fit_cmd(
     pooled (`salience.base_rate_lookback_terms`), and whether it meets the
     rule's minimum; below it the line forecasts the band rate. Writes nothing
     and feeds no board. Prints one coverage line per Term and band to stderr and
-    `{"rule": ..., "min_resolved": ..., "cells": ..., "pools": ...}` JSON to
-    stdout. Fails loud if the corpus is absent.
+    `{"rule": ..., "min_resolved": ..., "salience_version": ..., "cells": ...,
+    "pools": ...}` JSON to stdout. Each pool row also carries the band's unsplit
+    rate from the same fit and its unread rows. Exits 2 on an unregistered
+    salience version and 1 if the corpus is absent.
     """
     settings = get_settings()
     version = salience_version or SALIENCE_VERSION
@@ -14804,7 +14806,7 @@ def _stamped_conditioning(
     if not snapshot.is_file():
         return provisioned.model_copy(update={"cert_amicus_briefs": None})
     provisioned = provisioned.model_copy(
-        update={"cert_amicus_briefs": _snapshot_cert_amicus_briefs(snapshot)}
+        update={"cert_amicus_briefs": _snapshot_cert_amicus_briefs(snapshot, provisioned.cutoff)}
     )
     if _snapshot_stem(record.input_snapshot) == snapshot.stem:
         return provisioned.model_copy(update={"snapshot_uptake": "read"})
@@ -14824,13 +14826,13 @@ def _stamped_conditioning(
     return provisioned.model_copy(update={"snapshot_uptake": "unread"})
 
 
-def _snapshot_cert_amicus_briefs(snapshot: Path) -> int | None:
+def _snapshot_cert_amicus_briefs(snapshot: Path, cutoff: date | None) -> int | None:
     """The cert-stage amicus count the provisioned snapshot file discloses, or ``None``.
 
     :func:`fedcourtsai.pipeline.cell_context.stamped_cert_amicus_briefs` over the
-    file's payload. Tolerant like the rest of the post-agent stamp: a file that
-    does not parse as a JSON object leaves the count unset rather than failing a
-    prediction that already exists.
+    file's payload, under the cutoff the cell was placed at. Tolerant like the
+    rest of the post-agent stamp: a file that does not parse as a JSON object
+    leaves the count unset rather than failing a prediction that already exists.
     """
     try:
         payload = json.loads(snapshot.read_text())
@@ -14838,7 +14840,7 @@ def _snapshot_cert_amicus_briefs(snapshot: Path) -> int | None:
         return None
     if not isinstance(payload, dict):
         return None
-    return cell_context.stamped_cert_amicus_briefs(payload)
+    return cell_context.stamped_cert_amicus_briefs(payload, cutoff)
 
 
 #: What the tripwire's note may spend on one quoted path, and on the whole note.

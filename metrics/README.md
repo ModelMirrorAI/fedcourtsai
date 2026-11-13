@@ -1035,17 +1035,24 @@ stays outside the gate:
   the stamp from the provisioned snapshot and never handed to a cell. The
   line's forecast for a cell is its arm's grant rate (`none`, or `some` for
   one or more briefs) over the band's risk set in the Terms strictly before
-  the cell's docket Term, inside the anchor's lookback window, falling back to
-  the band rate where the arm's pool holds fewer than 30 observed resolved
-  petitions. `uv run fedcourts amicus-line-fit --before-term <Term>` prints
+  the cell's docket Term, inside the lookback window the cell's anchor froze,
+  falling back to the band rate where the arm's pool holds fewer than 30
+  observed resolved petitions. `uv run fedcourts amicus-line-fit --before-term <Term>` prints
   the fit and each arm's pool from the corpus. No board carries the line.
   Once one does, it is a reference and takes no rank; each engine's per-event
-  Brier is read against it on the line's own events, beside the band anchor's
-  Brier over the same events; it is quoted with its events, grants, fallback
-  count and the events it left out; and it describes only forecasts that
-  froze the count, never an earlier one read against the corpus's current
-  count. The fit conditions on the count at the petition's disposition while
-  a forecast reads it at its snapshot, and the Solicitor General's invited
+  Brier is read against it on the line's own events, beside the Brier of the
+  band rate from the same fit (both arms pooled) and of the frozen band
+  anchors over the same events; it is quoted with its events, grants,
+  fallback count and the events it left out; and it describes only forecasts
+  that froze the count, never an earlier one read against the corpus's
+  current count. The line against the same fit's band rate says whether this
+  split, as approximated, beat the band rate there; a loss is not evidence
+  that amicus filings carry no signal. The fit conditions on the count at the
+  petition's disposition while a forecast reads it at its snapshot: the
+  `none` rate is a floor for a cell that may yet draw a brief, and in a weak
+  band the `some` rate is probably a ceiling, since its pool also holds
+  petitions whose first brief arrived after they had climbed. The Solicitor
+  General's invited
   brief counts as an amicus brief, so a petition awaiting that brief with no
   other is in the `none` arm while nearly every resolved CVSG petition in the
   fit is in `some`.

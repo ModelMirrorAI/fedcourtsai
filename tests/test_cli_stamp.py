@@ -3492,6 +3492,55 @@ def test_stamp_clears_a_claimed_count_with_no_snapshot_to_read(_data_root: Path)
     assert stamped.context.cert_amicus_briefs is None
 
 
+def test_stamp_counts_a_cut_cell_strictly_before_its_cutoff(_data_root: Path) -> None:
+    """A cell placed at a cutoff takes the prediction-side count: no undated entry."""
+    event = "evt-petition-disposition"
+    paths = _provision(_data_root, 51)
+    context = read_model(paths.cell_context, PredictionContext)
+    write_json(
+        paths.cell_context,
+        context.model_copy(
+            update={
+                "mode": "replay",
+                "snapshot_provenance": "truncated",
+                "cutoff": date(2025, 11, 4),
+                "cut_kind": "date",
+            }
+        ),
+    )
+    undated = {"Date": "", "Text": "Brief amicus curiae of Pilots Union filed."}
+    paths.snapshot(_SNAPSHOT_DAY.isoformat()).write_text(
+        json.dumps({"CaseNumber": "25-51 ", "ProceedingsandOrder": [*_CERT_PROCEEDINGS, undated]})
+    )
+    event_paths = _seed_unstamped(_data_root, 51, event, "2026-01-01")
+
+    assert _stamp("predictor", "claude-baseline", 51, event, "RID").exit_code == 0
+
+    stamped = read_model(event_paths.prediction("claude-baseline", "RID"), Prediction)
+    assert stamped.context is not None
+    # Nov 03 is before the cutoff; Nov 04 is on it; the undated entry has no day.
+    assert stamped.context.cert_amicus_briefs == 1
+
+
+def test_stamp_counts_the_cert_amici_off_a_rest_shape_snapshot(_data_root: Path) -> None:
+    event = "evt-petition-disposition"
+    paths = _provision(_data_root, 52)
+    entries = [
+        {"date_filed": "2025-11-03", "description": "Brief amicus curiae of Cato filed."},
+        {"date_filed": "2025-12-03", "description": "DISTRIBUTED for Conference of 1/9/2026."},
+    ]
+    paths.snapshot(_SNAPSHOT_DAY.isoformat()).write_text(
+        json.dumps({"docket_number": "25-52", "docket_entries": entries})
+    )
+    event_paths = _seed_unstamped(_data_root, 52, event, "2026-01-01")
+
+    assert _stamp("predictor", "claude-baseline", 52, event, "RID").exit_code == 0
+
+    stamped = read_model(event_paths.prediction("claude-baseline", "RID"), Prediction)
+    assert stamped.context is not None
+    assert stamped.context.cert_amicus_briefs == 1
+
+
 @pytest.mark.parametrize(
     "payload",
     [
