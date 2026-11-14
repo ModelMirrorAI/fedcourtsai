@@ -1021,7 +1021,7 @@ def test_refresh_dockets_lets_a_refused_weight_cost_only_that_number(tmp_path: P
         )
     assert first.walk.ingested_denied == 7
     assert [f["serial"] for f in first.walk.failed] == [20]
-    assert "NonUnitSampleWeightError" in first.walk.failed[0]["reason"]
+    assert "NonUnitSampleWeightError" in str(first.walk.failed[0]["reason"])
     refused = ids.case_id("scotus", live_docket_id(22, 20))
     with corpus.connect(db) as conn:
         assert corpus.get_row(conn, refused) is None
