@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000088",
+  "run_id": "20261114T011216Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener-mcp (search, read_document)",
+    "google_web_search",
+    "fedcourts validate"
+  ],
+  "helpful": [
+    "Provisioned petition.txt with statutory appendix and questions-presented.txt allowed direct verification of the superseded pre-2021 Alaska statutory text and built-in earmarking cross-reference.",
+    "fedcourts query --docket-number quickly surfaced exact distribution counts and denial outcomes for closely analogous post-Bonta campaign-finance disclosure petitions (25-1248, 23-926, 23-1316, 21-890).",
+    "Frozen cert_anchor and marginal relist/amicus cuts in metrics/statpack.md anchored post-CFR probability calibration cleanly."
+  ],
+  "gaps": [
+    "Appendix A of petition.txt omitted pages 24a-91a of the Alaska Supreme Court opinion under the 150,000-character cap, and CourtListener opinion_id 11260453 (583 P.3d 701) had metadata only without extracted opinion text.",
+    "A committed statpack cut conditioning cert grant rates on response-requested (CFR) events after waiver would further sharpen moment: response-requested calibration.",
+    "Keyword or counsel filtering in fedcourts query on SCOTUS rows would make discovering subject-matter cert priors possible without first identifying docket numbers externally."
+  ],
+  "notes": "All provisioned inputs were clean and consistent."
+}

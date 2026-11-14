@@ -1,0 +1,9 @@
+# Forecast — No. 26-88, Alaska Policy Forum v. Alaska Public Offices Commission
+
+The docket shows **one distribution** (Conference of 9/28/2026), no CVSG, and a response requested and due Nov 30 2026.
+
+- **Further distribution:** Yes. After the respondents file by Nov 30 (a further short extension is possible), the petition will be distributed again in December 2026 for a January 2027 conference. I expect that to be the deciding conference or to be followed by at most one true relist; the likeliest path is a denial on the first order list after that conference (January or February 2027).
+- **CVSG:** No. The questions concern a state campaign-finance scheme with no federal party; the Court will not invite the Solicitor General.
+- **Disposition:** Certiorari denied. The Court has repeatedly declined donor-disclosure and on-communication-disclaimer petitions with similar amicus backing, and this one is a three-question, fact-bound, as-applied challenge resting mostly on claimed conflict with *WRTL II* rather than a clean split.
+- **If granted:** the Court would most likely take QP1 (whether the informational interest reaches issue speech that does not mention the election), possibly with QP2's vagueness challenge to the *Furgatch*-style test folded in, and would leave QP3 (on-communication top-donor disclosure) behind or limit the grant. Plenary review, not a summary disposition: no intervening decision supports a GVR, and a per curiam reversal is unlikely. On the merits the likely ground would be that *WRTL II*'s objective functional-equivalent test, not an intent-and-context test, bounds what a State may treat as ballot-measure advocacy.
+- **Separate writing on denial:** Probably none. If any Justice writes or notes a dissent, it will be Thomas, possibly joined by Alito or Gorsuch.

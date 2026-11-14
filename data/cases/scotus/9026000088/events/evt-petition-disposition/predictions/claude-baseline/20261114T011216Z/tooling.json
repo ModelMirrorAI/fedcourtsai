@@ -1,0 +1,24 @@
+{
+  "case_id": "scotus/9026000088",
+  "run_id": "20261114T011216Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "provisioned petition and QP text"
+  ],
+  "helpful": [
+    "cert_anchor in context.json",
+    "amicus-count and relist cuts",
+    "docket-number lookup for known analog petitions"
+  ],
+  "gaps": [
+    "No statpack cut conditioned on a called-for response",
+    "No subject-matter or free-text search to find analog petitions without already knowing their docket numbers",
+    "Decision below not staged for state-court cases; petition appendix truncated"
+  ],
+  "notes": "The frozen band is baseline although the docket shows a response request and 16 amicus briefs; the anchor understates this petition's position."
+}

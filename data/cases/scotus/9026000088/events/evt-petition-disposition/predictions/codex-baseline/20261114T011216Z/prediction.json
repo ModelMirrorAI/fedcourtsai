@@ -1,0 +1,104 @@
+{
+  "big_case_rationale": "Potential nationwide consequences for nonprofit issue advocacy, donor privacy, and campaign-finance disclaimers, though the dispute arises from a particular state's ballot-measure rules.",
+  "big_case_score": 0.72,
+  "case_id": "scotus/9026000088",
+  "claim_distributions": [
+    {
+      "claim_id": "order-writers",
+      "probabilities": {
+        "Alito": 0.025,
+        "Barrett": 0.004,
+        "Gorsuch": 0.018,
+        "Jackson": 0.005,
+        "Kagan": 0.003,
+        "Kavanaugh": 0.007,
+        "Roberts": 0.003,
+        "Sotomayor": 0.005,
+        "Thomas": 0.055
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.26
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.99
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.02
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.12
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.14
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "baseline",
+    "band_refused": null,
+    "cert_amicus_briefs": 16,
+    "cert_anchor": {
+      "lookback_terms": 10,
+      "rate": 0.051654687623410474,
+      "statpack_digest": "sha256:86f2abefec9e0321c5007631d1abc7bf17ab2188b12eda8f922d31c9905f9d14"
+    },
+    "cut_anchor_index": null,
+    "cut_kind": null,
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 1,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v8",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_contact_scrub": {
+      "blocks": 1,
+      "fields": 6,
+      "sides": [
+        "Other"
+      ]
+    },
+    "snapshot_date": "2026-11-14",
+    "snapshot_provenance": "as-stored",
+    "snapshot_uptake": "read",
+    "statpack_digest": "sha256:86f2abefec9e0321c5007631d1abc7bf17ab2188b12eda8f922d31c9905f9d14",
+    "term": 2026,
+    "vide_links": []
+  },
+  "created_at": "2026-11-14T01:31:58.410671Z",
+  "engine": "codex",
+  "event_id": "evt-petition-disposition",
+  "granted": 0,
+  "input_snapshot": "2026-11-14.json",
+  "judgment": null,
+  "model": "gpt-6.1-sol",
+  "predicted_disposition": "denied",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.26,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:a74ea5610425d331c2616ae8719866bf78f06ea6e1c6b111d66dfac31f2c8578",
+    "label": "proc-v22",
+    "pipeline_sha": "153ac39e18f061fa3b295798e471e5e39b2c6287",
+    "stamped_at": "2026-11-14T01:31:58.410671Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261114T011216Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}
