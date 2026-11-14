@@ -30,6 +30,13 @@ number), and a brief is fetched from the PDF link that listing row carries. The
 listing's paging and facet parameters are disallowed by ``robots.txt`` and never
 built here.
 
+**The petitions listing.** The same listing filtered to the Office's own cert
+petitions, every Term (:func:`cert_petitions_url`, :meth:`OsgClient.cert_petitions`),
+is read by the federal-label cross-check (:mod:`.federal_label`) as an outside
+list of the government's petitions. ``type`` is one of the listing form's own
+fields, like the ``text`` the docket search sets, and not a ``f[…]`` facet;
+only the first page is asked for, capped at :data:`MAX_LISTING_BYTES`.
+
 **Superseded by the Court's copy.** Once the Court lifts the paper-only rule
 (Rule 34.6 calls for electronic versions of all prior filings when it schedules
 briefing and argument), the selector finds the Court's links for the same kinds
@@ -107,6 +114,10 @@ OSG_BRIEF_KINDS: Mapping[str, str] = {
 #: The kinds this fill can store, in the order a case's owed kinds are listed.
 SG_BRIEF_KINDS: tuple[str, ...] = (KIND_PETITION, KIND_BRIEF_IN_OPPOSITION, KIND_CERT_REPLY)
 
+#: A ceiling on the petitions listing page, which is read whole and parsed row
+#: by row; the page as served is about 150 kB.
+MAX_LISTING_BYTES = 4 * 1024 * 1024
+
 #: The listing's *Brief Type* filter value for the Office's own cert petitions.
 OSG_CERT_PETITION_TYPE = "petition_for_writ_of_certiorari"
 
@@ -159,7 +170,7 @@ _CELL_RE = re.compile(
 _HREF_RE = re.compile(r"<a\b[^>]*\bhref=\"([^\"]+)\"", re.IGNORECASE)
 _DATETIME_RE = re.compile(r"<time\b[^>]*\bdatetime=\"(\d{4}-\d{2}-\d{2})", re.IGNORECASE)
 _TAG_RE = re.compile(r"<[^>]+>")
-_DOCKET_TOKEN_RE = re.compile(r"\b\d{2}-\d{1,5}\b|\b\d{2}A\d{1,5}\b", re.IGNORECASE)
+_DOCKET_TOKEN_RE = re.compile(r"\b\d{2}-\d{1,5}\b|\b\d{2}A\d{1,5}\b", re.IGNORECASE | re.ASCII)
 
 
 def _cell_text(fragment: str) -> str:
@@ -284,10 +295,16 @@ class OsgClient:
         return response.text, str(response.url)
 
     def cert_petitions(self) -> tuple[str, str] | None:
-        """The first page of the Office's own cert petitions and the URL it was served at."""
-        response = self._fetch(cert_petitions_url())
+        """The first page of the Office's own cert petitions and the URL it was served at.
+
+        A page over :data:`MAX_LISTING_BYTES` is refused as an oversized body.
+        """
+        url = cert_petitions_url()
+        response = self._fetch(url)
         if response is None:
             return None
+        if len(response.content) > MAX_LISTING_BYTES:
+            raise OversizedBrief(f"{url}: over {MAX_LISTING_BYTES} bytes")
         return response.text, str(response.url)
 
     def get_pdf(self, url: str) -> bytes | None:

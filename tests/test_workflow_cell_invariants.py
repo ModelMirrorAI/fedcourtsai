@@ -6026,6 +6026,9 @@ def test_the_coverage_verdict_splits_its_read_from_its_issue_write() -> None:
     assert '[ "$status" -ne 0 ] && [ "$status" -ne 3 ]' in run, (
         "an alarm (exit 3) must reach the alarm job; any other failure must not"
     )
+    assert "coverage-verdict --sg-list" in run, (
+        "the daily verdict reads the Solicitor General's listing; docs/security.md says so"
+    )
     crons = [entry["cron"] for entry in workflow[True]["schedule"]]
     assert [c for c in crons if c.startswith("9 ")] == ["9 16 * * *"]
     assert "startsWith(github.event.schedule, '9 ')" in _norm(check["if"])

@@ -20,7 +20,7 @@ from fedcourtsai.pipeline.federal_label import (
     federal_label_check,
     read_sg_petition_listing,
 )
-from fedcourtsai.pipeline.sg_briefs import OsgClient, cert_petitions_url
+from fedcourtsai.pipeline.sg_briefs import MAX_LISTING_BYTES, OsgClient, cert_petitions_url
 from fedcourtsai.pipeline.unforecast import FederalSignal
 from fedcourtsai.schemas import Disposition
 
@@ -208,6 +208,18 @@ def test_the_listing_is_read_in_one_request_and_keeps_only_the_offices_petitions
         (httpx.Response(404), "not found"),
         (httpx.Response(200, text="<html>26-101 maintenance</html>"), "no petition row"),
         (httpx.Response(302, headers={"location": "https://example.com/"}), "OffSectionFetch"),
+        (httpx.Response(200, text="x" * (MAX_LISTING_BYTES + 1)), "OversizedBrief"),
+        (
+            httpx.Response(
+                200,
+                text="<tr>"
+                + '<td headers="view-field-number-table-column">26-101</td>'
+                + '<td headers="view-field-brief-type-table-column">Petition</td>'
+                + '<td headers="view-field-title-table-column">'
+                + '<a href="https://[x">maintenance</a></td></tr>',
+            ),
+            "could not be parsed (ValueError)",
+        ),
     ],
 )
 def test_a_listing_that_cannot_be_read_says_how_and_nothing_of_the_page(
@@ -293,3 +305,21 @@ def test_the_cli_fetches_the_listing_only_under_its_flag(
     assert fetches == [1]
     payload = json.loads(alarmed.stdout.strip().splitlines()[-1])
     assert [p["docket_number"] for p in payload["sg_petition_list"]["not_federal"]] == ["26-101"]
+
+
+def test_a_capital_marking_on_the_stored_number_does_not_hide_a_listed_petition(
+    tmp_path: Path,
+) -> None:
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        _petition(conn, 1, "26-101 *** CAPITAL CASE ***")
+
+    with corpus.connect_readonly(db) as conn:
+        report = federal_label_check(
+            conn, today=TODAY, sg_listing=SgPetitionListing(frozenset({"26-101"}))
+        )
+
+    assert report.sg_petition_list is not None
+    assert [a.split(",")[0] for a in report.sg_petition_list.alarms] == [
+        "26-101 *** CAPITAL CASE ***: on the Solicitor General's listing of its own cert petitions"
+    ]

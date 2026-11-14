@@ -83,17 +83,24 @@ def read_sg_petition_listing(client: OsgClient) -> SgPetitionListing:
     One request (:meth:`OsgClient.cert_petitions`). Only rows whose type is the
     Office's own petition are kept, so a page served without the type filter
     applied cannot put an opposition's docket on the list. A request that
-    fails, and a page with no such row, come back as an unread listing naming
-    the failure by its kind, never by anything the page said.
+    fails, a page that cannot be parsed, and a page with no such row come back
+    as an unread listing naming the failure by its kind, never by anything the
+    page said. The page is outside text, so nothing it holds may raise out of
+    here: the caller's other checks report whatever this one met.
     """
     try:
         served = client.cert_petitions()
-    except httpx.HTTPError as exc:
+    except (httpx.HTTPError, ValueError) as exc:
         return SgPetitionListing(frozenset(), error=f"the request failed ({type(exc).__name__})")
     if served is None:
         return SgPetitionListing(frozenset(), error="the listing was not found")
     page, page_url = served
-    rows = [row for row in parse_listing(page, page_url=page_url) if row.kind == KIND_PETITION]
+    try:
+        rows = [row for row in parse_listing(page, page_url=page_url) if row.kind == KIND_PETITION]
+    except Exception as exc:  # any shape a served page can take
+        return SgPetitionListing(
+            frozenset(), error=f"the page could not be parsed ({type(exc).__name__})"
+        )
     if not rows:
         return SgPetitionListing(frozenset(), error="the page held no petition row")
     filed = [row.filed for row in rows if row.filed is not None]
@@ -135,6 +142,9 @@ class SgPetitionCheck(BaseModel):
     pending: int = Field(ge=0, description="Those that are pending petitions in this census")
     not_federal: list[SgListedPetition] = Field(
         description="Those pending outside the `federal` band, by docket"
+    )
+    alarms: list[str] = Field(
+        description="The alarms this reading raises, which the report's own list also carries"
     )
 
 
@@ -225,7 +235,7 @@ def federal_label_check(
     for row in _pending_rows(conn, today=today):
         pending += 1
         band = band_of(row)
-        if row.docket_number.upper() in listed:
+        if corpus.strip_docket_annotation(row.docket_number).strip().upper() in listed:
             listed_pending += 1
             if band != FEDERAL_BAND:
                 listed_not_federal.append(
@@ -273,18 +283,26 @@ def federal_label_check(
             oldest_filed=sg_listing.oldest_filed,
             pending=listed_pending,
             not_federal=listed_not_federal,
-        )
-        if sg_listing.error is not None:
-            alarms.append(
-                f"{SG_LISTING_SUBJECT}: the Solicitor General's listing of its cert "
-                f"petitions could not be read, {sg_listing.error}"
+            alarms=(
+                [
+                    f"{SG_LISTING_SUBJECT}: the Solicitor General's listing of its cert "
+                    f"petitions could not be read, {sg_listing.error}"
+                ]
+                if sg_listing.error is not None
+                else []
             )
-        alarms += [
-            f"{p.docket_number}: on the Solicitor General's listing of its own cert "
-            f"petitions, band {p.band}, {'selected' if p.selected else 'not selected'}, "
-            f"conference {p.distributed_for_conference}"
-            for p in listed_not_federal
-        ]
+            + [
+                f"{p.docket_number}: on the Solicitor General's listing of its own cert "
+                f"petitions, band {p.band}, {'selected' if p.selected else 'not selected'}"
+                + (
+                    f", conference {p.distributed_for_conference}"
+                    if p.distributed_for_conference
+                    else ""
+                )
+                for p in listed_not_federal
+            ],
+        )
+        alarms += sg_check.alarms
     return FederalLabelReport(
         as_of=today,
         salience_version=version,

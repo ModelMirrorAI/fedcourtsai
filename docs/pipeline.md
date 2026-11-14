@@ -3055,7 +3055,9 @@ Office of the Solicitor General's own cert petitions, as posted on its briefs
 listing ([data-sources.md](data-sources.md)). A pending petition on that
 listing outside the `federal` band is an alarm whatever its selection, and so
 is a listing that could not be read, since a check that stopped reading its
-source would otherwise pass for a quiet one.
+source would otherwise pass for a quiet one. A docket's listing alarm stands
+until the petition resolves or a registered caption version bands it
+`federal`, and the verdict files it under `sg_petition_list`.
 
 `fedcourts coverage-verdict` folds the three into one answer: the
 missed-forecast monitor read over 35 days, and the two censuses, as a single
@@ -3063,7 +3065,8 @@ missed-forecast monitor read over 35 days, and the two censuses, as a single
 series, and a rendered issue body. It adds one alarm of its own,
 `attempt_capped`: a cell of an enabled predictor that has reached
 `predict.max_attempts_per_cell` recorded failures with no committed
-prediction, on an event with no `outcome.json`. The sweep no longer re-queues
+prediction, on an event with no `outcome.json` that the corpus still holds
+unresolved and in predict scope. The sweep no longer re-queues
 such a cell, so its forecast is owed and can still be made, and the monitor
 would report it only once the event had resolved. The round's own `::warning::` lines expire
 with the run log; the verdict is the form the same findings take when they

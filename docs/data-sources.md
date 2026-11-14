@@ -707,13 +707,15 @@ though the Court does not.
   (`pipeline/federal_label.py`): every docket on it is the government's
   petition, so a pending one the caption rule bands otherwise is an alarm.
   One request a run, under the same pacing, host fence and user agent as the
-  fill. The listing orders by Term, newest first, and a page holds 25 rows;
-  read 2026-11-14 that reached every petition the Office had posted for the
-  2025 and 2026 Terms (18 and 2) and five of the 2024 Term's, and the paging
-  that would reach further is disallowed and never built. It is what the
-  Office has posted, not a register: a petition can be filed weeks before it
-  appears, and a row's docket number is typed by hand, so the check reads it
-  one way only and never treats absence as private. Only docket numbers and
+  fill. The listing orders by Term, newest first, and a page holds 25 rows.
+  The first page, read 2026-11-14, held every petition the Office had posted
+  for the 2026 and 2025 Terms (2 and 18) and five of the 2024 Term's; the
+  paging that would reach further is disallowed and never built. It is what
+  the Office has posted, not a register: a petition can be filed weeks before
+  it appears, so the check reads it one way only and never treats absence as
+  private. A row's docket number is typed by hand, so a mistyped one can go
+  unmatched or, where it is another pending petition's number, raise an alarm
+  a reading of that docket dismisses. Only docket numbers and
   filing dates are kept from the page; no caption and no brief is stored or
   republished.
 - **The terms of use.** The RECAP terms above were first read from

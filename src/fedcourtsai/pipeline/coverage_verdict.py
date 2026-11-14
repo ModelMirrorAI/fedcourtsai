@@ -98,6 +98,7 @@ class CoverageAlarm(BaseModel):
         "no_outcome_record",
         "unforecast_outcomes",
         "federal_label",
+        "sg_petition_list",
         "attempt_capped",
     ]
     subject: str = Field(description="The case and event, or the docket, the alarm names")
@@ -143,17 +144,27 @@ class CoverageVerdict(BaseModel):
 
 
 def attempt_capped_cells(
-    data_root: Path, predictor_ids: Sequence[str], *, max_attempts: int
+    conn: corpus.ReadConnection,
+    data_root: Path,
+    predictor_ids: Sequence[str],
+    *,
+    max_attempts: int,
 ) -> list[AttemptCappedCell]:
     """The cells the attempt cap has given up on while their event is still open.
 
     A cell of an enabled predictor holding ``max_attempts`` or more committed
     failure facts (:func:`fedcourtsai.matrix.cell_failure_count`) is no longer
-    re-queued. Where that predictor has no committed prediction on the event
-    and the event has no ``outcome.json``, a forecast is owed, will not be
-    retried, and can still be made. The missed-forecast monitor reports the
-    same cell only once the event resolves. ``max_attempts`` of 0 is the cap
-    switched off, and lists nothing. Reads the committed ledger only.
+    re-queued by the selection sweep. Where that predictor has no committed
+    prediction on the event, and the event is open, a forecast is owed, will
+    not be retried, and can still be made. Open is read both ways: the event
+    has no ``outcome.json``, and the corpus holds it unresolved on a row that
+    is not latched out of predict scope, so an event already decided whose
+    outcome record lags is left to the monitor's own alarms. The
+    missed-forecast monitor reports the same cell only once the event
+    resolves. Not listed: a reopened event whose capped predictor holds a
+    prediction that no board counts, which the reopen deriver gives up on by
+    a different test. ``max_attempts`` of 0 is the cap switched off, and
+    lists nothing.
     """
     cases_dir = data_root / "cases"
     if max_attempts <= 0 or not cases_dir.exists():
@@ -162,7 +173,8 @@ def attempt_capped_cells(
     # <cases>/<court>/<docket>/events/<event>/predictions/<predictor>/<run>/attempt.json
     failures: Counter[tuple[Path, str]] = Counter()
     for path in cases_dir.glob("*/*/events/*/predictions/*/*/attempt.json"):
-        if path.parents[1].name in enabled:
+        # A docket directory is the case's numeric id; anything else is not a cell.
+        if path.parents[1].name in enabled and path.parents[5].name.isdigit():
             failures[(path.parents[3], path.parents[1].name)] += 1
     capped: list[AttemptCappedCell] = []
     for (event_dir, predictor_id), count in failures.items():
@@ -173,9 +185,12 @@ def attempt_capped_cells(
             data_root, court, docket, event_dir.name, predictor_id=predictor_id
         ):
             continue
+        case_id = ids.case_id(court, docket)
+        if not _open_in_corpus(conn, case_id, event_dir.name):
+            continue
         capped.append(
             AttemptCappedCell(
-                case_id=ids.case_id(court, docket),
+                case_id=case_id,
                 event_id=event_dir.name,
                 predictor_id=predictor_id,
                 failures=count,
@@ -183,6 +198,16 @@ def attempt_capped_cells(
         )
     capped.sort(key=lambda c: (c.case_id, c.event_id, c.predictor_id))
     return capped
+
+
+def _open_in_corpus(conn: corpus.ReadConnection, case_id: str, event_id: str) -> bool:
+    """Whether the corpus holds the event unresolved on a row still in predict scope."""
+    row = corpus.get_row(conn, case_id)
+    if row is None or row.predict_excluded:
+        return False
+    return any(
+        e.event_id == event_id and not e.resolved for e in corpus.events_for_case(conn, case_id)
+    )
 
 
 def coverage_verdict(
@@ -209,6 +234,7 @@ def coverage_verdict(
     )
     label = federal_label_check(conn, today=today, sg_listing=sg_listing)
     capped = attempt_capped_cells(
+        conn,
         data_root,
         [p.id for p in enabled_predictors(predictors_path)],
         max_attempts=max_attempts,
@@ -250,20 +276,25 @@ def coverage_verdict(
         )
         for a in unforecast.alarms
     ]
+    sg = label.sg_petition_list
+    sg_alarms = set(sg.alarms) if sg else set()
     alarms += [
-        CoverageAlarm(check="federal_label", subject=a.split(":", 1)[0], detail=a)
+        CoverageAlarm(
+            check="sg_petition_list" if a in sg_alarms else "federal_label",
+            subject=a.split(":", 1)[0],
+            detail=a,
+        )
         for a in label.alarms
     ]
     alarms += [
         CoverageAlarm(
             check="attempt_capped",
-            subject=f"{c.case_id} {c.event_id}",
-            detail=f"{c.predictor_id} recorded failed {c.failures} times, at the attempt cap "
+            subject=f"{c.case_id} {c.event_id} {c.predictor_id}",
+            detail=f"recorded failed {c.failures} times, at the attempt cap "
             f"of {max_attempts}: no committed prediction, no outcome yet, and no retry coming",
         )
         for c in capped
     ]
-    sg = label.sg_petition_list
     counts: dict[str, int | float | None] = {
         "missed_events": len(monitor.missed),
         "declined_events": len(monitor.declined),
@@ -376,7 +407,9 @@ def render_markdown(verdict: CoverageVerdict) -> str:
     if sg is not None and sg.read:
         lines += [
             f"The Solicitor General's listing of its own cert petitions: {sg.listed} docket "
-            f"numbers on its first page, filed back to {sg.oldest_filed}; {sg.pending} are "
+            "numbers on its first page"
+            + (f", filed back to {sg.oldest_filed}" if sg.oldest_filed else "")
+            + f"; {sg.pending} are "
             f"pending here, {len(sg.not_federal)} outside the federal band.",
             "",
         ]
