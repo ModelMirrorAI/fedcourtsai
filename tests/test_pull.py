@@ -938,6 +938,34 @@ def test_a_newer_live_snapshot_is_looked_past_for_the_merge_base(tmp_path: Path)
     assert [e["id"] for e in _latest_entries(tmp_path)] == [5, 3, 1]
 
 
+def test_a_refresh_leaves_the_days_live_snapshot_in_place(tmp_path: Path) -> None:
+    # One key per case and day: the Court's own docket, once stored for the
+    # day, is not replaced by the CourtListener read of the same day.
+    base_day = date.today() - timedelta(days=3)
+    live = {"ProceedingsandOrder": [{"Text": "Petition filed."}]}
+    _store(tmp_path, base_day, {**DOCKET, "docket_entries": STORED})
+    _store(tmp_path, date.today(), live)
+    refresh = IncrementalFakeClient(DOCKET, [], changed=[{"id": 5, "description": "Reply"}])
+    result = _incremental_pull(refresh, tmp_path, every_days=_every_not_owed(base_day))
+    # The read itself is unchanged: merged into the older CourtListener copy.
+    assert refresh.reads == [("since", base_day - timedelta(days=2))]
+    assert result.entry_read == "incremental"
+    assert result.snapshot == date.today().isoformat()
+    with corpus.connect(_db_path(tmp_path)) as conn:
+        assert corpus.latest_snapshot(conn, CASE) == (date.today(), live)
+        row = corpus.get_row(conn, CASE)
+    # The row is still refreshed and stamped from what the pull read.
+    assert row is not None
+    assert row.last_pulled == date.today()
+
+
+def test_a_second_refresh_on_a_day_replaces_its_own_snapshot(tmp_path: Path) -> None:
+    _store(tmp_path, date.today(), {**DOCKET, "docket_entries": STORED})
+    refresh = IncrementalFakeClient(DOCKET, [], changed=[{"id": 5, "description": "Reply"}])
+    _incremental_pull(refresh, tmp_path, every_days=_every_not_owed(date.today()))
+    assert [e["id"] for e in _latest_entries(tmp_path)] == [5, 3, 1]
+
+
 def test_a_changed_entry_without_an_id_falls_back_to_a_whole_read(tmp_path: Path) -> None:
     _incremental_pull(IncrementalFakeClient(DOCKET, STORED), tmp_path, every_days=WEEK)
     odd = IncrementalFakeClient(DOCKET, STORED, changed=[{"description": "no id"}])

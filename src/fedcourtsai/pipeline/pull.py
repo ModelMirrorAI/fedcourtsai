@@ -178,6 +178,21 @@ def _merge_base(
     return None
 
 
+def _holds_todays_live_snapshot(prior: tuple[date, dict[str, Any]] | None, today: date) -> bool:
+    """Whether the day's stored snapshot is the Court's own docket.
+
+    A day has one snapshot key per case, and the live channel stores a SCOTUS
+    docket's supremecourt.gov payload under it. That payload is what a forecast
+    is cut from and what the live re-parses read back, and the store holds no
+    second copy of it, so a refresh on the same day leaves it in place rather
+    than storing its own read over it. The refresh still updates the row,
+    resolves and re-extracts from what it read; only the day's stored payload
+    stays the Court's. The next refresh then merges into an older CourtListener
+    read, or reads the docket whole past :data:`MERGE_BASE_LOOKBACK`.
+    """
+    return prior is not None and prior[0] == today and "ProceedingsandOrder" in prior[1]
+
+
 def _read_entries(
     client: CourtListenerClient,
     docket_id: int,
@@ -252,10 +267,12 @@ def pull_case(
 
     # Change detection and snapshot storage both live in the corpus now: compare
     # the fresh full docket against the latest snapshot the corpus holds, then
-    # store today's. A docket with no prior snapshot is an onboard (`changed`).
+    # store today's, unless the day already holds the Court's own docket. A
+    # docket with no prior snapshot is an onboard (`changed`).
     changed = prior is None or prior[1] != fresh
-    with corpus.connect(corpus_db_path) as conn:
-        corpus.upsert_snapshot(conn, case_id, today, fresh)
+    if not _holds_todays_live_snapshot(prior, today):
+        with corpus.connect(corpus_db_path) as conn:
+            corpus.upsert_snapshot(conn, case_id, today, fresh)
 
     row = from_api_docket(fresh)
     # Stamp the corpus tracking state so the budget governor can rotate this case

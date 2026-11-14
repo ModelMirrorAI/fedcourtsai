@@ -26,7 +26,10 @@ Layout (under the configured ``s3://<bucket>/<prefix>``)::
 **Write-once discipline.** Bulk content objects are never overwritten in place, so
 "what did a cell see?" stays reproducible: document text leaves are
 content-addressed (a superseding brief lands at a *new* key), as are the opinion
-documents' writings, and dated snapshots are naturally immutable per day.
+documents' writings. A dated snapshot has one key per day, which the day's last
+writer holds; a CourtListener refresh leaves a stored live snapshot in place
+(``pull.pull_case``), so on a day both channels read a docket the key holds the
+Court's own.
 ``case.json`` / ``events.json`` / ``documents.json`` are small mutable manifests
 overwritten as the case evolves — S3 object versioning retains their history, and
 a consumer pins the exact content it read via the recorded object key + digest
