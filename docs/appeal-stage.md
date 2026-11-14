@@ -16,7 +16,7 @@ That version adds `appeal` to `Stage` and the two moments below to `Moment`
 entry in [freeze-record.md](freeze-record.md). Until it lands, this page is
 the design that entry cites, and a change to it needs no re-bless. The reader
 for `appeal-disposition` is built as library code (`pipeline/appeal_resolver.py`,
-rule `appeal-resolver-v1`), read by a dry-run command and wired into nothing
+rule `appeal-resolver-v2`), read by a dry-run command and wired into nothing
 else; none is built for `appeal-permission`.
 
 ## The moments
@@ -105,37 +105,66 @@ listed appeals ([cli.md](cli.md)). It reads the docket text only; the check
 against the opinion's own decretal line is not built.
 
 - **A disposition is read only from the court's own entry**, named by its
-  leading words: a judgment, an opinion, a memorandum, a summary order, or an
-  order whose own words dismiss the appeal. A mandate, a document received
+  leading words: a judgment, an opinion, a memorandum, a summary order, an
+  order that ends the appeal in its own words, or the parties' Rule 42
+  stipulation as the clerk files it. A mandate, a document received
   from another court, a party's filing, the Supreme Court's judgment and an
   entry the clerk has marked vacated, stricken, withdrawn or entered in error
   dispose of nothing. Neither does an order that only speaks of a dismissal:
   one to show cause, one that defers the question, one that dismisses unless
   a party acts.
-- **The result is read in four forms**: a judgment entry that leads with it
+- **The result is read in five forms**: a judgment entry that leads with it
   ("Judgment, Affirmed") and speaks of no other result; the court's capitals
   in an opinion or memorandum entry ("we VACATE … and REMAND", "AFFIRMED"); a
-  judgment "that the judgment of the District Court be affirmed"; and an entry
-  "affirming the judgment of the district court". Outside those forms,
+  judgment "that the judgment of the District Court be affirmed", or that
+  something the District Court did ("the District Court's grant of summary
+  judgment") be affirmed; an entry "affirming the judgment of the district
+  court"; and an opinion or summary-order entry whose first clause after its
+  label is the result in prose ("Opinion, we vacate …", "Opinion, the District
+  Court's order is affirmed", "Opinion, affirming the district court's
+  dismissal …"). A leading clause that also dismisses, denies, reserves,
+  modifies or stays something, or limits its result to a part ("insofar as",
+  "except", "with respect to"), goes to triage. Outside those forms,
   lower-case prose is not read, because an opinion's summary speaks of what
-  the court below did. A remand is not an outcome. An opinion entry that
-  states no result is passed over for the judgment beside it.
+  the court below did. An "in part" after a
+  capital result is read in any case. A remand is not an outcome. An opinion
+  entry that states no result is passed over for the judgment beside it.
+- **An order granting summary affirmance is *affirmed*** where it grants "the
+  motion for summary affirmance" with no party named before it. A grant that
+  reaches some appellees, or sits beside a second such motion, goes to triage
+  or is not read.
 - **Result words beside another subject go to triage.** Where the entry also
   speaks of a dissent or a concurrence, a cross-appeal, rehearing en banc, a
   stay or injunction pending appeal, a certified question, fees or sanctions,
   or a result "as to" a part, the rule cannot say the words are the panel's
-  disposition of the whole appeal.
+  disposition of the whole appeal. A separate writing named only in the
+  entry's label, before the panel's names ("Memorandum Disposition with
+  Dissent (…) AFFIRMED"), is not such a subject: the result that follows is
+  the panel's.
 - **Mixed** is two different results with at least one stated in part.
   Two results with no "in part" (reversed and vacated), and one result in
   part with no other, go to triage.
 - **A dismissal is split by who ended the appeal.** A voluntary or stipulated
-  dismissal, a settlement or Rule 42(b) is *no merits decision*; a dismissal
-  for want of jurisdiction, as moot or as untimely is *dismissed*. A
+  dismissal, a settlement or Rule 42(b) is *no merits decision*, and so is an
+  order granting the appellant's own motion to dismiss or to withdraw the
+  appeal, whether or not it goes on to say the appeal is dismissed; a dismissal
+  for want of jurisdiction, as moot or as untimely is *dismissed*, in an order
+  or in a judgment that states no other result. Some courts write "this case"
+  for the appeal; the reader takes it only as the order's own verb
+  ("dismissing case") or its own sentence ("This case is dismissed."),
+  because "the case" is as often the one below. An order that denies a
+  request to dismiss disposes of nothing. An end with leave to reinstate the
+  appeal goes to triage. A
   dismissal that states neither, both, or another reason (a failure to
   prosecute) goes to triage, and so does one that reaches less than the whole
-  appeal: in part, one of several appellants, one of several consolidated
-  appeals, a cross-appeal. The reader does not otherwise tell the members of
-  a consolidated set apart.
+  appeal: in part, one named party, one of several appeals named by number, a
+  cross-appeal, or an entry filed in more than one docket. The reader does
+  not otherwise tell the members of a consolidated set apart, and it cannot
+  tell a sole appellant's withdrawal from that of one appellant among
+  several where the order names only the one.
+- **A remand on a motion is triage.** An order that grants a motion to remand
+  ends the appeal with no ruling on it, and the stage's outcomes do not name
+  that end.
 - **A petition for review is triage.** Its outcomes (granted, denied) are not
   this stage's, so a judgment on one is reported and never mapped.
 - **The first entry that reads as a disposition resolves the event.** Entries
@@ -179,7 +208,9 @@ split is a floor.
 
 The sample holds what RECAP holds, with a case type recorded, and is not a
 court's civil appeals. A docket with few stored entries reads as nothing
-read, and is not evidence about the rule; a docket with no case type is
+read, and is not evidence about the rule. So does a decision entry that
+upstream stores with no text, which is how some of the D.C. Circuit's
+opinions and judgments are held. A docket with no case type is
 passed over; a docket longer than six entry pages takes a place in the sample
 and enters no rate, though long dockets are the ones most like the
 watchlist's.

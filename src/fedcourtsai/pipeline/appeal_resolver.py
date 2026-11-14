@@ -21,13 +21,21 @@ triage as well.
   speaks of no other;
 - an opinion, memorandum or summary-order entry whose text states the result
   in the court's capitals (`we VACATE … and REMAND`, `AFFIRMED.`);
-- a judgment "that the judgment of the District Court be affirmed", and an
-  opinion or order "affirming the judgment of the district court";
-- an order whose own words dismiss the whole appeal, split by who ended it:
-  the parties (a voluntary or stipulated dismissal, a settlement, Rule 42(b))
-  or the court (for want of jurisdiction, as moot, as untimely). A dismissal
-  that states neither, both, or another reason is triage, and so is one that
-  reaches less than the whole appeal.
+- a judgment "that the judgment of the District Court be affirmed", or that
+  something the District Court did be affirmed, and an opinion or order
+  "affirming the judgment of the district court";
+- an opinion or summary-order entry whose first clause after its label states
+  the result in prose (`OPINION, we vacate …`);
+- an entry whose own words dismiss the whole appeal, split by who ended it:
+  the parties (a voluntary or stipulated dismissal, a settlement, Rule 42(b),
+  the appellant's own motion to dismiss or withdraw, granted) or the court
+  (for want of jurisdiction, as moot, as untimely). A dismissal that states
+  neither, both, or another reason is triage, and so is one that reaches less
+  than the whole appeal;
+- the parties' Rule 42 stipulation as the clerk files it;
+- an order granting summary affirmance. An order that remands on a motion is
+  triage, because the stage's outcomes do not name that end, and so is an end
+  with leave to reinstate the appeal.
 
 An entry whose result words sit beside a dissent, a cross-appeal, a stay, a
 certified question or a fee ruling is triage: the rule cannot say the words
@@ -61,7 +69,7 @@ from ..ai_watchlist import AiWatchlist, Relation
 from . import trial_resolver as resolver
 from .trial_resolver import Citation
 
-APPEAL_RULE = "appeal-resolver-v1"
+APPEAL_RULE = "appeal-resolver-v2"
 
 MOMENT = "appeal-disposition"
 
@@ -145,7 +153,7 @@ _OPINION_LEAD = re.compile(
     re.I,
 )
 _ORDER_LEAD = re.compile(
-    r"^\s*" + _TAG + r"(?:filed\s+)?(?:(?:per\s+curiam|clerk'?s?|text)\s+)?order\b", re.I
+    r"^\s*" + _TAG + r"(?:filed\s+)?(?:(?:per\s+curiam|clerk'?s?|text|motion)\s+)?order\b", re.I
 )
 
 _PETITION_FOR_REVIEW = re.compile(r"\bpetitions?\s+for\s+review\b", re.I)
@@ -160,8 +168,19 @@ _OTHER_SUBJECT = re.compile(
 )
 
 # The result in the court's capitals. Case matters here: lower-case prose in an
-# opinion's summary speaks of what a court below vacated or dismissed.
-_CAPS = re.compile(r"\b(AFFIRM|REVERS|VACAT|DISMISS)(?:ED|E|ES|S|ING)?\b(\s+IN\s+PART\b)?")
+# opinion's summary speaks of what a court below vacated or dismissed. The
+# "in part" that qualifies a capital result is read in any case, so that
+# `REVERSE in part` is not read as a reversal of the whole.
+_CAPS = re.compile(r"\b(AFFIRM|REVERS|VACAT|DISMISS)(?:ED|E|ES|S|ING)?\b(\s+(?i:in\s+part)\b)?")
+# A separate writing named in the entry's own label, before the panel's names
+# (`MEMORANDUM DISPOSITION WITH DISSENT (…) AFFIRMED.`): the result that follows
+# is still the panel's.
+_LABEL_WRITING = re.compile(
+    r"^(\s*" + _TAG + r"(?:opinion|memorandum(?:\s+disposition)?))\s+with\s+"
+    r"(?:partial\s+)?(?:dissent|concurrence)"
+    r"(?:\s+and\s+(?:partial\s+)?(?:dissent|concurrence))?\s*(?=\()",
+    re.I,
+)
 # A judgment entry that leads with its result, in any case.
 _LEADING_RESULT = re.compile(
     r"^\s*" + _TAG + r"(?:per\s+curiam\s+)?judgment\s*[,:.-]\s*"
@@ -170,11 +189,35 @@ _LEADING_RESULT = re.compile(
     re.I,
 )
 _WORD = re.compile(r"\b(affirm|revers|vacat|dismiss)\w*(\s+in\s+part\b)?", re.I)
-# "that the judgment of the District Court be affirmed"; "affirming the
-# judgment of the district court". The clause runs to its full stop.
+# "that the judgment of the District Court be affirmed"; "that the District
+# Court's grant of summary judgment be affirmed"; "affirming the judgment of
+# the district court". The clause runs to its full stop.
 _BE_RESULT = re.compile(
-    r"\bthat\s+the\s+(?:judgment|orders?|decision)\s+of\s+the\s+district\s+court\b[^.;]{0,80}?"
+    r"\bthat\s+the\s+(?:(?:judgment|orders?|decision)\s+of\s+the\s+district\s+court\b[^.;]{0,80}?"
+    r"|district\s+court['\u2019]?s\s+[^.;]{0,400}?)"
     r"\bbe\s+((?:affirmed|reversed|vacated)\b[^.;]{0,120})",
+    re.I,
+)
+# A further result the same judgment states after its first clause.
+_BE_AGAIN = re.compile(r"\bbe\s+((?:affirmed|reversed|vacated|dismissed)(?:\s+in\s+part)?)\b", re.I)
+# An opinion or summary-order entry whose first clause after its label is the
+# result, in prose (`OPINION, we vacate …`, `OPINION, the District Court's order
+# is affirmed`). Only an entry that leads with the clause is read this way, and
+# the verbs read are the three merits results, so "affirming the district
+# court's dismissal" is an affirmance. A clause that also dismisses, denies,
+# reserves or stays something, or limits its result to a part, is not the
+# disposition of the whole appeal.
+_LEAD_CLAUSE = re.compile(
+    r"^\s*" + _TAG + r"(?:opinion|summary\s+order(?:\s+and\s+judgment)?)\s*,\s*"
+    r"(?:(?:we\s+)?(?:affirm|reverse|vacate)\b|(?:affirming|reversing|vacating)\b"
+    r"|the\s+district\s+court['\u2019]s\s+(?:judgment|orders?|decision)\s+is\s+"
+    r"(?:affirmed|reversed|vacated)\b)",
+    re.I,
+)
+_CLAUSE_VERB = re.compile(r"\b(affirm|revers|vacat)(?:s|e|es|ed|ing)?\b(\s+in\s+part\b)?", re.I)
+_CLAUSE_SPLIT = re.compile(
+    r"\bdismiss(?!al\b)\w*|\binsofar\b|\bexcept\b|\bwith\s+respect\s+to\b|\bin\s+no\b"
+    r"|\bstay\w*|\band\s+den(?:y|ying|ied|ies)\b|\breserv\w+|\bmodif\w+",
     re.I,
 )
 _ING_RESULT = re.compile(
@@ -184,25 +227,68 @@ _ING_RESULT = re.compile(
     re.I,
 )
 
-# An order's own words dismissing the appeal.
+# An entry's own words dismissing the appeal. Some courts write "this case" for
+# the appeal, which is read only where the sentence or the order's verb is the
+# dismissal itself, because "the case" is as often the one below.
 _DISMISSES_APPEAL = re.compile(
-    r"\bappeal\s+(?:is\s+)?(?:hereby\s+)?(?:voluntarily\s+)?dismissed\b"
-    r"|\bdismissing\s+(?:the\s+|this\s+)?appeal\b",
+    r"\bappeal\s+(?:is\s+)?(?:hereby\s+|therefore\s+)?(?:voluntarily\s+)?dismissed\b"
+    r"|\bthat\s+(?:this\s+|the\s+)?appeal\s+be\s+dismissed\b"
+    r"|(?:^|[.;]\s+)this\s+case\s+is\s+(?:hereby\s+|therefore\s+)?dismissed\b"
+    r"|\bdismissing\s+(?:the\s+|this\s+)?(?:appeal|case)\b",
+    re.I,
+)
+# The entry denies a request to dismiss.
+_DENIES_DISMISSAL = re.compile(
+    r"\bden(?:y|ying|ied|ies)\b[^.;]{0,80}?\bdismiss\w*|\bdismiss\w*[^.;]{0,80}?\bbe\s+denied\b",
+    re.I,
+)
+# An order granting the appellant's own request to end the appeal, which need
+# not say that the appeal is dismissed.
+_GRANTS_PARTIES_MOTION = re.compile(
+    r"\bgranting\s+(?:the\s+)?(?:unopposed\s+|consent\s+|joint\s+)?motion\s+"
+    r"(?:for\s+voluntar\w+\s+dismissal\b|to\s+voluntarily\s+dismiss\b"
+    r"|to\s+withdraw\s+(?:the\s+|this\s+)?appeal\b(?!\s+bond))"
+    r"|\bgranting\s+appellants?['\u2019]s?\s+(?:unopposed\s+|consent\s+)?motion\s+to\s+dismiss\s+"
+    r"(?:the\s+|this\s+)?(?:case|appeal)\b",
+    re.I,
+)
+# The parties' stipulation under Rule 42 as the clerk files it.
+_STIPULATED = re.compile(r"^\s*" + _TAG + r"frap\s+42\s+stipulation\b[^.]{0,80}\bfiled\b", re.I)
+# An order granting summary affirmance: the motion, named with no party before
+# it, and its grant side by side.
+_SUMMARY_AFFIRMANCE = re.compile(
+    r"\bgranting\s+(?:the\s+)?motion\s+for\s+summary\s+affirmance\b"
+    r"|\bthe\s+motion\s+for\s+summary\s+affirmance(?:\s*\[[^\]]{0,40}\])?\s+be\s+granted\b",
+    re.I,
+)
+_SUMMARY_AFFIRMANCE_NAMED = re.compile(r"\bsummary\s+affirmance\b", re.I)
+# The appeal may come back: a withdrawal with leave to reinstate.
+_REINSTATE = re.compile(r"\breinstat\w+", re.I)
+# An order sending the case back on a motion, before any ruling on the merits.
+_REMANDS_ON_MOTION = re.compile(
+    r"\bmotion\s+to\s+remand\b[^.;]{0,60}?\bbe\s+granted\b"
+    r"|\bgranting\s+(?:the\s+)?(?:[\w'\u2019]+\s+){0,3}?motion\s+to\s+remand\b",
     re.I,
 )
 # The order speaks of a dismissal it does not make.
 _NO_DISMISSAL = re.compile(
     r"\bshow\s+cause\b|\bshould\b|\bwhether\b|\bunless\b|\breferred\b|\bdeferred\b|\bshall\b", re.I
 )
-# The order dismisses less than the whole appeal.
+# The order dismisses less than the whole appeal: a part, one party, one of
+# several appeals named by number, or an entry filed in more than one docket.
 _PARTIAL = re.compile(
-    r"\bin\s+part\b|\bas\s+to\b|\bremain\w*|\bproceeds?\b|\bcross-?\s?appeal\w*|['\u2019]s\s+appeal\b"
-    r"|\b(?:his|her|their)\s+appeal\b|\bappeals?\s+in\b|\bappeal\s+no\b",
+    r"\bin\s+part\b|\bas\s+to\b|\bremain\w*|\bproceeds?\b(?!\s+in\s+forma\b)"
+    r"|\bcross-?\s?appe(?:al|llant|llee)\w*|['\u2019]s\s+appeal\b"
+    r"|\b(?:his|her|their)\s+appeal\b|\bappeals?\s+in\b|\bappeal\s+(?:no\b|of\b)"
+    r"|\bcase\s+(?:no\b|\d)|(?<!entry\s)\bno\.\s*\d|\bonly\b|\bcontinues?\b"
+    r"|\bwith\s+respect\s+to\b|\bdismiss(?:al)?\s+(?:of\s+)?appell(?:ant|ee)\b"
+    r"|\[\d{2}-\d{2,5},\s*\d{2}-\d{2,5}",
     re.I,
 )
 _BY_PARTIES = re.compile(
     r"\bvoluntar\w+\s+dismiss\w*|\bvoluntarily\s+dismiss\w*|\bstipulat\w+\s+(?:\w+\s+){0,3}?dismiss\w*"
-    r"|\bsettle\w*|\b42\s*\(\s*b\s*\)",
+    r"|\bsettle\w*|\b42\s*\(\s*b\s*\)"
+    r"|\bmotion\s+to\s+withdraw\s+(?:the\s+|this\s+)?(?:notice\s+of\s+)?appeal\b",
     re.I,
 )
 _BY_COURT = re.compile(
@@ -248,26 +334,107 @@ def _dismissal(text: str) -> AppealOutcome | str:
     return AppealOutcome.no_merits_decision if parties else AppealOutcome.dismissed
 
 
-def _read_judgment(text: str) -> AppealOutcome | str | None:
+def _read_dismissal(text: str) -> AppealOutcome | str | None:
+    """An entry whose own words dismiss the appeal."""
+    if _NO_DISMISSAL.search(text) or _DENIES_DISMISSAL.search(text):
+        return None
+    if _PARTIAL.search(text):
+        return _LESS_THAN_WHOLE
+    return _dismissal(text)
+
+
+_LESS_THAN_WHOLE = "an order that dismisses less than the whole appeal"
+_MAY_RETURN = "an appeal ended with leave to reinstate it"
+_PETITION = "the entry decides a petition for review, whose outcomes the stage does not name"
+
+
+def _read_stipulation(text: str) -> AppealOutcome | str | None:
+    """The parties' Rule 42 stipulation as the clerk files it."""
+    if re.search(r"\bdefective\b", text, re.I):
+        return None
+    if _PARTIAL.search(text) or _CROSS_APPEAL.search(text):
+        return _LESS_THAN_WHOLE
+    if _REINSTATE.search(text):
+        return _MAY_RETURN
+    return AppealOutcome.no_merits_decision
+
+
+def _read_grant(text: str, granted: AppealOutcome) -> AppealOutcome | str | None:
+    """An order that ends the appeal by granting a motion, once its guards pass."""
+    if _NO_DISMISSAL.search(text):
+        return None
     if _PETITION_FOR_REVIEW.search(text):
-        return "the entry decides a petition for review, whose outcomes the stage does not name"
-    found: list[tuple[str, bool]] = []
+        return _PETITION
+    if _PARTIAL.search(text) or len(_SUMMARY_AFFIRMANCE_NAMED.findall(text)) > 1:
+        return "an order that disposes of less than the whole appeal"
+    return _MAY_RETURN if _REINSTATE.search(text) else granted
+
+
+def _read_order(text: str) -> AppealOutcome | str | None:
+    if _DISMISSES_APPEAL.search(text):
+        return _read_dismissal(text)
+    if _GRANTS_PARTIES_MOTION.search(text):
+        return _read_grant(text, AppealOutcome.no_merits_decision)
+    if _SUMMARY_AFFIRMANCE.search(text):
+        return _read_grant(text, AppealOutcome.affirmed)
+    if _REMANDS_ON_MOTION.search(text) and not _NO_DISMISSAL.search(text):
+        return "an order that remands the case on a motion, which the stage's outcomes do not name"
+    return None
+
+
+_NOT_THE_WHOLE = "the entry's result may not be the panel's disposition of the whole appeal"
+
+
+def _stated_results(text: str) -> list[tuple[str, bool]] | str:
+    """The result words a judgment or opinion entry states, or why they cannot be trusted."""
     leading = _LEADING_RESULT.match(text)
     if leading is not None:
         found = _results(leading.group(1))
-        if found and _WORD.search(text, leading.end()):
-            return "the judgment states a result and then speaks of another"
-    if not found:
-        for match in (*_BE_RESULT.finditer(text), *_ING_RESULT.finditer(text)):
-            found.extend(_results(match.group(1)))
+        if found:
+            if _WORD.search(text, leading.end()):
+                return "the judgment states a result and then speaks of another"
+            return found
+    found = []
+    be = list(_BE_RESULT.finditer(text))
+    for match in (*be, *_ING_RESULT.finditer(text)):
+        found.extend(_results(match.group(1)))
+    if be:
+        for again in _BE_AGAIN.finditer(text, be[-1].end()):
+            found.extend(_results(again.group(1)))
+    if not found and _LEAD_CLAUSE.match(text):
+        if _CLAUSE_SPLIT.search(text):
+            return _NOT_THE_WHOLE
+        found = [(m.group(1).lower(), bool(m.group(2))) for m in _CLAUSE_VERB.finditer(text)]
     if not found:
         found = [(m.group(1).lower(), bool(m.group(2))) for m in _CAPS.finditer(text)]
-    if not found:
-        # A bare judgment, or an opinion entry that states no result: the
-        # result is in an entry beside it.
+    return found
+
+
+def _read_judgment_dismissal(text: str) -> AppealOutcome | str | None:
+    """A judgment entry that states no result word the forms above read.
+
+    One that dismisses the appeal in its own words and states no other result
+    is a dismissal; a bare judgment, or an opinion entry that states no
+    result, disposes of nothing here, because its result is in an entry
+    beside it.
+    """
+    if not (_JUDGMENT_LEAD.match(text) and _DISMISSES_APPEAL.search(text)):
         return None
-    if _OTHER_SUBJECT.search(text):
-        return "the entry's result may not be the panel's disposition of the whole appeal"
+    if any(stem != "dismiss" for stem, _ in _results(text)) or _OTHER_SUBJECT.search(text):
+        return _NOT_THE_WHOLE
+    return _read_dismissal(text)
+
+
+def _read_judgment(text: str) -> AppealOutcome | str | None:
+    if _PETITION_FOR_REVIEW.search(text):
+        return _PETITION
+    found = _stated_results(text)
+    if isinstance(found, str):
+        return found
+    if not found:
+        return _read_judgment_dismissal(text)
+    if _OTHER_SUBJECT.search(_LABEL_WRITING.sub(r"\1 ", text)):
+        return _NOT_THE_WHOLE
     result = _combine(found)
     return _dismissal(text) if result is AppealOutcome.dismissed else result
 
@@ -284,12 +451,10 @@ def read_disposition(text: str) -> AppealOutcome | str | None:
         return None
     if _JUDGMENT_LEAD.match(text) or _OPINION_LEAD.match(text):
         return _read_judgment(text)
-    if _ORDER_LEAD.match(text) and _DISMISSES_APPEAL.search(text):
-        if _NO_DISMISSAL.search(text):
-            return None
-        if _PARTIAL.search(text):
-            return "an order that dismisses less than the whole appeal"
-        return _dismissal(text)
+    if _STIPULATED.match(text):
+        return _read_stipulation(text)
+    if _ORDER_LEAD.match(text):
+        return _read_order(text)
     return None
 
 
