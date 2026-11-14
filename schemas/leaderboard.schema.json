@@ -1187,7 +1187,7 @@
             }
           ],
           "default": null,
-          "description": "What a constant `denied` call would have scored on the **same gradings** `accuracy` averages \u2014 every cell counted in `accuracy_scored`, one per judge, so like `accuracy` it is weighted by panel depth; `event_always_deny_accuracy` is the per-petition reading. Each cell applies the exact-match rule `Evaluation.correct` uses (`pipeline.evaluate.is_correct`) to a synthetic `denied` prediction against the cell's committed outcome, so any non-`denied` outcome \u2014 a GVR included \u2014 is a miss. This is the floor **realized** on these cells. It is not comparable with the registered per-band figures in metrics/README.md, which are complements of grant-family rates rather than exact-match floors; those rates stay the skill anchor. Cert stage only (the one stage whose disposition axis `denied` is the null call on). Null elsewhere; null wherever any accuracy-scored cell lacks band/outcome facts; and null where any accuracy-scored cell's stamped `correct` no longer reproduces against the committed outcome \u2014 a grading paired with a superseded outcome, beside which a floor read off the current one would be an unpaired comparison",
+          "description": "What a constant `denied` call would have scored on the **same gradings** `accuracy` averages \u2014 every cell counted in `accuracy_scored`, one per judge, so like `accuracy` it is weighted by panel depth; `event_always_deny_accuracy` is the per-petition reading. Each cell applies the exact-match rule `Evaluation.correct` uses (`pipeline.evaluate.is_correct`) to a synthetic `denied` prediction against the cell's committed outcome, so any non-`denied` outcome \u2014 a GVR included \u2014 is a miss. This is the floor **realized** on these cells. It is not comparable with the registered per-band figures in metrics/README.md, which are complements of grant-family rates rather than exact-match floors; those rates stay the skill anchor. Cert and interim stages (the stages whose disposition axis `denied` is the null call on); an interim cell applies the rule that stamped its `correct` (`pipeline.evaluate.stage_correct`), so on the finer reading a partial grant is a miss for the floor and a moot dismissal is unscored. Null elsewhere; null wherever any accuracy-scored cell lacks band/outcome facts; and null where any accuracy-scored cell's stamped `correct` no longer reproduces against the committed outcome \u2014 a grading paired with a superseded outcome, beside which a floor read off the current one would be an unpaired comparison",
           "title": "Always Deny Accuracy"
         },
         "evaluations": {
@@ -1464,6 +1464,20 @@
           "description": "Mean, over the `vote_cells_scored` cells, of each cell's participating-bench vote accuracy: the fraction of the Justices the outcome's complete vote record shows sitting whose vote the scored prediction called, an omitted Justice a miss (`pipeline.evaluate.bench_vote_accuracy`), recomputed from the committed prediction and outcome rather than read off `Evaluation.vote_accuracy`. Merits-moment cells whose outcome carries a complete vote record (`vote_provenance.complete`) only, so it covers the decisions a vote source read completely \u2014 signed opinions whose lineup parsed \u2014 not every merits decision. Averaged over **gradings**, like `accuracy`: the figure does not depend on the judge, so a prediction graded by three evaluators enters three times with one value and the mean is weighted by panel depth. Null where no cell qualifies. Never a rank key",
           "title": "Mean Vote Accuracy"
         },
+        "moment_skill_scored": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Evaluations contributing to `population_moment_skill_score`: a subset of the `skill_scored` cells, so the two figures share cells wherever this count equals `skill_scored`. Null with the figure, and both are omitted while null",
+          "title": "Moment Skill Scored"
+        },
         "population_brier_skill_score": {
           "anyOf": [
             {
@@ -1491,6 +1505,20 @@
           "default": null,
           "description": "A **post-hoc descriptive benchmark**: Brier skill against the constant `in_sample_grant_rate` \u2014 the sample climatology of this very block's scored events, the case being scored included \u2014 aggregated as the same population ratio as the other skill columns, `1 - sum(cell Brier) / sum((c - y)^2)`, over the `in_sample_skill_scored` gradings. Its baseline nets out the block's level and nothing finer, the scored case's own outcome included, so it measures discrimination within the block \u2014 between-band separation included wherever the block pools bands; `by_band` is the within-band reading \u2014 net of miscalibration against the block's own base rate: at uniform panel depth, with forecasts grouped at their distinct values, it equals (resolution - reliability) / uncertainty in the Murphy decomposition, and only approximately where depth varies by event. Hindsight by construction \u2014 the rate exists only once every scored event has resolved \u2014 so it never ranks, is never a headline, and is never pooled or differenced with population_brier_skill_score (the strictly-prior band rate, the primary outcome measure) or population_realized_term_skill_score (a Term-wide band rate, leave-one-out, at the pack's term-to-date vintage). Cert cells only (the cells carrying outcome facts); null where the rate is 0 or 1, since every reference Brier is then 0",
           "title": "Population In Sample Skill Score"
+        },
+        "population_moment_skill_score": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A second, reference Brier skill for an interim block at a later moment (`interim@response-requested`, `interim@response-filed`): the same ratio of sums as `population_brier_skill_score`, with the baseline replaced by the per-moment pool \u2014 the finer-reading grant rate of the strictly-prior applications that reached the same moment before their decision (`base_rates.interim_moment_base_rate`), over the Terms and vocabulary the registered pool reads. It sits beside the registered figure and never replaces it: the registered baseline pools every substantive application, this one only those that drew the request or the response, so it prices what knowing the moment alone is worth. Pooled at render from the committed statpack, so every cell shares one vintage. Null on every other block, on cells scored on the registered reading, and where the pool refuses a rate. Never a rank key, and never pooled across moments, whose applications overlap",
+          "title": "Population Moment Skill Score"
         },
         "population_realized_term_skill_score": {
           "anyOf": [

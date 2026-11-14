@@ -113,8 +113,20 @@ from .integrity import (
 )
 from .pipeline import alignment_board
 from .pipeline.alignment_baseline import floor_vote_accuracy
-from .pipeline.base_rates import prediction_base_rate, realized_band_rate, statpack_digest
-from .pipeline.evaluate import bench_vote_accuracy, brier_score, is_correct, scored_granted
+from .pipeline.base_rates import (
+    interim_moment_base_rate,
+    prediction_base_rate,
+    realized_band_rate,
+    statpack_digest,
+)
+from .pipeline.evaluate import (
+    bench_vote_accuracy,
+    brier_score,
+    is_correct,
+    scored_granted,
+    scores_finer_reading,
+    stage_correct,
+)
 from .pipeline.moments import first_moment, scores_votes
 from .prediction_slices import SCOTUS_POPULATION
 from .process_version import (
@@ -369,6 +381,19 @@ class CellSkill:
     alignment_baseline: float | None = None
     #: The contamination-risk share of the fit that reading was made under.
     alignment_fit_replay_share: float | None = None
+    #: The per-moment reference pool's Brier on an interim cell's own binary
+    #: (:func:`fedcourtsai.pipeline.base_rates.interim_moment_base_rate`), on a
+    #: cell the prior-Term column also scores. ``None`` on every other cell.
+    moment_baseline: float | None = None
+    #: An interim cell's constant-forecast floor: what a ``denied`` call scores
+    #: against the committed outcome under the rule that stamped ``correct``
+    #: (:func:`fedcourtsai.pipeline.evaluate.stage_correct`). ``None`` off the
+    #: interim stage, where :class:`CellFacts` carries the floor, and where the
+    #: cell is unscored.
+    deny_correct: int | None = None
+    #: The scored prediction re-scored under the same rule: what the grading's
+    #: stamped ``correct`` should still read.
+    recomputed_correct: int | None = None
 
 
 #: How far a stamped cert ``brier_score`` may sit from the Brier recomputed off
@@ -534,6 +559,11 @@ def _aggregate(
         for cell in cells
         if cell is not None and cell.realized_term_baseline is not None
     ]
+    by_moment = [
+        (cell.brier, cell.moment_baseline)
+        for cell in cells
+        if cell is not None and cell.moment_baseline is not None
+    ]
     scored_votes = vote_scores or {}
     voted = [
         ev for ev in evals if scores_votes(ev.event_id) and _evaluation_key(ev) in scored_votes
@@ -549,6 +579,8 @@ def _aggregate(
         skill_scored=len(prior),
         population_realized_term_skill_score=_skill_of_means(realized),
         realized_term_skill_scored=len(realized),
+        population_moment_skill_score=_skill_of_means(by_moment),
+        moment_skill_scored=len(by_moment) or None,
         mean_vote_accuracy=_mean([v.model for v in votes]),
         vote_cells_scored=len(votes),
         vote_events_scored=len({(ev.case_id, ev.event_id) for ev in voted}) or None,
@@ -862,6 +894,7 @@ def _floor_fields(
         "accuracy_events_scored": len(per_event),
         "event_accuracy": event_accuracy,
     }
+    fields.update(_interim_floor_fields(scored, skills, per_event, event_accuracy))
     if facts is None:
         return fields
     present = [facts.get(_evaluation_key(ev)) for ev in scored]
@@ -905,6 +938,49 @@ def _floor_fields(
             event_always_deny_accuracy=event_always_deny,
             event_accuracy_lift=event_accuracy - event_always_deny,
         )
+    return fields
+
+
+def _interim_floor_fields(
+    scored: Sequence[Evaluation],
+    skills: Mapping[EvaluationKey, CellSkill],
+    per_event: Mapping[tuple[str, str], set[int]],
+    event_accuracy: float | None,
+) -> dict[str, float | int | None]:
+    """The constant-``denied`` floor and lifts of an interim block, or nothing.
+
+    The interim reading of the cert floor, under its two gates: every
+    accuracy-scored cell must carry the floor fact (:attr:`CellSkill.deny_correct`,
+    which only an interim cell does, so a cert block yields nothing here and
+    takes its floor from :class:`CellFacts`), and every stamped ``correct``
+    must reproduce against the committed outcome. Either failing leaves the
+    fields null rather than computing a floor over fewer cells than
+    ``accuracy`` or beside a superseded outcome.
+    """
+    cells = [skills.get(_evaluation_key(ev)) for ev in scored]
+    if any(cell is None or cell.deny_correct is None for cell in cells):
+        return {}
+    paired = [(ev, cell) for ev, cell in zip(scored, cells, strict=True) if cell is not None]
+    if any(cell.recomputed_correct != ev.correct for ev, cell in paired):
+        return {}
+    accuracy = sum(ev.correct or 0 for ev in scored) / len(scored)
+    always_deny = sum(cell.deny_correct or 0 for _, cell in paired) / len(paired)
+    fields: dict[str, float | int | None] = {
+        "always_deny_accuracy": always_deny,
+        "accuracy_lift": accuracy - always_deny,
+    }
+    if event_accuracy is not None:
+        # The outcome is the event's, but the reading a cell is scored on is its
+        # prediction's label, so the per-event floor needs the gradings to agree.
+        by_event: dict[tuple[str, str], set[int]] = defaultdict(set)
+        for ev, cell in paired:
+            by_event[(ev.case_id, ev.event_id)].add(cell.deny_correct or 0)
+        if all(len(values) == 1 for values in by_event.values()):
+            event_always_deny = sum(next(iter(v)) for v in by_event.values()) / len(per_event)
+            fields.update(
+                event_always_deny_accuracy=event_always_deny,
+                event_accuracy_lift=event_accuracy - event_always_deny,
+            )
     return fields
 
 
@@ -1686,6 +1762,8 @@ def skill_components(
     cells: Iterable[StratifiedCell],
     data_root: Path,
     statpack: StatPack | None,
+    *,
+    interim_lookback_terms: int | None = None,
 ) -> dict[EvaluationKey, CellSkill]:
     """Each scored cell's Brier and the baseline Brier of each skill column.
 
@@ -1747,7 +1825,7 @@ def skill_components(
     components: dict[EvaluationKey, CellSkill] = {}
     pack_digest = statpack_digest(statpack) if statpack is not None else None
     inputs = alignment_board.load_inputs(data_root)
-    for evaluation, _stratum, stage, _moment in cells:
+    for evaluation, _stratum, stage, moment in cells:
         if evaluation.brier_score is None:
             continue
         outcome = _read_outcome(cases_dir, evaluation, outcomes)
@@ -1770,7 +1848,10 @@ def skill_components(
             and _brier_reproduces(cases_dir, evaluation, outcome)
             else None
         )
-        if prior is None and realized is None and reading is None:
+        interim = _interim_cell(
+            cases_dir, evaluation, stage, moment, outcome, statpack, target, interim_lookback_terms
+        )
+        if prior is None and realized is None and reading is None and interim.deny is None:
             continue
         components[_evaluation_key(evaluation)] = CellSkill(
             brier=evaluation.brier_score,
@@ -1778,8 +1859,74 @@ def skill_components(
             realized_term_baseline=realized,
             alignment_baseline=None if reading is None else reading.brier,
             alignment_fit_replay_share=None if reading is None else reading.fit_replay_share,
+            # Beside the registered column and over a subset of its cells, so
+            # the two lines differ in the baseline and in nothing else.
+            moment_baseline=None if prior is None else interim.moment_baseline,
+            deny_correct=interim.deny,
+            recomputed_correct=interim.recomputed,
         )
     return components
+
+
+@dataclass(frozen=True)
+class _InterimCell:
+    """An interim cell's per-moment baseline Brier and constant-forecast floor facts."""
+
+    moment_baseline: float | None = None
+    deny: int | None = None
+    recomputed: int | None = None
+
+
+def _interim_cell(
+    cases_dir: Path,
+    evaluation: Evaluation,
+    stage: Stage | None,
+    moment: Moment | None,
+    outcome: Outcome,
+    statpack: StatPack | None,
+    target: int,
+    lookback_terms: int | None,
+) -> _InterimCell:
+    """The interim-only terms of one cell: the moment line's baseline and the floor.
+
+    Empty off the interim stage and where the scored prediction cannot be read.
+
+    **The floor** applies :func:`fedcourtsai.pipeline.evaluate.stage_correct`,
+    the rule that stamped ``correct`` on the cell, to the scored prediction
+    with its call replaced by ``denied``, and re-scores the prediction itself
+    so a grading paired with a superseded outcome is detectable.
+
+    **The moment baseline** is the per-moment reference pool's rate
+    (:func:`fedcourtsai.pipeline.base_rates.interim_moment_base_rate`) against
+    ``target``, for a cell scored on the finer reading at a moment that has a
+    pool. It is pooled from the ``statpack`` handed in over ``lookback_terms``,
+    the configured ``salience.base_rate_lookback_terms`` the registered interim
+    pool is stamped under (an interim grading records no window of its own),
+    so every cell on a board shares one pack vintage: the registered baseline
+    beside it is frozen at grading, this one is re-read at render. A caller
+    that passes no window, as the rebuilders that project the registered
+    figures alone do, gets no moment line.
+    """
+    if stage != Stage.interim:
+        return _InterimCell()
+    scored = _scored_prediction(cases_dir, evaluation)
+    if scored is None:
+        return _InterimCell()
+    always_deny = scored.model_copy(update={"predicted_disposition": Disposition.denied})
+    deny = stage_correct(always_deny, outcome, interim=True)
+    recomputed = stage_correct(scored, outcome, interim=True)
+    term = scored.context.term if scored.context is not None else None
+    rate = (
+        interim_moment_base_rate(term, moment, statpack, lookback_terms=lookback_terms)
+        if statpack is not None
+        and term is not None
+        and lookback_terms is not None
+        and scores_finer_reading(scored)
+        else None
+    )
+    return _InterimCell(
+        moment_baseline=_baseline_brier(rate, target), deny=deny, recomputed=recomputed
+    )
 
 
 def _brier_reproduces(cases_dir: Path, evaluation: Evaluation, outcome: Outcome) -> bool:

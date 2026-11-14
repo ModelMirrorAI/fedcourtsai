@@ -916,8 +916,13 @@ stays outside the gate:
   outcome since superseded, the same unpaired shape that leaves the realized
   floor null.
 
-  Every **cert** stratum block also carries the **realized always-deny floor**
-  on its own cells. `always_deny_accuracy` scores a constant `denied` call over
+  Every **cert** and **interim** stratum block also carries the **realized
+  always-deny floor** on its own cells. An interim cell applies the rule that
+  stamped its `correct` (`pipeline.evaluate.stage_correct`): on the finer
+  reading a partial grant is a miss for the floor, and a moot dismissal is
+  unscored for it as for the forecast. An interim block's floor comes from the
+  scored prediction and the committed outcome alone and carries none of the
+  band or grant-count fields. `always_deny_accuracy` scores a constant `denied` call over
   exactly the gradings `accuracy` averages — the `accuracy_scored` cells, one
   per judge, under the same exact-match rule `correct` uses — so a GVR, a
   partial grant or a summary reversal is a miss for it, just as it is for a
@@ -1100,10 +1105,10 @@ stays outside the gate:
   committed, or with no anchor, count or readable fit) saw the count and the
   prompt but no rate: it enters cert skill and no line figure.
 
-  Eight of these fields are cert-only, null off the cert stage (where
-  `denied` is not the null call): the two floors (`always_deny_accuracy`,
-  `event_always_deny_accuracy`), the two lifts (`accuracy_lift`,
-  `event_accuracy_lift`) and the four grant counts. All eight are also null on
+  The four grant counts are cert-only. The two floors (`always_deny_accuracy`,
+  `event_always_deny_accuracy`) and the two lifts (`accuracy_lift`,
+  `event_accuracy_lift`) are filled on the cert and interim stages and null
+  elsewhere (where `denied` is not the null call). On a cert block all eight are also null on
   a block where any accuracy-scored cell lacks band/outcome facts (a cert cell
   with no readable scored prediction). The two floors and two lifts are
   further null where any accuracy-scored cell's stamped `correct` no longer
@@ -2004,6 +2009,22 @@ carrying the selection caveats registered in
 [`docs/salience.md`](../docs/salience.md) — notably that the pool is the whole
 substantive slice while the scored cells are reserve-selected on the escalation
 ladder, so an interim skill number is not by itself evidence of forecast skill.
+An interim block at a later moment (`interim@response-requested`,
+`interim@response-filed`) carries a **second, reference skill line** for that
+reason: `population_moment_skill_score` is the same ratio of sums with the
+baseline replaced by the per-moment pool, the finer-reading grant rate of the
+strictly-prior applications that reached the same moment before their decision
+(`pipeline.base_rates.interim_moment_base_rate`), over the Terms, vocabulary
+and floor of the registered pool. Read it beside `population_brier_skill_score`
+and never in place of it: the registered figure answers "better than the
+whole-slice rate", this one "better than the rate of applications that got
+this far". `moment_skill_scored` is its denominator, a subset of
+`skill_scored`: only cells scored on the finer reading have the line, and it
+is null where the pool refuses a rate. It is pooled at render from the
+committed statpack, so every cell on a board shares one pack vintage, whereas
+the registered baseline is frozen at grading. The `interim@arrival` block has
+no such line. The two later moments cover largely the same applications, so
+their figures are not independent and are never pooled. Neither is a rank key.
 The **merits stage has a registered baseline** — the statpack merits section's
 `disturbed_rate`, pooled over grant Terms strictly before the case's
 (`pipeline.base_rates.merits_base_rate`; `docs/decision-model.md` is the

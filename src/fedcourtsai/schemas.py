@@ -4361,6 +4361,33 @@ class LeaderboardStratum(_Strict):
         "own inputs, or where a merits cell's recorded rate contradicts the "
         "harness's own pooled merits baseline",
     )
+    population_moment_skill_score: float | None = Field(
+        default=None,
+        le=1.0,
+        description="A second, reference Brier skill for an interim block at a "
+        "later moment (`interim@response-requested`, `interim@response-filed`): "
+        "the same ratio of sums as `population_brier_skill_score`, with the "
+        "baseline replaced by the per-moment pool — the finer-reading grant "
+        "rate of the strictly-prior applications that reached the same moment "
+        "before their decision (`base_rates.interim_moment_base_rate`), over "
+        "the Terms and vocabulary the registered pool reads. It sits beside "
+        "the registered figure and never replaces it: the registered baseline "
+        "pools every substantive application, this one only those that drew "
+        "the request or the response, so it prices what knowing the moment "
+        "alone is worth. Pooled at render from the committed statpack, so "
+        "every cell shares one vintage. Null on every other block, on cells "
+        "scored on the registered reading, and where the pool refuses a rate. "
+        "Never a rank key, and never pooled across moments, whose applications "
+        "overlap",
+    )
+    moment_skill_scored: int | None = Field(
+        default=None,
+        ge=1,
+        description="Evaluations contributing to `population_moment_skill_score`: "
+        "a subset of the `skill_scored` cells, so the two figures share cells "
+        "wherever this count equals `skill_scored`. Null with the figure, and "
+        "both are omitted while null",
+    )
     population_realized_term_skill_score: float | None = Field(
         default=None,
         le=1.0,
@@ -4520,8 +4547,11 @@ class LeaderboardStratum(_Strict):
         "on these cells. It is not comparable with the registered per-band "
         "figures in metrics/README.md, which are complements of grant-family "
         "rates rather than exact-match floors; those rates stay the skill "
-        "anchor. Cert stage only (the one stage whose disposition axis "
-        "`denied` is the null call on). Null elsewhere; null wherever any "
+        "anchor. Cert and interim stages (the stages whose disposition axis "
+        "`denied` is the null call on); an interim cell applies the rule that "
+        "stamped its `correct` (`pipeline.evaluate.stage_correct`), so on the "
+        "finer reading a partial grant is a miss for the floor and a moot "
+        "dismissal is unscored. Null elsewhere; null wherever any "
         "accuracy-scored cell lacks band/outcome facts; and null where any "
         "accuracy-scored cell's stamped `correct` no longer reproduces "
         "against the committed outcome — a grading paired with a superseded "
@@ -4775,14 +4805,23 @@ class LeaderboardStratum(_Strict):
 
     @model_serializer(mode="wrap")
     def _omit_ungraded(self, handler: SerializerFunctionWrapHandler) -> Any:
-        """Drop the list fields while empty, and the merits and calibration figures while null."""
+        """Drop the list fields while empty, and the later-added figures while null.
+
+        The merits baselines, the calibration figures and the interim moment
+        line, so a block that carries none serializes as it did before them.
+        """
         payload = _omit_empty(
             handler(self),
             reasoning_quality_rubrics=self.reasoning_quality_rubrics,
             reliability_bins=self.reliability_bins,
         )
         if isinstance(payload, dict):
-            for name in (*_MERITS_BASELINE_FIELDS, *_CALIBRATION_FIELDS):
+            for name in (
+                *_MERITS_BASELINE_FIELDS,
+                *_CALIBRATION_FIELDS,
+                "population_moment_skill_score",
+                "moment_skill_scored",
+            ):
                 if payload.get(name, 0) is None:
                     payload.pop(name)
         return payload
@@ -12520,6 +12559,63 @@ class _StatPackInterimCounts(_Strict):
         "`reread-applications` pass has not reached them, and a pool over this Term "
         "that reads the widened slice refuses a rate. Absent with `wide_resolved`",
     )
+    moment_request_resolved: int | None = Field(
+        default=None,
+        ge=0,
+        description="Of `finer_resolved`, the applications whose response request "
+        "(the corpus `response_requested_at`) is dated strictly before their "
+        "decision: the population a `response-requested` interim cell is drawn "
+        "from. The denominator of the per-moment reference pool "
+        "(`base_rates.interim_moment_base_rate`). A request dated on the decision "
+        "day opens no scored cell and is not counted. Absent from a pack built "
+        "before the moment pools, so absent reads as unknown, never as zero",
+    )
+    moment_request_granted: int | None = Field(
+        default=None,
+        ge=0,
+        description="Of `moment_request_resolved`, the applications the finer reading "
+        "grants in whole or in part. Absent with `moment_request_resolved`",
+    )
+    moment_response_filed_resolved: int | None = Field(
+        default=None,
+        ge=0,
+        description="Of `finer_resolved`, the applications whose response "
+        "(the corpus `response_filed_at`, requested or not) is dated strictly "
+        "before their decision: the population a `response-filed` interim cell is "
+        "drawn from. Overlaps `moment_request_resolved`, so the two are never "
+        "summed. Absent with `moment_request_resolved`",
+    )
+    moment_response_filed_granted: int | None = Field(
+        default=None,
+        ge=0,
+        description="Of `moment_response_filed_resolved`, the applications the finer "
+        "reading grants in whole or in part. Absent with `moment_request_resolved`",
+    )
+    wide_moment_request_resolved: int | None = Field(
+        default=None,
+        ge=0,
+        description="`moment_request_resolved` over the widened slice: of "
+        "`wide_finer_resolved`, the applications whose response request is dated "
+        "strictly before their decision. Absent with `moment_request_resolved`",
+    )
+    wide_moment_request_granted: int | None = Field(
+        default=None,
+        ge=0,
+        description="Of `wide_moment_request_resolved`, the applications the finer "
+        "reading grants in whole or in part. Absent with `moment_request_resolved`",
+    )
+    wide_moment_response_filed_resolved: int | None = Field(
+        default=None,
+        ge=0,
+        description="`moment_response_filed_resolved` over the widened slice. "
+        "Absent with `moment_request_resolved`",
+    )
+    wide_moment_response_filed_granted: int | None = Field(
+        default=None,
+        ge=0,
+        description="Of `wide_moment_response_filed_resolved`, the applications the "
+        "finer reading grants in whole or in part. Absent with `moment_request_resolved`",
+    )
 
     @model_serializer(mode="wrap")
     def _omit_unset_duplicate_rows(self, handler: SerializerFunctionWrapHandler) -> Any:
@@ -12538,6 +12634,14 @@ class _StatPackInterimCounts(_Strict):
                 "wide_finer_granted",
                 "wide_finer_unread",
                 "wide_unread",
+                "moment_request_resolved",
+                "moment_request_granted",
+                "moment_response_filed_resolved",
+                "moment_response_filed_granted",
+                "wide_moment_request_resolved",
+                "wide_moment_request_granted",
+                "wide_moment_response_filed_resolved",
+                "wide_moment_response_filed_granted",
             ):
                 if getattr(self, name) is None:
                     payload.pop(name, None)

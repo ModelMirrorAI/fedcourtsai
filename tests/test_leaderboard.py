@@ -3140,8 +3140,8 @@ def test_cert_cvsg_stage_entries_carry_by_band_and_other_stages_do_not() -> None
     (interim_entry,) = board.stages[
         stage_moment_key(Stage.interim, first_moment(Stage.interim))
     ].entries
-    # No band and no `denied` null call off the cert axis: the cut is absent
-    # and the floor fields stay null.
+    # No band off the cert axis, so the cut is absent; and with no skill map
+    # the interim floor has no fact to read, so its fields stay null.
     assert interim_entry.by_band is None
     assert interim_entry.forward is not None
     assert interim_entry.forward.always_deny_accuracy is None

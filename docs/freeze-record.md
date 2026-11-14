@@ -20408,3 +20408,70 @@ freeze commit is recorded here.
   three counts are not expected to move again. They count carrying files, as
   the `proc-v22` entry's own do: every `evaluation.json` stamped with that
   digest, an upper bound on the gradings of counted predictions among them.
+
+- **A per-moment reference line beside the interim baseline, and an interim
+  accuracy floor; registered 2026-11-14.** A scoring-baseline addition. No
+  registered figure is recomputed, replaced or de-counted, no prompt changes
+  and no process digest moves: the line is computed when the leaderboard is
+  rendered, from the committed statpack and the committed gradings.
+
+  **The rule.** The registered interim baseline
+  (`base_rates.interim_base_rate`) stays as it is and keeps scoring
+  `population_brier_skill_score`. Beside it, an interim block at the
+  `response-requested` or `response-filed` moment carries
+  `population_moment_skill_score`: the same ratio of sums, over the cells the
+  registered column scores that were predicted on the finer interim reading,
+  with the baseline replaced by `base_rates.interim_moment_base_rate`. That
+  rate is the finer-reading grant rate of the resolved applications whose
+  response request (for `response-requested`) or response, requested or not
+  (for `response-filed`), is dated strictly before their decision, pooled over
+  exactly the application Terms and ask vocabulary the registered finer pool
+  reads for the same cell (strictly prior Terms inside
+  `salience.base_rate_lookback_terms`; from OT2027 the three prior Terms over
+  the widened vocabulary), under the same floor of 50 pooled resolved
+  applications and the same refusals. The `arrival` moment has no such line.
+  The amicus count and the referral condition no pool. The line is never a
+  rank key, never replaces the registered figure, and is never pooled across
+  the two moments.
+
+  **The floor.** Interim blocks fill `always_deny_accuracy`, `accuracy_lift`
+  and their per-event readings: a constant `denied` call scored on the same
+  gradings under the rule that stamped `correct`
+  (`evaluate.stage_correct`), null wherever a grading's stamped `correct` no
+  longer reproduces.
+
+  **Why a second line and not a replacement.** Measured on the corpus blob
+  `c5f2d94f` (latest pull 2026-11-14, latest snapshot 2026-07-13), over
+  OT2016 to OT2025 on the finer reading: the registered pool is 156 granted
+  of 1,337 resolved (11.7%); applications with a request dated before the
+  decision, 94 of 258 (36.4%); with a response dated before the decision, 115
+  of 339 (33.9%). A constant forecast at either later-moment rate has an
+  expected Brier skill of about 0.2 against the registered baseline, so the
+  registered figure at those moments cannot separate forecast skill from
+  knowing the moment. No as-of segment describes arrival: a replay of the
+  five-slot reserve over the same Terms selects a population granted between
+  16.3% and 20.7% depending on the slot count and pass timing, so no arrival
+  line is registered.
+
+  **What was known when this was chosen.** The rule was chosen after the
+  measurement above and with these in view: the OT2026 aggregate counts at
+  that vintage (11 granted of 116 resolved; 8 of 18 with a request), the
+  published registered interim skill figures of `metrics/leaderboard.json` at
+  `c899aac2d`, and the per-moment constant-forecast floors. The pools are
+  strictly prior to any cell they score, so OT2026 outcomes enter no OT2026
+  cell's rate. At `origin/main`'s `6b0fde49e` the committed ledger holds one
+  resolved forward event with gradings the line admits (three gradings per
+  predictor at `response-filed`, none at `response-requested`), and the line
+  was computed on it while building this change. Every other forward event
+  the line will score resolves after this entry.
+
+  **Limits that travel with the figure.** The two pools overlap (244 of the
+  258 requested applications also drew a response), so the two moment lines
+  are not independent. The pool is re-read from the statpack checked out at
+  render, while the registered baseline is frozen at grading, so the moment
+  line moves with back-fills of prior Terms. Resolution is machine-matched and
+  parse coverage is uneven across Terms, as for the registered pool. A moot
+  dismissal leaves the pool, and 21 of the 29 such rows in OT2016 to OT2025
+  had drawn a request. The counts sit in `metrics/statpack.json`, which a
+  predict cell can read; no prompt points to them, and pointing a predictor
+  at them is a prompt change that would be registered as one.

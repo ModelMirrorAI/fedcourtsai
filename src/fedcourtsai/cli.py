@@ -11177,7 +11177,14 @@ def topic_cut_cmd(
         settings.data_root,
         cells,
         process_scope=scope,
-        skills=skill_components(cells, settings.data_root, statpack),
+        skills=skill_components(
+            cells,
+            settings.data_root,
+            statpack,
+            interim_lookback_terms=load_salience_config(
+                settings.config_root
+            ).base_rate_lookback_terms,
+        ),
         facts=cell_facts(cells, settings.data_root),
         vote_scores=vote_scores(cells, settings.data_root),
     )
@@ -11282,7 +11289,12 @@ def leaderboard(
         ),
     }
     evaluators = evaluator_agreement(settings.data_root, frozen_only=frozen_only)
-    skills = skill_components(over, settings.data_root, statpack)
+    skills = skill_components(
+        over,
+        settings.data_root,
+        statpack,
+        interim_lookback_terms=load_salience_config(settings.config_root).base_rate_lookback_terms,
+    )
     # Each cert cell's frozen band and realized outcome: the forward stratum's
     # per-band cut and the realized always-deny floor beside accuracy, over the
     # same cells and never a rank key.
