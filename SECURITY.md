@@ -331,8 +331,9 @@ runbook, [docs/security.md](docs/security.md).
 - **No static cloud keys — OIDC for S3.** Workflows that touch the private S3
   stores (the corpus remote and the per-case content store) assume a
   least-privilege IAM role via GitHub OIDC. **Three roles, split by access:**
-  corpus writers get a **read-write, append-only** role (get/put/list, **no
-  delete**) and every corpus consumer a **read-only** role, so a compromised
+  corpus writers get a **read-write, append-only** role (get/put/list and
+  version reads, **no delete**) and every corpus consumer a **read-only** role
+  (get/list and version reads), so a compromised
   consumer runner cannot tamper with the data. Three controls together mean no
   run can wipe corpus objects: the buckets keep **versioning** on, the
   write-role policy carries an explicit **`Deny` on every delete**, and a

@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import io
 import json
 from collections.abc import Mapping
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 import pytest
@@ -168,3 +169,109 @@ def test_the_command_plans_then_applies_under_a_bound(
         )
         assert applied.exit_code == 0, applied.output
     assert json.loads(transport.objects[key]) == LIVE
+
+
+class _StubS3Error(Exception):
+    def __init__(self, code: str) -> None:
+        super().__init__("upstream text naming an account, a role and a bucket")
+        self.response = {"Error": {"Code": code}}
+
+
+class _StubS3Client:
+    """The two calls the version reads make, with canned pages."""
+
+    def __init__(self, *, refuse: str | None = None) -> None:
+        self.refuse = refuse
+        self.asked: list[dict[str, str]] = []
+
+    def get_paginator(self, name: str) -> _StubS3Client:
+        assert name == "list_object_versions"
+        return self
+
+    def paginate(self, **kwargs: str) -> list[dict[str, object]]:
+        self.asked.append(kwargs)
+        if self.refuse:
+            raise _StubS3Error(self.refuse)
+        stamp = datetime(2026, 11, 13, 19, tzinfo=UTC)
+        return [
+            {
+                "Versions": [
+                    {
+                        "Key": "pre/a/1.json",
+                        "VersionId": "v2",
+                        "IsLatest": True,
+                        "LastModified": stamp,
+                    }
+                ]
+            },
+            {
+                "Versions": [
+                    {
+                        "Key": "pre/a/1.json",
+                        "VersionId": "v1",
+                        "IsLatest": False,
+                        "LastModified": stamp,
+                    }
+                ],
+                "DeleteMarkers": [{"Key": "pre/a/2.json"}],
+            },
+        ]
+
+    def get_object(self, **kwargs: str) -> dict[str, object]:
+        self.asked.append(kwargs)
+        if kwargs["VersionId"] == "gone":
+            raise _StubS3Error("NoSuchVersion")
+        if self.refuse:
+            raise _StubS3Error(self.refuse)
+        return {"Body": io.BytesIO(b"body")}
+
+
+def _s3_transport(client: _StubS3Client) -> casestore.S3ObjectTransport:
+    transport = object.__new__(casestore.S3ObjectTransport)
+    transport._bucket = "bucket"
+    transport._prefix = "pre"
+    transport._client = client
+    transport._ClientError = _StubS3Error
+    return transport
+
+
+def test_the_s3_transport_lists_versions_across_pages_and_reads_one() -> None:
+    client = _StubS3Client()
+    transport = _s3_transport(client)
+    versions = transport.list_versions("a/")
+    # Keys come back logical (prefix stripped), delete markers are not versions.
+    assert [(v.key, v.version_id, v.is_latest) for v in versions] == [
+        ("a/1.json", "v2", True),
+        ("a/1.json", "v1", False),
+    ]
+    assert client.asked[0] == {"Bucket": "bucket", "Prefix": "pre/a/"}
+    assert transport.get_version("a/1.json", "v1") == b"body"
+    assert client.asked[-1] == {"Bucket": "bucket", "Key": "pre/a/1.json", "VersionId": "v1"}
+    assert transport.get_version("a/1.json", "gone") is None
+
+
+def test_a_refused_version_read_names_the_grant_and_nothing_else(db: Path) -> None:
+    transport = _s3_transport(_StubS3Client(refuse="AccessDenied"))
+    with corpus.connect(db) as conn, pytest.raises(RestoreUnavailable) as refused:
+        restore_replaced_live_snapshots(conn, transport, apply=False)
+    assert "s3:ListBucketVersions" in str(refused.value)
+    assert "account" not in str(refused.value)
+    assert refused.value.__cause__ is None
+
+
+def test_an_unparseable_current_version_is_counted_not_restored(db: Path) -> None:
+    transport = casestore.InMemoryObjectTransport()
+    key = casestore.snapshot_key("scotus/1", DAY)
+    transport.put(key, _body(LIVE))
+    transport.put(key, b"not json")
+    with corpus.connect(db) as conn:
+        dry = restore_replaced_live_snapshots(conn, transport, apply=False)
+    assert (dry.unreadable, dry.total_restores) == (1, 0)
+
+
+def test_the_ledger_carries_no_version_ids(db: Path) -> None:
+    transport = casestore.InMemoryObjectTransport()
+    _store(transport, "scotus/1", DAY, LIVE, REFRESH)
+    with corpus.connect(db) as conn:
+        dry = restore_replaced_live_snapshots(conn, transport, apply=False)
+    assert "version_id" not in dry.model_dump_json()

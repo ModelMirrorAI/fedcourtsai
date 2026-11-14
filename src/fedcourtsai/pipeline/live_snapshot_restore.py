@@ -1,12 +1,11 @@
 """Restore a day's live snapshot where a same-day refresh stored over it.
 
 A case has one snapshot key per day (``snapshots/<date>.json``), shared by the
-live channel and the CourtListener refresh. ``pull_case`` leaves a stored
-live snapshot of the day in place, but a refresh that ran before that rule
-stored its own read over the Court's docket, and the store's current object
-at that key is CourtListener-shaped. The bucket keeps versioning on, so the
-replaced body is still held as a noncurrent version until the lifecycle rule
-expires it.
+live channel and the CourtListener refresh. ``pull_case`` leaves a stored live
+snapshot of the day in place, so a key whose current object is a refresh's
+read while an earlier version is the Court's docket is a day on which that
+did not hold. The bucket keeps versioning on, so the earlier body is still
+held as a noncurrent version until the lifecycle rule expires it.
 
 This pass reads the version listing of every row both channels have read
 (``last_live_polled`` and ``last_pulled`` both set), and for each dated key
@@ -28,7 +27,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from .. import casestore
 from ..corpus import ReadConnection
@@ -37,8 +36,9 @@ from ..corpus import ReadConnection
 LIVE_MARKER = "ProceedingsandOrder"
 
 
-#: Concurrent case reads. Each is a listing and a few small gets.
-READ_WORKERS = 16
+#: Concurrent case reads, under the S3 client's default connection pool of ten.
+#: Each is a listing and a few small gets.
+READ_WORKERS = 8
 
 
 class RestoreUnavailable(RuntimeError):
@@ -50,7 +50,8 @@ class Restore(BaseModel):
 
     case_id: str
     snapshot_date: date
-    version_id: str
+    #: Opaque to a reader of the ledger, so kept out of the serialized result.
+    version_id: str = Field(exclude=True)
 
 
 class LiveSnapshotRestoreResult(BaseModel):
@@ -197,6 +198,19 @@ def restore_replaced_live_snapshots(
     """
     if not isinstance(transport, casestore.VersionedTransport):
         raise RestoreUnavailable("the content store transport serves no version reads")
+    try:
+        return _restore(conn, transport, apply=apply, max_restores=max_restores)
+    except casestore.CasestoreError as exc:
+        raise RestoreUnavailable(str(exc)) from None
+
+
+def _restore(
+    conn: ReadConnection,
+    transport: casestore.VersionedTransport,
+    *,
+    apply: bool,
+    max_restores: int | None,
+) -> LiveSnapshotRestoreResult:
     result = LiveSnapshotRestoreResult()
     bodies: dict[tuple[str, date], bytes] = {}
     live_days: dict[str, int] = {}
@@ -220,10 +234,10 @@ def restore_replaced_live_snapshots(
                     Restore(case_id=case_id, snapshot_date=day, version_id=version_id)
                 )
     result.total_restores = len(result.restores)
-    restored_cases = {restore.case_id for restore in result.restores}
-    result.cases_without_live_snapshot = sum(
-        1 for case_id in restored_cases if not _holds_live_day(transport, case_id, live_days)
-    )
+    restored_cases = sorted({restore.case_id for restore in result.restores})
+    with ThreadPoolExecutor(max_workers=READ_WORKERS) as pool:
+        holds = pool.map(lambda c: _holds_live_day(transport, c, live_days), restored_cases)
+        result.cases_without_live_snapshot = sum(1 for held in holds if not held)
     if not apply:
         return result
     if max_restores is None or result.total_restores > max_restores:
@@ -244,4 +258,8 @@ def _holds_live_day(
     """Whether the case serves a live-shaped snapshot on any day as the store stands."""
     if live_days.get(case_id):
         return True
-    return casestore.read_latest_live_snapshot(transport, case_id) is not None
+    try:
+        return casestore.read_latest_live_snapshot(transport, case_id) is not None
+    except ValueError:
+        # A stored body that does not parse is not a live snapshot to serve.
+        return False

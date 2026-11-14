@@ -1538,8 +1538,8 @@ jobs:
       # Restore a day's live snapshot where a same-day CourtListener refresh
       # stored over it. A case has one snapshot key per day, shared by the live
       # channel and the refresh; the refresh leaves a stored live snapshot in
-      # place, and this pass recovers the days on which one was replaced before
-      # that rule. The bucket keeps versioning on, so the replaced body is
+      # place, and this pass recovers a day whose key holds a refresh's read
+      # over the Court's docket. The bucket keeps versioning on, so the replaced body is
       # still held as a noncurrent version until the lifecycle rule expires it:
       # the pass lists the versions of every dated snapshot key of each row
       # both channels have read, and writes the newest live-shaped earlier

@@ -1836,8 +1836,10 @@ the current one; the displaced body becomes a noncurrent version. No index row
 and no committed artifact moves. It can only reach a body the bucket still
 holds, so it is run inside the noncurrent-version recovery window, and both
 modes need a role that may list and read object versions. Dispatched rather
-than swept: the refresh no longer replaces a live snapshot, so the class does
-not regrow.
+than swept: the refresh leaves a stored live snapshot in place, so the class
+does not grow. Each restore takes a CourtListener read off its day's key, so a
+case restored on many consecutive days can fall past the refresh's merge-base
+lookback and take one whole-docket read on its next refresh.
 
 A scored relabel is half a repair: the labels move there, and the grades taken
 under the old label catch up through `regrade-stale`, which recomputes an

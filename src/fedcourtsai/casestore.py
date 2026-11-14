@@ -166,7 +166,7 @@ class ObjectVersion:
 
 
 @runtime_checkable
-class VersionedTransport(Protocol):
+class VersionedTransport(ObjectTransport, Protocol):
     """A transport that can also read an object's earlier versions.
 
     The bucket keeps versioning on, so a key written twice still holds the
@@ -289,17 +289,34 @@ class S3ObjectTransport:
         strip = f"{self._prefix}/" if self._prefix else ""
         versions: list[ObjectVersion] = []
         paginator = self._client.get_paginator("list_object_versions")
-        for page in paginator.paginate(Bucket=self._bucket, Prefix=full_prefix):
-            for obj in page.get("Versions", []):
-                versions.append(
-                    ObjectVersion(
-                        key=obj["Key"].removeprefix(strip),
-                        version_id=obj["VersionId"],
-                        is_latest=bool(obj["IsLatest"]),
-                        last_modified=obj["LastModified"],
+        try:
+            for page in paginator.paginate(Bucket=self._bucket, Prefix=full_prefix):
+                for obj in page.get("Versions", []):
+                    versions.append(
+                        ObjectVersion(
+                            key=obj["Key"].removeprefix(strip),
+                            version_id=obj["VersionId"],
+                            is_latest=bool(obj["IsLatest"]),
+                            last_modified=obj["LastModified"],
+                        )
                     )
-                )
+        except self._ClientError as exc:
+            raise self._version_read_refused(exc) from None
         return versions
+
+    def _version_read_refused(self, exc: Any) -> Exception:
+        """A refused version read as an error that names no account, role or bucket.
+
+        The upstream message carries all three, and a maintenance command's
+        output is teed into a public run summary.
+        """
+        code = exc.response.get("Error", {}).get("Code", "unknown")
+        if code in {"AccessDenied", "403"}:
+            return CasestoreError(
+                "the store role may not read object versions "
+                "(needs s3:ListBucketVersions and s3:GetObjectVersion)"
+            )
+        return CasestoreError(f"the store refused a version read ({code})")
 
     def get_version(self, key: str, version_id: str) -> bytes | None:
         try:
@@ -309,7 +326,7 @@ class S3ObjectTransport:
         except self._ClientError as exc:
             if exc.response.get("Error", {}).get("Code") in {"NoSuchKey", "NoSuchVersion", "404"}:
                 return None
-            raise
+            raise self._version_read_refused(exc) from None
         return bytes(response["Body"].read())
 
 

@@ -1830,6 +1830,12 @@ def rederive_cert_amicus_briefs_cmd(
         raise typer.Exit(code=1)
 
 
+def _restore_mode(applied: bool, refused: bool) -> str:
+    if refused:
+        return "refused"
+    return "applied" if applied else "dry-run"
+
+
 @app.command("restore-replaced-live-snapshots")
 def restore_replaced_live_snapshots_cmd(
     apply: Annotated[
@@ -1868,7 +1874,7 @@ def restore_replaced_live_snapshots_cmd(
     an apply reports `total_restores = 0`. Needs a store role that may list and
     read object versions; run where the corpus is pulled (`run-repair`'s
     `live-snapshot-restore` pass in production). Exits 1 when the corpus or the
-    store is absent, the store serves no version reads, or the apply is refused.
+    store is absent, the store role may not read object versions, or the apply is refused.
     """
     settings = get_settings()
     if apply and max_restores is None:
@@ -1909,7 +1915,7 @@ def restore_replaced_live_snapshots_cmd(
     if result.refused:
         verb = "refused to restore"
     typer.echo(
-        f"restore-replaced-live-snapshots ({'applied' if result.applied else 'dry-run'}): "
+        f"restore-replaced-live-snapshots ({_restore_mode(result.applied, result.refused)}): "
         f"{result.cases_read} row(s) both channels have read; {result.rewritten_keys} dated "
         f"snapshot key(s) written more than once; {result.live_current} already serve the "
         f"live shape, {result.no_live_version} hold no live-shaped version, "
