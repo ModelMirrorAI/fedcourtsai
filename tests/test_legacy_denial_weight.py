@@ -26,6 +26,7 @@ from fedcourtsai.pipeline.ingest import (
     _ENUMERATED_BLOCK_MIN_KEPT,
     LEGACY_DENIAL_SAMPLE_EVERY,
     UNSAMPLED_WEIGHT,
+    NonUnitSampleWeightError,
     backfill_live_signals,
     legacy_denial_sample_weight,
     legacy_sample_cell,
@@ -315,7 +316,7 @@ def test_backfill_weights_an_enumerated_block_at_one(tmp_path: Path) -> None:
     threading and its `serials` short-circuit need coverage at that seam and not
     only at the rule's own.
     """
-    rows = _sampled(10, 4000) + _enumerated(4001, 4400)
+    rows = _enumerated(4001, 4400)
     db = corpus.corpus_db_path(tmp_path / "corpus")
     with _seeded(tmp_path, rows) as conn, conn:
         conn.execute("UPDATE cases SET sample_weight = NULL")
@@ -324,15 +325,35 @@ def test_backfill_weights_an_enumerated_block_at_one(tmp_path: Path) -> None:
     assert weights == len(rows)
 
     with corpus.connect(db) as conn:
-        prefix = corpus.get_row(conn, "scotus/190001000")
         tail = corpus.get_row(conn, "scotus/190004200")
         off_grid = corpus.get_row(conn, "scotus/190004201")
-    assert prefix is not None and prefix.sample_weight == LEGACY_DENIAL_SAMPLE_EVERY
     assert tail is not None and tail.sample_weight == UNSAMPLED_WEIGHT
     assert off_grid is not None and off_grid.sample_weight == UNSAMPLED_WEIGHT
 
     # Idempotent: nothing is left NULL, so the second pass weighs nothing.
     assert backfill_live_signals(db) == (signals, 0)
+
+
+def test_backfill_refuses_a_weight_above_one_and_writes_nothing(tmp_path: Path) -> None:
+    """A row the rule reads as sampled fails the pass instead of being weighted.
+
+    The sampled prefix sorts first, so the enumerated tail behind it is the
+    evidence that the refusal rolled the pass back: its rows were still
+    unweighted when the pass stopped, and they stay that way.
+    """
+    rows = _sampled(10, 4000) + _enumerated(4001, 4400)
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with _seeded(tmp_path, rows) as conn, conn:
+        conn.execute("UPDATE cases SET sample_weight = NULL")
+
+    with pytest.raises(NonUnitSampleWeightError, match=r"backfill_live_signals .* scotus/19"):
+        backfill_live_signals(db)
+
+    with corpus.connect(db) as conn:
+        weighted = conn.execute(
+            "SELECT COUNT(*) FROM cases WHERE sample_weight IS NOT NULL"
+        ).fetchone()[0]
+    assert weighted == 0
 
 
 def test_the_guard_leaves_every_genuinely_sampled_row_at_its_sampled_weight(
@@ -450,19 +471,20 @@ def _serve(
     return stored.sample_weight
 
 
-def test_a_certainty_write_onto_a_sampled_block_keeps_the_sampled_weight(
-    tmp_path: Path,
-) -> None:
-    """The latch this guard exists to stop, at the seam that used to write it.
+def test_a_certainty_write_onto_a_sampled_block_is_refused(tmp_path: Path) -> None:
+    """The write that would mint a weighted row, at the seam that would land it.
 
-    The walker re-serves one grid denial inside a range still stored one row in
-    ten. It includes that row with certainty and says so — but certainty about
-    *this* petition is not observation of the nine it stands for, and the block
-    around it is untouched. So the weight is derived, not taken, and the row
-    keeps the ten.
+    A grid denial inside a range stored one row in ten derives the sampled
+    weight, and its row carries no weight for the min-latch to prefer. Storing
+    the ten would claim nine petitions; storing a one would claim the block is
+    enumerated. Neither is written: the serve fails and the row is as it was.
     """
     db = _seed_frame(tmp_path, _sampled(10, 2000))
-    assert _serve(db, tmp_path, "19-1000") == LEGACY_DENIAL_SAMPLE_EVERY
+    with pytest.raises(NonUnitSampleWeightError, match="scotus/190001000"):
+        _serve(db, tmp_path, "19-1000")
+    with corpus.connect(db) as conn:
+        stored = corpus.get_row(conn, "scotus/190001000")
+    assert stored is not None and stored.sample_weight is None
 
 
 def test_a_certainty_write_onto_an_enumerated_block_lands_at_one(tmp_path: Path) -> None:
@@ -476,27 +498,34 @@ def test_a_certainty_write_onto_an_enumerated_block_lands_at_one(tmp_path: Path)
     assert _serve(db, tmp_path, "19-1000") == UNSAMPLED_WEIGHT
 
 
-def test_a_repaired_weight_survives_a_later_re_serve(tmp_path: Path) -> None:
-    """The durability property: repair, then re-walk, and the repair is still there.
-
-    The min-latch keeps the smaller of stored and incoming, so an incoming 1 is
-    what erases a repaired 10 — and before this guard every re-serve carried one.
-    With the weight derived against the unchanged block the re-serve carries a
-    10 instead, and ``MIN(10, 10)`` holds. This is the whole reason the guard is
-    the durable half of the repair rather than a tidy-up beside it.
-    """
+def test_a_stored_sampled_weight_is_not_re_served_in_place(tmp_path: Path) -> None:
+    """A row already stored above one fails its re-serve rather than keeping it."""
     db = _seed_frame(tmp_path, _sampled(10, 2000))
-    # A direct UPDATE, the only write that raises a stored weight, sets the row
-    # to the sampled weight.
     with corpus.connect(db) as conn:
         conn.execute(
             "UPDATE cases SET sample_weight = ? WHERE case_id = ?",
             (LEGACY_DENIAL_SAMPLE_EVERY, "scotus/190001000"),
         )
         conn.commit()
-    assert _serve(db, tmp_path, "19-1000") == LEGACY_DENIAL_SAMPLE_EVERY
-    # And again: idempotent, not merely surviving one pass.
-    assert _serve(db, tmp_path, "19-1000") == LEGACY_DENIAL_SAMPLE_EVERY
+    with pytest.raises(NonUnitSampleWeightError, match="scotus/190001000"):
+        _serve(db, tmp_path, "19-1000")
+
+
+def test_a_row_stored_at_certainty_is_re_served_at_certainty(tmp_path: Path) -> None:
+    """The one derived weight that is not a refusal, because nothing would store it.
+
+    Same sampled block, but the row already holds a one. The min-latch keeps the
+    smaller of stored and incoming, so the derived ten could never land: the
+    write is the same write it has always been, and it goes through.
+    """
+    db = _seed_frame(tmp_path, _sampled(10, 2000))
+    with corpus.connect(db) as conn:
+        conn.execute(
+            "UPDATE cases SET sample_weight = ? WHERE case_id = ?",
+            (UNSAMPLED_WEIGHT, "scotus/190001000"),
+        )
+        conn.commit()
+    assert _serve(db, tmp_path, "19-1000") == UNSAMPLED_WEIGHT
 
 
 def test_a_re_serve_regresses_the_weight_once_the_block_is_enumerated(tmp_path: Path) -> None:
@@ -549,21 +578,18 @@ def test_an_application_write_is_outside_the_sampled_frame(tmp_path: Path) -> No
     assert stored is not None and stored.sample_weight == UNSAMPLED_WEIGHT
 
 
-def test_a_caller_asserting_a_weight_it_alone_knows_is_written_as_given(
-    tmp_path: Path,
-) -> None:
-    """Only an assertion of *certainty* is re-derived.
+def test_a_caller_asserting_a_weight_other_than_one_is_refused(tmp_path: Path) -> None:
+    """An asserted weight is refused outright, whatever the row and its block hold.
 
-    A caller passing anything else is claiming knowledge the corpus cannot
-    reproduce — the seam has no way to check it and no business overwriting it —
-    so it is written as given and left to the min-latch. Pinned because the
-    guard's shape reads as "derive the weight" and it is in fact "check the
-    certainty": an enumerated block, where the derivation would say 1.
+    An enumerated block, where the derivation would say one, and a row the walk
+    stored at one: the min-latch would discard the ten, and the write is refused
+    all the same, because no caller has a weight other than one to assert.
     """
     db = _seed_frame(tmp_path, _enumerated(900, 1100))
-    assert _serve(db, tmp_path, "19-1000", weight=LEGACY_DENIAL_SAMPLE_EVERY) == (
-        LEGACY_DENIAL_SAMPLE_EVERY
-    )
+    assert _serve(db, tmp_path, "19-1000") == UNSAMPLED_WEIGHT
+    with pytest.raises(NonUnitSampleWeightError, match="sample_weight 10"):
+        _serve(db, tmp_path, "19-1000", weight=LEGACY_DENIAL_SAMPLE_EVERY)
+    assert _serve(db, tmp_path, "19-1000") == UNSAMPLED_WEIGHT
 
 
 def test_the_forward_walk_writes_certainty_because_its_cursor_trails_it(

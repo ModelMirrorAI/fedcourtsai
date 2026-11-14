@@ -81,7 +81,7 @@ from ..matrix import event_has_predictions
 from ..schemas import Disposition
 from ..supremecourt import IFP_SERIAL_BASE, SupremeCourtClient, parse_scotus_docket_number
 from .cert_signals import docket_disposition_signals
-from .ingest import UNSAMPLED_WEIGHT, backfill_live_signals
+from .ingest import UNSAMPLED_WEIGHT, NonUnitSampleWeightError, backfill_live_signals
 from .live import _resolve_identity, ingest_live_payload, provision_documents
 
 # The walker's per-Term numbering streams. Same bases as the forward poller's,
@@ -364,13 +364,11 @@ class _Walk:
             # after each serial is served, so at ingest the stored cursor is
             # `serial - 1` and the weight rule's cursor conjunct short-circuits
             # before the density guard is consulted. A forward walk therefore
-            # writes 1 unconditionally, which is what lets a re-walk regress the
-            # legacy frame at all. The guard bites on the below-cursor re-serves
-            # instead — `refresh_dockets`, which touches no cursor, and the
-            # poller's rotations and sweep — where re-serving one kept serial
-            # observes nothing about the nine petitions behind it. The column
-            # stays because the corpus holds denials the earlier sampled walk kept
-            # at a higher weight, which a weighted estimate must keep honouring.
+            # writes 1 unconditionally. The guard bites on the below-cursor
+            # re-serves instead — `refresh_dockets`, which touches no cursor, and
+            # the poller's rotations and sweep — where re-serving one serial
+            # observes nothing about the block around it, and a write the rule
+            # would weight above 1 there is refused (`require_unit_weight`).
             sample_weight=UNSAMPLED_WEIGHT,
         )
         if label in (Disposition.granted, Disposition.gvr):
@@ -553,7 +551,22 @@ def refresh_dockets(
             report.undecided.append(number)
             continue
         deferred = walk.report.left_to_watchlist
-        walk.ingest(payload, term, serial, disposition)
+        try:
+            walk.ingest(payload, term, serial, disposition)
+        except NonUnitSampleWeightError as exc:
+            # The refusal stores nothing, and it too costs only its number. That
+            # matters here more than anywhere: a refusal means the block around
+            # the serial is missing rows, and this pass is how they are named
+            # and landed, after which a second pass over the list lands this one.
+            walk.report.failed.append(
+                {
+                    "term": term,
+                    "stream": "targeted",
+                    "serial": serial,
+                    "reason": f"{type(exc).__name__}: {exc}",
+                }
+            )
+            continue
         if walk.report.left_to_watchlist > deferred:
             report.left_to_watchlist.append(number)
     return report

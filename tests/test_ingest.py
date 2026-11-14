@@ -12,6 +12,7 @@ from fedcourtsai.pipeline.ingest import (
 )
 from fedcourtsai.pipeline.ingest import (
     CorpusSource,
+    NonUnitSampleWeightError,
     default_event,
     from_api_docket,
     from_bulk_row,
@@ -228,6 +229,26 @@ def test_predict_eligibility_rule_is_scotus_only() -> None:
     ca9 = from_api_docket({"id": 8, "court_id": "ca9"})
     assert is_predict_eligible(scotus) is True
     assert is_predict_eligible(ca9) is False
+
+
+@pytest.mark.parametrize("weight", [10, 2, 0, -1])
+def test_upsert_refuses_a_sample_weight_other_than_one(tmp_path: Path, weight: int) -> None:
+    """Every stored row stands for itself, so no writer may land another weight.
+
+    Refused before anything is written, naming the writer and the row; a weight
+    of one and no weight at all both go through.
+    """
+    db = corpus.corpus_db_path(tmp_path)
+    row = from_api_docket({"id": 7, "court_id": "scotus"})
+    with pytest.raises(NonUnitSampleWeightError, match=r"upsert_to_corpus .* scotus/7"):
+        upsert_to_corpus(db, [row], sample_weight=weight)
+    assert not db.exists()
+
+    upsert_to_corpus(db, [row])
+    upsert_to_corpus(db, [row], sample_weight=1)
+    with corpus.connect(db) as conn:
+        stored = corpus.get_row(conn, "scotus/7")
+    assert stored is not None and stored.sample_weight == 1
 
 
 def test_ingestion_sets_predict_eligible_for_scotus_only(tmp_path: Path) -> None:
