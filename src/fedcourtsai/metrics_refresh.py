@@ -81,6 +81,7 @@ REFRESH_ARTIFACTS = (
     "metrics/backtest.json",
     "metrics/statpack.json",
     "metrics/statpack.md",
+    "metrics/amicus-line.json",
     "metrics/docket.json",
     "metrics/docket.md",
     "metrics/big-cases.json",

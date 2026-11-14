@@ -55,16 +55,19 @@ _V18 = datetime(2026, 11, 6, 17, 45, 46, tzinfo=UTC)
 _V19 = datetime(2026, 11, 7, 15, 59, 33, tzinfo=UTC)
 _V20 = datetime(2026, 11, 8, 18, 17, 4, tzinfo=UTC)
 _V21 = datetime(2026, 11, 12, 19, 49, 39, tzinfo=UTC)
+# proc-v22 holds proc-v21's counting instant; its own merge stamped only the
+# three evaluator blessings.
+_V22_MERGE = datetime(2026, 11, 13, 17, 0, 26, tzinfo=UTC)
 _CODEX_AND_GEMINI = frozenset({"codex-baseline", "gemini-baseline"})
 
-# proc-v22 replaces the three evaluator blessings with its own pending three,
+# proc-v23 replaces the three predictor blessings with its own pending three,
 # which bless nothing until the carrying merge stamps them, so the carried map
-# holds the three predictor digests proc-v21 blessed and proc-v22 carries
+# holds the three evaluator digests proc-v22 blessed and proc-v23 carries
 # forward.
 GOLDEN_DIGESTS: dict[str, datetime] = {
-    "sha256:b61115d400ce9267e594df12aa530e5a53f6412fb350ec04fc5cc04dac832e78": _V21,
-    "sha256:a74ea5610425d331c2616ae8719866bf78f06ea6e1c6b111d66dfac31f2c8578": _V21,
-    "sha256:ff9786ea91896f0f50f176c3b1de403074ccf54cbe49ba69d844d201c59d2069": _V21,
+    "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08": _V22_MERGE,
+    "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5": _V22_MERGE,
+    "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a": _V22_MERGE,
 }
 
 GOLDEN_WINDOWS = (
@@ -397,9 +400,18 @@ GOLDEN_BLESSING_LABELS = {
     "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5": ("proc-v20",),
     "sha256:c1b452dea2e2f9a5c263428a31ed4c11f562c6ca10765b1dcfe66ff54daa733d": ("proc-v21",),
     "sha256:93dfd6b52d95a78cbc7ce722aa2230f0e8ce09716d6219c95036ca071419fee9": ("proc-v21",),
-    "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08": ("proc-v22",),
-    "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5": ("proc-v22",),
-    "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a": ("proc-v22",),
+    "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08": (
+        "proc-v22",
+        "proc-v23",
+    ),
+    "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5": (
+        "proc-v22",
+        "proc-v23",
+    ),
+    "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a": (
+        "proc-v22",
+        "proc-v23",
+    ),
 }
 
 _SCRUB_0921 = "a2f84f2eedb4e3b3dcc222522a55b8a93ae1eff0"
@@ -593,6 +605,7 @@ _GOLDEN_MERGES = frozenset(
         "18f62b8a75dd215cf50ab897f30bc5f757f00f8c",
         "bdc22126251ba1ef016a647715c93e1374806844",
         "b1cdb7c5805de5507155a573fb51210c31b97746",
+        "f6441bcdaf6e8c8bc364c2f6048aa8c54c800af5",
     }
 )
 

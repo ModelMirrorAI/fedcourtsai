@@ -471,6 +471,13 @@ PROC_V20_PREDICTOR_DIGESTS = {
     "gemini-baseline": "sha256:154ba5e6732eb9627dfa988245cba7a2f5a5682fa4b9bf6ac5d0c7e6e4e984de",
 }
 
+#: The predictor digests the proc-v21 entry registers, one proc-v21 window each.
+PROC_V21_PREDICTOR_DIGESTS = {
+    "claude-baseline": "sha256:b61115d400ce9267e594df12aa530e5a53f6412fb350ec04fc5cc04dac832e78",
+    "codex-baseline": "sha256:a74ea5610425d331c2616ae8719866bf78f06ea6e1c6b111d66dfac31f2c8578",
+    "gemini-baseline": "sha256:ff9786ea91896f0f50f176c3b1de403074ccf54cbe49ba69d844d201c59d2069",
+}
+
 
 def test_proc_v20_closed_every_predictor_window_and_opened_one_for_each() -> None:
     """proc-v20's registry shape, as the freeze record's proc-v20 entry registers it.
@@ -502,7 +509,6 @@ def test_proc_v21_closed_every_predictor_window_and_opened_one_for_each() -> Non
     """
     v21 = _label_since("proc-v21")
     assert v21 is not None
-    live = _live_predictor_digests()
     rows = process_version._REGISTRY.windows
     by_label = {(w.label, w.predictor_id): w for w in rows}
     for predictor, digest in PROC_V20_PREDICTOR_DIGESTS.items():
@@ -510,27 +516,45 @@ def test_proc_v21_closed_every_predictor_window_and_opened_one_for_each() -> Non
         assert closed.digest == digest
         assert closed.closes is not None and closed.closes.at == v21
         opened = by_label[("proc-v21", predictor)]
-        assert opened.digest == live[predictor] != closed.digest
-        assert opened.opens.at == v21 and opened.closes is None
+        assert opened.digest == PROC_V21_PREDICTOR_DIGESTS[predictor] != closed.digest
+        assert opened.opens.at == v21
 
 
-def test_proc_v22_holds_the_instant_and_moves_no_window() -> None:
+def test_proc_v22_held_the_instant_and_moved_no_window() -> None:
     """proc-v22's registry shape, as the freeze record's proc-v22 entry registers it.
 
-    proc-v22 edits the evaluate prompt only, so the three evaluator digests
-    move and no predictor digest does. An evaluator-only label holds its
-    predecessor's counting instant, opens no window and closes none: every
-    live predictor keeps its open proc-v21 window.
+    proc-v22 edited the evaluate prompt only, so the three evaluator digests
+    moved and no predictor digest did. An evaluator-only label holds its
+    predecessor's counting instant, opens no window and closes none.
     """
     v21 = _label_since("proc-v21")
     assert v21 is not None
     assert _label_since("proc-v22") == v21
     rows = process_version._REGISTRY.windows
     assert not [w for w in rows if w.label == "proc-v22"]
-    open_windows = {w.predictor_id: w for w in rows if w.closes is None}
-    assert {p: w.digest for p, w in open_windows.items()} == _live_predictor_digests()
-    assert {w.label for w in open_windows.values()} == {"proc-v21"}
-    assert len(rows) == 39
+
+
+def test_proc_v23_closes_every_predictor_window_and_opens_one_for_each() -> None:
+    """proc-v23's registry shape, as the freeze record's proc-v23 entry registers it.
+
+    proc-v23 edits the predict prompt only, so the three predictor digests
+    move and no evaluator digest does. Each predictor's proc-v21 window closes
+    at the proc-v23 instant, and a proc-v23 window opens there for each live
+    digest. Pending rows compare by their null instants until the merge stamps
+    them.
+    """
+    v23 = _label_since("proc-v23")
+    live = _live_predictor_digests()
+    rows = process_version._REGISTRY.windows
+    by_label = {(w.label, w.predictor_id): w for w in rows}
+    for predictor, digest in live.items():
+        closed = by_label[("proc-v21", predictor)]
+        assert closed.digest == PROC_V21_PREDICTOR_DIGESTS[predictor]
+        assert closed.closes is not None and closed.closes.at == v23
+        opened = by_label[("proc-v23", predictor)]
+        assert opened.digest == digest != closed.digest
+        assert opened.opens.at == v23 and opened.closes is None
+    assert len(rows) == 42
 
 
 def test_the_counting_registry_is_well_formed() -> None:

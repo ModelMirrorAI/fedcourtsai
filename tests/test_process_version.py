@@ -434,10 +434,19 @@ def test_a_full_freeze_orders_the_instant_after_every_bless_it_carries() -> None
     carried-forward predictor half from a step-4 correction that reached some
     entries and not others, so a straggler is caught by the aware/not-in-the-
     future guard in the coupling test rather than here.
+
+    A third: while a registration is pending, the map is only the half that
+    label carries forward, since a pending blessing blesses nothing. A pending
+    predictor label that follows an evaluator-only one then leaves the map
+    holding the evaluator half alone, at a single moment later than the instant
+    that label held. That is not a full freeze, so the check waits for the
+    carrying merge to stamp the pending rows.
     """
     since = process_version.FROZEN_SINCE
     moments = set(process_version.FROZEN_PROCESS_DIGESTS.values())
     if since is None or len(moments) != 1:
+        return
+    if any(blessing.blessed.pending for blessing in process_version._REGISTRY.blessings):
         return
     carried = moments.pop()
     assert since >= carried, (

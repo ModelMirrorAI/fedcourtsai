@@ -346,19 +346,27 @@ def _live_payload(number: str, *entries: tuple[str, str]) -> dict[str, object]:
     }
 
 
-def test_the_provisioned_context_never_carries_the_cert_count() -> None:
-    """`record/context.json` is read by the cell, so the count is the stamp's to write."""
+def test_the_provisioned_context_carries_the_cert_count() -> None:
+    """`record/context.json` hands the cell the count the stamp will read again."""
     payload = _live_payload("26-55", _PETITION, *_CERT_AMICI)
     built = cell_context.build("scotus/9026000055", date(2026, 7, 1), payload, "forward")
     assert built.signals_observable is True
-    assert built.cert_amicus_briefs is None
-    assert cell_context.stamped_cert_amicus_briefs(payload) == 3
+    assert built.cert_amicus_briefs == 3
+    assert cell_context.snapshot_cert_amicus_briefs(payload) == 3
+    # An application freezes its own count under the interim reading instead.
+    application = _live_payload("26A55", _PETITION, *_CERT_AMICI)
+    assert (
+        cell_context.build(
+            "scotus/9026100055", date(2026, 7, 1), application, "forward"
+        ).cert_amicus_briefs
+        is None
+    )
     assert cert_amicus_briefs(proceedings_entries(payload)) == 3
 
 
 def test_the_stamped_count_is_null_off_the_cert_form_and_without_proceedings() -> None:
     application = _live_payload("26A55", _PETITION, *_CERT_AMICI)
-    assert cell_context.stamped_cert_amicus_briefs(application) is None
-    assert cell_context.stamped_cert_amicus_briefs({"CaseNumber": "26-55 "}) is None
+    assert cell_context.snapshot_cert_amicus_briefs(application) is None
+    assert cell_context.snapshot_cert_amicus_briefs({"CaseNumber": "26-55 "}) is None
     # A docket with a proceedings list and no amicus entry is a measured zero.
-    assert cell_context.stamped_cert_amicus_briefs(_live_payload("26-55", _PETITION)) == 0
+    assert cell_context.snapshot_cert_amicus_briefs(_live_payload("26-55", _PETITION)) == 0

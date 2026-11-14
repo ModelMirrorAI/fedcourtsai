@@ -20056,3 +20056,355 @@ freeze commit is recorded here.
   - on `main` once the promotion has merged, `uv run python -c "from
     fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
     print('unread-page-runs' in {b.name for b in H})"` prints `True`.
+
+- **Cert cells are handed their cert-stage amicus count and the
+  amicus-adjusted reference forecast, and the line reads the frozen forecast
+  (`amicus-line-v2`); recorded 2026-11-13.** A change to what a cert cell is
+  given and a re-registration of the reference line's rule, made before the
+  line was computed on any forward event. `amicus-line-v1` is superseded
+  with no event ever read under it and no board ever carrying it.
+
+  **Why.** `amicus-line-v1` kept the count out of every file a cell reads, so
+  that the engine-against-line gap would say whether engines find the amicus
+  signal unaided. The maintainer chose on 2026-11-13 to hand cells the count
+  and the rate instead, as they are already handed their band's rate
+  (`cert_anchor`), because it may improve the forecasts. The line then
+  answers a different question, stated in the reading rule below.
+
+  **What a cert cell is newly given.**
+  - *The count.* Provisioning writes `cert_amicus_briefs` into
+    `record/context.json`: the cert reading (`pipeline.cert_amicus`) over
+    the snapshot it places, on a Term-form docket whose snapshot disclosed
+    proceedings, strictly before the cutoff where the cell was placed at
+    one. `stamp-cell` still reads the count again off the provisioned
+    snapshot file after the agent has finished and writes its own reading
+    onto the prediction, null where there is no file to read.
+  - *The forecast.* Where the cell froze a cert anchor and a count, and
+    `metrics/amicus-line.json` is readable, provisioning writes
+    `cert_amicus_line` beside the anchor: `rule`, `rate`, `basis`, `arm`,
+    `arm_resolved` and `fit_digest`.
+  - *The prompt.* The predict prompt's cert-stage section describes both
+    fields, says the rate is a reference and that cert skill is still scored
+    against `cert_anchor.rate`, and states the two timing approximations
+    below. The three predictor digests move with it.
+  - *The fit file.* `metrics/amicus-line.json` sits in the tree a cell runs
+    in, with every band's per-Term risk set under every registered salience
+    version. It is a replay self-selection surface on the statpack's own
+    contract: a cell pools only Terms strictly before its own.
+
+  **The rule, `amicus-line-v2`** (`src/fedcourtsai/amicus_line.py`). The
+  split, the fit's population and weights, the pool, the minimum of 30
+  observed resolved rows and the fallback to `cert_anchor.rate` are
+  `amicus-line-v1`'s, unchanged. What changes:
+  - *The fit is committed and frozen per cell.* `fedcourts statpack` writes
+    `metrics/amicus-line.json` beside the statpack from the same corpus
+    read. A cell's forecast is pooled once, at provisioning, from the build
+    then checked out, under its anchor's rate and window, and is named by
+    that build's digest. A later correction to a prior Term's rows no longer
+    moves the line for a cell already placed.
+  - *The frozen forecast is a claim until checked.* `record/context.json` is
+    reachable from the cell's workspace. The evaluator stamp copies the rate
+    to the grading's `amicus_line_rate` only where the cert anchor beside it
+    verified and the forecast re-pools, with its arm, basis and pool size,
+    from a fit committed on `main` in force at the predict cell's run id (or
+    the build that one replaced inside the checkout slack). A forecast that
+    does not verify is left null with a warning, and its event is left out.
+  - *The event's forecast.* On a paired cert event the line is the stamped
+    rate of the event's earliest qualifying grading by harness clock, the
+    cell the paired figure files the event's band under. An event enters
+    only where every paired engine's every qualifying grading carries
+    outcome facts and a stamped rate under this rule equal to the rate its
+    committed prediction froze, and that earliest
+    grading a risk-set `segment_base_rate`. Events left out
+    (`left_out`), events whose engines' cells froze different arms
+    (`arm_mismatches`) and events forecast on the fallback
+    (`fallback_events`) are counted beside the figure.
+  - *The comparator.* `band_brier` scores the frozen band anchor of that
+    same earliest grading on the same events. The fit and the anchor are now
+    one vintage, written by one command from one corpus read, so the frozen
+    anchor replaces v1's band rate re-pooled from the fit. They differ by
+    the fit's unread rows, which the anchor pools and neither arm holds.
+
+  **The reading rule** (`metrics/README.md`, beside the no-model forecast).
+  - **A reference, never a predictor.** It takes no rank and no headline.
+  - **Each engine's cell is handed its own frozen rate before it
+    forecasts.** An engine's per-event Brier against the line's, on the
+    line's own events, is its gap to a reference that was available to it.
+    It never measures whether the engine would have found the amicus signal
+    unaided, and no figure under this rule answers that. Nor is it a clean
+    measure of what the engine adds: whether an engine reads the field is
+    unobserved, the engine holds the rest of its record, and on an
+    `arm_mismatches` event the line is the earliest cell's rate, not the
+    rate a later engine was handed. Those events are expected to lean
+    against the line, the earliest cell being usually `none` where a later
+    engine saw a brief, and to cluster on higher-grant events.
+  - **The line against `band_brier`** says whether this split, as
+    approximated, beat the band rate on those events, while the fit's pools
+    carry no unread rows (none did in the fit `amicus-line-v1`'s entry
+    tabulates); where they do, the two differ by more than the split. A
+    loss is not evidence that amicus filings carry no signal. On a fallback
+    event the two share a term.
+  - **Quoted with its `events`, `grants`, `fallback_events`,
+    `arm_mismatches` and `left_out`.** The events left out are not missing
+    at random (a cell placed before this change, a forecast that did not
+    verify, a snapshot with no proceedings, a cell with no risk-set anchor),
+    so `engine_brier` over the line's events is never read as the paired
+    figure's Brier.
+  - **It describes forecasts whose cells froze the forecast.** It is never
+    extended to an earlier forecast by reading the corpus's current count,
+    and a prediction stamped with a count but placed before this change (its
+    cell was not handed it) carries no forecast and enters no figure.
+
+  **What the rule approximates.** Everything `amicus-line-v1`'s entry lists
+  carries over: the fit conditions on the count at disposition while the
+  cell reads it at its snapshot (the `none` rate a floor, the `some` rate
+  probably a ceiling in a weak band); the Solicitor General's invited brief
+  counts; the arms nest by band; the amicus reading's own approximations.
+  The prompt states the first two to the cell.
+
+  **What a reader may and may not conclude across this change.** Cert
+  forecasts placed under the label that registers this prompt saw a number
+  earlier forecasts did not. A movement in cert accuracy, Brier or skill
+  across that label may not be attributed to the engines' models, and, with
+  no cell run under it yet, no direction is predicted. Cert skill over the
+  anchor from that label on includes whatever a cell took from the handed
+  rate. Two information sets sit under the label: a cell whose
+  `context.cert_amicus_line` is null (placed before the first fit file was
+  committed, or with no anchor, count or readable fit) saw the count and the
+  prompt and no rate, and enters cert skill but no line figure. The anchor every cert
+  skill is scored against does not move. No committed prediction or grading
+  is re-stamped, no base rate re-prices and no membership rule moves.
+
+  **What is not verified at registration.** No cell has run under the new
+  prompt, so whether any engine reads the field, or over-anchors on it, is
+  unobserved. The count the forecast's arm rests on is read from the
+  provisioned snapshot file, which sits in the cell's workspace beside the
+  context, so the checks bind the rate to the committed fit and to the count
+  and no further. No `metrics/amicus-line.json` exists on `main`: the first
+  metrics refresh after the carrying merge writes it, and a cert cell placed
+  between the merge and that refresh is handed its count and a null
+  forecast, which the prompt tells it to read as "use the statpack cut". The
+  only fit read is the one `amicus-line-v1`'s entry tabulates.
+
+  **The amendment debt.** One is paid. The entry that registers the
+  `unread-page-runs` boundary owed the predict prompt a description of the
+  unread-run `[pipeline note: …]` line and the manifest's `kind_description`
+  a matching correction; both are made here. This entry adds no new token.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_amicus_line.py tests/test_cert_anchor_stamp.py
+    -k "amicus or fit"` is green;
+  - after the first metrics refresh following the promotion, on `main`,
+    `jq -c '[.rule, .min_resolved, (.cells | length)]'
+    metrics/amicus-line.json` prints `["amicus-line-v2",30,N]` with `N`
+    above 0;
+  - over a cert `prediction.json` the first predict round after that
+    refresh adds (Term-form docket, snapshot disclosed proceedings, band
+    frozen), `jq -c '[.context.cert_amicus_briefs, .context.cert_amicus_line.arm,
+    .context.cert_amicus_line.basis, .context.cert_amicus_line.rate]'` prints
+    an integer, an arm, a basis and a rate, and the cell's `reasoning.md`
+    is read for whether it mentions the reference;
+  - over an `evaluation.json` grading that prediction, `jq
+    .amicus_line_rate` prints the same rate, and the evaluate job log carries
+    no "amicus-adjusted reference forecast does not verify" warning;
+  - once paired cert events placed after the refresh resolve, `jq '.. |
+    .amicus_line? // empty' metrics/leaderboard.json` prints a block with
+    `events` above 0.
+- **`proc-v23`, cert cells are handed their cert-stage amicus count and the
+  amicus-adjusted reference forecast; recorded 2026-11-13.** Carried to
+  `main` by the promotion tagged `<FILL: promotion tag>` (merge commit
+  `<FILL: merge hash>`, merged `<FILL: merged-at>`), to be tagged
+  **`prereg/proc-v23`**. Registered under the merge-stamped rule, so its
+  counting instant, its three predictor bless moments and every window edge
+  it moves are the carrying merge's committer time. Only the predict prompt
+  changes, so the three predictor digests move and the three evaluator
+  digests are carried forward byte-identical. No harness boundary is
+  registered here: the change is to the prompt, and the label is its
+  boundary. No committed prediction or grading is re-stamped and no scored
+  value is recomputed.
+
+  **What changes.** The entry above this one, which registers
+  `amicus-line-v2`, states it in full: provisioning writes
+  `cert_amicus_briefs` and `cert_amicus_line` into a cert cell's
+  `record/context.json`, the predict prompt's cert-stage section describes
+  both, and the prompt gains the description of the unread-run pipeline note
+  that the `unread-page-runs` entry owed. The evaluate prompt, every model,
+  every engine CLI pin and every agent's configuration are unchanged.
+
+  **Why, what is pre-registered and what is not verified.** As that entry
+  states them: the maintainer chose on 2026-11-13 to hand cells the count
+  and the rate; no direction of movement in cert accuracy, Brier or skill is
+  predicted across this label, and a movement in either direction is not
+  attributed to the engines' models; no cell has run under the new prompt.
+  The maintainer also chose that day to register the change under a label of
+  its own, after `proc-v22`'s promotion branch was cut, and not to fold it
+  into `proc-v22`.
+
+  **The amendment debt.** The one the entry above pays, and no new token.
+
+  The runnable effect check once it is live:
+  - on `main`, `uv run python -c "from fedcourtsai.process_version import
+    CURRENT_PROCESS_LABEL as L; print(L)"` prints `proc-v23`, and `uv run
+    fedcourts process-digest --all` prints the six digests below;
+  - `grep -c 'cert_amicus_line' .github/prompts/predict.md` on `main` prints
+    a number above 0 (0 on `proc-v22`);
+  - each `prediction.json` the first predict round after the carrying merge
+    adds carries the `proc-v23` digest of its predictor;
+  - the cell-level checks in the entry above.
+
+  **The registration** (`uv run fedcourts register-process --label
+  proc-v23`, run 2026-11-13 over `staging` at `243cbedd3` with `proc-v22`
+  stamped). Three digests move.
+
+  | Actor | Before | `proc-v23` |
+  | --- | --- | --- |
+  | `claude-baseline` | `sha256:b61115d400ce9267e594df12aa530e5a53f6412fb350ec04fc5cc04dac832e78` (`proc-v21`, `proc-v22`) | `sha256:e266abac2a7bd5d69f3b76ce27dae510b389f78e786fc7ed620c85c96165f138` (new) |
+  | `codex-baseline` | `sha256:a74ea5610425d331c2616ae8719866bf78f06ea6e1c6b111d66dfac31f2c8578` (`proc-v21`, `proc-v22`) | `sha256:b10485508f9857df40bf900089e422926fad9d2314dc06116f01f191d79ef319` (new) |
+  | `gemini-baseline` | `sha256:ff9786ea91896f0f50f176c3b1de403074ccf54cbe49ba69d844d201c59d2069` (`proc-v21`, `proc-v22`) | `sha256:5b3e9ae5871c082f95427257cca4e9a043830b1dd290847c28bd960c1f2327c3` (new) |
+  | `claude-judge` | `sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08` (`proc-v22`) | the same digest, carried forward (`proc-v22`, `proc-v23`) |
+  | `codex-judge` | `sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5` (`proc-v22`) | the same digest, carried forward (`proc-v22`, `proc-v23`) |
+  | `gemini-judge` | `sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a` (`proc-v22`) | the same digest, carried forward (`proc-v22`, `proc-v23`) |
+
+  **What was made under the retiring digests.** At `origin/main`
+  `94b3cd8e2` (`2026-11-13T17:04:30Z`), committed files under `data/cases`
+  naming each retiring digest: 9 for each of the three `proc-v21` predictor
+  digests. No evaluator digest retires.
+
+  **Step 0.** At the same commit, the count of committed files under
+  `data/cases` naming `sha256:<digest>` is **0** for each of the three newly
+  blessed digests, and **4098** files there carry a `process_version` stamp.
+
+  **Windows** (`COUNTING_WINDOWS`, once the carrying merge stamps them):
+
+  | Predictor | Label | Opens | Closes |
+  | --- | --- | --- | --- |
+  | `claude-baseline` (`b61115d4…`) | `proc-v21` | `2026-11-12T19:49:39Z` | this label's instant (was open) |
+  | `codex-baseline` (`a74ea561…`) | `proc-v21` | `2026-11-12T19:49:39Z` | this label's instant (was open) |
+  | `gemini-baseline` (`ff9786ea…`) | `proc-v21` | `2026-11-12T19:49:39Z` | this label's instant (was open) |
+  | `claude-baseline` (`e266abac…`) | `proc-v23` | this label's instant | open (new) |
+  | `codex-baseline` (`b1048550…`) | `proc-v23` | this label's instant | open (new) |
+  | `gemini-baseline` (`5b3e9ae5…`) | `proc-v23` | this label's instant | open (new) |
+
+  Earlier windows keep the closes earlier labels gave them. `proc-v22` opened
+  no window, so the windows this label closes are `proc-v21`'s, and the
+  registry holds 42 windows where it held 39.
+
+  **What the close owes, provisional.** Run with this commit's pending rows
+  stamped by hand at a provisional instant, `2026-11-14T00:00:00Z`, in a
+  scratch copy of the registry, over the ledger at `origin/main`
+  `94b3cd8e2`. `uv run fedcourts successor-disclosures --closed proc-v21
+  --successor proc-v23`:
+
+  ```
+  successor proc-v23 closes proc-v21 at 2026-11-14T00:00:00+00:00
+    closed proc-v21 codex-baseline: 9 counted event(s) — 0 resolved, 9 pending at close
+    closed proc-v21 claude-baseline: 9 counted event(s) — 0 resolved, 9 pending at close
+    closed proc-v21 gemini-baseline: 9 counted event(s) — 0 resolved, 9 pending at close
+    split events: 0 (0 resolved) — in no complete grid
+  ```
+
+  Cells keep landing until the instant, so the run is repeated once the
+  carrying merge has stamped the registry, and a dated follow-up entry quotes
+  it before any `proc-v21` window figure is quoted outside the committed
+  board.
+
+  **The evaluator half.** The three evaluator digests are `proc-v22`'s, so
+  no rubric row opens and no judge figure gains a digest at this label. What
+  a judge grades does change on the predictor side of the boundary: from
+  this label a cert prediction's reasoning may cite the handed count and
+  rate.
+
+- **The legacy one-in-ten IFP denial sample is complete in every Term; recorded
+  2026-11-13.** A reading, and the end of a statpack boundary; no rule, digest
+  or `salience_version` moves.
+
+  **What moved.** An early historical walk kept one IFP denial in ten for
+  OT2017 to OT2024 and stored each at `sample_weight` 10. `run-seed` re-opened
+  the `historical-ifp` stream of each of those Terms (OT2017 first, then OT2018
+  to OT2025 in one dispatch, OT2025 for its counsel only), and each re-walk
+  served every serial again and stored it at weight 1. Every stream reached its
+  frontier by the corpus pointer of `main` `db110b584` (2026-11-13T13:22:44Z).
+  Read from the blob at `main` `bcfd1b916` (latest pull 2026-11-13, latest
+  snapshot 2026-07-13), `uv run fedcourts corpus-info --legacy-sample` prints
+  `legacy sample: no weighted rows`.
+
+  **The figures.** Per-Term IFP cert figures of `metrics/statpack.json`: before,
+  the pack committed at `7fbb3736e` (2026-10-26), built before any
+  re-walk; after, the pack committed at `b30dc90f6` (2026-11-13T20:23:42Z,
+  merged to `main` as `8a8367f41`), the first built after the last stream
+  closed.
+
+  | Term | IFP filings | denied, weighted | denied, counted | gap | grant-family estimate (of weighted resolved) |
+  | --- | --- | --- | --- | --- | --- |
+  | OT2017 | 4,595 | 4,410 | 4,397 | −13 | 1.403% → 1.472% |
+  | OT2018 | 4,847 | 4,650 | 4,647 | −3 | 1.188% → 1.188% |
+  | OT2019 | 3,930 | 3,721 | 3,733 | +12 | 1.521% → 1.542% |
+  | OT2020 | 3,477 | 3,302 | 3,315 | +13 | 1.076% → 1.072% |
+  | OT2021 | 3,288 | 3,161 | 3,145 | −16 | 1.162% → 1.167% |
+  | OT2022 | 2,907 | 2,690 | 2,757 | +67 | 0.607% → 0.593% |
+  | OT2023 | 2,848 | 2,680 | 2,691 | +11 | 1.043% → 1.074% |
+  | OT2024 | 2,529 | 2,391 | 2,401 | +10 | 0.971% → 0.967% |
+
+  Over the eight Terms the weighted estimate was 27,005 denials and the count
+  is 27,086, a gap of +81 (0.3% of the estimate). The largest is OT2022's,
+  +67 (2.5% of its estimate). No sampling band is quoted: the sample was a
+  grid over serials, not a random draw, and its variance was not estimated.
+  Nor is the gap sampling error alone, since it also holds rows the re-walk
+  read differently or that resolved between the two packs. The other IFP dispositions were
+  stored one by one before the walk. Dismissed rows do not move in any Term,
+  and granted plus GVR rows move by at most three (OT2017, 64 to 67). Within
+  that sum the re-walk re-read OT2023's and OT2024's rows: the earlier pack
+  held 29 and 24 as granted and none as GVR, and this one holds 3 granted and
+  27 GVR, and 3 granted and 21 GVR.
+
+  **What is not complete.** 46 OT2024 IFP dockets (serials between 5049 and
+  7519) are stored, have never been live-polled and carry no disposition; the
+  pack counts them as filings and not as ingested rows (2,483 of 2,529), and
+  OT2024's count can rise by up to 46 as the never-polled reserve reaches
+  them. In no other Term from OT2017 to OT2025 does the IFP stream hold a
+  docket number with no polled row.
+
+  **The boundary.** The packs committed from 2026-10-28 up to, and not
+  including, `b30dc90f6` were built mid-walk and mix counted and weighted rows within a Term: the pack
+  at `829c27682` (2026-11-09) reads OT2018 IFP denials as 5,337 and marks
+  OT2018 to OT2020 IFP not complete. A per-Term IFP or pooled cert figure for
+  OT2017 to OT2024 from a pack in that window is not compared or pooled with
+  one from before it or after it, and a prediction stamped in that window may
+  have drawn on such a pack. No scored figure is recomputed and no cell is de-counted.
+  `sample_weight` and its guards stay as they are; retiring them is a separate
+  change.
+
+  The re-walks also wrote `counsel` on the rows they served: resolved rows with
+  parties and blank counsel fell from 6,042 to 1 across OT2017 to OT2025.
+
+- **Readings the `proc-v22` entry owes, recorded 2026-11-14.** No rule moves
+  here. The `proc-v22` entry (dated 2026-11-13), carried to `main` by
+  `promotion/2026-11-13` (merge `f6441bcda`, registry stamped by `7fa05fd80`)
+  and tagged `prereg/proc-v22`, counted the committed files under the three
+  evaluator digests it replaced at `origin/main`'s `95bc6575c`, before the
+  carrying merge, and owed the counts again once that merge had stamped the
+  registry. That entry is not otherwise edited.
+
+  The counts are read at `origin/main`'s `1fcfa5605`
+  (`2026-11-14T07:23:06Z`) with `git grep -l 'sha256:<digest>' --
+  'data/cases/**/evaluation.json' | wc -l`, and each equals the count read
+  at the record commit `7fa05fd80`:
+
+  | Evaluator | Replaced digest | At `95bc6575c` | After the stamp |
+  | --- | --- | --- | --- |
+  | `claude-judge` | `sha256:c1b452dea2e2f9a5c263428a31ed4c11f562c6ca10765b1dcfe66ff54daa733d` | 0 | 9 |
+  | `codex-judge` | `sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c` | 108 | 117 |
+  | `gemini-judge` | `sha256:93dfd6b52d95a78cbc7ce722aa2230f0e8ce09716d6219c95036ca071419fee9` | 0 | 9 |
+
+  The difference is one evaluate round, run `20261113T154407Z`, which landed
+  nine `evaluation.json` per judge between the two reads and before the
+  carrying merge at `2026-11-13T17:00:26Z`. It is the only round graded
+  under the two digests `proc-v21` blessed for `claude-judge` and
+  `gemini-judge`. No evaluate round has landed between the merge and this
+  read, and one that does stamps its judge's `proc-v22` digest, so these
+  three counts are not expected to move again. They count carrying files, as
+  the `proc-v22` entry's own do: every `evaluation.json` stamped with that
+  digest, an upper bound on the gradings of counted predictions among them.

@@ -206,6 +206,7 @@ def build(  # noqa: PLR0913 - one context, each optional part a keyword
         response_requested=projected.row.response_requested if application else None,
         referred_to_court=projected.row.referred_to_court if application else None,
         amicus_briefs=projected.row.amicus_briefs if application else None,
+        cert_amicus_briefs=snapshot_cert_amicus_briefs(payload, cutoff),
         term=term,
         vide_links=links,
         # Frozen so a cell, and a grader reading the record, can tell a filing
@@ -214,10 +215,10 @@ def build(  # noqa: PLR0913 - one context, each optional part a keyword
     )
 
 
-def stamped_cert_amicus_briefs(
+def snapshot_cert_amicus_briefs(
     payload: Mapping[str, Any], cutoff: date | None = None
 ) -> int | None:
-    """The cert-stage amicus count a provisioned snapshot discloses, for the stamp.
+    """The cert-stage amicus count a provisioned snapshot discloses.
 
     On a Term-form docket whose payload carries a proceedings list; ``None`` on
     any other docket form (an application freezes ``amicus_briefs`` under the
@@ -230,11 +231,12 @@ def stamped_cert_amicus_briefs(
     which no date places before the cutoff. A cell placed at no cutoff reads its
     payload whole (:func:`.cert_amicus.cert_amicus_briefs`), as it was handed it.
 
-    Not part of :func:`build` on purpose. What ``build`` returns is written to
-    ``record/context.json``, which the cell reads, and a pre-computed amicus
-    count there would widen every cert cell's information set. ``stamp-cell``
-    calls this after the agent has finished, over the snapshot file provisioning
-    placed, so the count reaches the committed ``prediction.json`` and no cell.
+    Read twice, by one rule. :func:`build` freezes it into
+    ``record/context.json``, where the cell reads it and where it picks the arm
+    of the amicus-adjusted reference forecast frozen beside it; ``stamp-cell``
+    reads it again over the snapshot file provisioning placed, after the agent
+    has finished, so the count on the committed ``prediction.json`` is the
+    harness's reading rather than whatever the context file held by then.
     """
     docket_number = str(payload.get("docket_number") or payload.get("CaseNumber") or "").strip()
     if corpus.scotus_term_year(docket_number) is None:

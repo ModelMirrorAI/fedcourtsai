@@ -5706,14 +5706,18 @@ TEXT_COVERAGE_KINDS: tuple[str, ...] = (*FETCHED_DOCUMENT_KINDS, KIND_QUESTIONS_
 # a fetched filing too long for any appendix budget may carry no item note.
 _CUT_NOTE_DESCRIPTION = (
     "Where a cut is made around an appendix it is marked in the text by a "
-    "'[pipeline note: ...]' line; a truncated row with no such line was cut at "
-    "the cap from the end."
+    "'[pipeline note: ...]' line that says how much was left out; a truncated "
+    "row with no such cut note was cut at the cap from the end. A "
+    "'[pipeline note: ...]' line naming PDF pages with little or no text layer "
+    "marks pages the text does not carry, not a cut."
 )
 _COMBINED_CUT_DESCRIPTION = (
     "Over the text cap, each filing's own text is kept before any appendix and the "
     "cap is shared between the filings, each cut marked inside its filing by a "
-    "'[pipeline note: ...]' line; a truncated row with no such line was cut at the "
-    "cap from the end, in docket order."
+    "'[pipeline note: ...]' line that says how much was left out; a truncated row "
+    "with no such cut note was cut at the cap from the end, in docket order. A "
+    "'[pipeline note: ...]' line naming PDF pages with little or no text layer "
+    "marks pages the text does not carry, not a cut."
 )
 KIND_DESCRIPTIONS: Mapping[str, str] = {
     KIND_PETITION: (

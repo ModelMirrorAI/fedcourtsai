@@ -1,5 +1,99 @@
 {
   "$defs": {
+    "AmicusLineReference": {
+      "additionalProperties": false,
+      "description": "A reference line on a paired cert figure: the band rate split on a cert-stage amicus brief.\n\nA no-model forecast under a registered rule (`fedcourtsai.amicus_line`,\ndated in `docs/freeze-record.md`): each event's forecast is the rate its\nearliest qualifying cell froze at provisioning for its arm of its band's\nrisk set (`none` for no cert-stage amicus brief on the cell's snapshot,\n`some` for one or more), copied to the grading only where the stamp\nre-pooled it from the committed fit. Nobody forecast it and it never takes\na rank. Every Brier here is **per event** against the binary target, over\nthis block's own `events`. Each engine's cell is handed its own frozen\nrate before it forecasts, so an engine's Brier against the line is its gap\nto a reference that was available to it, not a test of whether it finds\nthe amicus signal unaided; on an arm-mismatch event the line is not the\nrate a later engine was handed.",
+      "properties": {
+        "arm_mismatches": {
+          "description": "Events among `events` whose engines' cells froze counts in different arms: an amicus brief reached the docket between the engines' runs. The line is the earliest cell's rate, so these lean against it",
+          "minimum": 0,
+          "title": "Arm Mismatches",
+          "type": "integer"
+        },
+        "band_brier": {
+          "description": "The same mean for the frozen band anchor (`segment_base_rate`) of each event's earliest qualifying cell. The figure `brier` is read against to see what the split adds over the band, while the fit's pools carry no unread rows",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Band Brier",
+          "type": "number"
+        },
+        "brier": {
+          "description": "Mean, over `events`, of the squared gap between the line and the binary target",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Brier",
+          "type": "number"
+        },
+        "by_arm": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "description": "`events` per arm (`none`, `some`) of the earliest qualifying cell",
+          "title": "By Arm",
+          "type": "object"
+        },
+        "engine_brier": {
+          "additionalProperties": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "type": "number"
+          },
+          "description": "Each paired engine's own per-event Brier over the same `events`, by `predictor_id`",
+          "title": "Engine Brier",
+          "type": "object"
+        },
+        "events": {
+          "description": "Paired events the line is over: those on which every engine's every qualifying grading carries outcome facts and a stamped `amicus_line_rate`, and the earliest of them a risk-set `segment_base_rate`",
+          "minimum": 1,
+          "title": "Events",
+          "type": "integer"
+        },
+        "fallback_events": {
+          "description": "Events among `events` whose forecast is the band rate, the arm's pool having held fewer observed resolved rows than the rule's minimum. On these the line and the band rate are one number",
+          "minimum": 0,
+          "title": "Fallback Events",
+          "type": "integer"
+        },
+        "grants": {
+          "description": "Events among `events` whose binary target (`Outcome.actual_granted`) is 1",
+          "minimum": 0,
+          "title": "Grants",
+          "type": "integer"
+        },
+        "grants_forecast": {
+          "description": "The sum of the line over `events`",
+          "minimum": 0.0,
+          "title": "Grants Forecast",
+          "type": "number"
+        },
+        "left_out": {
+          "description": "Paired events not among `events`. With `events` it sums to `PairedEvents.events`",
+          "minimum": 0,
+          "title": "Left Out",
+          "type": "integer"
+        },
+        "rule": {
+          "description": "The registered rule the line is computed under",
+          "title": "Rule",
+          "type": "string"
+        }
+      },
+      "required": [
+        "rule",
+        "events",
+        "left_out",
+        "grants",
+        "grants_forecast",
+        "brier",
+        "band_brier",
+        "engine_brier",
+        "by_arm",
+        "fallback_events",
+        "arm_mismatches"
+      ],
+      "title": "AmicusLineReference",
+      "type": "object"
+    },
     "BigCaseLeaderboard": {
       "additionalProperties": false,
       "description": "A predictor's big-case-score agreement with the evaluator panel's stakes reads.\n\nA *second* skill dimension, orthogonal to the grant/deny ranking (a model can\nread a case's significance well while calling grant/deny only modestly, or the\nreverse). Bigness is comparative, so the agreement is a **rank** correlation \u2014\nKendall's tau-b between the predictor's ``big_case_score`` ordering and the\npanel's (the mean of the evaluators' own reads), across the scored\n**cases** both sides rated. A case carrying several forecast moments\ncontributes one point, both sides averaged over its moments: bigness is a\nproperty of the case, so a case's moments are not independent observations\nand a correlation that assumed they were would overstate its own evidence.\nNever enters the leaderboard ranking; reported alongside it.",
@@ -1621,6 +1715,18 @@
       "additionalProperties": false,
       "description": "A population's paired-event figure: the events every compared engine holds.\n\nA cross-engine comparison is read only over events on which every engine in\nthe set holds a counted forward cell carrying both an accuracy and a Brier\nscore, from any window. Pooling lets each engine's event set drift with its\nown history, so pooled entries side by side are not a comparison; this\nfigure is. Adding or retiring an engine moves the set, and the figure names\nthe engines it pairs.",
       "properties": {
+        "amicus_line": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AmicusLineReference"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The band rate split on a cert-stage amicus brief, as an unranked reference line (see AmicusLineReference). Cert populations only; omitted otherwise, and while no paired event carries a stamped line rate for every engine's cell"
+        },
         "band_mismatches": {
           "default": 0,
           "description": "Paired events whose engines' cells carry different band keys. Expected to cluster where a band rose between engines' runs (relists, CVSGs) \u2014 the higher-grant events",

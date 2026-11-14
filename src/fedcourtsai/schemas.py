@@ -862,18 +862,121 @@ class CertAnchor(_Strict):
     )
 
 
+class AmicusLineCell(_Strict):
+    """One Term's risk set for one band under one salience version, cut on the amicus count."""
+
+    term: int = Field(description="The October-Term year of the rows' docket numbers")
+    salience_version: str = Field(description="The scorer whose bands the risk set is under")
+    band: str = Field(description="The band whose risk set this is: every row that reached it")
+    none_resolved: int = Field(
+        ge=0, description="Resolved rows in the risk set whose stored count is 0 (raw count)"
+    )
+    none_weighted_resolved: int = Field(
+        ge=0, description="The same rows, each counted `sample_weight` times"
+    )
+    none_weighted_grants: int = Field(
+        ge=0, description="The grant-family rows among them, on the same weights"
+    )
+    some_resolved: int = Field(
+        ge=0, description="Resolved rows in the risk set whose stored count is 1 or more"
+    )
+    some_weighted_resolved: int = Field(
+        ge=0, description="The same rows, each counted `sample_weight` times"
+    )
+    some_weighted_grants: int = Field(
+        ge=0, description="The grant-family rows among them, on the same weights"
+    )
+    unread_resolved: int = Field(
+        ge=0,
+        description="Resolved rows in the risk set whose stored count is NULL: in neither "
+        "arm. With the two arms' raw counts it sums to the statpack segment's "
+        "`prefix_resolved`",
+    )
+
+
+class AmicusLineFit(_Strict):
+    """The committed fit, ``metrics/amicus-line.json``: every risk set, cut on the count.
+
+    Written by ``fedcourts statpack`` from the corpus read that builds the
+    statpack, under every registered salience version. Carries no build
+    timestamp, so two builds share a ``fedcourtsai.amicus_line.fit_digest`` exactly when every count
+    agrees. A replay self-selection surface like the statpack's per-Term table:
+    a cell pools only Terms strictly before its own.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    rule: str = Field(description="The registered rule whose fit this is")
+    min_resolved: int = Field(
+        ge=0,
+        description="Observed resolved rows an arm's pool must hold before a forecast "
+        "uses its rate",
+    )
+    cells: list[AmicusLineCell] = Field(
+        default_factory=list,
+        description="One row per Term, salience version and band: recent Term first, "
+        "then version, then the scorer's band order",
+    )
+
+
+class CertAmicusLine(_Strict):
+    """The amicus-adjusted reference forecast frozen at provisioning for one cert cell.
+
+    **Harness-owned.** ``provision-snapshot`` pools it
+    (:func:`fedcourtsai.amicus_line.freeze`) for a cert cell whose context froze
+    a band, a salience version, a Term, a cert-stage amicus count and a cert
+    anchor, from the ``metrics/amicus-line.json`` checked out when the cell was
+    placed: the cell's arm of its band's risk set (``none`` for a count of 0,
+    ``some`` for 1 or more) over the Terms strictly before its own inside the
+    anchor's window. The cell reads it in ``record/context.json`` beside the
+    anchor. Like the anchor it is a claim until checked: ``stamp-cell`` copies
+    it onto the prediction as it finds it, and the evaluator stamp re-pools it
+    from the fit committed on ``main`` when the cell was placed and copies the
+    rate onto the grading only where it reproduces. That check binds the rate
+    to the count beside it, and the count rests on the provisioned snapshot
+    file, which sits in the same workspace.
+    """
+
+    rule: str = Field(description="The registered rule the forecast was pooled under")
+    rate: float | None = Field(
+        ge=0.0,
+        le=1.0,
+        description="The reference probability of a grant: the arm's pooled rate on the "
+        "`arm` basis, the anchor's band rate on `band-fallback`. Null only where the "
+        "fallback applies and the anchor's own rate is null",
+    )
+    basis: Literal["arm", "band-fallback"] = Field(
+        description="`arm` where the arm's pool held the rule's minimum of observed "
+        "resolved rows; `band-fallback` where it did not, and `rate` is the cert "
+        "anchor's band rate"
+    )
+    arm: Literal["none", "some"] = Field(
+        description="The arm the frozen count put the cell in: `none` for 0 cert-stage "
+        "amicus briefs, `some` for 1 or more"
+    )
+    arm_resolved: int = Field(
+        ge=0,
+        description="Observed (unweighted) resolved rows in that arm's pool, on either basis",
+    )
+    fit_digest: str = Field(
+        description="`amicus_line.fit_digest` of the `metrics/amicus-line.json` build "
+        "the forecast was pooled from (`sha256:` over the parsed fit's canonical JSON)"
+    )
+
+
 class PredictionContext(_Strict):
     """The conditioning state a predict cell actually ran against.
 
     **Harness-owned.** Written by ``provision-snapshot`` and copied onto the
     prediction by ``stamp-cell``, exactly like ``process_version`` and
-    ``usage.json`` — never the agent's word. Two fields are the stamp's own
-    rather than provisioning's: ``snapshot_uptake``, below, and
-    ``cert_amicus_briefs``, which the stamp reads off the provisioned snapshot
-    file so that no cell is handed it. That matters here more than
-    elsewhere: ``input_snapshot`` is the agent's own string and is written
-    several ways across the committed set, with some cells naming no path at
-    all, so it cannot carry a scoring input.
+    ``usage.json`` — never the agent's word. One field is the stamp's own
+    rather than provisioning's, ``snapshot_uptake``, below, and one is written
+    by both: ``cert_amicus_briefs``, which provisioning hands the cell and the
+    stamp reads again off the provisioned snapshot file, so the committed count
+    is the harness's reading whatever ``record/context.json`` held by then.
+    Harness ownership matters here more than elsewhere: ``input_snapshot`` is
+    the agent's own string and is written several ways across the committed
+    set, with some cells naming no path at all, so it cannot carry a scoring
+    input.
 
     The agent's string is not *nothing*, though: it is the cell's own account of
     which snapshot it read, and where it disagrees with the file the harness
@@ -1117,19 +1220,32 @@ class PredictionContext(_Strict):
         "accepted-form entries plus each distinct lead filer still docketed as "
         "submitted, less the Court's orders on amicus motions, before the first "
         "disposition entry) over the entries the cell's own cut kept, an undated "
-        "entry left out where the cell was placed at a cutoff. **Written "
-        "by `stamp-cell`, never by provisioning**: `record/context.json` carries "
-        "it null, so no cell is handed the count, and the stamp reads it off the "
-        "provisioned snapshot file after the agent has finished. That file sits "
-        "in the cell's workspace, as `record/context.json` does, so the count "
-        "rests on the same trust boundary as the rest of this block. On a "
+        "entry left out where the cell was placed at a cutoff. Written by "
+        "provisioning into `record/context.json`, where the cell reads it, and "
+        "again by `stamp-cell` off the provisioned snapshot file after the agent "
+        "has finished, so the committed value is the stamp's reading. That file "
+        "sits in the cell's workspace, as `record/context.json` does, so the "
+        "count rests on the same trust boundary as the rest of this block. On a "
         "Term-form docket only (an application's own count is `amicus_briefs`, "
         "under the interim reading); null where the snapshot disclosed no "
         "proceedings, where the stamp found no snapshot file to read, and on "
-        "every prediction stamped before the field existed. Not masked by "
-        "`snapshot_uptake`: like the signals above it is a fact about the "
-        "provisioned record. Never re-derived from a later record. Read by no "
-        "scored figure",
+        "every prediction stamped before the field existed. A prediction placed "
+        "before `cert_amicus_line` existed carries the count from the stamp "
+        "alone: its cell was not handed it. Not masked by `snapshot_uptake`: "
+        "like the signals above it is a fact about the provisioned record. "
+        "Never re-derived from a later record. Picks the arm of "
+        "`cert_amicus_line`",
+    )
+    cert_amicus_line: CertAmicusLine | None = Field(
+        default=None,
+        description="The amicus-adjusted reference forecast pooled when the cell was "
+        "placed (see CertAmicusLine): the cell's arm of its band's risk set, from the "
+        "`metrics/amicus-line.json` then checked out, under the cert anchor's window. "
+        "Handed to the cell beside `cert_anchor`. A cert grading copies its rate to "
+        "`amicus_line_rate` only where it re-pools from the fit committed when the "
+        "cell was placed. Null on a cell of any other stage, on a cert cell with no "
+        "frozen anchor, Term, salience version or amicus count, where no fit file "
+        "was readable at provisioning, and on cells placed before the record",
     )
     term: int | None = Field(
         default=None,
@@ -2836,6 +2952,20 @@ class Evaluation(_Strict):
         "together name the pool; the leaderboard re-pools under this recorded "
         "window rather than the one in config at build time. Null wherever "
         "base_rate_statpack_digest is.",
+    )
+    amicus_line_rate: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Harness-stamped amicus-adjusted reference forecast for the scored "
+        "cert cell: the rate its context froze at provisioning "
+        "(`context.cert_amicus_line.rate`), copied only where the stamp re-pooled "
+        "it from the `metrics/amicus-line.json` committed on `main` when the cell "
+        "was placed. A no-model reference the board reads beside the engines, never "
+        "a baseline any skill is taken against. Null on a non-cert cell, where the "
+        "scored context froze no line or a null rate, where the frozen line did not "
+        "verify, on a re-grade of a record that carried none, and on records "
+        "written before the field existed.",
     )
     brier_skill_score: float | None = Field(
         default=None,
@@ -5242,6 +5372,74 @@ class EngineMeanReference(_Strict):
     )
 
 
+class AmicusLineReference(_Strict):
+    """A reference line on a paired cert figure: the band rate split on a cert-stage amicus brief.
+
+    A no-model forecast under a registered rule (`fedcourtsai.amicus_line`,
+    dated in `docs/freeze-record.md`): each event's forecast is the rate its
+    earliest qualifying cell froze at provisioning for its arm of its band's
+    risk set (`none` for no cert-stage amicus brief on the cell's snapshot,
+    `some` for one or more), copied to the grading only where the stamp
+    re-pooled it from the committed fit. Nobody forecast it and it never takes
+    a rank. Every Brier here is **per event** against the binary target, over
+    this block's own `events`. Each engine's cell is handed its own frozen
+    rate before it forecasts, so an engine's Brier against the line is its gap
+    to a reference that was available to it, not a test of whether it finds
+    the amicus signal unaided; on an arm-mismatch event the line is not the
+    rate a later engine was handed.
+    """
+
+    rule: str = Field(description="The registered rule the line is computed under")
+    events: int = Field(
+        ge=1,
+        description="Paired events the line is over: those on which every engine's every "
+        "qualifying grading carries outcome facts and a stamped `amicus_line_rate`, and "
+        "the earliest of them a risk-set `segment_base_rate`",
+    )
+    left_out: int = Field(
+        ge=0,
+        description="Paired events not among `events`. With `events` it sums to "
+        "`PairedEvents.events`",
+    )
+    grants: int = Field(
+        ge=0,
+        description="Events among `events` whose binary target (`Outcome.actual_granted`) is 1",
+    )
+    grants_forecast: float = Field(ge=0.0, description="The sum of the line over `events`")
+    brier: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="Mean, over `events`, of the squared gap between the line and the "
+        "binary target",
+    )
+    band_brier: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="The same mean for the frozen band anchor (`segment_base_rate`) of "
+        "each event's earliest qualifying cell. The figure `brier` is read against to "
+        "see what the split adds over the band, while the fit's pools carry no unread rows",
+    )
+    engine_brier: dict[str, Annotated[float, Field(ge=0.0, le=1.0)]] = Field(
+        description="Each paired engine's own per-event Brier over the same `events`, by "
+        "`predictor_id`",
+    )
+    by_arm: dict[str, int] = Field(
+        description="`events` per arm (`none`, `some`) of the earliest qualifying cell"
+    )
+    fallback_events: int = Field(
+        ge=0,
+        description="Events among `events` whose forecast is the band rate, the arm's "
+        "pool having held fewer observed resolved rows than the rule's minimum. On "
+        "these the line and the band rate are one number",
+    )
+    arm_mismatches: int = Field(
+        ge=0,
+        description="Events among `events` whose engines' cells froze counts in different "
+        "arms: an amicus brief reached the docket between the engines' runs. The line "
+        "is the earliest cell's rate, so these lean against it",
+    )
+
+
 class PairedEvents(_Strict):
     """A population's paired-event figure: the events every compared engine holds.
 
@@ -5300,14 +5498,23 @@ class PairedEvents(_Strict):
         "facts for every engine",
     )
 
+    amicus_line: AmicusLineReference | None = Field(
+        default=None,
+        description="The band rate split on a cert-stage amicus brief, as an unranked "
+        "reference line (see AmicusLineReference). Cert populations only; omitted "
+        "otherwise, and while no paired event carries a stamped line rate for every "
+        "engine's cell",
+    )
+
     @model_serializer(mode="wrap")
     def _omit_empty_by_band(self, handler: SerializerFunctionWrapHandler) -> Any:
-        """Drop ``by_band``, ``common_record`` and ``engine_mean`` while empty."""
+        """Drop ``by_band``, ``common_record`` and the reference lines while empty."""
         return _omit_empty(
             handler(self),
             by_band=self.by_band,
             common_record=self.common_record,
             engine_mean=self.engine_mean,
+            amicus_line=self.amicus_line,
         )
 
 
@@ -17485,6 +17692,7 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "live_frontier": LiveFrontier,
     "analytics_report": AnalyticsReport,
     "statpack": StatPack,
+    "amicus_line_fit": AmicusLineFit,
     "authorship_tally": AuthorshipTally,
     "same_question_list": SameQuestionList,
     "argument_features": ArgumentFeatures,

@@ -542,6 +542,21 @@
   "additionalProperties": false,
   "description": "``evaluation.json`` \u2014 one evaluator scoring one predictor's prediction.",
   "properties": {
+    "amicus_line_rate": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Harness-stamped amicus-adjusted reference forecast for the scored cert cell: the rate its context froze at provisioning (`context.cert_amicus_line.rate`), copied only where the stamp re-pooled it from the `metrics/amicus-line.json` committed on `main` when the cell was placed. A no-model reference the board reads beside the engines, never a baseline any skill is taken against. Null on a non-cert cell, where the scored context froze no line or a null rate, where the frozen line did not verify, on a re-grade of a record that carried none, and on records written before the field existed.",
+      "title": "Amicus Line Rate"
+    },
     "base_rate_basis": {
       "anyOf": [
         {

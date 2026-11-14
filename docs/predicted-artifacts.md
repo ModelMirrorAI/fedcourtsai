@@ -259,6 +259,7 @@ absent optional field as null.
     "referred_to_court": null,
     "amicus_briefs": null,
     "cert_amicus_briefs": null,
+    "cert_amicus_line": null,
     "term": 2025,
     "vide_links": [],
     "paper_only_filings": false,
@@ -974,16 +975,22 @@ directory without knowing which part is which invites trusting the wrong half.
   conduct, and the availability mask is a property of the record, never of the
   predictor ([outcome-decomposition.md](outcome-decomposition.md)).
 
-  **`cert_amicus_briefs` is the block's other stamp-written field.** On a
-  Term-form docket the stamp counts the cert-stage amicus briefs in the
-  provisioned snapshot file and records the count here. Provisioning leaves
-  it null in `record/context.json`, because that file is read by the cell and
-  a pre-computed count there would widen what every cert cell is handed. It
-  is null on an application docket; where the snapshot disclosed no
-  proceedings; on a re-stamp with no snapshot file beside it; and on every
-  prediction stamped before the field existed. The
-  amicus-adjusted reference line (`metrics/README.md`) reads it; no scored
-  figure does.
+  **`cert_amicus_briefs` is written twice, and `cert_amicus_line` is frozen
+  beside it.** On a Term-form docket provisioning counts the cert-stage amicus
+  briefs on the snapshot it places and writes the count into
+  `record/context.json`, where the cell reads it. Where the cell also froze a
+  cert anchor and `metrics/amicus-line.json` is readable, provisioning freezes
+  `cert_amicus_line` there too: the amicus-adjusted reference forecast for the
+  cell's arm of its band (`rule`, `rate`, `basis`, `arm`, `arm_resolved`,
+  `fit_digest`), which the cell also reads. The stamp then counts the briefs
+  again in the provisioned snapshot file and records its own count, so the
+  committed value does not rest on what the context file held after the
+  agent ran. The count is null on an application docket; where the snapshot
+  disclosed no proceedings; on a re-stamp with no snapshot file beside it; and
+  on every prediction stamped before the field existed. `cert_amicus_line` is
+  a claim like `cert_anchor`: the evaluator stamp copies its rate to the grading's `amicus_line_rate` only where it
+  re-pools from the committed fit, and the amicus-adjusted reference line
+  (`metrics/README.md`) reads that. No skill is scored against it.
 
   **`cut_kind` is the boundary, and the cutoff on its own is not.** A date
   cannot express the interim arrival moment: an application is submitted,
@@ -1119,7 +1126,12 @@ who writes the baseline on each:
   committed at or before the predict cell's run id, record the lookback
   window `config/tracking.yaml` names at that commit, and re-pool to the
   frozen rate, or the anchor and skill are cleared with a warning
-  (`docs/process-version.md` states the trust boundary). A context with no `cert_anchor` pools the statpack checked out at
+  (`docs/process-version.md` states the trust boundary). Where the anchor
+  was copied and the context also froze a `cert_amicus_line`, the stamp writes
+  its rate to `amicus_line_rate` once it re-pools from the
+  `metrics/amicus-line.json` committed at or before the same run id, and
+  leaves the field null with a warning otherwise; no skill is taken against
+  it. A context with no `cert_anchor` pools the statpack checked out at
   grading. A cert cell whose prediction froze no band takes the terminal
   fallback, and from `proc-v17` on the stamp writes that record too:
   `pipeline.base_rates.terminal_base_rate` over the band, salience version
