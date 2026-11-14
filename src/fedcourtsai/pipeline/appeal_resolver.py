@@ -37,6 +37,11 @@ triage as well.
   triage, because the stage's outcomes do not name that end, and so is an end
   with leave to reinstate the appeal.
 
+The forms that end an appeal on a motion are read only where the grant is the
+order's own leading act and its clause ends with the motion: the same words
+further into an entry are as often a request, a ruling below, or an order
+about the order.
+
 An entry whose result words sit beside a dissent, a cross-appeal, a stay, a
 certified question or a fee ruling is triage: the rule cannot say the words
 are the panel's disposition of the whole appeal. A document received from
@@ -198,8 +203,6 @@ _BE_RESULT = re.compile(
     r"\bbe\s+((?:affirmed|reversed|vacated)\b[^.;]{0,120})",
     re.I,
 )
-# A further result the same judgment states after its first clause.
-_BE_AGAIN = re.compile(r"\bbe\s+((?:affirmed|reversed|vacated|dismissed)(?:\s+in\s+part)?)\b", re.I)
 # An opinion or summary-order entry whose first clause after its label is the
 # result, in prose (`OPINION, we vacate …`, `OPINION, the District Court's order
 # is affirmed`). Only an entry that leads with the clause is read this way, and
@@ -215,9 +218,14 @@ _LEAD_CLAUSE = re.compile(
     re.I,
 )
 _CLAUSE_VERB = re.compile(r"\b(affirm|revers|vacat)(?:s|e|es|ed|ing)?\b(\s+in\s+part\b)?", re.I)
+# A result limited to a part of the appeal by its own words.
+_LIMITED = re.compile(
+    r"\binsofar\b|\bexcept\b|\bto\s+the\s+extent\b|\bwith\s+respect\s+to\b|\bmodif\w+|\bbut\b",
+    re.I,
+)
 _CLAUSE_SPLIT = re.compile(
-    r"\bdismiss(?!al\b)\w*|\binsofar\b|\bexcept\b|\bwith\s+respect\s+to\b|\bin\s+no\b"
-    r"|\bstay\w*|\band\s+den(?:y|ying|ied|ies)\b|\breserv\w+|\bmodif\w+",
+    _LIMITED.pattern + r"|\bdismiss(?!al\b)\w*|\bin\s+no\b|\bstay\w*|\breserv\w+|\bpetition\b"
+    r"|(?:\band|,)\s+den(?:y|ying|ied|ies)\b",
     re.I,
 )
 _ING_RESULT = re.compile(
@@ -227,38 +235,66 @@ _ING_RESULT = re.compile(
     re.I,
 )
 
-# An entry's own words dismissing the appeal. Some courts write "this case" for
-# the appeal, which is read only where the sentence or the order's verb is the
-# dismissal itself, because "the case" is as often the one below.
+# An entry's own words dismissing the appeal. Beside the plain forms, three
+# are read only as the court's own decree, because their words are as often a
+# party's request or the ruling below: "ORDERED … that this appeal be
+# dismissed", a judgment "filed that the appeal be dismissed", and "this case",
+# which some courts write for the appeal, as the order's own sentence or as
+# the clerk's Rule 42(b) dismissal.
 _DISMISSES_APPEAL = re.compile(
     r"\bappeal\s+(?:is\s+)?(?:hereby\s+|therefore\s+)?(?:voluntarily\s+)?dismissed\b"
-    r"|\bthat\s+(?:this\s+|the\s+)?appeal\s+be\s+dismissed\b"
+    r"|\bdismissing\s+(?:the\s+|this\s+)?appeal\b"
+    r"|\bordered\b[^.;]{0,60}?\bthat\s+(?:this\s+|the\s+)?appeal\s+be\s+dismissed\b"
+    r"|\bjudgment\b[^.;]{0,40}?\bfiled\s+that\s+the\s+appeal\s+be\s+dismissed\b"
     r"|(?:^|[.;]\s+)this\s+case\s+is\s+(?:hereby\s+|therefore\s+)?dismissed\b"
-    r"|\bdismissing\s+(?:the\s+|this\s+)?(?:appeal|case)\b",
+    r"|^\s*order\s*(?:\(clerk\)\s*)?dismissing\s+case\s+pursuant\s+to\s+"
+    r"(?:fed\.\s*r\.\s*app\.\s*p\.|frap)\s*42\s*\(\s*b\s*\)",
     re.I,
 )
-# The entry denies a request to dismiss.
+# The entry denies a motion or request to dismiss.
 _DENIES_DISMISSAL = re.compile(
-    r"\bden(?:y|ying|ied|ies)\b[^.;]{0,80}?\bdismiss\w*|\bdismiss\w*[^.;]{0,80}?\bbe\s+denied\b",
+    r"\bden(?:y|ying|ied|ies)\b[^.;]{0,80}?\b(?:motion|request)\b[^.;]{0,60}?\bdismiss\w*"
+    r"|\b(?:motion|request)\w*\b[^.;]{0,80}?\bdismiss\w*[^.;]{0,80}?\b(?:be|is|are)\s+denied\b",
     re.I,
 )
-# An order granting the appellant's own request to end the appeal, which need
-# not say that the appeal is dismissed.
+# What may stand between an order's leading words and its verb: the clerk's
+# mark, a document number, "filed".
+_ORDER_HEAD = (
+    r"^\s*" + _TAG + r"(?:filed\s+)?(?:(?:per\s+curiam|clerk'?s?|text|motion)\s+)?order\b"
+    r"(?:\s*\(clerk\))?(?:\s*\[[^\]]{0,20}\])?\s*,?\s*(?:filed\.?\s+)?"
+)
+_DOC = r"(?:\s*\[[^\]]{0,40}\])?"
+# An order whose own leading verb grants the appellant's request to end the
+# appeal, and says nothing between the motion and the end of its clause. It
+# need not say that the appeal is dismissed. A motion "to dismiss" with no
+# "voluntary" is read only as the appellant's own.
 _GRANTS_PARTIES_MOTION = re.compile(
-    r"\bgranting\s+(?:the\s+)?(?:unopposed\s+|consent\s+|joint\s+)?motion\s+"
-    r"(?:for\s+voluntar\w+\s+dismissal\b|to\s+voluntarily\s+dismiss\b"
-    r"|to\s+withdraw\s+(?:the\s+|this\s+)?appeal\b(?!\s+bond))"
-    r"|\bgranting\s+appellants?['\u2019]s?\s+(?:unopposed\s+|consent\s+)?motion\s+to\s+dismiss\s+"
-    r"(?:the\s+|this\s+)?(?:case|appeal)\b",
+    _ORDER_HEAD + r"(?:denying\s+motion\s+[^,;.]{0,80},\s*)?granting\s+(?:the\s+)?(?:"
+    r"(?:unopposed\s+|consent\s+|joint\s+)?motion\s+"
+    r"(?:for\s+voluntar\w+\s+dismissal|to\s+voluntarily\s+dismiss)"
+    r"(?:\s+(?:of\s+)?(?:the\s+|this\s+)?(?:appeal|case))?"
+    r"|(?:unopposed\s+|consent\s+|joint\s+)?motion\s+to\s+withdraw\s+(?:the\s+|this\s+)?appeal"
+    r"(?:\s+at\s+docket\s+entry\s+\d+)?"
+    r"|appellants?['\u2019]s?\s+(?:unopposed\s+|consent\s+)?motion\s+to\s+dismiss\s+"
+    r"(?:the\s+|this\s+)?(?:case|appeal)"
+    r")" + _DOC + r"\s*(?:[.,;]|$)",
     re.I,
 )
-# The parties' stipulation under Rule 42 as the clerk files it.
-_STIPULATED = re.compile(r"^\s*" + _TAG + r"frap\s+42\s+stipulation\b[^.]{0,80}\bfiled\b", re.I)
-# An order granting summary affirmance: the motion, named with no party before
-# it, and its grant side by side.
+# The parties' stipulation under Rule 42 as the clerk files it, with nothing
+# between its label and "filed" but whether it is with prejudice.
+_STIPULATED = re.compile(
+    r"^\s*" + _TAG + r"frap\s+42\s+stipulation\s*,\s*(?:with(?:out)?\s+prejudice\s*,\s*)?filed\b",
+    re.I,
+)
+# An order whose own leading verb grants "the motion for summary affirmance",
+# named with no party before it, and whose clause ends there.
 _SUMMARY_AFFIRMANCE = re.compile(
-    r"\bgranting\s+(?:the\s+)?motion\s+for\s+summary\s+affirmance\b"
-    r"|\bthe\s+motion\s+for\s+summary\s+affirmance(?:\s*\[[^\]]{0,40}\])?\s+be\s+granted\b",
+    _ORDER_HEAD
+    + r"(?:ordered\s+that\s+the\s+motion\s+for\s+summary\s+affirmance"
+    + _DOC
+    + r"\s+be\s+granted|granting\s+(?:the\s+)?motion\s+for\s+summary\s+affirmance"
+    + _DOC
+    + r")\s*(?:[.;]|$)",
     re.I,
 )
 _SUMMARY_AFFIRMANCE_NAMED = re.compile(r"\bsummary\s+affirmance\b", re.I)
@@ -280,9 +316,10 @@ _PARTIAL = re.compile(
     r"\bin\s+part\b|\bas\s+to\b|\bremain\w*|\bproceeds?\b(?!\s+in\s+forma\b)"
     r"|\bcross-?\s?appe(?:al|llant|llee)\w*|['\u2019]s\s+appeal\b"
     r"|\b(?:his|her|their)\s+appeal\b|\bappeals?\s+in\b|\bappeal\s+(?:no\b|of\b)"
-    r"|\bcase\s+(?:no\b|\d)|(?<!entry\s)\bno\.\s*\d|\bonly\b|\bcontinues?\b"
-    r"|\bwith\s+respect\s+to\b|\bdismiss(?:al)?\s+(?:of\s+)?appell(?:ant|ee)\b"
-    r"|\[\d{2}-\d{2,5},\s*\d{2}-\d{2,5}",
+    r"|\bcase\s+(?:no\b|\d)|\bno\.\s*\d{2}-\d|\bcontinues?\b|\bagainst\b"
+    r"|\bwith\s+respect\s+to\b|\bdismiss\w*\s+(?:of\s+)?(?:\w+-)?appell(?:ant|ee)\b"
+    r"|\binterlocutory\s+appeal\b|\bappeal\s+from\b|\bmandamus\b"
+    r"|\[\d{2}-\d{2,5}\s*(?:,|&|and)\s*\d{2}-\d{2,5}",
     re.I,
 )
 _BY_PARTIES = re.compile(
@@ -304,6 +341,12 @@ _STEMS = {
     "vacat": AppealOutcome.vacated,
     "dismiss": AppealOutcome.dismissed,
 }
+
+
+_LESS_THAN_WHOLE = "an order that dismisses less than the whole appeal"
+_MAY_RETURN = "an appeal ended with leave to reinstate it"
+_PETITION = "the entry decides a petition for review, whose outcomes the stage does not name"
+_NOT_THE_WHOLE = "the entry's result may not be the panel's disposition of the whole appeal"
 
 
 def _results(text: str) -> list[tuple[str, bool]]:
@@ -336,16 +379,11 @@ def _dismissal(text: str) -> AppealOutcome | str:
 
 def _read_dismissal(text: str) -> AppealOutcome | str | None:
     """An entry whose own words dismiss the appeal."""
-    if _NO_DISMISSAL.search(text) or _DENIES_DISMISSAL.search(text):
+    if _NO_DISMISSAL.search(text) or _DENIES_DISMISSAL.search(text) or _REINSTATE.search(text):
         return None
     if _PARTIAL.search(text):
         return _LESS_THAN_WHOLE
     return _dismissal(text)
-
-
-_LESS_THAN_WHOLE = "an order that dismisses less than the whole appeal"
-_MAY_RETURN = "an appeal ended with leave to reinstate it"
-_PETITION = "the entry decides a petition for review, whose outcomes the stage does not name"
 
 
 def _read_stipulation(text: str) -> AppealOutcome | str | None:
@@ -382,9 +420,6 @@ def _read_order(text: str) -> AppealOutcome | str | None:
     return None
 
 
-_NOT_THE_WHOLE = "the entry's result may not be the panel's disposition of the whole appeal"
-
-
 def _stated_results(text: str) -> list[tuple[str, bool]] | str:
     """The result words a judgment or opinion entry states, or why they cannot be trusted."""
     leading = _LEADING_RESULT.match(text)
@@ -399,12 +434,16 @@ def _stated_results(text: str) -> list[tuple[str, bool]] | str:
     for match in (*be, *_ING_RESULT.finditer(text)):
         found.extend(_results(match.group(1)))
     if be:
-        for again in _BE_AGAIN.finditer(text, be[-1].end()):
-            found.extend(_results(again.group(1)))
+        # A further result the same judgment states after its first clause.
+        found.extend(_results(text[be[-1].end() :]))
+    if found and _LIMITED.search(text):
+        return _NOT_THE_WHOLE
     if not found and _LEAD_CLAUSE.match(text):
         if _CLAUSE_SPLIT.search(text):
             return _NOT_THE_WHOLE
-        found = [(m.group(1).lower(), bool(m.group(2))) for m in _CLAUSE_VERB.finditer(text)]
+        # An "in part" anywhere in the clause qualifies its result.
+        partial = bool(re.search(r"\bin\s+part\b", text, re.I))
+        found = [(m.group(1).lower(), partial) for m in _CLAUSE_VERB.finditer(text)]
     if not found:
         found = [(m.group(1).lower(), bool(m.group(2))) for m in _CAPS.finditer(text)]
     return found

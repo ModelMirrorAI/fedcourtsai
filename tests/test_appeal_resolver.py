@@ -165,6 +165,31 @@ def entry(number: int, day: str, text: str) -> dict[str, Any]:
             "OPINION WITH DISSENT (A, B, C) REVERSED. FILED AND ENTERED JUDGMENT.",
             AppealOutcome.reversed,
         ),
+        (
+            "ORDER FILED. The motion to proceed in forma pauperis is denied and this appeal "
+            + "is dismissed for lack of jurisdiction.",
+            AppealOutcome("dismissed"),
+        ),
+        (
+            "PER CURIAM ORDER [1] filed ORDERED that the appeal be dismissed for lack of "
+            + "jurisdiction and the motion to stay be denied as moot.",
+            AppealOutcome("dismissed"),
+        ),
+        (
+            "ORDER FILED. A review of the record shows only a non-final order. This appeal is"
+            + " dismissed for lack of jurisdiction.",
+            AppealOutcome("dismissed"),
+        ),
+        (
+            "OPINION, we affirm the judgment of conviction and remand for resentencing, by "
+            + "ABC, FILED.",
+            AppealOutcome("affirmed"),
+        ),
+        (
+            "OPINION, we affirm in part and vacate in part the judgment of the district "
+            + "court, and remand, by ABC, FILED.",
+            AppealOutcome("mixed"),
+        ),
     ],
 )
 def test_a_disposition_form_reads_as_its_outcome(text: str, outcome: AppealOutcome) -> None:
@@ -255,6 +280,70 @@ def test_a_disposition_form_reads_as_its_outcome(text: str, outcome: AppealOutco
         "PER CURIAM ORDER [2098535] filed ORDERED that the federal appellees' motion for "
         + "summary affirmance be granted. The Clerk is directed to calendar this case for "
         + "the District of Columbia appellees.",
+        "ORDER FILED. The motion requesting that this appeal be dismissed for lack of "
+        + "jurisdiction is denied.",
+        "ORDER FILED. Appellee's motion that the appeal be dismissed as untimely is "
+        + "denied without prejudice to renewal in the answering brief.",
+        "ORDER FILED. Appellee's motion to dismiss is construed as a request that this "
+        + "appeal be dismissed as moot, and is carried with the case.",
+        "PER CURIAM ORDER [1] filed granting motion to expedite review of the district "
+        + "court order dismissing case for lack of jurisdiction [2].",
+        "CLERK'S ORDER [1] filed setting briefing schedule in appeal from order "
+        + "dismissing case for lack of jurisdiction.",
+        "CLERK'S ORDER [1] filed ORDERED that the opposition to the motion for summary "
+        + "affirmance be granted an extension.",
+        "PER CURIAM ORDER [1] filed ORDERED that the motion for leave to file the motion "
+        + "for summary affirmance be granted.",
+        "PER CURIAM ORDER [1] filed ORDERED that the motion to exceed word limits in the "
+        + "motion for summary affirmance be granted.",
+        "PER CURIAM ORDER [1] filed vacating the order granting the motion for summary "
+        + "affirmance and directing the Clerk to calendar this case.",
+        "PER CURIAM ORDER [1] filed ORDERED that the motion for summary affirmance be "
+        + "granted on the FOIA claim. A briefing schedule on the APA claim will follow.",
+        "PER CURIAM ORDER [1] filed ORDERED that the motion for summary affirmance be "
+        + "granted against appellant Doe.",
+        "CLERK'S ORDER [1] filed granting motion to voluntarily dismiss defendant-"
+        + "appellee Acme Corp. [2].",
+        "CLERK'S ORDER [1] filed granting motion for voluntary dismissal of the appeal "
+        + "against Acme Corp. [2]. The appeal will go forward against the other appellees.",
+        "MOTION ORDER, granting motion to withdraw appeal at docket entry 53 against "
+        + "Appellee Y, FILED.",
+        "CLERK'S ORDER [1] filed vacating order granting motion for voluntary dismissal "
+        + "[2]; appeal restored to the docket.",
+        "MOTION ORDER, referring to merits panel the request for an order granting motion"
+        + " to withdraw appeal, FILED.",
+        "FRAP 42 STIPULATION, withdrawing motion for stay, FILED.",
+        "FRAP 42 STIPULATION, rejected for noncompliance, corrected copy to be FILED.",
+        "FRAP 42 STIPULATION, with prejudice, of appeal against Appellee Y, FILED.",
+        "ORDER FILED. The motion to reconsider the order dismissing the appeal for lack "
+        + "of jurisdiction is granted. The appeal is reinstated.",
+        "PER CURIAM ORDER [1] filed ORDERED that the motion for summary affirmance be "
+        + "granted with respect to the federal appellees.",
+        "PER CURIAM ORDER [1] filed granting motion for summary affirmance [2083280-2] "
+        + "with respect to the dismissal of the claims against the federal defendants; "
+        + "denying motion for summary affirmance [2083281-2].",
+        "CLERK'S ORDER [1] filed dismissing case 24-5002 pursuant to FRAP 42(b). "
+        + "[24-5001, 24-5002]",
+        "ORDER (Clerk) dismissing case No. 24-1235 only pursuant to Fed. R. App. P. "
+        + "42(b). (AB)",
+        "CLERK'S ORDER [1] filed granting motion for voluntary dismissal of No. 24-5002 "
+        + "[2]. [24-5001, 24-5002]",
+        "CLERK'S ORDER [1] filed granting appellant's motion to dismiss case No. 24-5002 "
+        + "[2]. [24-5001, 24-5002]",
+        "CLERK'S ORDER [1] filed granting joint motion for voluntary dismissal of "
+        + "appellee Acme Corp. [2]; the case continues against the other appellees.",
+        "CLERK'S ORDER [1] filed granting motion to voluntarily dismiss appellant John "
+        + "Doe from this case [2].",
+        "FRAP 42 STIPULATION, withdrawing appeal as to Appellee Y only, with prejudice, "
+        + "FILED.",
+        "FRAP 42 STIPULATION, of cross-appeal 25-123, with prejudice, FILED.",
+        "FRAP 42 STIPULATION, with prejudice, on behalf of Cross-Appellant X, FILED.",
+        "FRAP 42 STIPULATION, with prejudice, in 25-1235 only, FILED.",
+        "FRAP 42 STIPULATION, without prejudice to reinstatement by 03/01/2026, FILED.",
+        "MOTION ORDER, granting motion to withdraw appeal without prejudice to "
+        + "reinstatement by 03/01/2026, FILED.",
+        "CLERK'S ORDER [1] filed granting motion to voluntarily dismiss petition for "
+        + "review [2].",
     ],
 )
 def test_an_entry_that_disposes_of_nothing_reads_as_none(text: str) -> None:
@@ -311,36 +400,13 @@ def test_an_entry_that_disposes_of_nothing_reads_as_none(text: str) -> None:
         "JUDGMENT. Affirmed as to appeal 25-1; dismissed as to 25-2.",
         "MEMORANDUM (A, B, C) We AFFIRM the denial of attorney's fees.",
         # Less than the whole appeal, a second result, or an end that may be undone.
-        "PER CURIAM ORDER [1] filed ORDERED that the motion for summary affirmance be "
-        + "granted with respect to the federal appellees.",
-        "PER CURIAM ORDER [1] filed granting motion for summary affirmance [2083280-2] "
-        + "with respect to the dismissal of the claims against the federal defendants; "
-        + "denying motion for summary affirmance [2083281-2].",
         "PER CURIAM JUDGMENT [1] filed that the appeal be dismissed as moot and the "
         + "district court's judgment be vacated, for the reasons in the accompanying "
         + "opinion.",
         "JUDGMENT. The appeal is dismissed as moot. The judgment of the district court is"
         + " vacated and the case remanded.",
-        "CLERK'S ORDER [1] filed dismissing case 24-5002 pursuant to FRAP 42(b). "
-        + "[24-5001, 24-5002]",
-        "ORDER (Clerk) dismissing case No. 24-1235 only pursuant to Fed. R. App. P. "
-        + "42(b). (AB)",
-        "CLERK'S ORDER [1] filed granting motion for voluntary dismissal of No. 24-5002 "
-        + "[2]. [24-5001, 24-5002]",
-        "CLERK'S ORDER [1] filed granting appellant's motion to dismiss case No. 24-5002 "
-        + "[2]. [24-5001, 24-5002]",
-        "CLERK'S ORDER [1] filed granting joint motion for voluntary dismissal of "
-        + "appellee Acme Corp. [2]; the case continues against the other appellees.",
-        "CLERK'S ORDER [1] filed granting motion to voluntarily dismiss appellant John "
-        + "Doe from this case [2].",
         "MOTION ORDER, granting motion to withdraw appeal at docket entry 53, on behalf "
         + "of Appellant X only; the appeal of Appellant Z will continue, FILED.",
-        "FRAP 42 STIPULATION, withdrawing appeal as to Appellee Y only, with prejudice, "
-        + "FILED.",
-        "FRAP 42 STIPULATION, of cross-appeal 25-123, with prejudice, FILED.",
-        "FRAP 42 STIPULATION, with prejudice, on behalf of Cross-Appellant X, FILED.",
-        "FRAP 42 STIPULATION, with prejudice, in 25-1235 only, FILED.",
-        "FRAP 42 STIPULATION, without prejudice to reinstatement by 03/01/2026, FILED.",
         "OPINION, we affirm the district court's judgment insofar as it rejected the "
         + "contract claim and dismiss the remainder of the appeal for lack of jurisdiction,"
         + " by ABC, DEF, GHI, FILED.",
@@ -359,13 +425,25 @@ def test_an_entry_that_disposes_of_nothing_reads_as_none(text: str) -> None:
         "PER CURIAM JUDGMENT [1] filed that the judgment of the District Court be "
         + "affirmed; and that the remainder of the appeal be dismissed for lack of "
         + "jurisdiction.",
-        "MOTION ORDER, granting motion to withdraw appeal without prejudice to "
-        + "reinstatement by 03/01/2026, FILED.",
-        "CLERK'S ORDER [1] filed granting motion to voluntarily dismiss petition for "
-        + "review [2].",
         "ORDER FILED granting appellee's unopposed motion to remand.",
         "MEMORANDUM DISPOSITION WITH DISSENT (A, B, C) AFFIRMED. Judge C would REVERSE.",
         "MEMORANDUM DISPOSITION WITH DISSENT AFFIRMED.",
+        "OPINION, we affirm the judgment in part and remand for further proceedings, by "
+        + "ABC, DEF, GHI, FILED.",
+        "OPINION, we affirm the dismissal in part and remand, by ABC, FILED.",
+        "OPINION, affirming the district court's order to the extent it granted summary "
+        + "judgment on the federal claims, and remanding the state claims, by ABC, FILED.",
+        "OPINION, we affirm the liability judgment but the damages award must be retried,"
+        + " by ABC, FILED.",
+        "ORDER (Clerk) dismissing case pursuant to Fed. R. App. P. 42(b). [24-1234 & " + "24-1235]",
+        "JUDGMENT, the interlocutory appeal is dismissed for lack of jurisdiction; the "
+        + "appeal from the final judgment will be heard.",
+        "JUDGMENT filed. The appeal is dismissed for lack of jurisdiction. The petition "
+        + "for mandamus is granted.",
+        "PER CURIAM JUDGMENT [1] filed that the District Court's order be affirmed; the "
+        + "judgment on Count II is, however, reversed.",
+        "OPINION, we affirm the dismissal of the federal claims, deny the petition for "
+        + "mandamus, and remand, by ABC, FILED.",
     ],
 )
 def test_a_disposition_the_rule_will_not_settle_is_a_reason(text: str) -> None:

@@ -122,17 +122,20 @@ against the opinion's own decretal line is not built.
   court"; and an opinion or summary-order entry whose first clause after its
   label is the result in prose ("Opinion, we vacate …", "Opinion, the District
   Court's order is affirmed", "Opinion, affirming the district court's
-  dismissal …"). A leading clause that also dismisses, denies, reserves,
-  modifies or stays something, or limits its result to a part ("insofar as",
-  "except", "with respect to"), goes to triage. Outside those forms,
+  dismissal …"). A leading clause that also dismisses, denies, reserves or
+  stays something goes to triage, and so does any of the last three forms
+  whose entry limits the result to a part ("insofar as", "except", "to the
+  extent", "with respect to", "but", a modification). A second result after a
+  judgment's first clause is read with it, so two results go to triage. Outside those forms,
   lower-case prose is not read, because an opinion's summary speaks of what
   the court below did. An "in part" after a
   capital result is read in any case. A remand is not an outcome. An opinion
   entry that states no result is passed over for the judgment beside it.
-- **An order granting summary affirmance is *affirmed*** where it grants "the
-  motion for summary affirmance" with no party named before it. A grant that
-  reaches some appellees, or sits beside a second such motion, goes to triage
-  or is not read.
+- **An order granting summary affirmance is *affirmed*** where the grant is
+  the order's own leading act, of "the motion for summary affirmance" with no
+  party named before it, and the clause ends there. A grant on some claims,
+  for some appellees, of a motion about that motion, or beside a second such
+  motion is not read or goes to triage.
 - **Result words beside another subject go to triage.** Where the entry also
   speaks of a dissent or a concurrence, a cross-appeal, rehearing en banc, a
   stay or injunction pending appeal, a certified question, fees or sanctions,
@@ -145,19 +148,27 @@ against the opinion's own decretal line is not built.
   Two results with no "in part" (reversed and vacated), and one result in
   part with no other, go to triage.
 - **A dismissal is split by who ended the appeal.** A voluntary or stipulated
-  dismissal, a settlement or Rule 42(b) is *no merits decision*, and so is an
-  order granting the appellant's own motion to dismiss or to withdraw the
-  appeal, whether or not it goes on to say the appeal is dismissed; a dismissal
-  for want of jurisdiction, as moot or as untimely is *dismissed*, in an order
-  or in a judgment that states no other result. Some courts write "this case"
-  for the appeal; the reader takes it only as the order's own verb
-  ("dismissing case") or its own sentence ("This case is dismissed."),
-  because "the case" is as often the one below. An order that denies a
-  request to dismiss disposes of nothing. An end with leave to reinstate the
-  appeal goes to triage. A
+  dismissal, a settlement or Rule 42(b) is *no merits decision*. So is an
+  order whose own leading act grants a motion for voluntary dismissal, a
+  motion to withdraw the appeal, or the appellant's own motion to dismiss,
+  with nothing between the motion and the end of its clause, whether or not
+  it goes on to say the appeal is dismissed; and so is the parties' Rule 42
+  stipulation as the clerk files it, with nothing between its label and
+  "filed" but whether it is with prejudice. A dismissal for want of
+  jurisdiction, as moot or as untimely is *dismissed*, in an order or in a
+  judgment that states no other result. "That the appeal be dismissed" is
+  read only as the court's decree ("ORDERED that …", a judgment "filed that
+  …"), because the same words are a party's request elsewhere. Some courts
+  write "this case" for the appeal; the reader takes it only as the order's
+  own sentence ("This case is dismissed.") or as the clerk's order
+  "dismissing case pursuant to" Rule 42(b), because "the case" is as often
+  the one below. An order that denies a motion or request to dismiss, or
+  that reinstates the appeal, disposes of nothing. A withdrawal with leave
+  to reinstate goes to triage. A
   dismissal that states neither, both, or another reason (a failure to
   prosecute) goes to triage, and so does one that reaches less than the whole
-  appeal: in part, one named party, one of several appeals named by number, a
+  appeal: in part, one named party or "against" one, an appeal named by its
+  number or by its kind (an interlocutory appeal, "the appeal from …"), a
   cross-appeal, or an entry filed in more than one docket. The reader does
   not otherwise tell the members of a consolidated set apart, and it cannot
   tell a sole appellant's withdrawal from that of one appellant among
