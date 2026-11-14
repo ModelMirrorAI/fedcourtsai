@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000088",
+  "run_id": "20261114T011216Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "committed statpack",
+    "CourtListener MCP search",
+    "CourtListener MCP search_document",
+    "web search and opinion retrieval",
+    "fedcourts validate"
+  ],
+  "helpful": [
+    "Frozen cert_anchor avoids recomputing a different placement-time baseline.",
+    "Paid-segment cuts distinguish selected petitions from the whole docket.",
+    "CourtListener snippets permitted a focused check of the claimed earmarking conflict."
+  ],
+  "gaps": [
+    "No published base-rate cut isolates calls for a response.",
+    "Appendix text allocation retained the state opinion's opening but omitted most substantive constitutional analysis."
+  ],
+  "notes": "Default uv cache was read-only; UV_CACHE_DIR=/tmp/uv-cache resolved execution. An invalid era token was corrected using CLI feedback. The corpus reporter-citation lookup was empty with an explicit sparse-coverage warning; official Bonta text supplied the authority. Missing opposition is expected at the response-requested moment, not treated as a provisioning failure."
+}

@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000088",
+  "run_id": "20261114T011216Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "WebFetch (supremecourt.gov docket)"],
+  "helpful": ["cert_anchor in context.json", "statpack amicus-count cut", "docket-number lookup for comparable petitions"],
+  "gaps": ["No base rate conditioned on a called-for response", "Decision below (state supreme court opinion) not staged separately; it was cut from the petition appendix", "No subject-matter search over prior petitions"],
+  "notes": "Era token 'modern' is rejected by query; the prompt's phrase 'modern' invites that mistake."
+}
