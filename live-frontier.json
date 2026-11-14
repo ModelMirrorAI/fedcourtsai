@@ -510,15 +510,43 @@
     },
     {
       "conference": "2024-09-30",
-      "petitions": 9
+      "petitions": 13
+    },
+    {
+      "conference": "2024-10-11",
+      "petitions": 1
+    },
+    {
+      "conference": "2024-10-18",
+      "petitions": 2
     },
     {
       "conference": "2024-11-08",
       "petitions": 1
     },
     {
+      "conference": "2024-11-15",
+      "petitions": 1
+    },
+    {
+      "conference": "2024-11-22",
+      "petitions": 2
+    },
+    {
+      "conference": "2024-12-06",
+      "petitions": 5
+    },
+    {
+      "conference": "2024-12-13",
+      "petitions": 1
+    },
+    {
       "conference": "2025-01-10",
       "petitions": 1
+    },
+    {
+      "conference": "2025-02-21",
+      "petitions": 2
     },
     {
       "conference": "2025-09-29",
@@ -638,11 +666,11 @@
     },
     {
       "conference": "2026-11-13",
-      "petitions": 154
+      "petitions": 153
     },
     {
       "conference": "2026-12-04",
-      "petitions": 131
+      "petitions": 139
     }
   ],
   "discovery": {
@@ -650,14 +678,14 @@
     "streams": [
       {
         "alarms": [],
-        "checked_on": "2026-11-13",
-        "cursor": 625,
-        "frontier": 625,
+        "checked_on": "2026-11-14",
+        "cursor": 633,
+        "frontier": 633,
         "holes": 0,
-        "holes_reprobed": 3,
+        "holes_reprobed": 0,
         "holes_serving": [],
         "lookahead_hits": [],
-        "newest_filed": "2026-11-12",
+        "newest_filed": "2026-11-13",
         "outside_serial": 498,
         "outside_source": "order-list 2026-11-09",
         "problems": [],
@@ -667,11 +695,11 @@
       },
       {
         "alarms": [],
-        "checked_on": "2026-11-13",
-        "cursor": 6147,
-        "frontier": 6147,
-        "holes": 5,
-        "holes_reprobed": 10,
+        "checked_on": "2026-11-14",
+        "cursor": 6153,
+        "frontier": 6153,
+        "holes": 1,
+        "holes_reprobed": 5,
         "holes_serving": [],
         "lookahead_hits": [],
         "newest_filed": "2026-11-13",
@@ -684,14 +712,14 @@
       },
       {
         "alarms": [],
-        "checked_on": "2026-11-13",
-        "cursor": 675,
-        "frontier": 675,
+        "checked_on": "2026-11-14",
+        "cursor": 685,
+        "frontier": 685,
         "holes": 2,
-        "holes_reprobed": 3,
+        "holes_reprobed": 2,
         "holes_serving": [],
         "lookahead_hits": [],
-        "newest_filed": "2026-11-12",
+        "newest_filed": "2026-11-13",
         "outside_serial": 661,
         "outside_source": "miscellaneous-order 2026-11-12",
         "problems": [],
@@ -702,11 +730,11 @@
     ],
     "term": 26
   },
-  "documents_provisioned": 172,
-  "generated_on": "2026-11-13",
-  "next_conference": "2026-11-13",
-  "next_conference_petitions": 154,
+  "documents_provisioned": 173,
+  "generated_on": "2026-11-14",
+  "next_conference": "2026-12-04",
+  "next_conference_petitions": 139,
   "schema_version": "1.0",
   "skipped": false,
-  "watchlist": 769
+  "watchlist": 794
 }
