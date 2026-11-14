@@ -1776,7 +1776,8 @@ pair the third one writes:
   and `run-repair`'s application back-fill, opinion-record and document
   (`documents`, the OCR recovery's, the re-cut's and the document back-fill's) writer jobs,
   which run on an apply only) —
-  **append-only**: it grants *enumerated object actions* — get, put, list —
+  **append-only**: it grants *enumerated object actions* — get, put, list,
+  and the two version reads (list versions, get a version) —
   never `s3:*`, with an explicit `Deny` on every delete and on the two
   bucket-configuration changes that are delete-equivalent, **versioning** and
   **lifecycle configuration**. The lifecycle Deny is not redundant with the
@@ -1888,6 +1889,18 @@ The split is deliberate: a cell touches KBs of one case's data, so it reads the
 immutable index in place through its own sidecar and moves no full blob; the
 backlog derivations and the whole-corpus scanners (`run-analytics` and
 `run-backtest`) are scans across every case, so they take the full pull.
+
+Both production workflow roles also hold `s3:ListBucketVersions` and
+`s3:GetObjectVersion`. One caller needs them: `run-repair`'s
+`live-snapshot-restore` pass, whose dry run (read-only role) and apply
+(read-write role) list a snapshot key's versions and read an earlier one. The
+grant's reach is the role's, not the pass's: every job that assumes either
+role can read a noncurrent version of any object the role can read, for as
+long as the bucket's lifecycle rule keeps it. That adds no write and no
+delete, and it reaches only bodies the role could read while they were
+current, but it does mean a body stored over on purpose stays readable to
+those jobs until it expires. A restore that must not leave the earlier body
+readable is a version delete, which is the maintainer's by hand.
 
 Developer access is separate from the workflow roles: the maintainer uses IAM
 Identity Center SSO, a contributor gets an on-demand IAM user scoped

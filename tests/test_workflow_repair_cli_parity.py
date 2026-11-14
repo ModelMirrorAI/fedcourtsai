@@ -1,6 +1,6 @@
 """`run-repair`'s embedded CLI strings, executed against the fixture corpus.
 
-`run-repair.yml` is dispatch-only, so its twenty-four maintenance passes are argv that
+`run-repair.yml` is dispatch-only, so its twenty-five maintenance passes are argv that
 nothing runs until a maintainer runs one — in front of the maintainer, at the
 moment they most want it to work. A flag renamed in `cli.py` leaves the workflow
 string behind, and the whole cost of that drift lands on the dispatch as a usage
@@ -31,6 +31,7 @@ The passes' own semantics are pinned at their unit seams
 `tests/test_vote_writer.py`, `tests/test_amicus_rederive.py`,
 `tests/test_cert_amicus_rederive.py`,
 `tests/test_salience_cert_backfill.py`,
+`tests/test_live_snapshot_restore.py`,
 `tests/test_documents.py`,
 `tests/test_document_backfill.py`,
 `tests/test_document_recut.py`,
@@ -144,6 +145,10 @@ BENIGN_REFUSALS: dict[str, str | tuple[str, ...]] = {
     # writing the worklist, so the parse and the reader after it find no file
     # to read, as the OCR recovery's do.
     "recut-documents": ("no stored documents", "refusing the handoff file"),
+    # The restore reads the content store's version listing and nothing else, and
+    # the fixture run addresses no store: the refusal fires after every flag has
+    # parsed, before a listing is asked for.
+    "restore-replaced-live-snapshots": "no content store is addressed",
 }
 
 
