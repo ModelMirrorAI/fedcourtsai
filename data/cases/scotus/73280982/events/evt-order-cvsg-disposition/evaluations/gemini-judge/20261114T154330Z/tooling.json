@@ -1,0 +1,22 @@
+{
+  "actor_id": "gemini-judge",
+  "case_id": "scotus/73280982",
+  "gaps": [],
+  "helpful": [
+    "fedcourts statpack-at reconstructed exact historical sal-v4 statpack build 73762050f49c for candidate base-rate verification",
+    "Provisioned sg-invited-brief.txt, supplemental-brief.txt, and 2026-11-14.json snapshot allowed exact verification of post-CVSG proceedings and the limited reformulated Question 1 grant"
+  ],
+  "notes": "All provisioned documents, outcome records, and blinded candidate artifacts were complete and legible; no external corpus or CourtListener retrieval was needed.",
+  "role": "evaluator",
+  "run_id": "20261114T154330Z",
+  "schema_version": "1.0",
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts statpack-at"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

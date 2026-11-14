@@ -1,0 +1,25 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73280982",
+  "gaps": [
+    "codex-baseline's staged log omits additional research described in its retrieval note; its coverage fraction does not measure transcript completeness."
+  ],
+  "helpful": [
+    "The staged disposing docket entry permits exact review of the limited grant and conference path.",
+    "statpack-at recovered the contemporaneous sal-v4 build without exposing candidate identities.",
+    "Per-call capture markers distinguish unobserved returns from empty results."
+  ],
+  "notes": "Completed all three candidates without external case retrieval. Preserved exact-label scores while flagging that the same limited cert grant is represented as granted in the outcome and granted-in-part by two candidates. gemini-baseline's zero result-capture coverage was treated as a standing telemetry limitation, not a defect or evidence of leakage.",
+  "role": "evaluator",
+  "run_id": "20261114T154330Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell and jq for provisioned inputs",
+    "uv run fedcourts statpack-at",
+    "apply_patch",
+    "system Python jsonschema",
+    "repository Pydantic output models"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

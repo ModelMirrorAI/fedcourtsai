@@ -1,0 +1,27 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/73280982",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-brief-sg-disposition",
+      "message": "outcome.json records actual_disposition `granted`, but the disposing docket entry (Nov 13 2026) reads 'Petition GRANTED limited to the following question: ...' and takes only the Solicitor General's reformulated Question 1. codex-baseline and claude-baseline labelled the prediction `granted-in-part` because they expected exactly that limited grant; gemini-baseline labelled the same forecast `granted`. Under the exact-label rule I scored `correct` 0 for codex-baseline and claude-baseline and 1 for gemini-baseline, so the accuracy bit here separates the candidates on label convention, not on the forecast. Brier is unaffected (actual_granted 1). A maintainer may want to settle whether a cert grant limited to one question is `granted` or `granted-in-part`.",
+      "severity": "warning"
+    },
+    {
+      "category": "provisioning",
+      "event_id": "evt-brief-sg-disposition",
+      "message": "codex-baseline's staged retrieval_log.json holds eight calls, all reads of two provisioned briefs, while its retrieval.md discloses further calls (a statpack read, `fedcourts paths`, a failed web search and fetch for the 2024 Macquarie opinion, two CourtListener MCP calls on it). The log looks partial. The leakage grade is `not_applicable` on the forward mode and the disclosed queries, none of which concern this petition's outcome.",
+      "severity": "info"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-brief-sg-disposition",
+      "message": "record/documents/questions-presented.txt as staged for me holds the petition's questions, but codex-baseline and claude-baseline both report that the copy they were given held a passage from the petition's importance argument instead. Both recovered the questions from petition.txt; no grade turned on it.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261114T154330Z",
+  "schema_version": "1.0"
+}

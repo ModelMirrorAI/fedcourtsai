@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000239",
+  "run_id": "20261114T154330Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "shell",
+    "file-read"
+  ],
+  "helpful": [
+    "The as-stored docket snapshot: the grant order's 'limited to Questions 1 and 2' text settled every question-scope forecast",
+    "outcome.json disposition_route and distribution_count",
+    "documents.json manifest for checking candidates' truncation claims"
+  ],
+  "gaps": [
+    "outcome.json does not record which questions a limited grant covers; that came only from the snapshot's docket text"
+  ],
+  "notes": "Graded from the provisioned record alone. Opened the committed statpack only to check a candidate's description of the federal band table; no rate of my own was pooled."
+}

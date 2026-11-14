@@ -1,0 +1,132 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:86f2abefec9e0321c5007631d1abc7bf17ab2188b12eda8f922d31c9905f9d14",
+  "big_case": {
+    "evaluator_score": 0.6,
+    "notes": "Supreme Court review of Section 11(a)'s misleading-omissions standard for intra-quarter financial data in registration statements (following Omnicare and Macquarie) carries substantial practical consequences for IPO disclosures and strict-liability exposure across U.S. capital markets, as reflected by Solicitor General/SEC, Chamber of Commerce, and SIFMA participation, while remaining a targeted statutory securities question rather than a constitutional or structural public-law landmark."
+  },
+  "brier_score": 0.03240000000000002,
+  "brier_skill_score": 0.9222540518602563,
+  "case_id": "scotus/73280982",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.35444444444444445,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.82,
+        "score": 0.38434197530864195
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.6,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.0,
+        "score": null
+      },
+      {
+        "baseline": 0.345367027677497,
+        "claim_id": "summary-disposition-route",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": 0.11767838380678897
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.08,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.006,
+          "Barrett": 0.001,
+          "Gorsuch": 0.006,
+          "Jackson": 0.004,
+          "Kagan": 0.002,
+          "Kavanaugh": 0.002,
+          "Roberts": 0.001,
+          "Sotomayor": 0.003,
+          "Thomas": 0.012
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.5020203591154309,
+    "total": 0.5020203591154309
+  },
+  "correct": 0,
+  "created_at": "2026-11-14T16:07:36.431056Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction recorded on 2026-10-26 (run_id 20261026T092709Z), eighteen days before the 2026-11-13 grant order. Calls in retrieval_log.json (timestamps 2026-10-26T09:33:07Z to 09:40:54Z; result_capture_coverage 0.9302) read provisioned case files, schemas, and statpack, excluded data/qp-topics/* via find -not -path without opening files there, and ran three unobserved web searches solely for the 2024 Supreme Court opinion in Macquarie Infrastructure Corp. v. Moab Partners, L.P. (601 U.S. 257), documented in retrieval.md.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-carbon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.92,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records actual_disposition = 'granted' and disposition_route = 'plenary', and snapshot 2026-11-14.json records on Nov 13 2026: 'Petition GRANTED limited to the following question: ...' adopting the Solicitor General's reformulated Question 1 verbatim and leaving Question 2 ungranted.",
+        "claim": "The Court will grant certiorari for plenary briefing and argument (rather than a GVR or summary reversal) limited to the first question, reformulated along the lines proposed by the United States on Section 11(a)'s misleading-omissions prong, and will not grant the second question on Item 303.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Snapshot 2026-11-14.json records a third distribution on Nov 09 2026 for the Conference of 11/13/2026 following the 11/06/2026 Conference, and outcome.json records signals.distribution_count = 3 with no further CVSG.",
+        "claim": "The case is likely to receive at least one additional distribution beyond the two recorded at snapshot time before the grant order issues, with no further CVSG.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Snapshot 2026-11-14.json shows an unsigned Nov 13 2026 limited-grant order with no separate writings or noted votes, and outcome.json records votes = [].",
+        "claim": "The grant will issue as an ordinary order-list disposition without separate opinions or noted votes at the certiorari stage.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Cert-stage event resolved on 2026-11-13; plenary merits briefing and decision have not yet occurred and no merits opinion exists in the staged record.",
+        "claim": "On plenary review, the Court is likely to vacate and remand on Question 1 under Omnicare and Macquarie by requiring a misleading-effect inquiry distinct from materiality alone, without establishing a blanket interim-data exemption or disposing of the separate Item 303 theory.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261026T092709Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+    "label": "proc-v22",
+    "pipeline_sha": "6b0fde49e1eb48611db3e766ec3f60e821f10a49",
+    "stamped_at": "2026-11-14T16:07:36.431056Z"
+  },
+  "reasoning_quality": 0.83,
+  "run_id": "20261114T154330Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.35444444444444445,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

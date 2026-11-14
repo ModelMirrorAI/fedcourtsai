@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73280982",
+  "run_id": "20261114T154330Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts statpack-at",
+    "shell",
+    "file-read"
+  ],
+  "helpful": [
+    "statpack-at made it quick to confirm the candidates' quoted base rates against the build they ran on",
+    "the 2026-11-14 docket snapshot carried the grant order's full text, which settled the limited-grant and relist claims"
+  ],
+  "gaps": [
+    "no stated rule for how a question-limited cert grant maps onto the `granted` / `granted-in-part` labels"
+  ],
+  "notes": "Retrieval logs for one candidate had no captured results; grading on queries alone was enough here because the cell is forward and predates the resolution."
+}

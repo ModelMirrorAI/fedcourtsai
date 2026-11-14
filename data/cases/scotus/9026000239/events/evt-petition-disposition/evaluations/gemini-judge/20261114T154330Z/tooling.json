@@ -1,0 +1,20 @@
+{
+  "actor_id": "gemini-judge",
+  "case_id": "scotus/9026000239",
+  "gaps": [],
+  "helpful": [
+    "fedcourts statpack-at reconstructed the exact sal-v4 statpack build (a14b36a1e190) in force on 2026-10-13 after the committed pack had moved to sal-v8",
+    "provisioned docket snapshot (2026-11-13.json) carried the exact limited-grant order text ('Petition GRANTED limited to Questions 1 and 2 presented by the petition')",
+    "harness-captured retrieval_log.json made record reading depth verifiable across candidates"
+  ],
+  "notes": "Clean forward cert evaluation cell; all provisioned filings, snapshots, and blinded candidate artifacts were complete and readable.",
+  "role": "evaluator",
+  "run_id": "20261114T154330Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "statpack",
+    "fedcourts statpack-at"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

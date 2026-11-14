@@ -1,0 +1,1 @@
+No external, corpus, or CourtListener retrieval beyond the provisioned inputs and the repository's statpack history (`metrics/statpack.md` and `uv run fedcourts statpack-at ... --ref origin/main`, which reconstructed prediction-time statpack build `a14b36a1e190`, `sha256:84a5c25d4bf0a2a70ba5c6e9392e2e21d43ed5b794de0ae59c27cf1973ad0e7e`).

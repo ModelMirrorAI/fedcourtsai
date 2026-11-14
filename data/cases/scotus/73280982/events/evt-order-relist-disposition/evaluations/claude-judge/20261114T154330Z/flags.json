@@ -1,0 +1,21 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/73280982",
+  "flags": [
+    {
+      "category": "ambiguous-event",
+      "event_id": "evt-order-relist-disposition",
+      "message": "Exact-label `correct` splits candidates who forecast the same result. The order reads 'Petition GRANTED limited to the following question' (Question 1 only, reformulated). outcome.json labels it `granted`; claude-baseline and codex-baseline predicted `granted-in-part` and explicitly forecast a grant limited to Question 1, so they score correct=0, while gemini-baseline's `granted` scores 1. I applied the exact-match rule as written. A maintainer may want to decide whether a limited cert grant should be labelled `granted-in-part` in the outcome, or whether the predict prompt should say that label is not for limited cert grants. Brier is unaffected.",
+      "severity": "warning"
+    },
+    {
+      "category": "other",
+      "event_id": "evt-order-relist-disposition",
+      "message": "gemini-baseline's reasoning.md quotes the SG's invited brief as concluding that the petition should be granted limited to the first question 'or, in the alternative, denied'. The staged sg-invited-brief.txt contains no such sentence; its conclusion recommends a grant on the reformulated first question with no alternative. The candidate tied its denial discount to that passage. Reflected in reasoning_quality, noted here because it is a fabricated quotation of a record document.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261114T154330Z",
+  "schema_version": "1.0"
+}

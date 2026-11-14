@@ -1,0 +1,28 @@
+# Evaluation of `claude-baseline`
+
+**Cell:** `scotus/9026000239` / `evt-order-relist-disposition` (`stage: cert`, `moment: relist`)  
+**Outcome:** `granted` (`actual_granted: 1`, `disposition_route: plenary`, `disposition_basis: standard`, `resolved_at: 2026-11-13`, limited to Questions 1 and 2)  
+**Prediction:** `granted` (`probability: 0.90`) — `correct: 1`, `brier_score: 0.01`
+
+Per the cert-stage evaluation contract, `segment_base_rate`, `brier_skill_score`, and `base_rate_basis` are left for the harness stamp; comparisons to the baseline refer to the stamped segment base rate. Base-rate and statpack citations in `reasoning.md` were checked against prediction-time statpack build `ca0c9e1a49e2` (`sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653`, reconstructed via `fedcourts statpack-at`), which was in force at `claude-baseline`'s run (`20261109T171058Z`) prior to later committed statpack updates.
+
+## Rationale (`reasoning_quality`: 0.72)
+
+`claude-baseline` produced a concise, directionally well-calibrated rationale that moved decisively above the stamped segment base rate (`0.90`) for sound institutional reasons, but skipped key staged filings and misread one statpack cross-check table:
+
+- **Sound institutional framing and posture check:** `claude-baseline` properly anchored on its frozen `federal` band (`sal-v8`) under `context.cert_anchor`, accurately read the November 9 snapshot's four cert-stage amicus briefs (including Iowa and 21 other States) and D.C. Circuit stay/mandate posture, and correctly emphasized that the modern Court routinely grants Solicitor General petitions challenging appellate invalidations of flagship presidential policies after a single relist (citing the recent OT2026 single-relist SG grant in *DOJ v. McNutt*, No. 26-204). Its calibration of the secondary claims—low further-relist probability (`0.20`), near-zero CVSG (`0.005`), and very low summary-disposition route (`0.04`)—aligned closely with how the Court handled the petition on November 13.
+- **Statpack relist-bucket misread:** Checked against build `ca0c9e1a49e2`, `claude-baseline` misread `relist_bucket` in the paid-segment relist table as a distribution count rather than a relist count, stating that the grant-family rate is *"about 41% in the 2-distribution bucket (n=495 resolved) and about 37% in the 3+ bucket (n=483)."* In `ca0c9e1a49e2`, `n=495` (`28.3%` granted + `12.9%` GVR = `41.2%`) is `relist_bucket = 2` (two relists, i.e., **three** distributions); the 2-distribution / 1-relist bucket is `relist_bucket = 1` (`n=2,532`, `8.3%` granted + `5.2%` GVR = `13.5%`). Because `claude-baseline` treated that table only as a secondary cross-check subordinate to the federal-petitioner anchor, the misread did not distort its headline probability, but it is a clear statistical reading error.
+- **Omission of `cert-reply.txt` and merits dissent details:** `claude-baseline` did not read `cert-reply.txt` and relied on a light skim of the petition and BIO rather than `decision-below.txt`. As a result, it noted Judge Pillard's partial dissent at the stay stage while omitting Judge Walker's substantial partial dissent on the merits panel, and stated under **Main risk** that it found no related vehicles based solely on `same-question.json`. Reading `cert-reply.txt` would have surfaced *Department of Homeland Security v. D.V.D.*, No. 26-426 (granted September 29, 2026), which the Solicitor General explicitly addressed as overlapping Question 2 and a potential hold vehicle, as well as the government's responses to the BIO's *Chenery* and unappealed APA-vacatur vehicle objections.
+
+## Predicted reasoning (`predicted_reasoning_quality`: 0.88)
+
+`claude-baseline`'s `predicted_reasoning.md` was crisp, specific, and borne out across every central dimension settled by the November 13, 2026 order:
+
+1. **Disposition and conference (`borne-out`):** Correctly forecast a grant of certiorari directly out of the November 13, 2026 conference. (Its parenthetical expectation that orders from the 11/13 conference would issue *"around 11/14–11/17"* missed by one day because the Court released a Friday afternoon grant order on November 13 itself—a minor calendar margin.)
+2. **Relist trajectory (`borne-out`):** Specifically forecast no further relists past `distribution_count = 2` (~80% chance of resolution at the 11/13 conference).
+3. **Scope of the grant (`borne-out`):** Best among the cohort on discriminating content. `claude-baseline` forecast that the Court would take Question 1, likely include Question 2 despite respondents' fact-bound framing, and treat Question 3 as the expendable question (*"QP 3, the class definition under Article III and Rule 23, could be taken as written or folded into QP 2. A limited grant that drops QP 3 is plausible"*). On November 13, the Court entered: *"Petition GRANTED limited to Questions 1 and 2 presented by the petition."* Because `claude-baseline` hedged between including/folding Question 3 and dropping it rather than committing unconditionally to the limited grant, it stops just short of the top anchor (`1.0`), earning `0.88`.
+4. **Route and order writings (`borne-out`):** Correctly forecast plenary review rather than a GVR or summary reversal, and no separate writings on a grant order. (Its conditional dissent-from-denial forecast was not triggered and is neither credited nor penalized.)
+
+## Leakage
+
+Clean `forward` cell (`leakage_suspected: false`, `influenced_prediction: not_applicable`, `retrieved_outcome_material: false`). The prediction was generated on `2026-11-09`, four days before the November 13 grant, with `1.0` result capture coverage across 13 calls and no post-resolution or `data/qp-topics/` access.

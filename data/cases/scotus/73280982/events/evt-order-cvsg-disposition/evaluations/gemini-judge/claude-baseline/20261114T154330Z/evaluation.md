@@ -1,0 +1,28 @@
+# Evaluation of `claude-baseline`
+
+## Outcome and Quantitative Summary
+
+On November 13, 2026, following the Solicitor General's October 7, 2026 invited amicus brief and two additional conference distributions (`distribution_count: 3`), the Supreme Court granted certiorari on a plenary route (`actual_disposition: "granted"`, `actual_granted: 1`, `disposition_route: "plenary"`), limited to Question 1 as reformulated by the Solicitor General.
+
+`claude-baseline` predicted `granted` with `probability = 0.52`, earning `correct = 1` and `brier_score = 0.2304`, a meaningful improvement over the stamped segment base rate (which, along with `brier_skill_score` and `base_rate_basis`, is stamped mechanically by the harness for this cert-stage cell).
+
+## Reasoning Quality (`0.88`)
+
+`claude-baseline`'s `reasoning.md` is well-structured, doctrinally grounded, and methodologically disciplined:
+
+- **Base-rate discipline (verified against statpack build `73762050f49c`).** Because the committed statpack has advanced since prediction time, `claude-baseline`'s base-rate citations were checked against historical statpack build `73762050f49c` (`sha256:345aff2a4fcdad755e6606d092e6c2475966c0bd858d291155914ef722d88fe8`, reconstructed via `fedcourts statpack-at`). Against that build, `claude-baseline` properly pooled the frozen `sal-v4` `high`-band reached rows strictly over prior Terms (OT2017–OT2024, `n = 898` weighted), cross-checked that figure against the CVSG status cut without double-counting, and rightly declined to use unconditioned cert rates or terminal relist-count buckets. Its upward move from the stamped segment base rate to `0.52` was decomposed transparently through conditional grant probabilities given the Solicitor General's eventual recommendation.
+- **Procedural and institutional analysis.** `claude-baseline` rightly identified the first-conference CVSG (issued without a prior relist) as a stronger-than-average signal of cert interest, noted the published Ninth Circuit opinion with Judge Rawlinson's partial dissent and elite Supreme Court counsel/business amici, and observed from Supreme Court practice (*Macquarie*, *Goldman Sachs*, *Slack*) that interlocutory motion-to-dismiss remand posture rarely blocks review of clean securities-pleading splits.
+- **Regulatory posture.** `claude-baseline` spotted in the brief in opposition that the SEC had opened a comprehensive Regulation S-K review in January 2026 and inferred that the SEC and Solicitor General would view the Ninth Circuit's approach to intra-quarter disclosure duties as erroneous. That inference was borne out on the core merits critique.
+- **Minor analytical gap.** `claude-baseline` treated the SEC's January 2026 Regulation S-K review purely as a positive grant driver without anticipating its flip side on Question 2: in the October 7 brief, the Solicitor General invoked Chairman Atkins's ongoing Regulation S-K review and vehicle defects on Item 303 materiality as grounds to *deny* review of Question 2 while granting Question 1. `reasoning.md` also treated the two questions more monolithically than their distinct statutory vs. regulatory postures warranted.
+
+## Predicted reasoning (`0.75`)
+
+`claude-baseline`'s `predicted_reasoning.md` committed to clear, falsifiable predictions on the procedural path, disposition, institutional mechanism, and grant scope:
+
+- **Borne-out central claims.** It called a grant (`Slightly more likely than not to be granted`) driven by a Solicitor General brief criticizing the Ninth Circuit's Section 11(a) and Item 303 analysis, predicted plenary briefing and argument rather than a GVR or summary reversal, and accurately described the post-SG conference sequence: redistribution after the SG brief, supplemental briefs from the parties, no second CVSG, and resolution within at most one relist (the petition was distributed for November 6, relisted once for November 13, and granted). Its calendar estimate for the SG filing (late November/December rather than October 7) was a minor timing miss that does not detract materially from the structural sequence.
+- **Partially missed scope claim.** Its primary scope forecast was that the Court would "most likely take both questions essentially as written." In fact, the Court granted review limited to Question 1 and adopted the Solicitor General's reformulation ("without an additional inquiry to determine whether the omission rendered any affirmative statement misleading"), excluding Question 2 altogether. However, `claude-baseline` explicitly identified Question 1 as the cleaner post-*Macquarie* vehicle and specifically named a grant limited to Question 1 alone as "the likelier narrowing if the SG counsels a narrower grant," placing the document squarely on the `0.75` anchor (specific central claims mostly borne out, with one central claim holding only in part).
+
+## Leakage and Big-Case Notes
+
+- **Leakage (`not_applicable`, `leakage_suspected = false`).** The prediction ran forward on September 18, 2026, weeks before the October 7 SG brief and nearly two months before the November 13 grant order. All 30 tool calls in `retrieval_log.json` were captured (`result_capture_coverage = 1.0`) and accessed only pre-cutoff local inputs, unrelated prior SCOTUS grants via `fedcourts query`, and pre-existing CourtListener metadata.
+- **Big-case read (`0.68`).** As a plenary Supreme Court grant clarifying Section 11(a) misleading-omission liability for intra-quarter financial data in registration statements, the case has substantial commercial importance for public offerings and securities class actions nationwide, moderated by the exclusion of Item 303 (Question 2) and its technical statutory scope.

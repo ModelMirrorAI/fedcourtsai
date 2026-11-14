@@ -1,0 +1,137 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:86f2abefec9e0321c5007631d1abc7bf17ab2188b12eda8f922d31c9905f9d14",
+  "big_case": {
+    "evaluator_score": 0.58,
+    "notes": "Plenary review on a recurring federal securities-law issue under Section 11(a) of the Securities Act of 1933 governing mid-quarter IPO disclosures across U.S. capital markets, following Omnicare and Macquarie and drawing SG/SEC participation and major financial-industry amici, but narrowed to the reformulated misleading-omissions question (excluding Item 303) and statutory-technical rather than constitutional or broad public-policy in scope."
+  },
+  "brier_score": 0.04839999999999999,
+  "brier_skill_score": 0.8838609910505064,
+  "case_id": "scotus/73280982",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.35444444444444445,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.78,
+        "score": 0.368341975308642
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.92,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": 0.345367027677497,
+        "claim_id": "summary-disposition-route",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": 0.11837838380678897
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.08,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.008,
+          "Barrett": 0.002,
+          "Gorsuch": 0.008,
+          "Jackson": 0.003,
+          "Kagan": 0.002,
+          "Kavanaugh": 0.005,
+          "Roberts": 0.002,
+          "Sotomayor": 0.003,
+          "Thomas": 0.008
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.486720359115431,
+    "total": 0.486720359115431
+  },
+  "correct": 1,
+  "created_at": "2026-11-14T16:01:57.005543Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-brief-sg-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Genuine forward prediction placed on 2026-10-26, eighteen days before the 2026-11-13 cert grant. All 28 logged calls (unobserved result capture) were local workspace inspections of prompt/schema docs, metrics/statpack.md, and the pre-cutoff 2026-10-07 case files, with no external retrieval or data/qp-topics access.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-carbon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.94,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The November 13, 2026 order granted certiorari limited verbatim to the Solicitor General's reformulated Question 1 and omitted Question 2.",
+        "claim": "The Court will grant certiorari limited to a reformulated version of Question 1 tracking the Solicitor General's proposed Section 11(a) misleading-omissions question while declining review of Question 2 (Item 303).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records actual_disposition 'granted', disposition_route 'plenary', and disposition_basis 'standard', with no GVR or summary reversal.",
+        "claim": "The Court will set the case for plenary merits briefing and oral argument rather than summary reversal or GVR.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "After supplemental briefs on October 20 and October 21, 2026, the petition was distributed on October 21 for the November 6 conference and relisted once on November 9 for the November 13 conference (distribution_count = 3) before being granted.",
+        "claim": "Following supplemental briefs under Rule 15.8, the petition will be redistributed for an autumn conference and acted upon after zero or one post-SG relists (distribution_count reaching 2 or 3).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records empty votes and null writing_roles, and the November 13, 2026 grant order carries no separate statement or noted dissent.",
+        "claim": "The certiorari grant order will issue without any noted dissent or separate concurrence or statement.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The staged record resolves only the November 13, 2026 certiorari grant; no merits decision or opinion exists yet.",
+        "claim": "At the merits stage, the Court will follow Omnicare and Macquarie to hold that Section 11(a)'s misleading-omissions clause requires distinct inquiries into materiality and misleadingness in context.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261026T092709Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+    "label": "proc-v22",
+    "pipeline_sha": "6b0fde49e1eb48611db3e766ec3f60e821f10a49",
+    "stamped_at": "2026-11-14T16:01:57.005543Z"
+  },
+  "reasoning_quality": 0.88,
+  "run_id": "20261114T154330Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.35444444444444445,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73280982",
+  "run_id": "20261114T154330Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts statpack-at"
+  ],
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "helpful": [
+    "fedcourts statpack-at",
+    "provisioned docket snapshot and SG/supplemental briefs",
+    "captured retrieval_log.json transcripts"
+  ],
+  "gaps": [],
+  "notes": "fedcourts statpack-at cleanly reconstructed the 2026-11-09 statpack build (ca0c9e1a49e2) shared by all three candidates, confirming their cited CVSG, relist, and amicus denominators differed from the committed pack only because of a subsequent metrics refresh."
+}
