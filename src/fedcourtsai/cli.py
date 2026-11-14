@@ -455,7 +455,11 @@ from .pipeline.evaluate import (
 )
 from .pipeline.exec_action import EXEC_ACTION_RULES
 from .pipeline.executive_success import DEFAULT_SCOPE_RULE, READINGS, executive_success
-from .pipeline.federal_label import federal_label_check
+from .pipeline.federal_label import (
+    SgPetitionListing,
+    federal_label_check,
+    read_sg_petition_listing,
+)
 from .pipeline.filing_simulation import filing_simulation
 from .pipeline.interim_reading_census import interim_reading_census
 from .pipeline.judgment import backfill_merits_judgments
@@ -6451,6 +6455,12 @@ def unforecast_outcomes_cmd(
         raise typer.Exit(code=3)
 
 
+def _read_sg_petition_listing() -> SgPetitionListing:
+    """One request to the Office's briefs listing, closed before the corpus is opened."""
+    with sg_briefs.OsgClient() as client:
+        return read_sg_petition_listing(client)
+
+
 @app.command("federal-label-check")
 def federal_label_check_cmd(
     salience_version: Annotated[
@@ -6460,6 +6470,14 @@ def federal_label_check_cmd(
             help="Read the bands under this registered scorer (default: the active one).",
         ),
     ] = None,
+    sg_list: Annotated[
+        bool,
+        typer.Option(
+            "--sg-list",
+            help="Also fetch the Solicitor General's posted cert petitions from "
+            "www.justice.gov (one request) and alarm on a pending one outside the band.",
+        ),
+    ] = False,
 ) -> None:
     """Cross-check the `federal` band on pending paid petitions, read-only.
 
@@ -6470,11 +6488,15 @@ def federal_label_check_cmd(
     selection and conference. The check selects nothing and moves no band; a
     confirmed miss is evidence for the next registered caption version.
     `--salience-version` re-reads the bands under another registered scorer.
-    Reads the corpus index; reads no snapshot and writes nothing. A summary to
-    stderr, a `FederalLabelReport` as JSON to stdout; exits 3 when an alarm
-    holds (a flagged petition the Solicitor General's office appears for that
-    is not selected, so no forecast is coming), 2 on an unregistered scorer, 1
-    if the corpus is absent.
+    `--sg-list` adds an outside list: one request for the first page of the
+    Office of the Solicitor General's own cert petitions on its briefs listing,
+    every one of which is the government's, so a pending petition on it
+    outside the `federal` band is an alarm, as is a listing that cannot be
+    read. Reads the corpus index; reads no snapshot and writes nothing. A
+    summary to stderr, a `FederalLabelReport` as JSON to stdout; exits 3 when
+    an alarm holds (a flagged petition the Solicitor General's office appears
+    for that is not selected, so no forecast is coming, or either `--sg-list`
+    alarm), 2 on an unregistered scorer, 1 if the corpus is absent.
     """
     if salience_version is not None and salience_version not in registered_versions():
         typer.echo(f"federal-label-check: {salience_version!r} is not registered.", err=True)
@@ -6488,15 +6510,26 @@ def federal_label_check_cmd(
             err=True,
         )
         raise typer.Exit(code=1)
+    sg_listing = _read_sg_petition_listing() if sg_list else None
     with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
         report = federal_label_check(
-            conn, today=datetime.now(UTC).date(), salience_version=salience_version
+            conn,
+            today=datetime.now(UTC).date(),
+            salience_version=salience_version,
+            sg_listing=sg_listing,
         )
     typer.echo(
         f"{report.salience_version}: pending paid petitions {report.pending}, "
         f"federal {report.federal}, flagged {len(report.flagged)}",
         err=True,
     )
+    listed = report.sg_petition_list
+    if listed is not None and listed.read:
+        typer.echo(
+            f"Solicitor General's listing: {listed.listed} docket numbers, {listed.pending} "
+            f"pending here, {len(listed.not_federal)} outside the federal band",
+            err=True,
+        )
     for alarm in report.alarms:
         typer.echo(f"alarm: {alarm}", err=True)
     typer.echo(report.model_dump_json())
@@ -6513,6 +6546,14 @@ def coverage_verdict_cmd(
         Path | None,
         typer.Option("--markdown-out", help="Write the verdict as an alarm-issue body here."),
     ] = None,
+    sg_list: Annotated[
+        bool,
+        typer.Option(
+            "--sg-list",
+            help="Also fetch the Solicitor General's posted cert petitions from "
+            "www.justice.gov (one request) for the federal-label cross-check.",
+        ),
+    ] = False,
 ) -> None:
     """Run every forecast-coverage check and print one verdict, read-only.
 
@@ -6521,8 +6562,13 @@ def coverage_verdict_cmd(
     (`pipeline/coverage_verdict.py`), folded into one answer: `ok`, the alarms
     by check, a flat block of counts to keep as a series, and each check's own
     report. Alarms: every event the monitor classes `missed`; a decided event
-    on a selected row with no outcome record three days on; and each alarm the
-    two censuses raise. Reads the corpus index and the committed ledger; the
+    on a selected row with no outcome record three days on; each alarm the
+    two censuses raise; and every cell of an open event that reached the
+    predict attempt cap (`predict.max_attempts_per_cell`) with no committed
+    prediction, which the sweep no longer re-queues. `--sg-list` hands the
+    federal-label cross-check the Solicitor General's posted cert petitions
+    (`federal-label-check --sg-list`), the one request this command makes off
+    the corpus. Reads the corpus index and the committed ledger; the
     only files it writes are the two it is asked for. `--markdown-out` renders
     the verdict as an issue body carrying identifiers and counts only. One
     line per alarm to stderr, the `CoverageVerdict` as JSON to stdout; exits 3
@@ -6537,12 +6583,15 @@ def coverage_verdict_cmd(
             err=True,
         )
         raise typer.Exit(code=1)
+    sg_listing = _read_sg_petition_listing() if sg_list else None
     with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
         verdict = coverage_verdict(
             conn,
             settings.data_root,
             settings.config_root / "predictors.yaml",
             today=datetime.now(UTC).date(),
+            max_attempts=load_predict_config(settings.config_root).max_attempts_per_cell,
+            sg_listing=sg_listing,
         )
     payload = verdict.model_dump_json()
     if json_out is not None:

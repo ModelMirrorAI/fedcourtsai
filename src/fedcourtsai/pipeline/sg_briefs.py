@@ -107,6 +107,9 @@ OSG_BRIEF_KINDS: Mapping[str, str] = {
 #: The kinds this fill can store, in the order a case's owed kinds are listed.
 SG_BRIEF_KINDS: tuple[str, ...] = (KIND_PETITION, KIND_BRIEF_IN_OPPOSITION, KIND_CERT_REPLY)
 
+#: The listing's *Brief Type* filter value for the Office's own cert petitions.
+OSG_CERT_PETITION_TYPE = "petition_for_writ_of_certiorari"
+
 DEFAULT_FILL_CASES = 6
 MAX_FILL_CASES = 20
 
@@ -116,6 +119,18 @@ SgStatus = Literal["stored", "nothing-posted", "not-docketed", "failed"]
 def listing_search_url(docket_number: str) -> str:
     """The briefs listing searched for one docket number, every Term and type."""
     query = urlencode({"text": docket_number, "sc_term": "All", "type": "All", "subject": "All"})
+    return f"{OSG_LISTING_URL}?{query}"
+
+
+def cert_petitions_url() -> str:
+    """The briefs listing filtered to the Office's own cert petitions, every Term.
+
+    The listing orders by Term, newest first, and its first page is all this
+    asks for: ``robots.txt`` disallows the paging parameter.
+    """
+    query = urlencode(
+        {"text": "", "sc_term": "All", "type": OSG_CERT_PETITION_TYPE, "subject": "All"}
+    )
     return f"{OSG_LISTING_URL}?{query}"
 
 
@@ -264,6 +279,13 @@ class OsgClient:
     def search(self, docket_number: str) -> tuple[str, str] | None:
         """The listing page searched for ``docket_number`` and the URL it was served at."""
         response = self._fetch(listing_search_url(docket_number))
+        if response is None:
+            return None
+        return response.text, str(response.url)
+
+    def cert_petitions(self) -> tuple[str, str] | None:
+        """The first page of the Office's own cert petitions and the URL it was served at."""
+        response = self._fetch(cert_petitions_url())
         if response is None:
             return None
         return response.text, str(response.url)

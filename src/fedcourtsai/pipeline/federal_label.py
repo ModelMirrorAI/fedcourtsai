@@ -24,6 +24,18 @@ wrong ones, and is a list for a person to read, as is every party-only flag.
 The conference date printed beside an entry is the latest one the docket was
 distributed for, which may already have passed.
 
+**The outside list** (:func:`read_sg_petition_listing`) is a second reading
+that shares nothing with the caption grammar or the stored docket: the Office
+of the Solicitor General posts its own cert petitions on its briefs listing,
+and every petition there is the government's. A pending petition on that
+listing whose band is not ``federal`` is an alarm whatever its selection or
+conference, because the band prices its forecast. The listing is read one way
+only: it is what the Office has posted, newest Term first and one page deep,
+so a petition absent from it is not thereby private. A listing that cannot be
+read is an alarm of its own, since a check that stopped reading its source
+would otherwise look like a quiet one. The census reads the listing only when
+handed one; the fetch is the caller's choice.
+
 ``salience_version`` re-reads the bands under another registered scorer, to
 ask what the check lists under a different caption rule; the selection latch
 it prints stays the stored one, set by the active scorer.
@@ -32,17 +44,98 @@ Reads the corpus index; reads no snapshot and writes nothing.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import date
 
+import httpx
 from pydantic import BaseModel, ConfigDict, Field
 
 from .. import corpus
 from ..supremecourt import october_term_year
+from .documents import KIND_PETITION
 from .salience import scorer
+from .sg_briefs import OsgClient, parse_listing
 from .unforecast import FEDERAL_BAND, FederalSignal, federal_signals
 
 #: How many October Terms before the current one a pending docket may belong to.
 PENDING_TERMS_BACK = 2
+
+
+#: What an alarm about the listing itself, not a docket on it, is named by.
+SG_LISTING_SUBJECT = "sg-petition-listing"
+
+
+@dataclass(frozen=True)
+class SgPetitionListing:
+    """The Office of the Solicitor General's posted cert petitions, as one read found them."""
+
+    docket_numbers: frozenset[str]
+    newest_filed: date | None = None
+    oldest_filed: date | None = None
+    #: Why the listing could not be read, in words that carry no page text;
+    #: ``None`` when it was.
+    error: str | None = None
+
+
+def read_sg_petition_listing(client: OsgClient) -> SgPetitionListing:
+    """Read the Office's cert petitions off the first page of its briefs listing.
+
+    One request (:meth:`OsgClient.cert_petitions`). Only rows whose type is the
+    Office's own petition are kept, so a page served without the type filter
+    applied cannot put an opposition's docket on the list. A request that
+    fails, and a page with no such row, come back as an unread listing naming
+    the failure by its kind, never by anything the page said.
+    """
+    try:
+        served = client.cert_petitions()
+    except httpx.HTTPError as exc:
+        return SgPetitionListing(frozenset(), error=f"the request failed ({type(exc).__name__})")
+    if served is None:
+        return SgPetitionListing(frozenset(), error="the listing was not found")
+    page, page_url = served
+    rows = [row for row in parse_listing(page, page_url=page_url) if row.kind == KIND_PETITION]
+    if not rows:
+        return SgPetitionListing(frozenset(), error="the page held no petition row")
+    filed = [row.filed for row in rows if row.filed is not None]
+    return SgPetitionListing(
+        docket_numbers=frozenset(number for row in rows for number in row.docket_numbers),
+        newest_filed=max(filed, default=None),
+        oldest_filed=min(filed, default=None),
+    )
+
+
+class SgListedPetition(BaseModel):
+    """One pending petition on the Solicitor General's listing outside the ``federal`` band."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    case_id: str
+    docket_number: str
+    band: str
+    selected: bool = Field(
+        description="The row's stored salience selection latch, set by the active scorer"
+    )
+    distributed_for_conference: date | None = Field(
+        description="The latest conference the docket was distributed for"
+    )
+
+
+class SgPetitionCheck(BaseModel):
+    """The pending docket read against the Solicitor General's posted cert petitions."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    read: bool = Field(description="Whether the listing was read")
+    error: str | None = Field(description="Why it was not, by kind of failure")
+    listed: int = Field(ge=0, description="Docket numbers on the listing's first page")
+    newest_filed: date | None = Field(description="The newest filing date among them")
+    oldest_filed: date | None = Field(
+        description="The oldest filing date among them: how far back the page reaches"
+    )
+    pending: int = Field(ge=0, description="Those that are pending petitions in this census")
+    not_federal: list[SgListedPetition] = Field(
+        description="Those pending outside the `federal` band, by docket"
+    )
 
 
 class FlaggedPetition(BaseModel):
@@ -81,6 +174,11 @@ class FederalLabelReport(BaseModel):
     flagged: list[FlaggedPetition] = Field(
         description="Those outside the band that a loose reading places federal, by docket"
     )
+    sg_petition_list: SgPetitionCheck | None = Field(
+        default=None,
+        description="The pending docket against the Solicitor General's posted cert "
+        "petitions; null when the census was not handed the listing",
+    )
     alarms: list[str] = Field(
         description="Each alarm condition that holds, in words; empty when the census is quiet"
     )
@@ -107,16 +205,38 @@ def _pending_rows(conn: corpus.ReadConnection, *, today: date) -> list[corpus.Co
 
 
 def federal_label_check(
-    conn: corpus.ReadConnection, *, today: date, salience_version: str | None = None
+    conn: corpus.ReadConnection,
+    *,
+    today: date,
+    salience_version: str | None = None,
+    sg_listing: SgPetitionListing | None = None,
 ) -> FederalLabelReport:
-    """Cross-check the ``federal`` band on every pending paid petition in scope."""
+    """Cross-check the ``federal`` band on every pending paid petition in scope.
+
+    ``sg_listing`` adds the outside list: each pending petition on it is
+    counted, and one outside the band is reported and alarmed.
+    """
     active = scorer(salience_version)
     version, band_of = active.version, active.band
-    pending = federal = 0
+    pending = federal = listed_pending = 0
     flagged: list[FlaggedPetition] = []
+    listed_not_federal: list[SgListedPetition] = []
+    listed = sg_listing.docket_numbers if sg_listing is not None else frozenset()
     for row in _pending_rows(conn, today=today):
         pending += 1
         band = band_of(row)
+        if row.docket_number.upper() in listed:
+            listed_pending += 1
+            if band != FEDERAL_BAND:
+                listed_not_federal.append(
+                    SgListedPetition(
+                        case_id=row.case_id,
+                        docket_number=row.docket_number,
+                        band=band,
+                        selected=row.salience_selected,
+                        distributed_for_conference=row.distributed_for_conference,
+                    )
+                )
         if band == FEDERAL_BAND:
             federal += 1
             continue
@@ -142,11 +262,35 @@ def federal_label_check(
         for f in flagged
         if FederalSignal.sg_office_counsel in f.signals and not f.selected
     ]
+    sg_check: SgPetitionCheck | None = None
+    if sg_listing is not None:
+        listed_not_federal.sort(key=lambda p: p.docket_number)
+        sg_check = SgPetitionCheck(
+            read=sg_listing.error is None,
+            error=sg_listing.error,
+            listed=len(sg_listing.docket_numbers),
+            newest_filed=sg_listing.newest_filed,
+            oldest_filed=sg_listing.oldest_filed,
+            pending=listed_pending,
+            not_federal=listed_not_federal,
+        )
+        if sg_listing.error is not None:
+            alarms.append(
+                f"{SG_LISTING_SUBJECT}: the Solicitor General's listing of its cert "
+                f"petitions could not be read, {sg_listing.error}"
+            )
+        alarms += [
+            f"{p.docket_number}: on the Solicitor General's listing of its own cert "
+            f"petitions, band {p.band}, {'selected' if p.selected else 'not selected'}, "
+            f"conference {p.distributed_for_conference}"
+            for p in listed_not_federal
+        ]
     return FederalLabelReport(
         as_of=today,
         salience_version=version,
         pending=pending,
         federal=federal,
         flagged=flagged,
+        sg_petition_list=sg_check,
         alarms=alarms,
     )

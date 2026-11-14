@@ -7,12 +7,20 @@ import sqlite3
 from datetime import date, timedelta
 from pathlib import Path
 
+import httpx
 import pytest
 from typer.testing import CliRunner
 
-from fedcourtsai import corpus
+from fedcourtsai import cli, corpus
 from fedcourtsai.cli import app
-from fedcourtsai.pipeline.federal_label import FederalLabelReport, federal_label_check
+from fedcourtsai.pipeline.federal_label import (
+    SG_LISTING_SUBJECT,
+    FederalLabelReport,
+    SgPetitionListing,
+    federal_label_check,
+    read_sg_petition_listing,
+)
+from fedcourtsai.pipeline.sg_briefs import OsgClient, cert_petitions_url
 from fedcourtsai.pipeline.unforecast import FederalSignal
 from fedcourtsai.schemas import Disposition
 
@@ -152,3 +160,136 @@ def test_the_cli_reports_and_refuses_an_unregistered_scorer(
         _petition(conn, 2, "26-102", counsel=[_office()])
     alarmed = CliRunner().invoke(app, ["federal-label-check"])
     assert alarmed.exit_code == 3, alarmed.output
+
+
+def _listing_row(number: str, brief_type: str = "Petition for Writ of Certiorari") -> str:
+    def cell(header: str, body: str) -> str:
+        return f'<td headers="view-field-{header}-table-column">{body}</td>'
+
+    return (
+        "<tr>"
+        + cell("sc-term", "2026 Term")
+        + cell("number", number)
+        + cell("title", '<a href="/osg/brief/roe-v-doe">Roe v. Doe</a>')
+        + cell("brief-type", brief_type)
+        + cell("date", '<time datetime="2026-10-28T12:00:00Z">October 28, 2026</time>')
+        + "</tr>"
+    )
+
+
+def _osg(response: httpx.Response, seen: list[str] | None = None) -> OsgClient:
+    def upstream(request: httpx.Request) -> httpx.Response:
+        if seen is not None:
+            seen.append(str(request.url))
+        return response
+
+    return OsgClient(
+        client=httpx.Client(transport=httpx.MockTransport(upstream)), sleep=lambda _: None
+    )
+
+
+def test_the_listing_is_read_in_one_request_and_keeps_only_the_offices_petitions() -> None:
+    page = "<table>" + _listing_row("26-101, 26-102") + _listing_row("26-103") + "</table>"
+    stray = _listing_row("26-900", "Petition Stage Response")
+    seen: list[str] = []
+
+    listing = read_sg_petition_listing(_osg(httpx.Response(200, text=page + stray), seen))
+
+    assert seen == [cert_petitions_url()]
+    assert listing.error is None
+    assert listing.docket_numbers == {"26-101", "26-102", "26-103"}
+    assert (listing.newest_filed, listing.oldest_filed) == (date(2026, 10, 28),) * 2
+
+
+@pytest.mark.parametrize(
+    ("response", "said"),
+    [
+        (httpx.Response(503), "HTTPStatusError"),
+        (httpx.Response(404), "not found"),
+        (httpx.Response(200, text="<html>26-101 maintenance</html>"), "no petition row"),
+        (httpx.Response(302, headers={"location": "https://example.com/"}), "OffSectionFetch"),
+    ],
+)
+def test_a_listing_that_cannot_be_read_says_how_and_nothing_of_the_page(
+    response: httpx.Response, said: str
+) -> None:
+    listing = read_sg_petition_listing(_osg(response))
+
+    assert listing.docket_numbers == frozenset()
+    assert listing.error is not None and said in listing.error
+    assert "maintenance" not in listing.error and "example.com" not in listing.error
+
+
+def test_a_pending_petition_on_the_offices_listing_outside_the_band_alarms(
+    tmp_path: Path,
+) -> None:
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        _petition(conn, 1, "26-101", conference=SOON)  # listed, read private
+        _petition(conn, 2, "26-102", case_name="United States v. Roe")  # listed, federal
+        _petition(conn, 3, "26-103", disposition=Disposition.denied)  # listed, resolved
+        _petition(conn, 4, "26-104")  # not listed
+        conn.execute("UPDATE cases SET salience_selected = 1 WHERE case_id = 'scotus/1'")
+        conn.commit()
+    listing = SgPetitionListing(
+        frozenset({"26-101", "26-102", "26-103", "26-999"}), oldest_filed=date(2025, 9, 26)
+    )
+
+    with corpus.connect_readonly(db) as conn:
+        report = federal_label_check(conn, today=TODAY, sg_listing=listing)
+
+    check = report.sg_petition_list
+    assert check is not None and check.read
+    assert (check.listed, check.pending) == (4, 2)
+    assert [(p.docket_number, p.selected) for p in check.not_federal] == [("26-101", True)]
+    # Selected or not, the band is what prices the forecast, so it alarms.
+    assert [a.split(":")[0] for a in report.alarms] == ["26-101"]
+    assert report.flagged == []
+
+
+def test_the_census_reads_no_listing_unless_handed_one(tmp_path: Path) -> None:
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        _petition(conn, 1, "26-101")
+
+    assert _check(db).sg_petition_list is None
+
+
+def test_an_unread_listing_is_an_alarm_of_its_own(tmp_path: Path) -> None:
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        _petition(conn, 1, "26-101")
+    unread = SgPetitionListing(frozenset(), error="the request failed (ConnectTimeout)")
+
+    with corpus.connect_readonly(db) as conn:
+        report = federal_label_check(conn, today=TODAY, sg_listing=unread)
+
+    assert report.sg_petition_list is not None and not report.sg_petition_list.read
+    assert [a.split(":")[0] for a in report.alarms] == [SG_LISTING_SUBJECT]
+
+
+def test_the_cli_fetches_the_listing_only_under_its_flag(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "corpus"
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(root))
+    monkeypatch.setenv("FEDCOURTS_CORPUS_BACKEND", "local")
+    with corpus.connect(corpus.corpus_db_path(root)) as conn:
+        _petition(conn, 1, "26-101")
+    fetches: list[int] = []
+
+    def listing() -> SgPetitionListing:
+        fetches.append(1)
+        return SgPetitionListing(frozenset({"26-101"}))
+
+    monkeypatch.setattr(cli, "_read_sg_petition_listing", listing)
+
+    quiet = CliRunner().invoke(app, ["federal-label-check"])
+    assert quiet.exit_code == 0, quiet.output
+    assert fetches == []
+
+    alarmed = CliRunner().invoke(app, ["federal-label-check", "--sg-list"])
+    assert alarmed.exit_code == 3, alarmed.output
+    assert fetches == [1]
+    payload = json.loads(alarmed.stdout.strip().splitlines()[-1])
+    assert [p["docket_number"] for p in payload["sg_petition_list"]["not_federal"]] == ["26-101"]

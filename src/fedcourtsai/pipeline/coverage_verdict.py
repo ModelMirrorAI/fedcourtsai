@@ -9,10 +9,14 @@ ledger covers what it should:
 - the **unforecast-outcomes census** (:mod:`fedcourtsai.pipeline.unforecast`):
   grants and application rulings selection left out;
 - the **federal-label cross-check** (:mod:`fedcourtsai.pipeline.federal_label`):
-  pending petitions a looser reading places federal.
+  pending petitions a looser reading places federal, and, when handed the
+  Solicitor General's posted cert petitions, the ones on that listing the
+  caption rule does not band ``federal``.
 
 Each runs on its own and prints its own report. This module runs all three
-over one corpus read and folds them into one verdict: ``ok`` or not, the alarms
+over one corpus read, adds the cells the predict attempt cap has given up on
+while their event is still open (:func:`attempt_capped_cells`), and folds them
+into one verdict: ``ok`` or not, the alarms
 by name, and a flat block of counts a caller can keep as a series. The
 verdict is what a scheduled caller publishes and what an alarm issue is
 latched on, so the monitor's findings outlive the run that computed them.
@@ -22,7 +26,8 @@ decided event on a selected row still without an outcome record
 :data:`NO_OUTCOME_GRACE_DAYS` days after its decision date (the outcome writer
 converges within a window or two, so a younger gap is the writer's lag; a row
 with no decision date at all is counted, since nothing dates its grace
-period); and each alarm the two censuses raise. One event raises one alarm. The monitor is read over
+period); each alarm the two censuses raise; and every attempt-capped cell of
+an open event. One event raises one alarm from the monitor. The monitor is read over
 :data:`MISSED_WINDOW_DAYS` rather than its per-round week, so a resolution
 recorded late is still seen.
 
@@ -39,15 +44,19 @@ issue did not already name also comments, naming the new ones.
 
 from __future__ import annotations
 
+from collections import Counter
+from collections.abc import Sequence
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Final, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .. import alarm_issue, corpus
+from .. import alarm_issue, corpus, ids
 from ..agent_feedback import GhRunner, _gh
-from .federal_label import FederalLabelReport, federal_label_check
+from ..matrix import event_has_predictions
+from ..registry import enabled_predictors
+from .federal_label import FederalLabelReport, SgPetitionListing, federal_label_check
 from .missed import DateSource, DeclineReason, scan_predictionless_resolutions
 from .unforecast import UnforecastReport, unforecast_outcomes
 
@@ -84,9 +93,26 @@ class CoverageAlarm(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    check: Literal["missed_forecast", "no_outcome_record", "unforecast_outcomes", "federal_label"]
+    check: Literal[
+        "missed_forecast",
+        "no_outcome_record",
+        "unforecast_outcomes",
+        "federal_label",
+        "attempt_capped",
+    ]
     subject: str = Field(description="The case and event, or the docket, the alarm names")
     detail: str
+
+
+class AttemptCappedCell(BaseModel):
+    """One (predictor, event) cell the predict sweep has stopped re-queuing."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    case_id: str
+    event_id: str
+    predictor_id: str
+    failures: int = Field(ge=1, description="Committed `attempt.json` failure facts on the cell")
 
 
 class CoverageVerdict(BaseModel):
@@ -109,12 +135,71 @@ class CoverageVerdict(BaseModel):
     )
     unforecast: UnforecastReport
     federal_label: FederalLabelReport
+    attempt_capped: list[AttemptCappedCell] = Field(
+        default_factory=list,
+        description="Cells of an open event that reached the predict attempt cap with "
+        "no committed prediction",
+    )
+
+
+def attempt_capped_cells(
+    data_root: Path, predictor_ids: Sequence[str], *, max_attempts: int
+) -> list[AttemptCappedCell]:
+    """The cells the attempt cap has given up on while their event is still open.
+
+    A cell of an enabled predictor holding ``max_attempts`` or more committed
+    failure facts (:func:`fedcourtsai.matrix.cell_failure_count`) is no longer
+    re-queued. Where that predictor has no committed prediction on the event
+    and the event has no ``outcome.json``, a forecast is owed, will not be
+    retried, and can still be made. The missed-forecast monitor reports the
+    same cell only once the event resolves. ``max_attempts`` of 0 is the cap
+    switched off, and lists nothing. Reads the committed ledger only.
+    """
+    cases_dir = data_root / "cases"
+    if max_attempts <= 0 or not cases_dir.exists():
+        return []
+    enabled = set(predictor_ids)
+    # <cases>/<court>/<docket>/events/<event>/predictions/<predictor>/<run>/attempt.json
+    failures: Counter[tuple[Path, str]] = Counter()
+    for path in cases_dir.glob("*/*/events/*/predictions/*/*/attempt.json"):
+        if path.parents[1].name in enabled:
+            failures[(path.parents[3], path.parents[1].name)] += 1
+    capped: list[AttemptCappedCell] = []
+    for (event_dir, predictor_id), count in failures.items():
+        if count < max_attempts or (event_dir / "outcome.json").exists():
+            continue
+        court, docket = event_dir.parents[2].name, int(event_dir.parents[1].name)
+        if event_has_predictions(
+            data_root, court, docket, event_dir.name, predictor_id=predictor_id
+        ):
+            continue
+        capped.append(
+            AttemptCappedCell(
+                case_id=ids.case_id(court, docket),
+                event_id=event_dir.name,
+                predictor_id=predictor_id,
+                failures=count,
+            )
+        )
+    capped.sort(key=lambda c: (c.case_id, c.event_id, c.predictor_id))
+    return capped
 
 
 def coverage_verdict(
-    conn: corpus.ReadConnection, data_root: Path, predictors_path: Path, *, today: date
+    conn: corpus.ReadConnection,
+    data_root: Path,
+    predictors_path: Path,
+    *,
+    today: date,
+    max_attempts: int = 0,
+    sg_listing: SgPetitionListing | None = None,
 ) -> CoverageVerdict:
-    """Run the three coverage checks as of ``today`` and fold them into one verdict."""
+    """Run the coverage checks as of ``today`` and fold them into one verdict.
+
+    ``max_attempts`` is the predict sweep's per-cell attempt cap, which the
+    attempt-capped list is read against; ``sg_listing`` hands the federal-label
+    cross-check the Solicitor General's posted cert petitions.
+    """
     missed_since = today - timedelta(days=MISSED_WINDOW_DAYS)
     monitor = scan_predictionless_resolutions(
         conn, data_root, predictors_path, since=missed_since, until=today
@@ -122,7 +207,12 @@ def coverage_verdict(
     unforecast = unforecast_outcomes(
         conn, data_root, since=today - timedelta(days=UNFORECAST_WINDOW_DAYS), until=today
     )
-    label = federal_label_check(conn, today=today)
+    label = federal_label_check(conn, today=today, sg_listing=sg_listing)
+    capped = attempt_capped_cells(
+        data_root,
+        [p.id for p in enabled_predictors(predictors_path)],
+        max_attempts=max_attempts,
+    )
 
     alarms = [
         CoverageAlarm(
@@ -164,6 +254,16 @@ def coverage_verdict(
         CoverageAlarm(check="federal_label", subject=a.split(":", 1)[0], detail=a)
         for a in label.alarms
     ]
+    alarms += [
+        CoverageAlarm(
+            check="attempt_capped",
+            subject=f"{c.case_id} {c.event_id}",
+            detail=f"{c.predictor_id} recorded failed {c.failures} times, at the attempt cap "
+            f"of {max_attempts}: no committed prediction, no outcome yet, and no retry coming",
+        )
+        for c in capped
+    ]
+    sg = label.sg_petition_list
     counts: dict[str, int | float | None] = {
         "missed_events": len(monitor.missed),
         "declined_events": len(monitor.declined),
@@ -185,6 +285,10 @@ def coverage_verdict(
         "pending_paid_petitions": label.pending,
         "pending_federal_band": label.federal,
         "federal_label_flagged": len(label.flagged),
+        "sg_listed_petitions": sg.listed if sg and sg.read else None,
+        "sg_listed_pending": sg.pending if sg and sg.read else None,
+        "sg_listed_not_federal": len(sg.not_federal) if sg and sg.read else None,
+        "attempt_capped_open_cells": len(capped),
     }
     return CoverageVerdict(
         as_of=today,
@@ -196,6 +300,7 @@ def coverage_verdict(
         no_outcome_on_selected_row=[u.as_json() for u in unrecorded],
         unforecast=unforecast,
         federal_label=label,
+        attempt_capped=capped,
     )
 
 
@@ -267,6 +372,16 @@ def render_markdown(verdict: CoverageVerdict) -> str:
     ]
     if verdict.federal_label.flagged:
         lines.append("")
+    sg = verdict.federal_label.sg_petition_list
+    if sg is not None and sg.read:
+        lines += [
+            f"The Solicitor General's listing of its own cert petitions: {sg.listed} docket "
+            f"numbers on its first page, filed back to {sg.oldest_filed}; {sg.pending} are "
+            f"pending here, {len(sg.not_federal)} outside the federal band.",
+            "",
+        ]
+    elif sg is not None:
+        lines += [f"The Solicitor General's listing was not read: {sg.error}.", ""]
     lines += [
         "## Owed forecasts that never landed",
         "",
@@ -276,6 +391,12 @@ def render_markdown(verdict: CoverageVerdict) -> str:
         f"{NO_OUTCOME_GRACE_DAYS}-day grace period).",
         "",
     ]
+    if verdict.attempt_capped:
+        lines += [
+            f"{len(verdict.attempt_capped)} cell(s) of an open event reached the predict "
+            "attempt cap with no committed prediction.",
+            "",
+        ]
     body = "\n".join(lines).rstrip() + "\n"
     if len(body) <= ALARM_BODY_CHARS:
         return body
