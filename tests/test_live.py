@@ -26,6 +26,7 @@ from fedcourtsai.pipeline import live as live_module
 from fedcourtsai.pipeline import salience as salience_module
 from fedcourtsai.pipeline.ingest import (
     CorpusSource,
+    NonUnitSampleWeightError,
     backfill_live_signals,
     from_api_docket,
     from_live_docket,
@@ -2864,15 +2865,16 @@ def test_ingest_live_payload_lands_weight_one_and_observed_zero_signals(tmp_path
     assert stored.distribution_count == 0  # parsed, never distributed
 
 
-def test_walker_weight_never_regresses_a_poller_row(tmp_path: Path) -> None:
-    # The poller landed the row with certainty (weight 1); the walker later
-    # re-serves its sampled serial with weight N — the min-latch keeps 1.
+def test_an_asserted_weight_above_one_is_refused_and_leaves_the_row(tmp_path: Path) -> None:
+    # The poller landed the row at weight 1; a later write asserting weight N is
+    # refused, and the stored row keeps its 1.
     db = corpus.corpus_db_path(tmp_path / "corpus")
     docket_id = live_docket_id(25, 100)
     ingest_live_payload(db, tmp_path / "data", _payload(), docket_id, today=date(2026, 7, 9))
-    ingest_live_payload(
-        db, tmp_path / "data", _payload(), docket_id, today=date(2026, 7, 10), sample_weight=10
-    )
+    with pytest.raises(NonUnitSampleWeightError, match="scotus/9025000100"):
+        ingest_live_payload(
+            db, tmp_path / "data", _payload(), docket_id, today=date(2026, 7, 10), sample_weight=10
+        )
     with corpus.connect(db) as conn:
         stored = corpus.get_row(conn, "scotus/9025000100")
     assert stored is not None and stored.sample_weight == 1
@@ -3041,8 +3043,8 @@ def test_backfill_live_signals_reparses_snapshots_and_applies_the_weight_rule(
     today = date(2026, 7, 10)
     filing = _payload()["ProceedingsandOrder"][0]
 
-    # A: walker-sampled denial (serial on the grid, cursor covers it) -> weight 10,
-    # signals re-parsed from its stored live snapshot even under a newer REST one.
+    # A: denied on the grid, beyond the walk's cursor -> weight 1, signals
+    # re-parsed from its stored live snapshot even under a newer REST one.
     a = ingest_live_payload(
         db,
         data_root,
@@ -3077,7 +3079,7 @@ def test_backfill_live_signals_reparses_snapshots_and_applies_the_weight_rule(
     for result in (a, b, c, d):
         _strip_capture(db, result.case_id)
     with corpus.connect(db) as conn:
-        corpus.set_live_cursor(conn, 25, "historical-paid", 150)
+        corpus.set_live_cursor(conn, 25, "historical-paid", 50)
         # A newer REST-shaped snapshot on A must not blind the re-parse.
         corpus.upsert_snapshot(conn, a.case_id, date(2026, 7, 20), {"id": 1, "court": "scotus"})
         # E: a live-slice row with no live-shaped snapshot at all (a 404-stamped
@@ -3095,7 +3097,7 @@ def test_backfill_live_signals_reparses_snapshots_and_applies_the_weight_rule(
         row_c = corpus.get_row(conn, c.case_id)
         row_d = corpus.get_row(conn, d.case_id)
         row_e = corpus.get_row(conn, "scotus/74110000")
-    assert row_a is not None and row_a.sample_weight == 10
+    assert row_a is not None and row_a.sample_weight == 1
     assert row_a.distribution_count == 1 and row_a.cvsg_date == date(2026, 1, 12)
     assert row_a.originating_court_name is not None
     assert row_b is not None and row_b.sample_weight == 1
@@ -3106,6 +3108,34 @@ def test_backfill_live_signals_reparses_snapshots_and_applies_the_weight_rule(
 
     # Idempotent: everything resolvable was resolved; the second run is a no-op.
     assert backfill_live_signals(db) == (0, 0)
+
+
+def test_backfill_live_signals_refuses_a_sampled_weight_and_rolls_back(tmp_path: Path) -> None:
+    """A row the weight rule reads as sampled fails the pass, signals included.
+
+    A denial on the grid, under the walk's cursor, with no stored neighbours:
+    the rule derives the legacy interval, which no writer may land. The pass
+    raises, and the signal re-parse it had already made for the row goes with it.
+    """
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    filing = _payload()["ProceedingsandOrder"][0]
+    result = ingest_live_payload(
+        db,
+        tmp_path / "data",
+        _payload("25-100", proceedings=[filing, _DISTRIBUTED_SEP, _DENIED_ENTRY]),
+        live_docket_id(25, 100),
+        today=date(2026, 7, 10),
+    )
+    _strip_capture(db, result.case_id)
+    with corpus.connect(db) as conn:
+        corpus.set_live_cursor(conn, 25, "historical-paid", 150)
+        conn.commit()
+
+    with pytest.raises(NonUnitSampleWeightError, match=result.case_id):
+        backfill_live_signals(db)
+    with corpus.connect(db) as conn:
+        row = corpus.get_row(conn, result.case_id)
+    assert row is not None and row.sample_weight is None and row.distribution_count is None
 
 
 def test_munsingwear_disposition_records_a_mootness_basis(tmp_path: Path) -> None:
