@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000684",
+  "run_id": "20261114T033825Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "metrics/statpack.json",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_call_endpoint",
+    "mcp_courtlistener_get_endpoint_item"
+  ],
+  "helpful": [
+    "fedcourts query surfaced Applicant's two pre-cutoff companion applications (26A657 and 26A658) immediately",
+    "metrics/statpack.md and statpack.json interim finer_* counts and applicant_cuts table",
+    "provisioned OCR text of application.txt",
+    "CourtListener RECAP docket metadata confirming BOKF, N.A. spelling and Bankr. E.D. Va. stay-order entries"
+  ],
+  "gaps": [
+    "A party/applicant filter on fedcourts query would streamline finding companion filings by the same pro se litigant"
+  ],
+  "notes": "All corpus and CourtListener MCP tools operated cleanly with low latency."
+}
