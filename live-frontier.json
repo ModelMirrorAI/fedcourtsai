@@ -534,7 +534,7 @@
     },
     {
       "conference": "2024-12-06",
-      "petitions": 5
+      "petitions": 7
     },
     {
       "conference": "2024-12-13",
@@ -542,6 +542,14 @@
     },
     {
       "conference": "2025-01-10",
+      "petitions": 2
+    },
+    {
+      "conference": "2025-01-17",
+      "petitions": 1
+    },
+    {
+      "conference": "2025-01-24",
       "petitions": 1
     },
     {
@@ -549,8 +557,40 @@
       "petitions": 2
     },
     {
+      "conference": "2025-03-28",
+      "petitions": 2
+    },
+    {
+      "conference": "2025-04-04",
+      "petitions": 2
+    },
+    {
+      "conference": "2025-04-17",
+      "petitions": 1
+    },
+    {
+      "conference": "2025-04-25",
+      "petitions": 1
+    },
+    {
+      "conference": "2025-05-02",
+      "petitions": 1
+    },
+    {
+      "conference": "2025-05-29",
+      "petitions": 3
+    },
+    {
+      "conference": "2025-06-05",
+      "petitions": 2
+    },
+    {
+      "conference": "2025-06-18",
+      "petitions": 1
+    },
+    {
       "conference": "2025-09-29",
-      "petitions": 5
+      "petitions": 13
     },
     {
       "conference": "2025-10-10",
@@ -558,7 +598,7 @@
     },
     {
       "conference": "2025-10-17",
-      "petitions": 2
+      "petitions": 3
     },
     {
       "conference": "2025-11-07",
@@ -566,7 +606,7 @@
     },
     {
       "conference": "2025-11-14",
-      "petitions": 3
+      "petitions": 4
     },
     {
       "conference": "2025-11-21",
@@ -666,11 +706,11 @@
     },
     {
       "conference": "2026-11-13",
-      "petitions": 153
+      "petitions": 152
     },
     {
       "conference": "2026-12-04",
-      "petitions": 139
+      "petitions": 142
     }
   ],
   "discovery": {
@@ -730,11 +770,11 @@
     ],
     "term": 26
   },
-  "documents_provisioned": 173,
+  "documents_provisioned": 172,
   "generated_on": "2026-11-14",
   "next_conference": "2026-12-04",
-  "next_conference_petitions": 139,
+  "next_conference_petitions": 142,
   "schema_version": "1.0",
   "skipped": false,
-  "watchlist": 794
+  "watchlist": 824
 }

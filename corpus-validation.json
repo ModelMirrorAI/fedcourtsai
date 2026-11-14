@@ -17,7 +17,7 @@
       "problems": []
     },
     {
-      "checked": 4311824,
+      "checked": 4311825,
       "detail": "",
       "failures": 0,
       "name": "required_columns_non_empty",
@@ -41,7 +41,7 @@
       "problems": []
     },
     {
-      "checked": 641,
+      "checked": 642,
       "detail": "granted before 2024-11-14 (730 days); 14 resolved by termination (1 abated, 1 grant-vacated, 3 judgment-issued, 9 voluntary-dismissal)",
       "failures": 0,
       "name": "no_stale_unparsed_grants",
@@ -78,7 +78,7 @@
       ]
     },
     {
-      "checked": 4308751,
+      "checked": 4308752,
       "detail": "",
       "failures": 0,
       "name": "domain_values_valid",
@@ -86,7 +86,7 @@
       "problems": []
     },
     {
-      "checked": 4311824,
+      "checked": 4311825,
       "detail": "",
       "failures": 0,
       "name": "no_duplicate_cases_or_events",
@@ -94,7 +94,7 @@
       "problems": []
     },
     {
-      "checked": 18805,
+      "checked": 18819,
       "detail": "",
       "failures": 0,
       "name": "ledger_references_exist",
@@ -102,7 +102,7 @@
       "problems": []
     },
     {
-      "checked": 365,
+      "checked": 366,
       "detail": "",
       "failures": 0,
       "name": "minted_moments_defined_in_ledger",
@@ -110,7 +110,7 @@
       "problems": []
     },
     {
-      "checked": 29848,
+      "checked": 29858,
       "detail": "",
       "failures": 0,
       "name": "event_dirs_hold_only_ledger_entries",
@@ -134,7 +134,7 @@
       "problems": []
     },
     {
-      "checked": 4182,
+      "checked": 4202,
       "detail": "",
       "failures": 0,
       "name": "prediction_docs_exist",
@@ -142,7 +142,7 @@
       "problems": []
     },
     {
-      "checked": 1886,
+      "checked": 1896,
       "detail": "",
       "failures": 0,
       "name": "prediction_claims_scoreable",
@@ -150,7 +150,7 @@
       "problems": []
     },
     {
-      "checked": 222,
+      "checked": 225,
       "detail": "",
       "failures": 0,
       "name": "prediction_semantic_claims_conform",
@@ -174,7 +174,7 @@
       "problems": []
     },
     {
-      "checked": 216,
+      "checked": 219,
       "detail": "",
       "failures": 0,
       "name": "merits_predictions_carry_judgment",
@@ -190,7 +190,7 @@
       "problems": []
     },
     {
-      "checked": 14268,
+      "checked": 14272,
       "detail": "",
       "failures": 0,
       "name": "outcome_votes_await_a_registered_source",
@@ -206,7 +206,7 @@
       "problems": []
     },
     {
-      "checked": 14260,
+      "checked": 14264,
       "detail": "",
       "failures": 0,
       "name": "judgment_only_on_merits_outcomes",
@@ -214,7 +214,7 @@
       "problems": []
     }
   ],
-  "corpus_events": 2154563,
+  "corpus_events": 2154564,
   "corpus_rows": 2154188,
   "ok": true,
   "schema_version": "1.0",
