@@ -465,6 +465,10 @@ from .pipeline.interim_reading_census import interim_reading_census
 from .pipeline.judgment import backfill_merits_judgments
 from .pipeline.lineup import WritingKind
 from .pipeline.live import live_poll_all, onboard_served
+from .pipeline.live_snapshot_restore import (
+    RestoreUnavailable,
+    restore_replaced_live_snapshots,
+)
 from .pipeline.merits_coverage import merits_coverage
 from .pipeline.missed import (
     MISSED_LOOKBACK_DAYS,
@@ -1821,6 +1825,117 @@ def rederive_cert_amicus_briefs_cmd(
             "poll read since the dry run is already written, so the total ordinarily "
             "falls between the two dispatches; one above the dry run's means the "
             "population widened — triage the ledger before raising the bound.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+
+@app.command("restore-replaced-live-snapshots")
+def restore_replaced_live_snapshots_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Write the restored snapshots; omit for a dry-run plan."),
+    ] = False,
+    max_restores: Annotated[
+        int | None,
+        typer.Option(
+            "--max-restores",
+            help="Blast-radius bound: refuse to apply more restores than this. "
+            "Required with --apply.",
+        ),
+        # No default: the dry run is where the number comes from, and a default
+        # would stand in for the maintainer's reading of it.
+    ] = None,
+) -> None:
+    """Restore a day's live snapshot where a same-day refresh stored over it.
+
+    A case has one snapshot key per day, shared by the live channel and the
+    CourtListener refresh. Where a refresh stored its read over the day's
+    supremecourt.gov docket, the bucket still holds the replaced body as a
+    noncurrent version. This pass lists the versions of every dated snapshot
+    key of each row both channels have read (`last_live_polled` and
+    `last_pulled` both set), and for a key whose current version is not
+    live-shaped but which holds an earlier live-shaped version, writes the
+    newest such body back as the key's current version
+    (`pipeline.live_snapshot_restore`). The displaced CourtListener body
+    becomes a noncurrent version. **Content store only**: no index row and no
+    committed artifact moves.
+
+    Prints the counts, one line per planned restore (case id and date), then
+    the `LiveSnapshotRestoreResult` as JSON. One pass per invocation (the plan
+    is the write set). `--apply` requires an explicit `--max-restores` and
+    refuses above it, printing the ledger first. Idempotent: re-running after
+    an apply reports `total_restores = 0`. Needs a store role that may list and
+    read object versions; run where the corpus is pulled (`run-repair`'s
+    `live-snapshot-restore` pass in production). Exits 1 when the corpus or the
+    store is absent, the store serves no version reads, or the apply is refused.
+    """
+    settings = get_settings()
+    if apply and max_restores is None:
+        typer.echo(
+            "restore-replaced-live-snapshots: --apply requires an explicit --max-restores. "
+            "Read the dry run first and pass the total_restores you are approving.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before restoring live snapshots.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    # An apply opens the blob as a writer does, though it writes no row: the
+    # store's write gate answers for a connection on the configured corpus file.
+    with corpus.connect_maintenance(db_path, apply=apply) as conn:
+        transport = casestore.write_transport(conn) if apply else casestore.active_transport()
+        if transport is None:
+            typer.echo(
+                "restore-replaced-live-snapshots: no content store is addressed"
+                + (" for writing" if apply else "")
+                + "; nothing can be read. An apply writes only from a corpus writer job.",
+                err=True,
+            )
+            raise typer.Exit(code=1)
+        try:
+            result = restore_replaced_live_snapshots(
+                conn, transport, apply=apply, max_restores=max_restores
+            )
+        except RestoreUnavailable as exc:
+            typer.echo(f"restore-replaced-live-snapshots: {exc}", err=True)
+            raise typer.Exit(code=1) from exc
+    verb = "restored" if result.applied else "would restore"
+    if result.refused:
+        verb = "refused to restore"
+    typer.echo(
+        f"restore-replaced-live-snapshots ({'applied' if result.applied else 'dry-run'}): "
+        f"{result.cases_read} row(s) both channels have read; {result.rewritten_keys} dated "
+        f"snapshot key(s) written more than once; {result.live_current} already serve the "
+        f"live shape, {result.no_live_version} hold no live-shaped version, "
+        f"{result.unreadable} unreadable"
+    )
+    typer.echo(
+        f"  {verb} {result.total_restores} case-day(s) on "
+        f"{len({r.case_id for r in result.restores})} case(s); "
+        f"{result.cases_without_live_snapshot} of those cases serve no live-shaped "
+        "snapshot on any day before the restore"
+    )
+    for restore in result.restores:
+        typer.echo(f"  {restore.case_id} {restore.snapshot_date.isoformat()}")
+    if not apply and max_restores is not None and result.total_restores > max_restores:
+        typer.echo(
+            f"note: {result.total_restores} restores is above --max-restores {max_restores}; "
+            "an apply would refuse.",
+            err=True,
+        )
+    typer.echo(result.model_dump_json())
+    if result.refused:
+        typer.echo(
+            f"restore-replaced-live-snapshots: refusing to apply {result.total_restores} "
+            f"restore(s) (--max-restores {max_restores}). Nothing was written. A total above "
+            "the dry run's means a refresh replaced more live snapshots since; read the "
+            "ledger before raising the bound.",
             err=True,
         )
         raise typer.Exit(code=1)

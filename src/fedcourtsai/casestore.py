@@ -91,9 +91,9 @@ import re
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Protocol, runtime_checkable
 
 from . import paths
 from .config import get_settings
@@ -155,18 +155,69 @@ class ObjectTransport(Protocol):
         ...
 
 
+@dataclass(frozen=True)
+class ObjectVersion:
+    """One stored version of an object, as the bucket's version listing gives it."""
+
+    key: str
+    version_id: str
+    is_latest: bool
+    last_modified: datetime
+
+
+@runtime_checkable
+class VersionedTransport(Protocol):
+    """A transport that can also read an object's earlier versions.
+
+    The bucket keeps versioning on, so a key written twice still holds the
+    first body as a noncurrent version until the lifecycle rule expires it.
+    Reading those is a separate capability from the store's ordinary reads
+    (``s3:ListBucketVersions`` and ``s3:GetObjectVersion``), which only a
+    recovery pass needs.
+    """
+
+    def list_versions(self, prefix: str) -> list[ObjectVersion]:
+        """Every version of every key beginning with ``prefix``, delete markers excluded."""
+        ...
+
+    def get_version(self, key: str, version_id: str) -> bytes | None:
+        """One version's bytes, or ``None`` if that version is gone."""
+        ...
+
+
 class InMemoryObjectTransport:
     """A dict-backed transport for tests (no network, no boto3)."""
 
     def __init__(self) -> None:
         self.objects: dict[str, bytes] = {}
         self.puts = 0
+        # Every body a key has held, oldest first, as a versioned bucket keeps them.
+        self.history: dict[str, list[bytes]] = {}
 
     def put(self, key: str, body: bytes, *, if_absent: bool = False) -> None:
         if if_absent and key in self.objects:
             return
         self.objects[key] = body
+        self.history.setdefault(key, []).append(body)
         self.puts += 1
+
+    def list_versions(self, prefix: str) -> list[ObjectVersion]:
+        return [
+            ObjectVersion(
+                key=key,
+                version_id=str(index),
+                is_latest=index == len(bodies) - 1,
+                last_modified=datetime(2026, 1, 1, tzinfo=UTC) + timedelta(seconds=index),
+            )
+            for key, bodies in self.history.items()
+            if key.startswith(prefix)
+            for index in range(len(bodies))
+        ]
+
+    def get_version(self, key: str, version_id: str) -> bytes | None:
+        bodies = self.history.get(key, [])
+        index = int(version_id)
+        return bodies[index] if 0 <= index < len(bodies) else None
 
     def get(self, key: str) -> bytes | None:
         return self.objects.get(key)
@@ -232,6 +283,34 @@ class S3ObjectTransport:
             for obj in page.get("Contents", []):
                 keys.append(obj["Key"].removeprefix(strip))  # back to a logical key
         return keys
+
+    def list_versions(self, prefix: str) -> list[ObjectVersion]:
+        full_prefix = self._full_key(prefix)
+        strip = f"{self._prefix}/" if self._prefix else ""
+        versions: list[ObjectVersion] = []
+        paginator = self._client.get_paginator("list_object_versions")
+        for page in paginator.paginate(Bucket=self._bucket, Prefix=full_prefix):
+            for obj in page.get("Versions", []):
+                versions.append(
+                    ObjectVersion(
+                        key=obj["Key"].removeprefix(strip),
+                        version_id=obj["VersionId"],
+                        is_latest=bool(obj["IsLatest"]),
+                        last_modified=obj["LastModified"],
+                    )
+                )
+        return versions
+
+    def get_version(self, key: str, version_id: str) -> bytes | None:
+        try:
+            response = self._client.get_object(
+                Bucket=self._bucket, Key=self._full_key(key), VersionId=version_id
+            )
+        except self._ClientError as exc:
+            if exc.response.get("Error", {}).get("Code") in {"NoSuchKey", "NoSuchVersion", "404"}:
+                return None
+            raise
+        return bytes(response["Body"].read())
 
 
 def parse_s3_url(url: str) -> tuple[str, str]:

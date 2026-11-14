@@ -2125,6 +2125,13 @@ listing each, and a get per snapshot it walks past to reach the newest
 live-shaped one), while
 pure `GetObject` reads (`materialize-event`'s event/document reads, document
 leaves) do not.
+Both production workflow roles also hold `s3:ListBucketVersions` and
+`s3:GetObjectVersion` on the content store, for one caller: `run-repair`'s
+`live-snapshot-restore` pass, whose dry run (read-only role) and apply
+(read-write role) list a snapshot key's versions and read an earlier one. The
+grant is read-only and reaches nothing the role could not read while that body
+was current; it adds no write and no delete. The developer and cloud-session
+users do not need it.
 The read-only role therefore keeps `s3:ListBucket`, and by decision it stays.
 A `GetObject`-only narrowing was considered and not pursued: the casestore path
 genuinely needs the list while the split is on, so dropping it is not an IAM

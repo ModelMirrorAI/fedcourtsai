@@ -1825,6 +1825,20 @@ amicus back-fill is: every poll writes the column on the row it reads, so the
 class regrows only where a channel other than the live application branch
 resolves a row, and a re-run fills that.
 
+`live-snapshot-restore` writes the content store alone (`fedcourts
+restore-replaced-live-snapshots`). A case has one snapshot key per day, shared
+by the live channel and the CourtListener refresh; the refresh leaves a stored
+live snapshot of the day in place, and this pass recovers a day on which a
+refresh's read is the key's current version and the Court's docket is an
+earlier one. It lists the versions of every dated snapshot key of each row both
+channels have read, and writes the newest live-shaped earlier version back as
+the current one; the displaced body becomes a noncurrent version. No index row
+and no committed artifact moves. It can only reach a body the bucket still
+holds, so it is run inside the noncurrent-version recovery window, and both
+modes need a role that may list and read object versions. Dispatched rather
+than swept: the refresh no longer replaces a live snapshot, so the class does
+not regrow.
+
 A scored relabel is half a repair: the labels move there, and the grades taken
 under the old label catch up through `regrade-stale`, which recomputes an
 evaluator cell's graded fields under the cell's original stamp and rewrites
