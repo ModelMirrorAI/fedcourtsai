@@ -953,9 +953,11 @@ claim look informative. It also lands, unresolved, on the *fourth*. The interim
 disposition baseline pools the whole substantive slice while the cells scored
 against it are reserve-selected in escalation-ladder order, so it is coarser
 than the disclosed conditioning. That gap is registered in
-[salience.md](salience.md) rather than corrected — the conditioned pool is a
-later estimator, applied forward — and it is why an interim skill number is not
-by itself evidence of forecast skill. **Test 4** is not reached: only the
+[salience.md](salience.md) rather than corrected: the registered baseline stays
+unconditioned, and a per-moment reference line
+(`population_moment_skill_score`) sits beside it at the two later moments, with
+none at arrival. It is why an interim skill number is not by itself evidence of
+forecast skill. **Test 4** is not reached: only the
 disposition claim carries a baseline at all, so no floor-bearing control exists
 to bound a free score against.
 

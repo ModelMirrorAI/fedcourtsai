@@ -2581,14 +2581,38 @@ behind the rate: of the accumulated substantive slice only about a sixth (60 of
 drew a response request, while a reserve-selected cell is frequently picked
 *because* it did. The baseline is unconditioned on the ladder and the scored set
 is selected on it, which is the outcome-decomposition register's test 3 answered
-in the negative. Two consequences travel with any interim skill number: it is
+in the negative. One consequence travels with any interim skill number: it is
 **not by itself evidence of forecast skill** — a positive value is consistent
-with the reserve's pick order alone — and the conditioned rate the claim really
-wants is not derivable from any committed cut, because the pack publishes no
-ladder-by-grant cross-tab. Conditioning the pool on the rung frozen in the
-cell's own context (which now carries it) is the registered **next** estimator,
-applied forward as a new reading, never a silent re-reading of this one. Two
-further selections ride the counts themselves and belong beside any quoted
+with the reserve's pick order alone.
+
+**A per-moment reference line sits beside the registered baseline.** A cell at
+the `response-requested` or `response-filed` moment exists only for an
+application that drew the request or the response, and that population is
+granted about three times as often as the whole slice (36.4% and 33.9% against
+11.7% over OT2016 to OT2025, the freeze-record entry of 2026-11-14). The pack therefore
+counts, per application Term and on the finer reading, the resolved
+applications whose request (`moment_request_*`) or response
+(`moment_response_filed_*`) is dated **strictly before** their decision, with
+`wide_` twins over the widened vocabulary. `base_rates.interim_moment_base_rate`
+pools them over exactly the Terms and vocabulary the registered finer pool
+reads, under the same floor, and the leaderboard scores a second skill line
+against it (`population_moment_skill_score`, `metrics/README.md`). It never
+replaces the registered figure: it prices what knowing the moment alone is
+worth, so the two are read side by side. A positive moment line is still not by
+itself evidence of forecast skill: within the moment, scored cells are
+reserve-latched and caught before the decision, and the pool conditions on
+neither. Three limits are part of the rule.
+The arrival moment has no such line, because no as-of segment of the slice
+describes it: the reserve's pick is a quota over what is pending, and a replay
+of it gives a rate that moves with the slot count and the pass timing. The
+dated columns are as-of, but a moment dated on the decision day is left out,
+since no scored cell opens there. And the two pools overlap heavily (most
+requested applications also draw a response), so they are never summed and
+their skill lines are not independent. The amicus count and the referral stay
+out of any pool: the stored count is the ending value, and a referral is
+usually the disposing entry itself.
+
+Two further selections ride the counts themselves and belong beside any quoted
 figure: resolution is machine-matched, and **parse coverage is uneven across
 application-Terms** — the live poller reaches recently-active applications, so a
 Term it reached late contributes a subsample rather than a census, and a pooled
