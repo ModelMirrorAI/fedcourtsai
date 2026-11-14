@@ -1,6 +1,6 @@
 {
-  "cases": 14396,
-  "eligible": 14396,
+  "cases": 14400,
+  "eligible": 14400,
   "entries": [
     {
       "case_id": "scotus/1119228",
@@ -139828,7 +139828,7 @@
       "predict_eligible": true,
       "predict_excluded": false,
       "salience_score": 0.013000000000000001,
-      "salience_selected": false,
+      "salience_selected": true,
       "salience_version": "sal-v8",
       "sample_weight": 1
     },
@@ -142983,6 +142983,16 @@
       "sample_weight": 1
     },
     {
+      "case_id": "scotus/9026000631",
+      "out_of_scope_reason": null,
+      "predict_eligible": true,
+      "predict_excluded": false,
+      "salience_score": 0.028000000000000004,
+      "salience_selected": true,
+      "salience_version": "sal-v8",
+      "sample_weight": 1
+    },
+    {
       "case_id": "scotus/9526000124",
       "out_of_scope_reason": null,
       "predict_eligible": true,
@@ -143961,9 +143971,39 @@
       "salience_selected": false,
       "salience_version": null,
       "sample_weight": 1
+    },
+    {
+      "case_id": "scotus/9526000676",
+      "out_of_scope_reason": "non-substantive SCOTUS application / original-jurisdiction docket \u2014 not a predictable form",
+      "predict_eligible": true,
+      "predict_excluded": true,
+      "salience_score": null,
+      "salience_selected": false,
+      "salience_version": null,
+      "sample_weight": 1
+    },
+    {
+      "case_id": "scotus/9526000680",
+      "out_of_scope_reason": null,
+      "predict_eligible": true,
+      "predict_excluded": false,
+      "salience_score": 0.013000000000000001,
+      "salience_selected": true,
+      "salience_version": "sal-v8",
+      "sample_weight": 1
+    },
+    {
+      "case_id": "scotus/9526000684",
+      "out_of_scope_reason": null,
+      "predict_eligible": true,
+      "predict_excluded": false,
+      "salience_score": 0.0334,
+      "salience_selected": true,
+      "salience_version": "sal-v8",
+      "sample_weight": 1
     }
   ],
-  "excluded": 734,
+  "excluded": 735,
   "schema_version": "1.0",
   "skipped": false
 }

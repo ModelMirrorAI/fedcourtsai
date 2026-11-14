@@ -13,12 +13,12 @@
       "missed": 13
     },
     "sal-v4/federal": {
-      "cells": 6,
+      "cells": 9,
       "missed": 0
     },
     "sal-v4/high": {
-      "cells": 18,
-      "missed": 5
+      "cells": 27,
+      "missed": 10
     },
     "sal-v4/state": {
       "cells": 15,
@@ -27,19 +27,27 @@
     "sal-v6/baseline": {
       "cells": 3,
       "missed": 0
+    },
+    "sal-v8/federal": {
+      "cells": 3,
+      "missed": 0
+    },
+    "sal-v8/high": {
+      "cells": 3,
+      "missed": 2
     }
   },
   "by_predictor": {
     "claude-baseline": {
-      "cells": 191,
-      "missed": 14
+      "cells": 197,
+      "missed": 17
     },
     "codex-baseline": {
-      "cells": 191,
-      "missed": 15
+      "cells": 197,
+      "missed": 19
     },
     "gemini-baseline": {
-      "cells": 191,
+      "cells": 197,
       "missed": 22
     }
   },
@@ -49,26 +57,26 @@
       "missed": 2
     },
     "none": {
-      "cells": 246,
-      "missed": 31
+      "cells": 261,
+      "missed": 37
     },
     "unlogged": {
-      "cells": 321,
-      "missed": 18
+      "cells": 324,
+      "missed": 19
     }
   },
   "by_snapshot_provenance": {
     "as-stored": {
-      "cells": 444,
-      "missed": 26
+      "cells": 450,
+      "missed": 28
     },
     "dated": {
-      "cells": 45,
-      "missed": 19
+      "cells": 54,
+      "missed": 23
     },
     "truncated": {
-      "cells": 84,
-      "missed": 6
+      "cells": 87,
+      "missed": 7
     }
   },
   "by_stage": {
@@ -78,14 +86,19 @@
       "shared": 0
     },
     "cert@cvsg": {
-      "events": 2,
-      "missed": 1,
+      "events": 3,
+      "missed": 2,
       "shared": 1
     },
     "cert@distribution": {
-      "events": 148,
-      "missed": 13,
+      "events": 150,
+      "missed": 14,
       "shared": 5
+    },
+    "cert@relist": {
+      "events": 2,
+      "missed": 1,
+      "shared": 0
     },
     "cert@response-requested": {
       "events": 3,
@@ -93,8 +106,8 @@
       "shared": 0
     },
     "cert@sg-brief": {
-      "events": 1,
-      "missed": 0,
+      "events": 2,
+      "missed": 1,
       "shared": 0
     },
     "interim@arrival": {
@@ -114,12 +127,12 @@
     }
   },
   "cells": {
-    "cells": 573,
-    "missed": 51
+    "cells": 591,
+    "missed": 58
   },
   "events": {
-    "events": 191,
-    "missed": 24,
+    "events": 197,
+    "missed": 28,
     "shared": 10
   },
   "missed_events": [
@@ -380,6 +393,266 @@
       "event_id": "evt-petition-disposition",
       "outcome": "gvr",
       "resolved_at": "2026-10-05",
+      "shared": false,
+      "stage": "cert@distribution"
+    },
+    {
+      "actual_granted": 1,
+      "calls": [
+        {
+          "band": "sal-v4/high",
+          "brier_score": 0.04,
+          "call": "granted-in-part",
+          "gradings": 3,
+          "mean_predicted_reasoning_quality": 0.91,
+          "mean_reasoning_quality": 0.8267,
+          "prediction_run_id": "20261026T092709Z",
+          "predictor_id": "claude-baseline",
+          "probability": 0.8,
+          "process_window": "proc-v12",
+          "retrieval_calls": 11,
+          "self_provisioned_fetches": 0,
+          "snapshot_provenance": "dated",
+          "snapshot_uptake": "read",
+          "wrong_call": true,
+          "wrong_side": false
+        },
+        {
+          "band": "sal-v4/high",
+          "brier_score": 0.0256,
+          "call": "granted-in-part",
+          "gradings": 3,
+          "mean_predicted_reasoning_quality": 0.95,
+          "mean_reasoning_quality": 0.9033,
+          "prediction_run_id": "20261026T092709Z",
+          "predictor_id": "codex-baseline",
+          "probability": 0.84,
+          "process_window": "proc-v12",
+          "retrieval_calls": 8,
+          "self_provisioned_fetches": 0,
+          "snapshot_provenance": "dated",
+          "snapshot_uptake": "read",
+          "wrong_call": true,
+          "wrong_side": false
+        },
+        {
+          "band": "sal-v4/high",
+          "brier_score": 0.0484,
+          "call": "granted",
+          "gradings": 3,
+          "mean_predicted_reasoning_quality": 0.9467,
+          "mean_reasoning_quality": 0.8333,
+          "prediction_run_id": "20261026T092709Z",
+          "predictor_id": "gemini-baseline",
+          "probability": 0.78,
+          "process_window": "proc-v12",
+          "retrieval_calls": 56,
+          "self_provisioned_fetches": 0,
+          "snapshot_provenance": "dated",
+          "snapshot_uptake": "read",
+          "wrong_call": false,
+          "wrong_side": false
+        }
+      ],
+      "case_id": "scotus/73280982",
+      "event_id": "evt-brief-sg-disposition",
+      "outcome": "granted",
+      "resolved_at": "2026-11-13",
+      "shared": false,
+      "stage": "cert@sg-brief"
+    },
+    {
+      "actual_granted": 1,
+      "calls": [
+        {
+          "band": "sal-v4/high",
+          "brier_score": 0.2304,
+          "call": "granted",
+          "gradings": 3,
+          "mean_predicted_reasoning_quality": 0.7167,
+          "mean_reasoning_quality": 0.8333,
+          "prediction_run_id": "20260918T174135Z",
+          "predictor_id": "claude-baseline",
+          "probability": 0.52,
+          "process_window": "proc-v8",
+          "retrieval_calls": 31,
+          "self_provisioned_fetches": null,
+          "snapshot_provenance": "truncated",
+          "snapshot_uptake": "read",
+          "wrong_call": false,
+          "wrong_side": false
+        },
+        {
+          "band": "sal-v4/high",
+          "brier_score": 0.3136,
+          "call": "denied",
+          "gradings": 3,
+          "mean_predicted_reasoning_quality": 0.4267,
+          "mean_reasoning_quality": 0.7933,
+          "prediction_run_id": "20260918T174135Z",
+          "predictor_id": "codex-baseline",
+          "probability": 0.44,
+          "process_window": "proc-v8",
+          "retrieval_calls": 33,
+          "self_provisioned_fetches": null,
+          "snapshot_provenance": "truncated",
+          "snapshot_uptake": "read",
+          "wrong_call": true,
+          "wrong_side": true
+        },
+        {
+          "band": "sal-v4/high",
+          "brier_score": 0.2025,
+          "call": "granted",
+          "gradings": 3,
+          "mean_predicted_reasoning_quality": 0.3667,
+          "mean_reasoning_quality": 0.5333,
+          "prediction_run_id": "20260918T174135Z",
+          "predictor_id": "gemini-baseline",
+          "probability": 0.55,
+          "process_window": "proc-v8",
+          "retrieval_calls": 32,
+          "self_provisioned_fetches": null,
+          "snapshot_provenance": "truncated",
+          "snapshot_uptake": "read",
+          "wrong_call": false,
+          "wrong_side": false
+        }
+      ],
+      "case_id": "scotus/73280982",
+      "event_id": "evt-order-cvsg-disposition",
+      "outcome": "granted",
+      "resolved_at": "2026-11-13",
+      "shared": false,
+      "stage": "cert@cvsg"
+    },
+    {
+      "actual_granted": 1,
+      "calls": [
+        {
+          "band": "sal-v8/high",
+          "brier_score": 0.0256,
+          "call": "granted-in-part",
+          "gradings": 3,
+          "mean_predicted_reasoning_quality": 0.91,
+          "mean_reasoning_quality": 0.73,
+          "prediction_run_id": "20261109T212928Z",
+          "predictor_id": "claude-baseline",
+          "probability": 0.84,
+          "process_window": "proc-v20",
+          "retrieval_calls": 12,
+          "self_provisioned_fetches": 0,
+          "snapshot_provenance": "dated",
+          "snapshot_uptake": "read",
+          "wrong_call": true,
+          "wrong_side": false
+        },
+        {
+          "band": "sal-v8/high",
+          "brier_score": 0.0441,
+          "call": "granted-in-part",
+          "gradings": 3,
+          "mean_predicted_reasoning_quality": 0.93,
+          "mean_reasoning_quality": 0.8933,
+          "prediction_run_id": "20261109T212928Z",
+          "predictor_id": "codex-baseline",
+          "probability": 0.79,
+          "process_window": "proc-v20",
+          "retrieval_calls": 32,
+          "self_provisioned_fetches": 0,
+          "snapshot_provenance": "dated",
+          "snapshot_uptake": "read",
+          "wrong_call": true,
+          "wrong_side": false
+        },
+        {
+          "band": "sal-v8/high",
+          "brier_score": 0.1444,
+          "call": "granted",
+          "gradings": 3,
+          "mean_predicted_reasoning_quality": 0.8767,
+          "mean_reasoning_quality": 0.63,
+          "prediction_run_id": "20261109T212928Z",
+          "predictor_id": "gemini-baseline",
+          "probability": 0.62,
+          "process_window": "proc-v20",
+          "retrieval_calls": 60,
+          "self_provisioned_fetches": 0,
+          "snapshot_provenance": "dated",
+          "snapshot_uptake": "read",
+          "wrong_call": false,
+          "wrong_side": false
+        }
+      ],
+      "case_id": "scotus/73280982",
+      "event_id": "evt-order-relist-disposition",
+      "outcome": "granted",
+      "resolved_at": "2026-11-13",
+      "shared": false,
+      "stage": "cert@relist"
+    },
+    {
+      "actual_granted": 1,
+      "calls": [
+        {
+          "band": "sal-v4/high",
+          "brier_score": 0.0784,
+          "call": "granted-in-part",
+          "gradings": 3,
+          "mean_predicted_reasoning_quality": 0.92,
+          "mean_reasoning_quality": 0.7833,
+          "prediction_run_id": "20261026T092709Z",
+          "predictor_id": "claude-baseline",
+          "probability": 0.72,
+          "process_window": "proc-v12",
+          "retrieval_calls": 11,
+          "self_provisioned_fetches": 0,
+          "snapshot_provenance": "as-stored",
+          "snapshot_uptake": "read",
+          "wrong_call": true,
+          "wrong_side": false
+        },
+        {
+          "band": "sal-v4/high",
+          "brier_score": 0.0324,
+          "call": "granted-in-part",
+          "gradings": 3,
+          "mean_predicted_reasoning_quality": 0.9567,
+          "mean_reasoning_quality": 0.8733,
+          "prediction_run_id": "20261026T092709Z",
+          "predictor_id": "codex-baseline",
+          "probability": 0.82,
+          "process_window": "proc-v12",
+          "retrieval_calls": 43,
+          "self_provisioned_fetches": 0,
+          "snapshot_provenance": "as-stored",
+          "snapshot_uptake": "read",
+          "wrong_call": true,
+          "wrong_side": false
+        },
+        {
+          "band": "sal-v4/high",
+          "brier_score": 0.0484,
+          "call": "granted",
+          "gradings": 3,
+          "mean_predicted_reasoning_quality": 0.8433,
+          "mean_reasoning_quality": 0.83,
+          "prediction_run_id": "20261026T092709Z",
+          "predictor_id": "gemini-baseline",
+          "probability": 0.78,
+          "process_window": "proc-v12",
+          "retrieval_calls": 61,
+          "self_provisioned_fetches": 0,
+          "snapshot_provenance": "as-stored",
+          "snapshot_uptake": "read",
+          "wrong_call": false,
+          "wrong_side": false
+        }
+      ],
+      "case_id": "scotus/73280982",
+      "event_id": "evt-petition-disposition",
+      "outcome": "granted",
+      "resolved_at": "2026-11-13",
       "shared": false,
       "stage": "cert@distribution"
     },
