@@ -21,9 +21,10 @@ batch that could change what a cell runs or how, and by no other. Two verdicts:
 
 A wrong ``inert`` answer merges a batch with no real-engine evidence, so the
 verdict is an allow-list and every failure path lands on ``engine``. Engine
-relevance is what is left off it: the cell workflows and their composites, the
-pinned engine CLIs (all under ``.github/``), the prompts, the predictor and
-evaluator configs, ``pyproject.toml`` and ``uv.lock``, the schemas, every
+relevance is what is left off it: the cell workflows and their composites
+(under ``.github/``), the pinned engine CLIs (under ``engines/``), the prompts,
+the predictor and evaluator configs, ``pyproject.toml`` and ``uv.lock``, the
+schemas, every
 ``src/`` module not named in :data:`INERT_SOURCE` — ``pricing.py``'s default
 models, the provisioning, retrieval and MCP code, and ``cli.py`` itself among
 them — and every script not named in :data:`INERT_FILES`. A path new to the

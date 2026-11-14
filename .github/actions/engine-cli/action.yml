@@ -1,6 +1,6 @@
 name: Install the pinned engine CLI
 description: >
-  Install one engine's CLI from its pin, `.github/engines/<engine>/` — a
+  Install one engine's CLI from its pin, `engines/<engine>/` — a
   package.json naming the exact version and the lockfile beside it — with
   `npm ci --ignore-scripts` into a prefix under $RUNNER_TEMP, never into the
   checkout. The binary is linked into npm's global bin directory, already on
@@ -51,7 +51,7 @@ runs:
       shell: bash
       env:
         ENGINE: ${{ inputs.engine }}
-        PINS: ${{ github.action_path }}/../../engines
+        PINS: ${{ github.action_path }}/../../../engines
       run: |
         set -euo pipefail
         case "$ENGINE" in

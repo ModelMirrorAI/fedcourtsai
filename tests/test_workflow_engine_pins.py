@@ -1,6 +1,6 @@
 """The engine CLIs every cell runs are pinned once each, and every workflow reads that pin.
 
-`.github/engines/<engine>/` is the one place an engine version lives — an exact
+`engines/<engine>/` is the one place an engine version lives — an exact
 version in package.json and the lockfile beside it: the `engine-cli` composite
 installs from it, the claude cells hand claude-code-action the binary it
 installs, codex-action takes its `codex-version` from it, and Dependabot bumps
@@ -20,7 +20,7 @@ import yaml
 
 REPO = Path(__file__).resolve().parent.parent
 GITHUB = REPO / ".github"
-ENGINES = GITHUB / "engines"
+ENGINES = REPO / "engines"
 ENGINE_PACKAGES = {
     "claude-code": "@anthropic-ai/claude-code",
     "codex": "@openai/codex",
@@ -86,7 +86,7 @@ def test_no_workflow_or_action_carries_a_literal_engine_version() -> None:
         for number, line in enumerate(path.read_text().splitlines(), start=1)
         if literal.search(line)
     ]
-    assert not offenders, f"engine versions belong in .github/engines/<engine>/: {offenders}"
+    assert not offenders, f"engine versions belong in engines/<engine>/: {offenders}"
 
 
 def test_every_codex_action_runs_the_pinned_codex() -> None:
@@ -277,13 +277,40 @@ def test_every_engine_cli_caller_holds_no_secret() -> None:
     assert callers, "no engine-cli caller found; the check would pass vacuously"
 
 
+def test_the_pins_sit_where_dependabot_can_propose_a_bump() -> None:
+    """Dependabot opens a pull request that changes a file under `.github/` only
+    for its `github-actions` ecosystem: an npm update there resolves and then has
+    its pull request refused, so pins kept beside the composites are never bumped."""
+    assert sorted(p.name for p in ENGINES.iterdir()) == sorted(ENGINE_PACKAGES)
+    strays = [
+        str(p.relative_to(REPO))
+        for name in ("package.json", "package-lock.json")
+        for p in GITHUB.rglob(name)
+    ]
+    assert not strays, f"an npm manifest under .github/ is one Dependabot cannot update: {strays}"
+    config = yaml.safe_load((GITHUB / "dependabot.yml").read_text())
+    for entry in config["updates"]:
+        if entry["package-ecosystem"] == "github-actions":
+            continue
+        for directory in [entry.get("directory"), *entry.get("directories", [])]:
+            assert directory is None or not directory.lstrip("/").startswith(".github"), (
+                f"{entry['package-ecosystem']} cannot open a PR for {directory}"
+            )
+
+
+def test_the_pins_are_an_owned_path() -> None:
+    """A pin is code every agent cell executes, so a bump waits for the maintainer."""
+    owners = (GITHUB / "CODEOWNERS").read_text().splitlines()
+    assert "/engines/ @modelmirror" in owners
+
+
 def test_dependabot_proposes_each_engine_bump_on_its_own_after_a_cooldown() -> None:
     config = yaml.safe_load((GITHUB / "dependabot.yml").read_text())
     entries = [entry for entry in config["updates"] if entry["package-ecosystem"] == "npm"]
     assert len(entries) == 1
     entry = entries[0]
     assert sorted(entry["directories"]) == sorted(
-        f"/.github/engines/{engine}" for engine in ENGINE_PACKAGES
+        f"/engines/{engine}" for engine in ENGINE_PACKAGES
     )
     assert entry["schedule"]["interval"] == "daily"
     assert entry["cooldown"]["default-days"] == 3

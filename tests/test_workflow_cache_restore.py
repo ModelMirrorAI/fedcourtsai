@@ -407,7 +407,7 @@ def test_no_root_package_json_lets_setup_node_cache_by_default() -> None:
     carries a `package.json` naming a `packageManager`, and a remote action that
     calls `setup-node` inside itself is out of reach of every input the sweep
     above reads. No root manifest, no automatic cache: the engine CLI pins live
-    under `.github/engines/`, not at the root."""
+    under `engines/`, not at the root."""
     assert not (ROOT / "package.json").exists(), (
         "a root package.json would let a setup-node inside a remote action restore a cache"
     )
