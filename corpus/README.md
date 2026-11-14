@@ -53,8 +53,12 @@ The corpus has two halves:
   job and only from the configured corpus file — and only production's writer
   jobs hold a role that may write there — so a local writer run or a temporary database never
   reaches the store (see [docs/data-pipeline.md](../docs/data-pipeline.md)).
-  Document text leaves are content-addressed and dated snapshots immutable per
-  day, so bulk content is never overwritten in place; the small manifests are
+  Document text leaves are content-addressed, so they are never overwritten in
+  place. A case has one snapshot key per day, shared by every channel that
+  reads it: where the live channel and a CourtListener refresh both read a
+  SCOTUS docket on one day, the day's key holds the Court's own docket, because
+  the refresh leaves a stored live snapshot in place and a live poll replaces a
+  refresh's. The small manifests are
   versioned by the bucket rather than deleted. The `questions-presented` leaf is
   *derived* from the stored petition text rather than fetched, so a fixed
   extractor can be carried onto rows already stored (`fedcourts
