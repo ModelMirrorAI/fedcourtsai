@@ -1,0 +1,28 @@
+{
+  "conclusion": "success",
+  "environment": "prod",
+  "estimated_cost_usd": 0.0971128,
+  "lane": "engine-actions-smoke",
+  "leg": "engine-actions-smoke-claude-code",
+  "lines": [
+    {
+      "cache_creation_input_tokens": 9466,
+      "cache_read_input_tokens": 11384,
+      "engine": "claude-code",
+      "estimated_cost_usd": 0.0971128,
+      "input_tokens": 2,
+      "model": "claude-fable-5-2",
+      "output_tokens": 4,
+      "priced_as": null,
+      "records": null,
+      "source": "claude-execution-file"
+    }
+  ],
+  "recorded_at": "2026-11-13T11:55:21.031319Z",
+  "ref": "main",
+  "run_attempt": 1,
+  "run_id": "43420725426",
+  "schema_version": "1.0",
+  "selection": "canary",
+  "workflow": "integration-test"
+}
