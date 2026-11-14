@@ -28,7 +28,9 @@ import pytest
 
 from fedcourtsai import corpus, leaderboard
 from fedcourtsai.analytics import _InterimAcc
+from fedcourtsai.integrity import FORWARD
 from fedcourtsai.leaderboard import CellSkill, _evaluation_key, _floor_fields
+from fedcourtsai.pipeline import alignment_board
 from fedcourtsai.pipeline.base_rates import (
     INTERIM_BASE_RATE_MIN_RESOLVED,
     INTERIM_WINDOW_FROM_TERM,
@@ -108,6 +110,16 @@ def test_the_statpack_counts_a_moment_dated_strictly_before_the_decision() -> No
     assert (acc.finer_granted, acc.finer_resolved) == (1, 5)
     assert _moment_counts(acc) == (1, 1, 1, 2)
     assert _moment_counts(acc, "wide_") == (1, 1, 1, 2)
+    # The row with no decision date is the one no pool can place.
+    assert (acc.moment_undated, acc.wide_moment_undated) == (1, 1)
+
+
+def test_a_request_flagged_with_no_date_is_counted_undated() -> None:
+    acc = _InterimAcc()
+    acc.add(_row(1, response_requested=True))
+    acc.add(_row(2, response_requested=True, response_requested_at=date(2025, 3, 1)))
+    assert _moment_counts(acc) == (0, 1, 0, 0)
+    assert acc.moment_undated == 1
 
 
 def test_the_widened_twins_count_the_widened_slice() -> None:
@@ -122,7 +134,9 @@ def test_the_widened_twins_count_the_widened_slice() -> None:
     assert _moment_counts(total, "wide_") == (0, 2, 0, 0)
 
 
-def _term(year: int, *, moments: bool = True, unread: int = 0, scale: int = 1) -> Any:
+def _term(
+    year: int, *, moments: bool = True, unread: int = 0, undated: int = 0, scale: int = 1
+) -> Any:
     counts: dict[str, int] = {}
     if moments:
         counts = {
@@ -134,6 +148,8 @@ def _term(year: int, *, moments: bool = True, unread: int = 0, scale: int = 1) -
             "wide_moment_request_resolved": 70 * scale,
             "wide_moment_response_filed_granted": 27 * scale,
             "wide_moment_response_filed_resolved": 90 * scale,
+            "moment_undated": undated,
+            "wide_moment_undated": undated,
         }
     return StatPackInterimTerm(
         term=year,
@@ -175,7 +191,7 @@ def test_the_arrival_moment_has_no_pool() -> None:
     assert interim_moment_base_rate(2026, None, pack, lookback_terms=10) is None
 
 
-@pytest.mark.parametrize("gap", [{"moments": False}, {"unread": 1}])
+@pytest.mark.parametrize("gap", [{"moments": False}, {"unread": 1}, {"undated": 1}])
 def test_the_moment_rate_refuses_a_term_it_does_not_cover(gap: dict[str, Any]) -> None:
     pack = _pack(_term(2025), _term(2024, **gap))
     assert interim_moment_base_rate(2026, Moment.response_requested, pack) is None
@@ -358,17 +374,89 @@ def test_the_floor_stays_null_beside_a_grading_that_no_longer_reproduces() -> No
 
 
 def test_the_moment_line_aggregates_beside_the_registered_one() -> None:
-    evals = [_evaluation(0, 1), _evaluation(1, 1)]
+    # Ten events with the line and one more the registered column alone scores.
+    evals = [_evaluation(0, 1, event=event) for event in range(11)]
+    with_line = CellSkill(brier=0.09, prior_term_baseline=0.01, moment_baseline=0.12)
     skills = _skills(
-        (evals[0], CellSkill(brier=0.09, prior_term_baseline=0.01, moment_baseline=0.12)),
-        (evals[1], CellSkill(brier=0.09, prior_term_baseline=0.01)),
+        *((ev, with_line) for ev in evals[:10]),
+        (evals[10], CellSkill(brier=0.09, prior_term_baseline=0.01)),
     )
     stratum = leaderboard._aggregate(evals, skills)
     assert stratum is not None
-    assert stratum.population_brier_skill_score == pytest.approx(1 - 0.18 / 0.02)
-    assert stratum.skill_scored == 2
+    assert stratum.population_brier_skill_score == pytest.approx(1 - 0.09 / 0.01)
+    assert stratum.skill_scored == 11
     assert stratum.population_moment_skill_score == pytest.approx(1 - 0.09 / 0.12)
-    assert stratum.moment_skill_scored == 1
+    assert (stratum.moment_skill_scored, stratum.moment_skill_events_scored) == (10, 10)
     bare = leaderboard._aggregate(evals, {})
     assert bare is not None
     assert (bare.population_moment_skill_score, bare.moment_skill_scored) == (None, None)
+
+
+def test_below_the_event_floor_the_block_carries_counts_and_no_figure() -> None:
+    # Nine events graded by three judges each: 27 gradings, still nine events.
+    assert leaderboard.MIN_EVENTS_FOR_MOMENT_LINE == 10
+    evals = [_evaluation(n, 1, event=event) for event in range(9) for n in range(3)]
+    cell = CellSkill(brier=0.09, prior_term_baseline=0.01, moment_baseline=0.12)
+    stratum = leaderboard._aggregate(evals, _skills(*((ev, cell) for ev in evals)))
+    assert stratum is not None
+    assert stratum.population_moment_skill_score is None
+    assert (stratum.moment_skill_scored, stratum.moment_skill_events_scored) == (27, 9)
+    payload = stratum.model_dump(mode="json")
+    assert "population_moment_skill_score" not in payload
+    assert payload["moment_skill_events_scored"] == 9
+
+
+def _components(
+    monkeypatch: pytest.MonkeyPatch,
+    evaluation: Evaluation,
+    moment: Moment,
+    *,
+    lookback_terms: int | None = 10,
+) -> dict[Any, CellSkill]:
+    """`skill_components` over one interim cell, its artifacts supplied in memory."""
+    prediction = _prediction(FINER_INTERIM_READING_FROM)
+    outcome = _outcome("denied")
+    monkeypatch.setattr(leaderboard, "_scored_prediction", lambda _dir, _ev: prediction)
+    monkeypatch.setattr(leaderboard, "_read_outcome", lambda _dir, _ev, _cache: outcome)
+    monkeypatch.setattr(alignment_board, "load_inputs", lambda _root: None)
+    return leaderboard.skill_components(
+        [(evaluation, FORWARD, Stage.interim, moment)],
+        Path("."),
+        _pack(_term(2025), _term(2024)),
+        interim_lookback_terms=lookback_terms,
+    )
+
+
+def test_the_moment_line_rides_only_on_a_cell_the_registered_column_scores(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    base = _evaluation(0, 1)
+    # Brier 0.09 against a 0.1 pool on a denial: skill 1 - 0.09 / 0.01.
+    scored = base.model_copy(update={"segment_base_rate": 0.1, "brier_skill_score": -8.0})
+    (cell,) = _components(monkeypatch, scored, Moment.response_requested).values()
+    assert cell.prior_term_baseline == pytest.approx(0.01)
+    assert cell.moment_baseline == pytest.approx((40 / 120) ** 2)
+    assert (cell.deny_correct, cell.recomputed_correct) == (1, 1)
+    # No recorded skill: the cell stays in the map for its floor, with no line.
+    (floor_only,) = _components(monkeypatch, base, Moment.response_requested).values()
+    assert floor_only.prior_term_baseline is None
+    assert floor_only.moment_baseline is None
+    assert floor_only.deny_correct == 1
+    # No window from the caller: the floor, and no line.
+    (unwindowed,) = _components(
+        monkeypatch, scored, Moment.response_requested, lookback_terms=None
+    ).values()
+    assert unwindowed.moment_baseline is None
+    # A grading with no Brier carries nothing, which leaves its block's floor null.
+    unscored = base.model_copy(update={"brier_score": None})
+    assert _components(monkeypatch, unscored, Moment.response_requested) == {}
+
+
+def test_a_block_with_no_moment_line_serializes_without_its_fields() -> None:
+    evals = [_evaluation(0, 1)]
+    stratum = leaderboard._aggregate(evals, _skills((evals[0], CellSkill(brier=0.09))))
+    assert stratum is not None
+    payload = stratum.model_dump(mode="json")
+    assert "population_moment_skill_score" not in payload
+    assert "moment_skill_scored" not in payload
+    assert "moment_skill_events_scored" not in payload

@@ -4376,7 +4376,10 @@ class LeaderboardStratum(_Strict):
         "the request or the response, so it prices what knowing the moment "
         "alone is worth. Pooled at render from the committed statpack, so "
         "every cell shares one vintage. Null on every other block, on cells "
-        "scored on the registered reading, and where the pool refuses a rate. "
+        "scored on the registered reading, where the pool refuses a rate, and "
+        "below 10 scored events (`moment_skill_events_scored`). A higher "
+        "baseline rate makes a correct denial worth more and a correct grant "
+        "worth less, so it is not a stricter bar than the registered figure. "
         "Never a rank key, and never pooled across moments, whose applications "
         "overlap",
     )
@@ -4385,8 +4388,17 @@ class LeaderboardStratum(_Strict):
         ge=1,
         description="Evaluations contributing to `population_moment_skill_score`: "
         "a subset of the `skill_scored` cells, so the two figures share cells "
-        "wherever this count equals `skill_scored`. Null with the figure, and "
-        "both are omitted while null",
+        "wherever this count equals `skill_scored` and are otherwise over "
+        "different cells, never differenced. Counts gradings; omitted while "
+        "null",
+    )
+    moment_skill_events_scored: int | None = Field(
+        default=None,
+        ge=1,
+        description="Distinct (case, event) pairs behind `moment_skill_scored`. "
+        "`population_moment_skill_score` is null below 10 of them "
+        "(`leaderboard.MIN_EVENTS_FOR_MOMENT_LINE`), where the block carries "
+        "these two counts and no figure. Omitted while null",
     )
     population_realized_term_skill_score: float | None = Field(
         default=None,
@@ -4540,7 +4552,7 @@ class LeaderboardStratum(_Strict):
         "**same gradings** `accuracy` averages — every cell counted in "
         "`accuracy_scored`, one per judge, so like `accuracy` it is weighted by "
         "panel depth; `event_always_deny_accuracy` is the per-petition "
-        "reading. Each cell applies the exact-match rule `Evaluation.correct` "
+        "reading. A cert cell applies the exact-match rule `Evaluation.correct` "
         "uses (`pipeline.evaluate.is_correct`) to a synthetic `denied` "
         "prediction against the cell's committed outcome, so any non-`denied` "
         "outcome — a GVR included — is a miss. This is the floor **realized** "
@@ -4805,10 +4817,10 @@ class LeaderboardStratum(_Strict):
 
     @model_serializer(mode="wrap")
     def _omit_ungraded(self, handler: SerializerFunctionWrapHandler) -> Any:
-        """Drop the list fields while empty, and the later-added figures while null.
+        """Drop the list fields while empty, and some figures while null.
 
         The merits baselines, the calibration figures and the interim moment
-        line, so a block that carries none serializes as it did before them.
+        line: a block that carries none of one family has no keys for it.
         """
         payload = _omit_empty(
             handler(self),
@@ -4821,6 +4833,7 @@ class LeaderboardStratum(_Strict):
                 *_CALIBRATION_FIELDS,
                 "population_moment_skill_score",
                 "moment_skill_scored",
+                "moment_skill_events_scored",
             ):
                 if payload.get(name, 0) is None:
                     payload.pop(name)
@@ -12616,6 +12629,21 @@ class _StatPackInterimCounts(_Strict):
         description="Of `wide_moment_response_filed_resolved`, the applications the "
         "finer reading grants in whole or in part. Absent with `moment_request_resolved`",
     )
+    moment_undated: int | None = Field(
+        default=None,
+        ge=0,
+        description="Of `finer_resolved`, the applications whose place in a moment "
+        "pool cannot be read: no decision date, or a response request flagged "
+        "with no date. They join no moment pool, and a non-zero count makes a "
+        "moment pool over this Term refuse a rate rather than count a partial "
+        "Term. Absent with `moment_request_resolved`",
+    )
+    wide_moment_undated: int | None = Field(
+        default=None,
+        ge=0,
+        description="`moment_undated` over the widened slice. Absent with "
+        "`moment_request_resolved`",
+    )
 
     @model_serializer(mode="wrap")
     def _omit_unset_duplicate_rows(self, handler: SerializerFunctionWrapHandler) -> Any:
@@ -12642,6 +12670,8 @@ class _StatPackInterimCounts(_Strict):
                 "wide_moment_request_granted",
                 "wide_moment_response_filed_resolved",
                 "wide_moment_response_filed_granted",
+                "moment_undated",
+                "wide_moment_undated",
             ):
                 if getattr(self, name) is None:
                     payload.pop(name, None)

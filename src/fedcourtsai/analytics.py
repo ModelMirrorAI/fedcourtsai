@@ -1533,6 +1533,7 @@ class _InterimAcc:
         "moment_request_resolved",
         "moment_response_filed_granted",
         "moment_response_filed_resolved",
+        "moment_undated",
         "referred_to_court",
         "response_requested",
         "substantive_granted",
@@ -1546,6 +1547,7 @@ class _InterimAcc:
         "wide_moment_request_resolved",
         "wide_moment_response_filed_granted",
         "wide_moment_response_filed_resolved",
+        "wide_moment_undated",
         "wide_resolved",
         "wide_unread",
         "with_amicus",
@@ -1581,6 +1583,8 @@ class _InterimAcc:
         self.wide_moment_request_granted = 0
         self.wide_moment_response_filed_resolved = 0
         self.wide_moment_response_filed_granted = 0
+        self.moment_undated = 0
+        self.wide_moment_undated = 0
         self.response_requested = 0
         self.referred_to_court = 0
         self.with_amicus = 0
@@ -1651,7 +1655,8 @@ class _InterimAcc:
             return
         self.wide_finer_resolved += 1
         self.wide_finer_granted += scored
-        requested, response_filed = _moments_reached(row)
+        requested, response_filed, undated = _moments_reached(row)
+        self.wide_moment_undated += undated
         if requested:
             self.wide_moment_request_resolved += 1
             self.wide_moment_request_granted += scored
@@ -1682,7 +1687,8 @@ class _InterimAcc:
             return
         self.finer_resolved += 1
         self.finer_granted += scored
-        requested, response_filed = _moments_reached(row)
+        requested, response_filed, undated = _moments_reached(row)
+        self.moment_undated += undated
         if requested:
             self.moment_request_resolved += 1
             self.moment_request_granted += scored
@@ -1723,15 +1729,17 @@ class _InterimAcc:
         self.wide_moment_request_granted += other.wide_moment_request_granted
         self.wide_moment_response_filed_resolved += other.wide_moment_response_filed_resolved
         self.wide_moment_response_filed_granted += other.wide_moment_response_filed_granted
+        self.moment_undated += other.moment_undated
+        self.wide_moment_undated += other.wide_moment_undated
         self.response_requested += other.response_requested
         self.referred_to_court += other.referred_to_court
         self.with_amicus += other.with_amicus
 
 
-def _moments_reached(row: CorpusRow) -> tuple[bool, bool]:
+def _moments_reached(row: CorpusRow) -> tuple[bool, bool, bool]:
     """Whether a resolved application reached each later interim moment before its decision.
 
-    ``(response requested, response filed)``, each true only where the dated
+    ``(response requested, response filed, undated)``. The first two are true only where the dated
     column falls **strictly before** ``date_decided``: a moment dated on the
     decision day opens no scored cell (the forward queue's decided-guard and
     the decision-day set-aside both refuse it), so a row whose moment and
@@ -1739,13 +1747,19 @@ def _moments_reached(row: CorpusRow) -> tuple[bool, bool]:
     date reaches neither, because the as-of order cannot be read. The dated
     columns are the same ones moment minting keys on, so a pool counts the
     population a cell at that moment is drawn from.
+
+    ``undated`` marks a row whose membership cannot be read at all: no decision
+    date, or the ``response_requested`` flag set with no dated request beside
+    it. Such a row joins no pool and is counted, so a Term holding one is a
+    partial census a pooled rate refuses rather than a silently smaller pool.
     """
     decided = row.date_decided
     if decided is None:
-        return False, False
+        return False, False, True
     requested = row.response_requested_at is not None and row.response_requested_at < decided
     filed = row.response_filed_at is not None and row.response_filed_at < decided
-    return requested, filed
+    undated = bool(row.response_requested) and row.response_requested_at is None
+    return requested, filed, undated
 
 
 def _interim_counts(acc: _InterimAcc) -> dict[str, Any]:
@@ -1790,6 +1804,8 @@ def _interim_counts(acc: _InterimAcc) -> dict[str, Any]:
         "wide_moment_request_granted": acc.wide_moment_request_granted,
         "wide_moment_response_filed_resolved": acc.wide_moment_response_filed_resolved,
         "wide_moment_response_filed_granted": acc.wide_moment_response_filed_granted,
+        "moment_undated": acc.moment_undated,
+        "wide_moment_undated": acc.wide_moment_undated,
     }
 
 

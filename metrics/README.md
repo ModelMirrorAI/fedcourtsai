@@ -922,11 +922,14 @@ stays outside the gate:
   reading a partial grant is a miss for the floor, and a moot dismissal is
   unscored for it as for the forecast. An interim block's floor comes from the
   scored prediction and the committed outcome alone and carries none of the
-  band or grant-count fields. `always_deny_accuracy` scores a constant `denied` call over
+  band or grant-count fields. On an interim cell scored on the registered
+  reading the floor is exact-match, so a withdrawn or dismissed outcome is a
+  miss for it; a block pooling both readings mixes the two rules, as its
+  `accuracy` does. `always_deny_accuracy` scores a constant `denied` call over
   exactly the gradings `accuracy` averages — the `accuracy_scored` cells, one
-  per judge, under the same exact-match rule `correct` uses — so a GVR, a
-  partial grant or a summary reversal is a miss for it, just as it is for a
-  `granted` call. `accuracy_lift` is `accuracy - always_deny_accuracy`, a
+  per judge. On a cert cell that is the same exact-match rule `correct` uses —
+  so a GVR, a partial grant or a summary reversal is a miss for it, just as it
+  is for a `granted` call. `accuracy_lift` is `accuracy - always_deny_accuracy`, a
   paired difference over the identical cells. Both are averaged over
   **gradings**, so they are weighted by panel depth, and depth varies by
   design; the **per-petition** reading counts each event once:
@@ -1108,7 +1111,8 @@ stays outside the gate:
   The four grant counts are cert-only. The two floors (`always_deny_accuracy`,
   `event_always_deny_accuracy`) and the two lifts (`accuracy_lift`,
   `event_accuracy_lift`) are filled on the cert and interim stages and null
-  elsewhere (where `denied` is not the null call). On a cert block all eight are also null on
+  elsewhere (where `denied` is not the null call). On a cert block all eight
+  are also null on
   a block where any accuracy-scored cell lacks band/outcome facts (a cert cell
   with no readable scored prediction). The two floors and two lifts are
   further null where any accuracy-scored cell's stamped `correct` no longer
@@ -2018,9 +2022,19 @@ strictly-prior applications that reached the same moment before their decision
 and floor of the registered pool. Read it beside `population_brier_skill_score`
 and never in place of it: the registered figure answers "better than the
 whole-slice rate", this one "better than the rate of applications that got
-this far". `moment_skill_scored` is its denominator, a subset of
-`skill_scored`: only cells scored on the finer reading have the line, and it
-is null where the pool refuses a rate. It is pooled at render from the
+this far". `moment_skill_scored` is its denominator in gradings, a subset of
+`skill_scored`, and `moment_skill_events_scored` the distinct events behind
+them: only cells scored on the finer reading have the line, and it is null
+where the pool refuses a rate. **Below 10 scored events the block carries the
+two counts and no figure.** The two skill figures share cells only where
+`moment_skill_scored` equals `skill_scored`; otherwise they run over different
+cells and are not differenced. Nor is the line a stricter bar: a higher
+baseline rate makes a correct denial worth more and a correct grant worth
+less, so it can sit above or below the registered figure. And a positive
+moment line is still not by itself evidence of forecast skill: within the
+moment, scored cells are reserve-latched and caught before the decision, and
+the pool conditions on neither. The topic cut's `stage@moment` cells carry the
+line and the floor under the same rules. It is pooled at render from the
 committed statpack, so every cell on a board shares one pack vintage, whereas
 the registered baseline is frozen at grading. The `interim@arrival` block has
 no such line. The two later moments cover largely the same applications, so

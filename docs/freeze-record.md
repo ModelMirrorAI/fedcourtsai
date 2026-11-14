@@ -20410,7 +20410,7 @@ freeze commit is recorded here.
   digest, an upper bound on the gradings of counted predictions among them.
 
 - **A per-moment reference line beside the interim baseline, and an interim
-  accuracy floor; registered 2026-11-14.** A scoring-baseline addition. No
+  accuracy floor; recorded 2026-11-14.** A scoring-baseline addition. No
   registered figure is recomputed, replaced or de-counted, no prompt changes
   and no process digest moves: the line is computed when the leaderboard is
   rendered, from the committed statpack and the committed gradings.
@@ -20432,7 +20432,10 @@ freeze commit is recorded here.
   applications and the same refusals. The `arrival` moment has no such line.
   The amicus count and the referral condition no pool. The line is never a
   rank key, never replaces the registered figure, and is never pooled across
-  the two moments.
+  the two moments. A block prints the figure only from 10 distinct scored
+  events up (`leaderboard.MIN_EVENTS_FOR_MOMENT_LINE`); below that it carries
+  the line's grading and event counts and no figure. That floor is the one the
+  reliability bins already use and was fixed with one event in hand, below it.
 
   **The floor.** Interim blocks fill `always_deny_accuracy`, `accuracy_lift`
   and their per-event readings: a constant `denied` call scored on the same
@@ -20460,18 +20463,27 @@ freeze commit is recorded here.
   `c899aac2d`, and the per-moment constant-forecast floors. The pools are
   strictly prior to any cell they score, so OT2026 outcomes enter no OT2026
   cell's rate. At `origin/main`'s `6b0fde49e` the committed ledger holds one
-  resolved forward event with gradings the line admits (three gradings per
-  predictor at `response-filed`, none at `response-requested`), and the line
-  was computed on it while building this change. Every other forward event
-  the line will score resolves after this entry.
+  resolved forward event with gradings the line admits, `scotus/9526000623`
+  `evt-brief-response-disposition` (denied; three gradings per predictor at
+  `response-filed`, none at `response-requested`), and the line was computed
+  on it while building this change, before the event floor was added (0.999,
+  0.992 and 0.998 for the three predictors). Every other forward event the
+  line scores had no committed outcome at `6b0fde49e`.
 
   **Limits that travel with the figure.** The two pools overlap (244 of the
-  258 requested applications also drew a response), so the two moment lines
-  are not independent. The pool is re-read from the statpack checked out at
+  258 requested applications also had a response filed, on any date), so the
+  two moment lines are not independent. Within a moment the scored cells are
+  further selected: they are reserve-latched and were caught before the
+  decision, and the pool conditions on neither, so a positive moment line is
+  still not by itself evidence of forecast skill. The pool is re-read from the statpack checked out at
   render, while the registered baseline is frozen at grading, so the moment
   line moves with back-fills of prior Terms. Resolution is machine-matched and
   parse coverage is uneven across Terms, as for the registered pool. A moot
   dismissal leaves the pool, and 21 of the 29 such rows in OT2016 to OT2025
   had drawn a request. The counts sit in `metrics/statpack.json`, which a
-  predict cell can read; no prompt points to them, and pointing a predictor
-  at them is a prompt change that would be registered as one.
+  predict cell can read and which the predict prompt names for other cuts.
+  They reach a cell from the first statpack landing on `main` that carries
+  `moment_request_resolved`, and cells either side of that landing share a
+  digest. No prompt names these fields, and pointing a predictor at them is a
+  prompt change that would be registered as one. The rendered
+  `metrics/statpack.md` is unchanged.

@@ -415,6 +415,20 @@
           "description": "Of `finer_resolved`, the applications whose response (the corpus `response_filed_at`, requested or not) is dated strictly before their decision: the population a `response-filed` interim cell is drawn from. Overlaps `moment_request_resolved`, so the two are never summed. Absent with `moment_request_resolved`",
           "title": "Moment Response Filed Resolved"
         },
+        "moment_undated": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Of `finer_resolved`, the applications whose place in a moment pool cannot be read: no decision date, or a response request flagged with no date. They join no moment pool, and a non-zero count makes a moment pool over this Term refuse a rate rather than count a partial Term. Absent with `moment_request_resolved`",
+          "title": "Moment Undated"
+        },
         "referred_to_court": {
           "default": 0,
           "description": "Substantive applications referred to the full Court rather than decided by a Circuit Justice alone",
@@ -598,6 +612,20 @@
           "default": null,
           "description": "`moment_response_filed_resolved` over the widened slice. Absent with `moment_request_resolved`",
           "title": "Wide Moment Response Filed Resolved"
+        },
+        "wide_moment_undated": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "`moment_undated` over the widened slice. Absent with `moment_request_resolved`",
+          "title": "Wide Moment Undated"
         },
         "wide_resolved": {
           "anyOf": [
@@ -858,6 +886,20 @@
           "description": "Of `finer_resolved`, the applications whose response (the corpus `response_filed_at`, requested or not) is dated strictly before their decision: the population a `response-filed` interim cell is drawn from. Overlaps `moment_request_resolved`, so the two are never summed. Absent with `moment_request_resolved`",
           "title": "Moment Response Filed Resolved"
         },
+        "moment_undated": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Of `finer_resolved`, the applications whose place in a moment pool cannot be read: no decision date, or a response request flagged with no date. They join no moment pool, and a non-zero count makes a moment pool over this Term refuse a rate rather than count a partial Term. Absent with `moment_request_resolved`",
+          "title": "Moment Undated"
+        },
         "referred_to_court": {
           "default": 0,
           "description": "Substantive applications referred to the full Court rather than decided by a Circuit Justice alone",
@@ -1038,6 +1080,20 @@
           "default": null,
           "description": "`moment_response_filed_resolved` over the widened slice. Absent with `moment_request_resolved`",
           "title": "Wide Moment Response Filed Resolved"
+        },
+        "wide_moment_undated": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "`moment_undated` over the widened slice. Absent with `moment_request_resolved`",
+          "title": "Wide Moment Undated"
         },
         "wide_resolved": {
           "anyOf": [

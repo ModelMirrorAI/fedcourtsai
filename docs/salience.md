@@ -2588,7 +2588,8 @@ with the reserve's pick order alone.
 **A per-moment reference line sits beside the registered baseline.** A cell at
 the `response-requested` or `response-filed` moment exists only for an
 application that drew the request or the response, and that population is
-granted about three times as often as the whole slice. The pack therefore
+granted about three times as often as the whole slice (36.4% and 33.9% against
+11.7% over OT2016 to OT2025, the freeze-record entry of 2026-11-14). The pack therefore
 counts, per application Term and on the finer reading, the resolved
 applications whose request (`moment_request_*`) or response
 (`moment_response_filed_*`) is dated **strictly before** their decision, with
@@ -2597,7 +2598,10 @@ pools them over exactly the Terms and vocabulary the registered finer pool
 reads, under the same floor, and the leaderboard scores a second skill line
 against it (`population_moment_skill_score`, `metrics/README.md`). It never
 replaces the registered figure: it prices what knowing the moment alone is
-worth, so the two are read side by side. Three limits are part of the rule.
+worth, so the two are read side by side. A positive moment line is still not by
+itself evidence of forecast skill: within the moment, scored cells are
+reserve-latched and caught before the decision, and the pool conditions on
+neither. Three limits are part of the rule.
 The arrival moment has no such line, because no as-of segment of the slice
 describes it: the reserve's pick is a quota over what is pending, and a replay
 of it gives a rate that moves with the slot count and the pass timing. The

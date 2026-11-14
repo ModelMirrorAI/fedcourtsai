@@ -353,7 +353,8 @@ def _series_of(
 
 @dataclass(frozen=True)
 class CellSkill:
-    """One scored cell's Brier and the baseline Brier each skill column uses.
+    """One scored cell's Brier, the baseline Brier each skill column uses, and an
+    interim cell's floor facts.
 
     The terms, not the ratios, because a stratum's skill is aggregated as a
     **ratio of sums** — ``1 - sum(brier) / sum(baseline_brier)`` — and a mean of
@@ -369,8 +370,13 @@ class CellSkill:
     invariant in the band rate, which a mean of ratios's is not — re-derive
     both from the committed pack rather than quoting them.
 
-    A baseline is ``None`` where that column does not score the cell, so the two
-    columns keep independent populations and independent counts.
+    A baseline is ``None`` where that column does not score the cell, so the
+    columns keep independent populations and independent counts. An interim
+    cell can carry the floor facts and no baseline at all, so presence in the
+    map never implies a baseline: every reader tests the field it uses. The
+    floor rides here because the map is built only for cells with a stamped
+    Brier and a scored target, so one interim grading lacking either leaves
+    its block's floor null.
     """
 
     brier: float
@@ -560,10 +566,11 @@ def _aggregate(
         if cell is not None and cell.realized_term_baseline is not None
     ]
     by_moment = [
-        (cell.brier, cell.moment_baseline)
-        for cell in cells
+        (ev, cell.brier, cell.moment_baseline)
+        for ev, cell in zip(evals, cells, strict=True)
         if cell is not None and cell.moment_baseline is not None
     ]
+    moment_events = len({(ev.case_id, ev.event_id) for ev, _, _ in by_moment})
     scored_votes = vote_scores or {}
     voted = [
         ev for ev in evals if scores_votes(ev.event_id) and _evaluation_key(ev) in scored_votes
@@ -579,8 +586,14 @@ def _aggregate(
         skill_scored=len(prior),
         population_realized_term_skill_score=_skill_of_means(realized),
         realized_term_skill_scored=len(realized),
-        population_moment_skill_score=_skill_of_means(by_moment),
+        # Counts always; the figure only from the registered event floor up.
+        population_moment_skill_score=(
+            _skill_of_means([(brier, baseline) for _, brier, baseline in by_moment])
+            if moment_events >= MIN_EVENTS_FOR_MOMENT_LINE
+            else None
+        ),
         moment_skill_scored=len(by_moment) or None,
+        moment_skill_events_scored=moment_events or None,
         mean_vote_accuracy=_mean([v.model for v in votes]),
         vote_cells_scored=len(votes),
         vote_events_scored=len({(ev.case_id, ev.event_id) for ev in voted}) or None,
@@ -686,6 +699,14 @@ RELIABILITY_BIN_EDGES: tuple[float, ...] = (0.0, 0.05, 0.10, 0.25, 0.50, 0.75, 1
 #: and an observed rate, and the fewest a block holds before it prints the two
 #: Murphy terms. Below it a bin carries its counts only.
 MIN_EVENTS_FOR_RELIABILITY = 10
+
+#: The fewest distinct events an interim block's per-moment reference line is
+#: printed over. Below it the block carries the line's two counts and no
+#: figure: a ratio of Brier sums over a handful of events is mostly those
+#: events' outcomes, and a panel of judges multiplies gradings, not events. The
+#: figure :data:`MIN_EVENTS_FOR_RELIABILITY` states, registered with the line
+#: (``docs/freeze-record.md``), not a knob.
+MIN_EVENTS_FOR_MOMENT_LINE = 10
 
 
 def reliability_bin_index(probability: float) -> int:
@@ -862,6 +883,9 @@ def _floor_fields(
     - ``accuracy_events_scored`` and ``event_accuracy`` need no facts. Each
       event enters once, and ``event_accuracy`` (with every ``event_*`` field)
       is null where a block's gradings of one event disagree on ``correct``.
+    - An **interim** block takes its floor and lifts from
+      :func:`_interim_floor_fields`, which reads :attr:`CellSkill.deny_correct`
+      under the same two gates as the cert floor below, and nothing else here.
     - Everything else needs :class:`CellFacts` on **every** accuracy cell:
       partial coverage would run the floor over fewer cells than ``accuracy``.
       In practice coverage fails only on a non-cert stage, which carries none.
@@ -1798,6 +1822,12 @@ def skill_components(
     over different cells with different denominators and must not be subtracted
     from one another.
 
+    **An interim cell** also carries the terms of its two interim-only figures
+    (:func:`_interim_cell`): the constant-``denied`` floor facts, and, given
+    ``interim_lookback_terms``, the per-moment reference pool's baseline on a
+    cell the prior-Term column scores. Such a cell enters the map even with no
+    baseline at all, for the floor.
+
     **Computed here rather than carried on the cell.** A Term's own rate is
     term-to-date and keeps moving until the Term closes, so a value frozen onto
     an ``evaluation.json`` would record when the cell was graded, not what the
@@ -1859,8 +1889,8 @@ def skill_components(
             realized_term_baseline=realized,
             alignment_baseline=None if reading is None else reading.brier,
             alignment_fit_replay_share=None if reading is None else reading.fit_replay_share,
-            # Beside the registered column and over a subset of its cells, so
-            # the two lines differ in the baseline and in nothing else.
+            # Beside the registered column and over a subset of its cells: the
+            # two figures share cells only where the subset is the whole.
             moment_baseline=None if prior is None else interim.moment_baseline,
             deny_correct=interim.deny,
             recomputed_correct=interim.recomputed,
@@ -1900,9 +1930,11 @@ def _interim_cell(
     (:func:`fedcourtsai.pipeline.base_rates.interim_moment_base_rate`) against
     ``target``, for a cell scored on the finer reading at a moment that has a
     pool. It is pooled from the ``statpack`` handed in over ``lookback_terms``,
-    the configured ``salience.base_rate_lookback_terms`` the registered interim
-    pool is stamped under (an interim grading records no window of its own),
-    so every cell on a board shares one pack vintage: the registered baseline
+    the configured ``salience.base_rate_lookback_terms`` at render. An interim
+    grading records no window of its own, so the two lines pool the same Terms
+    only while that setting is the one the grading was stamped under, which a
+    change to it before OT2027 would break. Every cell on a board shares one
+    pack vintage: the registered baseline
     beside it is frozen at grading, this one is re-read at render. A caller
     that passes no window, as the rebuilders that project the registered
     figures alone do, gets no moment line.
@@ -2663,7 +2695,8 @@ def _stage_board(
     A later cert moment (``cert@cvsg``) is still a salience-band product, so
     its forward stratum carries ``by_band`` and the realized floor fields like
     the ranked board's; every other stage's cells carry no :class:`CellFacts`,
-    so those stay null there.
+    so the band cut and the grant counts stay null there. An interim block
+    still fills the floor and the lifts, from :attr:`CellSkill.deny_correct`.
     """
     by_series = _group_by_series(cells, cell_windows)
     entries = [
@@ -2785,7 +2818,8 @@ def build_leaderboard(  # noqa: PLR0913 - one keyword per stratify-pass input th
     ``facts`` (from :func:`cell_facts` over the same cells) supplies each cert
         cell's frozen band key and realized outcome: the forward stratum's
         ``by_band`` cut, every cert stratum's realized always-deny floor,
-        lifts, and grant counts, and each paired figure's band filing (by its
+        lifts, and grant counts (an interim stratum's floor and lifts come from
+        ``skills`` instead), and each paired figure's band filing (by its
         cells' harness ``clock``). None of them reaches :func:`_paired_rank_key`.
         Unsupplied, no entry carries ``by_band`` and those fields are null.
 

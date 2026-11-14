@@ -852,7 +852,8 @@ def interim_moment_base_rate(
     ``None`` for a moment outside :data:`INTERIM_MOMENT_POOLS`, for a pack with
     no interim section, where any pooled Term predates the moment counts or
     holds a row the finer reading has not read (the refusal the finer pool
-    makes, for its reason), and where the pooled sample is below
+    makes, for its reason) or a row no moment pool can place
+    (``moment_undated``), and where the pooled sample is below
     :data:`INTERIM_BASE_RATE_MIN_RESOLVED`. Finer reading only: a cell scored
     on the registered reading has no moment line.
     """
@@ -884,20 +885,22 @@ def _moment_counts(
 ) -> tuple[int, int] | None:
     """One Term's ``(granted, resolved)`` for a moment pool, or ``None`` if unread.
 
-    ``None`` on the guards the finer pool applies to the same slice (a Term
-    built before the counts, or holding an unread row), and where the Term
-    predates the moment counts themselves.
+    ``None`` wherever the finer pool over the same slice refuses the Term (it
+    predates the counts or holds an unread row), where the Term predates the
+    moment counts themselves, and where it holds a row no moment pool can place
+    (``moment_undated``).
     """
-    unread = (entry.wide_unread or entry.wide_finer_unread) if wide else entry.finer_unread
+    if wide:
+        if _wide_counts(entry, "finer") is None:
+            return None
+    elif entry.finer_resolved is None or entry.finer_granted is None or entry.finer_unread:
+        return None
     prefix = "wide_moment_" if wide else "moment_"
     stem = "request" if moment == Moment.response_requested else "response_filed"
-    granted = getattr(entry, f"{prefix}{stem}_granted")
-    resolved = getattr(entry, f"{prefix}{stem}_resolved")
-    if unread or granted is None or resolved is None:
-        return None
-    if wide and (entry.wide_resolved is None or entry.wide_finer_resolved is None):
-        return None
-    if not wide and entry.finer_resolved is None:
+    granted: int | None = getattr(entry, f"{prefix}{stem}_granted")
+    resolved: int | None = getattr(entry, f"{prefix}{stem}_resolved")
+    undated: int | None = getattr(entry, f"{prefix}undated")
+    if granted is None or resolved is None or undated is None or undated:
         return None
     return granted, resolved
 
