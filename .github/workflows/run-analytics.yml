@@ -200,8 +200,9 @@ run-name: "run-analytics: ${{ github.event_name == 'workflow_dispatch' && inputs
 # corpus, `data/`, the corpus remote, nor git, open no PR, and file no issue — every
 # result goes to the Actions step summary and the run log, and text-coverage's ledgers
 # additionally to a run artifact, because a worklist has to outlive the summary page
-# it is read beside — as do order-scan's and decision-below's reports; appeal-sample's
-# report is on its summary page alone. The six committing modes write only under their own
+# it is read beside — as do order-scan's and decision-below's reports;
+# appeal-sample's report is on its summary page and in its run log, and in no
+# artifact. The six committing modes write only under their own
 # paths — metrics-refresh under `metrics/` + `data/scope/`, big-cases under
 # `metrics/big-cases.*`, public-updates under `metrics/updates/`, qp-topic-label
 # under `data/qp-topics/` (the labels file and the run's spend record under
@@ -3755,7 +3756,8 @@ jobs:
     # identifiers and counts. It reads CourtListener's REST API and nothing
     # else (no corpus, no cloud role, no App token), so the CourtListener
     # token is the job's one secret, scoped to the sample step. It writes
-    # nothing and uploads nothing: the report goes on the run's summary page.
+    # nothing and uploads nothing: the report goes on the run's summary page
+    # and in the step's log.
     #
     # The court is the `court` dispatch input, checked by the command against
     # its closed list of four; any other value, or none, refuses before a
@@ -3818,9 +3820,10 @@ jobs:
           summary="$RUNNER_TEMP/appeal-sample-summary.txt"
           # The report JSON (court-record identifiers, counts and the
           # reader's fixed reason strings; no caption, case type or entry
-          # text) and the reading in counts both go on the summary page. A
-          # run that fails after printing its report still shows it, and the
-          # step then fails with the command's own status.
+          # text) and the reading in counts both go on the summary page and
+          # in this step's log, so a reader holding only the log reads the
+          # same rows. A run that fails after printing its report still shows
+          # it, and the step then fails with the command's own status.
           status=0
           uv run fedcourts appeal-sample --court "$COURT" > "$out" 2> "$summary" || status=$?
           {
@@ -3837,7 +3840,16 @@ jobs:
               echo '</details>'
             fi
           } >> "$GITHUB_STEP_SUMMARY"
+          # Both carry strings upstream wrote (a docket number, an error's
+          # text), so workflow commands are suspended while they print, under
+          # a token nothing fetched can know.
+          stop_token="$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+          echo "::stop-commands::${stop_token}"
           cat "$summary"
+          if [ -s "$out" ]; then
+            cat "$out"
+          fi
+          echo "::${stop_token}::"
           exit "$status"
 
   ai-candidates:

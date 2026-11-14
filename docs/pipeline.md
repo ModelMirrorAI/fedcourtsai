@@ -537,9 +537,9 @@ queues behind the production run of the same mode. The modes:
   one court a day, in the quiet odd hours `run-pull`'s enrich job names. It
   writes nothing and uploads no artifact: the report (court-record
   identifiers, counts and the reader's reason strings) goes on the run's
-  summary page. A staging dispatch runs the same read against the same
-  account where the staging environment holds a token, and refuses before
-  any request where it does not.
+  summary page and in the sample step's log. A staging dispatch runs the
+  same read against the same account where the staging environment holds a
+  token, and refuses before any request where it does not.
 - **`ai-follow-ons`** (weekly, Tuesday 21:21 UTC, or dispatch) runs the
   follow-on check: `fedcourts ai-candidates-issue` reads the same raised set,
   and `fedcourts ai-follow-ons` searches the courts of appeals and the JPML
