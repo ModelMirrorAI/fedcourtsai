@@ -1,0 +1,15 @@
+# Evaluation - codex-baseline
+
+**Cell.** Cert stage, arrival moment, forward mode. Outcome: petition **granted** on 2026-11-13, plenary route, limited to Questions 1 and 2, after two distributions and no CVSG.
+
+**Scores.** Predicted `granted` at 0.92: `correct` = 1, `brier_score` = (0.92 - 1)^2 = 0.0064. The segment base rate, its basis and the skill score are the harness's to stamp; no vote accuracy on a cert cell; claims are scored in code.
+
+**Reasoning quality (0.82).** The rationale pools the federal band over 2017-2025 to about 71% over n = 201, which matches the statpack build the candidate was placed against (`statpack-at`, build 02dd6a20fccc, not the committed pack), and says explicitly that it did not use the terminal relist-zero rate. The upward adjustment rests on sound features: SG petitioner, a divided D.C. Circuit decision invalidating an operative policy, the stayed mandate, and independently certworthy remedial questions. It adds a real comparator, *Mullin v. Al Otro Lado* (decided June 2026), and is careful to say that holding does not decide this petition. It is the only analysis here that weighs the case against a grant on the merits - the text of 1158(a)(1) and the absence of a conflict - which is good legal reasoning. Two things hold it below the top: the suggestion that those points might lead the Court to "prefer further percolation" sits oddly beside a universal class that forecloses percolation, and the material weight placed on a GVR or summary route had little support given that no intervening decision squarely controlled.
+
+## Predicted reasoning
+
+Grade **0.80**. The central claims were borne out, with hedging on two of them. Grant after the initial conference or one relist: the petition was granted after exactly one relist. On the questions, the document said the Court would most likely grant QP 1, "may add" the 1252(f)(1) question, and was less likely to take the Article III / Rule 23 question; the order grants Questions 1 and 2 only, so the pruning of QP 3 was called correctly, while QP 2's inclusion was offered as a possibility and not a commitment. Plenary over summary was right in direction, but the document kept a GVR or narrow summary ruling as "a material alternative". The no-CVSG call is right but nearly entailed. The merits forecast (reversal on at least one ground) is conditional on a stage that has not resolved and is unresolved here. Specific and mostly right, a notch less committed than the top anchor requires.
+
+**Leakage.** Forward cell; not applicable. The case was genuinely open when predicted. Three CourtListener calls are `unobserved` and graded on their queries: a citation lookup, a search for *Mullin v. Al Otro Lado*, and a read of that opinion - a different case decided before the snapshot date and disclosed in the candidate's retrieval note. That is legitimate forward signal, not outcome material for this petition.
+
+**Big case (0.95).** My own read: the legality of the administration's central border proclamation plus a classwide-relief question under 1252(f)(1), now set for plenary review.

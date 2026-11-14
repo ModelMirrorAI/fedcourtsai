@@ -1,0 +1,137 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v8",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.9,
+    "notes": "Solicitor General petition defending Presidential Proclamation 10,888's suspension of asylum access at the southern border after the D.C. Circuit largely affirmed classwide relief against it; the Court granted plenary review on the proclamation's lawfulness and on whether 8 U.S.C. 1252(f)(1) bars the classwide relief. Nationwide immigration policy, presidential power against an express statutory right to apply, and a recurring remedial limit; 22 States as amici. Among the highest-stakes cert-stage matters of the Term, short only of a case with direct constitutional holdings at issue."
+  },
+  "brier_score": 0.009999999999999995,
+  "brier_skill_score": 0.8616682056017236,
+  "case_id": "scotus/9026000239",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.7311320754716981,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.9,
+        "score": 0.062289960840156644
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.2,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.005,
+        "score": null
+      },
+      {
+        "baseline": 0.34725274725274724,
+        "claim_id": "summary-disposition-route",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": 0.11898447047458036
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.65,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.06,
+          "Barrett": 0.01,
+          "Gorsuch": 0.04,
+          "Jackson": 0.02,
+          "Kagan": 0.01,
+          "Kavanaugh": 0.02,
+          "Roberts": 0.01,
+          "Sotomayor": 0.02,
+          "Thomas": 0.05
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.181274431314737,
+    "total": 0.181274431314737
+  },
+  "correct": 1,
+  "created_at": "2026-11-14T16:02:27.995314Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-order-relist-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell, predicted 2026-11-09, four days before the 2026-11-13 resolution. Log is fully captured (coverage 1.0): local reads of the provisioned record and statpack plus two corpus queries for recent SCOTUS grants (one a usage error); the one legible document date is 2026-06-23. No MCP or web call, no read under data/qp-topics/, and nothing in the reasoning treats this petition as decided.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-2",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.95,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Docket, Nov 13 2026: 'Petition GRANTED limited to Questions 1 and 2 presented by the petition.' The grant came from the 11/13 conference, on the conference day itself rather than the 11/14-11/17 window the document guessed for the order.",
+        "claim": "Certiorari will be granted, most likely out of the 11/13 conference.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json signals.distribution_count is 2; the docket shows no distribution after Nov 9.",
+        "claim": "There will probably be no further relist (about one in five that there is).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Docket, Nov 13 2026: 'Petition GRANTED limited to Questions 1 and 2 presented by the petition.' Question 3 (class definition) was the one dropped.",
+        "claim": "The grant will cover Question 1 and likely Question 2; a limited grant that drops Question 3 is plausible.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json disposition_route is 'plenary'.",
+        "claim": "The route will be plenary review, not a GVR or summary disposition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The docket entry records a bare grant; outcome.json carries no noted writing.",
+        "claim": "A grant order will carry no separate writings.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261109T171058Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+    "label": "proc-v22",
+    "pipeline_sha": "6b0fde49e1eb48611db3e766ec3f60e821f10a49",
+    "stamped_at": "2026-11-14T16:02:27.995314Z"
+  },
+  "reasoning_quality": 0.75,
+  "run_id": "20261114T154330Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.7311320754716981,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

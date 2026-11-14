@@ -1,0 +1,137 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v8",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.9,
+    "notes": "Solicitor General petition defending Presidential Proclamation 10,888's suspension of asylum access at the southern border after the D.C. Circuit largely affirmed classwide relief against it; the Court granted plenary review on the proclamation's lawfulness and on whether 8 U.S.C. 1252(f)(1) bars the classwide relief. Nationwide immigration policy, presidential power against an express statutory right to apply, and a recurring remedial limit; 22 States as amici. Among the highest-stakes cert-stage matters of the Term, short only of a case with direct constitutional holdings at issue."
+  },
+  "brier_score": 0.009999999999999995,
+  "brier_skill_score": 0.8616682056017236,
+  "case_id": "scotus/9026000239",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.7311320754716981,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.9,
+        "score": 0.062289960840156644
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.46,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.001,
+        "score": null
+      },
+      {
+        "baseline": 0.34725274725274724,
+        "claim_id": "summary-disposition-route",
+        "outcome": 0,
+        "probability": 0.3,
+        "score": 0.030584470474580364
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.32,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.018,
+          "Barrett": 0.004,
+          "Gorsuch": 0.01,
+          "Jackson": 0.023,
+          "Kagan": 0.009,
+          "Kavanaugh": 0.004,
+          "Roberts": 0.003,
+          "Sotomayor": 0.02,
+          "Thomas": 0.02
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.09287443131473701,
+    "total": 0.09287443131473701
+  },
+  "correct": 1,
+  "created_at": "2026-11-14T16:02:27.995314Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-order-relist-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell, predicted 2026-11-09, before the 2026-11-13 resolution. Capture coverage 0.89; the five uncaptured rows are web calls, graded on their queries: Garland v. Aleman Gonzalez and Trump v. Hawaii opinion PDFs and the separate D.V.D. docket (No. 26-426), none of them this petition's docket. Captured rows are local record/statpack reads, corpus queries for Nos. 17-965 and 26-426, and one CourtListener citation search (doc date 2022-06-13). No read under data/qp-topics/ (the one repo-wide find excludes that path). Reasoning states it has no knowledge of the disposition and nothing contradicts that.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-2",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.45,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Docket, Nov 13 2026: 'Petition GRANTED limited to Questions 1 and 2 presented by the petition.' outcome.json disposition_route is 'plenary'.",
+        "claim": "The Court will most likely grant certiorari for briefing and argument (90% for any grant).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json signals.distribution_count is 2; no distribution after Nov 9. The call was the modal one but barely committed.",
+        "claim": "No further distribution is narrowly more likely than another one (46% for at least one more).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Docket, Nov 13 2026: 'Petition GRANTED limited to Questions 1 and 2 presented by the petition.' Question 1 was taken as presented; the order does not narrow it to asylum.",
+        "claim": "A plenary grant will most likely take the asylum component of Question 1.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Docket, Nov 13 2026: 'Petition GRANTED limited to Questions 1 and 2 presented by the petition.' The Court took Question 2 and dropped Question 3, the reverse of the document's lean.",
+        "claim": "The Court may also take Question 3, while Question 2 is the question most susceptible to being left to coordination with D.V.D.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "outcome.json disposition_route is 'plenary'; the petition was granted at the first conference after the relist with no hold. Plenary was still the document's modal call, so this is a weighting miss rather than a wrong call.",
+        "claim": "Conditional on a grant, there is a 30% chance of disposition in the cert order itself, chiefly a hold then GVR in light of D.V.D.",
+        "status": "not-borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261109T171058Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+    "label": "proc-v22",
+    "pipeline_sha": "6b0fde49e1eb48611db3e766ec3f60e821f10a49",
+    "stamped_at": "2026-11-14T16:02:27.995314Z"
+  },
+  "reasoning_quality": 0.8,
+  "run_id": "20261114T154330Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.7311320754716981,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

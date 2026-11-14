@@ -1,0 +1,32 @@
+# Evaluation of `gemini-baseline` — `scotus/73280982` (`evt-brief-sg-disposition`)
+
+## Outcome & Score Summary
+
+On November 13, 2026, the Supreme Court granted the petition for a writ of certiorari limited to the Solicitor General's reformulated Question 1 (`"Whether an issuer can be found liable under the misleading-omissions prong of Section 11(a) of the Securities Act of 1933, 15 U.S.C. 77a et seq., based on a determination that the issuer failed to disclose interim financial information that is material within the meaning of Section 11(a), without an additional inquiry to determine whether the omission rendered any affirmative statement misleading"`), setting the case for plenary review after two post-CVSG distributions (`distribution_count: 3`) with no separate writings (`actual_disposition: "granted"`, `actual_granted: 1`, `disposition_route: "plenary"`).
+
+- **Categorical call (`correct = 1`):** `gemini-baseline` predicted `predicted_disposition: "granted"` and `granted: 1`, matching `actual_disposition: "granted"`. Crucially, `gemini-baseline` explicitly checked how a SCOTUS certiorari grant `"limited to"` a single question maps onto the pipeline's `Disposition` vocabulary — noting that the order reads `"Petition GRANTED limited to..."` without `"in part"` phrasing and therefore resolves to `"granted"` rather than `"granted-in-part"`. That exact distinction held on November 13, 2026.
+- **Probabilistic call (`brier_score = 0.0484`):** `probability = 0.78` against `actual_granted = 1`, substantially outperforming the stamped segment base rate.
+- **Leakage (`leakage_suspected = false`):** Genuine forward forecast placed on October 26, 2026, eighteen days before the November 13, 2026 grant order. All 28 logged calls (`result_capture: "unobserved"`) were local reads/writes over prompt/schema docs, `metrics/statpack.md`, and the pre-cutoff October 7, 2026 case files, with no external retrieval or `data/qp-topics/` reads.
+
+## Reasoning Quality (`reasoning_quality = 0.88`)
+
+Base-rate citations were checked against the statpack build in force when `gemini-baseline` ran (`eb6830084a18`, digest `sha256:f6c3af155898c161beb3ba174781949a02784094085267d79a074680a859b1ba`), rather than the later committed `sal-v8` statpack.
+
+**What drove the score upward:**
+1. **Accurate SG-brief synthesis and doctrinal framing:** `gemini-baseline` read the Solicitor General's SEC-cosigned amicus brief alongside the petition, brief in opposition, and cert reply, accurately identifying why the SG urged review on a reformulated Question 1 (to ensure adversity despite respondents' concession in principle while defending the Ninth Circuit's collapse of misleadingness into materiality for undisclosed intra-quarter metrics) and recommended denying Question 2 on vehicle/preservation grounds.
+2. **Transparent base-rate decomposition:** `gemini-baseline` accurately cited the prediction-time statpack's CVSG row (`n = 164` resolved; 29.3% `granted`, 5.5% `gvr`, 62.2% `denied`, 3.0% `dismissed`), explained why that unconditioned table mixes uncommon grant recommendations with the ~75–80% majority of deny recommendations, and cleanly separated empirical literature rates for SG grant recommendations (~75–85%) from committed statpack figures before adjusting downward to `0.78` for the interlocutory Rule 12(b)(6) posture and respondents' non-adversity vehicle objection.
+3. **Exact pipeline disposition mapping and coherent secondary claims:** `gemini-baseline` correctly mapped a limited single-question grant to `predicted_disposition: "granted"` and gave well-reasoned probabilities across the declared `cert-v2` claim set (`relist-increment: 0.97` for post-SG redistribution, vacuous `cvsg-increment: 0.0`, `summary-disposition-route: 0.02`).
+
+**Deductions:**
+1. **Included the case's own Term when summarizing prior-Term band rates:** When quoting the `sal-v4` `high` band rows from `eb6830084a18`, `gemini-baseline` listed OT2025 (`41.1%, n=73`) — this docket's own Term (`term: 2025`) — alongside OT2024–OT2021, whereas the pipeline's segment baseline pools strictly over Terms preceding the case's Term. While benign from a leakage standpoint in forward mode, including the case's own Term in a prior-Term anchor summary is methodologically loose.
+2. **Missed the prediction-time `questions-presented.txt` cut defect:** `gemini-baseline` reported all five provisioned document files as clean without noticing that at prediction time `questions-presented.txt` carried a body passage rather than the formal Questions Presented page (avoiding substantive harm because it also read `petition.txt` and `sg-invited-brief.txt`).
+
+## Predicted Reasoning (`predicted_reasoning_quality = 0.94`)
+
+`gemini-baseline`'s `predicted_reasoning.md` committed to specific, falsifiable predictions rather than hedged generalities, and every cert-stage commitment held up against the staged record:
+
+- **Scope and wording of the grant (`borne-out`):** Specifically forecast a grant limited to Question 1 in the Solicitor General's reformulated wording — asking whether an issuer can be held liable under Section 11(a)'s misleading-omissions prong based on a materiality determination for omitted interim financial data without an additional inquiry into whether any affirmative statement was rendered misleading — while declining Question 2 on Item 303. That matched the November 13, 2026 order almost verbatim, on a point where a reader of the pre-decision briefs could plausibly have forecast denial on vehicle/adversity grounds, a grant of Question 1 as drafted by petitioners, or a grant of both questions.
+- **Plenary route (`borne-out`):** Correctly forecast plenary briefing and oral argument rather than summary reversal or GVR (`disposition_route: "plenary"`).
+- **Post-SG supplemental briefing and conference count (`borne-out`):** Correctly anticipated Rule 15.8 supplemental briefs followed by autumn redistribution and disposition after zero or one post-SG relists (`distribution_count` advancing from `1` to `2` or `3`; realized as `3` across the November 6 and November 13 conferences).
+- **Clean order list entry (`borne-out`):** Correctly forecast that no Justice would note a dissent or file a separate statement on the grant order.
+- **Downstream merits holding (`unresolved`):** Its conditional forecast of the eventual merits holding under *Omnicare* and *Macquarie* is naturally unresolved at the cert stage and neither lifts nor penalizes the grade.

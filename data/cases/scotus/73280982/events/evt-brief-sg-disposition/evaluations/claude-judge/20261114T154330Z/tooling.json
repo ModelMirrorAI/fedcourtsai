@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73280982",
+  "run_id": "20261114T154330Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "shell",
+    "file-read"
+  ],
+  "helpful": [
+    "The latest staged snapshot's docket entries, which carry the order text and the post-CVSG distributions",
+    "The provisioned SG brief, for checking how candidates described it"
+  ],
+  "gaps": [
+    "A stated rule for whether a cert grant limited to one question is `granted` or `granted-in-part`"
+  ],
+  "notes": "Did not run statpack-at: no grade turned on a disputed base-rate figure."
+}

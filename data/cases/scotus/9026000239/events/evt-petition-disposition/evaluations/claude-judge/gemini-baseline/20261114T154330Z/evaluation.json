@@ -1,0 +1,112 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:86f2abefec9e0321c5007631d1abc7bf17ab2188b12eda8f922d31c9905f9d14",
+  "big_case": {
+    "evaluator_score": 0.93,
+    "notes": "The Solicitor General sought review of a D.C. Circuit judgment holding unlawful Presidential Proclamation 10,888 and its guidance, which suspend entry at the southern border and cut off access to asylum, with classwide relief. The Court granted on the merits question and on whether 8 U.S.C. 1252(f)(1) bars the classwide relief. Twenty-two States and three other amici supported the petition at the cert stage. Nationwide reach, a core executive-power question and a recurring remedial question put this near the top of the Term's docket."
+  },
+  "brier_score": 0.0025000000000000044,
+  "brier_skill_score": 0.9649289256198347,
+  "case_id": "scotus/9026000239",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.7330097087378641,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.95,
+        "score": 0.06878381562824017
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.4,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": 0.34725274725274724,
+        "claim_id": "summary-disposition-route",
+        "outcome": 0,
+        "probability": 0.05,
+        "score": 0.11808447047458036
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.6,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.18686828610282052,
+    "total": 0.18686828610282052
+  },
+  "correct": 1,
+  "created_at": "2026-11-14T16:10:19.037908Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell; the case was open when predicted (prediction 2026-10-13, snapshot 2026-10-13 with one distribution; grant entered 2026-11-13). Log: 29 calls, every one unobserved (result_capture_coverage 0.0), so graded on targets and queries alone: file reads of the prompt, context.json, event.yaml, the 2026-10-13 snapshot, the opening 150 lines of the petition and brief in opposition, the statpack and the schema; file writes of its own outputs; one shell call running validate. No web search, no CourtListener call, no path under data/qp-topics/. The reasoning presupposes no outcome.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-2",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.55,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Docket: redistributed Nov 9 for the 11/13/2026 conference, 'Petition GRANTED limited to Questions 1 and 2' on Nov 13 2026. The relist was offered as a possibility only.",
+        "claim": "The Court will grant certiorari, potentially after one relist.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json disposition_route plenary.",
+        "claim": "Plenary review, not a summary disposition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The grant order limits review to Questions 1 and 2; Question 3 (the class definition) was excluded.",
+        "claim": "If granted, the Court will likely address all three questions: the proclamation's lawfulness, Section 1252(f)(1), and class certification.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "outcome.json cvsg_date null. Close to entailed, since the Solicitor General is the petitioner.",
+        "claim": "No CVSG.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261013T143156Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+    "label": "proc-v22",
+    "pipeline_sha": "6b0fde49e1eb48611db3e766ec3f60e821f10a49",
+    "stamped_at": "2026-11-14T16:10:19.037908Z"
+  },
+  "reasoning_quality": 0.5,
+  "run_id": "20261114T154330Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.7330097087378641,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

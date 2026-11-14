@@ -1,0 +1,112 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v3",
+  "base_rate_statpack_digest": "sha256:86f2abefec9e0321c5007631d1abc7bf17ab2188b12eda8f922d31c9905f9d14",
+  "big_case": {
+    "evaluator_score": 0.88,
+    "notes": "Solicitor General petition challenging the D.C. Circuit's invalidation of President Trump's flagship southern-border entry-suspension and asylum-bar proclamation (Proclamation No. 10,888), testing the interplay of 8 U.S.C. 1182(f), 1185(a), 1158(a)(1), and Title 8 removal procedures alongside 8 U.S.C. 1252(f)(1)'s bar on classwide injunctive relief; granted plenary review on Questions 1 and 2, placing it in the upper marquee tier of OT2026 while preserving headroom near 1.0 for once-in-a-generation constitutional landmarks."
+  },
+  "brier_score": 0.006399999999999993,
+  "brier_skill_score": 0.910218049586777,
+  "case_id": "scotus/9026000239",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.7330097087378641,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.92,
+        "score": 0.06488381562824018
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": null,
+        "probability": 0.99,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.001,
+        "score": null
+      },
+      {
+        "baseline": 0.34725274725274724,
+        "claim_id": "summary-disposition-route",
+        "outcome": 0,
+        "probability": 0.22,
+        "score": 0.07218447047458036
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.2,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.13706828610282054,
+    "total": 0.13706828610282054
+  },
+  "correct": 1,
+  "created_at": "2026-11-14T16:14:48.841686Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-arrival-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction placed on 2026-08-24 (run_id 20260824T231410Z, result_capture_coverage=0.9118), the day the petition was docketed and nearly three months before the 2026-11-13 grant order. Logged calls read provisioned arrival inputs, metrics/statpack.md, and CourtListener records for the June 25, 2026 comparator opinion Mullin v. Al Otro Lado (No. 25-5); no read touched data/qp-topics/.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-carbon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.84,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json and record/snapshots/2026-11-13.json show distribution for the 11/6/2026 conference, one relist to the 11/13/2026 conference (distribution_count=2, cvsg_date=null), and a grant on November 13, 2026.",
+        "claim": "The petition will be distributed at least once and will probably be granted after its initial conference or one relist, with no CVSG.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The November 13, 2026 order in record/snapshots/2026-11-13.json granted certiorari 'limited to Questions 1 and 2 presented by the petition,' matching the predicted ordering though QP 2 was hedged as 'may add.'",
+        "claim": "The Court will most likely grant Question 1, may add the Section 1252(f)(1) Question 2, and is less likely to grant the Article III and Rule 23 Question 3 independently.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records disposition_route='plenary' and disposition_basis='standard'.",
+        "claim": "Plenary briefing and argument are more likely than a summary disposition, although a GVR or narrow summary ruling remains a material alternative.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Certiorari was granted on November 13, 2026, leaving the denial branch untested and merits proceedings still pending beyond the staged record.",
+        "claim": "If the Court reaches the merits after a plenary grant, it is likely to reverse on at least one ground; if certiorari is denied instead, the likeliest denial will carry no separate writing.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20260824T231410Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+    "label": "proc-v22",
+    "pipeline_sha": "6b0fde49e1eb48611db3e766ec3f60e821f10a49",
+    "stamped_at": "2026-11-14T16:14:48.841686Z"
+  },
+  "reasoning_quality": 0.89,
+  "run_id": "20261114T154330Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.7330097087378641,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

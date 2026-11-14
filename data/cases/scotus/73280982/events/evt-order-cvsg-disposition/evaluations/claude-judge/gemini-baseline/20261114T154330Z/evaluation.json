@@ -1,0 +1,112 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:86f2abefec9e0321c5007631d1abc7bf17ab2188b12eda8f922d31c9905f9d14",
+  "big_case": {
+    "evaluator_score": 0.55,
+    "notes": "Section 11 misleading-omissions liability for undisclosed interim (intra-quarter) IPO financial data: a recurring, commercially important securities-disclosure question from the circuit that hears much IPO litigation, with Chamber/SIFMA/WLF amicus support, a CVSG, and an SG recommendation to grant. The Court granted limited to the first question. Significant for issuers, underwriters and the securities bar; technical and of little general-public salience, so above the median granted case in its field but well short of a headline case."
+  },
+  "brier_score": 0.20249999999999996,
+  "brier_skill_score": 0.5140878241266025,
+  "case_id": "scotus/73280982",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.35444444444444445,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.55,
+        "score": 0.21424197530864203
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.99,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": 0.345367027677497,
+        "claim_id": "summary-disposition-route",
+        "outcome": 0,
+        "probability": 0.15,
+        "score": 0.09677838380678896
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.25,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.311020359115431,
+    "total": 0.311020359115431
+  },
+  "correct": 1,
+  "created_at": "2026-11-14T15:47:25.445692Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-order-cvsg-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell run 2026-09-18, before the 2026-11-13 grant. All 32 calls are unobserved (result_capture_coverage 0.0), so results were never seen and are graded on their queries: shell, file-read, file-search and file-write calls only, no web search and no CourtListener call. The prose cites only the June 2 baseline, the petition, the BIO and the statpack, and says nothing that presupposes the SG brief or the disposition.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-2",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.35,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Docket entry of Nov 13 2026: 'Petition GRANTED limited to the following question' (the Section 11(a) misleading-omissions question as the Solicitor General reformulated it). The Item 303 question was not taken.",
+        "claim": "If the Court grants review, it will likely take up both questions presented (Section 11(a) and Item 303).",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "outcome.json: disposition_route plenary.",
+        "claim": "A plenary grant is much more likely than a summary disposition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Docket: distributed Oct 21 2026 and Nov 9 2026. Near-entailed by the CVSG posture, so it carries little discriminating content.",
+        "claim": "The petition will certainly be distributed at least once more after the Solicitor General files.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The petition was granted; the condition never occurred.",
+        "claim": "If denied, a dissent from denial is a reasonable possibility.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20260918T174135Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+    "label": "proc-v22",
+    "pipeline_sha": "6b0fde49e1eb48611db3e766ec3f60e821f10a49",
+    "stamped_at": "2026-11-14T15:47:25.445692Z"
+  },
+  "reasoning_quality": 0.5,
+  "run_id": "20261114T154330Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.35444444444444445,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

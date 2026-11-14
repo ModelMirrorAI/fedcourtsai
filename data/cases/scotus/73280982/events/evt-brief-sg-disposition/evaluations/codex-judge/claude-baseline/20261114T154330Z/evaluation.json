@@ -1,0 +1,137 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:86f2abefec9e0321c5007631d1abc7bf17ab2188b12eda8f922d31c9905f9d14",
+  "big_case": {
+    "evaluator_score": 0.62,
+    "notes": "A recurring national question about Section 11 liability for interim IPO financial disclosures affects issuers, investors and registration-statement litigation. Its significance is substantial within securities law, but its statutory and procedural scope is narrower than a broad constitutional or institutional watershed."
+  },
+  "brier_score": 0.03999999999999998,
+  "brier_skill_score": 0.9040173479756252,
+  "case_id": "scotus/73280982",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.35444444444444445,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.8,
+        "score": 0.376741975308642
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.96,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": 0.345367027677497,
+        "claim_id": "summary-disposition-route",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": 0.11837838380678897
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.12,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.02,
+          "Barrett": 0.005,
+          "Gorsuch": 0.01,
+          "Jackson": 0.008,
+          "Kagan": 0.003,
+          "Kavanaugh": 0.008,
+          "Roberts": 0.003,
+          "Sotomayor": 0.005,
+          "Thomas": 0.015
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.49512035911543095,
+    "total": 0.49512035911543095
+  },
+  "correct": 0,
+  "created_at": "2026-11-14T15:50:15.201545Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-brief-sg-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The prediction was made October 26 before the November 13 resolution. All 11 logged calls are captured and concern the provisioned October 7 snapshot, pre-decision filings, instructions, metrics or output creation. There is no query for the target disposition and no reasoning that presupposes the result. The evaluator's uncropped November 14 snapshot is not treated as the candidate's input.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 1.0,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The November 13, 2026 docket entry grants only the SG's reformulated misleading-omissions question, including the additional-inquiry distinction; it does not grant the separate Item 303 question.",
+        "claim": "Certiorari will be granted only on Question 1, most likely as reformulated by the Solicitor General, with Question 2 denied or not reached.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The docket records October 21 distribution for November 6, November 9 redistribution for November 13, and a grant on November 13: the second post-CVSG conference.",
+        "claim": "There will be another distribution for a November conference, with a grant at the first or second post-CVSG conference and at most one intervening relist.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "After the June 1 invitation and October 7 invited brief, the staged docket proceeds through supplemental filings and two distributions to the grant without another CVSG.",
+        "claim": "No further call for the Solicitor General's views will occur.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json expressly records a plenary route, and the grant entry enters no summary merits judgment. The precise future argument sitting is not yet established.",
+        "claim": "The Court will take the plenary route rather than summarily disposing of the petition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The record contains a cert grant, not a merits judgment or opinion. The question's formulation does not establish the eventual holding.",
+        "claim": "After granting review, the Court will vacate the Ninth Circuit's rule by requiring distinct materiality and misleading-effect inquiries.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261026T092709Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+    "label": "proc-v22",
+    "pipeline_sha": "6b0fde49e1eb48611db3e766ec3f60e821f10a49",
+    "stamped_at": "2026-11-14T15:50:15.201545Z"
+  },
+  "reasoning_quality": 0.85,
+  "run_id": "20261114T154330Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.35444444444444445,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

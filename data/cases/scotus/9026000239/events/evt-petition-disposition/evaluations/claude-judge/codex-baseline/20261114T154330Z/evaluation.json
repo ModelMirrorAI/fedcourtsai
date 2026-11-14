@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:86f2abefec9e0321c5007631d1abc7bf17ab2188b12eda8f922d31c9905f9d14",
+  "big_case": {
+    "evaluator_score": 0.93,
+    "notes": "The Solicitor General sought review of a D.C. Circuit judgment holding unlawful Presidential Proclamation 10,888 and its guidance, which suspend entry at the southern border and cut off access to asylum, with classwide relief. The Court granted on the merits question and on whether 8 U.S.C. 1252(f)(1) bars the classwide relief. Twenty-two States and three other amici supported the petition at the cert stage. Nationwide reach, a core executive-power question and a recurring remedial question put this near the top of the Term's docket."
+  },
+  "brier_score": 0.019600000000000003,
+  "brier_skill_score": 0.725042776859504,
+  "case_id": "scotus/9026000239",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.7330097087378641,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.86,
+        "score": 0.05168381562824016
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.6,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.005,
+        "score": null
+      },
+      {
+        "baseline": 0.34725274725274724,
+        "claim_id": "summary-disposition-route",
+        "outcome": 0,
+        "probability": 0.18,
+        "score": 0.08818447047458036
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.45,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.13986828610282054,
+    "total": 0.13986828610282054
+  },
+  "correct": 1,
+  "created_at": "2026-11-14T16:10:19.037908Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell; the case was open when predicted (prediction 2026-10-13, snapshot 2026-10-13 with one distribution; grant entered 2026-11-13). Log: 27 local shell calls over the prompt, schemas, statpack, snapshot and the three provisioned briefs, plus three web-search rows that are unobserved; their queries concern the Court's Rule 10 and rules pages and name neither this petition nor its disposition. No read under data/qp-topics/. No document dated on or after resolution; the reasoning treats the November 6 conference as still to come.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-2",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.8,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Docket entry of Nov 13 2026: 'Petition GRANTED limited to Questions 1 and 2'; outcome.json records disposition granted, route plenary.",
+        "claim": "The Court will grant certiorari for plenary consideration, as an ordinary grant and not a summary ruling (P(any grant) 86%, 82% plenary given a grant).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Docket: distributed for the 11/6/2026 conference, redistributed Nov 9 for 11/13/2026, granted Nov 13 2026; outcome signals distribution_count 2.",
+        "claim": "One further distribution will precede the grant, with the grant coming in November-December 2026.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json cvsg_date null; no CVSG entry on the docket. Close to entailed, since the Solicitor General is the petitioner.",
+        "claim": "No call for the views of the Solicitor General.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The grant order limits review to Questions 1 and 2. Question 1 was taken as forecast. The document did not separate Question 2 from Question 3: it left both open either way, so the limitation that dropped only Question 3 is consistent with it but was not called.",
+        "claim": "Question 1 is the strongest candidate for review; the Section 1252(f)(1) and class-definition questions may also be taken, but a narrowing that leaves them to the companion case is plausible.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The petition was granted on Nov 13 2026 with no hold. The document offered this as an alternative to its central November-December timing, not as its expectation.",
+        "claim": "A hold for the companion remedial case (DHS v. D.V.D.) could delay action into 2027.",
+        "status": "not-borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261013T143156Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+    "label": "proc-v22",
+    "pipeline_sha": "6b0fde49e1eb48611db3e766ec3f60e821f10a49",
+    "stamped_at": "2026-11-14T16:10:19.037908Z"
+  },
+  "reasoning_quality": 0.86,
+  "run_id": "20261114T154330Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.7330097087378641,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:86f2abefec9e0321c5007631d1abc7bf17ab2188b12eda8f922d31c9905f9d14",
+  "big_case": {
+    "evaluator_score": 0.68,
+    "notes": "Plenary Supreme Court grant on the pleading and liability standard for misleading omissions of intra-quarter financial data under Section 11(a) of the Securities Act of 1933. Carrying significant practical consequences for IPO registration statements, underwriter liability, and federal securities class-action litigation nationwide, though narrowed to reformulated Question 1 (excluding Item 303) and confined to statutory securities disclosure law rather than broad constitutional or structural questions."
+  },
+  "brier_score": 0.31360000000000005,
+  "brier_skill_score": 0.24749600812890105,
+  "case_id": "scotus/73280982",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.35444444444444445,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.44,
+        "score": 0.10314197530864194
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.96,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.0,
+        "score": null
+      },
+      {
+        "baseline": 0.345367027677497,
+        "claim_id": "summary-disposition-route",
+        "outcome": 0,
+        "probability": 0.12,
+        "score": 0.10487838380678897
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.12,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.20802035911543093,
+    "total": 0.20802035911543093
+  },
+  "correct": 0,
+  "created_at": "2026-11-14T15:55:13.016259Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-order-cvsg-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction placed on 2026-09-18 while the petition was unresolved (the Solicitor General's brief was filed on 2026-10-07 and certiorari was granted on 2026-11-13). Capture coverage was 0.8485 across 33 calls; the 5 unobserved web-search calls queried SupremeCourt.gov for the April 2024 Macquarie opinion (22-1165_10n2.pdf), and codex-baseline candidly disclosed an incidental search-index snippet mentioning only the already-provisioned June 1, 2026 CVSG.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-carbon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.38,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "On November 13, 2026, the Court granted the petition for certiorari (actual_disposition 'granted', actual_granted 1) rather than denying it.",
+        "claim": "The Court will most likely deny the petition after receiving the Solicitor General's views, leaving the Ninth Circuit's remand in place.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "Following the October 7, 2026 SG brief, the petition was distributed twice more (October 21 and November 9), increasing distribution_count from 1 to 3 (+2 distributions) with no second CVSG.",
+        "claim": "Following the Solicitor General's brief, the petition will receive one or two additional conference distributions beyond the initial distribution, with no second CVSG.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The November 13, 2026 order granted certiorari limited solely to Question 1, reformulated per the Solicitor General's recommendation to ask whether liability attaches 'without an additional inquiry to determine whether the omission rendered any affirmative statement misleading,' and excluded Question 2 (Item 303).",
+        "claim": "If review is granted, the grant will focus on the petition's first question under Section 11(a)'s misleading-omissions clause\u2014potentially reformulating it to avoid assuming a contested characterization of the holding below\u2014rather than taking the categorical Item 303 second question alone.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records disposition_route 'plenary', and the November 13, 2026 order granted plenary review rather than a summary disposition or GVR.",
+        "claim": "Conditional on any grant, the Court will take the case for plenary review rather than summary disposition or GVR.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Certiorari was granted on November 13, 2026, so the conditional denial branch did not occur.",
+        "claim": "Conditional on denial, there will be no separate writing or noted dissent.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20260918T174135Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+    "label": "proc-v22",
+    "pipeline_sha": "6b0fde49e1eb48611db3e766ec3f60e821f10a49",
+    "stamped_at": "2026-11-14T15:55:13.016259Z"
+  },
+  "reasoning_quality": 0.8,
+  "run_id": "20261114T154330Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.35444444444444445,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}
