@@ -20379,3 +20379,32 @@ freeze commit is recorded here.
 
   The re-walks also wrote `counsel` on the rows they served: resolved rows with
   parties and blank counsel fell from 6,042 to 1 across OT2017 to OT2025.
+
+- **Readings the `proc-v22` entry owes, recorded 2026-11-14.** No rule moves
+  here. The `proc-v22` entry (dated 2026-11-13), carried to `main` by
+  `promotion/2026-11-13` (merge `f6441bcda`, registry stamped by `7fa05fd80`)
+  and tagged `prereg/proc-v22`, counted the committed files under the three
+  evaluator digests it replaced at `origin/main`'s `95bc6575c`, before the
+  carrying merge, and owed the counts again once that merge had stamped the
+  registry. That entry is not otherwise edited.
+
+  The counts are read at `origin/main`'s `1fcfa5605`
+  (`2026-11-14T07:23:06Z`) with `git grep -l 'sha256:<digest>' --
+  'data/cases/**/evaluation.json' | wc -l`, and each equals the count read
+  at the record commit `7fa05fd80`:
+
+  | Evaluator | Replaced digest | At `95bc6575c` | After the stamp |
+  | --- | --- | --- | --- |
+  | `claude-judge` | `sha256:c1b452dea2e2f9a5c263428a31ed4c11f562c6ca10765b1dcfe66ff54daa733d` | 0 | 9 |
+  | `codex-judge` | `sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c` | 108 | 117 |
+  | `gemini-judge` | `sha256:93dfd6b52d95a78cbc7ce722aa2230f0e8ce09716d6219c95036ca071419fee9` | 0 | 9 |
+
+  The difference is one evaluate round, run `20261113T154407Z`, which landed
+  nine `evaluation.json` per judge between the two reads and before the
+  carrying merge at `2026-11-13T17:00:26Z`. It is the only round graded
+  under the two digests `proc-v21` blessed for `claude-judge` and
+  `gemini-judge`. No evaluate round has landed between the merge and this
+  read, and one that does stamps its judge's `proc-v22` digest, so these
+  three counts are not expected to move again. They count carrying files, as
+  the `proc-v22` entry's own do: every `evaluation.json` stamped with that
+  digest, an upper bound on the gradings of counted predictions among them.
